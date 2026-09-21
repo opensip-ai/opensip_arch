@@ -1,6 +1,6 @@
 # Current implementation status — September 21
 
-The project is not fully implemented. M2–M6 remain open. Product `opensip` is clean at `fa72e50`; candidates remain private and uninstalled. The user pushes; no push has been performed.
+The project is not fully implemented. M2–M6 remain open. Product source remains at `fa72e50`; inventory55 is selected through a design-lock-only change. Source candidates remain private and uninstalled. The user pushes; no push has been performed.
 
 - **357:** [Native descendant capture](trials/native-descendant-capture-checkpoint-357/README.md) is frozen and independently reviewed by actual Grok. Twelve focused tests, two lifetime compile-fail checks and eight fault controls reproduced; no bounded defect found. Full375 security tests are author evidence.
 - **358:** [Storage marker](trials/native-store-marker-checkpoint-358/README.md) is frozen and independently reviewed by actual Grok with no bounded defect.96 storage tests and three fault controls reproduced.
@@ -21,7 +21,7 @@ The [store-binding advisory](reviews/grok-store-binding358-20260921-r1/REVIEW.md
 
 **Inventory53:** [Cumulative ownership proposal](native-trust-inventory-v53/README.md) preserves470 inherited rows from the existing unselected52 proposal and adds163 paths. All519 candidate files are accounted for within633 planned files. This is proposed layout, not selection; selected inventory32 and productfa72e50 remain unchanged.
 
-Claude's latest attempt at07:45 was refused by its Fable quota. No Claude agreement is claimed; Grok remains the reviewer. Grok's separate362 source note finds that the locked S9.3 text remains explicitly proposed despite application46 file membership. Full per-item acceptance reconciliation remains open; no five-field binding or current authority is inferred. Full authority, writers, installation and later milestones remain open.
+Claude's latest attempt at08:31 was refused by its Fable quota. No Claude agreement is claimed; Grok remains the reviewer. Grok's separate362 source note finds that the locked S9.3 text remains explicitly proposed despite application46 file membership. Full per-item acceptance reconciliation remains open; no five-field binding or current authority is inferred. Full authority, writers, installation and later milestones remain open.
 
 Detailed append-only history and exact pins: [resume guide](REVIEW-RESUME.md).
 
@@ -31,12 +31,14 @@ Detailed append-only history and exact pins: [resume guide](REVIEW-RESUME.md).
 
 **367 frozen:** read-only lifecycle lineage decoding and supplied-chain checks;32 lifecycle tests,565 schema cases and six fault controls pass. Actual Grok review is complete with no bounded source defect. No native binding, publication or authority claim.
 
-**368 frozen:** retained native lineage and per-store markers under one installation fence.68 host tests and24 synthetic-home cases pass; three compiled faults were caught and restored cases passed. Actual Grok review is running.
+**368 frozen:** retained native lineage and per-store markers under one installation fence.68 host tests and24 synthetic-home cases pass; three compiled faults were caught and restored cases passed. Actual Grok review is complete with no bounded source defect.
 
 [Native validation guidance](NATIVE-VALIDATION.md) records required serial runs and macOS user temporary directories. Grok365's failed parallel/wrong-temp runs remain preserved; its final isolated serial run passed388 tests and four compile-fail doctests.
 
 Grok independently ran366 on the final frozen bytes:388 security tests and four compile-fail checks passed, with formatting and Clippy. The documented formatting-difference count is43; the earlier request said42 incorrectly.
 
-**Inventory55:**697 planned files directly from selected32, with288 cumulative additions. All583 candidate files accounted;114 planned future. Both older pending obligations are carried unresolved; formal review is queued. No selection yet.
+**Inventory55:**697 planned files directly from selected32, with288 cumulative additions. All583 candidate files accounted;114 planned future. Both older pending obligations are carried unresolved; formal review is ACCEPT-UNIT, root assent complete and private/live selection passes31/44. No runtime source installation.
 
 The [materialization preflight](trials/materialization-preflight-368/README.md) passes32 read-only dependency/profile/package-edge checks across host/provider and four metadata targets. This does not approve the cumulative runtime delta; that review remains required before installation.
+
+Fresh cumulative host build passes from454source files and51verified archives. Full serialized workspace tests are running. Actual Grok is reviewing the cumulative development dependency closure; formal runtime25 remains pending.
