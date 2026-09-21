@@ -25,10 +25,14 @@ Claude's latest attempt at07:45 was refused by its Fable quota. No Claude agreem
 
 Detailed append-only history and exact pins: [resume guide](REVIEW-RESUME.md).
 
-**366:** [Trust module extraction](trials/trust-module-layout-checkpoint-366/README.md) moves60 existing bodies into separate files while preserving their logical modules.579 candidate files; independent Grok review is running. Author tests passed before whitespace-only finalization; final formatting and Clippy passed.
+**366:** [Trust module extraction](trials/trust-module-layout-checkpoint-366/README.md) moves60 existing bodies into separate files while preserving their logical modules.579 candidate files; independent Grok review is complete with no bounded source defect. Author tests passed before whitespace-only finalization; final formatting and Clippy passed.
 
-**Inventory54:** [Cumulative layout proposal](trust-modules-inventory-v54/README.md) adds60 module files to53:693 planned,579 candidate files accounted,114 future. Formal review is queued; selected32 remains unchanged.
+**Inventory54:** [Cumulative layout proposal](trust-modules-inventory-v54/README.md) adds60 module files to53:693 planned,579 candidate files accounted,114 future. Formal review returned NEEDS-CHANGES: missing preservation flag and an unselected parent. A cumulative successor directly from selected32 is being prepared; earlier proposals stay preserved.
 
-**367 in progress:** read-only lifecycle lineage decoding and supplied-chain checks. No native binding, publication or authority claim.
+**367 frozen:** read-only lifecycle lineage decoding and supplied-chain checks;32 lifecycle tests,565 schema cases and six fault controls pass. Actual Grok review is starting. No native binding, publication or authority claim.
+
+**368 in progress:** retained native lineage and per-store markers under one installation fence. A synthetic-home integration is running; no result yet.
 
 [Native validation guidance](NATIVE-VALIDATION.md) records required serial runs and macOS user temporary directories. Grok365's failed parallel/wrong-temp runs remain preserved; its final isolated serial run passed388 tests and four compile-fail doctests.
+
+Grok independently ran366 on the final frozen bytes:388 security tests and four compile-fail checks passed, with formatting and Clippy. The documented formatting-difference count is43; the earlier request said42 incorrectly.
