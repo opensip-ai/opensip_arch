@@ -1,0 +1,15 @@
+# Native runtime selection29: shared store syntax and conditional project filesystem check
+
+Combined substantive source and formal integration candidate. Source386 exactly composes unreviewed shared-codec385 with unreviewed conditional native helper384: four new alloc-only identity files, seven modified existing identity/lifecycle/storage files, two modified security files.13 mapped writes/577 unchanged non-lock;591 final files include separately composed lock. No Cargo/package dependency change or additional std feature.
+
+Selection/lineage/marker parsing moves into identity for use by security without upward lifecycle/storage edges. Existing lifecycle/storage native orchestration, test bodies and565-case fixture remain. Explicit adaptations include shared store-ID grammar/error mapping, private storage facade mapping (bounded raw copy), and moving LineageKey.relative_path to lifecycle::lineage_relative_path. These are inert supplied-value decoders, not native binding/S9.3 selection, custody or authority.
+
+The new private native helper reads existing projectRootFilesystems membership after conditional platform decision/local/nonunion/usable-fsid checks; it does not require a project volume to equal I device/fsid. Existing installation checks are unchanged. This is only filesystem type membership, not APFS UUID qualification, native root admission, marker tracking, current authority or writer permission.
+
+Fresh386 author checks:56identity+32lifecycle+96storage tests, separately1 native project-filesystem test with390 other security tests filtered, then workspace all-targets check. Exact32 provider source pins equal fresh385 build/dependency/edge/19archive/3expected-unavailable evidence; provider was not rebuilt386. No whole native aggregate or analyzer/release completion claim. Source385 includes exact adaptation mapping and its original packaging refusal from one generated Python cache file, followed by the corrected exact591-source freeze. No source/test failure was hidden.
+
+The actual reviewer must substantively assess source384/385/386, validate the exact adaptations and replay meaningful checks against this source before ACCEPT-DESIGN-UNIT. Layout58 acceptance alone does not approve code. Root assent is still required. Stage helper is byte-identical to selected28 and verifies all611 archive members plus587 live baseline files before13writes/577unchangednonlock; historical source lock is excluded.
+
+An additive correction for inventory57's rootAssessment explanatory field is included: original unit accidentally stores the peer inventory object because its script reused a variable. Actual root text was separately archived and already pinned by selected27; that text and root's reaffirmation are retained, original unit/selected pins unchanged. Review this correction honestly; it changes no source, law, authority or prior review verdict. Inventory58 uses a distinct root variable and checks stored text equality.
+
+M2–M6, full native producer budgets/lifetimes, original-time/current authority, writers/recovery and S9.3 remain open. No Claude agreement is claimed.

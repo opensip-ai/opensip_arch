@@ -1,0 +1,7 @@
+# Shared store codecs inventory58
+
+Proposed additive layout from selected inventory57. Preserve all701 inherited rows,20packages/dependency graph,ninependingdecisions and four effective description overrides. Add exactly four alloc-only identity modules for shared store-ID grammar, selection, lineage and marker syntax;705 planned files. Lifecycle selection/lineage/locations and storage marker files remain as facades/native owners; no source path is removed. Existing tests and565-case lineage fixture remain in their owning consumer crates. A lifecycle OS-path helper stays outside no_std identity.
+
+Private source385 passed56identity,32lifecycle and96storage tests, including exact original lineage fixture bytes. Those author results are not independent source acceptance. Source/formal integration needs substantive independent review after exact freezing; this layout does not select code or S9.3/full binding, add dependency edges, move native orchestration into identity, or qualify a platform. Prior211/218 obligations remain unresolved and carried unchanged outside pending-decision policy.
+
+Project the four inherited effective description overrides by stable file path at selection. Do not alter stored inherited rows or historical inventories. The conditional project filesystem helper384 adds no source path and grants no authority; its source review remains separate from this inventory. M2–M6 remain open.
