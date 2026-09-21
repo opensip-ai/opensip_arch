@@ -1,6 +1,6 @@
 # Current implementation status
 
-Updated September 21, 2026, 13:03 PDT. M2–M6 remain open. The project is not complete or release qualified.
+Updated September 21, 2026, 14:08 PDT. M2–M6 remain open. The project is not complete or release qualified.
 
 ## Installed product
 
@@ -18,8 +18,8 @@ Inventory57's rootAssessment explanatory field accidentally stored the peer inve
 
 ## Review availability and next work
 
-Claude's12:27 retry hit its Fable quota before substantive review; next retry no earlier than13:27. Grok is the active reviewer; no Claude agreement is claimed.
+Claude is available again using Opus5, as explicitly confirmed by the terminal /model response and user authorization. Actual Claude wF:p1 is independently reviewing the initialization/binding owner proposal388; no acceptance or agreement is claimed before its complete final report. Grok387 has finished its investigation; full findings and root assessment are preserved in reviews/grok-native-binding387-planning-20260921-r1. Root agrees that initialization/recovery, endpoint versus historical lineage, and new-root restore need concrete owners, but has NOT accepted Grok's marker/node/pair/current write order. Re-observation alone does not authorize resuming an interrupted creator.
 
-Grok now has a bounded owner investigation387: resolve initialization/publication/recovery ordering for full native binding against actual selected trust and transition owners. Old372 drafts are preserved planning inputs, not accepted law. In particular, install-level creation must not invent a namespace, forward lineage must follow durable COMMITTED, intermediate historical nodes must survive store reclamation, and same-store trust restore is distinct from a fresh evidence-restored lineage root. Output is pending at T/reviews/grok-native-binding387-planning-20260921-r1. Root is independently investigating native capture and shared-budget boundaries. No native jobs are active.
+Root prepared one independent implementation candidate389: platform RetainedDirectoryPath::open_project_root captures registry-v2 raw POSIX project paths while preserving existing internal backslash/staging-name restrictions. Both paths retain the same no-follow native descriptors and rechecks. No production caller switches yet and no shared-budget/custody/profile/current authority is conferred. Fresh15 path-binding tests (95other platform tests filtered) and an offline workspace all-targets check passed. Source is frozen under trials/project-root-path-checkpoint-389. Formal runtime30 is frozen and privately staged (1write/589unchanged non-lock), awaiting actual Claude source/formal review after388. Live product remains526a186/runtime29/34/51. No native jobs are active.
 
 Both repositories have local commits. No push has been performed. No completion date or percentage is inferred from foundation test counts. Exact historical evidence and resume details remain in ACTIVE-WORK, REVIEW-RESUME and PENDING-REVIEW.
