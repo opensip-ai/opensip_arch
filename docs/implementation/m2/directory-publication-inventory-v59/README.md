@@ -1,0 +1,5 @@
+# Directory publication inventory59
+
+Proposed additive layout from selected58: preserve all705existing rows,20packages/dependency graph,ninepending decisions and four effective description overrides. Add exactly one platform adapter module, filesystem/directory_publication.rs, for private retained directory staging and exclusive publication;706planned files. This avoids further merging the new mechanism into the already large filesystem.rs. Existing regular-file publication and native path readers remain their current owners.
+
+Private396 is a development source draft built on corrected395, not independent source acceptance. This inventory selects no code, initialization law, native profile, shared-budget/current authority or writer. Actual substantive source/formal review and corresponding selected runtime are separately required before live use. All211/218 carried unresolved obligations stay unchanged. Project the four inherited description overrides by stable file path without rewriting historical rows. M2–M6 remain open.

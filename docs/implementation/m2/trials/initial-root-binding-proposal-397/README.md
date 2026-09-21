@@ -1,0 +1,9 @@
+# Initial-root owner397 — correction candidate
+
+Unselected correction of actual Claude392 B1–B3 and N1–N6; prior390 closures retained. Separates read-only observed binding from durable/write admission, explicitly forbids barriers on read/diagnostic surfaces, and uses doctor’s existing defects channel for a clearly labelled unperformed durability check. Gives noncreator requests a precise no-installation refusal and makes first-creation BACKED_UP acknowledgement explicit before any ancestor effect. New diagnostic/domain details and workflow goldens require named formal reconciliation; no new envelope or parity field.
+
+Resolves selected inventory authority predicate, cites actual registry headings, labels new storage-root disclosure and extended barrier boundaries, and lists fence-free platform production/home-base qualification as implementation obligations. Full owner-draft.md is normative only if subsequently selected by a reviewed successor and root assent.
+
+Historical392 evidence copied byte-for-byte:54conditional preinstallation cases,36conditional publication cases,7canonical vectors/9refusals; seven lineage checks originally390. These counts are historical unless a new named replay says otherwise. None implements native authority. Four specific model gaps remain: no budget in publication, no disclosed-target equality, no writer-versus-decoder K derivation, no composition across permit→stage→rename. Python privacy is nominal; P0/native custody/profile/crash/GC qualification is absent. New397 surface checks exercise the changed decisions only and do not fill these gaps. Separate native barrier/publication source395/396 work does not select this law.
+
+No authority, writers, S9.3/215 wholesale adoption, M2 completion or release qualification. Original392/report bytes remain unchanged. Independent substantive review, exact passage reconciliation and freshly frozen formal successor are still required.

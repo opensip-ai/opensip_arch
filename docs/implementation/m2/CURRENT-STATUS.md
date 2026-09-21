@@ -1,27 +1,25 @@
 # Current implementation status
 
-Updated September 21, 2026, 14:53 PDT. M2–M6 remain open. The project is not complete or release qualified.
+Updated September 21, 2026, 15:31 PDT. M2–M6 remain open; the project is not complete or release qualified.
 
 ## Installed product
 
-Product HEAD `cd5af4d` integrates runtime30 after actual Claude Opus5 source/formal review and root assent. Selected design:34 inventory successors/52 contract successors, inventory58;591 tracked files. All590 non-lock files match frozen source389. Private/live design validation and fresh offline workspace all-targets check passed.
+Product `cd5af4d`, runtime30/source389, inventory58,34 inventory/52contract successors;591tracked590nonlock files. Actual Claude Opus5 review/rootassent and private/live checks completed. Current source adds retained raw project-path observation; no production caller or current-authority activation. Product working tree clean. Previous test counts remain scoped historical evidence.
 
-Runtime30 adds platform `RetainedDirectoryPath::open_project_root` for registry-v2 raw POSIX project paths; internal backslash/staging-name restrictions remain. It shares the same retained no-follow native descriptor/recheck mechanism. No production caller switches and no project custody/profile/UUID/current authority or shared-budget admission is conferred. Actual Claude independently passed15 path tests(95other platformtestsfiltered), workspace check,18old/new internal public-API comparisons and a separate11case grammar probe. This is macOS arm64 development evidence, not full native/release qualification. Earlier runtime29's185targeted tests and all historical full-suite counts remain scoped historical evidence.
+## Current independent review
 
-## Initialization and binding proposal
+Claude Opus5 is reviewing corrected directory barrier source395/formal32. Prior393/31 accepted with three required nonblocking findings; root elected to fix all before integration. Corrections concern test scope, macOS unlinked-directory limitations and error precedence, with unchanged runtime algorithm. Five targeted tests and workspace compilation pass. No32approval or integration yet.
 
-Actual Claude Opus5 investigation388 confirmed that the prior in-place initialization proposal has no complete concurrency/recovery owner. Root agreed and rejected treating atomic visibility as durability. Complete actual reports plus distinct root assessment are preserved. Grok387's original proposal remains historical, unapproved.
+## Initialization owner
 
-Root froze proposal390 for initial installation publication and ordinary binding: privately prepare a complete initial P0 tree; publish by exclusive no-replace directory rename; retain the initial fence across the parent barrier; independently confirm root/parent durability for fresh existing-root admission, including creator death and EEXIST losers. It defines full-triple endpoint-only lineage admission, five-field representation, shared-budget and lease lifetime obligations, with no inferred pristine creation or imported authority. It remains an unselected owner proposal, not a native writer.
+Actual392 review closed the four previous390 findings, then found three missing decisions plus six precision/coverage items. Revised397 is frozen, awaiting actual review: read-only snapshot binding is separate from write durability; first-use backup consent is explicit; noncreator commands have an exact missing-installation refusal. Thirty-two new conditional surface tests pass. Native creator production and four model-composition/coverage gaps remain explicitly unfinished. Original reviews and frozen candidates are preserved.
 
-Author390 checks:36 conditional publication cases,7canonical compatibility vectors/9shape refusals,7supplied-value lineage probes against freshly built unchanged identity source. No native crash/directory-barrier/creator eligibility proof. Actual Claude completed review with NEEDS-CHANGES: positive creator eligibility, explicit durability base, pre-installation budget ownership and surviving-ancestor disclosure. Root addressed all four in frozen392 after reading the complete source audit. Fresh54preinstallation and36publication cases plus7canonical vectors/9refusals pass conditionally. Actual review of392 is queued; no acceptance or selection is claimed.
+## Next source work
 
-## Next source candidate
-
-Frozen393/formal31 proposes a borrowed receipt for a barrier on the original retained directory descriptor. Five new tests, the existing fallback test and workspace checking passed. No root/name/parent/profile authority is implied, no production caller changes, and actual Claude source/formal review is active. The separate391 confined native rename/fence probe passed four checks; neither establishes crash or power-loss qualification.
+Private396 implements retained private directory staging and exclusive same-parent publication. Eleven targeted native tests and workspace checking pass. It preserves competing winners and uncertain outcomes, performs no implicit retry/deletion and grants visibility only. Separate inventory59 proposal adds one platform module. Neither code nor inventory is selected or independently accepted. This is development evidence on local macOS, not Linux/power-loss qualification.
 
 ## Remaining work
 
-Native creator eligibility, directory publication/confirmation, qualified project-root admission, full binding/shared budgets/lifetimes, original-time/current authority, writers/recovery and remaining S9.3 transition/restore ownership are unfinished. Substantive analyzers, reporting, complete workflows and release/platform qualification remain later work.
+Native creation eligibility, qualified platform/account/project-root admission, complete initial P0 construction, shared budgets across phases, ordinary binding/current authority, writers/recovery and remaining transition owners are unfinished. Substantive analyzers, reporting, workflows and release/platform qualification remain later milestones.
 
-Both repositories have local commits; user pushes. No push has been performed. Claude is now substantively working on Opus5; earlier Fable quota refusals are not reviews. No native jobs by root are active. Detailed immutable review evidence and resume records remain in ACTIVE-WORK, REVIEW-RESUME and PENDING-REVIEW.
+Both repositories use local commits; the user pushes. No push performed. Next: finish actual32 review/assent and integration if accepted, obtain actual397 review, then freeze/review396 with its inventory/formal selection. No root native job currently runs. Durable history is in ACTIVE-WORK, REVIEW-RESUME and PENDING-REVIEW.
