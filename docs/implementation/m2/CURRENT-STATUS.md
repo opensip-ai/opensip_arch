@@ -1,4 +1,13 @@
 
+## September21 01:48 —346 frozen/reviewing;347 integrated and platform tests pass
+
+A910a05ddf latest includesactual345review. Productfa72e50unchanged; private/uninstalled; M2–M6open;userpushesNEVERPUSH. ActualGrok wN:p1NOW346 viaT/reviews/grok346-REQUEST.md; expectedgrok-native-filesystem346-20260921-r1/REVIEW.md; waitdone/readENTIREfinal+ADDENDUM. Claude02:30resetstillfuture,notretried.
+
+346 finalworkspace-r2 PASS658/0/2, stablefinalsource/noothertargetrebuild; alljobscomplete. Frozen native-filesystem-checkpoint-346:568members6884940B SHA483a9b19400bef8500e9fc9e84eb74e56e5786a9e543d4ee302b3db8158eb70e;493pins486unchanged345/sevenplatformdeltas. Platform-r2=78/Clippy-r2/fmt27/tencompiledcontrols+fivebaseline. Rootr1storage-rustdocE0463/concurrentrebuild preservednotpassed; finalr2unblockedwithoutproductionfix. CompleteREADME inartifact. Notyetcommittedatnote.
+
+347 NOWproductcandidate T/m2-macos-host-347 fromfull346568verified, targetbuild-macos-host347. Expected494pins492unchanged346/twodeltasplatformlib.rs+newmacos_boot.rs. Opaqueboundedactualkern.uuid/osversion+twoCSRrelaxationflags (userspace0allowed,-1EPERMdenied,othersunavailable), noCLI/helper/framework/globalstatechange. Individualrelaxationsnotall-SIP/profile/currentauthority/loader. Native37/10B fixedbuf/grammar/NUL/errorbeforeallocation; no sizequery/retry. NativeCprobe andstandaloneRustactualvaluesagree; standalone-r1five,r2six testsPASS. Productplatform-r1=84pass. Clippy-r1 session77522 running; mutation-r1 session60456 elevencontrols+sixbaseline running. No347freeze/requestyet. Scriptsauthor/run/check_macos_host347_mutants.py,macos_host347.rs,macos_host347-plan.md. Native-probe beforeimages/r1/r2/sourcepins retained. Next finalplatform/Clippy/fmt/controls/nativeCagreement againstFINALsource, freeze andsendafter346reviewread. Nativefilesystem+signedprofile/loaderTCB/currentauthority/originalT/writers/M2–M6stillopen.
+
+
 ## September21 01:43 —345 independently reviewed;346 final workspace rerun;347 boot observer draft
 
 A latestcommit aca7c1889 includes344/345freezes+actual343/344reviews. Productfa72e50clean; userpushesNEVERPUSH; M2–M6open/privatecandidatesuninstalled. ActualGrok345 FINAL fullyread/noADDENDUM/no boundeddefect, reproduced331security2ignored/Clippy/fmt27/tencompiledcontrols+sevenbaseline byte-equal report. Archive1036members13494120B, archive-pin.json authoritative. GrokwN:p1done/idle; no346requestyet. Claude02:30resetstillfuture(lastactualquota22:06).
