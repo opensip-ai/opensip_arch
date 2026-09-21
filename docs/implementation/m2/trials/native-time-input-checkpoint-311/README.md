@@ -1,0 +1,13 @@
+# Fresh evaluation input for every ordinary clock write — private checkpoint311
+
+Unselected native work based on fully verified frozen309. This completes the evaluation-record distinction required by frozen227r9 TIME-INPUT-JOINS.md: each write-bearing S4 decision needs a fresh S4EvaluationInputV1, whether its selected timeEvidence is new or retained. It does not complete historical proof admission or publication.
+
+`Plan::NoWrite` preserves the existing evaluated refusal/report and ignores an unused invocation binding. `Plan::Write` owns a fresh typed evaluation record borrowing the whole CurrentOrdinaryProposal. Its selected time evidence is exactly the prior T for Keep, or the new evaluation reference for NewRequired. Every constructed record requires a closed-shape InvocationBinding. This is not admission of actual invocation identity.
+
+The existing full125 record is unchanged: same owned beforeImage, store, entire beforeClock, exact evaluated observation and ordinary closure reference derived from owned raw bytes. No S4 kernel/arithmetic, schema, source sampling, captured-image or authentication changes. Only proposed_time_input.rs and the test-only actual-host hook differ from309. No public export or operational caller.
+
+Validation: 253 security tests pass, two explicit host tests ignored by normal execution; workspace Clippy and format checks. The separately executed actual-host test samples eight observations and independently recomputes pinned201/265 S4. Four valid and 25 invalid invocation values per observation produce 232 decisions. At the recorded wall time: one NewRequired, two Keep, five NoWrite; 12 fresh evaluation records (4 new-T and 8 retained-T), 75 invalid-binding refusals, 145 NoWrite results. Counts depend on actual time and fixed signed test fixtures; recorded observations remain replayable. Test keys only. No host/profile/publication qualification.
+
+Eleven compiled negative controls test omitted Keep/New evaluations, inappropriate selected T, exact source fields and raw NodeRef length, and unused-binding refusal. Independent full125/source-exact Python comparisons detect field changes even when Rust accepts their shape. Report files distinguish Rust failures from oracle-only rejection.
+
+Original T/current-head/history admission, original core bootstrap authority (separate310 source investigation), current OLD/R/revocation context, namespace/custody/fence/census/capacity, qualified final age guard,222 publication durability and post-S4 role effects remain open.309's historical bounded review is preserved; its Keep branch was never a complete publication plan. This packet grants no authority and installs nothing. Product remains fa72e50; M2–M6 open.
