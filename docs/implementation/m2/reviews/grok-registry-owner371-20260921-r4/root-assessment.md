@@ -1,0 +1,5 @@
+# Root substantive assessment of actual registry371r4
+
+Actual full REVIEW, findings and pins read after DONE; no addendum. I accept this bounded registry OWNER/REFERENCE proposal. Persisted immutable allocationKind is necessary and correctly closes the remaining adoption interruption ambiguity, including first-local adoption without history. The new carrier/bounds/live-vs-historical identity/state/retired-census/birth/abandoned-retention and fence-to-lease choices are explicit new decisions, not falsely inherited rules.
+
+Grok independently rehashed196members, reproduced274cases byte-identically,24schema checks,320555capacity and eight pure-model faults. The initial history-reuse mutant survival was a real test gap, corrected and preserved. Pure supplied context/footprint labels are not native authority; native must compose full independent admitted-bundle/root/marker/registry/footprint/custody proofs. This acceptance does not grant five-field binding, S9.3, native writers, OS/crash/Linux/release qualification or complete M2. It supports an exact formal contract-unit review; no selected lock change occurs here.
