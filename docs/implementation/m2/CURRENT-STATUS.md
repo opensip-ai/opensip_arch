@@ -1,6 +1,6 @@
 # Current implementation status — September 21
 
-The project is not fully implemented. M2–M6 remain open. Product source remains at `fa72e50`; inventory55 is selected through a design-lock-only change. Source candidates remain private and uninstalled. The user pushes; no push has been performed.
+The project is not fully implemented. M2–M6 remain open. Reviewed cumulative source368 is now installed through accepted runtime25 and inventory55 (31/45 selected units). Exact582 non-lock files and live compilation checks pass; source commit is in progress. The user pushes; no push has been performed.
 
 - **357:** [Native descendant capture](trials/native-descendant-capture-checkpoint-357/README.md) is frozen and independently reviewed by actual Grok. Twelve focused tests, two lifetime compile-fail checks and eight fault controls reproduced; no bounded defect found. Full375 security tests are author evidence.
 - **358:** [Storage marker](trials/native-store-marker-checkpoint-358/README.md) is frozen and independently reviewed by actual Grok with no bounded defect.96 storage tests and three fault controls reproduced.
@@ -41,4 +41,6 @@ Grok independently ran366 on the final frozen bytes:388 security tests and four 
 
 The [materialization preflight](trials/materialization-preflight-368/README.md) passes32 read-only dependency/profile/package-edge checks across host/provider and four metadata targets. This does not approve the cumulative runtime delta; that review remains required before installation.
 
-Fresh cumulative host validation passes755tests+6doctests (0fail,2ignored),454sources/51verified archives. Fresh provider26sources/19archives also passes its boundary checks; semantic analysis remains unimplemented. Actual Grok accepts the bounded macOSarm64 development dependency closure. Frozen runtime25 is now under formal independent source/integration review; source installation remains pending. Architecture5228638bf and product373aae2c are committed, not pushed.
+Fresh cumulative host validation passes755tests+6doctests (0fail,2ignored),454sources/51verified archives. Fresh provider26sources/19archives also passes its boundary checks; semantic analysis remains unimplemented. Actual Grok accepts the bounded macOSarm64 development dependency closure. Actual Grok accepts runtime25 development integration; root assent/private/live31/45 validation and327mapped source installation are complete. Architecture9bca7b8d7 holds the frozen candidate; materialization commits are in progress. No push.
+
+Actual Grok is now auditing application46/S9.3 standing and the missing native registry/full-five-field binding contract. This is the next authority gap; installed provisional readers do not close it.
