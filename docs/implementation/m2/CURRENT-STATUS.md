@@ -15,12 +15,20 @@ The project is not fully implemented. M2–M6 remain open. Product `opensip` is 
 
 The [store-binding advisory](reviews/grok-store-binding358-20260921-r1/REVIEW.md) has a corrective ADDENDUM preserved in its archive. Independent current-record S/G/K comparison is necessary provisional consistency, not a replacement for the full namespace/registry/lineage/admitted-handle binding.
 
-**364:** [Source inventory and generation audit](trials/candidate-source-audit-364-r2/README.md) has a frozen metadata correction, with actual Grok review in progress. Three schema-generated Rust files reproduce byte for byte; both Unicode tables match their pinned inputs. The machine-checked inventory gap is80 Rust source files and133 fixtures,213 total. The original364 prose miscount is corrected separately. No inventory selection or product installation follows from this audit.
+**364:** [Source inventory and generation audit](trials/candidate-source-audit-364-r2/README.md) has a frozen metadata correction, independently verified by actual Grok. Three schema-generated Rust files reproduce byte for byte; both Unicode tables match their pinned inputs. The machine-checked inventory gap is80 Rust source files and133 fixtures,213 total. The original364 prose miscount is corrected separately. No inventory selection or product installation follows from this audit.
 
-**365:** [Generated security layout](trials/generated-security-layout-checkpoint-365/README.md) is frozen, awaiting independent review. Three generated files move unchanged, two Unicode data tables are separated from handwritten wrappers, and one offline command reproduces all five outputs.388 security tests, four lifetime checks, Clippy, formatting and14 generator probes pass. Initial dropped test modules were caught and restored before final validation.
+**365:** [Generated security layout](trials/generated-security-layout-checkpoint-365/README.md) is frozen and independently reviewed by actual Grok with no bounded source defect. Three generated files move unchanged, two Unicode data tables are separated from handwritten wrappers, and one offline command reproduces all five outputs.388 security tests, four lifetime checks, Clippy, formatting and14 generator probes pass. Initial dropped test modules were caught and restored before final validation.
 
 **Inventory53:** [Cumulative ownership proposal](native-trust-inventory-v53/README.md) preserves470 inherited rows from the existing unselected52 proposal and adds163 paths. All519 candidate files are accounted for within633 planned files. This is proposed layout, not selection; selected inventory32 and productfa72e50 remain unchanged.
 
-Claude's latest attempt at06:41 was refused by its Fable quota. No Claude agreement is claimed; Grok remains the reviewer. Grok's separate362 source note finds that the locked S9.3 text remains explicitly proposed despite application46 file membership. Full per-item acceptance reconciliation remains open; no five-field binding or current authority is inferred. Full authority, writers, installation and later milestones remain open.
+Claude's latest attempt at07:45 was refused by its Fable quota. No Claude agreement is claimed; Grok remains the reviewer. Grok's separate362 source note finds that the locked S9.3 text remains explicitly proposed despite application46 file membership. Full per-item acceptance reconciliation remains open; no five-field binding or current authority is inferred. Full authority, writers, installation and later milestones remain open.
 
 Detailed append-only history and exact pins: [resume guide](REVIEW-RESUME.md).
+
+**366:** [Trust module extraction](trials/trust-module-layout-checkpoint-366/README.md) moves60 existing bodies into separate files while preserving their logical modules.579 candidate files; independent Grok review is running. Author tests passed before whitespace-only finalization; final formatting and Clippy passed.
+
+**Inventory54:** [Cumulative layout proposal](trust-modules-inventory-v54/README.md) adds60 module files to53:693 planned,579 candidate files accounted,114 future. Formal review is queued; selected32 remains unchanged.
+
+**367 in progress:** read-only lifecycle lineage decoding and supplied-chain checks. No native binding, publication or authority claim.
+
+[Native validation guidance](NATIVE-VALIDATION.md) records required serial runs and macOS user temporary directories. Grok365's failed parallel/wrong-temp runs remain preserved; its final isolated serial run passed388 tests and four compile-fail doctests.
