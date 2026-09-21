@@ -1,0 +1,11 @@
+# Native provisional store marker checkpoint 358
+
+Private, unselected candidate; product repo unchanged. Storage-owned marker composition under the same opaque native installation fence, retaining the original file and all relative ancestor edges. A matched marker supplies S only, not G/K or current authority.
+
+`ProvisionalStoreMarker::read_existing` parses the requested StoreInstance before IO, calls357 native `capture_descendant` with fixed `[stores,S]`, `store-instance.v1`,128 bytes, then applies the existing private storage marker decoder and instance equality. The original capture is rechecked after decode, even on malformed/mismatched syntax. Returned opaque type owns original capture + decoded marker; S/raw/contributing-filesystem access rechecks the original capture. No File/root/into_parts or authority promotion; absent/malformed existing marker never initializes I.
+
+New nested store_root/native_marker.rs uses its parent's existing private marker types and constants. No duplicate grammar, changed marker bytes, widening of existing codec visibility, dependencies/features or reverse owner edge. Crate-root exports the opaque provisional type and owned diagnostic wrapper on macOS. Existing supplied-path marker observations stay conditional; this does not silently upgrade them.
+
+Two tests exercise the storage decoder join and sequencing on valid, mismatched, malformed and oversized bytes. Callbacks are explicitly synthetic: they prove ordering, not live native marker admission. Actual descriptor, full directory-chain, filesystem and lifetime evidence remains357, not a live358 constructor fixture. Three compiled controls remove failed-decode postchecking, ignore failed recheck, and bypass the reused marker instance guard. Full96 storage tests and workspace Clippy/format recorded; security375/host66 are historical, not rerun for this wrapper.
+
+Full store G/K and native storage evidence remain separate source/ownership work (actual Grok advisory requested), as do core/profile/active-slot joins, current/durable authority, writers/recovery/qualification and M2–M6. The host must join these owners under one fence; it must not infer G/K from selection or marker syntax. No native SQLite File escape is introduced.
