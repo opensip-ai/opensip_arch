@@ -1,6 +1,6 @@
 # Current implementation status
 
-Updated September 21, 2026, 14:27 PDT. M2–M6 remain open. The project is not complete or release qualified.
+Updated September 21, 2026, 14:53 PDT. M2–M6 remain open. The project is not complete or release qualified.
 
 ## Installed product
 
@@ -14,7 +14,11 @@ Actual Claude Opus5 investigation388 confirmed that the prior in-place initializ
 
 Root froze proposal390 for initial installation publication and ordinary binding: privately prepare a complete initial P0 tree; publish by exclusive no-replace directory rename; retain the initial fence across the parent barrier; independently confirm root/parent durability for fresh existing-root admission, including creator death and EEXIST losers. It defines full-triple endpoint-only lineage admission, five-field representation, shared-budget and lease lifetime obligations, with no inferred pristine creation or imported authority. It remains an unselected owner proposal, not a native writer.
 
-Author390 checks:36 conditional publication cases,7canonical compatibility vectors/9shape refusals,7supplied-value lineage probes against freshly built unchanged identity source. No native crash/directory-barrier/creator eligibility proof. Actual Claude is reviewing the frozen17member proposal now at T/reviews/claude-opus5-owner390-20260921-r1. Wait for DONE and read complete reports/addenda before acting.
+Author390 checks:36 conditional publication cases,7canonical compatibility vectors/9shape refusals,7supplied-value lineage probes against freshly built unchanged identity source. No native crash/directory-barrier/creator eligibility proof. Actual Claude completed review with NEEDS-CHANGES: positive creator eligibility, explicit durability base, pre-installation budget ownership and surviving-ancestor disclosure. Root addressed all four in frozen392 after reading the complete source audit. Fresh54preinstallation and36publication cases plus7canonical vectors/9refusals pass conditionally. Actual review of392 is queued; no acceptance or selection is claimed.
+
+## Next source candidate
+
+Frozen393/formal31 proposes a borrowed receipt for a barrier on the original retained directory descriptor. Five new tests, the existing fallback test and workspace checking passed. No root/name/parent/profile authority is implied, no production caller changes, and actual Claude source/formal review is active. The separate391 confined native rename/fence probe passed four checks; neither establishes crash or power-loss qualification.
 
 ## Remaining work
 

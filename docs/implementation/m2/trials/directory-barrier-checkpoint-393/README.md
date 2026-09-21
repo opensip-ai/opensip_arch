@@ -1,0 +1,11 @@
+# Retained directory barrier receipt393 — proposed source
+
+Two platform source changes relative selected runtime30 at productcd5af4d;591product files,589unchanged including historical lock. No inventory/dependency/package addition. Not installed or independently accepted.
+
+Adds RetainedDirectory::confirm_directory_barrier and public DirectoryBarrierReceipt borrowing its exact original owner. Uses existing native directory barrier unchanged: macOS F_FULLFSYNC with existing named-unsupported-only fsync fallback, Linux fsync. Receipt exposes the actual primitive and exact owner association. Descriptor kind/device/inode/nonzero-link observations bracket the barrier, including errors. No retry, pathname lookup, parent flush, child/file flush, recursion, initialization or new publication occurs. A positive link count does not establish attachment, especially on macOS. Caller still owes original-name/custody/filesystem/profile checks before/after and exclusion. Receipt is a primitive observation, not durable installation/current authority; no production caller switched.
+
+Fresh serial development macOS arm64 evidence:5new directory receipt tests passed(110filtered), including owner distinction, actual rename retaining original inode without name claim, failure once/no receipt, primitive preservation and invalid kind before flush. Separately replayed existing unsupported-error fallback test1pass(114filtered). Workspace offline all-targets check passed. Existing enum/helper unchanged. Full platform/workspace test suite, Linux execution and power-loss qualification are not claimed. The native391 standalone probe is independent and not this source's review evidence.
+
+Initial preparation's final textual derive-order assertion failed after copying/writing because it expected a different existing derive order; Copy was already present. Preparation script and explanatory note preserved. This was not a failed native compile/test or a source correction to the enum. No changes to source389path grammar or selected identity/provider sources.
+
+Need actual independent substantive source/formal review and root assent before live integration. Unselected390/392 initialization law is not adopted by exposing this platform primitive. M2–M6 remain open.
