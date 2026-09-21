@@ -1,0 +1,13 @@
+# Native sampled child-directory policy 333
+
+Private, unselected and uninstalled candidate. Product remains fa72e50. M2–M6 remain open.
+
+The private security custody helper consumes a real 332 RetainedChildDirectory. It checks the relative name, obtains actual descriptor-relative parent and child metadata/ACL observations, rechecks the relative name, then applies the unchanged operational chain policy to BOTH samples. Owner waiver is disabled. UID and explicit groups still require host admission; this helper does not produce that admission. Native errors remain typed errors, and name mismatch is not authorized absence.
+
+The result owns two historical observations. It is NOT a sealed custody token, full ancestor admission, exclusion, current permission grant, a fence, qualified census, or permission to consume/write. In particular, a same-inode chmod after the samples can leave both name checks true: the test deliberately returns the old mode-700 sample while the current mode is 777; the next inspection refuses. The private no-argument seam enables native interposition in tests; production supplies an empty closure and no caller-supplied verdicts/observations.
+
+Full parent332 archive and all product pins were rehashed. 483 product pins: 481 unchanged, custody.rs adds a private include and custody/directory_policy.rs is new. All platform mechanisms330–332 and reference222 owner remain unchanged. No new unsafe code, public API, dependency or selected product code.
+
+Final macOS security-r2: 266 passed, 2 ignored. Workspace all-target Clippy-r1 with warnings denied; cargo fmt and explicit formatting of 19 included security modules pass. Eight compiled mutation controls plus passing baseline: skip either name check, check only either component, overwrite observed owner, ignore explicit groups, skip all custody policy, collapse native name error to mismatch. Each control is caught. Initial security-r1 also passed before strengthening the precheck test to panic if an already-invalid name reaches the post-observation seam; setup-notes preserves this test refinement. No implementation behavior correction or hidden failed compilation.
+
+Four new native tests cover both components' owner/mode/group policy, actual inode observations, missing/replaced/wrong-kind names, replacement after observation without repair, and the permission-race limit. Existing ACL policy is reused; these four tests do not install every ACL form. Linux actual descriptor ACL observation remains unsupported and no Linux execution is claimed. Ancestor qualification, selected filesystem/libc semantics, enduring custody/fence, shared census Budget/64-canonical cap, current-authority composition and writers remain open.
