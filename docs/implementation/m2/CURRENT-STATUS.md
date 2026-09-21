@@ -1,29 +1,27 @@
 # Current implementation status
 
-Updated September21,2026,11:20 PDT (checkpoint label; local execution approximately11:17–11:20). M2–M6 remain open. The project is not complete or release qualified.
+Updated September 21, 2026, 12:16 PDT. M2–M6 remain open. The project is not complete or release qualified.
 
 ## Installed product
 
-Product HEAD `bcd8208` installs the reviewed inert registry codec. Selected design:32 inventory successors /47 contract successors, inventory56. There are585 tracked product files including the separately composed design lock;584 non-lock files match frozen374.
+Product HEAD `c27ffa4` integrates the reviewed directory birth and volume observation helpers. Selected design: 33 inventory successors / 48 contract successors, inventory57, runtime27. There are 587 tracked product files; all 586 non-lock files match independently reviewed source380. Private and live design validation and a fresh offline workspace all-targets build check passed.
 
-Runtime25 cumulative development checks:755 tests and6 doctests passed,2 explicitly ignored. These are earlier source checks, not a fresh runtime26 aggregate. Platform scope remains macOS arm64 development.
+Actual Grok independently ran six birth and four volume tests in separate serial filters on the exact integrated source. These are inert observations, not qualified project-root authority. Earlier runtime25 development checks (755 tests, six doctests, two ignored) and integration374's 52 identity tests remain historical evidence, not a fresh cumulative runtime27 test count. Platform scope remains macOS arm64 development.
 
 ## Accepted and pending work
 
-Actual Grok accepted the pure registry codec373, corrected373r2 fault evidence, integration374 and additive inventory56. Integration374 passed52 identity tests (also independently rerun), the workspace build and provider boundary checks using28 sources/19 verified dependency archives. Source aliases carry values only; no native registry authority or writer is implemented. Original author373 nine-fault evidence was invalid and remains preserved with an explicit correction; corrected author and independent compiled-fault checks replace it.
+The selected pure registry decoder still reads the historical v1 syntax. Actual Grok accepted the corrected373r2 fault evidence and integration374. The original author373 nine-fault evidence was invalid and remains preserved with its correction; it is not counted as validation.
 
-Inventory56 is selected and committed. Runtime26 proposes exactly three source changes. The first formal integration review returned NEEDS-CHANGES because three pin arrays were not sorted lexicographically by their serialized path strings. All original bytes remain preserved. Revision2 sorts those arrays and references a new successor. Actual Grok accepted revision2 after checking the correction and preserved originals. Root substantive assent, fresh private staging, private/live design validation32/47 and offline workspace all-targets checking all passed. The exact three source changes are installed and committed at bcd8208. Original revision1 remains historically NEEDS-CHANGES.
+Actual Grok confirmed the conditional persistent-root identity gap376 and accepted the complete v2 owner/reference381-r2: durable APFS volume UUID plus inode/birth, with device/FSID retained for live operation checks. It preserves complete registry validation, allocation/adoption/recovery/durability/lease rules, refuses old-v1 presence and implicit migration, and distinguishes locator from incarnation uniqueness. This does not claim native reboot testing, unforgeable identity, or universal cloned-repository detection.
 
-Native directory birth375 and volume378 remain private/frozen but are now independently accepted as inert source. Grok freshly ran six birth tests and four volume tests in separate serial filters; both passed. Full source reconstruction380 also passes a fresh offline workspace all-targets check. Inventory57 and runtime integration remain pending. Its preserved earlier failures exposed a wrong test-hook ABI type and a false assumption that removing a directory name must set its retained descriptor link count to zero. Positive links do not establish pathname attachment.
+The exact formal registry-owner-v2 selection (46 members, subject SHA abfa0cf16ec8f1439b8443612c25aec467e20b4587baab3e9c45f81cac659f0e) is now with actual Grok for independent review. Root has not selected it. Private codec383 implements the matching v2 syntax and has passed 56 identity tests; differential checks are in progress. It remains unreviewed and uninstalled.
 
-Root audit376 identifies a documented possibility that device numbers change across reboot/remount. The selected registry reference rejects an otherwise identical root when only deviceId changes; the move rule requires the old locator to be absent. Corrected executable fixture376-r2 reproduces this conditional case, not an actual reboot. Actual Grok confirmed the owner-law gap and inspected the one-host UUID ABI probe. Draft379 proposes a versioned durable APFS UUID root while retaining live device/FSID checks and refusing implicit same-path rebind;274 inherited cases,69 new cases and24 schema checks pass. It awaits independent review and exact selection overrides. No live comparison has been weakened.
-
-Full five-field binding372, shared native budgets, endpoint-versus-retained-lineage handling and S9.3 remain unfinished. The reviewed placement direction preserves the crate dependency graph; it does not approve the complete owner or native authority.
+Full five-field binding372, shared native budgets, qualified project-root admission, original-time/current-authority checks, writers/recovery and S9.3 remain unfinished. Substantive analyzers, reporting, workflows and release/platform qualification remain later work.
 
 ## Review availability and next work
 
-Claude's11:27 retry again hit its Fable quota before substantive review. Grok is the active reviewer; no Claude agreement is claimed.
+Claude's 11:27 retry hit its Fable quota before substantive review; the next scheduled retry is no earlier than12:27. Grok is the active independent reviewer. No Claude agreement is claimed.
 
-Runtime26 is installed and committed; its architecture evidence is being committed. Actual Grok confirmed root identity376 and accepted the inert birth/volume adapters375/378. It is now reviewing draft379; inventory57/full-source380 await their metadata/integration review. Continue native registry/binding implementation after those corrections are resolved. Substantive analyzers, reporting, workflows and release/platform qualification remain later work. No completion date or percentage is inferred from foundation test counts.
+Finish formal owner-v2 review, resolve findings, select only accepted exact bytes, then independently review and integrate codec383. Native root qualification must use the existing signed projectRootFilesystems profile, not require the repository to share installation I's device/FSID. Planning382 records that boundary; it is not an implementation.
 
-Exact historical evidence and resume details remain in ACTIVE-WORK, REVIEW-RESUME and PENDING-REVIEW. The previous status is preserved in status-history/20260921-1120.md.
+Both repositories have local commits. No push has been performed. No completion date or percentage is inferred from foundation test counts. Exact historical evidence and resume details remain in ACTIVE-WORK, REVIEW-RESUME and PENDING-REVIEW.

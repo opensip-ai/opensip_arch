@@ -1,0 +1,1 @@
+Original381 author captions said11total/10owner overrides; actual data has10total/9owner plusidentityline52. This revision corrects only those captions in README and provenance scripts, preserving the original frozen381 archive. Owner, schema, model, selectors, case outputs and tests are unchanged. No new test run or new substantive behavior is claimed.
