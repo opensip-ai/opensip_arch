@@ -1,0 +1,5 @@
+# Unselected binding-owner planning372
+
+Private draft and source analysis preserved for resume, NOT accepted/final design. The original owner/ownership-question bytes were reviewed only for placement advice, not complete binding/S9.3/publication law. Registry371 has since been selected; original draft wording describing it as pending is historical. Codec-move-plan and pins add concrete no_std/std::PathBuf/lifecycle-private StoreComponent constraints: the future move cannot be claimed as a literal file copy. No actual code relocation occurs here.
+
+Seven canonical five-field digest compatibility vectors and nine shape refusals remain bounded supplied-value checks, not native admission or creation proof. Publication ordering, shared capture budgets, producer lifetime/lease handoff and fresh S9.3 standing remain unresolved. Native birth375 is separately proposed, not a full project-root or registry binding. Preserve these drafts while preparing a complete newly frozen owner; do not install native authority from them.
