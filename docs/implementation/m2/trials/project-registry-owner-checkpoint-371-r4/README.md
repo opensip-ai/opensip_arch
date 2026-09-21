@@ -1,0 +1,11 @@
+# Project-registry owner371 revision4
+
+Frozen proposed OWNER/REFERENCE only. No acceptance/selection/native writer/full5binding/S9.3/OS qualification. Product b3af5e8 and design31/45 unchanged.
+
+Current normative owner/schema/model are top-level registry-draft.md/project-registry.schema.json/registry_model.py. Full r3 history is retained under history/r3; original actualr3 NEEDS-CHANGES reports are retained separately. r3-findings-dispositions.md records the correction: EVERY row has immutable allocationKind=random|adopt; ordinary completion requires the exact RESERVED random-kind row; every adopt-kind completion requires independently admitted adoption context matching the reserved ProjectId/root, including complete namespace+exact marker. Cross-machine adoption can have no historical ProjectId row, so history-only inference is not used. No four-member row was deployed; missing kind refuses in this new private-schema proposal, not on-read migration.
+
+Author final r4b:274reference cases with stable unique caseIds,24schema-library cross-checks, unchanged maximum native journal wrapper320555B. Eight parsed/compiled pure-model fault variants are detected after baseline. The initial r4 fault run exposed a test gap: the history-reuse mutant survived because the old example now had adopt-kind and failed earlier on kind mismatch. That example was corrected to random-kind; initial checker/failure/logs and earlier274-case output are preserved. Do not report the initial fault as a kill. Final output is reference-results.r4b.json and fault-results.r4b.json under the root; final fault runner uses fresh fault-runs-r2.
+
+Use fresh replay directories because runners refuse output overwrite; schema checker uses retained /tmp/opensip-implementation/source-audit364-env/bin/python. Supplied observation labels/context fields are not native authority; no OS/native tests or crash qualification. Registry activation cannot authorize/complete portable evidence import or origin transaction.
+
+Await fresh actual independent review of these exact bytes, then formal unit selection/assent/private validation separately. Binding draft372 and dependency-placement planning are not accepted by this registry unit.

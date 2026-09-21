@@ -1,0 +1,3 @@
+# Root assessment of actual registry371 r3
+
+Full REVIEW/findings/pins read substantively after completion, no addendum. Independent254reference/23schema/320555capacity/sevenfault replay accepted as bounded evidence, not owner acceptance. The remaining complete-namespace+exact-marker adoption ambiguity is real: no physical observation distinguishes interrupted adoption from random first-use. Root chooses a persisted immutable allocationKind on every row. The review alternative of history-only inference is insufficient for first-local or cross-machine adoption with no prior ProjectId row, so it is not adopted. Fresh371r4 checks the full registry/RESERVED row kind and context/ProjectId for every completion. All original r3 reports remain unchanged.
