@@ -1,0 +1,13 @@
+# Native trust and generated-source ownership v53
+
+Account for private candidate365 before runtime materialization while preserving all earlier proposals. This successor inherits470 rows from unselected inventory52 and adds163 paths, yielding633 planned files. All20 packages, dependency directions and pending decisions remain unchanged. The currently selected inventory32 has409 rows; the cumulative gap from that selected ancestor is224 paths. All519 candidate365 files have an entry;114 planned entries remain outside that candidate. Proposed inventories33–52 retain their existing standing; membership here does not retroactively accept them.
+
+The unused temporary name inventory33-draft in365 development evidence was only a scratch draft against selected32. No existing inventory33 was overwritten. This53 successor incorporates the existing cumulative52 instead, preserving all61 intervening descriptions by value.
+
+Platform owns bounded OS observations; security owns custody, trust interpretation and retained sessions; lifecycle owns selection syntax; storage owns markers and ledger mechanics; host composes retained evidence under one fence. No row promotes a provisional observation or structural count to authority. Dedicated factory modules use subject_factory names; these added guard/session modules own continuing lifetimes as well as construction.
+
+Generated predicates, typed visits and Unicode tables live in crates/security/src/generated. The handwritten wrappers retain module ancestry and tests. tools/generate_security_tables.py is the explicit offline developer entrypoint; helpers and input/manifest files live under tools/security. Schema JSON uses kebab-case filenames and Rust uses snake_case. Existing corpus checkpoint labels preserve provenance; x86_64 in a binary fixture is the actual architecture token. Each added fixture row describes its corpus purpose; fixtures do not grant qualification.
+
+The four effective inherited description overrides must still project by stable filepath; no inherited row is silently replaced. The large trust.rs remains a separate decomposition task before product materialization, preserving owners and visibility. This inventory does not claim its inherited coarse description proves that work complete.
+
+This is a layout unit only. Actual independent review and root activation precede inventory selection. Source semantics, generated-registry provenance, runtime/source-policy installation, full five-member binding, original-time/current authority, native writers, platform qualification and M2–M6 remain separate. Frozen365 and audit364-r2 contain validation and failed-run history; neither activates this inventory.
