@@ -41,4 +41,4 @@ Grok independently ran366 on the final frozen bytes:388 security tests and four 
 
 The [materialization preflight](trials/materialization-preflight-368/README.md) passes32 read-only dependency/profile/package-edge checks across host/provider and four metadata targets. This does not approve the cumulative runtime delta; that review remains required before installation.
 
-Fresh cumulative host build passes from454source files and51verified archives. Full serialized workspace tests are running. Actual Grok is reviewing the cumulative development dependency closure; formal runtime25 remains pending.
+Fresh cumulative host validation passes755tests+6doctests (0fail,2ignored),454sources/51verified archives. Fresh provider26sources/19archives also passes its boundary checks; semantic analysis remains unimplemented. Actual Grok accepts the bounded macOSarm64 development dependency closure. Frozen runtime25 is now under formal independent source/integration review; source installation remains pending. Architecture5228638bf and product373aae2c are committed, not pushed.

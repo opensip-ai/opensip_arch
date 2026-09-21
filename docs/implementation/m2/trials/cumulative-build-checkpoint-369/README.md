@@ -1,0 +1,9 @@
+# Fresh cumulative host and provider builds369
+
+Validation of frozen368 source; no source modification or runtime selection. Source archive644 members and583 product files verified before the host build. Fresh host copies454 exact source files including48 admitted schema documents and vendors51 lock-checksummed dependency archives. Cargo/rustc1.95, macOS arm64, empty Cargo cache/config with explicit verified vendor replacement, preserved user HOME, serial native tests and macOS user TMPDIR. Full workspace all-target tests and workspace doctests run; actual counts/logs/command times are retained.
+
+Fresh isolated Rust-provider build is necessary: two of26 shared source files (identity closure.rs and lib.rs) differ from the old24 receipt. All19 provider dependency archives are checksum verified, and exact standalone provider metadata/contracts profile/package edges pass. Its three input probes still refuse with the declared not-implemented response. This is boundary validation, not a functioning language provider. No old provider build is relabelled as fresh.
+
+Compiler artifact metadata records actual compiled features separately from cross-target Cargo metadata. Compiler/linker/SDK/loader and dependency build scripts/procedural macros remain explicit trusted inputs. Offline Cargo is not process network confinement. No Linux/x86 execution, release qualification, full authority, writer completion or M2 completion is claimed. The live inventory55 design-lock selection is separately reviewed; source368 carries its historical unchanged lock. Candidate source/runtime/dependency acceptance is separate from these observed builds.
+
+Project copies, unpacked vendors and compiler caches are omitted from this archive; exact source368 and lock-pinned dependency inputs plus verification logs/receipts/harnesses remain identified. Original working directories are retained under /tmp/opensip-implementation.
