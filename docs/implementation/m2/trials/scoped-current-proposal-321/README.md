@@ -1,0 +1,3 @@
+# Current recovery standing321
+
+Proposed option-A disposition of320, grounded in222's current native authority and operation-specific admission rule. Current S4.5 gets an explicitly limited physical-current/projection/census capability, not retrospective empty-event effect proof. Original recorded revocation context is distinguished from replayed before-image equality. No wire change, native implementation, historical proof relaxation, tests or readiness approval claimed. Exact event/census predicate composition remains an explicit open implementation obligation. Source320 is fully rehashed and preserved; actual reviewer must challenge the disposition and its limits.
