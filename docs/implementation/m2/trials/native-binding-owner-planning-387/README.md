@@ -1,0 +1,1 @@
+Preserved planning inputs for actual Grok investigation387. Old372 drafts are historical and not selected law. Registry owner-v2 and source386 are now selected; initialization/publication/recovery joins and full native binding remain pending. This is not a new accepted owner or implementation. Reviewer output is pending at the path in REQUEST.md.
