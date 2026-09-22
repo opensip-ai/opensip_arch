@@ -4523,3 +4523,10 @@ Uncommitted on product 34dcc94, outside that review: private_access.rs now keeps
 Actual Claude Opus 5.5 ACCEPT-UNIT. review.json SHA256 12241c83eaab6e37420ec771f1e351dc356d89bb5ef834bfe75d82985c9c4d8a. requiredFindings empty. Candidate c057ae14… was accepted. O1 removed the two needless returns before commit. Committed file SHA256 eab5c0a8305e429deba03f5b0c14ea90277371a8fa2a879253a27be0182cdd63, 32098 bytes. Product 0cf4470. rustfmt 0, 11 acl_capture tests passed, needless_return clean. O2 public reserved wiring and O3 unknown membership kind remain later tests. Not absence or creator completion. No push. Grok owns the native lane.
 
 The uncommitted private_access narrowing remains the next review. Module SHA256 ecb3aa4db7f6b3384afc3c66368f065bdb5de86d14ca212396c806ec68c0717f, 14174 bytes, on top of 0cf4470. M2–M6 unfinished.
+
+
+## 2026-09-22 — narrowing installed; presence-ACE review assigned
+
+Private-access narrowing accepted and committed at a4405c7. The review-executed type and file-mode pins are committed at a11f267. Review SHA256 ab145e22f6d45e059db3975fb9bc23a808a70f4ed08d2562593ea44f18fa393d. requiredFindings empty. Not creator completion.
+
+Uncommitted on a11f267: macos.rs installs one group deny-delete ACE so a capture can return Entries instead of NotReturned, plus a capture test that saw Entries(1), deny, rights 1<<4. 12 acl_capture tests passed. This replaces the descriptor ACL. It is not creator policy. Actual Claude Opus5 on wF:p1 is assigned docs/implementation/m2/reviews/claude-opus5-presence-ace451-r1/REQUEST.md and owns the serial native lane. No push. M2–M6 unfinished.

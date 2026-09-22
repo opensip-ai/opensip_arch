@@ -1,0 +1,89 @@
+diff --git a/crates/security/src/private_access.rs b/crates/security/src/private_access.rs
+index cb4e9ee..68f5152 100644
+--- a/crates/security/src/private_access.rs
++++ b/crates/security/src/private_access.rs
+@@ -43,7 +43,7 @@ pub(crate) enum PrivateAccessRefusal {
+ 
+ /// Read `acl_state` before any entry. Supplied entries are ignored unless the
+ /// state is `Entries`, so an empty slice cannot turn omission into privacy.
+-pub(crate) fn assess_private_descendant(
++fn assess_private_descendant(
+     kind: PrivateObjectKind,
+     invoking_uid: u32,
+     metadata: &DescriptorMetadata,
+@@ -209,6 +209,19 @@ mod tests {
+             ),
+             Err(PrivateAccessRefusal::ModeShape)
+         );
++        for permissions in [0o4600, 0o2700, 0o1700, 0o500] {
++            directory.mode = DIRECTORY | permissions;
++            assert_eq!(
++                assess_private_descendant(
++                    PrivateObjectKind::Directory,
++                    10,
++                    &directory,
++                    CapturedAclState::Entries(0),
++                    &[],
++                ),
++                Err(PrivateAccessRefusal::ModeShape)
++            );
++        }
+         directory.mode = DIRECTORY | 0o705;
+         assert_eq!(
+             assess_private_descendant(
+@@ -242,6 +255,26 @@ mod tests {
+             ),
+             Err(PrivateAccessRefusal::ForeignOwner)
+         );
++        assert_eq!(
++            assess_private_descendant(
++                PrivateObjectKind::RegularFile,
++                10,
++                &metadata(PrivateObjectKind::Directory, 10),
++                CapturedAclState::Entries(0),
++                &[],
++            ),
++            Err(PrivateAccessRefusal::ModeShape)
++        );
++        assert_eq!(
++            assess_private_descendant(
++                PrivateObjectKind::Directory,
++                10,
++                &metadata(PrivateObjectKind::RegularFile, 10),
++                CapturedAclState::Entries(0),
++                &[],
++            ),
++            Err(PrivateAccessRefusal::ModeShape)
++        );
+     }
+ 
+     #[test]
+@@ -324,11 +357,18 @@ mod tests {
+         use opensip_platform::{WorkLedger, capture_descriptor_acl_accounted};
+         use std::fs::{self, File, Permissions};
+         use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
++        struct Scratch(std::path::PathBuf);
++        impl Drop for Scratch {
++            fn drop(&mut self) {
++                let _ = fs::remove_dir_all(&self.0);
++            }
++        }
+         let nonce = opensip_platform::request_entropy().unwrap();
+         let name: String = nonce.iter().map(|b| format!("{b:02x}")).collect();
+-        let root = std::env::temp_dir().join(format!("opensip-private-access-{name}"));
+-        fs::create_dir(&root).unwrap();
+-        fs::set_permissions(&root, Permissions::from_mode(0o700)).unwrap();
++        let scratch = Scratch(std::env::temp_dir().join(format!("opensip-private-access-{name}")));
++        let root = &scratch.0;
++        fs::create_dir(root).unwrap();
++        fs::set_permissions(root, Permissions::from_mode(0o700)).unwrap();
+         let file_path = root.join("record");
+         let file = std::fs::OpenOptions::new()
+             .read(true)
+@@ -360,6 +400,5 @@ mod tests {
+         }
+         drop(file);
+         let _ = File::open(&file_path);
+-        let _ = fs::remove_dir_all(&root);
+     }
+ }
