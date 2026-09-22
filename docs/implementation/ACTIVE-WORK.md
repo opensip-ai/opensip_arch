@@ -4559,3 +4559,8 @@ Uncommitted on 0192a70: append_owner_zero_allow is public and limited to regular
 ## 2026-09-22 — append accounting installed at 03cee39; reserved-wrapper tests are under review
 
 452 r2 ACCEPT-UNIT, requiredFindings empty. Product 03cee39. The raw append is crate-private and the write is charged. Uncommitted tests pin the reserved wrapper and re-capture after a second prepare. Request: docs/implementation/m2/reviews/claude-opus5-prepare-private452-r3/REQUEST.md. Reviewer owns the native lane. Not creator completion. No push. M2–M6 unfinished.
+
+
+## 2026-09-22 — reserved-wrapper tests installed at 137d7e8; shape helper is under review
+
+452 r3 ACCEPT-UNIT, requiredFindings empty. Product 137d7e8. Test-only. Uncommitted private_access.rs replaces the fabricated Entries(0) gate with private_shape, documents a residual zero-rights allow, and prepares a fresh 0700 directory. 10 private_access tests passed. Request: docs/implementation/m2/reviews/claude-opus5-prepare-private452-r4/REQUEST.md. Reviewer owns the native lane. Not creator completion. No push. M2–M6 unfinished.
