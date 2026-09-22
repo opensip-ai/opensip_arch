@@ -4564,3 +4564,8 @@ Uncommitted on 0192a70: append_owner_zero_allow is public and limited to regular
 ## 2026-09-22 — reserved-wrapper tests installed at 137d7e8; shape helper is under review
 
 452 r3 ACCEPT-UNIT, requiredFindings empty. Product 137d7e8. Test-only. Uncommitted private_access.rs replaces the fabricated Entries(0) gate with private_shape, documents a residual zero-rights allow, and prepares a fresh 0700 directory. 10 private_access tests passed. Request: docs/implementation/m2/reviews/claude-opus5-prepare-private452-r4/REQUEST.md. Reviewer owns the native lane. Not creator completion. No push. M2–M6 unfinished.
+
+
+## 2026-09-22 — shape helper installed at 1df6373; private file creation is under review
+
+452 r4 ACCEPT-UNIT, requiredFindings empty. Product 1df6373. private_shape is shared. Uncommitted create_private_regular_file makes one 0600 file from a single path component and prepares its ACL. A slash name is refused. 10 private_access tests passed. Request: docs/implementation/m2/reviews/claude-opus5-create-private453-r1/REQUEST.md. Reviewer owns the native lane. This is not the installation creator. No push. M2–M6 unfinished.
