@@ -1,0 +1,428 @@
+{
+ "schemaVersion": 1,
+ "unit": "presence-ace451 source candidate",
+ "reviewType": "source",
+ "verdict": "REQUIRED-FINDINGS",
+ "requiredFindings": [
+  {
+   "id": "RF-1",
+   "title": "The presence marker ACE restricts the owner",
+   "detail": "group:<file gid> deny delete binds every member of the file's group, including the owner when the owner belongs to it (the default under a home directory or /var/folders/.../T). Measured under a primary-group parent: owner unlink, atomic rename-over, rename-away, rmdir and directory rename all fail with EACCES until chmod -N. The unit's own new test leaked two marked scratch directories in the owner's default TMPDIR at 15:12 because Scratch::drop's remove_dir_all was denied.",
+   "fix": "Use a behaviour-neutral marker. Measured: a zero-rights allow for the owner (tag 1, mask 0) captures as Entries(1) kind 1 rights 0 and leaves owner rename-over/unlink working; private_access accepts PERMIT with zero rights. user:nobody deny delete also works. Prefer the zero-rights allow.",
+   "evidence": [
+    "evidence/probe-results.json",
+    "evidence/owner-tmpdir-leaked-scratch.txt",
+    "evidence/alternative-results.json"
+   ]
+  },
+  {
+   "id": "RF-2",
+   "title": "Whole-ACL replacement is an ACL policy action, not a presence marker, and can widen effective access",
+   "detail": "acl_set_fd_np(ACL_TYPE_EXTENDED) with a one-entry ACL discards all existing ACEs: explicit allow and deny (case C) and inherited foreign allows (case D). With no mode/owner precondition, discarding a deny can widen access: on a 0644 file with group:everyone deny read, the marker removes the deny and the mode bits again grant group/other read (case E). This contradicts 'presence marker', 'not creator policy' and 'does not grant access'.",
+   "fix": "Append the marker to the descriptor's existing ACL on the same fd (read, add entry, write back) so existing and inherited ACEs remain visible to capture and the predicate. Clearing inherited ACEs, if wanted, is creator policy for a separately reviewed unit with explicit preconditions (fresh object created in this operation, exact private mode, invoking-user owner).",
+   "evidence": [
+    "evidence/probe-results.json"
+   ]
+  },
+  {
+   "id": "RF-3",
+   "title": "Production helpers without a production caller add 10 dead_code warnings and widen the unsafe production surface",
+   "detail": "install_non_granting_presence_ace and install_single_ace are production pub(crate) with no non-test caller; the platform lib build now reports 10 warnings (the two functions and eight FFI declarations). The workspace check was warning-free at every accepted state 447-450. The generic writer (any tag/mask/principal, including allows) moved from test-only to production.",
+   "fix": "Keep install_single_ace private to macos.rs; land the marker with its reviewed caller or keep it cfg(test) until the creator unit wires it; do not add allow(dead_code).",
+   "evidence": [
+    "evidence/runs/03-cargo-check-workspace.stderr"
+   ],
+   "warnings": [
+    "warning: function `install_non_granting_presence_ace` is never used",
+    "warning: function `install_single_ace` is never used",
+    "warning: function `acl_init` is never used",
+    "warning: function `acl_create_entry` is never used",
+    "warning: function `mbr_uid_to_uuid` is never used",
+    "warning: function `mbr_gid_to_uuid` is never used",
+    "warning: function `acl_set_tag_type` is never used",
+    "warning: function `acl_set_qualifier` is never used",
+    "warning: function `acl_set_permset_mask_np` is never used",
+    "warning: function `acl_set_fd_np` is never used"
+   ]
+  }
+ ],
+ "answerToQuestion": "Replacing the whole ACL with one group deny of delete is NOT an acceptable presence marker: the deny locks the owner out of delete/rename when the owner is in the file's group (RF-1), and the replacement itself discards existing and inherited ACEs and can widen effective access (RF-2). Both are required findings.",
+ "actualModel": "Claude Opus 5.5",
+ "reviewer": {
+  "actualModel": "Claude Opus 5.5",
+  "modelId": "claude-opus-5-5[1m]",
+  "identityNote": "Actual model identity, not a task label. Assigned as the Claude Opus 5 reviewer lane on wF:p1.",
+  "reviewDate": "2026-09-22",
+  "leadEngineer": "Grok",
+  "delegation": false,
+  "repositoryEdits": 0,
+  "commits": 0,
+  "pushes": 0,
+  "privateUuidFixture413Accessed": false
+ },
+ "nativeJobsRun": true,
+ "nativeLane": {
+  "owner": "reviewer until this report was written; released now",
+  "serial": true,
+  "window": "2026-09-22T22:15:43Z..2026-09-22T22:18:05Z",
+  "isolation": "env -i; CARGO_HOME copy, fresh CARGO_TARGET_DIR and TMPDIR under R; probes on a mini-workspace copy of the candidate platform crate under R; git read-only with GIT_OPTIONAL_LOCKS=0",
+  "outsideWrites": "none: pre/post snapshots identical for product HEAD/status/index, both subject files, Cargo.lock, design-lock, product target/, ~/.cargo/.global-cache; owner TMPDIR only listed; architecture repository clean"
+ },
+ "sourceVerdict": "REQUIRED-FINDINGS",
+ "sourceVerdictScope": "The uncommitted crates/platform/src/macos.rs and crates/platform/src/filesystem/descriptor_acl_capture.rs on product a11f2674eee885bb51f3cf68a6e4049c20b2fe1a at the pins below. Not creator policy, absence authority, per-vnode profile, private-access wiring, commit or selection.",
+ "subject": {
+  "productHead": "a11f2674eee885bb51f3cf68a6e4049c20b2fe1a",
+  "gitDiffEntries": [
+   " M crates/platform/src/filesystem/descriptor_acl_capture.rs",
+   " M crates/platform/src/macos.rs"
+  ],
+  "pins": [
+   {
+    "path": "crates/platform/src/macos.rs",
+    "bytes": 13601,
+    "sha256": "edcbaed9494b01995111671cfedfdb78311c8d20103625573d7d49d5a9d1f679"
+   },
+   {
+    "path": "crates/platform/src/filesystem/descriptor_acl_capture.rs",
+    "bytes": 33031,
+    "sha256": "7238923b40d614d87da385ec5aa14f1dfdcf890c9e63b17e430856329c749660"
+   }
+  ],
+  "captureBaseSha256": "eab5c0a8305e429deba03f5b0c14ea90277371a8fa2a879253a27be0182cdd63"
+ },
+ "whatPasses": {
+  "rustfmt": 0,
+  "focusedTests": "12 passed",
+  "captureDecodesMarkerExactly": true,
+  "setProbeAclStillTestOnly": true,
+  "fdBasedWriteNoPathLookup": true
+ },
+ "commands": [
+  {
+   "requestedByRequest": true,
+   "name": "01-rustfmt-check",
+   "cwd": "product",
+   "command": [
+    "rustfmt",
+    "--edition",
+    "2024",
+    "--check",
+    "crates/platform/src/macos.rs",
+    "crates/platform/src/filesystem/descriptor_acl_capture.rs"
+   ],
+   "exitCode": 0,
+   "start": "2026-09-22T22:15:43Z",
+   "end": "2026-09-22T22:15:43Z"
+  },
+  {
+   "requestedByRequest": true,
+   "name": "02-cargo-test-acl-capture",
+   "cwd": "product",
+   "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "--offline",
+    "-p",
+    "opensip-platform",
+    "--lib",
+    "acl_capture_"
+   ],
+   "exitCode": 0,
+   "start": "2026-09-22T22:15:43Z",
+   "end": "2026-09-22T22:15:46Z",
+   "testResult": "test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 144 filtered out; finished in 0.01s"
+  },
+  {
+   "requestedByRequest": false,
+   "name": "03-cargo-check-workspace",
+   "cwd": "product",
+   "command": [
+    "cargo",
+    "check",
+    "--locked",
+    "--offline",
+    "--workspace",
+    "--all-targets"
+   ],
+   "exitCode": 0,
+   "start": "2026-09-22T22:15:51Z",
+   "end": "2026-09-22T22:16:08Z"
+  },
+  {
+   "requestedByRequest": false,
+   "name": "04-reviewer-presence-probe",
+   "cwd": "R/work/mut/ws",
+   "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "--offline",
+    "-p",
+    "opensip-platform",
+    "--lib",
+    "reviewer_presence_probe",
+    "--",
+    "--nocapture"
+   ],
+   "exitCode": 0,
+   "start": "2026-09-22T22:16:58Z",
+   "end": "2026-09-22T22:17:01Z",
+   "testResult": "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 156 filtered out; finished in 0.04s"
+  },
+  {
+   "requestedByRequest": false,
+   "name": "05-mutant-ws-prune-lock",
+   "cwd": "R/work/mut/ws",
+   "command": [
+    "cargo",
+    "metadata",
+    "--offline",
+    "--format-version",
+    "1"
+   ],
+   "exitCode": 0,
+   "start": "2026-09-22T22:16:58Z",
+   "end": "2026-09-22T22:16:58Z"
+  },
+  {
+   "requestedByRequest": false,
+   "name": "06-reviewer-alternative-probe",
+   "cwd": "R/work/mut/ws",
+   "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "--offline",
+    "-p",
+    "opensip-platform",
+    "--lib",
+    "reviewer_alternative_probe",
+    "--",
+    "--nocapture"
+   ],
+   "exitCode": 0,
+   "start": "2026-09-22T22:18:04Z",
+   "end": "2026-09-22T22:18:05Z",
+   "testResult": "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 156 filtered out; finished in 0.01s"
+  }
+ ],
+ "nativeProbe": {
+  "source": "evidence/presence_probe.rs",
+  "results": "evidence/probe-results.json",
+  "cases": [
+   {
+    "case": "A owner is member of file group",
+    "result": "false"
+   },
+   {
+    "case": "A fresh file",
+    "result": "NotReturned []"
+   },
+   {
+    "case": "A install marker",
+    "result": "Ok"
+   },
+   {
+    "case": "A after marker",
+    "result": "Entries(1) [\"kind=2 inherited=false rights=0x10 Group(<redacted>)\"]"
+   },
+   {
+    "case": "A owner write via fd",
+    "result": "Ok"
+   },
+   {
+    "case": "A owner unlink marked file",
+    "result": "Ok"
+   },
+   {
+    "case": "A install marker on directory",
+    "result": "Ok"
+   },
+   {
+    "case": "A directory after marker",
+    "result": "Entries(1) [\"kind=2 inherited=false rights=0x10 Group(<redacted>)\"]"
+   },
+   {
+    "case": "A owner rmdir marked directory",
+    "result": "Ok"
+   },
+   {
+    "case": "B owner is member of file group",
+    "result": "true"
+   },
+   {
+    "case": "B fresh file",
+    "result": "NotReturned []"
+   },
+   {
+    "case": "B install marker",
+    "result": "Ok"
+   },
+   {
+    "case": "B after marker",
+    "result": "Entries(1) [\"kind=2 inherited=false rights=0x10 Group(<redacted>)\"]"
+   },
+   {
+    "case": "B owner write via fd",
+    "result": "Ok"
+   },
+   {
+    "case": "B owner unlink marked file",
+    "result": "Err(PermissionDenied, errno Some(13))"
+   },
+   {
+    "case": "B owner rename-over marked file (atomic replace)",
+    "result": "Err(PermissionDenied, errno Some(13))"
+   },
+   {
+    "case": "B owner rename marked file away",
+    "result": "Err(PermissionDenied, errno Some(13))"
+   },
+   {
+    "case": "B owner chmod -N marked file",
+    "result": "true"
+   },
+   {
+    "case": "B owner unlink after chmod -N",
+    "result": "Ok"
+   },
+   {
+    "case": "B install marker on directory",
+    "result": "Ok"
+   },
+   {
+    "case": "B directory after marker",
+    "result": "Entries(1) [\"kind=2 inherited=false rights=0x10 Group(<redacted>)\"]"
+   },
+   {
+    "case": "B owner rmdir marked directory",
+    "result": "Err(PermissionDenied, errno Some(13))"
+   },
+   {
+    "case": "B owner rename marked directory",
+    "result": "Err(PermissionDenied, errno Some(13))"
+   },
+   {
+    "case": "B owner chmod -N marked directory",
+    "result": "true"
+   },
+   {
+    "case": "B owner rmdir after chmod -N",
+    "result": "Ok"
+   },
+   {
+    "case": "C pre-existing ACL",
+    "result": "Entries(2) [\"kind=2 inherited=false rights=0x4 Group(<redacted>)\", \"kind=1 inherited=false rights=0x2 User(<redacted>)\"]"
+   },
+   {
+    "case": "C install marker",
+    "result": "Ok"
+   },
+   {
+    "case": "C after marker",
+    "result": "Entries(1) [\"kind=2 inherited=false rights=0x10 Group(<redacted>)\"]"
+   },
+   {
+    "case": "D child with inherited ACL",
+    "result": "Entries(1) [\"kind=1 inherited=true rights=0x2 Group(<redacted>)\"]"
+   },
+   {
+    "case": "D install marker",
+    "result": "Ok"
+   },
+   {
+    "case": "D after marker",
+    "result": "Entries(1) [\"kind=2 inherited=false rights=0x10 Group(<redacted>)\"]"
+   },
+   {
+    "case": "E 0644 with everyone deny read",
+    "result": "Entries(1) [\"kind=2 inherited=false rights=0x2 Group(<redacted>)\"]"
+   },
+   {
+    "case": "E install marker",
+    "result": "Ok"
+   },
+   {
+    "case": "E after marker (0644 mode now governs group/other read)",
+    "result": "Entries(1) [\"kind=2 inherited=false rights=0x10 Group(<redacted>)\"]"
+   }
+  ]
+ },
+ "alternativeMarkers": {
+  "source": "evidence/alternative_probe.rs",
+  "results": "evidence/alternative-results.json",
+  "cases": [
+   {
+    "case": "ALT1 owner zero-rights allow install",
+    "result": "Ok"
+   },
+   {
+    "case": "ALT1 owner zero-rights allow capture",
+    "result": "Entries(1) [\"kind=1 rights=0x0 User(<redacted>)\"]"
+   },
+   {
+    "case": "ALT1 owner zero-rights allow owner rename-over",
+    "result": "Ok"
+   },
+   {
+    "case": "ALT1 owner zero-rights allow owner unlink",
+    "result": "Ok"
+   },
+   {
+    "case": "ALT2 user:nobody deny delete install",
+    "result": "Ok"
+   },
+   {
+    "case": "ALT2 user:nobody deny delete capture",
+    "result": "Entries(1) [\"kind=2 rights=0x10 User(<redacted>)\"]"
+   },
+   {
+    "case": "ALT2 user:nobody deny delete owner rename-over",
+    "result": "Ok"
+   },
+   {
+    "case": "ALT2 user:nobody deny delete owner unlink",
+    "result": "Ok"
+   }
+  ]
+ },
+ "observations": [
+  {
+   "id": "O1",
+   "summary": "After the fix, add a regression test with the probe-B shape (parent chowned to the owner's primary group; assert owner unlink/rename-over succeed and capture returns Entries); the current test cannot see RF-1 in a TMPDIR whose group excludes the owner."
+  },
+  {
+   "id": "O2",
+   "summary": "Owner cleanup outside reviewer scope: two leaked marked scratch dirs in /var/folders/zg/kvnts3md1tndqtbpbhjh3zwh0000gn/T (opensip-acl447-31db0f17..., opensip-acl447-3cd57f42...); chmod -RN each, then remove."
+  },
+  {
+   "id": "O3",
+   "summary": "Unchanged and correct: the capture and its exact marker decoding, set_probe_acl staying test-only, fd-based write, updated SAFETY comment. a11f267 adopts my 450 O1 recommended tests."
+  }
+ ],
+ "limits": [
+  "This macOS development host only; Linux not replayed.",
+  "Delete/rename semantics measured, not taken from pinned XNU source; superuser behaviour out of scope.",
+  "No creator policy, absence authority, per-vnode profile qualification, private-access wiring, commit or selection."
+ ],
+ "evidence": [
+  "REVIEW.md",
+  "evidence/subject-diff-vs-a11f267.patch",
+  "evidence/presence_probe.rs",
+  "evidence/probe.py",
+  "evidence/probe-results.json",
+  "evidence/alternative_probe.rs",
+  "evidence/alternative.py",
+  "evidence/alternative-results.json",
+  "evidence/owner-tmpdir-leaked-scratch.txt",
+  "evidence/replay.sh",
+  "evidence/snapshot.sh",
+  "evidence/runs/*",
+  "evidence/product-index-before.txt",
+  "evidence/pre-replay-snapshot.txt",
+  "evidence/post-replay-snapshot.txt",
+  "evidence/removed-scratch.txt",
+  "hashes.txt"
+ ]
+}

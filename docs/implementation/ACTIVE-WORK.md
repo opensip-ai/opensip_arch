@@ -4530,3 +4530,10 @@ The uncommitted private_access narrowing remains the next review. Module SHA256 
 Private-access narrowing accepted and committed at a4405c7. The review-executed type and file-mode pins are committed at a11f267. Review SHA256 ab145e22f6d45e059db3975fb9bc23a808a70f4ed08d2562593ea44f18fa393d. requiredFindings empty. Not creator completion.
 
 Uncommitted on a11f267: macos.rs installs one group deny-delete ACE so a capture can return Entries instead of NotReturned, plus a capture test that saw Entries(1), deny, rights 1<<4. 12 acl_capture tests passed. This replaces the descriptor ACL. It is not creator policy. Actual Claude Opus5 on wF:p1 is assigned docs/implementation/m2/reviews/claude-opus5-presence-ace451-r1/REQUEST.md and owns the serial native lane. No push. M2–M6 unfinished.
+
+
+## 2026-09-22 — presence ACE 451 refused; additive zero-rights allow is r2
+
+Actual Claude Opus 5.5 REQUIRED-FINDINGS on the group deny-delete replacement. RF-1: that deny blocks the owner when the owner is in the file group. RF-2: replacement discards existing and inherited ACEs and can widen access. RF-3: production helpers with no caller added dead-code warnings. The rejected diff was not committed. The two leaked scratch directories were removed after chmod -RN.
+
+Corrected uncommitted diff is test-only. append_owner_zero_allow reads the extended ACL and appends one zero-rights owner allow. The test keeps a prior allow of right 2, then expects rights 0 and 2, and owner rename-over plus unlink succeed with the parent chowned to the process gid. cargo check --lib is warning-free. 12 acl_capture tests passed. r2 request: docs/implementation/m2/reviews/claude-opus5-presence-ace451-r2/REQUEST.md. Reviewer owns the native lane. Not creator policy. No push. M2–M6 unfinished.
