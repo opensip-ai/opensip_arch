@@ -4500,3 +4500,12 @@ Uncommitted product on f8019ec: crates/security/src/private_access.rs SHA256 e41
 Proposed inventory64 adds that one security path at file index 248. Projection PASS, 28 corruptions refused. package.json 508→509, imported schema 575→576. Not selected.
 
 Actual Claude Opus5 on wF:p1 is assigned docs/implementation/m2/reviews/claude-opus5-private-access448-inventory64-r1/REQUEST.md. Reviewer owns the serial native lane until the report is written. The request requires top-level verdict ACCEPT-UNIT when both units are accepted. No integration before the report and root assent. Capture test-gap work continues only outside this product tree. M2–M6 unfinished.
+
+
+## 2026-09-22 — inventory64 selected; private-access predicate installed at 34dcc94
+
+Actual Claude Opus 5.5 ACCEPT-UNIT. review.json SHA256 5a25407ebd2215cb516bbe414f2e9c93d8f1b6705e1dbfa99068f5dce2e8fedd. requiredFindings empty. Top-level verdict ACCEPT-UNIT. Root assessment qualifies O1–O6 and does not amend the accepted bytes. O1: before wiring, assess_private_descendant becomes test-only and assess_private_descendant_capture stays the crate-visible entry. O4: this host reads fresh objects and chmod -N as NotReturned, so a creator must install an explicit ACL or obtain a reviewed per-vnode premise.
+
+T/select_inventory64.py PASS. Private and live verify_design passed. Product bd90ce5 selects inventory64: 39 inventory successors, 65 contract successors, 712 planned files. Design-lock SHA256 b56d8f2547b87dbeba4f9f4389af14f383d7e7597574ae85ad70f286da208e71. Never rerun that selector.
+
+Product 34dcc94 commits the two reviewed paths. Module SHA256 e41d0813c063ab1c4db0046a1aacd4e60f2457704b3b0b6cfad3ea6d27f3d069. lib.rs SHA256 6e0e6115f506c67d951e3336503ee9680ae3ef32a5aaf50f4a04bf2700b63916. Reviewer replay: rustfmt 0, 7 tests passed, workspace check 0, plus a 13-case native ACE probe. Not creator completion. Latest contract successor remains runtime43. No push. Grok owns the native lane again. Next: capture test-gap successor in /tmp/opensip-implementation/capture-gaps449, then the O1 visibility narrowing, each under review before integration. M2–M6 unfinished.
