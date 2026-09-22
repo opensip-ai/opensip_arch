@@ -4509,3 +4509,10 @@ Actual Claude Opus 5.5 ACCEPT-UNIT. review.json SHA256 5a25407ebd2215cb516bbe414
 T/select_inventory64.py PASS. Private and live verify_design passed. Product bd90ce5 selects inventory64: 39 inventory successors, 65 contract successors, 712 planned files. Design-lock SHA256 b56d8f2547b87dbeba4f9f4389af14f383d7e7597574ae85ad70f286da208e71. Never rerun that selector.
 
 Product 34dcc94 commits the two reviewed paths. Module SHA256 e41d0813c063ab1c4db0046a1aacd4e60f2457704b3b0b6cfad3ea6d27f3d069. lib.rs SHA256 6e0e6115f506c67d951e3336503ee9680ae3ef32a5aaf50f4a04bf2700b63916. Reviewer replay: rustfmt 0, 7 tests passed, workspace check 0, plus a 13-case native ACE probe. Not creator completion. Latest contract successor remains runtime43. No push. Grok owns the native lane again. Next: capture test-gap successor in /tmp/opensip-implementation/capture-gaps449, then the O1 visibility narrowing, each under review before integration. M2–M6 unfinished.
+
+
+## 2026-09-22 — capture test-gap review assigned; predicate visibility narrowing is local only
+
+Capture candidate: /tmp/opensip-implementation/capture-gaps449 crates/platform/src/filesystem/descriptor_acl_capture.rs SHA256 c057ae14847190652b11dec6a8c42e8d831f6e5752da559b973fea8be7444ebf, 32114 bytes, one-file diff from f8019ec. Owner saw 11 acl_capture tests pass. Actual Claude Opus5 on wF:p1 is assigned docs/implementation/m2/reviews/claude-opus5-capture-gaps449-r1/REQUEST.md and owns the serial native lane. The product checkout is not the subject.
+
+Uncommitted on product 34dcc94, outside that review: private_access.rs now keeps assess_private_descendant private to the module, adds exact-mode and kind/type mismatch cases, and drops the native scratch directory on failure. Owner saw 7 private_access tests pass after that edit. It is not committed and not part of the capture review. No push. M2–M6 unfinished.
