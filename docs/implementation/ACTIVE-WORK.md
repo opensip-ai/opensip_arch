@@ -4482,3 +4482,12 @@ Private447 was rechecked by Grok on product base 20d94ec: rustfmt --check 0, 8 a
 Proposed inventory63 is docs/implementation/m2/descriptor-acl-capture-inventory-v63/ plus repository-file-inventory.v63.json. One added path at file index 181. Projection helper PASS, 28 corruptions refused. package.json 507→508, imported schema 574→575; bootstrap 7, report package 13, lineage 104 unchanged. Not selected. No design-lock edit.
 
 Actual Claude Opus5 on wF:p1 is assigned the combined layout and source review. Request: docs/implementation/m2/reviews/claude-opus5-acl-capture447-inventory63-r1/REQUEST.md. Reviewer owns the serial native lane until that review is idle. wH:p6 keeps the prior 446 transcript and is not given a second concurrent review. No product integration before the report and root assent. M2–M6 unfinished.
+
+
+## 2026-09-22 — inventory63 selected; reviewed capture installed at f8019ec
+
+Actual Claude Opus 5.5 ACCEPT-UNIT for inventory63 and the private447 source boundary. review.json SHA256 bf8eb9106c9770c5a6551230e64851d1d856359064dd1bc6dafd92a140a479a3. requiredFindings empty. The checker also required top-level verdict ACCEPT-UNIT; the reviewer added that key without changing the scoped verdicts or rerunning native jobs. Root assessment is archived with the review. Non-blocking observations O1–O8 are qualifications, not source amendments. O2–O5 remain test gaps for a later successor. O7 stands for the next predicate: branch on acl_state before entry().
+
+T/select_inventory63.py PASS. Private and live verify_design passed. Product 0cba8f7 selects inventory63: 38 inventory successors, 65 contract successors, 711 planned files, 595 non-lock files unchanged from 20d94ec. Design-lock SHA256 05731aeb01569d51ca974fc1685a5a95121934efd28dfdca5aab29ff3fd7dc2d. Never rerun that selector.
+
+Product f8019ec copies the three reviewed content paths only. Reviewed module SHA256 7edfed520d4223d78b5f2546c684488082ffccc238984bf1d5ae970b3ddf8586. Integration rerun: rustfmt --check 0, 8 acl_capture tests passed, workspace cargo check --locked --offline --all-targets 0. The mode-only check-boundary.mjs difference was not copied. Omission and the NOACL sentinel are not absence. This is not creator completion, profile qualification, or an M2 close. The latest contract successor remains runtime43. No push. Grok owns the native lane. Next product behavior is the access-exclusion predicate over this capture, with the recorded test gaps, under a fresh review before integration. M2–M6 unfinished.

@@ -1,0 +1,105 @@
+"""Serial compiled-mutant pass over a COPY of the private447 capture module.
+
+Reviewer-authored (actual Claude Opus 5). Mutates only
+R/work/mut/ws/crates/platform/src/filesystem/descriptor_acl_capture.rs, a copy
+inside the review directory; the private447 source is never written. Each mutant
+is one exact single-occurrence replacement, compiled and run with the requested
+focused filter, then the original bytes are restored and re-verified.
+A KILLED mutant means at least one acl_capture_ test failed or the mutant failed
+to compile; SURVIVED means all eight tests still passed.
+"""
+import hashlib, json, pathlib, subprocess, sys
+
+R = pathlib.Path("/tmp/opensip-implementation/reviews/claude-opus5-acl-capture447-inventory63-r1")
+W = R / "work/mut/ws"
+MODULE = W / "crates/platform/src/filesystem/descriptor_acl_capture.rs"
+ORIGINAL_SHA = "7edfed520d4223d78b5f2546c684488082ffccc238984bf1d5ae970b3ddf8586"
+
+MUTANTS = [
+    ("M01-omission-becomes-empty", "admit absence",
+     "        CapturedAclState::NotReturned\n    } else {",
+     "        CapturedAclState::Entries(0)\n    } else {"),
+    ("M02-sentinel-becomes-empty", "admit absence",
+     "            CapturedAclState::NoAclSentinel\n        } else {",
+     "            CapturedAclState::Entries(0)\n        } else {"),
+    ("M03-omitted-acl-flags-fabricated", "admit absence",
+     "        if self.layout.state == CapturedAclState::NotReturned {\n            None",
+     "        if self.layout.state == CapturedAclState::NotReturned {\n            Some(0)"),
+    ("M04-drop-unknown-right-bits", "drop a right",
+     "            rights: word(&self.buffer, offset + 20).ok()?,",
+     "            rights: word(&self.buffer, offset + 20).ok()? & 0x01ff_ffff,"),
+    ("M05-drop-inheritance-flags", "drop a flag",
+     "            flags: word(&self.buffer, offset + 16).ok()?,",
+     "            flags: word(&self.buffer, offset + 16).ok()? & 0xf,"),
+    ("M06-drop-after-bracket", "skip original-descriptor bracket",
+     "    if before != after {\n        return Err(DescriptorAclCaptureError::Changed);\n    }\n    let (layout, principals) = pending?;",
+     "    let _ = &after;\n    let (layout, principals) = pending?;"),
+    ("M07-syscall-failure-skips-after-bracket", "skip original-descriptor bracket",
+     "    let pending = if result != 0 {\n",
+     "    if result != 0 {\n        return Err(DescriptorAclCaptureError::Io(io::Error::last_os_error()));\n    }\n    let pending = if result != 0 {\n"),
+    ("M08-accounted-native-before-charge", "charge after native work",
+     "    work.run(descriptor_acl_capture_cost(), |_| {\n        capture_native(file).map_err(WorkFailure::Operation)\n    })",
+     "    let early = capture_native(file);\n    work.run(descriptor_acl_capture_cost(), |_| {\n        early.map_err(WorkFailure::Operation)\n    })"),
+    ("M09-reserved-native-before-spend", "charge after native work",
+     "    post.scope(|post| {\n        post.spend(descriptor_acl_capture_cost())?;\n        capture_native(file).map_err(WorkFailure::Operation)\n    })",
+     "    let early = capture_native(file);\n    post.scope(|post| {\n        post.spend(descriptor_acl_capture_cost())?;\n        early.map_err(WorkFailure::Operation)\n    })"),
+    ("M10-remove-128-entry-bound", "decoder bound",
+     "            if count > MAX_ENTRIES || length != HEADER_BYTES + count * ENTRY_BYTES {",
+     "            if length != HEADER_BYTES + count * ENTRY_BYTES {"),
+    ("M11-undercharge-resolver-edges", "accounting",
+     "        edges: 3 + MAX_ENTRIES,",
+     "        edges: 3,"),
+    ("M12-omitted-with-data-accepted", "decoder strictness",
+     "        if length != 0 {\n            return Err(malformed(\"omitted ACL has data\"));\n        }\n",
+     ""),
+    ("M13-unknown-membership-kind-becomes-group", "principal result",
+     "        (0, 1) => CapturedAclPrincipal::Group(id),",
+     "        (0, _) => CapturedAclPrincipal::Group(id),"),
+]
+
+
+def sha(b):
+    return hashlib.sha256(b).hexdigest()
+
+
+def run(name):
+    cmd = [str(R / "evidence/replay.sh"), name, str(W), "cargo", "test", "--locked", "--offline",
+           "-p", "opensip-platform", "--lib", "acl_capture_"]
+    env = {"TARGET": str(R / "work/target-mut"), "PATH": "/usr/bin:/bin"}
+    code = subprocess.run(cmd, env=env).returncode
+    out = (R / "evidence/runs" / f"{name}.stdout").read_text()
+    err = (R / "evidence/runs" / f"{name}.stderr").read_text()
+    failed = [l.split()[1] for l in out.splitlines() if l.startswith("test ") and l.endswith("FAILED")]
+    summary = [l for l in out.splitlines() if l.startswith("test result:")]
+    compile_error = "error[" in err or "could not compile" in err
+    return code, failed, summary, compile_error
+
+
+def main():
+    original = MODULE.read_bytes()
+    assert sha(original) == ORIGINAL_SHA, "copy differs from private447 module"
+    results = []
+    code, failed, summary, ce = run("mut-00-baseline")
+    assert code == 0 and not failed, "baseline must pass"
+    results.append({"id": "M00-baseline", "exitCode": code, "summary": summary})
+    text = original.decode()
+    try:
+        for ident, cls, old, new in MUTANTS:
+            assert text.count(old) == 1, f"{ident}: target must occur exactly once"
+            MODULE.write_bytes(text.replace(old, new).encode())
+            code, failed, summary, ce = run("mut-" + ident)
+            MODULE.write_bytes(original)
+            assert sha(MODULE.read_bytes()) == ORIGINAL_SHA
+            results.append({"id": ident, "defectClass": cls, "exitCode": code,
+                            "verdict": "KILLED" if code != 0 else "SURVIVED",
+                            "compileError": ce, "failedTests": failed, "summary": summary})
+            print(ident, results[-1]["verdict"], failed or summary, flush=True)
+    finally:
+        MODULE.write_bytes(original)
+    assert sha(MODULE.read_bytes()) == ORIGINAL_SHA
+    (R / "evidence/mutants.json").write_text(json.dumps(
+        {"moduleSha256": ORIGINAL_SHA, "restoredAndVerified": True, "results": results}, indent=1) + "\n")
+
+
+if __name__ == "__main__":
+    main()

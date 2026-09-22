@@ -4,7 +4,7 @@ Snapshot after runtime43 integration,2026-09-21, with the 2026-09-22 leadership 
 
 ## Installed and committed
 
-Product `20d94ec`: runtime43/source443, inventory62,37 inventory/65 contract successors,596 tracked files. Inventory plans710 files across20 packages; these counts are not a completion percentage. Nothing pushed.
+Product `f8019ec`: runtime43 contract base, selected inventory63, 38 inventory/65 contract successors, 597 tracked files. Inventory plans 711 files across 20 packages. The bounded descriptor ACL capture is installed. These counts are not a completion percentage. Nothing pushed.
 
 - Runtime35 implements endpoint-only physical marker checking while retaining complete immutable lineage. Actual Grok reviewed it; earlier Claude evidence was partial, not approval.
 - Runtime36 closes trust budgets after caught nested failure or unwinding. Actual Claude accepted it. Historical full security suite392pass/2pre-existing clock pilots ignored.
@@ -26,7 +26,7 @@ Runtime40 adds the bounded reader with eight reader and seven ledger integration
 
 Runtime43/source443 is installed and committed after actual Opus5 acceptance, root assent, exact private/live37/65 verification and49focusedtests/workspace. It adds pure read-cost derivation and original-scope typed cache capture, removing the unnecessary intermediate Arc copy. Root442 fullsecurity404passed2existingignored remains separately attributed. Product20d94ec.
 
-Root jointACL445r2 compiled/ran four owned regular/directory fixtures: common metadata matched, directorylinkcount differed fromstat, jointdirectorysize unavailable, omittedACL persisted despite positive volume capability and valid/nativeACLattribute bits. No absence/profile qualification follows. Actual Opus5 delivered readonly route446 advice; root qualified it. Private447 was rechecked on 2026-09-22: rustfmt 0, 8 capture tests passed, workspace check 0. Proposed inventory63 adds the one new module path and is not selected. Claude Opus5 on wF:p1 is reviewing that layout and source. Creator-private ACL policy needs all possible foreign read/search access, beyond existing writer-only summary. As of 2026-09-22 Grok leads and Claude Opus5 reviews.
+Root jointACL445r2 compiled/ran four owned regular/directory fixtures: common metadata matched, directorylinkcount differed fromstat, jointdirectorysize unavailable, omittedACL persisted despite positive volume capability and valid/nativeACLattribute bits. No absence/profile qualification follows. Actual Opus5 accepted inventory63 and the private447 source boundary with requiredFindings empty. Root assented with the report's non-blocking test gaps left for a later successor. Inventory63 is selected at product `0cba8f7`. The three reviewed paths are installed at `f8019ec`: format check 0, 8 capture tests passed, workspace check 0. Omission and the NOACL sentinel remain unqualified. A later access-exclusion predicate must branch on acl_state before entry(). Creator authority remains open. As of 2026-09-22 Grok leads and Claude Opus5 reviews.
 
 ## Remaining project work
 
