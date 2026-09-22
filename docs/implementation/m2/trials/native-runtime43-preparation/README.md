@@ -1,0 +1,1 @@
+Prepared only. Requires full actual43 review/pins and root substantive assent before executing.37/65,6existingmapped589unchanged595nonlock. Replay24reader/13ledgerintegration/5capture/4sharedcache/3typed/workspace; archive exact original reviewer evidence. No approval or integration from this snapshot.

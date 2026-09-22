@@ -1,0 +1,179 @@
+{
+  "schemaVersion": 1,
+  "kind": "readonly-implementation-advice",
+  "topic": "bounded-native-acl-444",
+  "actualModel": "Claude Opus 5",
+  "modelId": "claude-opus-5",
+  "date": "2026-09-21",
+  "nativeJobsRun": false,
+  "anySourceApproved": false,
+  "scope": {
+    "readOnly": true,
+    "repoEdits": 0,
+    "delegation": false,
+    "nativeCargoNodeOrCCompilerJobs": 0,
+    "nativeLaneOwner": "root (440 then 442)",
+    "privateUuidFixtureOpened": false,
+    "privateFixturePath": "/tmp/opensip-implementation/bounded-acl413/native-positive.private.bin",
+    "notApproved": [
+      "source 430/437/439 unrelated history",
+      "private 443 sizing/cache drafts",
+      "the 413 decoder draft",
+      "any native adapter",
+      "any law amendment"
+    ],
+    "suppliesNoAuthority": [
+      "InitialActor",
+      "platform",
+      "custody",
+      "creator",
+      "P0",
+      "current authority"
+    ]
+  },
+  "conclusions": {
+    "q1_route": {
+      "recommendation": "fixed caller-owned buffer via fgetattrlist",
+      "reason": "Both routes share the mbr_uuid_to_id opaque premise, so the decision turns on the blocker each adds. Qualifying statx_np needs released-runtime correspondence between the running libc/kernel and pinned Libc source, which public main-branch source cannot establish and we cannot manufacture; statx1 has no local attempt count or byte ceiling on its strictly growing realloc loop, and KAUTH_ACL_MAX_ENTRIES=128 is an SDK declaration, not an allocation proof. The fixed-buffer blockers are all resolvable in-repo.",
+      "boundDerivableToday": "KAUTH_FILESEC_SIZE(128) = 44 + 128*24 = 3116 bytes for the ACL attribute, plus fixed common attributes",
+      "truncationGuard": "probe r5 showed a 32-byte buffer returning rc=0 with full_size=100, so success alone must never admit a capture; full_size > supplied is the refusal",
+      "caveat": "fixed buffers bound the CAPTURE, not the RESOLUTION; mbr_uuid_to_id remains on both routes"
+    },
+    "q2_absence": {
+      "volumeCapabilityVerdict": "necessary but NOT sufficient",
+      "preciseReason": "VOL_CAP_INT_EXTENDED_SECURITY (attr.h:337-338) is a MOUNT-level statement while XNU's gate is VNODE-level - the attribute is emitted only for a supported, non-null va_acl. Different granularities, so the capability cannot close the gap.",
+      "documentedBoundedAlternative": {
+        "premise": "KAUTH_FILESEC_NOACL sentinel",
+        "sdkLocation": "kauth.h:220, ((u_int32_t)(-1)); purpose comment at kauth.h:222-227",
+        "quotedPurpose": "to distinguish a kauth_filesec_t with an empty entry (Windows treats this as 'deny all') from one that merely indicates a file group and/or owner guid values",
+        "consequence": "when the attribute IS returned, entrycount == NOACL is a positive 'no ACL' and entrycount == 0 is a positive 'empty ACL, deny-all'; both documented, in-band and bounded"
+      },
+      "unresolvedFact": "When the attribute is OMITTED there is no bounded, documented, in-band observation that positively separates 'this file has no ACL' from 'this vnode does not supply va_acl'. Not manufactured.",
+      "defensibleRule": "admit only positive returns; omission is a REFUSAL, never empty; keep the same-descriptor capability as a corroborating premise and an independent refusal trigger, never as a converter from omission to empty",
+      "independentObservationOnSelectedCode": {
+        "finding": "the currently selected path already does what the 411 audit forbids",
+        "where": "crates/platform/src/macos.rs descriptor_acl",
+        "behaviour": "returns Ok((metadata, vec![])) when filesec_query_property(FILESEC_ACL) reports absent, so an unsupported filesystem presents to policy as 'no ACL writers', i.e. permissively",
+        "consequence": "a fixed-buffer replacement that refuses on omission would be STRICTER than today - the right direction, but a behavioural change to review deliberately; the conflation is live in selected code, not only hypothetical"
+      }
+    },
+    "q3_jointCapture": {
+      "bracketSemantics": "observe_descriptor_with compares before(fstat) == during == after(fstat), where during comes from the SAME syscall as the ACL",
+      "verifiedAttrMappings": {
+        "device": "ATTR_CMN_DEVID",
+        "inode": "ATTR_CMN_FILEID",
+        "mode": "ATTR_CMN_ACCESSMASK",
+        "uid": "ATTR_CMN_OWNERID",
+        "gid": "ATTR_CMN_GRPID",
+        "modified": "ATTR_CMN_MODTIME",
+        "changed": "ATTR_CMN_CHGTIME",
+        "flags": "ATTR_CMN_FLAGS"
+      },
+      "realObstacle": {
+        "fields": [
+          "links",
+          "size"
+        ],
+        "why": "they live in type-dependent groups (ATTR_FILE_LINKCOUNT / ATTR_FILE_DATALENGTH versus ATTR_DIR_LINKCOUNT) while the bracket accepts both S_IFREG and S_IFDIR; for directories no attrgroup member equals st_size and ATTR_DIR_LINKCOUNT does not generally equal st_nlink",
+        "conclusion": "a like-for-like during is NOT reconstructible for directories"
+      },
+      "twoDefensibleRoutes": [
+        "branch on ATTR_CMN_OBJTYPE and reconcile the directory fields in a reviewed note",
+        "keep metadata comparison on fstat and place the bounded ACL read inside the same before/after sandwich - STRICTLY WEAKER, because the ACL is then no longer atomic with during, and must be reviewed as a named weakening"
+      ],
+      "layoutRule": "offsets follow the documented getattrlist packing and canonical attribute ordering (pinned bsd/man/man2/getattrlist.2), not request order; never invented"
+    },
+    "q4_derivableVersusPremise": {
+      "derivableNow": [
+        "1 fgetattrlist outer call for the joint capture",
+        "1 caller-owned fixed buffer of constant size (fixed common attrs + 3116)",
+        "optionally 1 further call and buffer for the volume capability",
+        "<= K mbr_uuid_to_id outer calls, where K is the number of mutating-allow ACEs; today's loop resolves only tag == 1 entries whose mask intersects MUTATION, so K <= 128 and is usually far smaller",
+        "zero allocations in the 413 decoder, which is borrowed and alloc-free"
+      ],
+      "remainsProfileOrTcbPremise": [
+        "mbr_uuid_to_id internal allocation, directory-service IPC, cache state, latency and any network effect",
+        "kernel-side filesec construction",
+        "allocator behaviour and RSS"
+      ],
+      "rule": "outer call counts are not allocation proofs - the same split already stated for the account observer"
+    },
+    "q5_nextStep": {
+      "adapterBoundary": "mirror the in-tree pattern that already works: directory_volume.rs::read_uuid_with(file, syscall) takes an injectable fgetattrlist bound to libc::fgetattrlist in production, with a before/after recheck and refusal on incomplete attributes; reusing it makes the parser testable without native fixtures and keeps this off greenfield",
+      "nextProbe": "one descriptor, one call requesting common metadata plus ATTR_CMN_EXTENDED_SECURITY with FSOPT_REPORT_FULLSIZE, reporting the returned bitmap, each attribute offset/length, full_size and entrycount; it MUST include a directory fixture, which r4-r6 do not cover (all used mkstemp files) and which is what question 3 turns on",
+      "fixtureMatrix": [
+        {
+          "fixture": "no ACL, capability supported",
+          "expect": "attribute omitted -> refuse, never empty",
+          "level": "runtime"
+        },
+        {
+          "fixture": "1 allow ACE",
+          "expect": "present, count 1, 68 bytes",
+          "level": "runtime (r5 already)"
+        },
+        {
+          "fixture": "128 ACEs",
+          "expect": "present, 3116 bytes, fits the fixed buffer",
+          "level": "runtime"
+        },
+        {
+          "fixture": "entrycount == NOACL",
+          "expect": "positive 'no ACL'",
+          "level": "runtime; may be unobtainable locally - say so if it is"
+        },
+        {
+          "fixture": "entrycount == 0",
+          "expect": "positive 'empty = deny all'",
+          "level": "runtime; same caveat"
+        },
+        {
+          "fixture": "short buffer",
+          "expect": "rc 0 but full_size > supplied -> refuse",
+          "level": "already proven (r5)"
+        },
+        {
+          "fixture": "directory",
+          "expect": "links/size reconstruction",
+          "level": "runtime, NEW"
+        },
+        {
+          "fixture": "volume lacking the capability",
+          "expect": "refuse",
+          "level": "runtime; may be unobtainable locally"
+        },
+        {
+          "fixture": "malformed/adversarial bytes",
+          "expect": "decoder refuses",
+          "level": "code-level only"
+        }
+      ],
+      "levelDistinction": "synthetic-byte decoder tests are code-level and prove no native property; runtime fixtures prove one API response on one machine and OS version, not qualification"
+    },
+    "concreteDefectIn413Draft": {
+      "finding": "the draft computes explicit_no_acl and never exposes it",
+      "detail": "Acl offers only flags() and entry(index), and maps NOACL to count = 0, so a consumer cannot distinguish 'empty ACL, deny-all' from 'no ACL, GUIDs only' - the very distinction kauth.h created the sentinel for",
+      "severity": "the same conflation the audit is about, one level deeper",
+      "action": "expose the distinction before the decoder informs any policy",
+      "notAnApproval": "raised as advice on an unselected private draft, not a review verdict"
+    }
+  },
+  "remainingUnknowns": [
+    "Released-runtime correspondence between the running macOS 26.6.2 libc/kernel and pinned Libc/XNU source is NOT established and cannot be established from public main-branch source.",
+    "No bounded in-band observation positively separates null va_acl from unsupported va_acl when the attribute is omitted.",
+    "Whether a local filesystem can produce entrycount == NOACL or entrycount == 0 fixtures at all is untested; if unobtainable, that must be stated rather than simulated.",
+    "Directory links/size reconstruction under getattrlist is unresolved and is the pivot for whether joint atomicity can be preserved.",
+    "UUID membership service allocation, latency and cache behaviour remain opaque TCB work with no filesystem, home or environment shortcut."
+  ],
+  "attributionAndInference": {
+    "primaryEvidenceRead": [
+      "local SDK headers kauth.h, attr.h, acl.h (exact paths and digests pinned separately)",
+      "retained 411 probe stdout r4/r5/r6 and NOTES/NEXT-CHECKS",
+      "retained 413 decoder source and PLAN",
+      "current product sources listed in hashes.txt"
+    ],
+    "notFetched": "I did not retrieve the pinned Apple source URLs in this session; where I rely on XNU vfs_attrlist.c behaviour I attribute it to the 411 audit's pinned reading rather than to my own inspection.",
+    "myOwnInspection": "the KAUTH_FILESEC_NOACL semantics, the attr.h constant mappings, the mount-versus-vnode granularity argument, the selected-code permissive-absence observation and the 413 accessor defect are from my own reading of the local SDK and the current sources.",
+    "noFabricatedAgreement": true
+  }
+}

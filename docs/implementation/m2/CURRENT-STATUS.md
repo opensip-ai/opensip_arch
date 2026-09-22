@@ -24,7 +24,7 @@ Runtime41 integrates reviewed432 protected child allowances,433 typed cache erro
 
 Runtime40 adds the bounded reader with eight reader and seven ledger integration tests plus workspace checks passing after integration. Actual Claude independently replayed23tests and nine probe groups. Product commit `ef7d008`; the standalone helper still cannot replace native postcheck brackets directly.
 
-Private440 cost derivation passed24reader/13ledgerintegration/workspace checks. Private442 typed cache composition is undergoing focused/fullsecurity checks; neither is peer-approved or selected. Actual Claude is giving read-only bounded-ACL444 advice; root owns the native lane.
+Private440 cost derivation passed24reader/13ledgerintegration/workspace checks. Private442 passed5capture/24reader/fullsecurity404passed2existingignored/workspace. Source443/formal43 is frozen and under actual Opus5 review; peer owns the native lane. Actual444 ACL advice is archived with root qualifications; joint probe445 is prepared without execution. Cost/cache source443 remains unselected.
 
 ## Remaining project work
 
