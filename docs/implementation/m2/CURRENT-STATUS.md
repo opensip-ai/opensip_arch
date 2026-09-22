@@ -4,7 +4,7 @@ Snapshot after runtime43 integration,2026-09-21, with the 2026-09-22 leadership 
 
 ## Installed and committed
 
-Product `34dcc94`: runtime43 contract base, selected inventory64, 39 inventory/65 contract successors, 598 tracked files. Inventory plans 712 files across 20 packages. The bounded ACL capture and the private-descendant access predicate are installed. These counts are not a completion percentage. Nothing pushed.
+Product `0cf4470`: runtime43 contract base, selected inventory64, 39 inventory/65 contract successors, 598 tracked files. The capture test gaps are installed. Inventory plans 712 files across 20 packages. The bounded ACL capture and the private-descendant access predicate are installed. These counts are not a completion percentage. Nothing pushed.
 
 - Runtime35 implements endpoint-only physical marker checking while retaining complete immutable lineage. Actual Grok reviewed it; earlier Claude evidence was partial, not approval.
 - Runtime36 closes trust budgets after caught nested failure or unwinding. Actual Claude accepted it. Historical full security suite392pass/2pre-existing clock pilots ignored.

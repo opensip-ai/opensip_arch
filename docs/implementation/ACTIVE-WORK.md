@@ -4516,3 +4516,10 @@ Product 34dcc94 commits the two reviewed paths. Module SHA256 e41d0813c063ab1c4d
 Capture candidate: /tmp/opensip-implementation/capture-gaps449 crates/platform/src/filesystem/descriptor_acl_capture.rs SHA256 c057ae14847190652b11dec6a8c42e8d831f6e5752da559b973fea8be7444ebf, 32114 bytes, one-file diff from f8019ec. Owner saw 11 acl_capture tests pass. Actual Claude Opus5 on wF:p1 is assigned docs/implementation/m2/reviews/claude-opus5-capture-gaps449-r1/REQUEST.md and owns the serial native lane. The product checkout is not the subject.
 
 Uncommitted on product 34dcc94, outside that review: private_access.rs now keeps assess_private_descendant private to the module, adds exact-mode and kind/type mismatch cases, and drops the native scratch directory on failure. Owner saw 7 private_access tests pass after that edit. It is not committed and not part of the capture review. No push. M2–M6 unfinished.
+
+
+## 2026-09-22 — capture test gaps installed at 0cf4470
+
+Actual Claude Opus 5.5 ACCEPT-UNIT. review.json SHA256 12241c83eaab6e37420ec771f1e351dc356d89bb5ef834bfe75d82985c9c4d8a. requiredFindings empty. Candidate c057ae14… was accepted. O1 removed the two needless returns before commit. Committed file SHA256 eab5c0a8305e429deba03f5b0c14ea90277371a8fa2a879253a27be0182cdd63, 32098 bytes. Product 0cf4470. rustfmt 0, 11 acl_capture tests passed, needless_return clean. O2 public reserved wiring and O3 unknown membership kind remain later tests. Not absence or creator completion. No push. Grok owns the native lane.
+
+The uncommitted private_access narrowing remains the next review. Module SHA256 ecb3aa4db7f6b3384afc3c66368f065bdb5de86d14ca212396c806ec68c0717f, 14174 bytes, on top of 0cf4470. M2–M6 unfinished.

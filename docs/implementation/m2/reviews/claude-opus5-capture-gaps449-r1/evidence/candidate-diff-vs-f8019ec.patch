@@ -1,0 +1,231 @@
+diff --git a/crates/platform/src/filesystem/descriptor_acl_capture.rs b/crates/platform/src/filesystem/descriptor_acl_capture.rs
+index 82304e5..95604e0 100644
+--- a/crates/platform/src/filesystem/descriptor_acl_capture.rs
++++ b/crates/platform/src/filesystem/descriptor_acl_capture.rs
+@@ -134,18 +134,63 @@ const fn request_bytes() -> usize {
+ pub fn capture_descriptor_acl_accounted(
+     file: &File,
+     work: &mut WorkScope<'_>,
++) -> Result<DescriptorAclCapture, WorkFailure<DescriptorAclCaptureError>> {
++    #[cfg(target_os = "macos")]
++    {
++        return capture_accounted_in(file, work, libc::fgetattrlist, resolve_native);
++    }
++    #[cfg(not(target_os = "macos"))]
++    {
++        work.run(descriptor_acl_capture_cost(), |_| {
++            capture_native(file).map_err(WorkFailure::Operation)
++        })
++    }
++}
++pub fn capture_descriptor_acl_reserved(
++    file: &File,
++    post: &mut ReservedPostchecks<'_>,
++) -> Result<DescriptorAclCapture, WorkFailure<DescriptorAclCaptureError>> {
++    #[cfg(target_os = "macos")]
++    {
++        return capture_reserved_in(file, post, libc::fgetattrlist, resolve_native);
++    }
++    #[cfg(not(target_os = "macos"))]
++    {
++        post.scope(|post| {
++            post.spend(descriptor_acl_capture_cost())?;
++            capture_native(file).map_err(WorkFailure::Operation)
++        })
++    }
++}
++#[cfg(target_os = "macos")]
++type AttrCall = unsafe extern "C" fn(
++    libc::c_int,
++    *mut libc::c_void,
++    *mut libc::c_void,
++    libc::size_t,
++    u32,
++) -> libc::c_int;
++#[cfg(target_os = "macos")]
++fn capture_accounted_in(
++    file: &File,
++    work: &mut WorkScope<'_>,
++    call: AttrCall,
++    resolver: impl FnMut(&[u8; 16]) -> CapturedAclPrincipal,
+ ) -> Result<DescriptorAclCapture, WorkFailure<DescriptorAclCaptureError>> {
+     work.run(descriptor_acl_capture_cost(), |_| {
+-        capture_native(file).map_err(WorkFailure::Operation)
++        capture_with(file, call, resolver).map_err(WorkFailure::Operation)
+     })
+ }
+-pub fn capture_descriptor_acl_reserved(
++#[cfg(target_os = "macos")]
++fn capture_reserved_in(
+     file: &File,
+     post: &mut ReservedPostchecks<'_>,
++    call: AttrCall,
++    resolver: impl FnMut(&[u8; 16]) -> CapturedAclPrincipal,
+ ) -> Result<DescriptorAclCapture, WorkFailure<DescriptorAclCaptureError>> {
+     post.scope(|post| {
+         post.spend(descriptor_acl_capture_cost())?;
+-        capture_native(file).map_err(WorkFailure::Operation)
++        capture_with(file, call, resolver).map_err(WorkFailure::Operation)
+     })
+ }
+ fn malformed(s: &'static str) -> DescriptorAclCaptureError {
+@@ -277,10 +322,6 @@ fn resolve(
+     }
+     principals
+ }
+-#[cfg(target_os = "macos")]
+-fn capture_native(file: &File) -> Result<DescriptorAclCapture, DescriptorAclCaptureError> {
+-    capture_with(file, libc::fgetattrlist, resolve_native)
+-}
+ #[cfg(not(target_os = "macos"))]
+ fn capture_native(_file: &File) -> Result<DescriptorAclCapture, DescriptorAclCaptureError> {
+     Err(DescriptorAclCaptureError::Unsupported)
+@@ -454,10 +495,60 @@ mod tests {
+                 let layout = decode(&b, &m).unwrap();
+                 assert_eq!(layout.state, state);
+                 assert_eq!(layout.directory_links, dir.then_some(1));
++                let sample = DescriptorAclCapture {
++                    metadata: m,
++                    buffer: b,
++                    layout,
++                    principals: [CapturedAclPrincipal::Unresolved; MAX_ENTRIES],
++                };
++                match state {
++                    CapturedAclState::NotReturned => assert_eq!(sample.acl_flags(), None),
++                    _ => assert_eq!(sample.acl_flags(), Some(0)),
++                }
++                assert!(
++                    sample.entry(0).is_none() || matches!(state, CapturedAclState::Entries(128))
++                );
+             }
+         }
+     }
+     #[test]
++    fn acl_capture_refuses_a_129th_directory_entry_and_an_oversize_file_record() {
++        let (directory, metadata) = fixture(true, CapturedAclState::Entries(129));
++        assert!(decode(&directory, &metadata).is_err());
++        let (file, metadata) = fixture(false, CapturedAclState::Entries(129));
++        assert!(decode(&file, &metadata).is_err());
++    }
++    #[test]
++    fn acl_capture_omitted_attribute_with_a_matching_extent_is_not_empty() {
++        let (mut buffer, metadata) = fixture(false, CapturedAclState::NotReturned);
++        put(&mut buffer, 0, 152);
++        put(&mut buffer, 84, 44);
++        assert!(decode(&buffer, &metadata).is_err());
++    }
++    #[test]
++    fn acl_capture_exposes_present_acl_flags_and_hides_omitted_ones() {
++        let (mut buffer, metadata) = fixture(false, CapturedAclState::Entries(0));
++        put(&mut buffer, 108 + 40, 0x15);
++        let layout = decode(&buffer, &metadata).unwrap();
++        let sample = DescriptorAclCapture {
++            metadata,
++            buffer,
++            layout,
++            principals: [CapturedAclPrincipal::Unresolved; MAX_ENTRIES],
++        };
++        assert_eq!(sample.acl_flags(), Some(0x15));
++        let (omitted, omitted_metadata) = fixture(false, CapturedAclState::NotReturned);
++        let omitted_layout = decode(&omitted, &omitted_metadata).unwrap();
++        let omitted_sample = DescriptorAclCapture {
++            metadata: omitted_metadata,
++            buffer: omitted,
++            layout: omitted_layout,
++            principals: [CapturedAclPrincipal::Unresolved; MAX_ENTRIES],
++        };
++        assert_eq!(omitted_sample.acl_flags(), None);
++        assert!(omitted_sample.entry(0).is_none());
++    }
++    #[test]
+     fn acl_capture_keeps_all_rights_flags_and_resolved_principals_with_finite_calls() {
+         let (mut b, m) = fixture(false, CapturedAclState::Entries(128));
+         for i in 0..128 {
+@@ -622,13 +713,22 @@ mod tests {
+                 .unwrap();
+             assert_eq!(sample.metadata().inode, file.metadata().unwrap().ino());
+             assert_eq!(owner.used(), descriptor_acl_capture_cost());
+-            // An absent attribute is recorded, not silently promoted to empty.
+-            assert!(matches!(
+-                sample.acl_state(),
+-                CapturedAclState::NotReturned
+-                    | CapturedAclState::Entries(_)
+-                    | CapturedAclState::NoAclSentinel
+-            ));
++            assert!(owner.used().edges >= 3 + 128);
++            assert!(owner.used().bytes >= BUFFER_BYTES);
++            match sample.acl_state() {
++                CapturedAclState::NotReturned => {
++                    assert_eq!(sample.acl_flags(), None);
++                    assert!(sample.entry(0).is_none());
++                }
++                CapturedAclState::NoAclSentinel => {
++                    assert!(sample.acl_flags().is_some());
++                    assert!(sample.entry(0).is_none());
++                }
++                CapturedAclState::Entries(count) => {
++                    assert!(sample.acl_flags().is_some());
++                    assert!(sample.entry(count).is_none());
++                }
++            }
+             let uid = file.metadata().unwrap().uid();
+             crate::macos::set_probe_acl(file, false, uid, 1, 2).unwrap();
+             let mut reserved = crate::WorkLedger::new();
+@@ -643,6 +743,17 @@ mod tests {
+             assert_eq!(entry.flags & 15, 1);
+             assert_eq!(entry.rights, 2);
+             assert_eq!(entry.principal, CapturedAclPrincipal::User(uid));
++            let gid = file.metadata().unwrap().gid();
++            crate::macos::set_probe_acl(file, true, gid, 1, 2).unwrap();
++            let mut grouped = crate::WorkLedger::new();
++            let group_sample = grouped
++                .scope(|w| capture_descriptor_acl_accounted(file, w))
++                .unwrap();
++            assert_eq!(group_sample.acl_state(), CapturedAclState::Entries(1));
++            assert_eq!(
++                group_sample.entry(0).unwrap().principal,
++                CapturedAclPrincipal::Group(gid)
++            );
+         }
+     }
+     #[test]
+@@ -668,6 +779,39 @@ mod tests {
+             .unwrap();
+         assert_eq!(got.metadata().inode, inode);
+         assert_eq!(got.metadata().links, 0);
++        use std::sync::atomic::{AtomicUsize, Ordering};
++        static SYSCALLS: AtomicUsize = AtomicUsize::new(0);
++        unsafe extern "C" fn counting_syscall(
++            _: libc::c_int,
++            _: *mut libc::c_void,
++            _: *mut libc::c_void,
++            _: libc::size_t,
++            _: u32,
++        ) -> libc::c_int {
++            SYSCALLS.fetch_add(1, Ordering::SeqCst);
++            -1
++        }
++        SYSCALLS.store(0, Ordering::SeqCst);
++        let mut owner = crate::WorkLedger::with_limits(limits).unwrap();
++        assert!(matches!(
++            owner.scope(|w| capture_accounted_in(&file, w, counting_syscall, |_| {
++                panic!("resolver runs only after a successful charge")
++            })),
++            Err(WorkFailure::Budget(_))
++        ));
++        assert_eq!(SYSCALLS.load(Ordering::SeqCst), 0);
++        let mut short = descriptor_acl_capture_cost();
++        short.edges -= 1;
++        let mut owner = crate::WorkLedger::new();
++        assert!(matches!(
++            owner.effect(WorkCost::default(), short, |post| {
++                capture_reserved_in(&file, post, counting_syscall, |_| {
++                    panic!("resolver runs only after a successful spend")
++                })
++            }),
++            Err(WorkFailure::Budget(_))
++        ));
++        assert_eq!(SYSCALLS.load(Ordering::SeqCst), 0);
+     }
+     #[test]
+     #[cfg(target_os = "macos")]
