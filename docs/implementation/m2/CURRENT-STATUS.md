@@ -1,6 +1,6 @@
 # Current implementation status
 
-Snapshot after runtime43 integration,2026-09-21. Use the latest [active-work entry](../ACTIVE-WORK.md) for exact resume state.
+Snapshot after runtime43 integration,2026-09-21, with the 2026-09-22 leadership note below. Use the latest [active-work entry](../ACTIVE-WORK.md) for exact resume state. The [approach retrospective](../implementation-approach-retrospective-2026-09-22.md) records how the design has paid off and what would change on a restart. It accepts no source.
 
 ## Installed and committed
 
@@ -26,7 +26,7 @@ Runtime40 adds the bounded reader with eight reader and seven ledger integration
 
 Runtime43/source443 is installed and committed after actual Opus5 acceptance, root assent, exact private/live37/65 verification and49focusedtests/workspace. It adds pure read-cost derivation and original-scope typed cache capture, removing the unnecessary intermediate Arc copy. Root442 fullsecurity404passed2existingignored remains separately attributed. Product20d94ec.
 
-Root jointACL445r2 compiled/ran four owned regular/directory fixtures: common metadata matched, directorylinkcount differed fromstat, jointdirectorysize unavailable, omittedACL persisted despite positive volume capability and valid/nativeACLattribute bits. No absence/profile qualification follows. Actual Opus5 is providing readonly route446 advice; root owns the native lane. Creator-private ACL policy needs all possible foreign read/search access, beyond existing writer-only summary.
+Root jointACL445r2 compiled/ran four owned regular/directory fixtures: common metadata matched, directorylinkcount differed fromstat, jointdirectorysize unavailable, omittedACL persisted despite positive volume capability and valid/nativeACLattribute bits. No absence/profile qualification follows. Actual Opus5 delivered readonly route446 advice; root qualified it and drafted private447 capture tests outside the product tree. That path, layout, and source are unreviewed and unselected. Creator-private ACL policy needs all possible foreign read/search access, beyond existing writer-only summary. As of 2026-09-22 Grok leads and Claude Opus5 reviews.
 
 ## Remaining project work
 

@@ -4460,3 +4460,14 @@ ActualOpus5 wH:p6 assignedREADONLYroute446 (reviews/claude-opus5-native-acl446-p
 T/select_runtime43.py COMPLETED36894:allreviewpinsverified/archived,private/live37/65/6existingmapped589unchanged595nonlock,49focusedtests/workspacePASS. Product20d94ec committedCompose bounded read costs with original-scope cache capture;596tracked710planned20packages5inheritances. Neverrerun43selector. Architectureec2209434 lastcommit;43integration/445results/statusuncommitted. No push.
 
 T/check_joint_acl445.py COMPLETED:clangWallWextraWerror0/probe0,4ownedfixturesremoved. Fixed3244buffer,commonmetadata/bracketmatched,regularlinks/sizeequal, directorylinksDIFFEREDfromstat andnojointsize; positiveACLoneACE68bytes; allshort32bufferrequestsreturned0withlargerfullsize (detected/asserted). InitialomissioncoexistswithvolumeACLcapabilityvalid+supported ANDattributevalid+native. Modeincludes typeonthisruntimebutdocspermission-only. Durableresults/source/pinsin joint-acl-probe-445. No nativequalification/absenceadmission/UUIDoutput. ActualOpus5wH:p6 readonly446active,rootnativejobsnone. Additionalresultsdeliveredtosameactivetask. Nextconcretenativecaptureboundarypendingroot/peerrouteassessment;actualcreatorprivatepolicyneedsallallowaccessnotonlywriters. M2-M6unfinished.
+
+
+## 2026-09-22 — Grok leads; approach retrospective recorded; private447 awaits review
+
+User appointed Grok implementation leader. Claude Opus5 remains the single reviewer, via Herdr. Codex is unavailable. Preferred reviewer pane is wH:p6 session 6f09b842-c1f5-45a7-be5b-91a0ca12d50a, which delivered route446 and is idle. wF:p1 is an unused Claude pane. Use one reviewer. Local commits remain authorized. No push.
+
+Approach retrospective: docs/implementation/implementation-approach-retrospective-2026-09-22.md. It records where the design paid off through runtime43 and probe445, and what to change on a restart. It changes no selected law and accepts no source.
+
+Route446 advice is received. Root disposition qualifies it: preserve omitted, NOACL-sentinel, and zero-entry states; do not treat omission or the sentinel as absence; do not rewire descriptor_acl in this unit; new path descriptor_acl_capture.rs needs an inventory successor and independent layout/source review. Private draft /tmp/opensip-implementation/native-acl447 differs from product 20d94ec only in filesystem.rs, lib.rs, and new filesystem/descriptor_acl_capture.rs. Archived receipt: rustfmt 0, 8 acl_capture tests passed, workspace cargo check passed. Unreviewed, unselected, not in the product tree. 446 evidence files were still uncommitted at this entry.
+
+Next: preserve 446 evidence, then put 447 through independent source review before any product integration. Grok owns the native lane until a review assignment transfers it. M2–M6 unfinished.
