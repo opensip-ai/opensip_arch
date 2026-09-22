@@ -4471,3 +4471,14 @@ Approach retrospective: docs/implementation/implementation-approach-retrospectiv
 Route446 advice is received. Root disposition qualifies it: preserve omitted, NOACL-sentinel, and zero-entry states; do not treat omission or the sentinel as absence; do not rewire descriptor_acl in this unit; new path descriptor_acl_capture.rs needs an inventory successor and independent layout/source review. Private draft /tmp/opensip-implementation/native-acl447 differs from product 20d94ec only in filesystem.rs, lib.rs, and new filesystem/descriptor_acl_capture.rs. Archived receipt: rustfmt 0, 8 acl_capture tests passed, workspace cargo check passed. Unreviewed, unselected, not in the product tree. 446 evidence files were still uncommitted at this entry.
 
 Next: preserve 446 evidence, then put 447 through independent source review before any product integration. Grok owns the native lane until a review assignment transfers it. M2–M6 unfinished.
+
+
+## 2026-09-22 — route446 preserved; inventory63 proposed; capture review assigned
+
+Architecture 90e544800 records the approach retrospective. Architecture 57acf402e records qualified route446 advice. Neither accepts source.
+
+Private447 was rechecked by Grok on product base 20d94ec: rustfmt --check 0, 8 acl_capture tests passed, workspace cargo check --locked --offline --all-targets 0. Still unselected. Diff against 20d94ec is filesystem.rs, lib.rs, and new filesystem/descriptor_acl_capture.rs.
+
+Proposed inventory63 is docs/implementation/m2/descriptor-acl-capture-inventory-v63/ plus repository-file-inventory.v63.json. One added path at file index 181. Projection helper PASS, 28 corruptions refused. package.json 507→508, imported schema 574→575; bootstrap 7, report package 13, lineage 104 unchanged. Not selected. No design-lock edit.
+
+Actual Claude Opus5 on wF:p1 is assigned the combined layout and source review. Request: docs/implementation/m2/reviews/claude-opus5-acl-capture447-inventory63-r1/REQUEST.md. Reviewer owns the serial native lane until that review is idle. wH:p6 keeps the prior 446 transcript and is not given a second concurrent review. No product integration before the report and root assent. M2–M6 unfinished.

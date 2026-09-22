@@ -1,0 +1,7 @@
+# Descriptor ACL capture inventory63
+
+Adds exactly crates/platform/src/filesystem/descriptor_acl_capture.rs to selected62. Retains all710 existing rows by value, 20 packages and dependencies, 9 pending decisions, and the carried unresolved obligations from inventory62. 711 planned files. No new crate or dependency. The new module sits beside descriptor_filesystem.rs and directory_volume.rs. Tests live in that module, so this layout adds no separate test path.
+
+The five effective description overrides stay bound by stable file path. Insertion is before descriptor_filesystem.rs, so later file indexes move by one. Bootstrap, the report package, and host installation lineage stay on their inventory62 indexes when those paths precede the insertion. Root package.json and the imported schema move one index later. The projection helper is the byte-identical inventory61 helper. Run it with python3 -I -B. It refuses corrupted rows. The selected product verifier is unchanged and derives final inheritance only during a later guarded activation.
+
+This is layout acceptance only, not source approval. The private447 capture module, its filesystem.rs and lib.rs facades, and its tests still need independent source review. Omission and a NOACL sentinel are not absence. The sample does not replace observe_descriptor, qualify a profile, or create private custody. No selector is prepared. No M2–M6 completion.
