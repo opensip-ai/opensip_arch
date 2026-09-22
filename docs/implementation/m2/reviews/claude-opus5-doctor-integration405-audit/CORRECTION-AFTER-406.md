@@ -1,0 +1,5 @@
+# Root factual correction after actual406 review
+
+Actual406 REVIEW section7 corrects Claude405's recursive collection error. Root independently checked the exact files arrays: sourceManifest and applicationManifest AGREE on all four workflow checker/vector/model/projection paths. The older hashes were beforeImages, not current files. No manifest changed. The general application-last precedence rule remains real, but these four are not a conflicting set.
+
+Root's earlier405 disposition and406 README/reconciliation explanatory rationale repeated the older-pin premise and must not be used as current fact. The recorded exact pins in406 reconciliation.json are already correct; beforeSha256 is historical metadata. All58declared parents are valid and none is among the actual23divergent paths. New provenance copies and scoped current doctor checks remain valid additive reconciliation; they were not necessary because of a nonexistent conflict. No control meaning, source behavior, materialization or selection changes because of this correction. Original reports/frozen history remain intact. See actual406 review and root406 assent for the complete disposition.
