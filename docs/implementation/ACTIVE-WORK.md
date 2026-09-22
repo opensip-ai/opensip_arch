@@ -4574,3 +4574,8 @@ Uncommitted on 0192a70: append_owner_zero_allow is public and limited to regular
 ## 2026-09-22 — private file creation 453 refused; charge-before-create is r2
 
 Actual Claude Opus 5.5 REQUIRED-FINDINGS. RF-1: the file was created before any ledger charge, so a poor ledger left an uncharged file. That diff was not committed. The replacement reserves the create, two captures and the append before open, sets mode 0600 on the descriptor, and a 1-object ledger leaves the name unpaid absent. 10 private_access tests passed. r2 request: docs/implementation/m2/reviews/claude-opus5-create-private453-r2/REQUEST.md. Reviewer owns the native lane. Not the installation creator. No push. M2–M6 unfinished.
+
+
+## 2026-09-22 — charge-first file creation installed at 7c45039; one preparation algorithm is under review
+
+453 r2 ACCEPT-UNIT, requiredFindings empty. Product 7c45039. The create is reserved before open. Uncommitted private_access.rs makes prepare_fresh_private_sample a wrapper over the reserved algorithm, so the Entries path is the same code create uses. 10 private_access tests passed. Request: docs/implementation/m2/reviews/claude-opus5-create-private453-r3/REQUEST.md. Reviewer owns the native lane. Not the installation creator. No push. M2–M6 unfinished.
