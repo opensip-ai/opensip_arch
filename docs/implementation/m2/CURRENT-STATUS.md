@@ -1,26 +1,25 @@
 # Current implementation status
 
-Snapshot after runtime37 integration on 2026-09-21. Use the latest [active-work entry](../ACTIVE-WORK.md) for subsequent changes.
+Snapshot after runtime38 integration and runtime39 review request,2026-09-21. Use the latest [active-work entry](../ACTIVE-WORK.md) for exact resume state.
 
 ## Installed and committed
 
-Product `da02f64`: native runtime37/source421, inventory61,36 inventory/59 contract successors,594 tracked files. Inventory plans708 files across20 packages; these counts are not a completion percentage. No pushes occurred.
+Product `080bc8e`: runtime38/source423, inventory61,36 inventory/60 contract successors,594 tracked files. Inventory plans708 files across20 packages; these counts are not a completion percentage. Nothing pushed.
 
-- Runtime35 retains the selected endpoint marker and complete immutable lineage while allowing reclaimed intermediate physical stores. Actual Grok reviewed it; earlier Claude replay evidence was partial, not approval.
-- Runtime36 fixes caught nested failures and unwinding leaving a trust budget reusable. Actual Claude accepted it; focused tests and workspace checks passed. Historical414 full security evidence:392passed/2existing clock pilots ignored.
-- Inventory61 corrects the separate behavioral test name to `work_ledger_tests.rs`; original rejected60/source419 remain preserved and unselected.
-- Runtime37 adds the shared platform work ledger, borrowed helper scope, failure latch and effect/postcheck reservations. Actual Claude independently passed6unit/3integration/2doc tests, workspace checks and compiler probes. Root private/live design verification and the same focused tests/workspace passed. Three files installed;590nonlock files unchanged. This is accounting, not native creation authority.
+- Runtime35 implements endpoint-only physical marker checking while retaining complete immutable lineage. Actual Grok reviewed it; earlier Claude evidence was partial, not approval.
+- Runtime36 closes trust budgets after caught nested failure or unwinding. Actual Claude accepted it. Historical full security suite392pass/2pre-existing clock pilots ignored.
+- Inventory61 corrects the separate integration test filename. Rejected60 and source419 remain preserved/unselected.
+- Runtime37 adds the shared platform ledger and borrowed helper scope. Actual Claude independently passed6unit/3integration/2doc tests, workspace and compiler probes; root private/live checks passed.
+- Runtime38 joins actual retained-security cache accounting to the same original scope. Actual Claude independently passed4focused/workspace checks and compiler probes; root private/live checks passed. Historical420 fullsuite396pass/2pre-existing ignored remains historical. Native capture and temporary work still need separate precharge.
 
-## Next review and private work
+## Active review
 
-The real security-cache bridge420 passed4focused tests,396full security tests (2pre-existing clock pilots ignored), a compiler rejection of borrowed-budget replacement and workspace compilation. Rebase423 passed fresh4focused/workspace checks on selected37, overlaying10existing security files. Source423/formal38 are frozen and under actual Claude review. It preserves cache identity and original outer scope; it does not precharge every native capture or temporary allocation. Independent source/formal review is required before selection.
+Actual Claude Opus5 `wH:p6` reviews [runtime39/source427](native-runtime-selection-v39/README.md) and owns the serial native lane until DONE/IDLE. It adds guarded reserved helper scopes and real account-observation wrappers reserving caller-owned buffers/API calls before the first OS sample. Four existing platform files change. Fresh candidate12account/7integration/4cache tests and workspace pass; additional6unit/2doc and compiler probes are historical424/426 evidence. Source acceptance and root assent remain required;39 is not installed.
 
-The private bounded-reader422 prototype passed4tests for boundaries, precharge, Interrupted retries and partial-I/O failures. It is not reviewed or selected. Its WorkScope interface still needs explicit composition with ReservedPostchecks before use inside effects. Account/ACL/profile work and original-observation postchecks remain separate obligations.
-
-Actual Claude Opus5 `wH:p6` is reviewing38/source423 and owns the serial native lane until DONE/IDLE. No GPT reviewer may replace actual Claude/Grok.
+Private generic reader425 passes4tests using both original scopes and reserved allowances, but is evidence only, not selected code. Original422 reader and413 ACL prototypes also remain unselected.
 
 ## Remaining project work
 
-Native attempt ownership, accounting across actual producers, account/core/profile/custody admission, completeP0 construction, permit/publication/current authority and recovery/writer composition remain unfinished. Real compiler providers, full analysis/report/workflows and release/platform qualification remain. Component acceptance is not wholeM2 or M2–M6 completion.
+Actual native capture/recheck accounting, operation ownership, account/core/profile/custody admission, completeP0 creation, permits/publication/current authority and recovery/writer composition remain unfinished. Real compiler providers, complete analysis/report/workflows and release/platform qualification also remain. Account reservations do not bound opaque OS/name-service or allocator costs. Component acceptance is not wholeM2 or M2–M6 completion.
 
-Prior status bytes are preserved [verbatim](status-history/current-status-before-runtime37-summary.md). Both repositories may be committed locally; never push.
+Both repositories may be committed locally; never push. Historical status bytes are preserved [here](status-history/current-status-before-runtime37-summary.md).
