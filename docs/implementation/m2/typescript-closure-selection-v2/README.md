@@ -1,0 +1,7 @@
+# TypeScript closure successor ordering correction409
+
+The actual408 review accepted the one-row repair, but root's fresh private design verifier correctly refused the successor because its three parent pins were not sorted by path. This occurred before dependency materialization, lane execution or any live write. Product remains clean7e1e18b35/55. Preserve original408 candidate/review/root assessment and failed staging evidence;408was not selected.
+
+This corrected successor sorts the exact same three parent records and preserves all eight original408 candidate bytes at their original immutable paths. Its subject additionally includes this correction README and freeze script. Cross-directory candidate paths are intentional immutable reuse, not edits or evidence that408was selected. No checker, lane registry, map, policy, dependency or executable bytes change relative to408. The original one-row registry correction remains the entire prospective product change.
+
+Actual independent review/root assent and private selected-design/public-lane execution still precede live materialization. The reference checker explicitly requires sorted unique parent paths, as well as candidate and subject paths. This package claims no lane execution or product qualification. Root and actual408 review both missed this mechanical ordering requirement; the verifier caught it without permitting live changes.

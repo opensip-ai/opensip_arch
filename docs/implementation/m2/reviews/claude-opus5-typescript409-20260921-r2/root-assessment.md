@@ -1,0 +1,9 @@
+# Root substantive assent — corrected TypeScript maintenance409
+
+I read the complete actual Claude Opus5 r1 REVIEW/review and r2 closure REVIEW/review after DONE. Exact current review5559B SHA84b7e41384cfce20907ae8698cfd362c7d15860a856845c6db2ad6a6eee96cd4 accepts subject2330B SHAbdf558ec4e938e8ae3c2b6a1fde88f0e96519253222616288bb8d7dc196b3363 with requiredFindings[]. R1 substantive review11127B SHAd0de43f9c3e877ea8ce72a39894c58f3187ec94b3cdf82d129e6428c9f54509b remains preserved; r2 closes RF1 only and does not pretend fresh substantive replay.
+
+I independently verified all11 frozen member pins and read the corrected successor. It carries the same3parents sorted and unique, reuses8original candidates because408 was never selected, and adds no passage override. Exactly one bytecount/digest row changes in the160-file TypeScript maintenance closure, identifying already-selected verify_design.py. Node, lane records, policies and159otherpins remain unchanged. The public checker still verifies approval and every input before spawning; approval is not bypassed to repair a stale pin.
+
+Original408 private selection stopped before child jobs or live writes. Its old root assent is preserved, pinned and explicitly inert in trial408/inert-assent-disposition.json. It is absent from the live lock and must never be reused. The new reviewed selector writes only its own v2 assent, uses fresh private/trial paths, and requires this actual r2 acceptance. The frozen original408 subject/record/report/assent and failure are not altered.
+
+I assent to this bounded maintenance repair. Private design and actual public all3TypeScript lanes must pass before live writes; live design/all3lanes then verify the result. Neither actual Claude review ran native or Node jobs. No lane pass, toolchain qualification, native creator, release or complete M2–M6 is inferred from review. Selection receipt will record the actual executed outcomes separately. No push authorized.

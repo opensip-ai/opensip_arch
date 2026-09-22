@@ -1,0 +1,3 @@
+# Native runtime35: endpoint marker and immutable lineage
+
+Selects proposed source410 against accepted runtime34, initial-owner406 and inventory59. One mapped Rust file,590 unchanged non-lock,592 total. Stage helper byte-identical runtime34. Four conditional407 tests, two records tests and workspace check are historical exact-native-source evidence; no fresh410/native-custody qualification claim. See source410 README for limits. Actual source/formal review and root assent plus private/live checks required before selection. No shared-budget, registry/core/trust authority, initialization or M2 completion.
