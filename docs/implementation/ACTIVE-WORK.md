@@ -4549,3 +4549,8 @@ Actual Claude Opus 5.5 ACCEPT-UNIT on the test-only append. requiredFindings emp
 r3 ACCEPT-UNIT, requiredFindings empty. Product 0192a70. The non-ENOENT branch remains verified by reading.
 
 Uncommitted on 0192a70: append_owner_zero_allow is public and limited to regular files and directories. prepare_fresh_private_sample writes that allow only after NotReturned plus a private shape check, then judges the new sample. A loose 0644 file is not rewritten. This is not creator completion and does not clear inherited ACEs. Request: docs/implementation/m2/reviews/claude-opus5-prepare-private452-r1/REQUEST.md. Reviewer owns the native lane. No push. M2–M6 unfinished.
+
+
+## 2026-09-22 — fresh-private preparation installed at a081aa2; accounting follow-up is under review
+
+452 ACCEPT-UNIT, requiredFindings empty. Product a081aa2. O1 and O2 were required before any caller. The uncommitted follow-up makes the raw append crate-private, charges a documented 5-edge append cost before the write, and tests a second prepare, a one-capture budget refusal, and an unchanged foreign allow. Request: docs/implementation/m2/reviews/claude-opus5-prepare-private452-r2/REQUEST.md. Reviewer owns the native lane. Not creator completion. No push. M2–M6 unfinished.
