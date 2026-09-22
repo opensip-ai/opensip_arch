@@ -1,0 +1,5 @@
+# Executable advisory counterexamples431
+
+Three private tests PASS against selected39 APIs. PASS means the original advisory sketch's assumptions are disproved: effect(read3,post2) exposesonlypost2 so spendingread3refuses; poolingread3+post2 intooneallowance permitsread4toleaveinsufficientpost2; the ACTUAL OperationalBytesObservation owned returntypeescapes through effect asUnreadable(Bound) whileownerremainsunfailedwithoutfinalizer. The latter test isinside actualjournal_store module in a private copy. That module isprivate outsideopensip-security; enumvariantsareaccessiblewithincrate. This is not a claim of publicexternaltypeexposure ornativeauthority. It demonstrates the given owned signature lacks a lifetime/finalization barrier.
+
+No actualfilecapture,custody,actor ornativeeffect tested. Inputs are controlled accounting/data premises; no proposedauthority conclusions. Live product unchanged. Exactcommands/environment/baseline/source/probe/logs archived withoutcompiledbinaries. ActualClaude is correctingoriginal429advice; no unit/source/lawapproval followsfromthese tests.

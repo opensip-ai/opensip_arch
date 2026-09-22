@@ -1,0 +1,155 @@
+{
+  "schemaVersion": 1,
+  "kind": "advisory-correction",
+  "corrects": {
+    "ADVICE.md": {
+      "bytes": 12677,
+      "sha256": "9432ecca51da7df1158acb1a809877485c6c9a778f732ed4c2e1f886e679d973"
+    },
+    "advice.json": {
+      "bytes": 12008,
+      "sha256": "ba16ab8ee1e3289e7257476b6c6f3645ea167b99c7b5c01630b0cd5c2251e200"
+    },
+    "originalsPreserved": true,
+    "originalsOverwritten": false
+  },
+  "actualModel": "Claude Opus 5",
+  "reviewer": {
+    "actualModel": "Claude Opus 5",
+    "modelId": "claude-opus-5",
+    "date": "2026-09-21",
+    "nativeJobsRun": false,
+    "nativeLaneOwner": "root",
+    "repositoryEdits": 0
+  },
+  "approval": {
+    "anyUnitApproved": false,
+    "anySourceApproved": false,
+    "lawAmended": false,
+    "note": "Corrects an advisory sketch. Approves no unit, no source and no law change; not a review of source427, the 425 experiment or the unfrozen 428 reader."
+  },
+  "rootPointsAccepted": 3,
+  "rootPointsDisputed": 0,
+  "verificationMethod": "Each point checked against live source, then confirmed by reading root's executable 431 counterexamples and their logs rather than accepting the summary.",
+  "rootCounterexamples431": {
+    "independentlyChecked": true,
+    "exitCode": 0,
+    "result": "3 passed; 0 failed; 398 filtered out",
+    "appliedToCopyNotLive": true,
+    "liveJournalStoreProbeOccurrences": 0,
+    "liveProductHead": "5b42fd6",
+    "liveProductClean": true,
+    "scope": "crate-private journal_store module; root correctly claims no external public-type access and no authority; no native capture tested",
+    "cases": [
+      {
+        "name": "effect_cost_is_not_available_from_postcheck_allowance",
+        "shows": "effect(edges 3, edges 2) then post.spend(edges 3) yields ReservedPostcheck with used == 5 and the owner latched; the effect portion is charged but not spendable from remaining"
+      },
+      {
+        "name": "total_prepaid_allowance_does_not_partition_body_from_postchecks",
+        "shows": "a pooled effect(default, edges 5) lets a 4-edge body spend first, so the intended 2-edge postcheck is refused and never runs"
+      },
+      {
+        "name": "actual_owned_provisional_enum_can_escape_as_success_without_finalizer",
+        "shows": "the exact proposed signature returns an owned Unreadable(Bound) out of effect as a success value with the owner unfailed"
+      }
+    ],
+    "recommendedShapeSurvivesCases1And2": "the reader holds no spending handle, so it can neither draw on the effect portion nor consume pooled postcheck space; remaining stays equal to the derived postcheck allowance for the whole bracket",
+    "case2RulesOut": "the sum-the-costs-then-spend-the-read-portion-first variant, which is therefore not proposed"
+  },
+  "corrections": [
+    {
+      "id": "C1",
+      "point": "allowance partitioning",
+      "originalClaim": "effect(read_cost, postcheck_cost, |post| ...) with read_bounded_provisional(&mut file, cap, post) spending from post",
+      "whyWrong": "WorkLedger::effect charges effect + postchecks but exposes only postchecks as ReservedPostchecks.remaining, so the reader would spend postcheck space while the effect reservation sits charged and unusable. Prepayment alone neither partitions the work nor proves the checks cannot be refused.",
+      "sourceConfirmation": "crates/platform/src/work_ledger.rs: let total = effect.checked_add(postchecks)?; s.charge(total)?; action(&mut ReservedPostchecks { ledger: s.ledger, remaining: postchecks })",
+      "runtimeConfirmation": "431 counterexample 1",
+      "severity": "made the sketch unsound as written",
+      "correctedShape": "effect(read_cost, postcheck_cost, ...) is already correct and already disjoint once the reader takes a DERIVED BOUND instead of &mut ReservedPostchecks. The fix removes a privilege rather than adding machinery.",
+      "existingIdiom": "Budget::capture's callback already receives cap: usize, and read_one already takes cap: usize and already returns Error::Read(OperationalReadFailure::Bound) on exceeding it",
+      "boundOverrunIsOperationalNotLedger": true,
+      "optionsEvaluated": [
+        {
+          "option": "B - upfront read reservation plus a private bounded read counter",
+          "recommended": true,
+          "pros": "no new ledger API, no new privilege, disjoint by construction",
+          "cons": "read is prepaid at worst case and actual consumption is not separately metered, exactly like the accepted 427 account precharge, with no refund",
+          "note": "a private bounded counter is not a ledger: it cannot latch, refund or grant work, and performs no branch-local reset"
+        },
+        {
+          "option": "A - protected child allowance, ReservedPostchecks::split",
+          "recommended": false,
+          "pros": "keeps per-attempt metering and disjointness; better long-term shape",
+          "cons": "genuinely new API on a security-sensitive type",
+          "proofObligations": [
+            "the parent's remaining must decrement atomically at split time",
+            "the child must not outlive or escape the parent",
+            "a child failure must still latch the one ledger"
+          ]
+        }
+      ],
+      "neverASecondWorkLedger": true
+    },
+    {
+      "id": "C2",
+      "point": "provisional-value escape",
+      "retracted": [
+        "that taking &mut ReservedPostchecks means a provisional value can only exist inside a prepaid bracket",
+        "that OperationalBytesObservation has no public constructor",
+        "that the proposed signature makes the outcome non-escaping"
+      ],
+      "whyWrong": "A borrowed argument constrains borrowed returns, not an owned T. My runtime39 escape probe applied to a borrowed &mut WorkScope and I over-generalized it to an owned value. The WorkFailure<Infallible> slot does what I claimed of it (only a budget refusal can be Err) but never addressed escape; two unrelated properties were conflated.",
+      "sourceConfirmation": "crates/security/src/journal_store.rs:1068 pub enum OperationalBytesObservation { Absent, Present(Vec<u8>), Unreadable(OperationalReadFailure) }, owned, already constructed and matched in installation_observation.rs",
+      "scopeNote": "pub within the crate-private journal_store module, so not part of the crate's external surface; irrelevant to the problem because the native owner lives inside this crate, which is exactly where the escape is reachable",
+      "runtimeConfirmation": "431 counterexample 3, using the proposed signature verbatim",
+      "correctedPosition": "Keep the entire provisional outcome inside the private native owner, which is what read_one already does with a plain local binding. No new public type and no type-system cleverness needed.",
+      "ifATypeBarrierIsWantedLater": {
+        "design": "an invariant brand tied to the bracket (Provisional<'brand>), constructible only by the bracket, consumed by a finalizer that also takes the postcheck evidence",
+        "proofRequired": "a compile-fail test that it cannot escape the closure",
+        "additionalCost": "making OperationalBytesObservation itself opaque would be a cross-module change, since other modules construct and match it today",
+        "statedAs": "proof obligation, not an accomplished fact"
+      }
+    },
+    {
+      "id": "C3",
+      "point": "error type plumbing",
+      "originalClaim": "the sketch's typed ? operations preserve Read/Changed/File/Directory errors through Budget::work",
+      "whyWrong": "Budget::work fixes its callback to Result<T, WorkFailure<retained_metadata_index::Error>>, while those variants belong to directory_record_capture::Error, so the sketch would not compile.",
+      "correctedFix": "pub(super) fn work_in<T, E: From<Error>>(&mut self, action: impl FnOnce(&mut WorkScope<'_>) -> Result<T, WorkFailure<E>>) -> Result<T, E>, mapping WorkFailure::Operation(e) => e and WorkFailure::Budget(b) => E::from(work_error_budget(b)), retaining the existing work_error for today's callers",
+      "whyThisIsSmall": "the conversion direction already exists: directory_record_capture::Error has Budget(BudgetError) with impl From<BudgetError> for Error where BudgetError = retained_metadata_index::Error, and native_record_capture has impl From<M::Error> for Error, so both native owners already satisfy the bound",
+      "noNewErrorVariantOrWrapperType": true,
+      "butStillApiWork": "I should have said this is additional API work needing review rather than implying the existing work_error mapping settled it"
+    }
+  ],
+  "lawPositionUnchanged": {
+    "verdict": "existing law suffices; no amendment",
+    "rootAgrees": true,
+    "followsFromLaw": [
+      "rechecks must run after read/parse failure, on the same budget, with no branch-local reset (section 8)",
+      "budget/limit failure is incomplete/unavailable and licenses no further work (section 8)",
+      "the raw syscall error is preserved but is not decisive (section 4)",
+      "Indeterminate is unavailable, with no retry (section 6)"
+    ],
+    "doesNotFollowFromLaw": [
+      "any particular allowance-partitioning mechanism; law mandates the outcome that required checks run and are accounted and cannot be refused, not how the allowance is split",
+      "type-level opacity of provisional data, which is API hygiene from root's audit rather than law"
+    ],
+    "selfCriticism": "the original advice blurred these two categories and should have separated them"
+  },
+  "testsToRequire": {
+    "originalNineStillApply": true,
+    "additions": [
+      "assert that remaining equals the derived postcheck allowance immediately before the read and that the read cannot reduce it",
+      "keep root's three 431 counterexamples as standing regression tests, since each pins a property the corrected shape depends on"
+    ]
+  },
+  "retainedLimitations": [
+    "Native cost derivation remains the real blocker: no derivation exists for inspect_operational_file, directory_policy::inspect or check_name, so read_cost, read_bound and postcheck_cost cannot be sized yet. The 427 account precharge is the model - a derived constant plus a test pinning observed call counts.",
+    "ACL, name-service and OS-profile opaque allocations, latency, cache effects and allocator overhead remain outside these counters.",
+    "One generic read wrapper qualifies no custody, creator, InitialActor, permit, P0 or current authority.",
+    "A supplied result is not authority.",
+    "No native capture was tested by root's counterexamples and none is claimed here.",
+    "No whole-project, whole-M2 or source assessment is made or implied."
+  ]
+}

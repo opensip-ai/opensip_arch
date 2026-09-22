@@ -1,0 +1,163 @@
+{
+  "schemaVersion": 1,
+  "kind": "advisory-composition-analysis",
+  "topic": "native-postcheck-composition-429",
+  "approval": {
+    "anyUnitApproved": false,
+    "anySourceApproved": false,
+    "lawAmended": false,
+    "note": "Advisory only. This approves no unit, no source, no law change. source427, the 425 reader experiment and the unfrozen 428 work_reader.rs were read as reference and are neither reviewed nor approved here."
+  },
+  "actualModel": "Claude Opus 5",
+  "reviewer": {
+    "actualModel": "Claude Opus 5",
+    "modelId": "claude-opus-5",
+    "identityNote": "Actual model identity, not a task label.",
+    "date": "2026-09-21",
+    "nativeJobsRun": false,
+    "nativeLaneOwner": "root",
+    "repositoryEdits": 0
+  },
+  "answer": {
+    "oneLine": "The raw operation result is a premise, not a conclusion; the guarded boundary belongs to the owner's whole bracket, never to the raw read.",
+    "shape": "Prepay the complete bracket (read + required postchecks), carry an ordinary I/O or parse failure as provisional DATA so the mandatory rechecks run and are accounted, and fail the original scope only after those checks conclude. A budget/limit failure is terminal at the instant it occurs and forbids the rechecks.",
+    "missingPiece": "a primitive, not a rule"
+  },
+  "whyNaiveSubstitutionIsWrong": {
+    "mechanism": "Both 428 wrappers return every failure, including WorkFailure::Operation(ReadFailure::Io(_)), as an Err out of a guarded boundary; the guard's Drop then sets ledger.failed = true.",
+    "consequenceInReadOne": "Latching at the read (line 153) leaves the mandatory rechecks at lines 155-157 either skipped or running while every charge/spend returns Closed, i.e. unaccounted.",
+    "bothBranchesViolate": "owner.md section 8",
+    "noEscape": "Reserved allowance cannot be spent after closure and a replacement ledger is forbidden.",
+    "standaloneBehaviorIsCorrect": true
+  },
+  "lawAssessment": {
+    "verdict": "EXISTING LAW SUFFICES",
+    "amendmentRequired": false,
+    "citations": [
+      {
+        "passage": "owner.md section 8",
+        "quote": "A fenced observation session retains originals and rechecks all relevant contributing owners even after later read/parse failures; any observed failure latches unavailability. ... All name enumeration, captures, graph edges/bytes and original-owner checks use the same authoritative operation budget; no branch-local reset. Budget/limit failure is incomplete/unavailable, never 'no ancestor' or permission to repair.",
+        "settles": "the read/parse versus budget asymmetry, the shared budget, and the no-reset rule"
+      },
+      {
+        "passage": "owner.md section 4",
+        "quote": "The raw EEXIST/AlreadyExists error alone is insufficient: a failed original-stage postcheck makes the outcome Indeterminate even when the primary syscall error is preserved.",
+        "settles": "that the conclusion is the conjunction of raw result and postcheck result, with the primary error preserved but not decisive"
+      },
+      {
+        "passage": "owner.md section 6",
+        "quote": "Any Indeterminate publication result, including AlreadyExists with failed postcheck | Latch unavailable, no winner shortcut, retry, deletion, registration or success receipt.",
+        "settles": "the effect-path disposition and the no-retry rule"
+      }
+    ],
+    "derivedConsequenceWorthStating": "On the effect path, pre-reserving the postchecks is what makes the section 4 loser route reachable at all: that route needs a complete typed AlreadyExists AND Unchanged result, so if budget exhaustion can prevent the postcheck from running, every contended publication degrades to Indeterminate and unavailable. Under-reservation is self-defeating, not merely unsafe.",
+    "optionalClarification": {
+      "required": false,
+      "passage": "owner.md section 8, the budget sentence",
+      "exactEdit": "add that an owner which must recheck after a fallible operation reserves those checks before beginning it",
+      "reason": "states the bracket rule rather than leaving it derived from section 8 plus section 4; sections 4 and 6 need no edit"
+    }
+  },
+  "minimalApiPath": {
+    "newPrimitives": 1,
+    "newPrimitive": {
+      "name": "read_bounded_provisional",
+      "signature": "fn read_bounded_provisional(reader: impl Read, max: usize, post: &mut ReservedPostchecks<'_>) -> Result<OperationalBytesObservation, WorkFailure<Infallible>>",
+      "property": "the only Err is a budget failure; the I/O outcome is carried inside the Ok value as data",
+      "why": "makes the law's distinction type-level rather than conventional: a budget failure cannot be mistaken for data, and an I/O failure cannot latch",
+      "implementationNote": "an outcome-type split over the existing private read_charged loop, not a new algorithm",
+      "gatedByPrepaidBracket": "taking &mut ReservedPostchecks means a provisional value can only exist inside a prepaid bracket"
+    },
+    "existingApisReused": [
+      "Budget::work lends &mut WorkScope<'_> with a higher-ranked lifetime",
+      "WorkScope::effect prepays a two-part reservation and yields the non-constructible ReservedPostchecks",
+      "ReservedPostchecks::spend and ReservedPostchecks::scope",
+      "Budget::retain still charges object and bytes before Arc::from"
+    ],
+    "publicWrappersUnchanged": "the 428 public wrappers stay as they are; they are correct for standalone use",
+    "ownershipPlacement": {
+      "bracketOpensOutside": "Budget::capture",
+      "reason": "that callback deliberately receives only cap: usize and no budget handle; a prepaid bracket cannot live inside it without changing that signature, which is not recommended",
+      "recommendedLevel": "native_record_capture::capture_with, which already holds &mut Budget and already calls b.scope(...)",
+      "retentionOrder": "retention follows the admitted outcome; b.retain still charges before Arc::from"
+    },
+    "doubleChargeIsIntentional": "the transient read buffer and the retained record are two real allocations and are charged twice on purpose; this is not double counting and should not be optimized away",
+    "provisionalValueHygiene": {
+      "minimum": "non-Clone, non-serde, no public constructor, obtainable only from a call taking &mut ReservedPostchecks",
+      "optionalHardening": "consumable only by a finalizer that also takes the postcheck result, plus a negative compile test that it cannot escape the closure"
+    }
+  },
+  "dispositions": [
+    {
+      "failure": "budget or limit refusal (charge or spend)",
+      "mandatoryPostchecks": "NOT run - running them would be work after terminal failure",
+      "outcome": "incomplete/unavailable; never absence, 'no ancestor' or permission to repair",
+      "latch": "immediately",
+      "authority": "owner.md section 8"
+    },
+    {
+      "failure": "raw read I/O failure",
+      "mandatoryPostchecks": "MUST run, from the prepaid allowance",
+      "outcome": "held as provisional data; reported only if every postcheck passes",
+      "latch": "on bracket exit"
+    },
+    {
+      "failure": "parse or bound failure (size over cap, missing terminator)",
+      "mandatoryPostchecks": "MUST run",
+      "outcome": "same as I/O",
+      "latch": "on bracket exit"
+    },
+    {
+      "failure": "postcheck failure (file, directory, name, ACL, changed)",
+      "mandatoryPostchecks": "is itself the check",
+      "outcome": "TAKES PRECEDENCE over the held raw failure; preserve read_one's current order",
+      "latch": "yes"
+    },
+    {
+      "failure": "effect postcheck failure or unknown target visibility",
+      "mandatoryPostchecks": "reservation already spent",
+      "outcome": "Indeterminate, therefore unavailable; no retry and no loser route",
+      "latch": "yes",
+      "authority": "owner.md sections 4 and 6"
+    }
+  ],
+  "errorPrecedence": {
+    "oneLine": "Budget failure is terminal in time; postcheck failure outranks the held raw failure in reporting; the raw failure is reported only when all required checks pass.",
+    "noNewErrorVariantNeeded": true,
+    "reason": "Budget::work_error already keeps budget outcomes in ObjectLimit/EdgeLimit/ByteLimit/Cap/Closed/Profile, distinct from Read/Changed/File/Directory, so section 8's 'never no ancestor' is representable today",
+    "matchIsExhaustiveWithNoWildcard": "a future platform variant is a compile error rather than a silent mis-map"
+  },
+  "testsToRequire": [
+    "After a raw read I/O failure, every mandatory postcheck executes (assert via the existing Phase interpose seam) and each is charged against the same ledger.",
+    "Precedence in both directions: raw failure reported when all postchecks pass; postcheck error reported and the raw failure discarded when one fails.",
+    "Budget exhausted before the read: zero native callbacks, outcome unavailable or limit, never absence.",
+    "Budget exhausted during the bracket: no postcheck runs afterwards, and every later spend returns Closed.",
+    "Prepaid postchecks spend only from remaining and add nothing to used - no second charge.",
+    "A recreated cache or second ledger cannot reduce used or reopen the bracket.",
+    "Unwind through the bracket latches and leaves the reservation spent, with no refund.",
+    "Effect path: an indeterminate postcheck after a write yields unavailable, not the loser route and not a retry.",
+    "Negative compile test: the provisional outcome cannot escape the bracket."
+  ],
+  "observations": [
+    "The live read_one already implements the recommended shape: it stores the read outcome, runs the after-checks with ?, and only then matches on the held outcome. The composition work is to make that bracket budgeted, not to change its order.",
+    "Section 4's publication rule is the same composition one level up, which is why no new law is needed: the raw syscall error is preserved but is not the conclusion.",
+    "Budget::capture's callback deliberately receives no budget handle, which is precisely why the prepaid bracket must open outside it.",
+    "427's ReservedPostchecks::scope is load-bearing here: a helper failure caught inside the callback still closes the owner, so an adapter cannot swallow a postcheck failure and claim a clean result.",
+    "The read buffer and the retained record are charged separately and legitimately; a future reviewer should not read that as double counting."
+  ],
+  "openQuestions": [
+    "Cost derivation is the real blocker: the bracket shape is implementable with today's APIs but its numbers are not. No derivation exists for inspect_operational_file, directory_policy::inspect or check_name. The 427 account precharge is the model - a derived constant plus a test pinning observed call counts against the real algorithm.",
+    "ACL, name-service and OS-profile opaque allocations, latency, cache effects and allocator overhead remain outside these counters; the reservation bounds requested caller-owned work only.",
+    "Whether the provisional primitive belongs in platform (public and opaque) or private to security.",
+    "The edges dimension now carries native API-call counts and traversal steps on one ledger; adding postcheck syscalls sharpens that overlap and affects how operation-wide limits should be chosen.",
+    "Whether a partially completed postcheck set after a budget refusal should be distinguishable from none in diagnostics. Law makes both unavailable; only observability differs."
+  ],
+  "limits": [
+    "Advisory analysis only; no tests were written or run and no native job was executed.",
+    "Native observation cost derivation, ACL and OS-profile opaque allocation premises remain unqualified.",
+    "One generic read wrapper qualifies no custody, no creator, no InitialActor, no permit, no P0 and no current authority.",
+    "A supplied result is not authority.",
+    "No whole-project, whole-M2 or source assessment is made or implied.",
+    "The unfrozen 428 work_reader.rs was read as reference only; it is unreviewed and unselected."
+  ]
+}

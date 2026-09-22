@@ -1,0 +1,13 @@
+# Root disposition of original429 advisory — partial agreement, corrections requested
+
+Read full originals after actualClaudeIDLE and verified every pin. Agree standalone reader cannot be blindly inserted into native read_one; ordinary I/O outcome must stay provisional until required original checks finish, while terminal budget failure stops work. No source/law approval from this advice. Existing selected owners support preserving the original bracket; no immediate law amendment proposed.
+
+Three concrete API problems remain in the sketch. effect(read_cost,postcheck_cost) charges both but exposes ONLY postcheck_cost as the ReservedPostchecks allowance. The proposed provisional reader spends from that allowance, so it consumes postcheck space, not the effect reservation. Prepayment alone does not partition or guarantee sufficient postchecks, nor prove every required check ran. Correct composition needs explicitly derived disjoint allowances (or an equivalently guarded native owner), never another WorkLedger.
+
+OperationalBytesObservation is an owned enum with public variants, no bracket lifetime and no consuming finalizer; the proposed return type does not make it opaque, nonconstructible or nonescaping. Taking a borrowed postcheck argument does not tie an owned return value to that borrow. A private native owner can retain provisional data internally; any claimed type barrier needs an actual branded/borrowed finalization design and compile proof.
+
+Budget::work currently fixes its callback error to retained_metadata_index::Error, distinct from directory_record_capture::Error. The shown ? operations cannot simply preserve those typed errors under that existing signature. Generic error plumbing or deliberate typed ownership is additional API work; work_error's existing variants do not by themselves settle the sketch.
+
+Request actualClaude correction while root prepares a minimal executable allowance counterexample. Preserve original ADVICE/advice.json/hash bytes; no silent overwrite. Native cost derivation/qualified profile premises remain open. These points concern advisory sketch, not accepted39source or selectedlaw.
+
+Executable follow-up431 now passes all three counterexamples. Exact actual OperationalBytesObservation probe is inside the private journal_store module; that module is NOT externally exported, so no external public access is claimed. The owned return still has no bracket lifetime and can escape within the owning crate as the proposed signature permits. No supplied data confers native authority. See trials/native-postcheck-counterexamples-431.
