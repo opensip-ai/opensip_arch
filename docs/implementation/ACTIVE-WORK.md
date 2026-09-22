@@ -4579,3 +4579,8 @@ Actual Claude Opus 5.5 REQUIRED-FINDINGS. RF-1: the file was created before any 
 ## 2026-09-22 — charge-first file creation installed at 7c45039; one preparation algorithm is under review
 
 453 r2 ACCEPT-UNIT, requiredFindings empty. Product 7c45039. The create is reserved before open. Uncommitted private_access.rs makes prepare_fresh_private_sample a wrapper over the reserved algorithm, so the Entries path is the same code create uses. 10 private_access tests passed. Request: docs/implementation/m2/reviews/claude-opus5-create-private453-r3/REQUEST.md. Reviewer owns the native lane. Not the installation creator. No push. M2–M6 unfinished.
+
+
+## 2026-09-22 — one preparation algorithm installed at c07799c; directory-handle creation is under review
+
+453 r3 ACCEPT-UNIT, requiredFindings empty. Product c07799c. Uncommitted creation takes a RetainedDirectory and uses openat with O_NOFOLLOW. The charge still precedes the create. 10 private_access tests passed. Request: docs/implementation/m2/reviews/claude-opus5-create-private453-r4/REQUEST.md. Reviewer owns the native lane. Not the installation creator. No push. M2–M6 unfinished.
