@@ -4491,3 +4491,12 @@ Actual Claude Opus 5.5 ACCEPT-UNIT for inventory63 and the private447 source bou
 T/select_inventory63.py PASS. Private and live verify_design passed. Product 0cba8f7 selects inventory63: 38 inventory successors, 65 contract successors, 711 planned files, 595 non-lock files unchanged from 20d94ec. Design-lock SHA256 05731aeb01569d51ca974fc1685a5a95121934efd28dfdca5aab29ff3fd7dc2d. Never rerun that selector.
 
 Product f8019ec copies the three reviewed content paths only. Reviewed module SHA256 7edfed520d4223d78b5f2546c684488082ffccc238984bf1d5ae970b3ddf8586. Integration rerun: rustfmt --check 0, 8 acl_capture tests passed, workspace cargo check --locked --offline --all-targets 0. The mode-only check-boundary.mjs difference was not copied. Omission and the NOACL sentinel are not absence. This is not creator completion, profile qualification, or an M2 close. The latest contract successor remains runtime43. No push. Grok owns the native lane. Next product behavior is the access-exclusion predicate over this capture, with the recorded test gaps, under a fresh review before integration. M2–M6 unfinished.
+
+
+## 2026-09-22 — private-access predicate drafted; inventory64 proposed; review assigned
+
+Uncommitted product on f8019ec: crates/security/src/private_access.rs SHA256 e41d0813c063ab1c4db0046a1aacd4e60f2457704b3b0b6cfad3ea6d27f3d069 and lib.rs SHA256 6e0e6115f506c67d951e3336503ee9680ae3ef32a5aaf50f4a04bf2700b63916. The predicate reads acl_state before entries. NotReturned and NoAclSentinel refuse. Entries(0) can accept exact 0700/0600 invoking-user objects. Foreign allow rights refuse. Owner rerun: 7 private_access tests passed, workspace check 0. Not committed.
+
+Proposed inventory64 adds that one security path at file index 248. Projection PASS, 28 corruptions refused. package.json 508→509, imported schema 575→576. Not selected.
+
+Actual Claude Opus5 on wF:p1 is assigned docs/implementation/m2/reviews/claude-opus5-private-access448-inventory64-r1/REQUEST.md. Reviewer owns the serial native lane until the report is written. The request requires top-level verdict ACCEPT-UNIT when both units are accepted. No integration before the report and root assent. Capture test-gap work continues only outside this product tree. M2–M6 unfinished.
