@@ -4537,3 +4537,8 @@ Uncommitted on a11f267: macos.rs installs one group deny-delete ACE so a capture
 Actual Claude Opus 5.5 REQUIRED-FINDINGS on the group deny-delete replacement. RF-1: that deny blocks the owner when the owner is in the file group. RF-2: replacement discards existing and inherited ACEs and can widen access. RF-3: production helpers with no caller added dead-code warnings. The rejected diff was not committed. The two leaked scratch directories were removed after chmod -RN.
 
 Corrected uncommitted diff is test-only. append_owner_zero_allow reads the extended ACL and appends one zero-rights owner allow. The test keeps a prior allow of right 2, then expects rights 0 and 2, and owner rename-over plus unlink succeed with the parent chowned to the process gid. cargo check --lib is warning-free. 12 acl_capture tests passed. r2 request: docs/implementation/m2/reviews/claude-opus5-presence-ace451-r2/REQUEST.md. Reviewer owns the native lane. Not creator policy. No push. M2–M6 unfinished.
+
+
+## 2026-09-22 — presence ACE r2 accepted at 691b53a; r3 tightens the test helper
+
+Actual Claude Opus 5.5 ACCEPT-UNIT on the test-only append. requiredFindings empty. Product 691b53a. A NULL fetch falls back only on ENOENT in the uncommitted r3 diff, the fresh-file case expects one zero-rights owner allow, and entries are checked for kind and User(uid). r3 request: docs/implementation/m2/reviews/claude-opus5-presence-ace451-r3/REQUEST.md. Reviewer owns the native lane. Still not a production marker or creator policy. No push. M2–M6 unfinished.
