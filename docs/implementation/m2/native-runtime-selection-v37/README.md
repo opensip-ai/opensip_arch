@@ -1,0 +1,5 @@
+# Runtime37: shared work-accounting scopes
+
+Materialize source421 under accepted inventory61. Three mapped platform paths (one existing lib export, two new files with correct work_ledger_tests.rs target),590unchangednonlock,594product/593nonlock. Same private stage helper as36, two newly mapped paths previously absent. Source historical lock35/58excluded; current exact selected36/58 preserved. No passage overrides. Parents selected36runtime, initial-owner406 and inventory61.
+
+WorkLedger and nonconstructible WorkScope implement bounded accounting; helper replacement/cross-owner scope swap rejected by compiler. SourceREADME distinguishes historical4186unit+2typechecks from fresh4213integration/workspace checks, original417reset demonstration and missingreexport failure. No private420security bridge included. Accounting constructors/conditional cache tests are not native custody, creator/current authority, shared native capture-precharge/P0 or product readiness. Native ownership and qualified producers remain work. Actual independent source/formal review and root substantive assent required before selection.
