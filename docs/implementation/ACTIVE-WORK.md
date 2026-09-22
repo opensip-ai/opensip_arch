@@ -4554,3 +4554,8 @@ Uncommitted on 0192a70: append_owner_zero_allow is public and limited to regular
 ## 2026-09-22 — fresh-private preparation installed at a081aa2; accounting follow-up is under review
 
 452 ACCEPT-UNIT, requiredFindings empty. Product a081aa2. O1 and O2 were required before any caller. The uncommitted follow-up makes the raw append crate-private, charges a documented 5-edge append cost before the write, and tests a second prepare, a one-capture budget refusal, and an unchanged foreign allow. Request: docs/implementation/m2/reviews/claude-opus5-prepare-private452-r2/REQUEST.md. Reviewer owns the native lane. Not creator completion. No push. M2–M6 unfinished.
+
+
+## 2026-09-22 — append accounting installed at 03cee39; reserved-wrapper tests are under review
+
+452 r2 ACCEPT-UNIT, requiredFindings empty. Product 03cee39. The raw append is crate-private and the write is charged. Uncommitted tests pin the reserved wrapper and re-capture after a second prepare. Request: docs/implementation/m2/reviews/claude-opus5-prepare-private452-r3/REQUEST.md. Reviewer owns the native lane. Not creator completion. No push. M2–M6 unfinished.
