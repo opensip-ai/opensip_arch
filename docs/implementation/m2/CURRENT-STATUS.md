@@ -1,10 +1,10 @@
 # Current implementation status
 
-Snapshot after runtime40 integration,2026-09-21. Use the latest [active-work entry](../ACTIVE-WORK.md) for exact resume state.
+Snapshot after runtime42 integration,2026-09-21. Use the latest [active-work entry](../ACTIVE-WORK.md) for exact resume state.
 
 ## Installed and committed
 
-Product `ef7d008`: runtime40/source430, inventory62,37 inventory/62 contract successors,596 tracked files. Inventory plans710 files across20 packages; these counts are not a completion percentage. Nothing pushed.
+Product `659e55e`: runtime42/source439, inventory62,37 inventory/64 contract successors,596 tracked files. Inventory plans710 files across20 packages; these counts are not a completion percentage. Nothing pushed.
 
 - Runtime35 implements endpoint-only physical marker checking while retaining complete immutable lineage. Actual Grok reviewed it; earlier Claude evidence was partial, not approval.
 - Runtime36 closes trust budgets after caught nested failure or unwinding. Actual Claude accepted it. Historical full security suite392pass/2pre-existing clock pilots ignored.
@@ -20,9 +20,11 @@ Actual Claude Opus5 `wH:p6` completed and corrected advice429; root preserved th
 
 Private public-reader428 passed8integrationtests/workspace; source430 is frozen with identical tested nonlock bytes and the source39 lock. Inventory62 adds2planned files (710total) and is selected; source430 is now selected as runtime40 after actual source review and private/live verification. Native file capture still requires explicit error/postcheck composition; the standalone reader is not a drop-in replacement.
 
-Private432 protected child allowances passed ledger tests and compiler boundary probes. Private433 typed cache errors passed focused tests, the full security suite (399 passed/two existing ignores), and workspace check. Neither is selected or peer-approved; their exact development evidence is archived.
+Runtime41 integrates reviewed432 protected child allowances,433 typed cache errors and436 fixed-buffer native-name accounting as source437, plus a reader-header warning. Actual Claude passed46tests and independent compiler boundary probes; root private/live design checks,41focusedtests and workspace passed. Product e8f289c. Runtime42 now integrates439 postchecked reader: actual Claude accepted after33tests and eight ordering probes; root private/live checks and33tests/workspace passed, product659e55e. Native adapters and their full costs remain separate.
 
 Runtime40 adds the bounded reader with eight reader and seven ledger integration tests plus workspace checks passing after integration. Actual Claude independently replayed23tests and nine probe groups. Product commit `ef7d008`; the standalone helper still cannot replace native postcheck brackets directly.
+
+Private440 cost derivation passed24reader/13ledgerintegration/workspace checks. Private442 typed cache composition is undergoing focused/fullsecurity checks; neither is peer-approved or selected. Actual Claude is giving read-only bounded-ACL444 advice; root owns the native lane.
 
 ## Remaining project work
 

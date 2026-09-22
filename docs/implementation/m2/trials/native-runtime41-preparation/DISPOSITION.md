@@ -1,0 +1,1 @@
+Preparation snapshot remains immutable. Actual41 accepted and guarded selector completed49359 with private/live37/63,8mapped587unchanged595nonlock;41focusedtests/workspace passed. Executed selection.py and logs are in native-runtime-materialization-41. Product e8f289c is committed. Never rerun either selector.

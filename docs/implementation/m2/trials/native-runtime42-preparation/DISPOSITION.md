@@ -1,0 +1,1 @@
+Preparation snapshot preserved. Actual42 accepted and guardedselectorcompleted11594,private/live37/64,3existingmapped592unchanged595nonlock,20reader/13ledgerintegration/workspacePASS. Product659e55e committed. Executedselector/logs in native-runtime-materialization-42; never rerun either selector.

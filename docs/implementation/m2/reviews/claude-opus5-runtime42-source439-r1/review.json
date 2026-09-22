@@ -1,0 +1,194 @@
+{
+  "schemaVersion": 1,
+  "unit": "native-runtime-selection-v42",
+  "verdict": "ACCEPT-DESIGN-UNIT",
+  "requiredFindings": [],
+  "subjectManifestSha256": "78359b485ff648eb4c841769ca60e51ca69365c459f5ea1669f5995eb65361ad",
+  "subjectManifest": {
+    "path": "docs/implementation/m2/native-runtime-selection-v42-subject.json",
+    "bytes": 2480,
+    "sha256": "78359b485ff648eb4c841769ca60e51ca69365c459f5ea1669f5995eb65361ad"
+  },
+  "sourceAcceptance": {
+    "accepted": true,
+    "unit": "postchecked-reader-439",
+    "archive": {
+      "sha256": "95d89ba854195eef48c8154724a64252c91c0a969afb7ba115cbc980d870dfa4",
+      "manifestSha256": "5abd61eda4d67bdcd2b40e5f3808aa13d1a9e8715ff0f069417f74d4e6171cad"
+    }
+  },
+  "actualModel": "Claude Opus 5",
+  "reviewer": {
+    "actualModel": "Claude Opus 5",
+    "modelId": "claude-opus-5",
+    "reviewDate": "2026-09-21",
+    "ownedNativeLane": true,
+    "authorshipDisclosure": "I wrote the 429 advice this primitive implements, so I reviewed it against the source and by execution rather than against my recollection of what I recommended."
+  },
+  "formalChecks": {
+    "productHead": "e8f289c",
+    "productClean": true,
+    "acceptedPathsInLock": 15628,
+    "lockInventorySuccessors": 37,
+    "lockContractSuccessors": 63,
+    "inheritedMeanings": 5,
+    "formalMembers": 12,
+    "formalMembersVerified": 12,
+    "candidates": 11,
+    "candidatesCoverSubjectMinusRecord": true,
+    "parents": [
+      "docs/implementation/m2/initial-root-binding-owner-selection-v1/successor.json",
+      "docs/implementation/m2/native-runtime-selection-v41/successor.json",
+      "docs/implementation/m2/repository-file-inventory.v62.json"
+    ],
+    "parentsSortedUnique": true,
+    "everyParentAccepted": true,
+    "noParentOverwritten": true,
+    "passageOverrides": [],
+    "unitNotYetInLock": true,
+    "stagePyIdenticalToAcceptedV41Helper": true
+  },
+  "sourceChecks": {
+    "archiveMembers": 618,
+    "allRegularNoneUnsafeOrDuplicate": true,
+    "archiveMembershipEqualsManifest": true,
+    "productMembers": 596,
+    "nonLockProductMembers": 595,
+    "mappedPaths": [
+      "crates/platform/src/lib.rs",
+      "crates/platform/src/work_reader.rs",
+      "crates/platform/tests/work_reader_tests.rs"
+    ],
+    "allMappedExisting": true,
+    "newFiles": 0,
+    "unchangedNonLock": 592,
+    "noDependencyOrLayoutChange": true,
+    "archiveProductSetEqualsLiveTrackedSet": true,
+    "lock": {
+      "archiveEqualsLive": true,
+      "counts": "37 inventory / 63 contract",
+      "excludedByExactPathFromMaterialization": true,
+      "fiveInheritedMeaningsPreserved": true
+    },
+    "mapBaselineStageVerified": true
+  },
+  "primitiveReview": {
+    "name": "read_bounded_reserved_with_postchecks<R: Read, E: From<ReadFailure>>",
+    "budgetPartition": "read share carved with the accepted 41 with_allowance, so the read cannot consume postcheck space (the failure root demonstrated at 431)",
+    "documentsTheTrap": "doc states the parent must already hold read PLUS postcheck allowance, and that for WorkLedger::effect the total goes in the second argument because the first is charged but not spendable",
+    "typeLevelProvisionality": "inner closure returns Result<Result<Vec<u8>, ReadFailure>, WorkFailure<E>>: the outer arm carries terminal failures, the inner arm the provisional outcome",
+    "terminal": [
+      "WorkFailure::Budget",
+      "ReadFailure::InvalidLimit"
+    ],
+    "provisional": [
+      "Io",
+      "Reserve",
+      "Bound"
+    ],
+    "noEarlyEscape": "callback takes (&R, &mut ReservedPostchecks) and returns Result<(), _>, so it sees neither the accumulated Vec nor the pending outcome and has no channel to emit anything",
+    "borrowing": "read_charged(&mut reader, ..) borrows mutably only inside the with_allowance closure, so the later &reader borrow is conflict-free; works because &mut R: Read",
+    "precedence": "a postcheck error returns through ? and discards pending, outranking a pending read error - matching read_one's existing order",
+    "finalization": "only after callback success is a pending read error converted into E and returned as Operation, closing the owner; bytes require both read and callback success",
+    "fileFixtureProvesOnly": "ptr::from_ref equality plus dev/ino/len at callback time show the same object; the test comment says plainly this is usable borrow, not custody"
+  },
+  "orderingProbes": {
+    "method": "public API only, compiled against the staged rlib; explicit traces so the ORDER is observed, not inferred; binaries deleted after the run",
+    "allPassed": true,
+    "results": [
+      {
+        "id": "P1",
+        "case": "success",
+        "observed": "used equals the whole allowance exactly; postcheck ran; bytes returned after it"
+      },
+      {
+        "id": "P2",
+        "case": "ordinary IO error",
+        "observed": "postchecks RAN, then PermissionDenied preserved, owner closed"
+      },
+      {
+        "id": "P3",
+        "case": "postcheck error with a pending read error",
+        "observed": "postcheck error won"
+      },
+      {
+        "id": "P4",
+        "case": "budget exhaustion in the read share",
+        "observed": "postchecks SKIPPED, owner closed"
+      },
+      {
+        "id": "P5",
+        "case": "postcheck budget failure caught and swallowed",
+        "observed": "bytes withheld, owner closed"
+      },
+      {
+        "id": "P6",
+        "case": "oversize",
+        "observed": "postchecks RAN, then semantic Bound, no prefix"
+      },
+      {
+        "id": "P7",
+        "case": "panic inside the callback",
+        "observed": "propagated, owner closed, no bytes released"
+      },
+      {
+        "id": "P8",
+        "case": "invalid limit",
+        "observed": "converted into E before the reader; postchecks skipped"
+      }
+    ],
+    "conclusion": "the complete disposition table from the 429 advice, measured rather than asserted"
+  },
+  "nativeReplay": {
+    "liveProductMutated": false,
+    "compiledBinariesArchived": false,
+    "staging": {
+      "archiveMembersVerified": 618,
+      "nonLockSourceFilesVerified": 595,
+      "mapped": 3,
+      "unchangedNonLock": 592,
+      "liveProductUnchanged": true,
+      "exitCode": 0
+    },
+    "readerIntegrationTests": 20,
+    "ledgerIntegrationTests": 13,
+    "workspaceWarningsOrErrors": 0,
+    "fullSecuritySuiteRun": false
+  },
+  "rootQualificationsOnMy41Review": {
+    "returnableSplitSuperiority": "accepted - my claim was under-argued; a correct returnable split could also enforce an exclusive parent borrow, and I showed only that this form does",
+    "countingFixtureLimit": "accepted - a counting assertion would not catch a future internal OS API addition either, so it pins today's shape rather than guaranteeing future accuracy",
+    "nameObserverReading": "the frozen one-call/one-buffer reading stands; future cost changes need review"
+  },
+  "evidence": {
+    "ownEvidence": [
+      "evidence/structural-checks.py",
+      "evidence/structural-checks.json",
+      "evidence/archive-map-checks.json",
+      "evidence/replay-checks.json",
+      "evidence/environment.json",
+      "evidence/stage-command.json",
+      "evidence/my-stage.*",
+      "evidence/reader-tests.*",
+      "evidence/ledger-integ.*",
+      "evidence/workspace.*",
+      "evidence/probes/",
+      "evidence/changed/"
+    ],
+    "rootEvidenceAttributed": "438 (20 reader / 13 ledger integration / workspace) is root evidence; 439 makes no fresh native claim and the 595 non-lock bytes are exactly 438's with only the lock rebased, which my archive comparison confirms. I reproduced the 20 and 13 independently.",
+    "notFaultInjected": "the typed Reserve branch is not an injected allocator fault"
+  },
+  "limits": [
+    "A sequencing primitive for an ARBITRARY callback: it orders read, checks and finalization but does not establish that any actual native check occurred, and no such inference is drawn.",
+    "Existing native adapters are not rewired; complete 429 native composition remains open. The owner still owes real descriptor, directory, name, account and custody checks and properly derived costs; ACL and descriptor costs remain unresolved.",
+    "Standalone read_bounded_accounted and read_bounded_reserved are unchanged and still latch ordinary I/O before returning; the header now names them explicitly.",
+    "EOF is relative to the Read contract; arbitrary reader, callback and drop internals, OS, service and allocator costs, RSS and latency are outside the claim.",
+    "No new authority, creator, P0 or current authority; no Linux, release, power-loss, full M2 or M2-M6 qualification; existing law unchanged.",
+    "Root substantive assent and guarded private/live integration remain required."
+  ],
+  "observations": [
+    "The callback cannot return data. Result<(), _> is the safe choice - no channel to leak a provisional outcome - but a real postcheck producing an observation must capture it into a closure local. Ergonomic friction worth knowing before the native adapter is written.",
+    "InvalidLimit remains terminal and latching, now converted into the caller's E. My runtime40 note stands: a caller parameter error still closes the shared operation, and validating max before the bracket would keep a misuse from poisoning a healthy operation.",
+    "read_allowance is unvalidated against the parent's remainder by design - an over-large value refuses through with_allowance and is terminal, which is correct, but a sizing mistake presents as budget exhaustion rather than a distinguishable misuse. Acceptable while costs are underived; it matters more once real postcheck costs exist."
+  ]
+}

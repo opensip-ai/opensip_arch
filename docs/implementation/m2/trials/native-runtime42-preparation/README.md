@@ -1,0 +1,1 @@
+Preparation snapshot only, NOT executed. Requires actual42/source439 fullreview/hashes/rootassent and cleanselected41/37/63. Expected3existingmapped592unchanged595nonlock; private/live37/64 and20reader/13ledgerintegration/workspace checks. Preserve original snapshot and any eventual executed selector separately.
