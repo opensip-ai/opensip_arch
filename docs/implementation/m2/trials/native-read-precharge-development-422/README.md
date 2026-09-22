@@ -1,0 +1,3 @@
+# Private bounded-reader prototype422
+
+Four tests pass: exact/empty/oversized input, precharge before reads and bounded Interrupted retries, partial-I/O failure, maximum-record growth and invalid bounds. Original sources, exact commands/environments and logs are preserved in the archive. No compiled artifacts are included. This is unreviewed, unselected generic accounting; no native adapter or product path was changed. Requested allocation bytes are not RSS or opaque OS cost qualification. WorkScope-only prototype still needs explicit ReservedPostchecks composition before any use inside effects.
