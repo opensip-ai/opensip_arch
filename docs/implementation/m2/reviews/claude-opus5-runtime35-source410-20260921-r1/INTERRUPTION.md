@@ -1,0 +1,3 @@
+# Temporary service interruption during review
+
+Actual Claude Opus5 completed private staging, focused native replays and formal-verification evidence, then ended with API529Overloaded after10retries. No REVIEW.md, review.json or hashes.txt was produced; no actual approval is inferred. Root observed DONE and no active cargo/rustc/clang/rustdoc/rustfmt process. Root then ran six standalone mutable412 bookkeeping tests (all pass), which are separate from source410. Frozen410/35 and product e60ce01 remain unchanged. Resume instruction asks Claude to finish from retained original evidence with no new native jobs; root owns serial native lane until explicitly reassigned.
