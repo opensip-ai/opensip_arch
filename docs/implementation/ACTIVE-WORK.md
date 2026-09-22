@@ -4584,3 +4584,8 @@ Actual Claude Opus 5.5 REQUIRED-FINDINGS. RF-1: the file was created before any 
 ## 2026-09-22 — one preparation algorithm installed at c07799c; directory-handle creation is under review
 
 453 r3 ACCEPT-UNIT, requiredFindings empty. Product c07799c. Uncommitted creation takes a RetainedDirectory and uses openat with O_NOFOLLOW. The charge still precedes the create. 10 private_access tests passed. Request: docs/implementation/m2/reviews/claude-opus5-create-private453-r4/REQUEST.md. Reviewer owns the native lane. Not the installation creator. No push. M2–M6 unfinished.
+
+
+## 2026-09-22 — handle-relative creation installed at 2a13559; exclusive-create tests are under review
+
+453 r4 ACCEPT-UNIT, requiredFindings empty. Product 2a13559. Creation uses openat on a retained directory. Uncommitted tests pin O_EXCL: an existing 0644 file is not opened or chmodded, and a final symlink is not followed. Request: docs/implementation/m2/reviews/claude-opus5-create-private453-r5/REQUEST.md. Reviewer owns the native lane. Not the installation creator. No push. M2–M6 unfinished.
