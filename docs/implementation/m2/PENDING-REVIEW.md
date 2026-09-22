@@ -1,6 +1,6 @@
 # Pending independent implementation reviews
 
-Current navigation: product `6dddbfe` installs accepted runtime39/source427 and inventory62,design37/61. Actual Claude Opus5 is reviewing reader430/formal40 and owns the native lane. Corrected429 advice is archived with root qualifications. Private432/433 and436 still need source review. [Current status](CURRENT-STATUS.md) and the latest [active-work entry](../ACTIVE-WORK.md) supersede historical entries below.
+Current navigation: product `ef7d008` installs accepted runtime40/source430 and inventory62,design37/62. Actual Claude Opus5 accepted the reader after independent source/formal replay; root integrated and committed it. Root owns the native lane. Corrected429 advice is archived with root qualifications. Private432/433/436 are being combined for the next source review. [Current status](CURRENT-STATUS.md) and the latest [active-work entry](../ACTIVE-WORK.md) supersede historical entries below.
 
 Installed product remains runtime24 on design30/44. The following work is implemented or proposed privately and preserved as evidence; it is not accepted runtime. Grok's latest actual review attempt stopped at its weekly quota. Do not infer approval, retry the quota repeatedly, or substitute another GPT agent.
 

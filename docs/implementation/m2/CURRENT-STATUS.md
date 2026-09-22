@@ -1,10 +1,10 @@
 # Current implementation status
 
-Snapshot after inventory62 selection,2026-09-21. Use the latest [active-work entry](../ACTIVE-WORK.md) for exact resume state.
+Snapshot after runtime40 integration,2026-09-21. Use the latest [active-work entry](../ACTIVE-WORK.md) for exact resume state.
 
 ## Installed and committed
 
-Product `6dddbfe`: runtime39/source427, inventory62,37 inventory/61 contract successors,594 tracked files. Inventory plans710 files across20 packages; these counts are not a completion percentage. Nothing pushed.
+Product `ef7d008`: runtime40/source430, inventory62,37 inventory/62 contract successors,596 tracked files. Inventory plans710 files across20 packages; these counts are not a completion percentage. Nothing pushed.
 
 - Runtime35 implements endpoint-only physical marker checking while retaining complete immutable lineage. Actual Grok reviewed it; earlier Claude evidence was partial, not approval.
 - Runtime36 closes trust budgets after caught nested failure or unwinding. Actual Claude accepted it. Historical full security suite392pass/2pre-existing clock pilots ignored.
@@ -16,11 +16,13 @@ Product `6dddbfe`: runtime39/source427, inventory62,37 inventory/61 contract suc
 
 Runtime39 is accepted by actual Claude Opus5 and installed after guarded private/live checks. It adds guarded reserved-helper scopes and native account-observation wrappers reserving caller-owned work before the first OS sample. Peer and root passed12account/6unit/7integration/2doc/4cache tests plusworkspace. Four existing platform files changed;589nonlock files were unchanged.
 
-Actual Claude Opus5 `wH:p6` completed and corrected advice429; root preserved the originals and qualifications. Claude accepted inventory62, now selected after private/live checks. Claude is now reviewing formal40/source430 and owns the native test lane. Advice approves no source or law change.
+Actual Claude Opus5 `wH:p6` completed and corrected advice429; root preserved the originals and qualifications. Claude accepted inventory62, now selected after private/live checks. Claude also accepted formal40/source430, now integrated after guarded private/live checks. Root owns the native test lane. Advice approves no source or law change.
 
-Private public-reader428 passed8integrationtests/workspace; source430 is frozen with identical tested nonlock bytes and the source39 lock. Inventory62 adds2planned files (710total) and is selected; source430 is frozen and under actual source/formal40 review, not selected. Native file capture still requires explicit error/postcheck composition; the standalone reader is not a drop-in replacement.
+Private public-reader428 passed8integrationtests/workspace; source430 is frozen with identical tested nonlock bytes and the source39 lock. Inventory62 adds2planned files (710total) and is selected; source430 is now selected as runtime40 after actual source review and private/live verification. Native file capture still requires explicit error/postcheck composition; the standalone reader is not a drop-in replacement.
 
 Private432 protected child allowances passed ledger tests and compiler boundary probes. Private433 typed cache errors passed focused tests, the full security suite (399 passed/two existing ignores), and workspace check. Neither is selected or peer-approved; their exact development evidence is archived.
+
+Runtime40 adds the bounded reader with eight reader and seven ledger integration tests plus workspace checks passing after integration. Actual Claude independently replayed23tests and nine probe groups. Product commit `ef7d008`; the standalone helper still cannot replace native postcheck brackets directly.
 
 ## Remaining project work
 

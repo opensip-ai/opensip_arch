@@ -1,0 +1,3 @@
+# Native accounting437 preparation snapshot
+
+NOT frozen candidate, selected source or approval.434 combined draft completed48tests/workspace; console49typo corrected in attached counts.436 native-name wrappers and five proposed tests have NOT run. The initial436 preparation script was manually corrected to use WorkBudgetError and add the public native fixture before this snapshot; exact untested source is preserved. check_name436,prepare_composition437,freeze_composition437 are NOT executed. The latter requires clean accepted40 and passed436checks before rebasing/freezing seven existing paths. Any later executed scripts and sources must be preserved separately; do not rewrite this snapshot. Claude40 owns the serial native lane; no root native jobs until DONE/IDLE.

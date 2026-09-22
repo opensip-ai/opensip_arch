@@ -1,0 +1,1 @@
+Preparation snapshot remains immutable. Actual40 source/formal review completed with no required findings; guarded executed selector and logs are in trials/native-runtime-materialization-40. Product ef7d008 installs runtime40 with inventory62 (37/62),3mapped592unchanged595nonlock. The actual executed script is selection.py there; do not rerun either version.

@@ -4343,3 +4343,40 @@ ActualClaude Opus5 wH:p6 session6f09b842-c1f5-45a7-be5b-91a0ca12d50a nowassigned
 T/select_runtime40.py PREPAREDNOTEXECUTED; syntax/readchecked, guardedreview+rootassent needed, expected37/62/3mapped592unchanged595nonlock,8reader/7ledgerintegration/workspace. Durable UNEXECUTED snapshot trials/native-runtime40-preparation. ActualClaude40 stillWORKING/owns native lane;root mustnotrun native jobs.
 
 T/prepare_name436.py prepared3existingplatformpaths onunselectedcombined434: filesystem/directory_names.rs private originalscope/reserved wrapper plusfixedcost, filesystem.rs publicforwards,libexports. Cost1object/1APIedge/1056requestednativeattribute-bufferbytes; opaqueOSwork/stackframe/RSS excluded. Originalnativeobserverunchanged. False is data, consumingpolicy mustenforcemismatch.4privateaccountingtests and1actualpublicretained-filename/mismatch/rename test prepared. ActualaliasWorkBudgetErrorcorrectedbeforetests; no nativejobrun. T/check_name436.py PREPAREDNOTEXECUTED. Proposednextcombinedsource437 couldjoin432433436 afteraccepted40 andfreshchecks;435notused/frozen. No inventorychange for436. Do notclaim tested/accepted; nativeACLcost/profile remains open.
+
+
+## 2026-09-21 — checkpoint4cc5472;437 preparation preserved
+
+Architecture4cc5472 committed62layout acceptance and frozen40/request. Product6dddbfe clean,37/61. T/check_name436.py,prepare_composition437.py,freeze_composition437.py syntax checked NOTexecuted; preparation snapshot trials/native-accounting437-preparation preserves43448testlogs/countcorrection,436untested3pathsource, andscripts. Freeze437wouldjoin7existingpaths/588unchangednonlock onaccepted40; currently40actualreviewWORKING/peerowns lane. No native rootjob. Neverpush.
+
+
+## 2026-09-21 — actual40 source accepted; guarded activation active75061
+
+ActualClaude40 DONE/fullREVIEW11273B SHA42940313d3e968de512f8861b41428e0936f1bb59aeec16d7f52df1c7c70e8a8 and review12796B SHAeaea5b721ac165646ac8f3b5621468846a77eaf3e95e7c77b864650305f53e02 read. ACCEPT-DESIGN-UNIT requiredFindings[]. Peerindependent8reader/7integration/6unit/2doc/workspacePASS and9executedpublicAPIprobe groups. Initialassert_eq!/PartialEqprobe harness mistakeacknowledged; finalcorrectedprobe valid. Rootassent preservesInvalidLimitlatching (doesnotadoptoptionaloutsideguardvalidation), qualifies EOFrelativeReadcontract, requestedgrowthnotRSS, falliblereserveerrornotuniversalabortguarantee. Rootownsserialnative lane again; no outstandingpeer task.
+
+T/select_runtime40.py RUNNING75061 after fullread/rootassent; expected37/62/3mapped592unchanged595nonlock,live8reader7ledgerintegration/workspace. Must recovercompletion before newnative jobs. Notyetproductcommitted. Next436tests afterthis, then437prepare/freeze andactual41review. Private436now also includescomment-onlywork_reader.rs headercarryingactual40latch/postcheckwarning; FOUR436paths/EIGHTcombined437existingpaths,587unchangednonlock. Prepared437scriptsupdated/syntaxchecked; initial durablepreparation snapshotsevenpathpreserved, notrewritten. No436tests yet. Actualnativecost/ACL/profile/postcheckcomposition stillopen;M2–M6unfinished. No push.
+
+
+## 2026-09-21 — runtime40 integrated and committed;436 native checks running79302
+
+T/select_runtime40.py COMPLETED75061:actualreviewpins verified,private/live37/62,3mapped592unchanged595nonlock,live8reader/7ledgerintegration/workspacePASS. Productef7d008 committedAdd reviewed bounded readers on the original work ledger;596tracked,inventory62/710planned20packages. Neverrerun40selector. Fulloriginalreview/assent/materialization40preserved;architecturelastcommit4cc5472 beforethis40integration. No push.
+
+T/check_name436.py RUNNING79302,format0;5namework/native-name-regression/workspacepending. ROOTOWNSserialnative lane. ActualClaude40 DONE/no outstandingpeer task. Recover436before437prepare. T/prepare_composition437.py andfreeze_composition437.py preparednotexecuted; EIGHTexistingmapped/587unchanged anticipated, includescomment-only430readerheaderwarning. Nextfreezeactual41 onlyafter436+437checks andallmapsverified. M2–M6unfinished.
+
+
+## 2026-09-21 — source437/formal41 frozen; actual Opus5 review active
+
+T/check_name436.py COMPLETED79302:5nameaccountingtests+6native-namefiltertests(one repeatednewfixture)/workspacePASS. T/prepare_composition437.py COMPLETED36453:8existingpaths rebased onaccepted40 productef7d008,all595nonlockbytes equaltested436,onlylock differs. Fresh6ledgerunit/13integration/8reader/5name/4cache/3typed=39tests/workspacePASS. No fullfreshsecurityclaim (399+2 remainshistorical433).
+
+T/freeze_composition437.py COMPLETED37601. Formal41 subject2476B SHAdac61d4c0295d530bddae7f3a85e977c79cd831c23665ee96251c29832ca0505;12members11candidates3sortedparents(owner406/runtime40/inventory62),nooverrides,samehelper40. Source trials/native-accounting-437 archive6959636B SHA5e47ec3ad60031afcd1c35b0bcf72783d2ab57d16afee0ef39d260d8aae4098d;manifest136532B SHAe7238f608023b2c1cb5db257ae462e9b86d9e59cdd7dc301604c0961eb455829.731members596product595nonlock8mapped587unchanged; historicalsource37/62lockexcluded, eventual37/63. Neverrerunfreeze437.
+
+ActualClaude Opus5 wH:p6 session6f09b842-c1f5-45a7-be5b-91a0ca12d50a nowassigned41/source437;durableREQUEST/status,scratchT/reviews/claude-opus5-runtime41-source437-r1. PEEROWNS SERIAL NATIVE LANE untilDONE/IDLE;rootno nativejobs. Rootallnativejobsfinished. Source41NOTaccepted/selected, no41selector yet. Productef7d008 clean37/62/596tracked,inventory62/710planned20packages. Architecturelastcommit4cc5472; current40integration/437freeze+request notyetcommitted. No push.
+
+Nextrootindependentwork: prepareactualread/postcheckcomposition438, keepingordinaryIO/semanticrecord-bound outcomeinsidehelper untilrequiredcallback, protectingpostcheckallowancewithnewchildscope; workbudgetlimits stopimmediately. No provisional-owned-value escapeclaim or nativecostqualification. Needactualreview and nativecost/ACL/profile before nativeadapterrewiring;M2–M6unfinished.
+
+
+## 2026-09-21 —41 selector prepared;438 private postchecked reader prepared
+
+T/select_runtime41.py PREPAREDNOTEXECUTED, durabletrials/native-runtime41-preparation snapshot. Requiresactualfull41review/rootassent; expected37/63/8mapped587unchanged595nonlock,41focusedtests including2doc/workspace. Source41 stillWORKING/actualClaude ownsserialnative lane; rootmustnotnative-test.
+
+T/prepare_postchecked438.py completedprivate3existingplatformpathdraft on437. read_bounded_reserved_with_postchecks<E:From<ReadFailure>> retains pendingordinaryIO/Reserve/semanticBound ONLYinprivatelocal. Sameparentwith_allowance protectsreadchild versusremainingpostchecks. Callback receives no pendingbytes/outcome; runsbefore finalizingordinaryreaderror. Postcheckerroroutranksreaderror. Workbudgetfailure/InvalidLimit/panicterminalwithnocallback; failurescaughtbycaller stillcloseoriginal. Parentmustalreadycontainread+postcheckstotal (effectfirstcostisnotspendable). No type-levelauthority/custodyclaim for arbitrarycallback.10proposedtests;T/check_postchecked438.py syntaxcheckedPREPAREDNOTEXECUTED,expected18reader/13ledgerintegration/workspace. Durableuntestedsnapshottrials/postchecked-reader438-preparation; originalprep headerwordingcorrectedbeforetests toidentifytwo standalone APIs. No actualnativeadapter rewired, ACL/cost/profile/creator/P0 stillunimplemented. Nextafter41review:fullread/hash/rootassent/guardedselectionthen438checks/rebasefreezeactual42 review asappropriate.

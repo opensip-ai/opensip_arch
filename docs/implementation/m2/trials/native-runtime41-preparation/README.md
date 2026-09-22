@@ -1,0 +1,1 @@
+Preparation snapshot, NOT executed. Requires actual41/source437 full review and original pins, root substantive assent, clean selected40 product37/62. Expected8existingmapped587unchanged595nonlock, private/live37/63 and41focusedtests including2doctests plus workspace. Exact executed selector, if accepted, must be preserved separately.

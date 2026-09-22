@@ -2,7 +2,7 @@
 
 Product code lives in the sibling `opensip` repository. This repository holds the accepted design, reference models and review evidence. Codex leads implementation; actual Claude Opus 5 is the preferred reviewer, with actual Grok as the authorized fallback. Local commits in both repositories are authorized. The user will push; no push is authorized here.
 
-Implementation is **not complete**. The selected product is native runtime39 with inventory61, product `5b42fd6` (36 inventory and 61 contract successors). The metadata CLI and substantial identity, contracts, evaluator, security, lifecycle, storage and platform foundations exist. Native initialization/current authority, compiler providers, complete analysis workflows, the full report and release qualification remain work. File counts and passing component tests are not a completion percentage.
+Implementation is **not complete**. The selected product is native runtime40 with inventory62, product `ef7d008` (37 inventory and 62 contract successors). The metadata CLI and substantial identity, contracts, evaluator, security, lifecycle, storage and platform foundations exist. Native initialization/current authority, compiler providers, complete analysis workflows, the full report and release qualification remain work. File counts and passing component tests are not a completion percentage.
 
 - [Current status](m2/CURRENT-STATUS.md) gives the compact installed state and pending work.
 - [Active work guide](ACTIVE-WORK.md) retains exact hashes, review subjects, test-lane ownership and durable resume instructions; use its latest entry.
