@@ -4542,3 +4542,10 @@ Corrected uncommitted diff is test-only. append_owner_zero_allow reads the exten
 ## 2026-09-22 — presence ACE r2 accepted at 691b53a; r3 tightens the test helper
 
 Actual Claude Opus 5.5 ACCEPT-UNIT on the test-only append. requiredFindings empty. Product 691b53a. A NULL fetch falls back only on ENOENT in the uncommitted r3 diff, the fresh-file case expects one zero-rights owner allow, and entries are checked for kind and User(uid). r3 request: docs/implementation/m2/reviews/claude-opus5-presence-ace451-r3/REQUEST.md. Reviewer owns the native lane. Still not a production marker or creator policy. No push. M2–M6 unfinished.
+
+
+## 2026-09-22 — ACL append tightening installed at 0192a70; fresh-private preparation is under review
+
+r3 ACCEPT-UNIT, requiredFindings empty. Product 0192a70. The non-ENOENT branch remains verified by reading.
+
+Uncommitted on 0192a70: append_owner_zero_allow is public and limited to regular files and directories. prepare_fresh_private_sample writes that allow only after NotReturned plus a private shape check, then judges the new sample. A loose 0644 file is not rewritten. This is not creator completion and does not clear inherited ACEs. Request: docs/implementation/m2/reviews/claude-opus5-prepare-private452-r1/REQUEST.md. Reviewer owns the native lane. No push. M2–M6 unfinished.
