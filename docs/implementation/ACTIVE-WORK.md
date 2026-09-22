@@ -4569,3 +4569,8 @@ Uncommitted on 0192a70: append_owner_zero_allow is public and limited to regular
 ## 2026-09-22 — shape helper installed at 1df6373; private file creation is under review
 
 452 r4 ACCEPT-UNIT, requiredFindings empty. Product 1df6373. private_shape is shared. Uncommitted create_private_regular_file makes one 0600 file from a single path component and prepares its ACL. A slash name is refused. 10 private_access tests passed. Request: docs/implementation/m2/reviews/claude-opus5-create-private453-r1/REQUEST.md. Reviewer owns the native lane. This is not the installation creator. No push. M2–M6 unfinished.
+
+
+## 2026-09-22 — private file creation 453 refused; charge-before-create is r2
+
+Actual Claude Opus 5.5 REQUIRED-FINDINGS. RF-1: the file was created before any ledger charge, so a poor ledger left an uncharged file. That diff was not committed. The replacement reserves the create, two captures and the append before open, sets mode 0600 on the descriptor, and a 1-object ledger leaves the name unpaid absent. 10 private_access tests passed. r2 request: docs/implementation/m2/reviews/claude-opus5-create-private453-r2/REQUEST.md. Reviewer owns the native lane. Not the installation creator. No push. M2–M6 unfinished.

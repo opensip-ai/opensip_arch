@@ -1,0 +1,407 @@
+{
+ "schemaVersion": 1,
+ "unit": "create-private453 source candidate",
+ "reviewType": "source",
+ "verdict": "REQUIRED-FINDINGS",
+ "requiredFindings": [
+  {
+   "id": "RF-1",
+   "title": "Native file creation happens before any ledger charge; a budget refusal leaves an uncharged file",
+   "detail": "create_private_regular_file opens with O_CREAT|O_EXCL before anything touches `work`; the first charge is inside prepare_fresh_private_sample. Probe C1: with a ledger limited to {1 object, 1 edge, 1 byte} the call returns Err(Capture(Budget(Edges))), the new file exists afterwards, and the ledger records (0, 0, 0). This is the charge-after-native-work defect class held throughout 447-452 and contradicts the ledger's effect contract (reserve the effect and all required follow-up work before the action).",
+   "fix": "Use work.effect(create_cost, capture_cost + append_cost + capture_cost, |post| { create; capture_reserved; append_reserved; capture_reserved; judge }) with a reserved-path preparation variant and a documented create cost; add a C1-shaped test proving an insufficient ledger refuses before the file exists.",
+   "evidence": [
+    "evidence/create_probe.rs",
+    "evidence/probe-and-mutants.json"
+   ]
+  }
+ ],
+ "actualModel": "Claude Opus 5.5",
+ "reviewer": {
+  "actualModel": "Claude Opus 5.5",
+  "modelId": "claude-opus-5-5[1m]",
+  "identityNote": "Actual model identity, not a task label. Assigned as the Claude Opus 5 reviewer lane on wF:p1.",
+  "reviewDate": "2026-09-22",
+  "leadEngineer": "Grok",
+  "delegation": false,
+  "workflowUsed": false,
+  "workflowNote": "Session reports ultracode on; the request forbids delegation, so no workflow was used.",
+  "repositoryEdits": 0,
+  "commits": 0,
+  "pushes": 0,
+  "privateUuidFixture413Accessed": false
+ },
+ "nativeJobsRun": true,
+ "nativeLane": {
+  "owner": "reviewer until this report was written; released now",
+  "serial": true,
+  "window": "2026-09-22T23:19:01Z..2026-09-22T23:21:35Z",
+  "isolation": "env -i; CARGO_HOME copy, fresh CARGO_TARGET_DIR and TMPDIR under R; probe and mutants on a copy of the tracked product tree under R; git read-only with GIT_OPTIONAL_LOCKS=0",
+  "outsideWrites": "none: pre/post snapshots identical for product HEAD/status/index, the four capture/predicate files, Cargo.lock, design-lock, product target/, ~/.cargo/.global-cache; architecture repository clean"
+ },
+ "sourceVerdict": "REQUIRED-FINDINGS",
+ "sourceVerdictScope": "The uncommitted crates/security/src/private_access.rs on product 1df6373d2f6c8ef1eabb7cc4547155591a713b83, SHA-256 c86f28aca35a51a84394c020d4c2fd4fbac3e3453877583ab085f519e154e6be, 27141 bytes. Not parent admission, directory creation, the installation creator, absence authority, per-vnode profile qualification, commit or selection.",
+ "subject": {
+  "productHead": "1df6373d2f6c8ef1eabb7cc4547155591a713b83",
+  "headHolds452r4AcceptedBytes": true,
+  "gitDiffEntries": [
+   " M crates/security/src/private_access.rs"
+  ],
+  "path": "crates/security/src/private_access.rs",
+  "bytes": 27141,
+  "sha256": "c86f28aca35a51a84394c020d4c2fd4fbac3e3453877583ab085f519e154e6be",
+  "wired": false
+ },
+ "whatPasses": {
+  "rustfmt": 0,
+  "privateAccessTests": "10 passed",
+  "workspaceCheckWarnings": 0,
+  "nameValidation": "empty, ., .., a/b, /abs, non-UTF-8 -> Name with nothing created; NUL -> Create(InvalidInput) with nothing created",
+  "existingName": "Create(AlreadyExists), existing file untouched",
+  "finalSymlink": "Create(AlreadyExists), target not created"
+ },
+ "commands": [
+  {
+   "requestedByRequest": true,
+   "name": "01-rustfmt-check",
+   "cwd": "product",
+   "command": [
+    "rustfmt",
+    "--edition",
+    "2024",
+    "--check",
+    "crates/security/src/private_access.rs"
+   ],
+   "exitCode": 0,
+   "start": "2026-09-22T23:19:01Z",
+   "end": "2026-09-22T23:19:01Z"
+  },
+  {
+   "requestedByRequest": true,
+   "name": "02-cargo-test-private-access",
+   "cwd": "product",
+   "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "--offline",
+    "-p",
+    "opensip-security",
+    "--lib",
+    "private_access"
+   ],
+   "exitCode": 0,
+   "start": "2026-09-22T23:19:01Z",
+   "end": "2026-09-22T23:19:15Z",
+   "testResult": "test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 406 filtered out; finished in 0.01s"
+  },
+  {
+   "requestedByRequest": false,
+   "name": "03-cargo-check-workspace",
+   "cwd": "product",
+   "command": [
+    "cargo",
+    "check",
+    "--locked",
+    "--offline",
+    "--workspace",
+    "--all-targets"
+   ],
+   "exitCode": 0,
+   "start": "2026-09-22T23:19:15Z",
+   "end": "2026-09-22T23:19:31Z"
+  },
+  {
+   "requestedByRequest": false,
+   "name": "04-clippy-security-warn",
+   "cwd": "product",
+   "command": [
+    "cargo",
+    "clippy",
+    "--locked",
+    "--offline",
+    "-p",
+    "opensip-security",
+    "--all-targets"
+   ],
+   "exitCode": 0,
+   "start": "2026-09-22T23:19:31Z",
+   "end": "2026-09-22T23:19:38Z"
+  },
+  {
+   "requestedByRequest": false,
+   "name": "05-reviewer-create-probe",
+   "cwd": "R/work/ws",
+   "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "--offline",
+    "-p",
+    "opensip-security",
+    "--lib",
+    "reviewer_create_probe",
+    "--",
+    "--nocapture"
+   ],
+   "exitCode": 0,
+   "start": "2026-09-22T23:20:27Z",
+   "end": "2026-09-22T23:20:41Z",
+   "testResult": "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 416 filtered out; finished in 0.03s"
+  },
+  {
+   "requestedByRequest": false,
+   "name": "mut-N1-slash-check-removed",
+   "cwd": "R/work/ws",
+   "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "--offline",
+    "-p",
+    "opensip-security",
+    "--lib",
+    "private_access::tests"
+   ],
+   "exitCode": 101,
+   "start": "2026-09-22T23:20:41Z",
+   "end": "2026-09-22T23:20:51Z",
+   "testResult": "test result: FAILED. 9 passed; 1 failed; 0 ignored; 0 measured; 406 filtered out; finished in 0.01s"
+  },
+  {
+   "requestedByRequest": false,
+   "name": "mut-N2-dot-and-dotdot-checks-removed",
+   "cwd": "R/work/ws",
+   "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "--offline",
+    "-p",
+    "opensip-security",
+    "--lib",
+    "private_access::tests"
+   ],
+   "exitCode": 0,
+   "start": "2026-09-22T23:20:51Z",
+   "end": "2026-09-22T23:21:02Z",
+   "testResult": "test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 406 filtered out; finished in 0.01s"
+  },
+  {
+   "requestedByRequest": false,
+   "name": "mut-N3-empty-check-removed",
+   "cwd": "R/work/ws",
+   "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "--offline",
+    "-p",
+    "opensip-security",
+    "--lib",
+    "private_access::tests"
+   ],
+   "exitCode": 0,
+   "start": "2026-09-22T23:21:02Z",
+   "end": "2026-09-22T23:21:13Z",
+   "testResult": "test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 406 filtered out; finished in 0.02s"
+  },
+  {
+   "requestedByRequest": false,
+   "name": "mut-N4-mode-0644",
+   "cwd": "R/work/ws",
+   "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "--offline",
+    "-p",
+    "opensip-security",
+    "--lib",
+    "private_access::tests"
+   ],
+   "exitCode": 101,
+   "start": "2026-09-22T23:21:13Z",
+   "end": "2026-09-22T23:21:24Z",
+   "testResult": "test result: FAILED. 9 passed; 1 failed; 0 ignored; 0 measured; 406 filtered out; finished in 0.01s"
+  },
+  {
+   "requestedByRequest": false,
+   "name": "mut-N5-skip-prepare",
+   "cwd": "R/work/ws",
+   "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "--offline",
+    "-p",
+    "opensip-security",
+    "--lib",
+    "private_access::tests"
+   ],
+   "exitCode": 101,
+   "start": "2026-09-22T23:21:24Z",
+   "end": "2026-09-22T23:21:35Z",
+   "testResult": "test result: FAILED. 9 passed; 1 failed; 0 ignored; 0 measured; 406 filtered out; finished in 0.01s"
+  }
+ ],
+ "nativeProbe": {
+  "exitCode": 0,
+  "cases": [
+   {
+    "case": "C0 create ok",
+    "result": "Ok(Entries(1))"
+   },
+   {
+    "case": "C1 insufficient ledger",
+    "result": "Err(Capture(Budget(Edges)))"
+   },
+   {
+    "case": "C1 file exists after the budget refusal",
+    "result": "true"
+   },
+   {
+    "case": "C1 ledger used after refusal (objects, edges, bytes)",
+    "result": "(0, 0, 0)"
+   },
+   {
+    "case": "C2 inherited foreign allow",
+    "result": "Err(Access(ForeignAclAccess))"
+   },
+   {
+    "case": "C2 refused file left on disk",
+    "result": "true"
+   },
+   {
+    "case": "C2 retry with the same name",
+    "result": "Err(Create(AlreadyExists))"
+   },
+   {
+    "case": "C3 name empty",
+    "result": "Err(Name)"
+   },
+   {
+    "case": "C3 name dot",
+    "result": "Err(Name)"
+   },
+   {
+    "case": "C3 name dotdot",
+    "result": "Err(Name)"
+   },
+   {
+    "case": "C3 name a/b",
+    "result": "Err(Name)"
+   },
+   {
+    "case": "C3 name /abs",
+    "result": "Err(Name)"
+   },
+   {
+    "case": "C3 name non-utf8",
+    "result": "Err(Name)"
+   },
+   {
+    "case": "C3 name with NUL",
+    "result": "Err(Create(InvalidInput))"
+   },
+   {
+    "case": "C3 directory listing unchanged",
+    "result": "true"
+   },
+   {
+    "case": "C4 existing name",
+    "result": "Err(Create(AlreadyExists))"
+   },
+   {
+    "case": "C5 final symlink",
+    "result": "Err(Create(AlreadyExists))"
+   },
+   {
+    "case": "C5 symlink target created",
+    "result": "false"
+   },
+   {
+    "case": "C6 parent given through a symlink",
+    "result": "Ok(Entries(1))"
+   },
+   {
+    "case": "C6 file landed in the symlink target",
+    "result": "true"
+   }
+  ]
+ },
+ "mutants": [
+  {
+   "id": "N1-slash-check-removed",
+   "exitCode": 101,
+   "verdict": "KILLED",
+   "failedTests": [
+    "private_access::tests::fresh_private_file_gains_a_zero_allow_and_a_loose_file_is_not_rewritten"
+   ]
+  },
+  {
+   "id": "N2-dot-and-dotdot-checks-removed",
+   "exitCode": 0,
+   "verdict": "SURVIVED",
+   "failedTests": []
+  },
+  {
+   "id": "N3-empty-check-removed",
+   "exitCode": 0,
+   "verdict": "SURVIVED",
+   "failedTests": []
+  },
+  {
+   "id": "N4-mode-0644",
+   "exitCode": 101,
+   "verdict": "KILLED",
+   "failedTests": [
+    "private_access::tests::fresh_private_file_gains_a_zero_allow_and_a_loose_file_is_not_rewritten"
+   ]
+  },
+  {
+   "id": "N5-skip-prepare",
+   "exitCode": 101,
+   "verdict": "KILLED",
+   "failedTests": [
+    "private_access::tests::fresh_private_file_gains_a_zero_allow_and_a_loose_file_is_not_rewritten"
+   ]
+  }
+ ],
+ "observations": [
+  {
+   "id": "O1",
+   "summary": "A refusal after creation (access, capture, append) leaves an empty file, often with inherited ACEs, and retries with that name fail AlreadyExists (C2). Document the residual file or remove it handle-relatively (unlinkat on the retained parent after an inode identity check)."
+  },
+  {
+   "id": "O2",
+   "summary": "The parent is a kernel-resolved &Path (symlinked components followed, C6; relative paths depend on CWD). The platform already provides RetainedDirectory handle-relative creation (openat O_CREAT|O_EXCL|O_NOFOLLOW). Before any caller, take an admitted RetainedDirectory so creation is bound to the admitted parent."
+  },
+  {
+   "id": "O3",
+   "summary": "mode(0o600) is subject to umask; a restrictive umask yields a non-0600 file that the exact-shape gate refuses, leaving an orphan. Set the mode on the descriptor with file.set_permissions(Permissions::from_mode(0o600)) after creation."
+  },
+  {
+   "id": "O4",
+   "summary": "Only a/b is tested; the empty/./.. checks are defence in depth (create_new refuses them anyway, so N2/N3 survive). Add explicit Name cases (and non-UTF-8) asserting nothing is created."
+  }
+ ],
+ "limits": [
+  "This macOS development host only; Linux not replayed.",
+  "Creates one file only; not parent admission, directory creation, the installation creator, absence authority, per-vnode profile qualification, commit or selection."
+ ],
+ "evidence": [
+  "REVIEW.md",
+  "evidence/subject-diff-vs-1df6373.patch",
+  "evidence/create_probe.rs",
+  "evidence/run_probe_and_mutants.py",
+  "evidence/probe-and-mutants.json",
+  "evidence/replay.sh",
+  "evidence/snapshot.sh",
+  "evidence/runs/*",
+  "evidence/product-index-before.txt",
+  "evidence/pre-replay-snapshot.txt",
+  "evidence/post-replay-snapshot.txt",
+  "evidence/removed-scratch.txt",
+  "hashes.txt"
+ ]
+}
