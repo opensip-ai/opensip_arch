@@ -4325,3 +4325,21 @@ Private432 check COMPLETED30490:6ledgerunit/13integration/2doc/workspacePASS, ca
 ## 2026-09-21 — private432 compiler boundaries checked;432/433 development archived
 
 Initial432 compiler positive harness failed E0308 (u64 edge helper versus actualusize), preserved unchanged. Corrected T/probe_partition432_r2.py COMPLETED35082:positive compiled ANDEXECUTED; parentreborrow E050x,crossownerswap E0521,borrowedescape lifetime errors expected. No product failure inferred frominitialharness.432/433 source/scripts/baseline/logs archived trials/reserved-partition-development-432 and typed-cache-work-development-433; neither selected or peer-reviewed. No active native job,ROOTOWNSlane. Actual62layoutClaude stillWORKING.
+
+
+## 2026-09-21 — inventory62 selected; formal40 frozen and actual Opus5 source review active
+
+ActualClaude62 DONE, full9532B REVIEW SHA f0c6d6c364c8dde148751b2f4efb82092ab5fe3cc0b60deda83fecb7f508b4c6 and10075B review SHA2b80b15dd63f24305496559ff3fcc38ce5e8da1aad7ad955be0fd4945c5c64e4 read withchecker. ACCEPT-UNIT requiredFindings[],46readonlychecks. Allreviewhashesverified/rootassentqualifies decodedby-valueversusJSON-slicebyteequality andcheckerreplayversusfullverifier. T/select_inventory62.py COMPLETED11283:private/live37/61,5inheritances,593nonlockunchanged. Product6dddbfe committedSelect reviewed bounded reader file layout;clean594tracked,710planned20packages. Neverrerunselector62. Architecture18b85188d priorcheckpoint includes39integration/429correction/432433draftarchives;62selection/40freeze stilluncommitted. No push.
+
+T/prepare_composition434.py COMPLETED72179:private430source+4existingfilesfrom432/433,12account/6unit/13ledgerintegration/8reader/2doc/4cache/3typed=48tests plusworkspacePASS. Consolemistakenlysaid49; exactlog-derivedtest-count-correction.json preserved. No newnativequalification orapproval. Notfrozen/selected. Rebaseontoaccepted40before435sourcefreeze.
+
+T/freeze_runtime40.py COMPLETED66016. Formal subject2453B SHAb4046feb32fde212812b7557d10898f8aa8b8a4a5febaf4cb846093ef1b1d168,12members/11candidates/3sortedparentsowner406/runtime39/inventory62/nooverrides;samehelper39. Source430archive6958340B SHA874c6ae3c698c82d61b948384ba5cd14196f12cb261496482d9452c03caa3b3c;manifest115477B SHAcafaa7cccc839e461e4a5437521a9430f0f154f8419130034fa1612f4f5100a6.614members596product595nonlock3mapped592unchanged. Livebaseline6dddbfe37/61;historicsourcelock36/61excluded. Neverrerunfreeze40.
+
+ActualClaude Opus5 wH:p6 session6f09b842-c1f5-45a7-be5b-91a0ca12d50a nowassigned40/source430;durableREQUEST/status andscratchT/reviews/claude-opus5-runtime40-source430-r1. PEER OWNS SERIAL NATIVE LANE untilDONE/IDLE;ROOTMUSTNOTnative-test. Allrootnativejobscomplete. Fullsourceacceptance/rootassent/guardedintegration37/62 stillrequired; no40selectorpreparedyet. Private432433/434NOTwithin40review. Continuepreparation only whilepeerworks. M2–M6unfinished;bothreposlocalcommitsonly,NEVERPUSH.
+
+
+## 2026-09-21 — guarded40 selector and fixed-buffer name436 draft prepared
+
+T/select_runtime40.py PREPAREDNOTEXECUTED; syntax/readchecked, guardedreview+rootassent needed, expected37/62/3mapped592unchanged595nonlock,8reader/7ledgerintegration/workspace. Durable UNEXECUTED snapshot trials/native-runtime40-preparation. ActualClaude40 stillWORKING/owns native lane;root mustnotrun native jobs.
+
+T/prepare_name436.py prepared3existingplatformpaths onunselectedcombined434: filesystem/directory_names.rs private originalscope/reserved wrapper plusfixedcost, filesystem.rs publicforwards,libexports. Cost1object/1APIedge/1056requestednativeattribute-bufferbytes; opaqueOSwork/stackframe/RSS excluded. Originalnativeobserverunchanged. False is data, consumingpolicy mustenforcemismatch.4privateaccountingtests and1actualpublicretained-filename/mismatch/rename test prepared. ActualaliasWorkBudgetErrorcorrectedbeforetests; no nativejobrun. T/check_name436.py PREPAREDNOTEXECUTED. Proposednextcombinedsource437 couldjoin432433436 afteraccepted40 andfreshchecks;435notused/frozen. No inventorychange for436. Do notclaim tested/accepted; nativeACLcost/profile remains open.

@@ -1,0 +1,5 @@
+# Runtime40: bounded original-budget readers
+
+Materialize source430 under accepted inventory62. Three mapped platform paths (one existing lib export,two new work_reader.rs/work_reader_tests.rs files),592unchangednonlock,596product/595nonlock. Same helper as39. Source historical36/61lock excludedexactly; live37/61with62 preserved. Parents selected39runtime,initial-owner406,inventory62; no passage overrides.
+
+Generic caller-buffer/read-attempt accounting through original WorkScope or ReservedPostchecks, no no-op public charger or replacement ledger. SourceREADME records original4288publictests/workspace and all595nonlock source equality; actual independent source review remainsrequired. Scope failures latchbefore returning, so this is NOTdrop-in substitution inside originalnative read_one brackets; audit429/nativepostcheckcomposition remains separate. No selectednativeadapter/currentauthority/custody/creator/P0 qualification or M2–M6completion. Source/codeapproval and rootassent required beforeintegration, layoutacceptance alone insufficient.
