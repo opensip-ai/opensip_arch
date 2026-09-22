@@ -1,10 +1,10 @@
 # Current implementation status
 
-Snapshot after runtime42 integration,2026-09-21. Use the latest [active-work entry](../ACTIVE-WORK.md) for exact resume state.
+Snapshot after runtime43 integration,2026-09-21. Use the latest [active-work entry](../ACTIVE-WORK.md) for exact resume state.
 
 ## Installed and committed
 
-Product `659e55e`: runtime42/source439, inventory62,37 inventory/64 contract successors,596 tracked files. Inventory plans710 files across20 packages; these counts are not a completion percentage. Nothing pushed.
+Product `20d94ec`: runtime43/source443, inventory62,37 inventory/65 contract successors,596 tracked files. Inventory plans710 files across20 packages; these counts are not a completion percentage. Nothing pushed.
 
 - Runtime35 implements endpoint-only physical marker checking while retaining complete immutable lineage. Actual Grok reviewed it; earlier Claude evidence was partial, not approval.
 - Runtime36 closes trust budgets after caught nested failure or unwinding. Actual Claude accepted it. Historical full security suite392pass/2pre-existing clock pilots ignored.
@@ -24,7 +24,9 @@ Runtime41 integrates reviewed432 protected child allowances,433 typed cache erro
 
 Runtime40 adds the bounded reader with eight reader and seven ledger integration tests plus workspace checks passing after integration. Actual Claude independently replayed23tests and nine probe groups. Product commit `ef7d008`; the standalone helper still cannot replace native postcheck brackets directly.
 
-Private440 cost derivation passed24reader/13ledgerintegration/workspace checks. Private442 passed5capture/24reader/fullsecurity404passed2existingignored/workspace. Source443/formal43 is frozen and under actual Opus5 review; peer owns the native lane. Actual444 ACL advice is archived with root qualifications; joint probe445 is prepared without execution. Cost/cache source443 remains unselected.
+Runtime43/source443 is installed and committed after actual Opus5 acceptance, root assent, exact private/live37/65 verification and49focusedtests/workspace. It adds pure read-cost derivation and original-scope typed cache capture, removing the unnecessary intermediate Arc copy. Root442 fullsecurity404passed2existingignored remains separately attributed. Product20d94ec.
+
+Root jointACL445r2 compiled/ran four owned regular/directory fixtures: common metadata matched, directorylinkcount differed fromstat, jointdirectorysize unavailable, omittedACL persisted despite positive volume capability and valid/nativeACLattribute bits. No absence/profile qualification follows. Actual Opus5 is providing readonly route446 advice; root owns the native lane. Creator-private ACL policy needs all possible foreign read/search access, beyond existing writer-only summary.
 
 ## Remaining project work
 

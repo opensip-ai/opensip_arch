@@ -1,0 +1,1 @@
+Original prepared probe.c retained. Before any compilation, probe-r2.c labels initial fixtures no_installed_acl (inherited ACL absence is not assumed), requires installed-positive count1 and returned bit, and makes detected short-buffer truncation an execution assertion. No native execution yet; compiler/runtime failures must be retained if encountered.
