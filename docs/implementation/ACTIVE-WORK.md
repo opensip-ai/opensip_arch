@@ -4589,3 +4589,8 @@ Actual Claude Opus 5.5 REQUIRED-FINDINGS. RF-1: the file was created before any 
 ## 2026-09-22 — handle-relative creation installed at 2a13559; exclusive-create tests are under review
 
 453 r4 ACCEPT-UNIT, requiredFindings empty. Product 2a13559. Creation uses openat on a retained directory. Uncommitted tests pin O_EXCL: an existing 0644 file is not opened or chmodded, and a final symlink is not followed. Request: docs/implementation/m2/reviews/claude-opus5-create-private453-r5/REQUEST.md. Reviewer owns the native lane. Not the installation creator. No push. M2–M6 unfinished.
+
+
+## 2026-09-23 — exclusive-create tests installed at c041ae1; dangling symlink test is under review
+
+453 r5 ACCEPT-UNIT, requiredFindings empty. Product c041ae1. Test-only. Uncommitted filesystem.rs also refuses a dangling final symlink and checks that the missing target was not created. Request: docs/implementation/m2/reviews/claude-opus5-create-private453-r6/REQUEST.md. Reviewer owns the native lane. Not the installation creator. No push. M2–M6 unfinished.
