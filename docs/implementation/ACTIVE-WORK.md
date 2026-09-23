@@ -4614,3 +4614,8 @@ Actual Claude Opus 5.5 REQUIRED-FINDINGS. RF-1: the file was created before any 
 ## 2026-09-23 — fresh-directory check 454 r3 refused; mode-then-scan is r4
 
 Actual Claude Opus 5.5 REQUIRED-FINDINGS. RF-1: the entry scan ran before mode 0700, so umasks that remove owner search failed creation and left a directory behind. RF-2: a readdir error was treated as an empty directory. That diff was not committed. The replacement checks owner and link count, sets 0700, then scans, and a readdir error is returned. The platform test covers umask 0177. r4 request: docs/implementation/m2/reviews/claude-opus5-create-private454-r4/REQUEST.md. Reviewer owns the native lane. Not the installation creator. No push. M2–M6 unfinished.
+
+
+## 2026-09-23 — mode-then-scan 454 r4 refused; umask test is now a child process
+
+Actual Claude Opus 5.5 REQUIRED-FINDINGS. Production code closed the umask and readdir findings. The new test set the process umask inside the parallel platform suite and failed that suite. That test was not committed. The replacement re-executes one child test with --exact and --test-threads=1; only the child sets umask 0177. r5 request: docs/implementation/m2/reviews/claude-opus5-create-private454-r5/REQUEST.md. Reviewer owns the native lane. Not the installation creator. No push. M2–M6 unfinished.
