@@ -4634,3 +4634,8 @@ Actual Claude Opus 5.5 REQUIRED-FINDINGS. Production code closed the umask and r
 ## 2026-09-23 — foreign-owner observation installed at 402bfd6; creation inside an observed directory is under review
 
 455 r2 ACCEPT-UNIT, requiredFindings empty. Product 402bfd6. Uncommitted create_private_file_in_observed_directory observes the parent directory first and creates nothing when that observation refuses. A prepared private directory can contain one new private file. Request: docs/implementation/m2/reviews/claude-opus5-create-in-observed456-r1/REQUEST.md. Reviewer owns the native lane. Not the installation creator. No push. M2–M6 unfinished.
+
+
+## 2026-09-23 — observed-directory creation 456 r1 refused; the name is checked first
+
+Actual Claude Opus 5.5 REQUIRED-FINDINGS. RF-1: an invalid name was refused only after a parent capture and its charge, and a non-private parent reported AclNotReturned instead of Name. That order was not committed. reject_private_name now runs first in the file creator, the directory creator, and the observed-directory creator. Bad names return Name with a zero charge. r2 request: docs/implementation/m2/reviews/claude-opus5-create-in-observed456-r2/REQUEST.md. Reviewer owns the native lane. Not the installation creator. No push. M2–M6 unfinished.

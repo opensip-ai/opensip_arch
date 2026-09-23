@@ -1,0 +1,524 @@
+{
+ "schemaVersion": 1,
+ "unit": "create-in-observed456 r1 create a private file in an observed private directory",
+ "reviewType": "source",
+ "verdict": "REQUIRED-FINDINGS",
+ "requiredFindings": [
+  {
+   "id": "RF-1",
+   "title": "An invalid name is refused only after a native parent capture and its charge",
+   "detail": "create_private_file_in_observed_directory observes the parent before any name check; the check runs only inside create_private_regular_file. Measured: all six invalid names ('', '.', '..', 'a/b', 'a\\\\b', 'a\\\\0b') cost a full parent capture (one fgetattrlist, charged (1, 131, 7940)) before Name, where the direct creator charges (0, 0, 0); under a non-private parent an invalid name reports Access(AclNotReturned) instead of Name. This breaks the creators' existing, tested 'Name before any charge' property (the directory creator's name test was added at 454 r2 for this reason) and the codebase convention that an invalid request is refused before native I/O (native_session_invalid_request_precedes_native_io, directory_provers_wrong_root_component_refuses_before_any_budgeted_io, native_leaf_request_bounds_precede_open_and_allocation).",
+   "fix": "Validate name before the parent observation, preferably through one shared single-component check in private_access.rs rather than a third copy of the condition; add a test that bad names return Name with a zero charge through this function. Reviewer variant F1 does exactly this: it passes the owner test and the probe then shows Name with zero charge in every case, including under a non-private parent.",
+   "evidence": [
+    "evidence/gated_probe.rs (C5, C5b)",
+    "evidence/probe-and-mutants.json (candidate vs F1-reviewer-name-before-observation)"
+   ]
+  }
+ ],
+ "actualModel": "Claude Opus 5.5",
+ "reviewer": {
+  "actualModel": "Claude Opus 5.5",
+  "modelId": "claude-opus-5-5[1m]",
+  "identityNote": "Actual model identity, not a task label. Assigned as the Claude Opus 5 reviewer lane on wF:p1.",
+  "reviewDate": "2026-09-23",
+  "leadEngineer": "Grok",
+  "delegation": false,
+  "workflowUsed": false,
+  "workflowNote": "The session reported ultracode on; the request forbids delegation and the native lane is serial, so no workflow or subagent was used.",
+  "repositoryEdits": 0,
+  "commits": 0,
+  "pushes": 0,
+  "privateUuidFixture413Accessed": false
+ },
+ "nativeJobsRun": true,
+ "nativeLane": {
+  "owner": "reviewer until this report was written; released now",
+  "serial": true,
+  "window": "2026-09-23T01:49:19Z..2026-09-23T01:53:56Z",
+  "runs": 18,
+  "isolation": "env -i; CARGO_HOME copy, fresh CARGO_TARGET_DIR and TMPDIR under R; probe and mutants on a copy of the tracked product tree under R; git read-only with GIT_OPTIONAL_LOCKS=0",
+  "outsideWrites": "none: pre/post snapshots identical for product HEAD/status/index, the five platform/security files, Cargo.lock, design-lock, product target/, ~/.cargo/.global-cache; architecture repository clean; zero TMPDIR leftovers"
+ },
+ "sourceVerdict": "REQUIRED-FINDINGS",
+ "sourceVerdictScope": "The uncommitted crates/platform/src/filesystem.rs and crates/security/src/private_access.rs on product 402bfd6a3475591bfd55777af0e73867d67b1664. The parent gate is correct; RF-1 is request-validation order. Not the installation creator, parent or path admission, absence authority, per-vnode profile qualification, commit or selection.",
+ "subject": {
+  "productHead": "402bfd6a3475591bfd55777af0e73867d67b1664",
+  "headHolds455r2AcceptedBytes": true,
+  "gitDiffEntries": [
+   " M crates/platform/src/filesystem.rs",
+   " M crates/security/src/private_access.rs"
+  ],
+  "files": {
+   "crates/platform/src/filesystem.rs": {
+    "bytes": 92781,
+    "sha256": "d8d10206e25d1a0cdd32eb5e30d437a81176f8f2a194fe7ba1894d7ae8729c6b"
+   },
+   "crates/security/src/private_access.rs": {
+    "bytes": 38390,
+    "sha256": "65fee3b13c022a9f8e3b41fa326d3f47c4cdbbd9b166fcafe952fcd41293dae3"
+   }
+  },
+  "diffStat": "+47/-0"
+ },
+ "whatPasses": [
+  "Requested rustfmt and fresh_private_file (1 passed); workspace check 0 warnings; Clippy only the 2 pre-existing diagnostics; private_access 10 passed; platform lib 159 passed at default parallelism.",
+  "Private parent: 0600 child, Entries(1), exact charge capture + create + capture + append + capture.",
+  "Every parent refusal (AclNotReturned, ForeignAclAccess, ModeShape, ForeignOwner) creates nothing and charges exactly one capture.",
+  "Budget boundaries: capture-only or shorter ledgers refuse with nothing created; exact full ledger succeeds; one edge short of full refuses with nothing created.",
+  "Owner test kills X1 (no observation), X2 (observation after creation), X3 (observation ignored)."
+ ],
+ "commands": [
+  {
+   "requestedByRequest": true,
+   "name": "01-rustfmt-check",
+   "cwd": "product",
+   "command": [
+    "rustfmt",
+    "--edition",
+    "2024",
+    "--check",
+    "crates/platform/src/filesystem.rs",
+    "crates/security/src/private_access.rs"
+   ],
+   "exitCode": 0,
+   "start": "2026-09-23T01:49:19Z",
+   "end": "2026-09-23T01:49:19Z"
+  },
+  {
+   "requestedByRequest": true,
+   "name": "02-cargo-test-security-fresh-private",
+   "cwd": "product",
+   "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "--offline",
+    "-p",
+    "opensip-security",
+    "--lib",
+    "fresh_private_file"
+   ],
+   "exitCode": 0,
+   "start": "2026-09-23T01:49:19Z",
+   "end": "2026-09-23T01:49:41Z",
+   "testResult": "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 415 filtered out; finished in 0.01s"
+  },
+  {
+   "requestedByRequest": false,
+   "name": "03-cargo-check-workspace",
+   "cwd": "product",
+   "command": [
+    "cargo",
+    "check",
+    "--locked",
+    "--offline",
+    "--workspace",
+    "--all-targets"
+   ],
+   "exitCode": 0,
+   "start": "2026-09-23T01:49:41Z",
+   "end": "2026-09-23T01:49:58Z"
+  },
+  {
+   "requestedByRequest": false,
+   "name": "04-clippy-platform-security-warn",
+   "cwd": "product",
+   "command": [
+    "cargo",
+    "clippy",
+    "--locked",
+    "--offline",
+    "-p",
+    "opensip-platform",
+    "-p",
+    "opensip-security",
+    "--all-targets"
+   ],
+   "exitCode": 0,
+   "start": "2026-09-23T01:49:58Z",
+   "end": "2026-09-23T01:50:05Z"
+  },
+  {
+   "requestedByRequest": false,
+   "name": "05-cargo-test-private-access-all",
+   "cwd": "product",
+   "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "--offline",
+    "-p",
+    "opensip-security",
+    "--lib",
+    "private_access"
+   ],
+   "exitCode": 0,
+   "start": "2026-09-23T01:50:05Z",
+   "end": "2026-09-23T01:50:05Z",
+   "testResult": "test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 406 filtered out; finished in 0.01s"
+  },
+  {
+   "requestedByRequest": false,
+   "name": "06-cargo-test-platform-lib-default-parallel",
+   "cwd": "product",
+   "command": [
+    "/bin/sh",
+    "-c",
+    "unset RUST_TEST_THREADS; exec cargo test --locked --offline -p opensip-platform --lib"
+   ],
+   "exitCode": 0,
+   "start": "2026-09-23T01:50:05Z",
+   "end": "2026-09-23T01:50:07Z",
+   "testResult": "test result: ok. 159 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.27s"
+  },
+  {
+   "requestedByRequest": false,
+   "name": "owner-security-F1-reviewer-name-before-observation",
+   "cwd": "R/work/ws",
+   "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "--offline",
+    "-p",
+    "opensip-security",
+    "--lib",
+    "fresh_private_file"
+   ],
+   "exitCode": 0,
+   "start": "2026-09-23T01:53:33Z",
+   "end": "2026-09-23T01:53:45Z",
+   "testResult": "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 415 filtered out; finished in 0.01s"
+  },
+  {
+   "requestedByRequest": false,
+   "name": "owner-security-X1-no-parent-observation",
+   "cwd": "R/work/ws",
+   "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "--offline",
+    "-p",
+    "opensip-security",
+    "--lib",
+    "fresh_private_file"
+   ],
+   "exitCode": 101,
+   "start": "2026-09-23T01:52:25Z",
+   "end": "2026-09-23T01:52:37Z",
+   "testResult": "test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 415 filtered out; finished in 0.01s"
+  },
+  {
+   "requestedByRequest": false,
+   "name": "owner-security-X2-observation-after-creation",
+   "cwd": "R/work/ws",
+   "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "--offline",
+    "-p",
+    "opensip-security",
+    "--lib",
+    "fresh_private_file"
+   ],
+   "exitCode": 101,
+   "start": "2026-09-23T01:52:48Z",
+   "end": "2026-09-23T01:52:59Z",
+   "testResult": "test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 415 filtered out; finished in 0.01s"
+  },
+  {
+   "requestedByRequest": false,
+   "name": "owner-security-X3-observation-result-ignored",
+   "cwd": "R/work/ws",
+   "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "--offline",
+    "-p",
+    "opensip-security",
+    "--lib",
+    "fresh_private_file"
+   ],
+   "exitCode": 101,
+   "start": "2026-09-23T01:53:11Z",
+   "end": "2026-09-23T01:53:22Z",
+   "testResult": "test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 415 filtered out; finished in 0.01s"
+  },
+  {
+   "requestedByRequest": false,
+   "name": "owner-security-candidate",
+   "cwd": "R/work/ws",
+   "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "--offline",
+    "-p",
+    "opensip-security",
+    "--lib",
+    "fresh_private_file"
+   ],
+   "exitCode": 0,
+   "start": "2026-09-23T01:51:49Z",
+   "end": "2026-09-23T01:52:00Z",
+   "testResult": "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 415 filtered out; finished in 0.01s"
+  },
+  {
+   "requestedByRequest": false,
+   "name": "probe-F1-reviewer-name-before-observation",
+   "cwd": "R/work/ws",
+   "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "--offline",
+    "-p",
+    "opensip-security",
+    "--lib",
+    "reviewer_gated",
+    "--",
+    "--nocapture"
+   ],
+   "exitCode": 0,
+   "start": "2026-09-23T01:53:45Z",
+   "end": "2026-09-23T01:53:56Z",
+   "testResult": "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 416 filtered out; finished in 0.03s"
+  },
+  {
+   "requestedByRequest": false,
+   "name": "probe-X1-no-parent-observation",
+   "cwd": "R/work/ws",
+   "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "--offline",
+    "-p",
+    "opensip-security",
+    "--lib",
+    "reviewer_gated",
+    "--",
+    "--nocapture"
+   ],
+   "exitCode": 101,
+   "start": "2026-09-23T01:52:37Z",
+   "end": "2026-09-23T01:52:48Z",
+   "testResult": "test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 416 filtered out; finished in 0.01s"
+  },
+  {
+   "requestedByRequest": false,
+   "name": "probe-X2-observation-after-creation",
+   "cwd": "R/work/ws",
+   "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "--offline",
+    "-p",
+    "opensip-security",
+    "--lib",
+    "reviewer_gated",
+    "--",
+    "--nocapture"
+   ],
+   "exitCode": 101,
+   "start": "2026-09-23T01:52:59Z",
+   "end": "2026-09-23T01:53:11Z",
+   "testResult": "test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 416 filtered out; finished in 0.02s"
+  },
+  {
+   "requestedByRequest": false,
+   "name": "probe-X3-observation-result-ignored",
+   "cwd": "R/work/ws",
+   "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "--offline",
+    "-p",
+    "opensip-security",
+    "--lib",
+    "reviewer_gated",
+    "--",
+    "--nocapture"
+   ],
+   "exitCode": 101,
+   "start": "2026-09-23T01:53:22Z",
+   "end": "2026-09-23T01:53:33Z",
+   "testResult": "test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 416 filtered out; finished in 0.02s"
+  },
+  {
+   "requestedByRequest": false,
+   "name": "probe-candidate",
+   "cwd": "R/work/ws",
+   "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "--offline",
+    "-p",
+    "opensip-security",
+    "--lib",
+    "reviewer_gated",
+    "--",
+    "--nocapture"
+   ],
+   "exitCode": 0,
+   "start": "2026-09-23T01:52:14Z",
+   "end": "2026-09-23T01:52:25Z",
+   "testResult": "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 416 filtered out; finished in 0.03s"
+  },
+  {
+   "requestedByRequest": false,
+   "name": "security-lib-default-parallel-base",
+   "cwd": "R/work/ws",
+   "command": [
+    "/bin/sh",
+    "-c",
+    "unset RUST_TEST_THREADS; exec cargo test --locked --offline -p opensip-security --lib"
+   ],
+   "exitCode": 101,
+   "start": "2026-09-23T01:51:16Z",
+   "end": "2026-09-23T01:51:49Z",
+   "testResult": "test result: FAILED. 334 passed; 80 failed; 2 ignored; 0 measured; 0 filtered out; finished in 13.25s"
+  },
+  {
+   "requestedByRequest": false,
+   "name": "security-lib-default-parallel-candidate",
+   "cwd": "R/work/ws",
+   "command": [
+    "/bin/sh",
+    "-c",
+    "unset RUST_TEST_THREADS; exec cargo test --locked --offline -p opensip-security --lib"
+   ],
+   "exitCode": 101,
+   "start": "2026-09-23T01:52:00Z",
+   "end": "2026-09-23T01:52:14Z",
+   "testResult": "test result: FAILED. 334 passed; 80 failed; 2 ignored; 0 measured; 0 filtered out; finished in 13.57s"
+  }
+ ],
+ "securitySuiteEnvironment": {
+  "base": "test result: FAILED. 334 passed; 80 failed; 2 ignored; 0 measured; 0 filtered out; finished in 13.25s",
+  "candidate": "test result: FAILED. 334 passed; 80 failed; 2 ignored; 0 measured; 0 filtered out; finished in 13.57s",
+  "identicalFailingSets": true,
+  "failedTestCount": 80,
+  "privateAccessAmongFailures": []
+ },
+ "nativeProbe": {
+  "source": "evidence/gated_probe.rs",
+  "candidateCases": [
+   "C0 private parent => Ok(Entries(1)) child_mode=600 charge_equals_capture+create+follow=true",
+   "C1 plain 0700 parent, ACL omitted => Err(Access(AclNotReturned)) listing_unchanged=true charged=(1, 131, 7940) charge_equals_capture=true",
+   "C2 parent with group:everyone allow list,add_file => Err(Access(ForeignAclAccess)) listing_unchanged=true charged=(1, 131, 7940) charge_equals_capture=true",
+   "C3 parent 0750 with owner zero allow => Err(Access(ModeShape)) listing_unchanged=true charged=(1, 131, 7940) charge_equals_capture=true",
+   "C4 private parent, other invoking uid => Err(Access(ForeignOwner)) listing_unchanged=true charged=(1, 131, 7940) charge_equals_capture=true",
+   "C5 bad name empty: gated vs direct creator => gated Err(Name) charged=(1, 131, 7940) | direct Err(Name) charged=(0, 0, 0)",
+   "C5 bad name dot: gated vs direct creator => gated Err(Name) charged=(1, 131, 7940) | direct Err(Name) charged=(0, 0, 0)",
+   "C5 bad name dotdot: gated vs direct creator => gated Err(Name) charged=(1, 131, 7940) | direct Err(Name) charged=(0, 0, 0)",
+   "C5 bad name slash: gated vs direct creator => gated Err(Name) charged=(1, 131, 7940) | direct Err(Name) charged=(0, 0, 0)",
+   "C5 bad name backslash: gated vs direct creator => gated Err(Name) charged=(1, 131, 7940) | direct Err(Name) charged=(0, 0, 0)",
+   "C5 bad name nul: gated vs direct creator => gated Err(Name) charged=(1, 131, 7940) | direct Err(Name) charged=(0, 0, 0)",
+   "C5b bad name under a non-private parent => Err(Access(AclNotReturned)) charged=(1, 131, 7940)",
+   "C6 existing entry at the name => Err(Create(AlreadyExists)) charged=(5, 400, 26952)",
+   "C7 ledger exactly the parent capture => Err(Budget(Objects)) exists=false",
+   "C7 ledger one edge short of the parent capture => Err(Budget(Edges)) exists=false",
+   "C7 ledger exactly capture+create+follow => Ok(Entries(1))",
+   "C7 ledger one edge short of the full cost => Err(Budget(Edges)) exists=false",
+   "C8 parent whose only ACE is an inheritable owner allow (recorded, not asserted) => Ok(Entries(1))"
+  ],
+  "reviewerFixF1Cases": [
+   "C0 private parent => Ok(Entries(1)) child_mode=600 charge_equals_capture+create+follow=true",
+   "C1 plain 0700 parent, ACL omitted => Err(Access(AclNotReturned)) listing_unchanged=true charged=(1, 131, 7940) charge_equals_capture=true",
+   "C2 parent with group:everyone allow list,add_file => Err(Access(ForeignAclAccess)) listing_unchanged=true charged=(1, 131, 7940) charge_equals_capture=true",
+   "C3 parent 0750 with owner zero allow => Err(Access(ModeShape)) listing_unchanged=true charged=(1, 131, 7940) charge_equals_capture=true",
+   "C4 private parent, other invoking uid => Err(Access(ForeignOwner)) listing_unchanged=true charged=(1, 131, 7940) charge_equals_capture=true",
+   "C5 bad name empty: gated vs direct creator => gated Err(Name) charged=(0, 0, 0) | direct Err(Name) charged=(0, 0, 0)",
+   "C5 bad name dot: gated vs direct creator => gated Err(Name) charged=(0, 0, 0) | direct Err(Name) charged=(0, 0, 0)",
+   "C5 bad name dotdot: gated vs direct creator => gated Err(Name) charged=(0, 0, 0) | direct Err(Name) charged=(0, 0, 0)",
+   "C5 bad name slash: gated vs direct creator => gated Err(Name) charged=(0, 0, 0) | direct Err(Name) charged=(0, 0, 0)",
+   "C5 bad name backslash: gated vs direct creator => gated Err(Name) charged=(0, 0, 0) | direct Err(Name) charged=(0, 0, 0)",
+   "C5 bad name nul: gated vs direct creator => gated Err(Name) charged=(0, 0, 0) | direct Err(Name) charged=(0, 0, 0)",
+   "C5b bad name under a non-private parent => Err(Name) charged=(0, 0, 0)",
+   "C6 existing entry at the name => Err(Create(AlreadyExists)) charged=(5, 400, 26952)",
+   "C7 ledger exactly the parent capture => Err(Budget(Objects)) exists=false",
+   "C7 ledger one edge short of the parent capture => Err(Budget(Edges)) exists=false",
+   "C7 ledger exactly capture+create+follow => Ok(Entries(1))",
+   "C7 ledger one edge short of the full cost => Err(Budget(Edges)) exists=false",
+   "C8 parent whose only ACE is an inheritable owner allow (recorded, not asserted) => Ok(Entries(1))"
+  ]
+ },
+ "mutants": [
+  {
+   "variant": "X1-no-parent-observation",
+   "ownerTestKilled": true,
+   "ownerPanic": [
+    "thread 'private_access::tests::fresh_private_file_gains_a_zero_allow_and_a_loose_file_is_not_rewritten' (109123137) panicked at crates/security/src/private_access.rs:864:9:"
+   ],
+   "probeFails": true
+  },
+  {
+   "variant": "X2-observation-after-creation",
+   "ownerTestKilled": true,
+   "ownerPanic": [
+    "thread 'private_access::tests::fresh_private_file_gains_a_zero_allow_and_a_loose_file_is_not_rewritten' (109123583) panicked at crates/security/src/private_access.rs:872:9:"
+   ],
+   "probeFails": true
+  },
+  {
+   "variant": "X3-observation-result-ignored",
+   "ownerTestKilled": true,
+   "ownerPanic": [
+    "thread 'private_access::tests::fresh_private_file_gains_a_zero_allow_and_a_loose_file_is_not_rewritten' (109123990) panicked at crates/security/src/private_access.rs:865:9:"
+   ],
+   "probeFails": true
+  },
+  {
+   "variant": "F1-reviewer-name-before-observation",
+   "ownerTestKilled": false,
+   "ownerPanic": [],
+   "probeFails": false
+  }
+ ],
+ "observations": [
+  {
+   "id": "O1",
+   "summary": "as_file widens RetainedDirectory: the retained handle was reachable only through platform methods; &File also exposes try_clone (a duplicate descriptor outliving the retention), set_permissions and raw-descriptor access. A narrower shape would keep the handle inside the platform (e.g. a RetainedDirectory method for the accounted ACL capture, or an observation taking &RetainedDirectory). Design note; the current caller only reads."
+  },
+  {
+   "id": "O2",
+   "summary": "Observation-to-creation window: the parent is judged at capture time and the file is created through the same retained descriptor (same directory object, no path race). Only the owner or root can later change the parent's mode or ACL, since the observation established no foreign grants; an inheritable foreign ACE added in the window would still be refused by the child's own predicate (residual file, as documented for the creator)."
+  },
+  {
+   "id": "O3",
+   "summary": "The full security suite still needs a custody-safe TMPDIR; failures identical on base and candidate."
+  },
+  {
+   "id": "CARRIED",
+   "summary": "Unused From impls and nested WorkFailure inside Capture/Append."
+  }
+ ],
+ "limits": [
+  "This macOS development host (APFS) only; the function is macOS-only; as_file also compiles on Linux.",
+  "The observation-to-creation window was analysed, not raced.",
+  "Mutation measures test strength, not proof.",
+  "Not the installation creator, parent or path admission, absence authority, per-vnode profile qualification, commit or selection."
+ ],
+ "evidence": [
+  "REVIEW.md",
+  "evidence/subject-diff-vs-402bfd6.patch",
+  "evidence/gated_probe.rs",
+  "evidence/run_probe_and_mutants.py",
+  "evidence/probe-and-mutants.json",
+  "evidence/replay.sh",
+  "evidence/snapshot.sh",
+  "evidence/runs/*",
+  "evidence/product-index-before.txt",
+  "evidence/pre-replay-snapshot.txt",
+  "evidence/post-replay-snapshot.txt",
+  "evidence/removed-scratch.txt",
+  "hashes.txt"
+ ]
+}
