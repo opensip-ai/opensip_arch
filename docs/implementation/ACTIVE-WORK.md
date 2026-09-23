@@ -4629,3 +4629,8 @@ Actual Claude Opus 5.5 REQUIRED-FINDINGS. Production code closed the umask and r
 ## 2026-09-23 — directory observation installed at 7a1c28e; foreign-owner pin is under review
 
 455 r1 ACCEPT-UNIT, requiredFindings empty. Product 7a1c28e. Observation refuses an omitted ACL and does not append one. Uncommitted test expects ForeignOwner when invoking_uid is not the directory owner. The comment says contents are not judged. Request: docs/implementation/m2/reviews/claude-opus5-observe-private455-r2/REQUEST.md. Reviewer owns the native lane. Not the installation creator. No push. M2–M6 unfinished.
+
+
+## 2026-09-23 — foreign-owner observation installed at 402bfd6; creation inside an observed directory is under review
+
+455 r2 ACCEPT-UNIT, requiredFindings empty. Product 402bfd6. Uncommitted create_private_file_in_observed_directory observes the parent directory first and creates nothing when that observation refuses. A prepared private directory can contain one new private file. Request: docs/implementation/m2/reviews/claude-opus5-create-in-observed456-r1/REQUEST.md. Reviewer owns the native lane. Not the installation creator. No push. M2–M6 unfinished.
