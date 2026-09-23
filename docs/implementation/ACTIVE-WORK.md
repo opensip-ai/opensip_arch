@@ -4644,3 +4644,8 @@ Actual Claude Opus 5.5 REQUIRED-FINDINGS. RF-1: an invalid name was refused only
 ## 2026-09-23 — name-first creation inside an observed directory installed at 1b3a3c6
 
 456 r2 ACCEPT-UNIT, requiredFindings empty. Product 1b3a3c6. A bad name returns Name with a zero charge before the parent is read. A private parent can contain one new private file. A parent whose ACL is omitted creates nothing. The macOS gate on lift_capture was restored before commit, as the review measured. Grok owns the native lane. Next is the installation creator: this still does not admit a path or create the initial root. No push. M2–M6 unfinished.
+
+
+## 2026-09-23 — Claude leads implementation; Grok is the single reviewer
+
+The user changed roles today. Claude Opus 5.5 leads implementation and Grok reviews. Codex is unavailable, and there is no second reviewer. Grok is Herdr pane wN:p1. Review requests are written on disk before they are sent. While Grok reviews exact bytes, Grok owns the native lane and the product is not edited. Only an ACCEPT-UNIT with empty requiredFindings is integrated, and only the reviewed bytes. Product 1b3a3c6 and architecture 02d5400ec were clean at handover. No review is open, so Claude holds the native lane. This note accepts no source. Not the installation creator. No push. M2–M6 unfinished.
