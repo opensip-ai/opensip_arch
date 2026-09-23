@@ -4639,3 +4639,8 @@ Actual Claude Opus 5.5 REQUIRED-FINDINGS. Production code closed the umask and r
 ## 2026-09-23 — observed-directory creation 456 r1 refused; the name is checked first
 
 Actual Claude Opus 5.5 REQUIRED-FINDINGS. RF-1: an invalid name was refused only after a parent capture and its charge, and a non-private parent reported AclNotReturned instead of Name. That order was not committed. reject_private_name now runs first in the file creator, the directory creator, and the observed-directory creator. Bad names return Name with a zero charge. r2 request: docs/implementation/m2/reviews/claude-opus5-create-in-observed456-r2/REQUEST.md. Reviewer owns the native lane. Not the installation creator. No push. M2–M6 unfinished.
+
+
+## 2026-09-23 — name-first creation inside an observed directory installed at 1b3a3c6
+
+456 r2 ACCEPT-UNIT, requiredFindings empty. Product 1b3a3c6. A bad name returns Name with a zero charge before the parent is read. A private parent can contain one new private file. A parent whose ACL is omitted creates nothing. The macOS gate on lift_capture was restored before commit, as the review measured. Grok owns the native lane. Next is the installation creator: this still does not admit a path or create the initial root. No push. M2–M6 unfinished.
