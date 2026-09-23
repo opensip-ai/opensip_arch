@@ -4599,3 +4599,8 @@ Actual Claude Opus 5.5 REQUIRED-FINDINGS. RF-1: the file was created before any 
 ## 2026-09-23 — dangling-symlink test installed at afb7089; private directory creation is under review
 
 453 r6 ACCEPT-UNIT, requiredFindings empty. Product afb7089. Test-only. Uncommitted create_private_directory makes one 0700 directory with mkdirat under a retained parent and prepares its ACL. The file and directory name checks are one function. Request: docs/implementation/m2/reviews/claude-opus5-create-private454-r1/REQUEST.md. Reviewer owns the native lane. Not the installation creator. No push. M2–M6 unfinished.
+
+
+## 2026-09-23 — private directory creation installed at 45c3bf5; directory budget pins are under review
+
+454 r1 ACCEPT-UNIT, requiredFindings empty. Product 45c3bf5. Uncommitted private_access.rs charges 2 edges for a file create and 3 for a directory create, and the directory path refuses a bad name and an unpaid ledger before mkdirat. Request: docs/implementation/m2/reviews/claude-opus5-create-private454-r2/REQUEST.md. Reviewer owns the native lane. Not the installation creator. No push. M2–M6 unfinished.
