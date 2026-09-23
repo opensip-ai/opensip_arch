@@ -4619,3 +4619,8 @@ Actual Claude Opus 5.5 REQUIRED-FINDINGS. RF-1: the entry scan ran before mode 0
 ## 2026-09-23 — mode-then-scan 454 r4 refused; umask test is now a child process
 
 Actual Claude Opus 5.5 REQUIRED-FINDINGS. Production code closed the umask and readdir findings. The new test set the process umask inside the parallel platform suite and failed that suite. That test was not committed. The replacement re-executes one child test with --exact and --test-threads=1; only the child sets umask 0177. r5 request: docs/implementation/m2/reviews/claude-opus5-create-private454-r5/REQUEST.md. Reviewer owns the native lane. Not the installation creator. No push. M2–M6 unfinished.
+
+
+## 2026-09-23 — fresh-directory check installed at b2b0c24; directory observation is under review
+
+454 r5 ACCEPT-UNIT, requiredFindings empty. Product b2b0c24. The parent also checks that the child left umaskdir at mode 0700. Uncommitted observe_private_directory judges an existing directory and refuses an omitted ACL. It does not append one. Request: docs/implementation/m2/reviews/claude-opus5-observe-private455-r1/REQUEST.md. Reviewer owns the native lane. Not the installation creator. No push. M2–M6 unfinished.
