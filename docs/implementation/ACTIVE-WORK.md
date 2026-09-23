@@ -4604,3 +4604,8 @@ Actual Claude Opus 5.5 REQUIRED-FINDINGS. RF-1: the file was created before any 
 ## 2026-09-23 — private directory creation installed at 45c3bf5; directory budget pins are under review
 
 454 r1 ACCEPT-UNIT, requiredFindings empty. Product 45c3bf5. Uncommitted private_access.rs charges 2 edges for a file create and 3 for a directory create, and the directory path refuses a bad name and an unpaid ledger before mkdirat. Request: docs/implementation/m2/reviews/claude-opus5-create-private454-r2/REQUEST.md. Reviewer owns the native lane. Not the installation creator. No push. M2–M6 unfinished.
+
+
+## 2026-09-23 — directory create costs installed at 4afcf5d; fresh-directory check is under review
+
+454 r2 ACCEPT-UNIT, requiredFindings empty. Product 4afcf5d. File create reserves 2 edges and directory create reserved 3. Uncommitted filesystem.rs checks the opened directory is owned by the effective uid, has link count 2, and lists only `.` and `..`. The directory cost is now 5 edges for the added status read and scan. Request: docs/implementation/m2/reviews/claude-opus5-create-private454-r3/REQUEST.md. Reviewer owns the native lane. Not the installation creator. No push. M2–M6 unfinished.
