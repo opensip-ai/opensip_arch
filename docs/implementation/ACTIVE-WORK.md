@@ -4609,3 +4609,8 @@ Actual Claude Opus 5.5 REQUIRED-FINDINGS. RF-1: the file was created before any 
 ## 2026-09-23 — directory create costs installed at 4afcf5d; fresh-directory check is under review
 
 454 r2 ACCEPT-UNIT, requiredFindings empty. Product 4afcf5d. File create reserves 2 edges and directory create reserved 3. Uncommitted filesystem.rs checks the opened directory is owned by the effective uid, has link count 2, and lists only `.` and `..`. The directory cost is now 5 edges for the added status read and scan. Request: docs/implementation/m2/reviews/claude-opus5-create-private454-r3/REQUEST.md. Reviewer owns the native lane. Not the installation creator. No push. M2–M6 unfinished.
+
+
+## 2026-09-23 — fresh-directory check 454 r3 refused; mode-then-scan is r4
+
+Actual Claude Opus 5.5 REQUIRED-FINDINGS. RF-1: the entry scan ran before mode 0700, so umasks that remove owner search failed creation and left a directory behind. RF-2: a readdir error was treated as an empty directory. That diff was not committed. The replacement checks owner and link count, sets 0700, then scans, and a readdir error is returned. The platform test covers umask 0177. r4 request: docs/implementation/m2/reviews/claude-opus5-create-private454-r4/REQUEST.md. Reviewer owns the native lane. Not the installation creator. No push. M2–M6 unfinished.
