@@ -4694,3 +4694,8 @@ Uncommitted on 4e0cb7b: crates/security/src/trust/initial_publication.rs builds 
 ## 2026-09-23 — P0 trust publication installed at cd48f87
 
 Grok 466 r1 ACCEPT-UNIT and inventory ACCEPT, requiredFindings empty. Product cd48f87 selects inventory66 (714 planned files; verify_design passed). `initial_publication::build` makes the P0 trust records in memory, reproduces the inputs275 creation vector, and passes the existing creation, capsule and event verifiers before returning. Its inputs still have no producers. Claude holds the native lane. Grok showed 2% of its weekly limit. Not the installation creator. No push. M2–M6 unfinished.
+
+
+## 2026-09-23 — InitialCore proposal 463 is under Grok text review
+
+docs/implementation/m2/initial-core-launch-463/PROPOSAL.md states the facts `InitialCore` must establish (executed image, authenticated release, closure and K, executed members), the macOS evidence (kernel CodeDirectory hash joined to the entrypoint's bytes and the inventory's tree commitment; release records from the core tree's embedded bootstrap under the image's embedded root binding), and forbidden substitutes. No release record declares the writer capability K needs. Request: docs/implementation/m2/reviews/grok-initial-core463-r1/REQUEST.md. Text review; Claude holds the native lane. Not the installation creator. No push. M2–M6 unfinished.
