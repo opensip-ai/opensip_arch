@@ -4654,3 +4654,8 @@ The user changed roles today. Claude Opus 5.5 leads implementation and Grok revi
 ## 2026-09-23 — probe 457 recorded; external-ancestor custody is under Grok review
 
 Probe 457 (docs/implementation/m2/ancestor-acl-probe-457/RESULT.md) is read-only. H, Library and Application Support carry a present deny-delete ACL. `/` and `/Users` omit the ACL, so the root-to-H chain needs a qualified omission premise that the profile does not yet carry. An existing 0755 `OpenSIP` directory on this host must be refused, not repaired. The legacy writer list reads omission as no writers; that is recorded. Uncommitted custody.rs adds `check_external_ancestor` and `observe_external_ancestor` on the bounded capture. Omission and the sentinel refuse, any allow with a non-read right for a principal other than the invoking user or root refuses, and nothing calls them yet. Request: docs/implementation/m2/reviews/grok-ancestor457-r1/REQUEST.md. Grok owns the native lane. Not the installation creator. No push. M2–M6 unfinished.
+
+
+## 2026-09-23 — external-ancestor custody installed at e7bd764
+
+Grok 457 r1 ACCEPT-UNIT, requiredFindings empty. Product e7bd764. `check_external_ancestor` and `observe_external_ancestor` judge one directory from the bounded capture. Omission and the sentinel refuse, and so does a non-read allow for anyone except the invoking user or root. Nothing calls them. The root-to-H chain still cannot pass: `/` and `/Users` omit the ACL and no qualified omission premise exists. The legacy writer list is unchanged. Claude holds the native lane. Grok's pane showed 3% of its weekly limit left after this review. Not the installation creator. No push. M2–M6 unfinished.
