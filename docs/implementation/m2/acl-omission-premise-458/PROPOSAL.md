@@ -1,6 +1,6 @@
 # ACL omission premise for external ancestors — proposal 458 r2
 
-2026-09-23. Claude Opus 5.5, implementation lead. r2 answers Grok r1 RF-1: a filesystem type name does not qualify this fact; the matched measured row must carry it. r1 bytes are preserved in PROPOSAL-r1.md. Proposed owner amendment to initial-root-binding owner §1a step 4 and §1b. Not selected until an ACCEPT from the reviewer; not code; not creator authority.
+2026-09-23. Claude Opus 5.5, implementation lead. r2 answers Grok r1 RF-1: a filesystem type name does not qualify this fact; the matched measured row must carry it. r1 bytes are preserved in PROPOSAL-r1.md. Proposed owner amendment to initial-root-binding owner §1a step 4 and §1b. ACCEPTED by Grok in review 459 r1 (premise458.json, RF-1 closed) on 2026-09-23. Owner law for external-ancestor writer exclusion; Evidence B stays unmintable until the profile-set successor 458b is selected and a signed row carries the member. Not code; not creator authority.
 
 ## Problem
 
