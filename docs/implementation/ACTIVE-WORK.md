@@ -4674,3 +4674,8 @@ Grok 459 r1: subject B ACCEPT-UNIT and inventory ACCEPT, requiredFindings empty;
 ## 2026-09-23 — parent-chain observation 460 is under Grok review
 
 Uncommitted on 9c53c94: charged retained-path, child-open, absence and filesystem wrappers in platform; `observe_installation_parent` in custody/installation_root.rs judging root to H and the fixed ancestors from the bounded capture, `OpenSIP` as private, and `preview-v1` absence through the retained parent; the attempt's `run`/`require_lineage`. Omitted ancestors refuse in production until unit 462 mints the premise. Request: docs/implementation/m2/reviews/grok-parent-observation460-r1/REQUEST.md. Grok owns the native lane. Not the installation creator. No push. M2–M6 unfinished.
+
+
+## 2026-09-23 — parent observation 460 r1 refused; every status read is priced in r2
+
+Grok REQUIRED-FINDINGS. RF-1: the path open, recheck and child open omitted the kind-check status read on each handle. RF-2: the filesystem sample omitted its status buffer. That diff was not committed. r2 prices every status read as an edge and a buffer (the comparison reads' buffers were also missing), and tests pin the operation counts. Request: docs/implementation/m2/reviews/grok-parent-observation460-r2/REQUEST.md. Grok owns the native lane. Not the installation creator. No push. M2–M6 unfinished.
