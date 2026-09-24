@@ -4664,3 +4664,8 @@ Grok 457 r1 ACCEPT-UNIT, requiredFindings empty. Product e7bd764. `check_externa
 ## 2026-09-23 — premise 458 r1 refused; 458 r2 and unit 459 are under Grok review
 
 Grok 458 r1 REQUIRED-FINDINGS. RF-1: a type name in `installRootFilesystems` does not qualify ACL omission. r2 requires a signed per-row member `installAclOmission`, set only after the fixture set passed, through a profile-set schema successor (plan 458b). Unit 459, uncommitted on e7bd764, adds `initial_installation.rs` (one attempt per process, one ledger, a latched actor receipt), inventory65 for it, O1/O6 in private_access, a fix for the 457 test leak, a test-only lock that serializes temp-tree tests (the full security suite failed 5 of 6 runs at 1b3a3c6 and e7bd764; 9 of 10 passed after), and three lint fixes. Request: docs/implementation/m2/reviews/grok-attempt-actor459-r1/REQUEST.md. Grok owns the native lane. Not the installation creator. No push. M2–M6 unfinished.
+
+
+## 2026-09-23 — attempt and actor installed at 9c53c94; premise 458 accepted
+
+Grok 459 r1: subject B ACCEPT-UNIT and inventory ACCEPT, requiredFindings empty; subject A (premise 458 r2) ACCEPT with RF-1 closed. Product 9c53c94 selects inventory65 (713 planned files; verify_design passed) and commits the 27 reviewed paths plus the lock. One attempt per process owns the ledger; the actor receipt is latched and attempt-bound. Security tests that touch the temp tree are serialized; Grok's full suite passed 428. Evidence B for omitted ancestors stays unmintable until profile successor 458b. Claude holds the native lane. Not the installation creator. No push. M2–M6 unfinished.
