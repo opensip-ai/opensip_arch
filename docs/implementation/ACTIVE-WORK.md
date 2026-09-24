@@ -4684,3 +4684,8 @@ Grok REQUIRED-FINDINGS. RF-1: the path open, recheck and child open omitted the 
 ## 2026-09-23 — parent-chain observation installed at 4e0cb7b
 
 Grok 460 r2 ACCEPT-UNIT, requiredFindings empty; r1 RF-1/RF-2 closed. Product 4e0cb7b. `observe_installation_parent` retains and judges root to H and the fixed ancestors on the bounded capture, requires a private `OpenSIP`, and observes `preview-v1` absence through the retained parent. Every status read is priced. Omitted ancestors refuse in production until unit 462 mints the premise, so on a stock Mac it refuses at `/`. Claude holds the native lane. Grok showed 2% of its weekly limit. Not the installation creator. No push. M2–M6 unfinished.
+
+
+## 2026-09-23 — P0 trust publication producer 466 is under Grok review
+
+Uncommitted on 4e0cb7b: crates/security/src/trust/initial_publication.rs builds the marker record, creation input, operation, event, initial descriptor and P0 capsule in memory, checks them with the existing creation, capsule and event verifiers on the caller's ledger, and places them at the reader-side locator paths. It reproduces the inputs275 creation vector byte for byte. Inventory66 adds the file. Its inputs still have no producers. Request: docs/implementation/m2/reviews/grok-initial-publication466-r1/REQUEST.md. Grok owns the native lane. Not the installation creator. No push. M2–M6 unfinished.
