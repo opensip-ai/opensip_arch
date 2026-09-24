@@ -4704,3 +4704,8 @@ docs/implementation/m2/initial-core-launch-463/PROPOSAL.md states the facts `Ini
 ## 2026-09-23 — InitialCore 463 r1 refused; bootstrap path is embedded in r2
 
 Grok 463 r1 REQUIRED-FINDINGS. RF-1: the bootstrap directory was located through the inventory stored inside it, and a platform row could be chosen by scanning. r2 embeds the bootstrap directory's logical path with the root binding, opens only its fixed files and manifest-declared paths, and selects the row by the authenticated platform id. It also adopts a separate core-tree custody rule and K from a signed inventory member. Correction to the previous entry: under the user's rule Grok owns the native lane during every review, text reviews included; the lead ran no native job during 463 r1. Request: docs/implementation/m2/reviews/grok-initial-core463-r2/REQUEST.md. Grok showed 1% of its weekly limit. Not the installation creator. No push. M2–M6 unfinished.
+
+
+## 2026-09-23 — InitialCore 463 r2 refused; r3 embeds the entrypoint path and takes the row from the anchor
+
+Grok 463 r2 REQUIRED-FINDINGS. RF-1: the tree root the bootstrap path is relative to was not identified. RF-2: the platform row waited on InitialPlatform, which waits on InitialCore. r3 embeds the entrypoint's logical path (the tree root is that many retained parents up, no search) and selects the row by the authenticated anchor's `platform` field. Request: docs/implementation/m2/reviews/grok-initial-core463-r3/REQUEST.md. Grok owns the native lane. Not the installation creator. No push. M2–M6 unfinished.
