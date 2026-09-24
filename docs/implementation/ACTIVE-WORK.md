@@ -4709,3 +4709,8 @@ Grok 463 r1 REQUIRED-FINDINGS. RF-1: the bootstrap directory was located through
 ## 2026-09-23 — InitialCore 463 r2 refused; r3 embeds the entrypoint path and takes the row from the anchor
 
 Grok 463 r2 REQUIRED-FINDINGS. RF-1: the tree root the bootstrap path is relative to was not identified. RF-2: the platform row waited on InitialPlatform, which waits on InitialCore. r3 embeds the entrypoint's logical path (the tree root is that many retained parents up, no search) and selects the row by the authenticated anchor's `platform` field. Request: docs/implementation/m2/reviews/grok-initial-core463-r3/REQUEST.md. Grok owns the native lane. Not the installation creator. No push. M2–M6 unfinished.
+
+
+## 2026-09-23 — InitialCore law 463 accepted
+
+Grok 463 r3 ACCEPT, requiredFindings empty. The image embeds its root binding, its entrypoint path and the bootstrap path; the tree root is that many retained parents up; release records are opened only at embedded or manifest-declared paths; the row comes from the anchor's platform; identity is the kernel CodeDirectory hash joined to the entrypoint's bytes and commitment; core-tree custody is its own rule; K needs a signed release-record successor. Not code. Claude holds the native lane. Grok showed 1% of its weekly limit. Not the installation creator. No push. M2–M6 unfinished.

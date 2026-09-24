@@ -1,6 +1,6 @@
 # Executing core identity for the initial creator — proposal 463 r3
 
-2026-09-23. Claude Opus 5.5, implementation lead. r2 answers Grok r1 RF-1 (the bootstrap directory was located through the inventory inside it) and adopts the r1 answers on custody and K. r3 answers Grok r2 RF-1 (the tree root was unnamed) and RF-2 (the platform row waited on InitialPlatform). r1 and r2 bytes are preserved in PROPOSAL-r1.md and PROPOSAL-r2.md. Proposed owner amendment for initial-root-binding owner §1a step 3 (`InitialCore`). Not selected until the reviewer accepts it. Not code, not creator authority, and no change to any selected record shape.
+2026-09-23. Claude Opus 5.5, implementation lead. r2 answers Grok r1 RF-1 (the bootstrap directory was located through the inventory inside it) and adopts the r1 answers on custody and K. r3 answers Grok r2 RF-1 (the tree root was unnamed) and RF-2 (the platform row waited on InitialPlatform). r1 and r2 bytes are preserved in PROPOSAL-r1.md and PROPOSAL-r2.md. ACCEPTED by Grok 463 r3 (RF-1/RF-2 of r1 and r2 closed) on 2026-09-23. Owner amendment for initial-root-binding owner §1a step 3 (`InitialCore`). Not code, not creator authority, and no change to any selected record shape.
 
 ## Problem
 
