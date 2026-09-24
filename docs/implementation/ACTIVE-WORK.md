@@ -4714,3 +4714,8 @@ Grok 463 r2 REQUIRED-FINDINGS. RF-1: the tree root the bootstrap path is relativ
 ## 2026-09-23 — InitialCore law 463 accepted
 
 Grok 463 r3 ACCEPT, requiredFindings empty. The image embeds its root binding, its entrypoint path and the bootstrap path; the tree root is that many retained parents up; release records are opened only at embedded or manifest-declared paths; the row comes from the anchor's platform; identity is the kernel CodeDirectory hash joined to the entrypoint's bytes and commitment; core-tree custody is its own rule; K needs a signed release-record successor. Not code. Claude holds the native lane. Grok showed 1% of its weekly limit. Not the installation creator. No push. M2–M6 unfinished.
+
+
+## 2026-09-23 — running-image identity 463a is under Grok review
+
+Uncommitted on cd48f87: crates/platform/src/macos_image.rs observes the kernel code-signing status and CodeDirectory hash of the running image and binds one retained no-follow file to it by parsing its CodeDirectory; the loader parser gains a file-type and cap parameter. Inventory67 adds the file. The test binary's kernel hash equals its parsed hash. Request: docs/implementation/m2/reviews/grok-running-image463a-r1/REQUEST.md. Grok owns the native lane. Not the installation creator. No push. M2–M6 unfinished.
