@@ -4649,3 +4649,8 @@ Actual Claude Opus 5.5 REQUIRED-FINDINGS. RF-1: an invalid name was refused only
 ## 2026-09-23 — Claude leads implementation; Grok is the single reviewer
 
 The user changed roles today. Claude Opus 5.5 leads implementation and Grok reviews. Codex is unavailable, and there is no second reviewer. Grok is Herdr pane wN:p1. Review requests are written on disk before they are sent. While Grok reviews exact bytes, Grok owns the native lane and the product is not edited. Only an ACCEPT-UNIT with empty requiredFindings is integrated, and only the reviewed bytes. Product 1b3a3c6 and architecture 02d5400ec were clean at handover. No review is open, so Claude holds the native lane. This note accepts no source. Not the installation creator. No push. M2–M6 unfinished.
+
+
+## 2026-09-23 — probe 457 recorded; external-ancestor custody is under Grok review
+
+Probe 457 (docs/implementation/m2/ancestor-acl-probe-457/RESULT.md) is read-only. H, Library and Application Support carry a present deny-delete ACL. `/` and `/Users` omit the ACL, so the root-to-H chain needs a qualified omission premise that the profile does not yet carry. An existing 0755 `OpenSIP` directory on this host must be refused, not repaired. The legacy writer list reads omission as no writers; that is recorded. Uncommitted custody.rs adds `check_external_ancestor` and `observe_external_ancestor` on the bounded capture. Omission and the sentinel refuse, any allow with a non-read right for a principal other than the invoking user or root refuses, and nothing calls them yet. Request: docs/implementation/m2/reviews/grok-ancestor457-r1/REQUEST.md. Grok owns the native lane. Not the installation creator. No push. M2–M6 unfinished.
