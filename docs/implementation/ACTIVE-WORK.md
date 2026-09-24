@@ -4669,3 +4669,8 @@ Grok 458 r1 REQUIRED-FINDINGS. RF-1: a type name in `installRootFilesystems` doe
 ## 2026-09-23 — attempt and actor installed at 9c53c94; premise 458 accepted
 
 Grok 459 r1: subject B ACCEPT-UNIT and inventory ACCEPT, requiredFindings empty; subject A (premise 458 r2) ACCEPT with RF-1 closed. Product 9c53c94 selects inventory65 (713 planned files; verify_design passed) and commits the 27 reviewed paths plus the lock. One attempt per process owns the ledger; the actor receipt is latched and attempt-bound. Security tests that touch the temp tree are serialized; Grok's full suite passed 428. Evidence B for omitted ancestors stays unmintable until profile successor 458b. Claude holds the native lane. Not the installation creator. No push. M2–M6 unfinished.
+
+
+## 2026-09-23 — parent-chain observation 460 is under Grok review
+
+Uncommitted on 9c53c94: charged retained-path, child-open, absence and filesystem wrappers in platform; `observe_installation_parent` in custody/installation_root.rs judging root to H and the fixed ancestors from the bounded capture, `OpenSIP` as private, and `preview-v1` absence through the retained parent; the attempt's `run`/`require_lineage`. Omitted ancestors refuse in production until unit 462 mints the premise. Request: docs/implementation/m2/reviews/grok-parent-observation460-r1/REQUEST.md. Grok owns the native lane. Not the installation creator. No push. M2–M6 unfinished.
