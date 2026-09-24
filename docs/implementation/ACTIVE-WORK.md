@@ -4659,3 +4659,8 @@ Probe 457 (docs/implementation/m2/ancestor-acl-probe-457/RESULT.md) is read-only
 ## 2026-09-23 — external-ancestor custody installed at e7bd764
 
 Grok 457 r1 ACCEPT-UNIT, requiredFindings empty. Product e7bd764. `check_external_ancestor` and `observe_external_ancestor` judge one directory from the bounded capture. Omission and the sentinel refuse, and so does a non-read allow for anyone except the invoking user or root. Nothing calls them. The root-to-H chain still cannot pass: `/` and `/Users` omit the ACL and no qualified omission premise exists. The legacy writer list is unchanged. Claude holds the native lane. Grok's pane showed 3% of its weekly limit left after this review. Not the installation creator. No push. M2–M6 unfinished.
+
+
+## 2026-09-23 — premise 458 r1 refused; 458 r2 and unit 459 are under Grok review
+
+Grok 458 r1 REQUIRED-FINDINGS. RF-1: a type name in `installRootFilesystems` does not qualify ACL omission. r2 requires a signed per-row member `installAclOmission`, set only after the fixture set passed, through a profile-set schema successor (plan 458b). Unit 459, uncommitted on e7bd764, adds `initial_installation.rs` (one attempt per process, one ledger, a latched actor receipt), inventory65 for it, O1/O6 in private_access, a fix for the 457 test leak, a test-only lock that serializes temp-tree tests (the full security suite failed 5 of 6 runs at 1b3a3c6 and e7bd764; 9 of 10 passed after), and three lint fixes. Request: docs/implementation/m2/reviews/grok-attempt-actor459-r1/REQUEST.md. Grok owns the native lane. Not the installation creator. No push. M2–M6 unfinished.

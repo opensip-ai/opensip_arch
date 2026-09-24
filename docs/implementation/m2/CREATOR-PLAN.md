@@ -10,11 +10,12 @@ Bounded ACL capture; private-descendant and external-ancestor predicates; privat
 
 | # | Unit | Depends on | Blocker or note |
 |---|---|---|---|
-| 458 | Law: ACL omission premise for external ancestors | — | Under review now |
+| 458 | Law: ACL omission premise for external ancestors | — | r1 REQUIRED-FINDINGS (type name is not qualification); r2 under review |
+| 458b | Profile-set schema successor: measured macOS row member `installAclOmission` | 458 | Contract successor with decoder, shape and signature cases; until selected, omitted ancestors refuse |
 | 459 | Attempt and actor: `InitialInstallationAttempt` owning one ledger; `InitialActor` from the charged account observation (equal real and effective UID, home 1..4096 bytes, at most 256 components) | — | New host file needs an inventory successor |
 | 460 | Root-to-H chain and fixed suffix on the bounded capture, charged, using Evidence A or B; `OpenSIP` judged private | 458, 459 | Evidence B needs 462's receipt; until then the chain refuses omitted ancestors |
 | 461 | Replace the legacy writer-list reader in existing custody consumers | 458 | Omission must stop reading as no writers everywhere; existing callers change behavior |
-| 462 | `InitialPlatform` without a fence: boot, process, loader and per-descriptor filesystem samples joined to an authenticated profile | 463 | Existing factory requires a fence; profile verification takes a caller revoked set |
+| 462 | `InitialPlatform` without a fence (it takes the per-descriptor `fstatfs` itself; mints Evidence B only from a row carrying `installAclOmission`): boot, process, loader and per-descriptor filesystem samples joined to an authenticated profile | 463, 458b | Existing factory requires a fence; profile verification takes a caller revoked set |
 | 463 | `InitialCore`: executing core identity from the loader TCB, open-then-verify of executed members, core-rooted profile authentication, K from writer capability | — | No producer exists; needs a signed core release format and fixtures |
 | 464 | `CreationIntent`: durable ingress, command eligibility, first-write disclosure with the storage root, backup classification and `--allow-backup-custody`, `INSTALLATION.NOT_INITIALIZED` | — | CLI has only metadata ingress |
 | 465 | Parent preparation and permit: H barrier, create-or-admit each fixed ancestor with own and parent barriers, no-follow absence of `preview-v1` | 459–464 | — |
