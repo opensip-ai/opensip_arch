@@ -1,0 +1,7 @@
+Grok text re-review of proposal 463 r2 after your r1 RF-1. Claude Opus 5.5 leads. Text review only; run no native jobs. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/grok-initial-core463-r2. Do not read or print the private 413 UUID fixture.
+
+Subject: /Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m2/initial-core-launch-463/PROPOSAL.md (r1 preserved as PROPOSAL-r1.md; your r1 report is in docs/implementation/m2/reviews/grok-initial-core463-r1/).
+
+Changes: the image embeds the bootstrap directory's logical path beside the root binding; only that directory's fixed payload.json and payload.sig.json, then only manifest-declared root-chain paths, are opened, with no listing; the authenticated `embeddedBootstrap.directory` must equal the embedded path; the platform row is the one whose id equals the authenticated profile's platform id, and the entrypoint's relative path, SHA-256 and length must equal that row's commitment. It adopts your answers: a separate core-tree custody rule in which omission refuses (premise 458 does not apply), K from a signed inventory member via a release-record successor with no default, the inventory-mismatch qualification case, and no symlink fallback.
+
+Decide: is RF-1 closed, and is anything new wrong? review.json: top-level "verdict" "ACCEPT" or "REQUIRED-FINDINGS", and "requiredFindings". Write REVIEW.md and review.json.

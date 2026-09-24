@@ -4699,3 +4699,8 @@ Grok 466 r1 ACCEPT-UNIT and inventory ACCEPT, requiredFindings empty. Product cd
 ## 2026-09-23 — InitialCore proposal 463 is under Grok text review
 
 docs/implementation/m2/initial-core-launch-463/PROPOSAL.md states the facts `InitialCore` must establish (executed image, authenticated release, closure and K, executed members), the macOS evidence (kernel CodeDirectory hash joined to the entrypoint's bytes and the inventory's tree commitment; release records from the core tree's embedded bootstrap under the image's embedded root binding), and forbidden substitutes. No release record declares the writer capability K needs. Request: docs/implementation/m2/reviews/grok-initial-core463-r1/REQUEST.md. Text review; Claude holds the native lane. Not the installation creator. No push. M2–M6 unfinished.
+
+
+## 2026-09-23 — InitialCore 463 r1 refused; bootstrap path is embedded in r2
+
+Grok 463 r1 REQUIRED-FINDINGS. RF-1: the bootstrap directory was located through the inventory stored inside it, and a platform row could be chosen by scanning. r2 embeds the bootstrap directory's logical path with the root binding, opens only its fixed files and manifest-declared paths, and selects the row by the authenticated platform id. It also adopts a separate core-tree custody rule and K from a signed inventory member. Correction to the previous entry: under the user's rule Grok owns the native lane during every review, text reviews included; the lead ran no native job during 463 r1. Request: docs/implementation/m2/reviews/grok-initial-core463-r2/REQUEST.md. Grok showed 1% of its weekly limit. Not the installation creator. No push. M2–M6 unfinished.
