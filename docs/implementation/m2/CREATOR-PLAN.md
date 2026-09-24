@@ -19,7 +19,7 @@ Bounded ACL capture; private-descendant and external-ancestor predicates; privat
 | 463 | `InitialCore`: executing core identity from the loader TCB, open-then-verify of executed members, core-rooted profile authentication, K from writer capability | — | No producer exists; needs a signed core release format and fixtures |
 | 464 | `CreationIntent`: durable ingress, command eligibility, first-write disclosure with the storage root, backup classification and `--allow-backup-custody`, `INSTALLATION.NOT_INITIALIZED` | — | CLI has only metadata ingress |
 | 465 | Parent preparation and permit: H barrier, create-or-admit each fixed ancestor with own and parent barriers, no-follow absence of `preview-v1` | 459–464 | — |
-| 466 | P0 producers: fence file, registry v2, marker, node, pair, CreationInput, OperationInput, creation event, descriptor, state.v1 | 463 | Only decoders and verifiers exist |
+| 466 | PARTLY DONE (466 r1: the trust publication, verified in memory; host composition of the non-trust files waits for 467): P0 producers: fence file, registry v2, marker, node, pair, CreationInput, OperationInput, creation event, descriptor, state.v1 | 463 | Only decoders and verifiers exist |
 | 467 | Stage, validate, publish, final barrier, loser and indeterminate routes, ordinary handoff | 465, 466 | Primitive exists; composition does not |
 | 468 | §5 observation versus durable write, doctor informational note, formal diagnostic successors | 467 | Needs schema/generation successor |
 
