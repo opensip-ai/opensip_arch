@@ -4719,3 +4719,8 @@ Grok 463 r3 ACCEPT, requiredFindings empty. The image embeds its root binding, i
 ## 2026-09-23 — running-image identity 463a is under Grok review
 
 Uncommitted on cd48f87: crates/platform/src/macos_image.rs observes the kernel code-signing status and CodeDirectory hash of the running image and binds one retained no-follow file to it by parsing its CodeDirectory; the loader parser gains a file-type and cap parameter. Inventory67 adds the file. The test binary's kernel hash equals its parsed hash. Request: docs/implementation/m2/reviews/grok-running-image463a-r1/REQUEST.md. Grok owns the native lane. Not the installation creator. No push. M2–M6 unfinished.
+
+
+## 2026-09-23 — running-image 463a r1 refused; the leaf open is priced from open_regular in r2
+
+Grok 463a r1 REQUIRED-FINDINGS; inventory67 ACCEPT. RF-1: the leaf open and recheck omitted `open_regular`'s own status read, and the leaf name was copied after the path charge. That diff was not committed. r2 publishes `RetainedDirectory::open_regular_cost`, prices both steps from it, and makes the leaf copies inside the charged path step. Request: docs/implementation/m2/reviews/grok-running-image463a-r2/REQUEST.md. Grok owns the native lane. Not the installation creator. No push. M2–M6 unfinished.
