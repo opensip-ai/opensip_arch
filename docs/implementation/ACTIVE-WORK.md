@@ -4689,3 +4689,8 @@ Grok 460 r2 ACCEPT-UNIT, requiredFindings empty; r1 RF-1/RF-2 closed. Product 4e
 ## 2026-09-23 — P0 trust publication producer 466 is under Grok review
 
 Uncommitted on 4e0cb7b: crates/security/src/trust/initial_publication.rs builds the marker record, creation input, operation, event, initial descriptor and P0 capsule in memory, checks them with the existing creation, capsule and event verifiers on the caller's ledger, and places them at the reader-side locator paths. It reproduces the inputs275 creation vector byte for byte. Inventory66 adds the file. Its inputs still have no producers. Request: docs/implementation/m2/reviews/grok-initial-publication466-r1/REQUEST.md. Grok owns the native lane. Not the installation creator. No push. M2–M6 unfinished.
+
+
+## 2026-09-23 — P0 trust publication installed at cd48f87
+
+Grok 466 r1 ACCEPT-UNIT and inventory ACCEPT, requiredFindings empty. Product cd48f87 selects inventory66 (714 planned files; verify_design passed). `initial_publication::build` makes the P0 trust records in memory, reproduces the inputs275 creation vector, and passes the existing creation, capsule and event verifiers before returning. Its inputs still have no producers. Claude holds the native lane. Grok showed 2% of its weekly limit. Not the installation creator. No push. M2–M6 unfinished.
