@@ -4724,3 +4724,8 @@ Uncommitted on cd48f87: crates/platform/src/macos_image.rs observes the kernel c
 ## 2026-09-23 — running-image 463a r1 refused; the leaf open is priced from open_regular in r2
 
 Grok 463a r1 REQUIRED-FINDINGS; inventory67 ACCEPT. RF-1: the leaf open and recheck omitted `open_regular`'s own status read, and the leaf name was copied after the path charge. That diff was not committed. r2 publishes `RetainedDirectory::open_regular_cost`, prices both steps from it, and makes the leaf copies inside the charged path step. Request: docs/implementation/m2/reviews/grok-running-image463a-r2/REQUEST.md. Grok owns the native lane. Not the installation creator. No push. M2–M6 unfinished.
+
+
+## 2026-09-23 — Grok reached its weekly limit during 463a r2; integration is paused
+
+Grok's pane shows "You hit your weekly limit" partway through the 463a r2 review; no REVIEW.md or review.json was written. The lead did not choose a purchase and did not use another reviewer. Product stays at cd48f87 with the four pinned 463a r2 paths uncommitted and unreviewed (docs/implementation/m2/reviews/grok-running-image463a-r2/hashes.txt). The product is not edited while those bytes await review. To resume: when Grok has usage again, select "Try Again" in wN:p1 or resend the r2 request; on ACCEPT-UNIT with empty requiredFindings, integrate inventory67 and those exact bytes. Next planned units after 463a: 458b (profile schema successor), 463b (K release-record successor), 461 (legacy reader), 462 (InitialPlatform without a fence), 464 (ingress and backup classification), 465 (parent preparation and permit), 467 (stage and publication). No push. M2–M6 unfinished.
