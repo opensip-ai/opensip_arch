@@ -4812,3 +4812,8 @@ Grok 463b r1: ACCEPT-DESIGN-UNIT, requiredFindings empty, parents accepted. Prod
 ## 2026-09-26 — embedded revocation order 463c installed at 0786537
 
 Grok 463c r1: ACCEPT-UNIT, requiredFindings empty. Product 0786537 adds `authenticate_embedded_release` and `core_anchor::revocation`. Grok ruled that non-key revocation entries (release, namespace, catalogSnapshot) need a law decision rather than a code finding; 463 r7 is to settle them. Next: 463 r7, then 463e (embedded release values), 463f (the producer) and 463g (a signed test tree). Claude holds the native lane. Not the installation creator. No push. M2–M6 unfinished.
+
+
+## 2026-09-26 — 463 laws r6 to r8 accepted; batch 1 installed at 8e7eb49
+
+Grok accepted 463 r6 (the store holds the revocation member), r7 (item 8: non-key revocation entries) and r8 (items 9 to 12: the envelope set, custody scope from the tree root, the test shape, item 8 as defensive). Grok 463 batch-1 r1: ACCEPT-UNIT, and inventory69 ACCEPT. Product 8e7eb49 adds the embedded release values (none embedded in development), the exact leaf name check, and V3 capture and authentication, and selects v69. Next: 463f-3, the InitialCore producer (initial_core.rs), and 463g, the signed on-disk tree tests. Claude holds the native lane. Not the installation creator. No push. M2–M6 unfinished.
