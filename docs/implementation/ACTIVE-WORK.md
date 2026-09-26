@@ -4749,3 +4749,8 @@ Grok 348a r1 ACCEPT, requiredFindings empty. Grok probed the host: the mapped dy
 ## 2026-09-26 — running-image identity 463a installed at a28cbeb
 
 Grok 463a r3 ACCEPT-UNIT and inventory67 ACCEPT, requiredFindings empty. Product a28cbeb selects inventory67; verify_design passed with 42 inventory successors. It carries the r3 bytes of macos_image.rs and macos_loader.rs on top of the owner's 5faf0a5, which held the r2 bytes of filesystem.rs and lib.rs. `observe_running_image` joins csops's CodeDirectory hash to a retained no-follow file. On macOS 27, two platform tests fail on the three-slice dyld until 348a code lands. After the reimage, git-lfs was installed and only the 37 archives that verify_design reads were fetched; the other LFS objects remain pointers. Claude holds the native lane. Not the installation creator. No push. M2–M6 unfinished.
+
+
+## 2026-09-26 — 348a code is under Grok review
+
+Uncommitted on a28cbeb: `locate_as` selects by the exact mapped (cputype, cpusubtype) pair. The pair comes from the dyld header at `dyldImageLoadAddress` (task_info TASK_DYLD_INFO) or image 0's header. Platform lib is 171/0 on macOS 27. Four `security` native_census tests stay red because the signed test profile350 qualifies majors 24 and 25 only; this host is major 26 (macOS 27). A profile fixture successor is owed. Request: docs/implementation/m2/reviews/grok-loader-slice348a-code-r1/REQUEST.md. Grok owns the native lane. Not the installation creator. No push. M2–M6 unfinished.
