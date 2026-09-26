@@ -4734,3 +4734,8 @@ Grok's pane shows "You hit your weekly limit" partway through the 463a r2 review
 ## 2026-09-26 — running-image 463a r2 refused; the parser vectors are priced in r3
 
 The machine was reimaged to macOS 27.0 (26A428, Apple M5 Max). The owner had committed the r2 bytes as product 5faf0a5 outside the workflow, and r2 was resumed against them (grok-running-image463a-r2/RESUME.md). Grok 463a r2: REQUIRED-FINDINGS, with r1 RF-1 closed and inventory67 ACCEPT. RF-1: `file_cost` did not reserve the vectors `locate_as` allocates. r3 names the parser caps and adds `parser_cost` (3 objects, both caps) to the file-read charge. The r3 change is uncommitted on 5faf0a5. Grok confirmed that the two failing platform tests are loader law 348 on the macOS 27 three-slice dyld, not 463a; its successor is proposal 348a. Request: docs/implementation/m2/reviews/grok-running-image463a-r3/REQUEST.md. Grok owns the native lane. Not the installation creator. No push. M2–M6 unfinished.
+
+
+## 2026-09-26 — loader slice selection 348a proposed and assigned to Grok
+
+macOS 27's /usr/lib/dyld has arm64e (0x80000002) and arm64e.x1 (0x8000000c) slices, so 348's one-slice-per-family rule refuses on every Apple-silicon Mac. Proposal 348a selects the one slice whose full cputype/cpusubtype equals the header the kernel mapped for that image in this process. Request: docs/implementation/m2/reviews/grok-loader-slice348a-r1/REQUEST.md. Law only. Claude holds the native lane. Not the installation creator. No push. M2–M6 unfinished.
