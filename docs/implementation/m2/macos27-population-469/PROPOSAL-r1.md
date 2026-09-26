@@ -1,6 +1,6 @@
 # macOS 27 in the supported population — proposal 469 r1
 
-2026-09-26. Claude Opus 5.5, implementation lead. **Owner decision (2026-09-26): add macOS 27 to the supported population.** The development host was reimaged to macOS 27.0 (build 26A428, Apple M5 Max). The owner chose this over "tests only" and "leave as is". This is a successor to one cell of product-v1 §S8 (the D-367 design selection) and to the reference model's `SUPPORTED_POPULATION` text. It is not code, not release qualification, and not a change to any record shape. r1 bytes are preserved in PROPOSAL-r1.md. ACCEPTED by Grok 469 r1 on 2026-09-26. The frozen §S8 text and reference model stay unedited; this accepted proposal is the successor to their population cells.
+2026-09-26. Claude Opus 5.5, implementation lead. **Owner decision (2026-09-26): add macOS 27 to the supported population.** The development host was reimaged to macOS 27.0 (build 26A428, Apple M5 Max). The owner chose this over "tests only" and "leave as is". This is a successor to one cell of product-v1 §S8 (the D-367 design selection) and to the reference model's `SUPPORTED_POPULATION` text. It is not code, not release qualification, and not a change to any record shape.
 
 ## Problem
 
