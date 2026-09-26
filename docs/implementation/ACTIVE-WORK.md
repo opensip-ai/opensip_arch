@@ -4778,3 +4778,8 @@ The owner chose to add macOS 27 to the supported population (proposal 469), over
 ## 2026-09-26 — native re-pin installed at e8b25eb
 
 Grok native-repin-selection-v1 r1: ACCEPT-DESIGN-UNIT, requiredFindings empty. Product e8b25eb materializes the 8 files and appends contractSuccessors[65]. verify_design passed with 66 contract units. generate_contracts in drift mode passed with generatorClosureSelected true and changed []. The host schema_sources tests pass 24/0, and cargo check of the workspace passes. The generator binary is /Users/sb/opensip-deps/contracts-generator-rebuild-01. Claude holds the native lane. Not the installation creator. No push. M2–M6 unfinished.
+
+
+## 2026-09-26 — macOS 27 test profile installed at aed5e08; workspace green on macOS 27
+
+Grok 469 code r1: ACCEPT-UNIT, requiredFindings empty. Product aed5e08: native_census 16/0. The whole workspace is 935 passed, 0 failed, 2 ignored on macOS 27. On this host the tier is BASELINE-ATTESTED. Next: law 464 (creation ingress). Claude holds the native lane. Not the installation creator. No push. M2–M6 unfinished.
