@@ -4817,3 +4817,8 @@ Grok 463c r1: ACCEPT-UNIT, requiredFindings empty. Product 0786537 adds `authent
 ## 2026-09-26 — 463 laws r6 to r8 accepted; batch 1 installed at 8e7eb49
 
 Grok accepted 463 r6 (the store holds the revocation member), r7 (item 8: non-key revocation entries) and r8 (items 9 to 12: the envelope set, custody scope from the tree root, the test shape, item 8 as defensive). Grok 463 batch-1 r1: ACCEPT-UNIT, and inventory69 ACCEPT. Product 8e7eb49 adds the embedded release values (none embedded in development), the exact leaf name check, and V3 capture and authentication, and selects v69. Next: 463f-3, the InitialCore producer (initial_core.rs), and 463g, the signed on-disk tree tests. Claude holds the native lane. Not the installation creator. No push. M2–M6 unfinished.
+
+
+## 2026-09-26 — InitialCore producer 463f and tests 463g installed at 43c5e45; 463 complete
+
+Grok 463f r1: ACCEPT-UNIT, requiredFindings empty. Product 43c5e45 adds `produce_initial_core` and the `InitialCore` receipt (initial_core.rs) with signed on-disk tree tests (initial_core_tests.rs), plus the platform live copied-binary join. The workspace is 979 passed, 0 failed on macOS 27. Unit 463 is complete. Development builds embed no release and refuse at F0. Next on the creator path: 462 InitialPlatform, which mints Evidence B from a V2 profile row carrying installAclOmission. Then 458c, 461, 465 and 467. Claude holds the native lane. Not the installation creator. No push. M2–M6 unfinished.
