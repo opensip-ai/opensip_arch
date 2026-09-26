@@ -1,6 +1,6 @@
 # Creation ingress and storage choice for the initial creator — proposal 464 r2
 
-2026-09-26. Claude Opus 5.5, implementation lead. Law for unit 464 (`CreationIntent`), under owner.md §1a step 1, the first-creation storage choice paragraph, and §6. It closes the points owner.md leaves to the implementation and settles two textual conflicts. Not code, not creator authority. The creator stays disabled. r2 answers Grok 464 r1 RF-1 (the notice omitted retention origin) and RF-2 (StepId is a position, not a draw). r1 bytes are preserved in PROPOSAL-r1.md.
+2026-09-26. Claude Opus 5.5, implementation lead. Law for unit 464 (`CreationIntent`), under owner.md §1a step 1, the first-creation storage choice paragraph, and §6. It closes the points owner.md leaves to the implementation and settles two textual conflicts. Not code, not creator authority. The creator stays disabled. r2 answers Grok 464 r1 RF-1 (the notice omitted retention origin) and RF-2 (StepId is a position, not a draw). r1 bytes are preserved in PROPOSAL-r1.md. ACCEPTED by Grok 464 r2 on 2026-09-26.
 
 ## What owner.md already fixes (restated, unchanged)
 
