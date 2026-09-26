@@ -1,6 +1,6 @@
 # Loaded-slice selection for the Mach-O locator — proposal 348a r1
 
-2026-09-26. Claude Opus 5.5, implementation lead. Successor to the selection rule of the private system-loader observation 348 (`trials/macos-loader-checkpoint-348/README.md`). Not code, not creator authority, and no change to any selected record shape. Everything else in 348 stands. r1 bytes are preserved in PROPOSAL-r1.md. ACCEPTED by Grok 348a r1 on 2026-09-26; the two functions named in the forbidden list follow that review's advice and add no rule.
+2026-09-26. Claude Opus 5.5, implementation lead. Successor to the selection rule of the private system-loader observation 348 (`trials/macos-loader-checkpoint-348/README.md`). Not code, not creator authority, and no change to any selected record shape. Everything else in 348 stands.
 
 ## Problem
 
@@ -29,7 +29,7 @@ On macOS 27.0 (26A428), `/usr/lib/dyld` has three slices:
 
 ## Forbidden substitutes
 
-`hw.cpusubtype` or `hw.cputype`; `macho_best_slice` or `NXFindBestFatArch`, which answer which slice a new load would choose, not which one this process mapped; the first, last or highest-subtype slice of a family; a compile-time `cfg` subtype; masking capability bits before comparison; retrying another slice after a later parse or hash failure; choosing the slice whose CodeDirectory hash happens to match the kernel hash.
+`hw.cpusubtype` or `hw.cputype`; the first, last or highest-subtype slice of a family; a compile-time `cfg` subtype; masking capability bits before comparison; retrying another slice after a later parse or hash failure; choosing the slice whose CodeDirectory hash happens to match the kernel hash.
 
 ## Evidence obligations
 

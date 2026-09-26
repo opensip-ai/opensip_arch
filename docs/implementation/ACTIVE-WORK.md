@@ -4739,3 +4739,8 @@ The machine was reimaged to macOS 27.0 (26A428, Apple M5 Max). The owner had com
 ## 2026-09-26 — loader slice selection 348a proposed and assigned to Grok
 
 macOS 27's /usr/lib/dyld has arm64e (0x80000002) and arm64e.x1 (0x8000000c) slices, so 348's one-slice-per-family rule refuses on every Apple-silicon Mac. Proposal 348a selects the one slice whose full cputype/cpusubtype equals the header the kernel mapped for that image in this process. Request: docs/implementation/m2/reviews/grok-loader-slice348a-r1/REQUEST.md. Law only. Claude holds the native lane. Not the installation creator. No push. M2–M6 unfinished.
+
+
+## 2026-09-26 — loader slice selection law 348a accepted
+
+Grok 348a r1 ACCEPT, requiredFindings empty. Grok probed the host: the mapped dyld header is 0x0100000c/0x80000002, the arm64e slice, not arm64e.x1. Image 0 is the main executable. The exact 32-bit match keeps pair-level uniqueness. Rosetta stays with the platform join. On Grok's advice, `macho_best_slice` and `NXFindBestFatArch` are now named among the forbidden substitutes. Code is owed as the next platform unit. Claude holds the native lane. Not the installation creator. No push. M2–M6 unfinished.
