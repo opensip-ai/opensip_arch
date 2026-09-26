@@ -4802,3 +4802,8 @@ Grok 463 r5 accepted the amendment (the r4 findings were the revocation self-quo
 ## 2026-09-26 — profile-set V2 458b installed at 4c43c70
 
 Grok 458b r1: ACCEPT-UNIT covering the code, the contract successor (profile-set-acl-omission-selection-v1) and inventory68, requiredFindings empty. Product 4c43c70 selects both; verify_design passed with 67 contract units and v68. The review was split into per-subject files, with the contract verdict spelled ACCEPT-DESIGN-UNIT, as verify_design requires; the substance is unchanged. Next: 463b (CoreInventoryV3), built and uncommitted. Claude holds the native lane. Not the installation creator. No push. M2–M6 unfinished.
+
+
+## 2026-09-26 — CoreInventoryV3 463b installed at bf49fcb
+
+Grok 463b r1: ACCEPT-DESIGN-UNIT, requiredFindings empty, parents accepted. Product bf49fcb selects core-inventory-v3-selection-v1 (verify_design passed with 68 contract units). The workspace is 954 passed, 0 failed on macOS 27. Remaining 463 work: 463c (revocation from the embedded chain, with the self-quorum re-filter), 463e (embedded release values), 463f (the InitialCore producer) and 463g (a signed test release tree). Claude holds the native lane. Not the installation creator. No push. M2–M6 unfinished.
