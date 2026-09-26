@@ -1,6 +1,6 @@
 # InitialPlatform for the initial creator — proposal 462 r1
 
-2026-09-26. Claude Opus 5.5, implementation lead. Law for unit 462, under owner.md §1a step 4 and §3, laws 458 and 458b (Evidence B), 469 (macOS 27) and 463 (InitialCore). It closes the points the owner leaves to the implementation. Not code, not creator authority. The creator stays disabled.
+2026-09-26. Claude Opus 5.5, implementation lead. Law for unit 462, under owner.md §1a step 4 and §3, laws 458 and 458b (Evidence B), 469 (macOS 27) and 463 (InitialCore). It closes the points the owner leaves to the implementation. Not code, not creator authority. The creator stays disabled. ACCEPTED by Grok 462 r1 on 2026-09-26.
 
 ## Decisions
 
