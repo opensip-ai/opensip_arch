@@ -4807,3 +4807,8 @@ Grok 458b r1: ACCEPT-UNIT covering the code, the contract successor (profile-set
 ## 2026-09-26 — CoreInventoryV3 463b installed at bf49fcb
 
 Grok 463b r1: ACCEPT-DESIGN-UNIT, requiredFindings empty, parents accepted. Product bf49fcb selects core-inventory-v3-selection-v1 (verify_design passed with 68 contract units). The workspace is 954 passed, 0 failed on macOS 27. Remaining 463 work: 463c (revocation from the embedded chain, with the self-quorum re-filter), 463e (embedded release values), 463f (the InitialCore producer) and 463g (a signed test release tree). Claude holds the native lane. Not the installation creator. No push. M2–M6 unfinished.
+
+
+## 2026-09-26 — embedded revocation order 463c installed at 0786537
+
+Grok 463c r1: ACCEPT-UNIT, requiredFindings empty. Product 0786537 adds `authenticate_embedded_release` and `core_anchor::revocation`. Grok ruled that non-key revocation entries (release, namespace, catalogSnapshot) need a law decision rather than a code finding; 463 r7 is to settle them. Next: 463 r7, then 463e (embedded release values), 463f (the producer) and 463g (a signed test tree). Claude holds the native lane. Not the installation creator. No push. M2–M6 unfinished.
