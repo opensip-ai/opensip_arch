@@ -1,6 +1,6 @@
-# Profile-set successor carrying `installAclOmission` — proposal 458b r2
+# Profile-set successor carrying `installAclOmission` — proposal 458b r1
 
-2026-09-26. Claude Opus 5.5, implementation lead. Law for unit 458b, the profile-schema successor that law 458 names (acl-omission-premise-458/PROPOSAL.md §3, §7; accepted via grok-attempt-actor459-r1/premise458.json). It settles the choices 458 leaves open. The contract successor, reference, cases and decoder are the implementation units that follow. Not code. It does not mint Evidence B; that stays with 462. r2 answers Grok 458b r1 RF-1 (passage overrides for the sentences naming only V1). r1 bytes are preserved in PROPOSAL-r1.md.
+2026-09-26. Claude Opus 5.5, implementation lead. Law for unit 458b, the profile-schema successor that law 458 names (acl-omission-premise-458/PROPOSAL.md §3, §7; accepted via grok-attempt-actor459-r1/premise458.json). It settles the choices 458 leaves open. The contract successor, reference, cases and decoder are the implementation units that follow. Not code. It does not mint Evidence B; that stays with 462.
 
 ## Problem
 
@@ -31,13 +31,6 @@
    - new signed V2 cases produced with the public quorum62 seeds.
 
    New product fixture files carry their own counts. The V1 fixture files and their assertions are unchanged.
-
-8. **Passage overrides.** The contract successor carries passage overrides so the selected description covers both versions. The domain is unchanged throughout. Each override uses the successor's exact before/after form for these three sentences in docs/v2/contracts/product-v1/security-and-lifecycle.md:
-   - **§S8, line 685** (the machine-id key of the signed `PlatformProfileSetV1`): reads "the signed `PlatformProfileSetV1` or, for a reader that opts into it, `PlatformProfileSetV2`".
-   - **§S8, line 711** (what the signed set carries): the same, and adds that a V2 macOS measured row may carry the optional `installAclOmission` const `"no-acl-stored"` with the meaning law 458 gives it.
-   - **Line 845** (envelope kind `platform-profile-set`, body `PlatformProfileSetV1`, domain `opensip.metadata.platform-profile-set.1`): the body may be `PlatformProfileSetV1`, or `PlatformProfileSetV2` for an opted-in reader, under the same domain.
-
-   No other passage changes.
 
 ## Forbidden substitutes
 
