@@ -4773,3 +4773,8 @@ In a scratch pair, the unchanged verify_design and generate_contracts pass once 
 ## 2026-09-26 — owner decisions: macOS 27 joins the population; 461 is reordered
 
 The owner chose to add macOS 27 to the supported population (proposal 469), over "tests only" and "leave as is". The owner also agreed to reorder 461 after 462 and a new law, 458c. Refusing ACL omission at the shared custody choke point before a receipt-bound premise exists would make every read-side consumer refuse at `/` on stock macOS. 469 goes to Grok after the native re-pin review. Claude holds no native lane while Grok reviews. Not the installation creator. No push. M2–M6 unfinished.
+
+
+## 2026-09-26 — native re-pin installed at e8b25eb
+
+Grok native-repin-selection-v1 r1: ACCEPT-DESIGN-UNIT, requiredFindings empty. Product e8b25eb materializes the 8 files and appends contractSuccessors[65]. verify_design passed with 66 contract units. generate_contracts in drift mode passed with generatorClosureSelected true and changed []. The host schema_sources tests pass 24/0, and cargo check of the workspace passes. The generator binary is /Users/sb/opensip-deps/contracts-generator-rebuild-01. Claude holds the native lane. Not the installation creator. No push. M2–M6 unfinished.
