@@ -4783,3 +4783,12 @@ Grok native-repin-selection-v1 r1: ACCEPT-DESIGN-UNIT, requiredFindings empty. P
 ## 2026-09-26 — macOS 27 test profile installed at aed5e08; workspace green on macOS 27
 
 Grok 469 code r1: ACCEPT-UNIT, requiredFindings empty. Product aed5e08: native_census 16/0. The whole workspace is 935 passed, 0 failed, 2 ignored on macOS 27. On this host the tier is BASELINE-ATTESTED. Next: law 464 (creation ingress). Claude holds the native lane. Not the installation creator. No push. M2–M6 unfinished.
+
+
+## 2026-09-26 — creation ingress 464 installed at 9f0b932
+
+Grok 464 code r3: ACCEPT-UNIT, requiredFindings empty (r1: path copies uncharged, recheck did not latch; r2: consume ignored the latch, rendered ids uncharged). Product 9f0b932 adds:
+- the exhaustive host eligibility table and `installation_precondition`;
+- security `Error::installation_absent`;
+- `CreationIntent`, `storage_choice` (constant UNKNOWN classifier) and the flushed stderr disclosure.
+Nothing is wired to the CLI. Next: laws 458b and 463 r4. Claude holds the native lane. Not the installation creator. No push. M2–M6 unfinished.
