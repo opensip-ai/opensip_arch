@@ -4792,3 +4792,8 @@ Grok 464 code r3: ACCEPT-UNIT, requiredFindings empty (r1: path copies uncharged
 - security `Error::installation_absent`;
 - `CreationIntent`, `storage_choice` (constant UNKNOWN classifier) and the flushed stderr disclosure.
 Nothing is wired to the CLI. Next: laws 458b and 463 r4. Claude holds the native lane. Not the installation creator. No push. M2–M6 unfinished.
+
+
+## 2026-09-26 — 463 amendment accepted; core-tree custody 463d installed at 6f39619
+
+Grok 463 r5 accepted the amendment (the r4 findings were the revocation self-quorum and the in-memory store contents). Grok 458b r2 accepted the V2 profile-set law. Grok 463d r1: ACCEPT-UNIT, requiredFindings empty. Product 6f39619 adds `check_core_tree_member` and `RunningImageObservation::capture_file_acl`. Pending review: the 458b decoder and contract successor. Remaining 463 work: 463b (CoreInventoryV3), 463c (revocation), 463e (embedding) and 463f (producer). Claude holds the native lane. Not the installation creator. No push. M2–M6 unfinished.
