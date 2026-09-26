@@ -1,6 +1,6 @@
-# Creation ingress and storage choice for the initial creator — proposal 464 r2
+# Creation ingress and storage choice for the initial creator — proposal 464 r1
 
-2026-09-26. Claude Opus 5.5, implementation lead. Law for unit 464 (`CreationIntent`), under owner.md §1a step 1, the first-creation storage choice paragraph, and §6. It closes the points owner.md leaves to the implementation and settles two textual conflicts. Not code, not creator authority. The creator stays disabled. r2 answers Grok 464 r1 RF-1 (the notice omitted retention origin) and RF-2 (StepId is a position, not a draw). r1 bytes are preserved in PROPOSAL-r1.md.
+2026-09-26. Claude Opus 5.5, implementation lead. Law for unit 464 (`CreationIntent`), under owner.md §1a step 1, the first-creation storage choice paragraph, and §6. It closes the points owner.md leaves to the implementation and settles two textual conflicts. Not code, not creator authority. The creator stays disabled.
 
 ## What owner.md already fixes (restated, unchanged)
 
@@ -12,8 +12,7 @@
 
 1. **The intent is not a record.** `CreationIntent` is a private, non-Clone, non-deserializable capability bound to one `InitialInstallationAttempt`, and it is consumed exactly once by the permit (owner step 6). It holds:
    - the command;
-   - fresh RequestId and ExecutionId;
-   - StepId 0 (see decision 5);
+   - fresh RequestId, StepId and ExecutionId;
    - the account-derived target bytes;
    - the storage classification and whether this invocation passed `--allow-backup-custody`;
    - the disclosure-delivery receipt.
@@ -25,13 +24,13 @@
 
    A positive detector, for example Time Machine configuration and exclusion state, is a later successor. It needs its own evidence and review, and it must fail to `UNKNOWN`, never to `NOT_BACKED_UP`.
 3. **Disclosure delivery before effects.** In every output format, the host writes the first-write disclosure to standard error and flushes it before the first creation effect (owner step 5, before fixed ancestors). The disclosure names:
-   - retention origin `DEFAULTED` and the durable-unbounded posture, as identity §5 and the golden `default-first-use-durable` disclose them ("retention DEFAULTED durable-unbounded");
-   - the actual account-derived storage root (the owner override's addition to that same report);
+   - the actual account-derived storage root;
+   - the durable-unbounded retention posture;
    - the backup classification (`unknown`).
 
    A write or flush error refuses the act before effects. That is owner step 1's "failed required delivery refuses". Standard output keeps the single-envelope rule. The envelope's existing `retentionDisclosure` member carries the root and posture. It has no backup-status field, so carrying `unknown` in the envelope is a schema successor owed by 468. Until then the stderr notice carries it. Immediately before effects the host rechecks that the target it disclosed equals the target it will create. A difference refuses.
 4. **Acknowledgement retention.** Identity §5 says the backup acknowledgement is kept as operational custody metadata. P0's closed `CreationInputV1` has no member for it, and owner.md forbids a policy store outside I. With classification always `UNKNOWN`, no acknowledgement is ever required. The retention member is owed by the same schema successor as the positive detector. No record invents it now.
-5. **Request identity before I.** Identity §1 reserves RequestId and ExecutionId by a uniqueness check in the operational ledger. Before I exists there is no ledger. RequestId and ExecutionId are CSPRNG draws. StepId is not an id: workflows §1 defines it as the zero-based position in the command's step list (0..63). The creation effect is the initialization prelude of the command's first step, not a step of its own, so it records StepId 0. Every step list has a step 0. No step is added to any command. The winner's ledger begins with P0 and is empty before it, so uniqueness is established by construction. The loser route (EEXIST) writes nothing into the winner's I. If a later ordinary operation in the same process ever used these ids, it would have to perform the ordinary reservation first.
+5. **Request identity before I.** Identity §1 reserves RequestId and ExecutionId by a uniqueness check in the operational ledger. Before I exists there is no ledger. The creator's ids are CSPRNG draws. The winner's ledger begins with P0 and is empty before it, so uniqueness is established by construction. The loser route (EEXIST) writes nothing into the winner's I. If a later ordinary operation in the same process ever used these ids, it would have to perform the ordinary reservation first.
 6. **Two conflicts settled in favour of owner.md, which governs the first creation:**
    - S3.1's "already-admitted host storage-policy record" cannot exist before I.
    - The golden `analyze-backup-choice-required-in-ci` remedy "or select another admitted root" does not apply to the fixed account root.
