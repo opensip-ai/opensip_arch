@@ -4822,3 +4822,8 @@ Grok accepted 463 r6 (the store holds the revocation member), r7 (item 8: non-ke
 ## 2026-09-26 — InitialCore producer 463f and tests 463g installed at 43c5e45; 463 complete
 
 Grok 463f r1: ACCEPT-UNIT, requiredFindings empty. Product 43c5e45 adds `produce_initial_core` and the `InitialCore` receipt (initial_core.rs) with signed on-disk tree tests (initial_core_tests.rs), plus the platform live copied-binary join. The workspace is 979 passed, 0 failed on macOS 27. Unit 463 is complete. Development builds embed no release and refuse at F0. Next on the creator path: 462 InitialPlatform, which mints Evidence B from a V2 profile row carrying installAclOmission. Then 458c, 461, 465 and 467. Claude holds the native lane. Not the installation creator. No push. M2–M6 unfinished.
+
+
+## 2026-09-26 — law 462 accepted; charged observers 462a installed at 430e469
+
+Grok 462 r1 accepted the InitialPlatform law. Grok 462a r1: ACCEPT-UNIT, requiredFindings empty. Product 430e469 adds accounted process, boot and system-loader observers (with the loader recheck and filesystem sample); the workspace is 984/0. Next: 462b (the profile opens through InitialCore and the authentication hooks) and 462c (initial_platform.rs, its tests, and inventory v70). Claude holds the native lane. Not the installation creator. No push. M2–M6 unfinished.
