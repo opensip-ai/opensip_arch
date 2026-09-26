@@ -1,6 +1,6 @@
-# Executing core identity for the initial creator — proposal 463 r5
+# Executing core identity for the initial creator — proposal 463 r4
 
-2026-09-23. Claude Opus 5.5, implementation lead. r2 answers Grok r1 RF-1 (the bootstrap directory was located through the inventory inside it) and adopts the r1 answers on custody and K. r3 answers Grok r2 RF-1 (the tree root was unnamed) and RF-2 (the platform row waited on InitialPlatform). r1 and r2 bytes are preserved in PROPOSAL-r1.md and PROPOSAL-r2.md. ACCEPTED by Grok 463 r3 (RF-1/RF-2 of r1 and r2 closed) on 2026-09-23. r4 (2026-09-26) adds the section "r4 amendment" below. It closes gaps found while planning the code: the inventory and anchor had no locator, the TR-CORE and TR-BUNDLE signatures were never checked, the revocation order was unstated, and the home of the code-signing flags and K was ambiguous. r3 bytes are preserved in PROPOSAL-r3.md. Everything above that section is unchanged. r5 answers Grok 463 r4 RF-1 (the revocation quorum was not re-filtered) and RF-2 (the in-memory store lacked the anchor record and later chain members); r4 bytes are preserved in PROPOSAL-r4.md. Owner amendment for initial-root-binding owner §1a step 3 (`InitialCore`). Not code, not creator authority, and no change to any selected record shape.
+2026-09-23. Claude Opus 5.5, implementation lead. r2 answers Grok r1 RF-1 (the bootstrap directory was located through the inventory inside it) and adopts the r1 answers on custody and K. r3 answers Grok r2 RF-1 (the tree root was unnamed) and RF-2 (the platform row waited on InitialPlatform). r1 and r2 bytes are preserved in PROPOSAL-r1.md and PROPOSAL-r2.md. ACCEPTED by Grok 463 r3 (RF-1/RF-2 of r1 and r2 closed) on 2026-09-23. r4 (2026-09-26) adds the section "r4 amendment" below. It closes gaps found while planning the code: the inventory and anchor had no locator, the TR-CORE and TR-BUNDLE signatures were never checked, the revocation order was unstated, and the home of the code-signing flags and K was ambiguous. r3 bytes are preserved in PROPOSAL-r3.md. Everything above that section is unchanged. Owner amendment for initial-root-binding owner §1a step 3 (`InitialCore`). Not code, not creator authority, and no change to any selected record shape.
 
 ## Problem
 
@@ -46,12 +46,7 @@ The build-time layout of the three embedded values in the image; the exact code-
 ## r4 amendment
 
 1. **Inventory and anchor locator.** Besides the bootstrap directory and its two payload files, the producer may open exactly two more fixed names: `inventory.json` and `inventory.sig.json` directly under the tree root handle. These are law 229's reserved top-level names, outside the tree they describe. Both opens are no-follow, and both files are under the same core-tree custody rule. No other name is opened. There is still no listing and no "latest".
-2. **Anchor built in memory.** Before installation no anchor record exists; P0 publishes it (466). The producer builds the `CoreAnchorNodeV1` in memory from the retained raw pairs, as law 229 makes it recomputable. Its three `DocRef`s are the inventory pair, the bootstrap payload pair and the index-0 root pair. The producer serves it to the existing `core_anchor::capture` through an in-memory store owned by the attempt, with every allocation charged to the attempt's one ledger. The store holds exactly:
-   - the constructed anchor record, in the records collection;
-   - the inventory pair, the bootstrap payload pair and the index-0 root pair;
-   - every later root-chain member that the authenticated manifest's `rootChain` declares, read from the no-follow opens r3 already permits and keyed as `EmbeddedCapture` expects.
-
-   Nothing else is stored. Nothing is read from I or any record store, and a member the chain walk requests that is not in that set refuses.
+2. **Anchor built in memory.** Before installation no anchor record exists; P0 publishes it (466). The producer builds the `CoreAnchorNodeV1` in memory from the five retained raw pairs: the inventory pair, the bootstrap payload pair and the root pair, as law 229 makes it recomputable. It serves them to the existing `core_anchor::capture` through an in-memory store owned by the attempt, with every allocation charged to the attempt's one ledger. The store holds only those bytes. Nothing is read from I or any record store.
 3. **Platform id before installation.** The anchor's `platform` field is the platform id of the core's compiled target (`macos-aarch64` or `macos-x86_64`). The anchor is built from this value, and the inventory row is selected by it. That replaces r3's "from the authenticated anchor's own field" only for the pre-installation build, where the producer itself builds the anchor. `InitialPlatform` (step 4) still observes the machine under that id and refuses a different platform. A target without a platform id has no `InitialCore`.
 4. **Signatures on the inventory and the manifest.** After the root chain is authenticated and revocation is applied (item 5):
    - the inventory envelope must verify under the final root's TR-CORE role;
@@ -61,9 +56,7 @@ The build-time layout of the three embedded values in the image; the exact code-
 5. **Revocation order.** No caller-supplied revoked set is accepted:
    1. authenticate the embedded root chain with an internal empty initial set;
    2. verify the manifest's embedded revocation under the final root, at that root's version;
-   3. re-filter, with the resulting revoked set, every chain link's quorum, the TR-CORE and TR-BUNDLE quorums, **and the revocation document's own quorum**, and require each still to be met.
-
-   A key the revocation names therefore cannot be a signature that makes that revocation effective. If the revocation's quorum fails after re-filtering, the producer refuses; it does not fall back to an earlier set. No fact is admitted before step 3 completes.
+   3. re-filter every chain link's quorum, and the TR-CORE and TR-BUNDLE quorums, with the resulting revoked set, and require each still to be met.
 
    An empty or caller-supplied set is not an input to the public producer. The existing inner function stays for its tests.
 6. **Where K and the code-signing flags live.** Both are signed members of the core inventory successor `CoreInventoryV3` (unit 463b), per platform row:
