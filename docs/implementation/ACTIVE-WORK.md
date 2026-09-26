@@ -4827,3 +4827,8 @@ Grok 463f r1: ACCEPT-UNIT, requiredFindings empty. Product 43c5e45 adds `produce
 ## 2026-09-26 — law 462 accepted; charged observers 462a installed at 430e469
 
 Grok 462 r1 accepted the InitialPlatform law. Grok 462a r1: ACCEPT-UNIT, requiredFindings empty. Product 430e469 adds accounted process, boot and system-loader observers (with the loader recheck and filesystem sample); the workspace is 984/0. Next: 462b (the profile opens through InitialCore and the authentication hooks) and 462c (initial_platform.rs, its tests, and inventory v70). Claude holds the native lane. Not the installation creator. No push. M2–M6 unfinished.
+
+
+## 2026-09-26 — InitialPlatform 462 installed at 000c5ce
+
+Grok 462b/c r1: ACCEPT-UNIT, and inventory70 ACCEPT; the four law readings are confirmed. Product 000c5ce adds produce_initial_platform, the InitialPlatform receipt, and the relocated AclOmissionPremise (minted only by InitialPlatform), and selects v70. This macOS 27 host is BASELINE-ATTESTED, so no premise is minted and 460 refuses at /, as expected under laws 458, 458b and 469. Next on the creator path: 458c (the read-side premise), 461, 465 and 467. Claude holds the native lane. Not the installation creator. No push. M2–M6 unfinished.
