@@ -1,0 +1,40 @@
+--- dyld-macos26.sb	2026-09-26 00:55:14
++++ dyld-macos27.sb	2026-09-26 00:55:08
+@@ -18,7 +18,7 @@
+   ;; platform-specific preboot locations for the cryptex graft points:
+   ;;
+   ;;    Embedded:   /private/preboot/Cryptexes/{OS,App}
+-  ;;    macOS:      /System/Volumes/Preboot/Cryptexes/{OS,App}
++  ;;    macOS:      /System/Volumes/Preboot/Cryptexes/{OS,App,Rosetta}
+   ;;
+   ;; But in a live fs boot, these locations turn into real directories on the
+   ;; system volume that have content which can be rooted. So we need to be able
+@@ -27,8 +27,10 @@
+      (list "/System/Volumes/Preboot/Cryptexes/App/System"
+            "/System/Volumes/Preboot/Cryptexes/Incoming/OS"
+            "/System/Volumes/Preboot/Cryptexes/OS"
++           "/System/Volumes/Preboot/Cryptexes/Rosetta"
+            "/System/Cryptexes/App"
+-           "/System/Cryptexes/OS")))
++           "/System/Cryptexes/OS"
++           "/System/Cryptexes/Rosetta")))
+ 
+   ;; Allow reading/mapping content from the cryptexes.
+   (allow file-read* file-test-existence file-map-executable
+@@ -50,6 +52,16 @@
+   (allow system-mac-syscall
+          (mac-syscall-number 2)))   ; SYSCALL_CHECK_SANDBOX
+ 
++;; dyld support for roots.
++(with-filter (system-attribute apple-internal)
++  (allow syscall-mig
++         (kernel-mig-routine mach_vm_map_external))
++  (allow system-memorystatus-control
++         (memorystatus-control-command MEMORYSTATUS_CMD_INCREASE_JETSAM_TASK_LIMIT))
++  (allow sysctl-write
++         (sysctl-name "vm.footprint_suspend"
++                      "vm.task_no_footprint_for_debug")))
++
+ ;;; libignition needs to be able to open "/" so it can use it as an openat(2)
+ ;;; root.
+ (allow file-read* file-test-existence

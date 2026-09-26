@@ -4759,3 +4759,12 @@ Uncommitted on a28cbeb: `locate_as` selects by the exact mapped (cputype, cpusub
 ## 2026-09-26 — loader slice selection 348a installed at 0a3af77
 
 Grok 348a code r1: ACCEPT-UNIT, requiredFindings empty. Product 0a3af77: platform lib 171/0 on macOS 27. The live dyld pair is 0100000c/80000002, and the loader cdhash on macOS 27 is 28ee758ce6926c460d935becc618e6ef15519c57. Four `security` native_census tests remain red: the signed test profile350 qualifies majors 24 and 25, and this host is major 26 (macOS 27). A profile fixture successor is owed. Claude holds the native lane. Not the installation creator. No push. M2–M6 unfinished.
+
+
+## 2026-09-26 — native re-pin unit proposed and assigned to Grok
+
+The owner authorised re-pinning the native tool hashes after the macOS 27 reimage. native-repin-selection-v1 changes 8 product files: the three Python and confinement profiles, the toolchain, the build receipt, the generator closure, the registry and report.ts's provenance header. Evidence:
+- 27 of 28 Homebrew Mach-O mismatches are signature-only against the relocated tahoe bottles; cargo differs only in the __LINKEDIT vmsize.
+- The Seatbelt re-probe on macOS 27 changed no confined result.
+- The generator was rebuilt offline from locked archives.
+In a scratch pair, the unchanged verify_design and generate_contracts pass once the unit is accepted. Request: docs/implementation/m2/reviews/grok-native-repin-selection-v1-r1/REQUEST.md. Grok owns the native lane. Not the installation creator. No push. M2–M6 unfinished.
