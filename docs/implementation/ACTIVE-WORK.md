@@ -4744,3 +4744,8 @@ macOS 27's /usr/lib/dyld has arm64e (0x80000002) and arm64e.x1 (0x8000000c) slic
 ## 2026-09-26 — loader slice selection law 348a accepted
 
 Grok 348a r1 ACCEPT, requiredFindings empty. Grok probed the host: the mapped dyld header is 0x0100000c/0x80000002, the arm64e slice, not arm64e.x1. Image 0 is the main executable. The exact 32-bit match keeps pair-level uniqueness. Rosetta stays with the platform join. On Grok's advice, `macho_best_slice` and `NXFindBestFatArch` are now named among the forbidden substitutes. Code is owed as the next platform unit. Claude holds the native lane. Not the installation creator. No push. M2–M6 unfinished.
+
+
+## 2026-09-26 — running-image identity 463a installed at a28cbeb
+
+Grok 463a r3 ACCEPT-UNIT and inventory67 ACCEPT, requiredFindings empty. Product a28cbeb selects inventory67; verify_design passed with 42 inventory successors. It carries the r3 bytes of macos_image.rs and macos_loader.rs on top of the owner's 5faf0a5, which held the r2 bytes of filesystem.rs and lib.rs. `observe_running_image` joins csops's CodeDirectory hash to a retained no-follow file. On macOS 27, two platform tests fail on the three-slice dyld until 348a code lands. After the reimage, git-lfs was installed and only the 37 archives that verify_design reads were fetched; the other LFS objects remain pointers. Claude holds the native lane. Not the installation creator. No push. M2–M6 unfinished.
