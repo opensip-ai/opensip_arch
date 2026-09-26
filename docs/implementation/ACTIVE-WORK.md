@@ -4754,3 +4754,8 @@ Grok 463a r3 ACCEPT-UNIT and inventory67 ACCEPT, requiredFindings empty. Product
 ## 2026-09-26 — 348a code is under Grok review
 
 Uncommitted on a28cbeb: `locate_as` selects by the exact mapped (cputype, cpusubtype) pair. The pair comes from the dyld header at `dyldImageLoadAddress` (task_info TASK_DYLD_INFO) or image 0's header. Platform lib is 171/0 on macOS 27. Four `security` native_census tests stay red because the signed test profile350 qualifies majors 24 and 25 only; this host is major 26 (macOS 27). A profile fixture successor is owed. Request: docs/implementation/m2/reviews/grok-loader-slice348a-code-r1/REQUEST.md. Grok owns the native lane. Not the installation creator. No push. M2–M6 unfinished.
+
+
+## 2026-09-26 — loader slice selection 348a installed at 0a3af77
+
+Grok 348a code r1: ACCEPT-UNIT, requiredFindings empty. Product 0a3af77: platform lib 171/0 on macOS 27. The live dyld pair is 0100000c/80000002, and the loader cdhash on macOS 27 is 28ee758ce6926c460d935becc618e6ef15519c57. Four `security` native_census tests remain red: the signed test profile350 qualifies majors 24 and 25, and this host is major 26 (macOS 27). A profile fixture successor is owed. Claude holds the native lane. Not the installation creator. No push. M2–M6 unfinished.
