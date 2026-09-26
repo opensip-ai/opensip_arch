@@ -4797,3 +4797,8 @@ Nothing is wired to the CLI. Next: laws 458b and 463 r4. Claude holds the native
 ## 2026-09-26 — 463 amendment accepted; core-tree custody 463d installed at 6f39619
 
 Grok 463 r5 accepted the amendment (the r4 findings were the revocation self-quorum and the in-memory store contents). Grok 458b r2 accepted the V2 profile-set law. Grok 463d r1: ACCEPT-UNIT, requiredFindings empty. Product 6f39619 adds `check_core_tree_member` and `RunningImageObservation::capture_file_acl`. Pending review: the 458b decoder and contract successor. Remaining 463 work: 463b (CoreInventoryV3), 463c (revocation), 463e (embedding) and 463f (producer). Claude holds the native lane. Not the installation creator. No push. M2–M6 unfinished.
+
+
+## 2026-09-26 — profile-set V2 458b installed at 4c43c70
+
+Grok 458b r1: ACCEPT-UNIT covering the code, the contract successor (profile-set-acl-omission-selection-v1) and inventory68, requiredFindings empty. Product 4c43c70 selects both; verify_design passed with 67 contract units and v68. The review was split into per-subject files, with the contract verdict spelled ACCEPT-DESIGN-UNIT, as verify_design requires; the substance is unchanged. Next: 463b (CoreInventoryV3), built and uncommitted. Claude holds the native lane. Not the installation creator. No push. M2–M6 unfinished.
