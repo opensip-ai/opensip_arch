@@ -4841,3 +4841,12 @@ The owner decided two 465 points:
 - An interrupted OpenSIP (owned by the user, exactly 0700, ACL omitted, empty except staging names) may receive the same zero-rights owner allow a fresh creation adds. That finishes the interrupted step; it is not a permission repair.
 
 Law 465 is assigned to Grok. Claude holds the native lane. Not the installation creator. No push. M2–M6 unfinished.
+
+
+## 2026-09-27 — parent preparation 465 installed at ccf5f18
+
+Grok 465a r1 and 465b r1: ACCEPT-UNIT, and inventory71 ACCEPT. Product ccf5f18 adds the charged directory barrier and exclusive create (platform), and `prepare_installation_parent` and `mint_creation_permit` (custody/installation_parent.rs), and selects v71. On this BASELINE-ATTESTED host the real chain refuses at /; ~/Library/Application Support/OpenSIP was confirmed absent. Follow-ups:
+- a contract successor to refresh the stale v70 descriptions of initial_installation.rs and private_access.rs;
+- isolating the platform test native_filesystem_original_file_lock_and_all_path_components_stay_owned from the shared temp directory.
+
+Next on the creator path: 466 composition, then 467 (stage, validate, publish). Claude holds the native lane. Not the installation creator. No push. M2–M6 unfinished.
