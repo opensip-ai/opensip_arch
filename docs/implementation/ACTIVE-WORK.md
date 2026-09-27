@@ -4850,3 +4850,12 @@ Grok 465a r1 and 465b r1: ACCEPT-UNIT, and inventory71 ACCEPT. Product ccf5f18 a
 - isolating the platform test native_filesystem_original_file_lock_and_all_path_components_stay_owned from the shared temp directory.
 
 Next on the creator path: 466 composition, then 467 (stage, validate, publish). Claude holds the native lane. Not the installation creator. No push. M2–M6 unfinished.
+
+
+## 2026-09-27 — law 467 accepted; P0 manifest 466b installed at f52e5eb
+
+Grok 467 r1 accepted the stage-and-publish law. Grok 466b r1: ACCEPT-UNIT, and inventory72 ACCEPT. Product f52e5eb adds initial_manifest::build (the full P0 tree in memory), verify_files and cross_joins, and selects v72; unit 466 is complete. Follow-ups:
+- move the lineage path spelling into identity, so security and lifecycle share one source;
+- isolate installation_observation::native_descendant_earlier_ancestor_changes_during_capture_and_consumption_refuse from the shared temp directory (the same ChangedDuringRead race as the platform test).
+
+Next: 467a-p (charged stage, publish, file-write and file-barrier primitives), then 467a (stage writer and validator) and 467b (publish, routes, handoff). Claude holds the native lane. Not the installation creator. No push. M2–M6 unfinished.
