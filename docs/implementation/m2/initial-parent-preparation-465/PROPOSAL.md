@@ -1,6 +1,6 @@
 # Parent preparation and creation permit for the initial creator — proposal 465 r1
 
-2026-09-27. Claude Opus 5.5, implementation lead. Law for unit 465, under owner.md §1a steps 5 and 6, §1b, §2, §3, §4, §5 and §6, and the first-creation storage paragraph, together with laws 458, 460, 462 and 464. Two decisions are the owner's own, made on 2026-09-27 (items 4 and 5). Not code. The creator stays disabled; unit 467 consumes the permit.
+2026-09-27. Claude Opus 5.5, implementation lead. Law for unit 465, under owner.md §1a steps 5 and 6, §1b, §2, §3, §4, §5 and §6, and the first-creation storage paragraph, together with laws 458, 460, 462 and 464. Two decisions are the owner's own, made on 2026-09-27 (items 4 and 5). Not code. The creator stays disabled; unit 467 consumes the permit. ACCEPTED by Grok 465 r1 on 2026-09-27.
 
 ## Decisions
 
