@@ -4859,3 +4859,8 @@ Grok 467 r1 accepted the stage-and-publish law. Grok 466b r1: ACCEPT-UNIT, and i
 - isolate installation_observation::native_descendant_earlier_ancestor_changes_during_capture_and_consumption_refuse from the shared temp directory (the same ChangedDuringRead race as the platform test).
 
 Next: 467a-p (charged stage, publish, file-write and file-barrier primitives), then 467a (stage writer and validator) and 467b (publish, routes, handoff). Claude holds the native lane. Not the installation creator. No push. M2–M6 unfinished.
+
+
+## 2026-09-27 — publication primitives 467a-p installed at f0a29bc
+
+Grok 467a-p r1: ACCEPT-UNIT, and inventory73 ACCEPT. Product f0a29bc adds the charged stage creation, the exclusive publication with its typed classification, file_effects.rs (exclusive create, write-verify, F_FULLFSYNC with no fallback) and ReservedPostchecks::prepaid, and selects v73. Next: 467a (installation_stage.rs, the stage writer and validator, S0–S7), then 467b (publish, routes, handoff). Claude holds the native lane. Not the installation creator. No push. M2–M6 unfinished.
