@@ -1,6 +1,6 @@
 # Stage, validate and publish the initial installation — proposal 467 r1
 
-2026-09-27. Claude Opus 5.5, implementation lead. Law for units 466b (the remaining P0 producers) and 467 (stage, validate, publish, routes, handoff), under owner.md §1a step 6, §2 to §6, and laws 463, 464 and 465. Not code. Library only: no CLI command is wired (464 item 7), and development builds refuse at F0 (463).
+2026-09-27. Claude Opus 5.5, implementation lead. Law for units 466b (the remaining P0 producers) and 467 (stage, validate, publish, routes, handoff), under owner.md §1a step 6, §2 to §6, and laws 463, 464 and 465. Not code. Library only: no CLI command is wired (464 item 7), and development builds refuse at F0 (463). ACCEPTED by Grok 467 r1 on 2026-09-27.
 
 ## The P0 tree
 
