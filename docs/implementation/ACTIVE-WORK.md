@@ -4832,3 +4832,12 @@ Grok 462 r1 accepted the InitialPlatform law. Grok 462a r1: ACCEPT-UNIT, require
 ## 2026-09-26 — InitialPlatform 462 installed at 000c5ce
 
 Grok 462b/c r1: ACCEPT-UNIT, and inventory70 ACCEPT; the four law readings are confirmed. Product 000c5ce adds produce_initial_platform, the InitialPlatform receipt, and the relocated AclOmissionPremise (minted only by InitialPlatform), and selects v70. This macOS 27 host is BASELINE-ATTESTED, so no premise is minted and 460 refuses at /, as expected under laws 458, 458b and 469. Next on the creator path: 458c (the read-side premise), 461, 465 and 467. Claude holds the native lane. Not the installation creator. No push. M2–M6 unfinished.
+
+
+## 2026-09-27 — owner decisions for 465; law 465 proposed
+
+The owner decided two 465 points:
+- Evidence B covers Library and Application Support whether they are reused or newly created.
+- An interrupted OpenSIP (owned by the user, exactly 0700, ACL omitted, empty except staging names) may receive the same zero-rights owner allow a fresh creation adds. That finishes the interrupted step; it is not a permission repair.
+
+Law 465 is assigned to Grok. Claude holds the native lane. Not the installation creator. No push. M2–M6 unfinished.
