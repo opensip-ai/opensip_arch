@@ -4864,3 +4864,19 @@ Next: 467a-p (charged stage, publish, file-write and file-barrier primitives), t
 ## 2026-09-27 — publication primitives 467a-p installed at f0a29bc
 
 Grok 467a-p r1: ACCEPT-UNIT, and inventory73 ACCEPT. Product f0a29bc adds the charged stage creation, the exclusive publication with its typed classification, file_effects.rs (exclusive create, write-verify, F_FULLFSYNC with no fallback) and ReservedPostchecks::prepaid, and selects v73. Next: 467a (installation_stage.rs, the stage writer and validator, S0–S7), then 467b (publish, routes, handoff). Claude holds the native lane. Not the installation creator. No push. M2–M6 unfinished.
+
+
+## 2026-09-27 — stage-and-publish 467 installed at 26d3d92; the initial creator path 459–467 is implemented
+
+Grok 467a/b r1: ACCEPT-UNIT, and inventory74 ACCEPT. Product 26d3d92 adds installation_stage.rs, installation_publication.rs (with `create_initial_installation`) and tests, and selects v74. The creator path 459–467 is implemented as a library, with every unit Grok-accepted. It is not enabled:
+- no CLI command is wired (464 item 7);
+- development builds embed no release and refuse at InitialCore F0;
+- this macOS 27 host is BASELINE-ATTESTED, so the real chain refuses at /.
+
+~/Library/Application Support/OpenSIP remains absent. Remaining M2 work:
+- 468: §5 observation, doctor, and the formal diagnostic successors, including LostRace/NotPristine routing;
+- 458c then 461 (the read side);
+- the follow-ups: stale inventory descriptions, a shared lineage-path spelling, one more temp-dir test isolation;
+- the M2 exit items (pure replay, live guards, storage facade, carrier recovery join, refusal suite, crash/lock/revocation matrix).
+
+Claude holds the native lane. No push. M2–M6 unfinished.
