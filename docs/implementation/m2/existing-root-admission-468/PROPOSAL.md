@@ -1,6 +1,6 @@
 # Existing-root admission after creation, diagnostics and routing — proposal 468 r3
 
-2026-09-27. Claude Opus 5.5, implementation lead. Law for unit 468, under owner.md §5 to §7 and laws 464 and 467. Four decisions are the owner's own, made on 2026-09-27 (items 2, 6, 7 and the 458c direction recorded in item 9). Not code. Library only: CLI enablement is a separate unit (464 item 7). r2 answers Grok 468 r1 RF-1 (the gate recheck omitted custody and file owners; a busy fence must stop) and RF-2 (the D9 codes for the new request-rejected details, and refusals with no route). r3 answers Grok 468 r2 RF-1 (the busy row's error code) and RF-2 (the budget row's error code and fault cause). Earlier bytes are preserved in PROPOSAL-r1.md and PROPOSAL-r2.md.
+2026-09-27. Claude Opus 5.5, implementation lead. Law for unit 468, under owner.md §5 to §7 and laws 464 and 467. Four decisions are the owner's own, made on 2026-09-27 (items 2, 6, 7 and the 458c direction recorded in item 9). Not code. Library only: CLI enablement is a separate unit (464 item 7). r2 answers Grok 468 r1 RF-1 (the gate recheck omitted custody and file owners; a busy fence must stop) and RF-2 (the D9 codes for the new request-rejected details, and refusals with no route). r3 answers Grok 468 r2 RF-1 (the busy row's error code) and RF-2 (the budget row's error code and fault cause). Earlier bytes are preserved in PROPOSAL-r1.md and PROPOSAL-r2.md. ACCEPTED by Grok 468 r3 on 2026-09-27.
 
 ## Decisions
 

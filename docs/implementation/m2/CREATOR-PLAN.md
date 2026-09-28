@@ -24,7 +24,7 @@ Bounded ACL capture; private-descendant and external-ancestor predicates; privat
 | 465 | DONE (465a charged barrier/create; 465b preparation and permit; inventory71; law 465 r1; initial-parent-preparation-465/PROPOSAL.md; owner decisions items 4 and 5). Parent preparation and permit: H barrier, create-or-admit each fixed ancestor with own and parent barriers, no-follow absence of `preview-v1` | 459–464 | — |
 | 466 | DONE (466 r1 trust publication; 466b the full P0 manifest in memory, inventory72): P0 producers: fence file, registry v2, marker, node, pair, CreationInput, OperationInput, creation event, descriptor, state.v1 | 463 | Only decoders and verifiers exist |
 | 467 | DONE (467a-p primitives, inventory73; 467a/467b stage, validate, publish, routes and handoff, inventory74; law 467 r1; initial-publication-467/PROPOSAL.md). Stage, validate, publish, final barrier, loser and indeterminate routes, ordinary handoff | 465, 466 | Primitive exists; composition does not |
-| 468 | LAW PROPOSED (existing-root-admission-468/PROPOSAL.md; owner decisions items 2, 6, 7, 9). §5 observation versus durable write, doctor informational note, formal diagnostic successors | 467 | Needs schema/generation successor |
+| 468 | LAW ACCEPTED 468 r3 (existing-root-admission-468/PROPOSAL.md; owner decisions items 2, 6, 7, 9). §5 observation versus durable write, doctor informational note, formal diagnostic successors | 467 | Needs schema/generation successor |
 
 The M2 exit (pure replay, live guards, storage facade, carrier recovery join, refusal suite and crash/lock/revocation matrix) follows and is planned separately. All 32 release gates remain unqualified.
 
