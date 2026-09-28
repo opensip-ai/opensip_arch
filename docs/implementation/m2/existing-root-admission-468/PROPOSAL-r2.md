@@ -1,13 +1,13 @@
-# Existing-root admission after creation, diagnostics and routing — proposal 468 r3
+# Existing-root admission after creation, diagnostics and routing — proposal 468 r2
 
-2026-09-27. Claude Opus 5.5, implementation lead. Law for unit 468, under owner.md §5 to §7 and laws 464 and 467. Four decisions are the owner's own, made on 2026-09-27 (items 2, 6, 7 and the 458c direction recorded in item 9). Not code. Library only: CLI enablement is a separate unit (464 item 7). r2 answers Grok 468 r1 RF-1 (the gate recheck omitted custody and file owners; a busy fence must stop) and RF-2 (the D9 codes for the new request-rejected details, and refusals with no route). r3 answers Grok 468 r2 RF-1 (the busy row's error code) and RF-2 (the budget row's error code and fault cause). Earlier bytes are preserved in PROPOSAL-r1.md and PROPOSAL-r2.md.
+2026-09-27. Claude Opus 5.5, implementation lead. Law for unit 468, under owner.md §5 to §7 and laws 464 and 467. Four decisions are the owner's own, made on 2026-09-27 (items 2, 6, 7 and the 458c direction recorded in item 9). Not code. Library only: CLI enablement is a separate unit (464 item 7). r2 answers Grok 468 r1 RF-1 (the gate recheck omitted custody and file owners; a busy fence must stop) and RF-2 (the D9 codes for the new request-rejected details, and refusals with no route). r1 bytes are preserved in PROPOSAL-r1.md.
 
 ## Decisions
 
 1. **Continuing after the creator.** `Published`, `LostRace` and `NotPristine` all end the creator act, and the attempt is dropped. Because all four creator commands write, the invocation continues through the owner §5 durable write gate with a fresh installation fence. No creator observation, handle, lock or receipt is reused (467 item 9).
 2. **The gate's barrier qualification (owner decision).** The durable write gate needs the qualified barrier method and filesystem check. It borrows both from this same invocation's `InitialPlatform`, through a sealed private capability that only `InitialPlatform` implements. The capability lends exactly two things: the barrier policy (apfs `F_FULLFSYNC`, or the named fallback) and the check that a filesystem matches H's. It lends nothing about I, grants no standing, and cannot be built from a caller. Writers that are not creators get no gate until the ordinary platform owner exists (M2 exit).
 3. **The gate's order.**
-   1. **Fence attempt.** A nonblocking attempt. If the fence is busy the invocation stops with the existing busy termination (item 6), detail `PROJECT.BUSY`. No recheck, barrier or later effect follows, because the lock is not held.
+   1. **Fence attempt.** A nonblocking attempt. If the fence is busy the invocation stops with `PROJECT.BUSY`. No recheck, barrier or later effect follows, because the lock is not held.
    2. **Recheck under the held fence.** The recheck set is:
       - the original account;
       - the I-parent name;
@@ -34,9 +34,9 @@
    | Platform mismatch, translated process, loader filesystem | request-rejected, 2 | `EXTENSION.ADMISSION_REJECTED` | existing `NT-TCB-PROFILE-UNQUALIFIED`, subject `platform` |
    | H not a qualified install filesystem | request-rejected, 2 | `EXTENSION.ADMISSION_REJECTED` | existing `NT-TCB-BOOT:INSTALL_ROOT_FS` |
    | Custody refusal on the chain, the ancestors or I (including the omitted ACL at `/`), a gate recheck custody or owner failure, and a stage validation or name-recheck failure before the rename (foreign interference) | request-rejected, 2 | `CONFIG.INVALID` | existing `CONFIG.CUSTODY_REFUSED`, with the sub-detail as subject |
-   | Installation fence busy | operational-failed, 4 | `LEDGER.BUSY_TIMEOUT` | existing `PROJECT.BUSY`, fault cause ledger-busy |
+   | Installation fence busy | refused, per the existing row | `PROJECT.BUSY` | per the existing row |
    | Rename not performed; indeterminate rename; any failure after the rename; barrier failure; filesystem or read I/O failure; disclosure write failure | operational-failed, 4 | `HOST.IO_FAILURE` | fault cause host-io |
-   | Attempt or admission ledger refused a charge | operational-failed, 4 | `SYSTEM.OUTCOME.ILLEGAL_STATE` | NEW `WORK.BUDGET_EXHAUSTED`, fault cause host-invariant |
+   | Attempt or admission ledger refused a charge | operational-failed, 4 | `HOST.IO_FAILURE` | NEW `WORK.BUDGET_EXHAUSTED`, fault cause host-invariant |
    | `LostRace`, `NotPristine`, `Published` | not a failure: continue through the item 3 gate | — | — |
 
    The three new details are appended to common4 `DomainDetailCode` with public detail registry rows and D9 routes, the same way the 2026-09-21 owner-selection unit appended `INSTALLATION.NOT_INITIALIZED`: a contract successor, generation and a drift check. No existing code, class or exit changes. The table follows the existing registry's class and code for every existing detail; where the registry already fixes a class for a detail, the registry prevails and this table is corrected by review.
