@@ -4880,3 +4880,14 @@ Grok 467a/b r1: ACCEPT-UNIT, and inventory74 ACCEPT. Product 26d3d92 adds instal
 - the M2 exit items (pure replay, live guards, storage facade, carrier recovery join, refusal suite, crash/lock/revocation matrix).
 
 Claude holds the native lane. No push. M2–M6 unfinished.
+
+
+## 2026-09-27 — owner decisions for 468 and 458c; law 468 proposed
+
+The owner decided:
+- the durable write gate borrows its barrier qualification from InitialPlatform;
+- three NEW public codes for no embedded release, account refusal and budget exhaustion;
+- the backup-status envelope field is deferred to CLI enablement;
+- 458c will use a fence-free, per-invocation platform receipt for the root-to-H prefix.
+
+Law 468 is assigned to Grok. Claude holds the native lane. No push. M2–M6 unfinished.
