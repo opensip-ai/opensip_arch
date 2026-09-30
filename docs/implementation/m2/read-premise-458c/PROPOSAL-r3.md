@@ -1,6 +1,6 @@
-# The read side's omission premise and the observation path — proposal 458c r4
+# The read side's omission premise and the observation path — proposal 458c r3
 
-2026-09-29. Claude Opus 5.5, implementation lead. Law for unit 458c, under owner.md §5 to §7 and laws 458, 458b, 462, 463, 465 and 468 r5. Four decisions are the owner's own: the fence-free, per-invocation receipt authenticated through the embedded release (2026-09-27, recorded in 468 item 9); its scope, which matches 465 item 4 (2026-09-29); the read path's bounded busy wait (item 11, 2026-09-29); and doctor's refusal when it cannot reach I (item 12, 2026-09-29). It also carries the observation path, the doctor note and the 255+1 slot rule that 468 r5 item 4 deferred here. Not code. Library only: CLI enablement is a separate unit (464 item 7). r2 answers Grok 458c r1 RF-1 to RF-4: the required file owners in the recheck, doctor's partial report, the busy wait's pace and reservation, and positive absence. r1 bytes are preserved in PROPOSAL-r1.md. r3 answers Grok 458c r2 RF-1 (a missing H) and RF-2 (I/O during the fence wait). r2 bytes are preserved in PROPOSAL-r2.md. r4 answers Grok 458c r3 RF-1 and RF-2 by adopting the write gate's own classification for H and for the fence lock's errors. r3 bytes are preserved in PROPOSAL-r3.md.
+2026-09-29. Claude Opus 5.5, implementation lead. Law for unit 458c, under owner.md §5 to §7 and laws 458, 458b, 462, 463, 465 and 468 r5. Four decisions are the owner's own: the fence-free, per-invocation receipt authenticated through the embedded release (2026-09-27, recorded in 468 item 9); its scope, which matches 465 item 4 (2026-09-29); the read path's bounded busy wait (item 11, 2026-09-29); and doctor's refusal when it cannot reach I (item 12, 2026-09-29). It also carries the observation path, the doctor note and the 255+1 slot rule that 468 r5 item 4 deferred here. Not code. Library only: CLI enablement is a separate unit (464 item 7). r2 answers Grok 458c r1 RF-1 to RF-4: the required file owners in the recheck, doctor's partial report, the busy wait's pace and reservation, and positive absence. r1 bytes are preserved in PROPOSAL-r1.md. r3 answers Grok 458c r2 RF-1 (a missing H) and RF-2 (I/O during the fence wait). r2 bytes are preserved in PROPOSAL-r2.md.
 
 ## Problem
 
@@ -42,12 +42,7 @@ Every read-side consumer reaches I through `InstallationReadFence::try_acquire`.
    0. **Charged chain walk.** Walk from root to I with retained no-follow handles, under the 460/465 predicates and item 3's premise. H, `OpenSIP` and I must be on H's filesystem (`is_home_filesystem`). This is the same code as 468b step 0, shared rather than copied, except for how the end of the walk is classified:
       - **Positive absence.** The walk may end before I when a component of the fixed suffix (`Library`, `Application Support`, `OpenSIP`, `preview-v1`) is missing. That is a positive absence of I only when the first missing component is observed absent by a no-follow lookup under its retained, admitted parent. The observation returns a typed `ObservedAbsent { component }`, which routes to `INSTALLATION.NOT_INITIALIZED`.
       - **Not absence.** A non-directory, a symlink, a custody refusal, an I/O error or a budget failure at that name is never absence. Each takes its own item 6 row.
-      - **H.** H itself must exist (owner §3), and it is never absence. Every H failure takes exactly the row the write gate gives it (468b's step 0 classification, mapped by 468c):
-        - a missing H: the custody row;
-        - an open refused by permission, or another I/O error: the host I/O row;
-        - an H on a filesystem `is_home_filesystem` refuses: `NT-TCB-BOOT`, subject `INSTALL_ROOT_FS`.
-
-        None of these is absence or an account refusal: `InitialActor` admits the UIDs and the home spelling, not the directory.
+      - **H.** H itself must exist (owner §3), and it is never absence. A missing, inaccessible or unsupported H refuses on 468 item 6's custody row, with the walk's sub-detail as subject, as the write gate does. It is not an account refusal: `InitialActor` admits the UIDs and the home spelling, not the directory.
       - **The write gate** keeps its own classification.
    1. **Fence attempt.** Open `lifecycle.fence` no-follow through the retained I and judge it private. Then make one nonblocking exclusive attempt on that descriptor. `NativeInstallationFence::try_acquire` and `inspect_directory_path` are never called. Busy follows item 11.
    2. **Recheck.** Run 468 item 3's recheck set in full under the held fence:
@@ -94,7 +89,7 @@ Every read-side consumer reaches I through `InstallationReadFence::try_acquire`.
     - **Outcome.** Each attempt has three results, as `FileLock::try_acquire` does:
       - the lock: the session continues with step 2;
       - busy (`None`): wait and retry;
-      - any other failure (`Err`): the wait stops at once, and the error is classified exactly as the write gate's lock step does (468b `lock_fence`, mapped by 468c). Every `Err`, including a carrier that is no longer a regular file, ends on the host I/O row: `HOST.IO_FAILURE`, `host-io`, exit 4. A carrier replaced by another file is caught by the step 2 recheck on the custody row.
+      - any other failure (`Err`): the wait stops at once. An I/O error ends on the item 6 host I/O row (`HOST.IO_FAILURE`, `host-io`). A carrier that is no longer the retained regular file ends on the custody row.
 
       Only a lock still busy when the 5 s or the 201 attempts run out ends on the busy row: `LEDGER.BUSY_TIMEOUT`, `PROJECT.BUSY`, `ledger-busy`.
     - **The write gate** keeps 468's single attempt, which is stricter than S7 and still allowed.
