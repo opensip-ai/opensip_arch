@@ -1,6 +1,6 @@
-# The read side's omission premise and the observation path — proposal 458c r6
+# The read side's omission premise and the observation path — proposal 458c r5
 
-2026-09-29. Claude Opus 5.5, implementation lead. Law for unit 458c, under owner.md §5 to §7 and laws 458, 458b, 462, 463, 465 and 468 r5. Four decisions are the owner's own: the fence-free, per-invocation receipt authenticated through the embedded release (2026-09-27, recorded in 468 item 9); its scope, which matches 465 item 4 (2026-09-29); the read path's bounded busy wait (item 11, 2026-09-29); and doctor's refusal when it cannot reach I (item 12, 2026-09-29). It also carries the observation path, the doctor note and the 255+1 slot rule that 468 r5 item 4 deferred here. Not code. Library only: CLI enablement is a separate unit (464 item 7). r2 answers Grok 458c r1 RF-1 to RF-4: the required file owners in the recheck, doctor's partial report, the busy wait's pace and reservation, and positive absence. r1 bytes are preserved in PROPOSAL-r1.md. r3 answers Grok 458c r2 RF-1 (a missing H) and RF-2 (I/O during the fence wait). r2 bytes are preserved in PROPOSAL-r2.md. r4 answers Grok 458c r3 RF-1 and RF-2 by adopting the write gate's own classification for H and for the fence lock's errors. r3 bytes are preserved in PROPOSAL-r3.md. r5 answers Grok 458c r4 RF-1: H's rows are taken from 468c's mapping itself rather than restated. r4 bytes are preserved in PROPOSAL-r4.md. r5 was ACCEPTED by Grok on 2026-09-29. r6 is an amendment made when 458c-c found that the product has no doctor report assembler yet and no existing detail for an installation's structural findings: item 12 now names that classification, and item 10 says 458c-c builds the assembler. r5 bytes are preserved in PROPOSAL-r5.md.
+2026-09-29. Claude Opus 5.5, implementation lead. Law for unit 458c, under owner.md §5 to §7 and laws 458, 458b, 462, 463, 465 and 468 r5. Four decisions are the owner's own: the fence-free, per-invocation receipt authenticated through the embedded release (2026-09-27, recorded in 468 item 9); its scope, which matches 465 item 4 (2026-09-29); the read path's bounded busy wait (item 11, 2026-09-29); and doctor's refusal when it cannot reach I (item 12, 2026-09-29). It also carries the observation path, the doctor note and the 255+1 slot rule that 468 r5 item 4 deferred here. Not code. Library only: CLI enablement is a separate unit (464 item 7). r2 answers Grok 458c r1 RF-1 to RF-4: the required file owners in the recheck, doctor's partial report, the busy wait's pace and reservation, and positive absence. r1 bytes are preserved in PROPOSAL-r1.md. r3 answers Grok 458c r2 RF-1 (a missing H) and RF-2 (I/O during the fence wait). r2 bytes are preserved in PROPOSAL-r2.md. r4 answers Grok 458c r3 RF-1 and RF-2 by adopting the write gate's own classification for H and for the fence lock's errors. r3 bytes are preserved in PROPOSAL-r3.md. r5 answers Grok 458c r4 RF-1: H's rows are taken from 468c's mapping itself rather than restated. r4 bytes are preserved in PROPOSAL-r4.md. r5 ACCEPTED by Grok on 2026-09-29.
 
 ## Problem
 
@@ -84,15 +84,7 @@ Every read-side consumer reaches I through `InstallationReadFence::try_acquire`.
 10. **Units after the law.** Each unit is reviewed by Grok with an inventory successor.
     - **458c-a:** `ReadPremiseQualification`; a library composition `produce_read_platform` (attempt, actor, core, platform, no intent); its termination mapping through 468c's `InstallationTermination`; tests on scratch homes with synthetic V2 profiles.
     - **458c-b:** `InstallationObservation`, with 468b's step 0 and step 1 factored into shared code, and every item 8 consumer migrated.
-    - **458c-c:** the product has no doctor report assembler yet; only the generated `Invocation5DoctorResult` type exists. 458c-c builds the first one, as a library, following owner §5 and the reference `doctor_projection.py` `DoctorSession.assemble`:
-      - the complete-I note and the 255+1 rule;
-      - the partial-root 256 bound;
-      - `defectsFound` and `DOCTOR.DEFECTS_FOUND`;
-      - `DOCTOR.REPORT_NOT_PRODUCIBLE`;
-      - the latch;
-      - item 12's per-finding entries.
-
-      It is tested against `doctor-cases.json`, on the existing `DoctorResult` shape, with no new envelope member. The human label "Informational: durability not checked" belongs to the CLI renderer and is not claimed here.
+    - **458c-c:** the doctor complete-I note and the 255+1 rule on the existing `DoctorResult` shape, with no new envelope member.
 
 11. **Busy on the read path (owner decision, 2026-09-29).** The observation session follows S7's level-0 row for the lifecycle fence.
     - **Pace.** It repeats the nonblocking attempt on the same retained fence descriptor, sleeping `FENCE_POLL` (25 ms, as in `lifecycle::leases`) between attempts. It stops after at most 5 s on the monotonic clock, and after at most 201 attempts: one attempt, then 200 retries.
@@ -114,15 +106,7 @@ Every read-side consumer reaches I through `InstallationReadFence::try_acquire`.
     - budget.
 
     **A reachable I that is incomplete or contradictory is not a refusal for doctor.** Owner §5 and `doctor-cases.json` govern that report unchanged:
-    - Each structural finding from step 3 is one actual defect entry, and the findings are never collapsed into one. No doctor classification exists for them, and the owner allows no new code. Each finding uses the existing detail `CONFIG.CUSTODY_REFUSED`, the same detail as 468's incomplete row, with a subject that names the finding:
-      - a missing or non-regular required file: `installation-incomplete:missing:<path relative to I>`;
-      - an undecodable `selection.pair`: `installation-incomplete:pair`;
-      - an undecodable endpoint marker: `installation-incomplete:marker`;
-      - a store id that does not parse: `installation-incomplete:store`;
-      - an undecodable lineage node: `installation-incomplete:node`;
-      - a missing, misbound or cyclic node chain: `installation-incomplete:chain`.
-
-      Each entry's remedy is one fixed text per finding kind, reviewed with 458c-c. It says the installation is incomplete and that OpenSIP does not repair it (owner §6). No schema, registry or code changes.
+    - Each structural finding from step 3 is an actual defect entry under the existing doctor defect classifications. This law adds no defect code, and it does not collapse the findings into one.
     - The informational note is absent, because I is not complete. The report keeps the existing 256-entry bound for reports without the note: 256 actual defects is a report, and 257 cannot be produced. That ends on `HOST.IO_FAILURE` / `DOCTOR.REPORT_NOT_PRODUCIBLE`, exit 4, and latches.
     - A doctor session does not latch on a structural finding. It still runs the step 4 recheck, and a recheck failure there ends on the item 6 row with no report.
     - Every other read command ends on the incomplete row (item 7).
