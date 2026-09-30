@@ -1,6 +1,6 @@
-# The read side's omission premise and the observation path — proposal 458c r2
+# The read side's omission premise and the observation path — proposal 458c r1
 
-2026-09-29. Claude Opus 5.5, implementation lead. Law for unit 458c, under owner.md §5 to §7 and laws 458, 458b, 462, 463, 465 and 468 r5. Four decisions are the owner's own: the fence-free, per-invocation receipt authenticated through the embedded release (2026-09-27, recorded in 468 item 9); its scope, which matches 465 item 4 (2026-09-29); the read path's bounded busy wait (item 11, 2026-09-29); and doctor's refusal when it cannot reach I (item 12, 2026-09-29). It also carries the observation path, the doctor note and the 255+1 slot rule that 468 r5 item 4 deferred here. Not code. Library only: CLI enablement is a separate unit (464 item 7). r2 answers Grok 458c r1 RF-1 to RF-4: the required file owners in the recheck, doctor's partial report, the busy wait's pace and reservation, and positive absence. r1 bytes are preserved in PROPOSAL-r1.md.
+2026-09-29. Claude Opus 5.5, implementation lead. Law for unit 458c, under owner.md §5 to §7 and laws 458, 458b, 462, 463, 465 and 468 r5. Four decisions are the owner's own: the fence-free, per-invocation receipt authenticated through the embedded release (2026-09-27, recorded in 468 item 9); its scope, which matches 465 item 4 (2026-09-29); the read path's bounded busy wait (item 11, 2026-09-29); and doctor's refusal when it cannot reach I (item 12, 2026-09-29). It also carries the observation path, the doctor note and the 255+1 slot rule that 468 r5 item 4 deferred here. Not code. Library only: CLI enablement is a separate unit (464 item 7).
 
 ## Problem
 
@@ -39,31 +39,18 @@ Every read-side consumer reaches I through `InstallationReadFence::try_acquire`.
 
    An admitted receipt with no premise is not a refusal. That covers a BASELINE-ATTESTED host (469), a V1 profile, a row without `installAclOmission`, and a SYNTHETIC profile outside tests. Step 0 of item 5 then refuses at the first omitted component, on the custody row with subject `ancestor-acl-omitted`. This macOS 27 development host is such a host. The consequence is accepted as in 462 item 8.
 5. **The observation path.** The observation path is 468 r5 items 3 and 4 without barriers. `InstallationObservation`, the successor of `InstallationReadFence`'s acquisition, runs:
-   0. **Charged chain walk.** Walk from root to I with retained no-follow handles, under the 460/465 predicates and item 3's premise. H, `OpenSIP` and I must be on H's filesystem (`is_home_filesystem`). This is the same code as 468b step 0, shared rather than copied, except for how the end of the walk is classified:
-      - **Positive absence.** The walk may end before I when a component of the fixed suffix (`Library`, `Application Support`, `OpenSIP`, `preview-v1`) is missing. That is a positive absence of I only when the first missing component is observed absent by a no-follow lookup under its retained, admitted parent. The observation returns a typed `ObservedAbsent { component }`, which routes to `INSTALLATION.NOT_INITIALIZED`.
-      - **Not absence.** A non-directory, a symlink, a custody refusal, an I/O error or a budget failure at that name is never absence. Each takes its own item 6 row.
-      - **H.** H itself must exist (owner §4). A missing H is an account refusal.
-      - **The write gate** keeps its own classification.
+   0. **Charged chain walk.** Walk from root to I with retained no-follow handles, under the 460/465 predicates and item 3's premise. H, `OpenSIP` and I must be on H's filesystem (`is_home_filesystem`). This is the same code as 468b step 0, shared rather than copied.
    1. **Fence attempt.** Open `lifecycle.fence` no-follow through the retained I and judge it private. Then make one nonblocking exclusive attempt on that descriptor. `NativeInstallationFence::try_acquire` and `inspect_directory_path` are never called. Busy follows item 11.
-   2. **Recheck.** Run 468 item 3's recheck set in full under the held fence:
-      - the account;
-      - the retained chain;
-      - the I-parent name;
-      - I and the fence's identity;
-      - custody of I and the I-parent;
-      - the required file owners.
-
-      The required file owners limb covers each required file (the fence, `project-registry.v2`, `selection.pair`, the endpoint marker, its lineage node chain and the trust current record). Each must be owned by the invoking user, in private mode, with one link and a private ACL. In this first pass, the limb covers the fence and every required file already retained.
+   2. **Recheck.** Run 468 item 3's recheck set under the held fence: account, retained chain, I-parent name, I and fence identity, and custody of I and the I-parent.
    3. **Member reads.** Each capture is charged before it runs: `capture_leaf`, `capture_descendant`, pair, marker, node chain and trust records. The fixed members are charged up front. Each lineage node is charged before its own read, because the chain's length is learned while reading it.
-   4. **Recheck again.** Run the same full recheck set after the reads, and after any read failure. Its required-file-owner limb now covers every required file captured in step 3, each by the identity retained at its capture. Any recheck failure latches the session. A step 3 member that is missing, undecodable or wrongly linked is a structural finding (item 7), not a recheck failure.
+   4. **Recheck again.** Run the same recheck set after the reads, and after any read failure. Any failure latches the session.
 
    The session holds no barrier and no receipt of durability, and it cannot become a write capability (owner §5). A write needs a separately admitted operation through the 468 gate.
 6. **Budget.** Each observation session has one failure-latching `WorkLedger` at the owner's caps (65536 objects, 131072 edges, 256 MiB), as 468b's gate does. It uses the same `WorkScope` / `work.run` / `ReservedPostchecks` idioms. The receipt's own work is charged to the attempt's ledger. A process gets one session, allocated like `DurableWriteGate::begin`. Name enumeration, captures and original-owner rechecks all use the session's ledger, with no branch-local reset (owner §7). A limit failure is unavailability, never absence or "no ancestor".
 7. **Complete I and the doctor note.** I is complete only when the fence, `project-registry.v2`, `selection.pair`, the endpoint marker, its lineage node chain and the trust current record are all observed under one session (468 item 5).
    - **Doctor on a complete I** carries the informational `INSTALLATION.DURABILITY_NOT_CHECKED` entry, with owner §5's text. Only `doctor` carries it; `trust doctor` and `store status` never do.
    - **Slots.** The note takes one of the 256 slots. 255 actual defects plus the note is a report. With 256 actual defects the report refuses and latches, and is never truncated. `defectsFound` counts actual defects only, excluding that one code, and `DOCTOR.DEFECTS_FOUND` depends on that count.
-   - **Other read commands** end an incomplete or contradictory I on 468's incomplete row: `CONFIG.CUSTODY_REFUSED`, subject `installation-incomplete`. The session latches.
-   - **An absent I** ends on `INSTALLATION.NOT_INITIALIZED` only through step 0's `ObservedAbsent`.
+   - **Other read commands** end an incomplete or contradictory I on 468's incomplete row: `CONFIG.CUSTODY_REFUSED`, subject `installation-incomplete`. An absent I ends on `INSTALLATION.NOT_INITIALIZED`, which requires a positive absence of I observed under the retained `OpenSIP`.
 8. **Consumers that move now.** Every production user of `InstallationReadFence::try_acquire` moves to `InstallationObservation`, keeping its capture API:
    - `host/src/installation_records.rs`, `installation_selection.rs`, `installation_lineage.rs` and `installation_trust.rs`;
    - `storage/src/store_root/native_marker.rs`;
@@ -82,25 +69,12 @@ Every read-side consumer reaches I through `InstallationReadFence::try_acquire`.
     - **458c-b:** `InstallationObservation`, with 468b's step 0 and step 1 factored into shared code, and every item 8 consumer migrated.
     - **458c-c:** the doctor complete-I note and the 255+1 rule on the existing `DoctorResult` shape, with no new envelope member.
 
-11. **Busy on the read path (owner decision, 2026-09-29).** The observation session follows S7's level-0 row for the lifecycle fence.
-    - **Pace.** It repeats the nonblocking attempt on the same retained fence descriptor, sleeping `FENCE_POLL` (25 ms, as in `lifecycle::leases`) between attempts. It stops after at most 5 s on the monotonic clock, and after at most 201 attempts: one attempt, then 200 retries.
-    - **No re-walk.** There is no re-walk and no reopen.
-    - **Reservation.** Before the first attempt, one reservation covers all 201 attempts at the gate's per-attempt lock cost. A reservation that cannot be made refuses before any attempt, on the budget row. Once made, the wait can end only in the lock or the busy row, never in `WORK.BUDGET_EXHAUSTED`.
-    - **Outcome.** If the lock is taken, the session continues with step 2. Otherwise it ends on 468 item 6's busy row: `LEDGER.BUSY_TIMEOUT`, `PROJECT.BUSY`, `ledger-busy`.
-    - **The write gate** keeps 468's single attempt, which is stricter than S7 and still allowed.
-12. **Doctor when it cannot reach I (owner decision, 2026-09-29).** If minting the receipt, the step 0 walk, the fence wait or a recheck refuses, `doctor` ends on 468 item 6's row like any read command, and no report is produced. That covers:
-    - no embedded release;
-    - a platform or account refusal;
-    - an omitted ACL with no premise;
-    - a custody refusal;
-    - busy;
-    - budget.
-
-    **A reachable I that is incomplete or contradictory is not a refusal for doctor.** Owner §5 and `doctor-cases.json` govern that report unchanged:
-    - Each structural finding from step 3 is an actual defect entry under the existing doctor defect classifications. This law adds no defect code, and it does not collapse the findings into one.
-    - The informational note is absent, because I is not complete. The report keeps the existing 256-entry bound for reports without the note: 256 actual defects is a report, and 257 cannot be produced. That ends on `HOST.IO_FAILURE` / `DOCTOR.REPORT_NOT_PRODUCIBLE`, exit 4, and latches.
-    - A doctor session does not latch on a structural finding. It still runs the step 4 recheck, and a recheck failure there ends on the item 6 row with no report.
-    - Every other read command ends on the incomplete row (item 7).
+11. **Busy on the read path (owner decision, 2026-09-29).**
+    - **The observation session:** follows S7's level-0 row for the lifecycle fence. It repeats the charged nonblocking attempt on the same retained fence descriptor for at most 5 s, measured on the monotonic clock. There is no re-walk and no reopen, and each attempt is charged before it runs. If the lock is taken, the session continues with step 2. Otherwise it ends on 468 item 6's busy row: `LEDGER.BUSY_TIMEOUT`, `PROJECT.BUSY`, `ledger-busy`.
+    - **The write gate:** keeps 468's single attempt, which is stricter than S7 and still allowed.
+12. **Doctor when it cannot reach I (owner decision, 2026-09-29).** If minting the receipt or the step 0 walk refuses, `doctor` ends on 468 item 6's row like any read command. That covers no embedded release, a platform or account refusal, an omitted ACL with no premise, and a custody refusal. No report is produced.
+    - **A reachable but incomplete or contradictory I is not a refusal for doctor.** The report is produced with one defect entry, `CONFIG.CUSTODY_REFUSED` with subject `installation-incomplete`, and `defectsFound` is 1. The informational note is absent, because I is not complete.
+    - **Every other read command** ends on the incomplete row (item 7).
 
 ## Forbidden substitutes
 
