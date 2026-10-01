@@ -1,5 +1,5 @@
-# Evidence ledger transaction and blob publication — proposal X3c r2
- r2 answers Grok X3c r1 RF-1: the lock order now cites X3b r5's SEAL-path hold. r1 bytes are preserved in PROPOSAL-r1.md.
+# Evidence ledger transaction and blob publication — proposal X3c r1
+
 2026-09-30. Claude Opus 5.5, implementation lead. Law for unit X3c of `EXIT-PLAN.md` (DR-G19), under owner.md §7 and §8, security-and-lifecycle S6 (the commit-admission gate) and S7 (lock order and modes), the build plan's "Security/storage ownership and the final commit gate", "Publication sequence and lock discipline" (steps 3, 4 and 6), "Failure and recovery account" and failure cases F02 to F06 and F11 to F15, `commit-recovery-readonly.v3.md` (its D9 standings table, §4 the authorized settlement sweep, §5 the ledger-owned attempt phase), `attempt-custody.schema.v1.json`, the selected physical-layout owner (owner201, product `lifecycle/src/locations.rs`), and laws X1 r1, X2 r5 (`ProjectOperation`, X2e), X3a r5 (`SelectedStoreEndpoint`; no store work in a creator invocation), X3b r4 (the journal, witness, `CarrierFloor`, `JournalAppendLock`) and X4 r4 (`OperationGuard`, the checkpoint under `JournalAppendLock`, `FinalGate` and the single-use `AdmissionPermit`) and X4T r3. Items 1, 2, 3, 5, 6, 8 and 9 contain lead decisions made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation; each names the alternative it rejects. Not code. Library only: no command is wired.
 
 ## Problem
@@ -48,17 +48,7 @@ X3c owns the ledger and object side of steps 3, 4 and 6 up to the prepared commi
    - `COMMIT` returns success: the commit is durable. Only then may X3d produce `PublishedCommit` (F13, F14).
    - `COMMIT` returns an error or the connection is lost: `CommitUndetermined`. The attempt's D9 response is `durability-undetermined` with its ExecutionId (item 10); the attempt never retries, never infers absence and never writes again with its stopped session (F12). The `attempt_custody` row stays `admitted`; read-only recovery (X6) and the authorized sweep decide it.
    - Acknowledgement lost after a durable commit: the receipt is the authority; a fresh read-only lookup (X6) confirms it (F14). Recovery never re-runs the mutation or writes a second receipt (F15).
-8. **Locks (lead decision on scope).** Objects and ledger creation run under the namespace writer lease (S7 level 1), never under the fence alone and never with level 3 or 4 held. The ledger write transaction is level 3; the commit happens while X3b's level 4 is still held, as X3b r5 item 5 step 7 requires on the `SEAL` path. The full order is:
-   1. the journal transaction (level 3);
-   2. the ledger transaction (level 3);
-   3. level 4;
-   4. `SEAL` and the durable `COMMITTED` witness;
-   5. staging;
-   6. X4's repeated checkpoint and `AdmissionPermit`;
-   7. the ledger `COMMIT`;
-   8. release level 4 once the `COMMIT` returns `Committed` or `CommitUndetermined`.
-
-   Level 3 is never acquired or reacquired under level 4. Read-only paths open only `ReadSnapshot` and never take level 3 or 4. **Rejected:** releasing level 4 before the evidence commit, which would let a `REV` slip between `SEAL` and commit.
+8. **Locks (lead decision on scope).** Objects and ledger creation run under the namespace writer lease (S7 level 1), never under the fence alone and never with level 3 or 4 held. The ledger write transaction is level 3; the commit happens while X3b's level 4 is still held, as X3b's item 6 requires ("the append lock stays held through the witness and evidence commit"). Read-only paths open only `ReadSnapshot` and never take level 3 or 4. **Rejected:** releasing level 4 before the evidence commit, which would let a `REV` slip between `SEAL` and commit.
 9. **Budget (lead decision).** Every step charges the operation's ledger (X1's attempt ledger, which X4 r4 already uses for checkpoint work), reserving post-effect confirmations before each effect:
    - per object: one object and its edges for the temp file, link, both barriers and any confirmation read, plus its byte length;
    - the attempt-row transaction, the level-3 acquisition and the staged rows: fixed object and edge costs per statement, plus the staged body bytes;
