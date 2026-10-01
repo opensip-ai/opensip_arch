@@ -167,3 +167,6 @@ Rejected: changing the trust-anchor tool now for one sentence.
   - **Known limits for X8c and X3c:**
     - (a) No corpus Run binds to a fresh scenario ProjectId, so X8c's B0 must produce its Run from the scenario project.
     - (b) Re-committing a Run already committed in the same store and namespace is refused at staging, because X3c-2 always stages a fresh availability record. That needs an X3c successor.
+- **D2 and verify_design strictness (2026-10-03, from VD1).**
+  - **D2:** a contract successor that supersedes the four inherited rows (`read_premise.rs`, `installation_session.rs`, `store_lineage.rs`, `initial_installation.rs`) through VD1's `passageSupersessions`. Bind it only after VD1 is in the product.
+  - **Finding:** verify_design at main silently ignores unknown record fields. A later tooling unit should consider refusing unknown fields.
