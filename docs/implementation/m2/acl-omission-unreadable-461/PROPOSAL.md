@@ -1,6 +1,6 @@
 # Omitted ACL is unreadable at the single custody choke point — proposal 461 r2
 
-2026-09-30. Claude Opus 5.5, implementation lead. Law for unit 461, under owner.md §1b and §5 to §7 and laws 458 (§5), 458b, 462, 465 item 4, 468 r5 item 2 and 458c r6 items 3, 8 and 9. Item 9 is a lead decision made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation. r2 answers Grok 461 r1 RF-1 (refusal order), RF-2 (subject spelling) and RF-3 (the pin's scope). r1 bytes are preserved in PROPOSAL-r1.md. Not code. Library only: CLI enablement is a separate unit (464 item 7).
+2026-09-30. Claude Opus 5.5, implementation lead. Law for unit 461, under owner.md §1b and §5 to §7 and laws 458 (§5), 458b, 462, 465 item 4, 468 r5 item 2 and 458c r6 items 3, 8 and 9. Item 9 is a lead decision made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation. r2 answers Grok 461 r1 RF-1 (refusal order), RF-2 (subject spelling) and RF-3 (the pin's scope). r1 bytes are preserved in PROPOSAL-r1.md. r2 ACCEPTED by Grok on 2026-09-30. Not code. Library only: CLI enablement is a separate unit (464 item 7).
 
 ## Problem
 
