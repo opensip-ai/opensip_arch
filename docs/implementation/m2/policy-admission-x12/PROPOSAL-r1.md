@@ -1,4 +1,4 @@
-# Configuration and policy-pack admission — proposal X12 r2
+# Configuration and policy-pack admission — proposal X12 r1
 
 2026-10-01. Claude Opus 5.5, implementation lead. Law for unit X12 of `EXIT-PLAN.md`, release gate DR-G24 PREVIEW-ANALYZE-WELL-FORMED-ADMISSION. X5 r1 split this gate out of X5 (`replay-join-x5/PROPOSAL.md` item 1, "Correction to EXIT-PLAN"). The governing documents are:
 - the register's DR-G24 row (`08-decision-and-readiness-register.md` line 369: "Host admission of preview analyze requests refuses a non-bundled pack identity and a non-declarative pack or contribution"; retained evidence "pack-identity refusal before evaluation; imperative-pack refusal; no user or third-party pack"; "no waiver for silent admission"), and DR-131 (line 320, SATISFIED at D-369);
@@ -9,7 +9,7 @@
 - the product contracts: admission-and-qualification §1 (external input versus host-generated layer), §1.1 (policy is "registered pack/waiver IDs"; "Both pack and waiver IDs require registry admission") and §5 items 1, 3 and 5; workflows-and-surfaces §5 (the closed `PolicyDocumentV2` DSL, the `POLICY.IMPERATIVE_KEY_REFUSED` classifier and the D9 table row "duplicate waiver / imperative policy key"); native-evidence's route row for an invalid capability request (the precedent for an unregistered id under external configuration); and `public-detail-registry.v1.json`;
 - the accepted laws X5 r2 (items 1, 3 and 5) and 468 r5 item 6 (the termination vocabulary).
 
-Items 1 to 5 and 7 to 9 contain lead decisions made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation; each names the alternative it rejects. r2 answers Grok X12 r1. RF-1: an imperative key in a bundled row is row 4, the host-invariant fault, and row 3 covers only a document the caller presents (items 6 and 7). RF-2: the claim that the registered `CONFIG.INVALID` detail already states the pack condition is withdrawn, and a remedy-text contract successor, X12-0, must precede X12b (item 7 and "Units after the law"). r1 bytes are preserved in PROPOSAL-r1.md. Not code. Library only: no CLI command is wired.
+Items 1 to 5 and 7 to 9 contain lead decisions made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation; each names the alternative it rejects. Not code. Library only: no CLI command is wired.
 
 ## Problem
 
@@ -98,7 +98,7 @@ The product contract leaves four things open for this gate:
 
    A contribution is admissible only as a rule row of a bundled document that names a registered contribution. An executable, a script, WASM or a component closure offered as a pack or contribution has no carrier at this boundary. It can arrive only as `Supplied` bytes, and it is refused at step 1, 2 or 3 or after step 3 (admission-and-qualification §5 items 3 to 5).
 
-   Steps 4 to 7 run on bundled bytes. For a `Named` source, the document checked at steps 1 to 3 is the bundled document, not caller input. So a failure of a `Named` source at step 1, 2, 3, 5, 6 or 7 is a defect in the signed core, not bad input (item 7, row 4; r2, RF-1). Only a step 4 failure (an unregistered ID) is the caller's. A unit test also runs steps 1 to 7 over every release row, so a defective row cannot ship.
+   Steps 4 to 7 run on bundled bytes. A failure at step 5, 6 or 7 is therefore a defect in the signed core, not bad input (item 7, row 4). A unit test also runs steps 1 to 7 over every release row, so a defective row cannot ship.
 
 7. **Refusal rows (existing codes only).** The admission contract governs these rows: "Invalid external input is an admission rejection with the existing carrier's D9 code; an invalid host-generated internal layer is a host invariant fault" (admission-and-qualification §1). Every refusal maps by an exhaustive match with no wildcard arm into 468 r5 item 6's termination shape:
 
@@ -106,21 +106,16 @@ The product contract leaves four things open for this gate:
    |---|---|---|---|---|---|
    | 1 | A `Named` ID not in the bundled registry: wrong name, wrong version, unversioned, non-canonical spelling, or (in M2) any ID; or a selection of zero, or more than one, sources | request-rejected / 2 | `CONFIG.INVALID` / none | `CONFIG.INVALID` | the presented ID, or `count:<n>` |
    | 2 | A `Supplied` pack that passes items 6.1 to 6.3 | request-rejected / 2 | `CONFIG.INVALID` / none | `CONFIG.INVALID` | `supplied:<user\|third-party>:sha256:<hex>` |
-   | 3 | A `Supplied` source (a document the caller presents) failing item 6.2 | request-rejected / 2 | `CONFIG.INVALID` / none | `POLICY.IMPERATIVE_KEY_REFUSED` | the member's JSON Pointer |
+   | 3 | Any source failing item 6.2 | request-rejected / 2 | `CONFIG.INVALID` / none | `POLICY.IMPERATIVE_KEY_REFUSED` | the member's JSON Pointer |
    | 3a | A `Supplied` source failing item 6.1 or 6.3 | request-rejected / 2 | `CONFIG.INVALID` / none | `CONFIG.INVALID` | `supplied:<provenance>:sha256:<hex>` |
-   | 4 | A bundled row failing item 6.1, 6.2, 6.3, 6.5, 6.6 or 6.7, a self-inconsistent registry, or a traversal limit | operational-failed / 4 | `SYSTEM.OUTCOME.ILLEGAL_STATE` / `host-invariant` | `HOST.INVARIANT_VIOLATED` | `pack:<packId>` |
+   | 4 | A bundled row failing item 6.1, 6.3, 6.5, 6.6 or 6.7, a self-inconsistent registry, or a traversal limit | operational-failed / 4 | `SYSTEM.OUTCOME.ILLEGAL_STATE` / `host-invariant` | `HOST.INVARIANT_VIOLATED` | `pack:<packId>` |
 
    - **Row 1** follows the native precedent exactly: an invalid capability request under external configuration is request-rejected 2, `CONFIG.INVALID`, detail `CONFIG.INVALID`. Row 3 is workflows-and-surfaces' "duplicate waiver / imperative policy key" row.
    - **Registry rows.** All five codes have rows in `public-detail-registry.v1.json`: `CONFIG.INVALID`, `HOST.INVARIANT_VIOLATED`, `POLICY.IMPERATIVE_KEY_REFUSED`, `POLICY.UNKNOWN_RULE` and `IMPORT.ABSENT_FOR_PREDICATE`. The D9 error codes and fault cause are members of the generated `Common4D9ErrorCode` and `Common4D9FaultCause`. **No new code is added.**
-   - **Row 3 is for caller documents only (r2, RF-1).** Its detail carries the caller remedy "the policy DSL is declarative data only". An imperative member in a bundled document is signed-core bytes, an invalid host-generated layer under admission-and-qualification §1, so it is row 4 with subject `pack:<packId>`, like any other bundled defect. The release self-check of item 10 still refuses to ship such a row.
-   - **Remedy keying (r2, RF-2).** The published remedy `PUBLIC_ROUTE_REMEDIES["CONFIG.INVALID"]` (`native/native_evidence_model.v2.py`) is the capability-selection string: "the configured capability selection is invalid: name a registered capability id from the native capability matrix, and state at most one row per (capabilityId, languageMode, workspaceRoot)". native-evidence's remedy-keying constraint keys that table by public code, so one string must stay true for every key that reaches the code. As published, that string is not a true next step for rows 1, 2 and 3a, which are an unregistered pack ID, a supplied pack and a selection count.
-     - The remedy-text contract successor **X12-0** widens that one string so it stays true for the existing capability keys and for these pack rows.
-     - Its content is fixed by X12-0's own review. It must say three things in substance: name a registered capability id and state at most one row per (capabilityId, languageMode, workspaceRoot); name exactly one bundled policy pack id; supply no policy document of your own.
-     - X12-0 precedes X12b. No row 1, 2 or 3a is emitted before it lands.
-     - The public code stays `CONFIG.INVALID`. No code is minted.
+   - **Remedy keying.** native-evidence's remedy-keying constraint obliges X12b to check that `CONFIG.INVALID`'s published remedy is a true next step for an unregistered pack ID and for a supplied pack. If it is not, the successor widens that remedy string. It does not mint a code.
    - **Traversal limits.** These are named constants sized to the DSL's own bounds (512 rules, 64 nodes, depth 8), so a document that passes the schema never reaches a limit. A limit is therefore row 4.
 
-   **Rejected:** minting `POLICY.PACK_UNREGISTERED` or `PACK.NOT_BUNDLED`. The native route already uses `CONFIG.INVALID` for an id the closed registry does not admit under external configuration. The remedy-keying constraint allows a new key to reuse a code when its author widens the code's remedy so the one string is true for every key, and that is X12-0. A new detail would add a public code for a condition the existing code covers once its remedy is widened.
+   **Rejected:** minting `POLICY.PACK_UNREGISTERED` or `PACK.NOT_BUNDLED`. The registered `CONFIG.INVALID` detail already states "this configuration names something the closed registry does not admit", and the native route reuses it for the same condition.
 
 8. **Order: pure, and before everything (lead decision).** Pack admission does no I/O, takes no lock and is not charged to any ledger. The host runs `admit_policy_selection` first in an analysis request, before:
    - X1 write admission, X2 project admission or any fence;
@@ -160,12 +155,11 @@ The product contract leaves four things open for this gate:
       - in the release registry, `opensip.preview.typescript.pack:1` itself (not bundled in M2).
     - **NT-1, second limb** (`G24.nt1.user-pack`, `G24.nt1.third-party-pack`): `Supplied` sources of both provenances, one of them byte-identical to the test pack's bundled document, are row 2.
     - **NT-2** (`G24.nt2.non-declarative-pack`):
-      - `Supplied` documents with top-level and in-rule `script`, `hook`, `exec` and `include` members, and with a string `emitWhen`, are row 3 with the pointer;
+      - top-level and in-rule `script`, `hook`, `exec` and `include` members, and a string `emitWhen`, are row 3 with the pointer;
       - a non-JSON blob offered as a component contribution is row 3a.
     - **Selection count:** a selection of zero sources, and one of two, is row 1.
     - **Positive case:** under the `cfg(test)` registry, `opensip.test.fixture.pack:1` admits, and its digest equals `policySha256`.
-    - **Bundled defects:** a `cfg(test)` registry with a digest mismatch, an unregistered contribution, a rule-law failure or an imperative member (an `exec` key in a rule) gives row 4, subject `pack:<packId>`, never row 3 (RF-1).
-    - **Remedy:** the `CONFIG.INVALID` remedy emitted on rows 1, 2 and 3a is the X12-0 string, byte for byte (RF-2).
+    - **Bundled defects:** a `cfg(test)` registry with a digest mismatch, an unregistered contribution or a rule-law failure gives row 4.
     - **Release registry self-check:** every release row passes item 6, and in M2 there are zero release rows.
     - **No evaluation:** source pins show that `configuration.rs` calls only `policy::admit_pack`, and that the refusal paths reach no evaluation, provider, facts, Coverage or custody call. A refusal returns before any `AdmittedPack` exists, and nothing downstream accepts anything else.
     - **`check_plan_pack`:** a corpus Plan naming `"fixture"` is refused; a test-pack Plan with the matching digest admits; and a test-pack Plan with any other policy digest is refused.
@@ -173,7 +167,6 @@ The product contract leaves four things open for this gate:
 
 ## Units after the law
 
-- **X12-0, contract successor (remedy text, RF-2).** Widens the one `PUBLIC_ROUTE_REMEDIES["CONFIG.INVALID"]` string in `native/native_evidence_model.v2.py` and every published copy of that remedy, so it stays true for the existing capability keys (`native.requested-capability-unregistered`, `-mode-unregistered` and `-duplicate-ownership-tuple`) and for item 7's rows 1, 2 and 3a. The public code stays `CONFIG.INVALID`, and no detail or alias is added. It is reviewed on its own. It depends on nothing, and it precedes X12b.
 - **X12a (evaluator), inventory successor.** Covers items 2 to 7 and 9:
   - `pack-registry.json`, with zero release rows, and the `cfg(test)` registry;
   - `PackSource`, `AdmittedPack`, `admit_pack` and the imperative classifier;
@@ -184,14 +177,14 @@ The product contract leaves four things open for this gate:
 - **X12b (host), inventory successor.** Covers items 1, 5, 7 and 8:
   - `crates/host/src/configuration.rs` with `admit_policy_selection`;
   - the termination mapping into 468 r5 item 6's shape;
-  - emitting the X12-0 remedy on rows 1, 2 and 3a;
+  - the remedy-keying check of item 7;
   - the host tests.
 
-  It depends on X12a and X12-0.
+  It depends on X12a.
 - **X12c (M3), contract successor.** The DR-131 pack row `opensip.preview.typescript.pack:1` and its bundled bytes. It needs the preview rule IR frozen. If the import-cycle rule needs a relation or atom that the atom registry and `PolicyDocumentV2` do not have, that is a policy-language contract successor, owned by DR-131's execution remainder, before the row can ship. It is not M2 work.
 - **X12d (M3), inventory successor.** The Run-closure application of `check_plan_pack` inside replay, and regeneration of the synthetic replay corpus onto the bundled test pack, with the M3 Plan builder (item 9). It must land before any analysis producer can reach X5.
-- **No public-code contract successor is needed** (item 7). The only contract successor is X12-0's remedy text.
-- **EXIT-PLAN corrections:** X12 depends on nothing (item 8), and the X12 row should read "LAW r2 PROPOSED (policy-admission-x12); units X12-0 (remedy text), X12a, X12b; X12c and X12d at M3".
+- **No public-code contract successor is needed** (item 7). If X12b's remedy check fails, a remedy-text successor for `CONFIG.INVALID` follows. That is a text widening, not a new code.
+- **EXIT-PLAN corrections:** X12 depends on nothing (item 8), and the X12 row should read "LAW r1 PROPOSED (policy-admission-x12)".
 
 ## Forbidden substitutes
 
@@ -217,9 +210,7 @@ The product contract leaves four things open for this gate:
   - a host wrapper around `AdmittedPack`;
   - a boolean or string standing in for admission;
   - a silent admission, or a waiver of a refusal;
-  - a new public code;
-  - an imperative member of a bundled document surfacing as row 3;
-  - emitting row 1, 2 or 3a before X12-0 lands.
+  - a new public code.
 
 ## Not claimed
 
