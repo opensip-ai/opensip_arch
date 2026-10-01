@@ -1,4 +1,4 @@
-REVIEWER review: law X3a r4, an amendment after r3 acceptance found while implementing X3a-1. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/REVIEWDIR. Law review; no product cargo.
+Grok review: law X3a r4, an amendment after r3 acceptance found while implementing X3a-1. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/grok-store-admission-x3a-r4. Law review; no product cargo.
 
 Subject: docs/implementation/m2/store-admission-x3a/PROPOSAL.md r4 (pin in hashes.txt). `diff` it against PROPOSAL-r3.md.
 
