@@ -1,4 +1,4 @@
-# Host finalization: outcomes, delivery after commit and the rollover route — proposal X7 r3
+# Host finalization: outcomes, delivery after commit and the rollover route — proposal X7 r2
 
 2026-10-01. Claude Opus 5.5, implementation lead. Law for unit X7 of `EXIT-PLAN.md`. It is written under:
 - the build plan's opaque-prerequisite decision (lines 25–40), its end-path paragraph (lines 140–146), its publication sequence (lines 155–185) and its delivery rule (lines 820–835);
@@ -15,8 +15,6 @@ r2 answers Grok X7 r1:
 - **RF-2.** The rollover takes no second gate and no fresh admission. It runs inside X3b item 4's end step, on this invocation's one gate admission and the fence that step holds, and its `TERMINAL` append follows X3b item 5 under an `EXCLUSIVE` lease taken under that fence (item 6). Items 7, 10 and 11 are corrected to match.
 
 r1 bytes are preserved in PROPOSAL-r1.md.
-
-r3 answers Grok X7 r2 RF-1. The rollover's reads, the `TERMINAL` append, the g+1 publication and their confirmations are attempt work. They are charged to the attempt ledger this invocation already opened (X1 item 5, X3d item 8, X3b item 9), and the gate ledger keeps only the gate's own work. Items 7 and 10 are corrected. r2 bytes are preserved in PROPOSAL-r2.md.
 
 ## Problem
 
@@ -123,15 +121,7 @@ DR-G27 requires that a preview or ephemeral result is never labelled authoritati
      - `WORK.BUDGET_EXHAUSTED` or `HOST.IO_FAILURE`: no budget was exhausted and no I/O failed;
      - a new code: it would need a contract successor (the X4T-c kind), and a fitting row exists.
 
-7. **Budget (RF-1 r2).** Finalization charges nothing itself.
-   - **Replay** is bounded by X5's limits.
-   - **The commit and its whole end path** are charged to X1's attempt ledger (X1 item 5, X3d item 8).
-   - **The delivery phase** runs on the read session's ledger (458c).
-   - **The rollover is attempt work.** Its carrier reads, the `TERMINAL` append and the g+1 publication are charged, before they run, to the attempt ledger this invocation's one admission already opened, the ledger X3b item 9 calls the operation ledger. The end step's floor write is charged the same way. Every post-effect confirmation, such as a witness reopen, a barrier or a pointer confirmation, is reserved there first.
-   - **The gate ledger stays the gate's own work** (X1 item 5, 468b).
-   - **No second ledger** is opened, and no fresh admission is created.
-   - **Exhaustion.** An exhausted attempt ledger at the rollover takes the budget row as a rollover failure (item 6). It never rewrites the attempt's outcome.
-   - **Rejected:** charging the rollover to the gate ledger (r2). X1 item 5 keeps the two ledgers separate, because the gate accepts no caller's charges.
+7. **Budget.** Finalization charges nothing itself. Replay is bounded by X5's limits. The commit is charged to X1's attempt ledger, as X3d item 8 says. The delivery phase runs on the read session's ledger (458c). The rollover is charged to the gate ledger this invocation's one gate admission already opened, which X3b item 4's end step uses for its floor write (RF-2). Each read and the `TERMINAL` append are charged before they run, and every post-effect confirmation is reserved first. No second ledger and no fresh admission are created.
 8. **Termination totality.** `finalize` returns exactly one `InstallationTermination`-style envelope or one success envelope per invocation. It projects through an exhaustive match over X3d's outcome types and the delivery result, with no wildcard arm.
 
    **Rejected:** a fallback "unknown" row. It would hide a new outcome variant from the compiler.
@@ -152,7 +142,6 @@ DR-G27 requires that a preview or ephemeral result is never labelled authoritati
       - `CommitUndetermined` discloses the `executionId` and calls no recover;
       - capacity exhaustion finishes, releases the operation lease, and runs the rollover in X3b's end step:
         - under that step's fence, on the same gate admission;
-        - charged to the attempt ledger, before each read and append, with each confirmation reserved first, while the gate ledger's balance is unchanged by the rollover;
         - with `admit_ordinary_writer` never called a second time;
         - with `TERMINAL` appended under the `EXCLUSIVE` lease through item 5's protocol;
         - with the attempt reported on the busy row;
