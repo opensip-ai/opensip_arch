@@ -1,4 +1,4 @@
-# The opaque API refusal suite — proposal X8 r3
+# The opaque API refusal suite — proposal X8 r2
 
 2026-10-02. Claude Opus 5.5, implementation lead. Law for unit X8 of `EXIT-PLAN.md`. It is written under:
 - the build plan's M2 row (`implementation-boundaries-and-build-plan.md` line 886: "Opaque API refusal tests … pass; synthetic fixtures remain labelled, not compiler qualification");
@@ -11,14 +11,6 @@
 - **RF-1: one shared gate predicate (item 4b).** Accepted X9 r1 item 6 already widens the same fixture gates to `cfg(any(test, feature = "crash-matrix"))`, and X9-1 pins them. A Rust item has one cfg predicate. So both laws now use one site list, X9-1's pin, extended by name. Each shared site is written `cfg(any(test, feature = "crash-matrix", feature = "scenario-fixtures"))`. The two features stay separate, and so do their support modules. X8 records the joint predicate as the wording change to X9 item 6 and to X9's matching forbidden substitute. X9's accepted outcome stands. Items 4b, 4c, 4f and 4g, the units and the forbidden substitutes change to match.
 - **RF-2: B6 and B7 publish through X9 item 6's fenced helper, in a process that does not hold the operation lease (item 5a).** X4 item 2 forbids trust writes under a lease. r1's `publish_revocation` on the lease-holding test thread is withdrawn. The test thread waits for the helper process to exit, then calls `prepare_commit` and `publish`, with no sleep. B3 and B5 stay on the test thread.
 - **Unchanged from r1:** everything else, including items 1 to 3, B0 to B5 and B8, and item 6.
-
-**r3 (2026-10-02) answers Grok X8 r2 RF-1: the helper process exited 0 without publishing.** r2 bytes are preserved in PROPOSAL-r2.md.
-- **The defect.** r2 item 5a re-executed the test binary with `--exact` on an `#[ignore]`d test and no `--ignored` or `--include-ignored`. On rustc 1.95.0 the harness then prints "ignored" and exits 0, so the waited success was a process that published nothing. Separately, the entry could not reach the publisher: X9 item 6 places its helper in `crash_matrix_support`, which exists only under `crash-matrix`, and r2 named no `scenario` function to replace the withdrawn `publish_revocation`.
-- **The change (items 4b, 4c and 5a, and the forbidden substitutes).**
-  - The entry is an ordinary `#[test]` in X9 item 3's shape. It returns at once unless its helper environment variable is set, and it publishes only when it is.
-  - It calls `scenario::publish_revocation_fenced`, which runs the shared fenced publisher. X9-1 places that publisher on item 4b's joint-predicate site list, so it compiles under `scenario-fixtures` alone, with `crash-matrix` off.
-  - Two self-checks make a no-op exit fail the case: the helper's tagged `published` record, and a strictly advanced revocation version read before and after.
-- **Unchanged from r2:** everything else.
 
 Every decision here is a lead decision, made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation; each names the alternative it rejects. Product baseline: `f1b8321` (X3d-0 integrated). Not code. X8 adds no public code, row or detail.
 
@@ -167,7 +159,7 @@ The trial driver is `/tmp/opensip-x8-trial/product/crates/host/tests/admission_t
         - `Image::Injected` in `security/src/trust/initial_core.rs`;
         - `HomeSource::Fixture` and its match arm in `admit_with` (`security/src/custody/installation_admission.rs`);
         - X4T-0 (`security/src/trust/accepted_store_fixture.rs` and its module declaration);
-        - the fenced `state.v1` publisher of X9 item 6 (item 5a). X9-1 places it on this list under the joint predicate (r3). It is a function beside the trust owner's publication code, not an item of `crash_matrix_support`. `crash_matrix_support`'s helper and `scenario::publish_revocation_fenced` (item 4c) are both thin callers of it.
+        - the fenced `state.v1` publisher of X9 item 6 (item 5a).
       - **The predicate.** Each shared site is written `cfg(any(test, feature = "crash-matrix", feature = "scenario-fixtures"))`, and nothing else.
       - **What goes on the list.** A site goes on the list only if both support surfaces call it.
         - X9's barrier and fault sites stay `cfg(test)` with X9's points beside them: `AppendStep`, `ObjectStep` and the ledger commit hook. `scenario` never names them.
@@ -198,14 +190,6 @@ The trial driver is `/tmp/opensip-x8-trial/product/crates/host/tests/admission_t
 
         It uses only the shared sites of item 4b: the injected image and the synthetic V2 profile set through the real creator path, as X9 item 6's installation does; the fixture home source; and X4T-0's store.
       - **No in-process trust publication (r2, RF-2).** r1's `publish_revocation` is withdrawn. A trust update after the handoff runs only in a separate helper process (item 5a).
-      - **`publish_revocation_fenced(home, subjects) -> Result<RevocationVersions, InstallationTermination>` (r3).** It calls the shared fenced publisher of item 4b:
-        - it takes the installation fence by its production walk;
-        - it writes an X4T-0-signed revocation record naming `subjects`, an empty list meaning a revocation that names nothing in any closure;
-        - it replaces `state.v1` atomically;
-        - it releases the fence.
-
-        It returns the revocation version before and after. It is compiled under `scenario-fixtures` alone, with `crash-matrix` off. It refuses, without writing, if the calling process holds any operation lease that `scenario::operation` handed out (a process-wide flag that `operation` sets). Only item 5a's helper entry calls it.
-      - **`revocation_version(home) -> u64` (r3).** It reads `state.v1` by name and returns its revocation version. It is read-only: it takes no fence, writes nothing, admits nothing and returns no authority type. It exists for item 5a's self-check.
       - **`paths(namespace)`:** the read-only paths of the root, `.opensip`, marker, lease, endpoint and lineage files.
       - **`carrier_census(namespace)`:** a read-only count of SEAL, REV, CLN and TERMINAL records.
    d. **What storage's `scenario` offers.**
@@ -249,24 +233,10 @@ The trial driver is `/tmp/opensip-x8-trial/product/crates/host/tests/admission_t
 
    a. **The revocation helper (r2, RF-2).** X4 item 2 forbids writing trust state under a lease, and after the handoff the test's session holds the operation lease (X2 r8 item 7a).
       - **Who publishes.** The publication is the fenced trust-owner update: X9 item 6's helper, the shared publisher on item 4b's site list. It takes the installation fence by its production walk, writes the signed revocation record, and replaces `state.v1` atomically.
-      - **Where it runs (r3).** In a separate process that never ran `operation` and holds no operation lease. The fence is free, because the handoff released it.
-        - **The entry.** It is an ordinary `#[test] fn x8_helper_publish_revocation()` in `admission_tests.rs`, in X9 item 3's shape. It returns at once unless `OPENSIP_X8_HELPER` is set, so it passes trivially in the lane's own run and never publishes there. It is not `#[ignore]`d, so no harness flag decides whether its body runs.
-        - **The command.** The test re-executes its own binary as `current_exe() --exact x8_helper_publish_revocation --nocapture --test-threads=1`.
-        - **The environment.** The environment is cleared and then given only `OPENSIP_X8_HELPER=publish-revocation`, `OPENSIP_X8_INPUT` (a file under the case's scratch root naming the scenario home and the subjects), and `TMPDIR`, set to the case's scratch parent.
-        - **What the helper does.** With the variable set, it reads the input file and calls `scenario::publish_revocation_fenced`. On success it writes one tagged stderr record, `X8|published|<before>|<after>`, and returns, so the process exits 0. Any error panics, so the process exits non-zero.
-      - **How the test thread waits (r3).** It reads `scenario::revocation_version(home)` before it spawns the helper. It then waits for the helper to exit, with no sleep. The case fails unless all of these hold:
-        - the exit status is success;
-        - stderr holds exactly one `X8|published|` record, and the harness reports one test run, not zero filtered;
-        - the record's `after` is greater than its `before`;
-        - `revocation_version(home)` read after the exit equals the record's `after`.
-
-        Only then does it call `prepare_commit` and `publish`. A helper that exits 0 without publishing therefore fails the case: an ignored entry, a filter that matches nothing, or an unset variable.
+      - **Where it runs.** In a separate process that never ran `operation` and holds no operation lease. The test re-executes its own test binary (`std::env::current_exe()`) with `--exact` on one `#[ignore]`d helper test, passing the scratch home and the revocation subjects through the environment. The fence is free, because the handoff released it.
+      - **How the test thread waits.** It waits for the helper process to exit with success. Only then does it call `prepare_commit` and `publish`. There is no sleep, and a helper failure fails the case.
       - **What the publication reaches.** The first checkpoint's monitored observation reads the published view, so the outcome does not depend on the observer's 5 s tick. If the observer ticks first, it latches on the same revocation, with the same row.
       - **Rejected:** r1's in-process `publish_revocation` on the lease-holding thread, which either takes the fence under a lease or replaces `state.v1` with no fence; and a helper thread in the test process, which shares the process that holds the lease.
-      - **Rejected (r3):**
-        - an `#[ignore]`d entry spawned with `--ignored`, which works, but a dropped flag turns it back into a silent no-op, and the lane's `--include-ignored` runs would execute it without the helper environment;
-        - calling `crash_matrix_support`'s helper, which does not exist with `crash-matrix` off;
-        - trusting the exit status alone.
 
    | Case | Alteration | Expected outcome | Census after `finish` | Owner of the refusal |
    |---|---|---|---|---|
@@ -347,7 +317,6 @@ Each unit is reviewed with an inventory successor that lists its new files.
 - **Behavioural cases:**
   - one that sleeps, uses wall-clock timing, or alters state inside `publish` without X9's barrier points;
   - (r2) a trust publication from the process or thread that holds the operation lease, or one not made under the installation fence by the shared publisher;
-  - (r3) a helper entry whose body a harness flag can skip, or a helper success accepted on its exit status alone, without the `published` record and the advanced revocation version;
   - a refusal asserted without B0, or without the durable census.
 - **New vocabulary:** a new public code, row or detail.
 
