@@ -6,7 +6,7 @@
 - **Amended:** items 3 (step 4's last table row), 4 (start and end), 5 (the `TERMINAL` bullet), 6, 8, 9, 10, 11 and 12, the forbidden substitutes and the not-claimed list.
 - **Unchanged from r6:** everything else.
 
-**r8 (2026-10-01) answers Grok X3b r7 RF-1 to RF-3.** r7 bytes are preserved in PROPOSAL-r7.md. r8 ACCEPTED by Grok on 2026-10-01.
+**r8 (2026-10-01) answers Grok X3b r7 RF-1 to RF-3.** r7 bytes are preserved in PROPOSAL-r7.md.
 - **RF-1 (item 5a, item 11).** `RA`, `REV` and `CLN` are admitted only when t ≤ `9007199254740989`, so the appended `seq` is at most `9007199254740990`. This matches carrier-format.v3 §5 and X3b-2's `LAST_ORDINARY_SEQ` check. `GenerationFull` at t = `9007199254740990` stays on the busy row. The `SEAL` ceiling, the `TERMINAL` window and the trigger are unchanged. Item 11's boundary test now covers both sides.
 - **RF-2 (item 13, item 11).** An observed open tail below the exhaustion's `provenTailSeq` refuses before any write, even inside the window. It refuses as floor regression when the floor is ahead of that tail, and as `uncertainTailLoss` otherwise. The `TERMINAL` row runs only when the observed tail is in the window and at least `provenTailSeq`. A test covers a restore that leaves the tail at `…988` or `…989` with `provenTailSeq` `…990`.
 - **RF-3 (item 13, item 11).** When the open generation is `9223372036854775807`, item 13's observation refuses on item 8's invariant row before any write, and no `TERMINAL` is appended. Item 13's table gains that row, and item 11 gains its test.
