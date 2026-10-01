@@ -154,7 +154,25 @@ X4's operation guard, observer and authority checkpoint all need one admitted cu
       - roles in the requested states, each bound to its `accepted.by` event;
       - the retained-phase capsule and `state.v1`.
 
-      It drives every item 12 case. It builds only through the existing producers and binders, so a store it writes must pass them. It is reviewed on its own, before X4T-a.
+      It drives every item 12 case.
+
+      **Test-only record constructor (lead decision, pre-review correction).** At 99f1c35 the product has no producer for most retained-phase kinds. Only P0 creation (`initial_publication.rs`) and test-only signing helpers exist. The kinds with no producer are:
+      - `RootAdmissionNodeV1` and `MetadataAdmissionNodeV1`;
+      - `RevocationHistoryNodeV1`;
+      - `RoleEventV1` and `RoleChangeV1`;
+      - `PublicationEventV1`;
+      - `TimeEvidenceV1` and `SignedTimeSourceV1`;
+      - a retained-phase `TrustCapsuleV1` (non-null heads and history, roles past unbootstrapped).
+
+      Their real producer is trust acceptance (X4B, S4) and S4.5. So X4T-0 constructs exactly these kinds itself, `cfg(test)` in the security crate. Each is canonically encoded against its closed shape, signed with the public test quorum seeds, and accepted by the existing binders.
+
+      The round-trip test requires `capture_p2`, `current_record_bindings::bind`, `bind_retained_head` and `publication_events::bind_events` to accept the written store. The constructor is never compiled into a release build. No production path can reach it (a source pin guards this). It grants no standing outside tests.
+
+      Rejected:
+      - moving X4B before X4T-a, which would lengthen the critical trust chain and couple the reader to acceptance;
+      - using the placeholder-digest corpora, which are not signed stores.
+
+      X4B remains the only production producer and is required before X11. It is reviewed on its own, before X4T-a.
     - **X4T-a:** the read-only admission (depends on X4T-0): items 1 to 6, 8, 9 (the fenced read and the one-attempt reread), 10 and 11, with report-only time. Depends on X3a-1.
     - **X4T-b:** the write-ahead floor publication and the retained `state.v1` advance (item 7). Depends on X4T-a and reuses 467's trust publication producers.
     - **First trust acceptance (new follow-up, X4B).** Until an installation's roles are `Trusted`, no operation can be admitted. The first acceptance of the core's embedded bootstrap payload (S4 step 2) as an authenticated installation trust event is a separate law and unit. It is not needed for the M2 exit matrix, which runs on synthetic signed trust stores, but it is needed before any real installation can commit. EXIT-PLAN gains it before X11.
