@@ -1,4 +1,4 @@
-Grok review: X2b-2, the Git tracking observation (law X2 r7 item 6a and item 1's Git premise scope), with inventory v98. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/review-git-tracking-x2b2-r1. If you build, use a CARGO_TARGET_DIR under that directory. Never run git against a real repository except read-only against the worktree below; the tests build their own scratch repositories.
+Grok review: X2b-2, the Git tracking observation (law X2 r7 item 6a and item 1's Git premise scope), with inventory v98. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/grok-git-tracking-x2b2-r1. If you build, use a CARGO_TARGET_DIR under that directory. Never run git against a real repository except read-only against the worktree below; the tests build their own scratch repositories.
 
 Law: `docs/implementation/m2/project-root-x2/PROPOSAL.md` r7. r7 is queued for your review separately (`reviews/grok-project-root-x2-r7/`); this unit implements it. The r7 change came from implementing this unit: under r5, item 1's custody rule for the system Git configuration sources refused every repository on a stock Mac (`/` is on the sealed system volume and omits its ACL, `/etc` is a link, `/opt/homebrew/etc` is user-owned and admin-writable).
 
@@ -49,7 +49,7 @@ The code is in `custody/git_tracking.rs`.
 
 ## Checks
 
-- X2b-2 tests 23/23. Full workspace: see hashes.txt's companion report from the lead (one run). Clippy `-D warnings` and fmt are clean.
+- X2b-2 tests 23/23. Full workspace, one run: 1316 passed, 0 failed, 3 ignored. Clippy `-D warnings` and fmt are clean.
 - `check_package_edges --lane host` against v98 passes.
 - verify_scratch (v98 appended over the real lock at fc7dce7) passes: 65 inventory successors, 71 contract successors, 16 inheritance rows, v98 selected.
 - verify_projection against the real lock: 16 rows, 83 corruptions refused. `build_v98.py` reruns produce the same bytes.
@@ -68,3 +68,5 @@ review.json must contain:
 - "inventoryCandidateAssessment": {verdict, requiredFindings, path, bytes, sha256 of v98, parent (the v96 pin), successorRecord}.
 
 Write REVIEW.md and review.json. Do not commit.
+
+Lead note on ordering: X3b-1b r2 builds v97 on the same parent, v96, and is queued ahead of this unit. If X3b-1b integrates first, v98 is rebuilt on v97 before integration and gets a quick rebase-only recheck. This review judges v98 on v96 as submitted. This unit also waits on X2 r7's acceptance.
