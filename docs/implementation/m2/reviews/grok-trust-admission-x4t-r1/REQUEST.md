@@ -1,4 +1,4 @@
-REVIEWER review: law X4T r1, native current-trust admission. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/REVIEWDIR. Law review; no product cargo. Product HEAD is f7acb6d.
+Grok review: law X4T r1, native current-trust admission. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/grok-trust-admission-x4t-r1. Law review; no product cargo. Product HEAD is f7acb6d.
 
 Subject: docs/implementation/m2/trust-admission-x4t/PROPOSAL.md r1 (pin in hashes.txt). Context:
 - X4 r2 (`live-guards-x4/PROPOSAL.md`, RF-1 created X4T);
