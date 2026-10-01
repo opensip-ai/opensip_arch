@@ -17,3 +17,5 @@ Subject: docs/implementation/m2/live-guards-x4/PROPOSAL.md r3 (pin in hashes.txt
 ## Decide
 
 Are RF-1 and RF-2 closed? Is the whole law sound? Is anything new wrong? review.json must contain top-level "verdict" (ACCEPT or REQUIRED-FINDINGS), "requiredFindings" and "subjectSha256". Write REVIEW.md and review.json. Do not commit.
+
+Note: r3 also carries pre-review alignment with X4T r2: the monitor is created at X2 r5 item 7's lease-free point, not inside 7a, and the per-observation ledger is 2 × X4T r2's ceiling (128 objects, 2048 edges, 240 MiB).
