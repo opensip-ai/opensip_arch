@@ -150,3 +150,10 @@ Rejected: changing the trust-anchor tool now for one sentence.
 - **X2 r7 (needed by X2b-2):** item 1's system Git config custody rule refuses every repository on a stock Mac: `/` is on the sealed system volume off H's volume with no ACL, `/etc` is a symlink, and the Homebrew prefix is user-owned and admin-writable. Planned lead decision: system sources are refusal-only evidence. They are read by path (following links, 64 KiB cap, closed parse) with no custody judgment, and an unreadable source is `vcs-unsupported`. Global and repository sources keep custody. X2b-2's review waits for r7.
 - **F4, a possible flake (2026-10-01):** `installation_observation::tests::every_capture_phase_refuses_actual_mutations` failed once with `Capture … Changed` while four worktrees ran their suites at the same time. It didn't recur. Watch it; if it recurs, isolate it the way F3 did.
 - **F5, a candidate flake (2026-10-02, found while fixing F4):** `installation_routing::tests::a_lost_race_enters_the_gate_and_admits_the_winner` failed once with `Custody { subject: "ancestor-acl" }` during concurrent suites. The likely cause is the same shared-ancestor churn, but its error has no component index, so F4's classifier can't cover it. Watch for it.
+- **X9 cross-law gaps (2026-10-02, from the X9 r1 draft):** these are amended in one batch once X9 is accepted.
+  - **G1:** the X3d r6 item 12, X6 r2 item 11 and X7 r3 item 10 composition tests depend on X9-1, since another crate's `cfg(test)` can't be seen.
+  - **G2:** in X3c r7 item 11, X3b r10 item 11 and X4T r9 items 12–13, "only under `cfg(test)`" becomes "absent from every non-test build".
+  - **G3:** X6a/b place the read-path hold points needed by F49.
+  - **G4:** X4a places the observer-gate and checkpoint points.
+  - **G5:** whether the sweep's X1 admission refuses when a closure subject is revoked. X1 or X6 decides this; until then the F18, F19 and F38 ladders stop at R2.
+  - **G6:** X9-0 and X9-1 must land early (X9-0 before X3d-1).
