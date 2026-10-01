@@ -26,12 +26,13 @@ All under arch `docs/implementation/m2/` unless named otherwise, accepted:
 - `journal-x3b/PROPOSAL.md` r10: items 2, 3, 4, 4a, 5, 5a, 8 and 13, and the forbidden substitutes. X6 was written against X3b r6, so judgment call 1 says how r7 to r10 are applied;
 - `crash-matrix-x9/PROPOSAL.md` r1: items 4 and 5, L10 and gap G3;
 - `refusal-suite-x8/PROPOSAL.md` r3 (no X6a rows);
+- `verify-design-vd1/PROPOSAL.md` item 3 and `description-batch-d2/README.md` ("After selection"), for folding D2's supersessions into v124's projection;
 - `docs/v2/architecture/commit-recovery-plan.v1.json`: F20 to F22, F28, F43 to F46 and F49.
 
 ## Subject
 
 Pins are in hashes.txt.
-- **Product:** the worktree `/Users/sb/code/opensip-ai/opensip-x6a`, detached at `adc9081` (main). The lock selects v122. Save `git -C <worktree> diff` as product.diff and report its sha256. The two new files are intent-to-add. Lead's value: `8848ba37669838503989f44dbf5f5e964260b2bffca5c87fdcfcfea8c8363d75`, 82225 bytes; 4 files, 2061 insertions(+), 1 deletion(-).
+- **Product:** the worktree `/Users/sb/code/opensip-ai/opensip-x6a`, detached at `933e78b` (main). The lock selects v122, with contract successors D1 and D2 bound: 74 contract successors, 55 inheritance rows and D2's 4 `passageSupersessions` on v122. The unit was written on adc9081 and moved to 933e78b before review. The commits since then are F5's test fixtures, VD1's tooling and the lock-only D1 and D2 entries; none touches a file of this diff, which applies unchanged. Save `git -C <worktree> diff` as product.diff and report its sha256. The two new files are intent-to-add. Lead's value: `8848ba37669838503989f44dbf5f5e964260b2bffca5c87fdcfcfea8c8363d75`, 82225 bytes; 4 files, 2061 insertions(+), 1 deletion(-).
 - **Arch:** these files, all untracked:
   - `repository-file-inventory.v124.json` (parent v122);
   - `recovery-capture-x6a-inventory-v124-subject.json`;
@@ -114,7 +115,7 @@ Pins are in hashes.txt.
 
 Nothing in the module writes. It has no `INSERT`, `UPDATE`, `DELETE`, `IMMEDIATE`, witness or floor publication, lock, rename or sleep, and a source pin checks this.
 
-**Inventory v124** adds 2 rows to v122 (920 files): `recovery_capture.rs` (validator) and `recovery_capture_tests.rs` (test). Every inherited row is equal by value to v122's bytes. The 55 projection rows the lock binds to v122 are carried by stable path; only their candidate selectors move. Its README lists the existing rows this unit touches: `carrier_dispatch.rs` (description stays true) and `carrier_floor.rs` (out of date by omission, left to the next description-only successor).
+**Inventory v124** adds 2 rows to v122 (920 files): `recovery_capture.rs` (validator) and `recovery_capture_tests.rs` (test). Every inherited row is equal by value to v122's bytes. The 55 projection rows the lock binds to v122 are carried by stable path; their candidate selectors move by the two inserted rows. D2's four supersessions (`store_lineage.rs`, `installation_session.rs`, `read_premise.rs`, `initial_installation.rs`) are folded in as D2's README "After selection" and law VD1 item 3 require. Each entry keeps its raw `before`, and D2's `after` is its effective description. The count stays 55. Its README lists the existing rows this unit touches: `carrier_dispatch.rs` (description stays true) and `carrier_floor.rs` (out of date by omission, left to the next description-only successor).
 
 ## Judgment calls: please rule
 
@@ -217,14 +218,14 @@ All 23 also pass with `--features opensip-platform/crash-matrix`, with the point
 
 ## Checks
 
-Product checks are at adc9081 plus this diff. Arch verifiers run against the real lock at adc9081, which selects v122.
-- **Workspace runs:** two full runs of `cargo test --locked --offline --workspace --all-targets` on the final bytes, each with its own private 0700 TMPDIR: each with 1598 passed, 0 failed and 3 ignored, across 17 test binaries.
+Product checks are at 933e78b plus this diff, except where a check says adc9081. Arch verifiers run against the real lock at 933e78b, which selects v122 with D2 bound.
+- **Workspace runs:** one full run of `cargo test --locked --offline --workspace --all-targets` at 933e78b plus this diff, with a private 0700 TMPDIR: 1598 passed, 0 failed and 3 ignored, across 17 test binaries. Before the move, two full runs at adc9081 plus the same diff each had 1598 passed, 0 failed and 3 ignored, across 17 test binaries.
 - **Lints:** `cargo clippy --workspace --all-targets -- -D warnings` is clean. So are `cargo clippy -p opensip-platform --features crash-matrix --all-targets -- -D warnings` and `cargo clippy -p opensip-security --all-targets --features opensip-platform/crash-matrix -- -D warnings`.
 - **Formatting:** `cargo fmt --all -- --check` is clean.
 - **`check_package_edges --lane host`:** passes against v122 and v124, with 20 declared and 20 resolved edges.
-- **verify_scratch** (v124 appended in memory to the worktree's lock at adc9081, with the inheritance replaced by the record's 55 rows): passes, with 83 inventory successors, 73 contract successors and 55 inheritance rows; v124 is selected.
-- **verify_projection against the real lock:** 55 rows; 278 corruptions refused.
-- **`build_v124.py`:** reruns produce the same bytes. 920 files; the 918 v122 rows are equal by value; 55 projection rows, each checked against the lock's inheritance row before it is carried.
+- **verify_scratch** (v124 appended in memory to the worktree's lock at 933e78b, with the inheritance replaced by the record's 55 rows, D2 folded): passes, with 83 inventory successors, 74 contract successors, 55 inheritance rows and 4 inventoryPassageSupersessions; v124 is selected.
+- **verify_projection against the real lock at 933e78b:** 55 rows, with exactly four supersessions folded; 278 corruptions refused.
+- **`build_v124.py`:** reruns produce the same bytes. 920 files; the 918 v122 rows are equal by value; 55 projection rows, each checked against the lock's inheritance row before it is carried, and D2's four folded after their `before` is checked against the current effective text. v124's bytes are unchanged by the move; the successor record changed only in the four folded descriptions and its projection rule.
 - **Home:** `~/Library/Application Support/OpenSIP` is absent.
 
 ## Decide
@@ -240,13 +241,13 @@ Product checks are at adc9081 plus this diff. Arch verifiers run against the rea
   - no write, wait or lock.
 - Are the `x6.recover` points right in name and place for G3, given that X6b owns `after-lease` and `after-ledger-snapshot`?
 - Rule on calls 1 to 14. Call 1, the adaptation to X3b r10's succession, needs an explicit ruling. If you find that the laws contradict each other, say so with the fix.
-- Is v124 right on v122, including the carried 55-row projection?
+- Is v124 right on v122, including the carried 55-row projection with D2's four supersessions folded?
 - Is anything else wrong?
 
 review.json must contain:
 - "verdict": `ACCEPT-UNIT` or `REQUIRED-FINDINGS`;
 - "requiredFindings";
-- "subjectManifestSha256": the sha256 of `recovery-capture-x6a-inventory-v124-subject.json` (lead's value `2ab49d8e437a99c5d8c35e47333008e968f889a000367b9525b1a22533e75a37`);
+- "subjectManifestSha256": the sha256 of `recovery-capture-x6a-inventory-v124-subject.json` (lead's value `68fe96ea82ada0fb28217fd335add322833fd07fde99176a4a7f70e1821df00b`);
 - "inventoryCandidateAssessment": {verdict, requiredFindings, path, bytes and sha256 of v124, parent (the v122 pin), successorRecord (the pin of `recovery-capture-x6a-inventory-v124/successor.json`)}.
 
 Write REVIEW.md and review.json. Do not commit.
