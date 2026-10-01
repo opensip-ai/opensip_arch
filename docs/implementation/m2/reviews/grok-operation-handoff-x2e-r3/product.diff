@@ -1,0 +1,2726 @@
+diff --git a/crates/security/src/custody.rs b/crates/security/src/custody.rs
+index b8032f7..ac284c7 100644
+--- a/crates/security/src/custody.rs
++++ b/crates/security/src/custody.rs
+@@ -1822,6 +1822,10 @@ pub(crate) mod first_registration {
+ pub(crate) mod namespace_lease {
+     include!("custody/namespace_lease.rs");
+ }
++#[cfg(target_os = "macos")]
++pub(crate) mod operation_handoff {
++    include!("custody/operation_handoff.rs");
++}
+ #[cfg(all(test, target_os = "macos"))]
+ pub(crate) mod installation_read_fixture {
+     include!("custody/installation_read_fixture.rs");
+diff --git a/crates/security/src/custody/first_registration.rs b/crates/security/src/custody/first_registration.rs
+index a39a555..55d6b07 100644
+--- a/crates/security/src/custody/first_registration.rs
++++ b/crates/security/src/custody/first_registration.rs
+@@ -129,6 +129,9 @@ pub(crate) enum Step {
+     Confirmed,
+     /// Law X2 item 7 (unit X2d): namespace admission and its lease.
+     Lease,
++    /// Law X2 item 7a (unit X2e): the operation handoff, from the
++    /// lease-free point to the fence's release.
++    Handoff,
+ }
+ /// The owner a refusal concerns.
+ #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+@@ -142,6 +145,9 @@ pub(crate) enum Owner {
+     Root,
+     MarkerDirectory,
+     Marker,
++    /// `I/trust`, the carrier floor's parent (law X3b item 2), confirmed by
++    /// the operation handoff (unit X2e with X3b-3).
++    Trust,
+ }
+ impl Owner {
+     /// Project objects are judged by S3; the rest are installation-private.
+@@ -1526,6 +1532,20 @@ fn create_or_admit(
+         Ok(child)
+     })
+ }
++/// Which namespace footprint a registered project's recheck requires.
++#[derive(Debug, Clone, Copy, PartialEq, Eq)]
++pub(crate) enum Footprint {
++    /// Item 6's published footprint, exactly: the namespace holds only
++    /// `writer.lease` and `readers.lease`. Registration and item 7 (X2c,
++    /// X2d) recheck this.
++    Exact,
++    /// After X3b's carrier start may have populated N (unit X2e with
++    /// X3b-3): the carrier, its WAL and shm sidecars, the witness and a
++    /// leftover temporary file may stand beside the leases. N must still be
++    /// private and both lease files present, private and empty; only the
++    /// closed entry scan is not made.
++    Started,
++}
+ /// The namespace's complete footprint: a private directory holding exactly
+ /// `writer.lease` and `readers.lease`, each an empty private regular file.
+ fn confirm_footprint(
+@@ -1533,9 +1553,23 @@ fn confirm_footprint(
+     uid: u32,
+     step: Step,
+     work: &mut WorkScope<'_>,
++) -> Result<(), Failure> {
++    confirm_namespace_files(directory, uid, Footprint::Exact, step, work)
++}
++/// The namespace under `footprint`: private, both lease files present,
++/// private and empty, and under `Exact` nothing else.
++fn confirm_namespace_files(
++    directory: &RetainedDirectory,
++    uid: u32,
++    footprint: Footprint,
++    step: Step,
++    work: &mut WorkScope<'_>,
+ ) -> Result<(), Failure> {
+     let owner = Owner::Namespace;
+     observe_private_directory(directory.as_file(), uid, work).map_err(private(step, owner))?;
++    if footprint == Footprint::Started {
++        return lease_files(directory, uid, step, work);
++    }
+     let mut seen = [false; 2];
+     work.run(SCAN, |_| {
+         directory
+@@ -1561,6 +1595,16 @@ fn confirm_footprint(
+     if seen != [true, true] {
+         return refuse(RegistrationRefusal::Changed(owner));
+     }
++    lease_files(directory, uid, step, work)
++}
++/// Both lease files under N: present, private and empty.
++fn lease_files(
++    directory: &RetainedDirectory,
++    uid: u32,
++    step: Step,
++    work: &mut WorkScope<'_>,
++) -> Result<(), Failure> {
++    let owner = Owner::Namespace;
+     for lease in [WRITER_LEASE, READERS_LEASE] {
+         let file = open_named(directory, lease, step, owner, work)?;
+         if private_file(&file, step, owner, uid, work)?.size != 0 {
+@@ -1900,6 +1944,7 @@ fn recheck_current(
+     installation: &DurableInstallation,
+     policy: &ProjectChainPolicy<'_>,
+     inputs: &ProjectInputs<'_>,
++    footprint: Footprint,
+     step: Step,
+     work: &mut WorkScope<'_>,
+ ) -> Result<(), Failure> {
+@@ -1969,7 +2014,7 @@ fn recheck_current(
+         Owner::Namespace,
+         work,
+     )?;
+-    confirm_footprint(current.namespace, uid, step, work)?;
++    confirm_namespace_files(current.namespace, uid, footprint, step, work)?;
+     reconfirm(i, current.registry, step, uid, work)?;
+     let tracking_inputs = TrackingInputs {
+         chain: current.chain,
+@@ -2250,7 +2295,15 @@ pub(super) fn register_on_gate(
+                 registry: &r1,
+                 tracking: &observed,
+             };
+-            recheck_current(&current, installation, &policy, inputs, Step::Active, work)?;
++            recheck_current(
++                &current,
++                installation,
++                &policy,
++                inputs,
++                Footprint::Exact,
++                Step::Active,
++                work,
++            )?;
+             transitions_quiet(
+                 installation.installation_directory(),
+                 uid,
+@@ -2336,7 +2389,8 @@ pub(super) fn register_on_gate(
+ }
+ 
+ /// The registered project's recheck set (item 3's, with the owners item 6
+-/// published), on the given ledger.
++/// published), on the given ledger, with item 6's exact namespace
++/// footprint.
+ pub(super) fn recheck_registered(
+     registered: &RegisteredProject,
+     installation: &DurableInstallation,
+@@ -2344,6 +2398,29 @@ pub(super) fn recheck_registered(
+     inputs: &ProjectInputs<'_>,
+     step: Step,
+     work: &mut WorkScope<'_>,
++) -> Result<(), Failure> {
++    recheck_registered_with(
++        registered,
++        installation,
++        policy,
++        inputs,
++        Footprint::Exact,
++        step,
++        work,
++    )
++}
++/// The registered project's recheck set under `footprint`. Every owner is
++/// rechecked as `recheck_registered` rechecks it; only the namespace's
++/// closed entry scan depends on `footprint` (unit X2e: after X3b's carrier
++/// start, N also holds the carrier and its witness).
++pub(super) fn recheck_registered_with(
++    registered: &RegisteredProject,
++    installation: &DurableInstallation,
++    policy: &ProjectChainPolicy<'_>,
++    inputs: &ProjectInputs<'_>,
++    footprint: Footprint,
++    step: Step,
++    work: &mut WorkScope<'_>,
+ ) -> Result<(), Failure> {
+     let current = Current {
+         chain: &registered.chain,
+@@ -2358,7 +2435,15 @@ pub(super) fn recheck_registered(
+         registry: &registered.registry,
+         tracking: &registered.tracking,
+     };
+-    recheck_current(&current, installation, policy, inputs, step, work)
++    recheck_current(
++        &current,
++        installation,
++        policy,
++        inputs,
++        footprint,
++        step,
++        work,
++    )
+ }
+ 
+ /// The registered project's recheck on the write gate, then the gate's.
+diff --git a/crates/security/src/custody/first_registration_tests.rs b/crates/security/src/custody/first_registration_tests.rs
+index 9239f7b..bb44973 100644
+--- a/crates/security/src/custody/first_registration_tests.rs
++++ b/crates/security/src/custody/first_registration_tests.rs
+@@ -995,3 +995,47 @@ fn a_registered_projects_recheck_sees_a_later_registry_change() {
+     );
+     spent(&mut writer, &project);
+ }
++
++#[test]
++fn a_started_namespace_keeps_its_leases_but_not_the_exact_footprint() {
++    // Unit X2e: once X3b's carrier start has populated N, the registered
++    // recheck holds N to `Started`: private, both leases present, private
++    // and empty. `Exact` (X2c's and X2d's) still refuses the extra entries.
++    let fixture = ReadFixture::new("x2e-footprint");
++    let n = fixture.home.join("n");
++    private_directory(&n);
++    for name in [WRITER_LEASE, READERS_LEASE, "grant-journal.sqlite"] {
++        let file = n.join(name);
++        fs::write(&file, b"").unwrap();
++        fs::set_permissions(&file, fs::Permissions::from_mode(0o600)).unwrap();
++        private(&file);
++    }
++    let uid = fs::metadata(&n).unwrap().uid();
++    let retained = RetainedDirectory::from_retained_handle(File::open(&n).unwrap()).unwrap();
++    let check = |footprint| {
++        opensip_platform::WorkLedger::new()
++            .scope(|work| confirm_namespace_files(&retained, uid, footprint, Step::Handoff, work))
++    };
++    assert!(matches!(
++        check(Footprint::Exact),
++        Err(WorkFailure::Operation(RegistrationRefusal::Changed(
++            Owner::Namespace
++        )))
++    ));
++    check(Footprint::Started).unwrap();
++    // A lease that is no longer empty, or gone, is a change either way.
++    fs::write(n.join(READERS_LEASE), b"x").unwrap();
++    assert!(matches!(
++        check(Footprint::Started),
++        Err(WorkFailure::Operation(RegistrationRefusal::Changed(
++            Owner::Namespace
++        )))
++    ));
++    fs::remove_file(n.join(READERS_LEASE)).unwrap();
++    assert!(matches!(
++        check(Footprint::Started),
++        Err(WorkFailure::Operation(RegistrationRefusal::Changed(
++            Owner::Namespace
++        )))
++    ));
++}
+diff --git a/crates/security/src/custody/installation_admission.rs b/crates/security/src/custody/installation_admission.rs
+index 2884de8..12786de 100644
+--- a/crates/security/src/custody/installation_admission.rs
++++ b/crates/security/src/custody/installation_admission.rs
+@@ -351,6 +351,10 @@ impl Chain {
+     pub(super) fn home_spelling(&self) -> &Path {
+         &self.home_spelling
+     }
++    /// I's (device, inode) as the walk observed it through `OpenSIP`.
++    pub(super) fn installation_id(&self) -> (u64, u64) {
++        self.installation_id
++    }
+ }
+ 
+ /// One required file: its path relative to I and the full metadata sample
+@@ -588,6 +592,24 @@ impl DurableInstallation {
+         drop(chain);
+         released
+     }
++    /// Law X2 item 7a (unit X2e): the installation's owners moved apart for
++    /// the operation handoff. The fence lock is returned still held, for the
++    /// handoff to release last; the chain, the account, the required files'
++    /// samples and the endpoint values move into the operation. The
++    /// barrier kinds end with the gate.
++    pub(super) fn into_handoff(
++        self,
++    ) -> (FileLock, Chain, Account, Vec<RequiredFile>, EndpointValues) {
++        let Self {
++            fence,
++            chain,
++            account,
++            required,
++            endpoint,
++            ..
++        } = self;
++        (fence, chain, account, required, endpoint)
++    }
+ }
+ 
+ /// Law X4T r9 item 7: what the gate retained of `state.v1` for the trust
+diff --git a/crates/security/src/custody/installation_session.rs b/crates/security/src/custody/installation_session.rs
+index 6017760..d3c274e 100644
+--- a/crates/security/src/custody/installation_session.rs
++++ b/crates/security/src/custody/installation_session.rs
+@@ -408,7 +408,11 @@ impl ObservationSession {
+ /// reserved before the first. No re-walk and no reopen. Busy retries; any
+ /// other failure stops at once on the host I/O row, as the gate's lock
+ /// step does; a lock still busy when the bound runs out is the busy row.
+-fn wait(file: File, clock: &mut impl WaitClock, work: &mut WorkScope<'_>) -> Result<FileLock, Failure> {
++pub(super) fn wait(
++    file: File,
++    clock: &mut impl WaitClock,
++    work: &mut WorkScope<'_>,
++) -> Result<FileLock, Failure> {
+     let lock_failure = |error| WorkFailure::Operation(GateRefusal::Io(IoFailure::Lock(error)));
+     work.effect(WorkCost::default(), times(LOCK_COST, MAX_ATTEMPTS), |post| {
+         let start = clock.now().map_err(lock_failure)?;
+diff --git a/crates/security/src/custody/namespace_lease.rs b/crates/security/src/custody/namespace_lease.rs
+index 0217070..57fa780 100644
+--- a/crates/security/src/custody/namespace_lease.rs
++++ b/crates/security/src/custody/namespace_lease.rs
+@@ -23,11 +23,16 @@
+ // be dropped, which releases its lease, and the fence goes with its holder
+ // afterwards. No lease is taken without the fence: the read-only recovery
+ // selector's fence-free SHARED-READ (item 7's r6 exception) is X6's and is
+-// not here. Library only.
++// not here. Library only. Unit X2e (law X2 r8 item 7a, with X3b-3) adds
++// the seams its handoff needs and nothing else: `NamespaceTarget::lease_free`
++// (the holder and N at the lease-free point), `FencedNamespace::into_parts`
++// (the move out of the fenced holder), and a footprint for a registered
++// subject's recheck once X3b's carrier start may have populated N.
+ use super::first_registration::{
+-    HOST, Owner, PROJECTS, ProjectInputs, READERS_LEASE, RegisteredProject, RegistrationRefusal,
+-    RegistrationRow, STATUS, Step, WRITER_LEASE, admission, capture_cost, identity, name_cost,
+-    private, private_child, private_file, rebind, recheck_registered, same_private, tracking,
++    Footprint, HOST, Owner, PROJECTS, ProjectInputs, READERS_LEASE, RegisteredProject,
++    RegistrationRefusal, RegistrationRow, STATUS, Step, WRITER_LEASE, admission, capture_cost,
++    identity, name_cost, private, private_child, private_file, rebind, recheck_registered_with,
++    same_private, tracking,
+ };
+ use super::git_tracking::{TrackingInputs, TrackingObservation, recheck_tracking};
+ use super::installation_admission::{DurableInstallation, RequiredFile, plus, times};
+@@ -241,10 +246,13 @@ fn active_row(
+ /// The subject's own recheck under the held fence: the root admission's
+ /// (chain, incarnation, marker, R0 and v1 absence) and item 6a's tracking
+ /// observation against this admission's chain, or the registered project's
+-/// (every owner item 6 published, R2 and the tracking observation).
+-fn recheck_subject(
++/// (every owner item 6 published, R2 and the tracking observation). A
++/// registered subject's namespace is held to `footprint` (X2d's steps use
++/// `Exact`; X2e's after the carrier start use `Started`).
++pub(super) fn recheck_subject(
+     subject: &NamespaceSubject,
+     held: &Held<'_, '_>,
++    footprint: Footprint,
+     work: &mut WorkScope<'_>,
+ ) -> Result<(), Failure> {
+     match subject {
+@@ -269,11 +277,12 @@ fn recheck_subject(
+             let Some(durable) = held.durable else {
+                 return refuse(NamespaceRefusal::Invariant("registered-without-gate"));
+             };
+-            recheck_registered(
++            recheck_registered_with(
+                 registered,
+                 durable,
+                 held.policy,
+                 held.inputs,
++                footprint,
+                 Step::Lease,
+                 work,
+             )
+@@ -292,16 +301,16 @@ struct Carrier {
+     metadata: DescriptorMetadata,
+ }
+ /// `I/host`, `I/host/projects` and N, retained and judged private.
+-struct Namespace {
+-    id: String,
+-    host: RetainedDirectory,
+-    projects: RetainedDirectory,
+-    directory: RetainedDirectory,
++pub(super) struct Namespace {
++    pub(super) id: String,
++    pub(super) host: RetainedDirectory,
++    pub(super) projects: RetainedDirectory,
++    pub(super) directory: RetainedDirectory,
+ }
+ /// An installation-private directory that R's ACTIVE row requires: present
+ /// (absence is the incomplete row), private, exactly named, and on its
+ /// parent's device.
+-fn required_directory(
++pub(super) fn required_directory(
+     parent: &RetainedDirectory,
+     name: &str,
+     owner: Owner,
+@@ -414,7 +423,7 @@ fn directories_cost(id: &str) -> WorkCost {
+ }
+ /// Each retained directory is still the one its name binds under its
+ /// retained parent, still exactly named, and still private.
+-fn recheck_directories(
++pub(super) fn recheck_directories(
+     namespace: &Namespace,
+     held: &Held<'_, '_>,
+     work: &mut WorkScope<'_>,
+@@ -448,7 +457,7 @@ fn binding_cost(name: &str) -> WorkCost {
+ /// The carrier's name under N still binds a private file with exactly the
+ /// carrier's judged sample: the same file (device and inode), unchanged.
+ /// A missing, linked or replaced name is a change.
+-fn recheck_binding(
++pub(super) fn recheck_binding(
+     directory: &RetainedDirectory,
+     name: &'static str,
+     metadata: &DescriptorMetadata,
+@@ -481,7 +490,7 @@ fn recheck_binding(
+ /// The project locks held, in acquisition order: `writer.lease` (level 1)
+ /// before `readers.lease` (level 2). Dropping releases them in reverse
+ /// order. Each keeps the sample its carrier was judged with.
+-struct HeldLease {
++pub(super) struct HeldLease {
+     writer: Option<(FileLock, DescriptorMetadata)>,
+     readers: Option<(FileLock, DescriptorMetadata)>,
+ }
+@@ -492,7 +501,7 @@ impl Drop for HeldLease {
+     }
+ }
+ impl HeldLease {
+-    fn carriers(&self) -> impl Iterator<Item = (&'static str, &DescriptorMetadata)> {
++    pub(super) fn carriers(&self) -> impl Iterator<Item = (&'static str, &DescriptorMetadata)> {
+         [
+             self.writer.as_ref().map(|(_, m)| (WRITER_LEASE, m)),
+             self.readers.as_ref().map(|(_, m)| (READERS_LEASE, m)),
+@@ -621,7 +630,7 @@ pub(super) fn admit<H: FenceHolder>(
+ ) -> Result<NamespaceTarget<H>, H::Refusal> {
+     let (row, namespace, carriers) = holder.fenced(inputs, |held, work| {
+         let row = active_row(&subject, work)?;
+-        recheck_subject(&subject, held, work)?;
++        recheck_subject(&subject, held, Footprint::Exact, work)?;
+         let (namespace, carriers) = confirm_namespace(&subject, row.namespace_id(), held, work)?;
+         Ok((row, namespace, carriers))
+     })?;
+@@ -651,6 +660,21 @@ impl<H: FenceHolder> NamespaceTarget<H> {
+     pub(crate) fn subject(&self) -> &NamespaceSubject {
+         &self.subject
+     }
++    /// The lease-free point (unit X2e, with X3b-3): `step` gets the fence's
++    /// holder, the retained N and N's id, while the fence is held and no
++    /// project lock is. X3b's floor step runs here (X3b r10 items 1 and 3),
++    /// and X4a's fenced trust admission will (X4 r7 item 2). `lease`
++    /// rechecks everything again before its first lock.
++    pub(super) fn lease_free<R>(
++        &mut self,
++        step: impl FnOnce(&mut H, &RetainedDirectory, &str) -> R,
++    ) -> R {
++        step(
++            &mut self.holder,
++            &self.namespace.directory,
++            self.row.namespace_id(),
++        )
++    }
+     /// Item 7's lease in `mode`, without blocking: the subject, the
+     /// namespace and both retained carriers are rechecked; then the locks,
+     /// each locked carrier's binding and the directories; then the
+@@ -669,7 +693,7 @@ impl<H: FenceHolder> NamespaceTarget<H> {
+             carriers,
+         } = self;
+         let lease = holder.fenced(inputs, |held, work| {
+-            recheck_subject(&subject, held, work)?;
++            recheck_subject(&subject, held, Footprint::Exact, work)?;
+             recheck_directories(&namespace, held, work)?;
+             for carrier in &carriers {
+                 same_private(
+@@ -770,6 +794,29 @@ impl<H: FenceHolder> FencedNamespace<H> {
+     pub(crate) fn namespace_directory(&self) -> &RetainedDirectory {
+         &self.namespace.directory
+     }
++    /// Item 7a step 2 (unit X2e): move the owners out. The holder comes back
++    /// still holding the fence, and the lease stays held by `NamespaceParts`;
++    /// nothing is copied.
++    pub(super) fn into_parts(self) -> (H, NamespaceParts) {
++        let Self {
++            lease,
++            mode,
++            holder,
++            subject,
++            row,
++            namespace,
++        } = self;
++        (
++            holder,
++            NamespaceParts {
++                lease,
++                mode,
++                subject,
++                row,
++                namespace,
++            },
++        )
++    }
+     /// The whole recheck set under the held fence and the lease: the
+     /// subject, the namespace's directories, each locked carrier's name
+     /// binding, then the holder's full recheck. A refusal spends the gate or
+@@ -783,7 +830,7 @@ impl<H: FenceHolder> FencedNamespace<H> {
+             ..
+         } = self;
+         holder.fenced(inputs, |held, work| {
+-            recheck_subject(subject, held, work)?;
++            recheck_subject(subject, held, Footprint::Exact, work)?;
+             recheck_directories(namespace, held, work)?;
+             for (name, metadata) in lease.carriers() {
+                 recheck_binding(&namespace.directory, name, metadata, held.uid, work)?;
+@@ -793,6 +840,16 @@ impl<H: FenceHolder> FencedNamespace<H> {
+     }
+ }
+ 
++/// A `FencedNamespace`'s owners, moved out of it for item 7a's handoff
++/// (unit X2e). The lease is still held; dropping this releases it.
++pub(super) struct NamespaceParts {
++    pub(super) lease: HeldLease,
++    pub(super) mode: LeaseMode,
++    pub(super) subject: NamespaceSubject,
++    pub(super) row: ProjectRegistryEntry,
++    pub(super) namespace: Namespace,
++}
++
+ #[cfg(test)]
+ mod tests {
+     include!("namespace_lease_tests.rs");
+diff --git a/crates/security/src/custody/operation_handoff.rs b/crates/security/src/custody/operation_handoff.rs
+new file mode 100644
+index 0000000..7eebd0f
+--- /dev/null
++++ b/crates/security/src/custody/operation_handoff.rs
+@@ -0,0 +1,792 @@
++// Law X2 r8 item 7a (unit X2e), composed with law X3b r10 items 1, 3, 3a and
++// 4 (unit X3b-3): the checked operation handoff. One owner, on one ordinary
++// writer's gate, builds the operation context while the same installation
++// fence is held:
++// - the selected store endpoint is joined from the gate's one read (X3a r5
++//   items 1 and 2);
++// - the subject's namespace is admitted (X2d, item 7), with no lock taken;
++// - at the lease-free point, with R current and no project lock held, the
++//   operation's carrier place is confirmed (`I/trust` and the spelling SQLite
++//   opens, which must name the retained N) and X3b's floor step runs, charged
++//   to the write receipt's attempt ledger (X3b r10 item 9's operation
++//   ledger). X4a's fenced trust admission joins this point later (X4 r7 item
++//   2, X4T r9 item 9); it is not built here;
++// - the lease is taken (X2d), APPEND-WRITE or EXCLUSIVE;
++// - item 7a step 1, the join: the subject, the namespace, the locked
++//   carriers and the gate are rechecked, and owner §8's five-field binding
++//   is derived from the owners about to move;
++// - step 2, the transfer: the owners move out of the fenced gate, never
++//   copied;
++// - step 3, X3b's carrier start: item 3a's creation when the floor step
++//   found INIT, item 4's start against the floor step's observation, and
++//   item 6's append lock; then every owner is rechecked once more, with a
++//   registered subject's namespace held to the started footprint (the
++//   carrier and its witness now stand beside the leases);
++// - step 4: only then is the fence released, and the gate's ledger ends.
++// The result is `ProjectOperation`. Its end path (X3b r10 item 4, end step)
++// releases the lease, and after certain journal outcomes on an open attempt
++// ledger retakes the fence by the shared charged walk and bounded wait on
++// that ledger, runs X3b-4's rollover when the owner reports the carrier's
++// capacity exhausted, copies the floor forward and releases the fence; after
++// an uncertain outcome, or on a closed attempt ledger, it does nothing more.
++// `OperationGuard` (X4a) joins this unit's seams later. Every refusal names
++// its row; the public projection is the composition owner's. Library only.
++use super::first_registration::{
++    Footprint, HOST, Owner, PROJECTS, ProjectInputs, ProjectWriteRefusal, ProjectWriteRow,
++    RegistrationRefusal, Step, rebind,
++};
++use super::installation_admission::{
++    Account, Chain, ChainPolicy, EndpointValues, GateRefusal, IoFailure, RequiredFile, Walked,
++    open_fence, walk_chain,
++};
++use super::installation_root::{FINAL_NAME, FIXED_ANCESTORS};
++use super::installation_routing::gate_refusal;
++use super::installation_session::{OsClock, WaitClock, wait};
++use super::namespace_lease::{
++    self, Failure as NamespaceFailure, Held, HeldLease, LeaseMode, Namespace, NamespaceParts,
++    NamespaceRefusal, NamespaceSubject, WriterLease, recheck_binding, recheck_directories,
++    recheck_subject, required_directory,
++};
++use super::ordinary_writer::OrdinaryWriteAdmission;
++use super::read_premise::WritePlatformReceipt;
++use super::store_endpoint::SelectedStoreEndpoint;
++use crate::InstallationTermination as T;
++use crate::journal_store::{
++    CapacityExhaustion, CarrierLocation, CarrierRefusal, CarrierRefusalRow as CarrierRow,
++    EndOutcome, ExhaustedEnd, OperationCarrier, OperationFloor, RolloverOutcome,
++    operation_end_after_exhaustion, operation_end_copy, operation_floor_step, operation_start,
++};
++use crate::trust::StateWriter;
++use opensip_identity::ProjectRegistryEntry;
++use opensip_platform::{DescriptorFilesystem, RetainedDirectory, WorkCost, WorkFailure, WorkScope};
++use std::io;
++use std::os::unix::fs::MetadataExt;
++use std::path::{Path, PathBuf};
++
++/// The carrier floor's parent under I (law X3b item 2).
++const TRUST: &str = "trust";
++/// One status read of a path, no-follow at its last component.
++const PATH_STATUS: WorkCost = WorkCost {
++    objects: 1,
++    edges: 1,
++    bytes: 256,
++};
++
++// ------------------------------------------------------------- refusals
++
++/// Why the handoff refused. Each has one row (`row`). Any refusal spends the
++/// gate, releases every project lock already taken and then the fence.
++#[derive(Debug)]
++pub(crate) enum OperationRefusal {
++    /// X3a's endpoint join (law X3a r5 item 5), as 468c maps it.
++    Endpoint(T),
++    /// X2's own steps on the gate: namespace admission, the lease, the
++    /// rechecks, the gate's and the receipt's (law X2 item 8).
++    Project(ProjectWriteRefusal),
++    /// X3b's floor step, creation or start on the attempt ledger (X3b item
++    /// 8's carrier rows; the budget row for a ledger failure).
++    Carrier(WorkFailure<CarrierRefusal>),
++    /// The fence's release failed after the carrier start: the host I/O row.
++    Release(T),
++}
++/// The row a handoff or end-path refusal names, for the composition owner.
++#[derive(Debug, Clone, PartialEq, Eq)]
++pub(crate) enum OperationRow {
++    /// 468 item 6's row, through 468c's maps.
++    Installation(T),
++    /// Law X2 item 8's row, as X2c and X2d name it.
++    Project(ProjectWriteRow),
++    /// Law X3b item 8's row.
++    Carrier(CarrierRow),
++    /// `WORK.BUDGET_EXHAUSTED`.
++    BudgetExhausted,
++}
++fn carrier_row(failure: &WorkFailure<CarrierRefusal>) -> OperationRow {
++    match failure {
++        WorkFailure::Budget(_) => OperationRow::BudgetExhausted,
++        WorkFailure::Operation(refusal) => OperationRow::Carrier(refusal.row()),
++    }
++}
++impl OperationRefusal {
++    pub(crate) fn row(&self) -> OperationRow {
++        match self {
++            Self::Endpoint(row) | Self::Release(row) => OperationRow::Installation(row.clone()),
++            Self::Project(refusal) => OperationRow::Project(refusal.row()),
++            Self::Carrier(failure) => carrier_row(failure),
++        }
++    }
++}
++fn released(error: io::Error) -> T {
++    gate_refusal(&GateRefusal::Io(IoFailure::Lock(error)))
++}
++
++// ------------------------------------------------------------ the binding
++
++/// Owner §8's five-field binding `{schemaVersion: 1, namespaceId: N,
++/// storeInstanceId: S, storeGeneration: G, stateSchema: K}`, derived in the
++/// handoff from the moved owners only (X3b r10 item 1): N from the current
++/// registry owner's ACTIVE row, S from the opened endpoint's marker, G and K
++/// from the admitted selection pair. Values only; not Clone, no serialized
++/// form, and no digest (its consumers, X3c and X3d, own that).
++#[derive(Debug, PartialEq, Eq)]
++pub(crate) struct OperationBinding {
++    namespace_id: String,
++    store_instance: String,
++    store_generation: i64,
++    state_schema: u8,
++}
++impl OperationBinding {
++    pub(crate) const SCHEMA_VERSION: u8 = 1;
++    pub(crate) fn namespace_id(&self) -> &str {
++        &self.namespace_id
++    }
++    pub(crate) fn store_instance(&self) -> &str {
++        &self.store_instance
++    }
++    pub(crate) fn store_generation(&self) -> i64 {
++        self.store_generation
++    }
++    pub(crate) fn state_schema(&self) -> u8 {
++        self.state_schema
++    }
++}
++/// The binding from N (the ACTIVE row's, which must name the confirmed
++/// namespace) and the gate's admitted endpoint, charged as one small object.
++fn derive_binding(
++    row: &ProjectRegistryEntry,
++    namespace: &Namespace,
++    held: &Held<'_, '_>,
++    work: &mut WorkScope<'_>,
++) -> Result<OperationBinding, NamespaceFailure> {
++    let Some(durable) = held.durable else {
++        return Err(WorkFailure::Operation(NamespaceRefusal::Invariant(
++            "binding-without-gate",
++        )));
++    };
++    let endpoint = SelectedStoreEndpoint::new(durable.endpoint());
++    let cost = WorkCost {
++        objects: 1,
++        edges: 4,
++        bytes: row.namespace_id().len() + endpoint.store_instance().len() + 16,
++    };
++    work.run(cost, |_| {
++        if row.namespace_id() != namespace.id {
++            return Err(WorkFailure::Operation(NamespaceRefusal::Invariant(
++                "binding-namespace",
++            )));
++        }
++        Ok(OperationBinding {
++            namespace_id: row.namespace_id().to_owned(),
++            store_instance: endpoint.store_instance().to_owned(),
++            store_generation: endpoint.store_generation(),
++            state_schema: endpoint.state_schema(),
++        })
++    })
++}
++
++// ---------------------------------------------------------- carrier place
++
++/// Where the operation's carrier and floor live (X3b item 2): `I/trust`
++/// confirmed under the fence, the admitted N with the spelling SQLite opens
++/// (confirmed to name that same N), N's id and the invoking user. Built only
++/// here, from admitted owners; `CarrierLocation::admitted` is its one
++/// consumer (X3b item 11's production constructor).
++pub(crate) struct CarrierPlace<'a> {
++    trust: &'a RetainedDirectory,
++    namespace: &'a RetainedDirectory,
++    namespace_path: &'a Path,
++    namespace_id: &'a str,
++    uid: u32,
++}
++impl<'a> CarrierPlace<'a> {
++    pub(crate) fn trust(&self) -> &'a RetainedDirectory {
++        self.trust
++    }
++    pub(crate) fn namespace(&self) -> &'a RetainedDirectory {
++        self.namespace
++    }
++    pub(crate) fn namespace_path(&self) -> &'a Path {
++        self.namespace_path
++    }
++    pub(crate) fn namespace_id(&self) -> &'a str {
++        self.namespace_id
++    }
++    pub(crate) fn uid(&self) -> u32 {
++        self.uid
++    }
++}
++/// N's absolute spelling, from H's spelling exactly as the gate walked it:
++/// `H/Library/Application Support/OpenSIP/<I>/host/projects/N`. It is
++/// admitted only if a no-follow status of it finds the retained N (same
++/// device and inode); SQLite's path opens confirm the file again by identity.
++fn namespace_spelling(
++    home: &Path,
++    id: &str,
++    namespace: &RetainedDirectory,
++    work: &mut WorkScope<'_>,
++) -> Result<PathBuf, NamespaceFailure> {
++    let path = FIXED_ANCESTORS
++        .iter()
++        .chain([FINAL_NAME, HOST, PROJECTS, id].iter())
++        .fold(home.to_path_buf(), |path, name| path.join(name));
++    let changed = || {
++        WorkFailure::Operation(NamespaceRefusal::Owner(RegistrationRefusal::Changed(
++            Owner::Namespace,
++        )))
++    };
++    let io = |error| {
++        WorkFailure::Operation(NamespaceRefusal::Owner(RegistrationRefusal::Io(
++            Step::Handoff,
++            Owner::Namespace,
++            error,
++        )))
++    };
++    let cost = WorkCost {
++        bytes: path.as_os_str().len(),
++        ..PATH_STATUS
++    };
++    work.run(cost, |_| {
++        let named = match std::fs::symlink_metadata(&path) {
++            Ok(named) => named,
++            Err(error) if error.kind() == io::ErrorKind::NotFound => return Err(changed()),
++            Err(error) => return Err(io(error)),
++        };
++        let retained = namespace.as_file().metadata().map_err(io)?;
++        if !named.file_type().is_dir()
++            || (named.dev(), named.ino()) != (retained.dev(), retained.ino())
++        {
++            return Err(changed());
++        }
++        Ok(path)
++    })
++}
++
++// ------------------------------------------------------------ the operation
++
++/// What an operation's journal ended with, as its owner (X3d's `finish`)
++/// reports it. `Uncertain` is any durability-undetermined journal outcome of
++/// the operation (X3b r10 item 5). `Exhausted` is a certain operation whose
++/// outcome was X3d's `CarrierCapacityExhausted`, with the released
++/// operation's `operationRef` (X3b r10 items 4 step 3 and 13).
++#[derive(Debug, Clone, PartialEq, Eq)]
++pub(crate) enum JournalOutcome {
++    Certain,
++    Uncertain,
++    Exhausted {
++        exhaustion: CapacityExhaustion,
++        operation_ref: String,
++    },
++}
++
++/// Law X2 item 7a's operation context: private, not Clone, no serialized
++/// form, built only by `begin` from owners moved out of one ordinary
++/// writer's fenced gate. The fence is released; the lease is held until the
++/// end path or a drop releases it. It holds:
++/// - the started carrier with its append lock and start tail (X3b);
++/// - the held lease and its mode (X2d);
++/// - owner §8's binding, and the immutable ACTIVE row snapshot;
++/// - the original project root, `.opensip`, marker and namespace owners, as
++///   the subject's admission or registration retained them;
++/// - the confirmed `I/trust` and N's spelling (the carrier place);
++/// - the store endpoint's decoded values and the required files' full
++///   samples (the endpoint and lineage owners, law X3a item 2), with the
++///   retained chain to I and the account (no fence lock);
++/// - the write receipt, whose attempt ledger is the operation ledger.
++///
++/// The registry and selection captures it carries are provenance after the
++/// release (item 7a): nothing here rechecks them. X4a adds `OperationGuard`
++/// beside the carrier (X4 r7 item 6); X3d's `CommitSession` consumes this.
++pub(crate) struct ProjectOperation {
++    // Declaration order is drop order: the append lock, then the lease
++    // (`readers.lease`, then `writer.lease`), then the rest.
++    carrier: OperationCarrier,
++    lease: HeldLease,
++    mode: LeaseMode,
++    binding: OperationBinding,
++    row: ProjectRegistryEntry,
++    subject: NamespaceSubject,
++    namespace: Namespace,
++    namespace_path: PathBuf,
++    trust: RetainedDirectory,
++    endpoint: EndpointValues,
++    required: Vec<RequiredFile>,
++    chain: Chain,
++    account: Account,
++    receipt: WritePlatformReceipt,
++}
++impl std::fmt::Debug for ProjectOperation {
++    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
++        f.debug_struct("ProjectOperation")
++            .field("binding", &self.binding)
++            .field("mode", &self.mode)
++            .field("carrier", &self.carrier)
++            .finish_non_exhaustive()
++    }
++}
++impl ProjectOperation {
++    /// Owner §8's binding.
++    pub(crate) fn binding(&self) -> &OperationBinding {
++        &self.binding
++    }
++    /// The ACTIVE row snapshot of the registry owner current at the handoff.
++    pub(crate) fn row(&self) -> &ProjectRegistryEntry {
++        &self.row
++    }
++    pub(crate) fn mode(&self) -> LeaseMode {
++        self.mode
++    }
++    /// The root admission or the registered project, as moved.
++    pub(crate) fn subject(&self) -> &NamespaceSubject {
++        &self.subject
++    }
++    /// The selected store endpoint, from the gate's one read.
++    pub(crate) fn endpoint(&self) -> SelectedStoreEndpoint<'_> {
++        SelectedStoreEndpoint::new(&self.endpoint)
++    }
++    /// The endpoint and lineage owners' full samples (law X3a item 2).
++    pub(crate) fn required(&self) -> &[RequiredFile] {
++        &self.required
++    }
++    /// The write receipt's selected core closure and state writer.
++    pub(crate) fn selected_core(&self) -> (&str, StateWriter) {
++        self.receipt.selected_core()
++    }
++    /// The started carrier: its start tail and append lock.
++    pub(crate) fn carrier(&self) -> &OperationCarrier {
++        &self.carrier
++    }
++    /// Whether the attempt ledger is closed (the end step is then not
++    /// entered).
++    pub(crate) fn attempt_closed(&self) -> bool {
++        self.receipt.is_closed()
++    }
++    #[cfg(test)]
++    fn attempt_used(&self) -> WorkCost {
++        self.receipt.attempt_used()
++    }
++    /// One charged journal step on the attempt ledger, with the operation's
++    /// carrier location and started carrier (X3d's appends). The lease is
++    /// held; the fence is not.
++    pub(crate) fn journal<R, E>(
++        &mut self,
++        action: impl FnOnce(
++            &CarrierLocation<'_>,
++            &OperationCarrier,
++            &mut WorkScope<'_>,
++        ) -> Result<R, WorkFailure<E>>,
++    ) -> Result<R, WorkFailure<E>> {
++        let place = CarrierPlace {
++            trust: &self.trust,
++            namespace: &self.namespace.directory,
++            namespace_path: &self.namespace_path,
++            namespace_id: &self.namespace.id,
++            uid: self.account.uid(),
++        };
++        let location = CarrierLocation::admitted(&place);
++        let carrier = &self.carrier;
++        self.receipt
++            .charge(|_, work| action(&location, carrier, work))
++    }
++
++    /// X3b r10 item 4's end step, as the operation's end path runs it:
++    /// 1. the append lock is dropped, then the lease is released
++    ///    (`readers.lease`, then `writer.lease`);
++    /// 2. the end step is not entered (X3b r10 item 4; X3d r6 item 7) after
++    ///    an uncertain journal outcome, as the operation's owner reports it,
++    ///    or when the attempt ledger is closed (a certain refusal or a failed
++    ///    settlement closed it; the walk's first charge would be refused):
++    ///    no fence, no read, no copy, and nothing to disclose;
++    /// 3. otherwise, on the attempt ledger: the fence is retaken by the
++    ///    shared charged walk from H, the no-follow fence open and S7's
++    ///    bounded wait; the walked I must be the retained I, and `trust`,
++    ///    `host`, `projects` and N must still be bound by name under it;
++    ///    then, after `Exhausted`, step 3's rollover (X3b-4), which takes and
++    ///    releases its own `EXCLUSIVE` lease; then steps 4 and 5's probe, read
++    ///    and floor copy; then the fence is released.
++    ///
++    /// A failure is returned as a value and never rewrites the operation's
++    /// outcome; a rollover outcome is disclosed on its own row.
++    pub(crate) fn end(self, outcome: JournalOutcome) -> OperationEnd {
++        self.end_with(outcome, &mut OsClock, operation_end_after_exhaustion)
++    }
++    /// `end` over a given wait clock and rollover (the test seam; production
++    /// passes the OS clock and X3b-4's `end_step_after_exhaustion`).
++    pub(super) fn end_with(
++        self,
++        outcome: JournalOutcome,
++        clock: &mut impl WaitClock,
++        rollover: impl FnOnce(
++            &CarrierLocation<'_>,
++            CapacityExhaustion,
++            &str,
++            &mut WorkScope<'_>,
++        ) -> ExhaustedEnd,
++    ) -> OperationEnd {
++        let Self {
++            carrier,
++            lease,
++            namespace,
++            namespace_path,
++            trust,
++            chain,
++            account,
++            mut receipt,
++            ..
++        } = self;
++        drop(carrier);
++        drop(lease);
++        if outcome == JournalOutcome::Uncertain || receipt.is_closed() {
++            return OperationEnd::NotEntered;
++        }
++        let exhausted = match &outcome {
++            JournalOutcome::Exhausted {
++                exhaustion,
++                operation_ref,
++            } => Some((*exhaustion, operation_ref.as_str())),
++            _ => None,
++        };
++        let uid = account.uid();
++        // Once the rollover has returned, its outcome and the unlock's are
++        // kept here, outside the charge: a rollover that latched the attempt
++        // ledger (a refusal, a failed reservation, an undetermined outcome, or
++        // a failed copy after it) makes the charge itself return `Closed`,
++        // and the rollover's outcome must still be disclosed on its own row.
++        let mut rolled: Option<(ExhaustedEnd, io::Result<()>)> = None;
++        let result = receipt.charge(|qualification, work| {
++            let home_filesystem =
++                |sample: &DescriptorFilesystem| qualification.is_home_filesystem(sample);
++            let policy = ChainPolicy::new(qualification.omission_premise(), &home_filesystem);
++            let gate = |failure: WorkFailure<GateRefusal>| lift(failure, EndRefusal::Gate);
++            let fresh = match walk_chain(chain.home_spelling(), uid, &policy, work).map_err(gate)? {
++                Walked::Present(fresh) => fresh,
++                Walked::Absent(_) => {
++                    return Err(WorkFailure::Operation(EndRefusal::Gate(
++                        GateRefusal::Absent,
++                    )));
++                }
++            };
++            let (file, _) = open_fence(&fresh, uid, work).map_err(gate)?;
++            let fence = wait(file, clock, work).map_err(gate)?;
++            // The fence is held from here, and released last whatever the
++            // steps below return.
++            let ended = end_under_fence(
++                &fresh,
++                &chain,
++                &trust,
++                &namespace,
++                &namespace_path,
++                uid,
++                exhausted.map(|(exhaustion, released)| (exhaustion, released, rollover)),
++                work,
++            );
++            let unlocked = fence.release();
++            drop(fresh);
++            match ended? {
++                Ended::Copied(copied) => {
++                    unlocked.map_err(|error| WorkFailure::Operation(EndRefusal::Release(error)))?;
++                    Ok(Some(copied))
++                }
++                Ended::Rolled(exhausted) => {
++                    rolled = Some((exhausted, unlocked));
++                    Ok(None)
++                }
++            }
++        });
++        // The rollover ran: its outcome is returned whatever the charge
++        // returned, with the copy's or the unlock's failure kept in `end`.
++        if let Some((ExhaustedEnd { rollover, end }, unlocked)) = rolled {
++            let end = match (end, unlocked) {
++                (Err(failure), _) => Err(EndFailure(lift(failure, EndRefusal::Carrier))),
++                (Ok(_), Err(error)) => Err(EndFailure(WorkFailure::Operation(
++                    EndRefusal::Release(error),
++                ))),
++                (Ok(copied), Ok(())) => Ok(copied),
++            };
++            return OperationEnd::RolledOver { rollover, end };
++        }
++        // No rollover ran: the walk, the fence, a rebind or the copy decides.
++        match result {
++            Ok(Some(copied)) => OperationEnd::Ended(copied),
++            Ok(None) => OperationEnd::Failed(EndFailure(WorkFailure::Operation(
++                EndRefusal::Carrier(CarrierRefusal::Unreadable),
++            ))),
++            Err(failure) => OperationEnd::Failed(EndFailure(failure)),
++        }
++    }
++}
++fn lift<E>(failure: WorkFailure<E>, wrap: impl FnOnce(E) -> EndRefusal) -> WorkFailure<EndRefusal> {
++    match failure {
++        WorkFailure::Budget(budget) => WorkFailure::Budget(budget),
++        WorkFailure::Operation(error) => WorkFailure::Operation(wrap(error)),
++    }
++}
++/// What the end step under the fence did.
++enum Ended {
++    Copied(EndOutcome),
++    Rolled(ExhaustedEnd),
++}
++/// The end step under the retaken fence: the walked I is the retained one,
++/// the location's directories are still bound by name, then the copy, or,
++/// after an exhaustion, the rollover and then the copy.
++#[allow(clippy::too_many_arguments)]
++fn end_under_fence(
++    fresh: &Chain,
++    chain: &Chain,
++    trust: &RetainedDirectory,
++    namespace: &Namespace,
++    namespace_path: &Path,
++    uid: u32,
++    exhausted: Option<(
++        CapacityExhaustion,
++        &str,
++        impl FnOnce(&CarrierLocation<'_>, CapacityExhaustion, &str, &mut WorkScope<'_>) -> ExhaustedEnd,
++    )>,
++    work: &mut WorkScope<'_>,
++) -> Result<Ended, WorkFailure<EndRefusal>> {
++    let owner = |failure| lift(failure, EndRefusal::Owner);
++    if fresh.installation_id() != chain.installation_id() {
++        return Err(WorkFailure::Operation(EndRefusal::Owner(
++            RegistrationRefusal::Changed(Owner::Installation),
++        )));
++    }
++    let i = fresh.installation();
++    let step = Step::Handoff;
++    rebind(i, TRUST, trust, step, Owner::Trust, work).map_err(owner)?;
++    rebind(i, HOST, &namespace.host, step, Owner::Host, work).map_err(owner)?;
++    rebind(
++        &namespace.host,
++        PROJECTS,
++        &namespace.projects,
++        step,
++        Owner::Projects,
++        work,
++    )
++    .map_err(owner)?;
++    rebind(
++        &namespace.projects,
++        &namespace.id,
++        &namespace.directory,
++        step,
++        Owner::Namespace,
++        work,
++    )
++    .map_err(owner)?;
++    let place = CarrierPlace {
++        trust,
++        namespace: &namespace.directory,
++        namespace_path,
++        namespace_id: &namespace.id,
++        uid,
++    };
++    let location = CarrierLocation::admitted(&place);
++    match exhausted {
++        Some((exhaustion, released, rollover)) => Ok(Ended::Rolled(rollover(
++            &location, exhaustion, released, work,
++        ))),
++        None => operation_end_copy(&location, work)
++            .map(Ended::Copied)
++            .map_err(|failure| lift(failure, EndRefusal::Carrier)),
++    }
++}
++
++/// The end path's result. None of it rewrites the operation's outcome.
++#[derive(Debug)]
++pub(crate) enum OperationEnd {
++    /// An uncertain journal outcome, or a closed attempt ledger: the lease
++    /// was released and the end step was not entered (X3b r10 item 4). Not
++    /// a failure. The next writer's floor step copies the floor.
++    NotEntered,
++    /// The end step ran under the retaken fence, which is released again.
++    Ended(EndOutcome),
++    /// After `Exhausted`: X3b-4's rollover outcome (each disclosed on its
++    /// own row, X7 r3 item 6) and the floor copy that followed it, or the
++    /// copy's or the unlock's failure. The fence is released.
++    RolledOver {
++        rollover: RolloverOutcome,
++        end: Result<EndOutcome, EndFailure>,
++    },
++    /// The end step stopped; the floor stays where it was, and the fence,
++    /// if it was taken, is released. Disclosed by the caller.
++    Failed(EndFailure),
++}
++/// Why the end step stopped.
++#[derive(Debug)]
++pub(crate) enum EndRefusal {
++    /// The walk, the fence open or the bounded wait (468's rows; busy is the
++    /// installation busy row).
++    Gate(GateRefusal),
++    /// A changed I, or a carrier-place directory no longer bound by name.
++    Owner(RegistrationRefusal),
++    /// The end step's own refusal (X3b item 8).
++    Carrier(CarrierRefusal),
++    /// The fence's unlock failed after the copy.
++    Release(io::Error),
++}
++/// An end-path failure on the attempt ledger, after the end step was
++/// entered (a closed ledger never enters it).
++#[derive(Debug)]
++pub(crate) struct EndFailure(WorkFailure<EndRefusal>);
++impl EndFailure {
++    pub(crate) fn failure(&self) -> &WorkFailure<EndRefusal> {
++        &self.0
++    }
++    pub(crate) fn row(&self) -> OperationRow {
++        match &self.0 {
++            WorkFailure::Budget(_) => OperationRow::BudgetExhausted,
++            WorkFailure::Operation(EndRefusal::Gate(refusal)) => {
++                OperationRow::Installation(gate_refusal(refusal))
++            }
++            WorkFailure::Operation(EndRefusal::Owner(refusal)) => {
++                OperationRow::Project(ProjectWriteRow::Project(refusal.row()))
++            }
++            WorkFailure::Operation(EndRefusal::Carrier(refusal)) => {
++                OperationRow::Carrier(refusal.row())
++            }
++            WorkFailure::Operation(EndRefusal::Release(_)) => OperationRow::Installation(T::HostIo),
++        }
++    }
++}
++
++// ------------------------------------------------------------- the handoff
++
++/// The lease-free point on the writer's held fence: `I/trust` confirmed and
++/// N's spelling admitted on the gate's ledger with the gate's recheck, then
++/// X3b's floor step on the attempt ledger with the gate's and the receipt's
++/// rechecks. No project lock is held. (X4a's fenced trust admission, the
++/// operation monitor's first read, is to run here too: X4 r7 item 2.)
++fn lease_free(
++    holder: &mut &mut OrdinaryWriteAdmission,
++    namespace: &RetainedDirectory,
++    id: &str,
++    inputs: &ProjectInputs<'_>,
++) -> Result<(RetainedDirectory, PathBuf, OperationFloor), OperationRefusal> {
++    use namespace_lease::FenceHolder;
++    let (trust, path) = holder
++        .fenced(inputs, |held, work| {
++            let trust = required_directory(held.installation, TRUST, Owner::Trust, held.uid, work)?;
++            let path = namespace_spelling(held.home, id, namespace, work)?;
++            Ok((trust, path))
++        })
++        .map_err(OperationRefusal::Project)?;
++    let floor = holder.attempt_step(|installation, work| {
++        let place = CarrierPlace {
++            trust: &trust,
++            namespace,
++            namespace_path: &path,
++            namespace_id: id,
++            uid: installation.uid(),
++        };
++        operation_floor_step(&CarrierLocation::admitted(&place), work)
++    })?;
++    Ok((trust, path, floor))
++}
++/// Item 7a's recheck of the moved owners under the held fence: the subject
++/// (a registered subject's namespace to `footprint`), the namespace's
++/// directories, and each locked carrier's name binding.
++fn recheck_owners(
++    parts: &NamespaceParts,
++    held: &Held<'_, '_>,
++    footprint: Footprint,
++    work: &mut WorkScope<'_>,
++) -> Result<(), NamespaceFailure> {
++    recheck_subject(&parts.subject, held, footprint, work)?;
++    recheck_directories(&parts.namespace, held, work)?;
++    for (name, metadata) in parts.lease.carriers() {
++        recheck_binding(&parts.namespace.directory, name, metadata, held.uid, work)?;
++    }
++    Ok(())
++}
++
++/// Law X2 item 7a with X3b-3, on one ordinary writer. See the module
++/// comment for the order. On any refusal the values already built drop in
++/// reverse order: the append lock, the lease, and last the writer, whose
++/// installation releases the fence.
++pub(super) fn begin(
++    mut writer: OrdinaryWriteAdmission,
++    subject: NamespaceSubject,
++    lease: WriterLease,
++    inputs: &ProjectInputs<'_>,
++) -> Result<ProjectOperation, OperationRefusal> {
++    use namespace_lease::FenceHolder;
++    // X3a's endpoint, from this gate's one read.
++    writer
++        .join_store_endpoint()
++        .map_err(OperationRefusal::Endpoint)?;
++    // Item 7 (X2d): the namespace, with no lock taken.
++    let mut target =
++        namespace_lease::admit(&mut writer, subject, inputs).map_err(OperationRefusal::Project)?;
++    // The lease-free point: the carrier place and X3b's floor step.
++    let (trust, namespace_path, floor) =
++        target.lease_free(|holder, namespace, id| lease_free(holder, namespace, id, inputs))?;
++    // Item 7 (X2d): the lease.
++    let fenced = target
++        .lease_writer(lease, inputs)
++        .map_err(OperationRefusal::Project)?;
++    // Item 7a step 2's move begins here: the lease and the subject leave the
++    // fenced namespace, and the writer, still holding the fence, is free
++    // again. Nothing is copied.
++    let (_, parts) = fenced.into_parts();
++    // Step 1, the join: every owner rechecked under the fence, and owner
++    // §8's binding derived from the owners moving into the operation.
++    let binding = (&mut writer)
++        .fenced(inputs, |held, work| {
++            recheck_owners(&parts, held, Footprint::Exact, work)?;
++            derive_binding(&parts.row, &parts.namespace, held, work)
++        })
++        .map_err(OperationRefusal::Project)?;
++    // Step 3: X3b's carrier start under the fence and the lease, then every
++    // owner again, with N now holding the carrier.
++    let carrier = writer.attempt_step(|installation, work| {
++        let place = CarrierPlace {
++            trust: &trust,
++            namespace: &parts.namespace.directory,
++            namespace_path: &namespace_path,
++            namespace_id: &parts.namespace.id,
++            uid: installation.uid(),
++        };
++        operation_start(&CarrierLocation::admitted(&place), floor, work)
++    })?;
++    (&mut writer)
++        .fenced(inputs, |held, work| {
++            recheck_owners(&parts, held, Footprint::Started, work)
++        })
++        .map_err(OperationRefusal::Project)?;
++    // Steps 2 and 4: the writer's owners move into the operation, the gate
++    // and its ledger end (the unbound `_`), and only then is the fence
++    // released. A failed unlock closes the fence descriptor anyway; the
++    // operation is then dropped, releasing the append lock and the lease.
++    let (installation, receipt, _) = writer.into_parts();
++    let (fence, chain, account, required, endpoint) = installation.into_handoff();
++    let NamespaceParts {
++        lease,
++        mode,
++        subject,
++        row,
++        namespace,
++    } = parts;
++    let operation = ProjectOperation {
++        carrier,
++        lease,
++        mode,
++        binding,
++        row,
++        subject,
++        namespace,
++        namespace_path,
++        trust,
++        endpoint,
++        required,
++        chain,
++        account,
++        receipt,
++    };
++    match fence.release() {
++        Ok(()) => Ok(operation),
++        Err(error) => Err(OperationRefusal::Release(released(error))),
++    }
++}
++
++#[cfg(test)]
++mod tests {
++    include!("operation_handoff_tests.rs");
++}
+diff --git a/crates/security/src/custody/operation_handoff_tests.rs b/crates/security/src/custody/operation_handoff_tests.rs
+new file mode 100644
+index 0000000..c4da9e4
+--- /dev/null
++++ b/crates/security/src/custody/operation_handoff_tests.rs
+@@ -0,0 +1,834 @@
++// Law X2 r8 item 7a (unit X2e) with law X3b r10 items 1, 3, 3a and 4 (unit
++// X3b-3), on scratch homes only. Each test publishes a real P0 under a
++// scratch H (`installation_read_fixture`), registers a scratch project with
++// an ordinary writer over 462's signed test trees (X2c), and runs the
++// handoff on a writer's gate: endpoint join, namespace admission (X2d), the
++// floor step at the lease-free point, the lease, the join, the transfer,
++// the carrier start and the fence's release; then the end path. Other
++// holders are simulated by nonblocking `flock`s on separate descriptors,
++// which conflict exactly as another process's would. Tracking reads an
++// empty environment and no system sources. Nothing here opens the real
++// account's I or runs Git.
++use super::super::first_registration::{
++    ProjectWriteRefusal, ProjectWriteRow, READERS_LEASE, RegisteredProject, RegistrationRow, Seam,
++    WRITER_LEASE,
++};
++use super::super::installation_admission::{DurableWriteGate, GateSeam, HomeSource};
++use super::super::installation_read_fixture::{ReadFixture, private};
++use super::super::ordinary_writer::admit_with;
++use super::super::project_admission::ProjectAdmissionRow;
++use super::super::read_premise::{Write, produce_for};
++use super::*;
++use crate::initial_installation::InitialInstallationAttempt;
++use crate::trust::{ReadProducers, read_producers};
++use opensip_identity::JsonValue as V;
++use opensip_platform::{FileLock, LockMode};
++use std::collections::{BTreeMap, BTreeSet};
++use std::fs::{self, File};
++use std::os::unix::fs::PermissionsExt;
++use std::sync::atomic::AtomicBool;
++use std::time::Duration;
++
++// ---------------------------------------------------------------- helpers
++
++fn directory(path: &Path, mode: u32) {
++    fs::create_dir(path).unwrap();
++    fs::set_permissions(path, fs::Permissions::from_mode(mode)).unwrap();
++}
++/// A project under the fixture's H, 0755 with no ACL, as on a stock Mac.
++fn fixture_project(fixture: &ReadFixture) -> PathBuf {
++    let code = fixture.home.join("code");
++    directory(&code, 0o755);
++    let project = code.join("project");
++    directory(&project, 0o755);
++    project
++}
++/// An ordinary writer on the fixture's I, its attempt ledger capped at
++/// `limits` when given, and the signed trees it needs.
++fn writer_with(
++    fixture: &ReadFixture,
++    tag: &str,
++    limits: Option<WorkCost>,
++) -> (OrdinaryWriteAdmission, ReadProducers) {
++    let producers = read_producers(&format!("{tag}-write"), true, Some(&fixture.home));
++    let receipt = produce_for::<Write>(
++        InitialInstallationAttempt::for_tests(&AtomicBool::new(false), limits),
++        InitialInstallationAttempt::observe_actor,
++        |attempt| producers.core(attempt),
++        |attempt, actor, core| producers.platform(attempt, actor, core),
++    )
++    .unwrap();
++    let admission = admit_with(
++        receipt,
++        WritePlatformReceipt::recheck,
++        || DurableWriteGate::for_tests(&AtomicBool::new(false), None),
++        |gate, receipt| {
++            gate.admit_with(
++                receipt.qualification(),
++                HomeSource::Fixture(&fixture.home),
++                &GateSeam::live(),
++            )
++        },
++    )
++    .unwrap();
++    (admission, producers)
++}
++fn new_writer(fixture: &ReadFixture, tag: &str) -> (OrdinaryWriteAdmission, ReadProducers) {
++    writer_with(fixture, tag, None)
++}
++const NO_GROUPS: &BTreeSet<u32> = &BTreeSet::new();
++fn inputs() -> ProjectInputs<'static> {
++    ProjectInputs {
++        trust_groups: NO_GROUPS,
++        environment: &[],
++        system_sources: &[],
++    }
++}
++/// The root admission and its tracking observation on the writer's gate.
++fn admitted(writer: &mut OrdinaryWriteAdmission, project: &Path) -> NamespaceSubject {
++    let admission = writer.admit_project_root(project, None, NO_GROUPS).unwrap();
++    let tracking = writer
++        .observe_project_tracking_with(&admission, &inputs())
++        .unwrap();
++    NamespaceSubject::Eligible {
++        admission,
++        tracking,
++    }
++}
++/// A first registration of `project` on the writer's gate (unit X2c).
++fn register(writer: &mut OrdinaryWriteAdmission, project: &Path) -> RegisteredProject {
++    let NamespaceSubject::Eligible {
++        admission,
++        tracking,
++    } = admitted(writer, project)
++    else {
++        unreachable!()
++    };
++    writer
++        .register_first_use_with(admission, tracking, &inputs(), &Seam::live())
++        .unwrap()
++}
++/// A fixture whose project is registered by a writer that has since
++/// released its fence: the project is Eligible, and N holds only the leases.
++fn eligible(tag: &str) -> (ReadFixture, PathBuf, String) {
++    let fixture = ReadFixture::new(tag);
++    let project = fixture_project(&fixture);
++    let (mut writer, _trees) = new_writer(&fixture, &format!("{tag}-register"));
++    let registered = register(&mut writer, &project);
++    let n = registered.namespace_id().to_owned();
++    drop(registered);
++    writer.release().unwrap();
++    (fixture, project, n)
++}
++fn namespace_path(fixture: &ReadFixture, n: &str) -> PathBuf {
++    fixture.installation.join(HOST).join(PROJECTS).join(n)
++}
++fn floor_path(fixture: &ReadFixture, n: &str) -> PathBuf {
++    fixture
++        .installation
++        .join("trust/carrier-floors")
++        .join(format!("{n}.v1"))
++}
++/// Whether another holder could take `mode` on the file at `path` now.
++fn free(path: &Path, mode: LockMode) -> bool {
++    FileLock::try_acquire(File::open(path).unwrap(), mode)
++        .unwrap()
++        .is_some()
++}
++/// Another holder's lock on the file at `path`.
++fn hold(path: &Path, mode: LockMode) -> FileLock {
++    FileLock::try_acquire(File::open(path).unwrap(), mode)
++        .unwrap()
++        .unwrap()
++}
++fn fence_path(fixture: &ReadFixture) -> PathBuf {
++    fixture.installation.join("lifecycle.fence")
++}
++fn fence_free(fixture: &ReadFixture) -> bool {
++    free(&fence_path(fixture), LockMode::Exclusive)
++}
++/// Neither lease carrier of N is locked by anyone.
++fn unlocked(fixture: &ReadFixture, n: &str) -> bool {
++    let namespace = namespace_path(fixture, n);
++    free(&namespace.join(WRITER_LEASE), LockMode::Exclusive)
++        && free(&namespace.join(READERS_LEASE), LockMode::Exclusive)
++}
++/// A closed operational JSON file's members (floor or witness).
++fn members(path: &Path) -> BTreeMap<String, V> {
++    let raw = fs::read(path).unwrap();
++    let end = raw
++        .iter()
++        .rposition(|b| !b.is_ascii_whitespace())
++        .map_or(0, |i| i + 1);
++    match crate::trust::metadata::parse(&raw[..end]).unwrap() {
++        V::Object(members) => members,
++        other => panic!("{other:?}"),
++    }
++}
++fn integer(value: &V) -> i64 {
++    match value {
++        V::Integer(n) => i64::try_from(n.get()).unwrap(),
++        other => panic!("{other:?}"),
++    }
++}
++/// The floor for N: (grant generation, last sequence, tail hash present).
++fn floor_of(fixture: &ReadFixture, n: &str) -> (i64, i64, bool) {
++    let floor = members(&floor_path(fixture, n));
++    (
++        integer(&floor["grantGeneration"]),
++        integer(&floor["lastSeq"]),
++        floor["tailSha256"] != V::Null,
++    )
++}
++/// The witness in N: (generation, sequence, state).
++fn witness_of(fixture: &ReadFixture, n: &str) -> (i64, i64, String) {
++    let witness = members(&namespace_path(fixture, n).join("grant-journal.witness.json"));
++    let V::String(state) = &witness["state"] else {
++        panic!("{witness:?}")
++    };
++    (
++        integer(&witness["grantGeneration"]),
++        integer(&witness["seq"]),
++        state.clone(),
++    )
++}
++fn refusal_row<T: std::fmt::Debug>(result: Result<T, OperationRefusal>) -> OperationRow {
++    match result {
++        Err(refusal) => refusal.row(),
++        Ok(value) => panic!("expected a refusal, got {value:?}"),
++    }
++}
++/// One certain `RA` through the operation's carrier, on the attempt ledger.
++fn append_ra(operation: &mut ProjectOperation) {
++    use crate::journal_store::{AppendError, RecordDraft};
++    operation
++        .journal(|location, carrier, work| {
++            let held = carrier.lock().begin(location, work)?.acquire()?;
++            held.append(
++                &format!("op-{}", "b".repeat(32)),
++                &RecordDraft::Ra {
++                    request_ref: "request-1".into(),
++                },
++                work,
++            )
++            .map_err(|error| match error {
++                AppendError::Refused(failure) | AppendError::Undetermined(failure) => failure,
++            })
++        })
++        .unwrap();
++}
++/// A scripted monotonic clock: each sample is one second after the last,
++/// and sleeping takes no time, so S7's 5 s bound runs out at once.
++struct Scripted(Duration);
++impl WaitClock for Scripted {
++    fn now(&mut self) -> io::Result<Duration> {
++        self.0 += Duration::from_secs(1);
++        Ok(self.0)
++    }
++    fn sleep(&mut self, _: Duration) {}
++}
++
++// ------------------------------------------------------------ the handoff
++
++#[test]
++fn a_fresh_registration_hands_off_with_the_carrier_started_and_the_fence_released() {
++    let fixture = ReadFixture::new("x2e-fresh");
++    let project = fixture_project(&fixture);
++    let (mut writer, _trees) = new_writer(&fixture, "x2e-fresh");
++    let registered = register(&mut writer, &project);
++    let n = registered.namespace_id().to_owned();
++    let operation = writer
++        .begin_operation(
++            NamespaceSubject::Registered(registered),
++            WriterLease::AppendWrite,
++            &inputs(),
++        )
++        .unwrap();
++    // Step 4: the fence is released; the APPEND-WRITE lease is held.
++    assert!(fence_free(&fixture));
++    let namespace = namespace_path(&fixture, &n);
++    assert!(!free(&namespace.join(WRITER_LEASE), LockMode::Exclusive));
++    assert!(free(&namespace.join(READERS_LEASE), LockMode::Shared));
++    assert_eq!(operation.mode(), LeaseMode::AppendWrite);
++    // The floor step wrote the INIT floor; the start created the carrier
++    // and its witness `COMMITTED 0` in N.
++    assert_eq!(floor_of(&fixture, &n), (1, 0, false));
++    assert_eq!(witness_of(&fixture, &n), (1, 0, "COMMITTED".into()));
++    assert!(namespace.join("grant-journal.sqlite").exists());
++    assert_eq!(operation.carrier().start_tail(), (1, 0, None));
++    assert_eq!(
++        operation.carrier().created(),
++        Some(crate::journal_store::CreationOutcome::Created)
++    );
++    // Owner §8's binding: N from R2's ACTIVE row, (S, G, K) from the
++    // endpoint the gate read once.
++    let binding = operation.binding();
++    assert_eq!(OperationBinding::SCHEMA_VERSION, 1);
++    assert_eq!(binding.namespace_id(), n);
++    assert_eq!(operation.row().namespace_id(), n);
++    assert_eq!(binding.store_instance(), fixture.store);
++    let endpoint = operation.endpoint();
++    assert_eq!(binding.store_instance(), endpoint.store_instance());
++    assert_eq!(binding.store_generation(), endpoint.store_generation());
++    assert_eq!(binding.state_schema(), endpoint.state_schema());
++    assert_eq!(
++        binding.state_schema(),
++        match operation.selected_core().1 {
++            StateWriter::Stage1 => 1,
++            StateWriter::Stage2 => 2,
++        }
++    );
++    assert!(matches!(
++        operation.subject(),
++        NamespaceSubject::Registered(_)
++    ));
++    assert!(!operation.required().is_empty());
++    // The end path: the lease, then the fence retaken and released again.
++    match operation.end(JournalOutcome::Certain) {
++        OperationEnd::Ended(EndOutcome::Unchanged) => {}
++        other => panic!("{other:?}"),
++    }
++    assert!(fence_free(&fixture) && unlocked(&fixture, &n));
++    assert_eq!(floor_of(&fixture, &n), (1, 0, false));
++}
++
++#[test]
++fn an_eligible_root_hands_off_and_the_end_copies_the_floor_after_an_append() {
++    let (fixture, project, n) = eligible("x2e-eligible");
++    let (mut writer, _trees) = new_writer(&fixture, "x2e-eligible");
++    let subject = admitted(&mut writer, &project);
++    let mut operation = writer
++        .begin_operation(subject, WriterLease::Exclusive, &inputs())
++        .unwrap();
++    assert!(fence_free(&fixture));
++    let namespace = namespace_path(&fixture, &n);
++    assert!(!free(&namespace.join(WRITER_LEASE), LockMode::Shared));
++    assert!(!free(&namespace.join(READERS_LEASE), LockMode::Shared));
++    assert!(matches!(
++        operation.subject(),
++        NamespaceSubject::Eligible { .. }
++    ));
++    append_ra(&mut operation);
++    // The floor moves only at the end step, never under the lease.
++    assert_eq!(floor_of(&fixture, &n), (1, 0, false));
++    assert_eq!(witness_of(&fixture, &n), (1, 1, "COMMITTED".into()));
++    match operation.end(JournalOutcome::Certain) {
++        OperationEnd::Ended(EndOutcome::CopiedForward) => {}
++        other => panic!("{other:?}"),
++    }
++    assert_eq!(floor_of(&fixture, &n), (1, 1, true));
++    assert!(fence_free(&fixture) && unlocked(&fixture, &n));
++
++    // The next writer's operation finds the floor at the tail and starts.
++    let (mut next, _trees) = new_writer(&fixture, "x2e-eligiblf");
++    let subject = admitted(&mut next, &project);
++    let operation = next
++        .begin_operation(subject, WriterLease::AppendWrite, &inputs())
++        .unwrap();
++    assert_eq!(operation.carrier().start_tail().1, 1);
++    assert_eq!(operation.carrier().created(), None);
++    assert!(matches!(
++        operation.end(JournalOutcome::Certain),
++        OperationEnd::Ended(EndOutcome::Unchanged)
++    ));
++}
++
++#[test]
++fn the_floor_step_runs_at_the_lease_free_point_before_the_lease() {
++    let (fixture, project, n) = eligible("x2e-order");
++    // A reader holds `readers.lease`: EXCLUSIVE is busy at its second lock,
++    // but the floor step, which runs before any lease, has written the INIT
++    // floor with no project lock held. Creation, under the lease, never ran.
++    let reader = hold(
++        &namespace_path(&fixture, &n).join(READERS_LEASE),
++        LockMode::Shared,
++    );
++    let (mut writer, _trees) = new_writer(&fixture, "x2e-order");
++    let subject = admitted(&mut writer, &project);
++    let row = refusal_row(writer.begin_operation(subject, WriterLease::Exclusive, &inputs()));
++    assert_eq!(
++        row,
++        OperationRow::Project(ProjectWriteRow::Project(RegistrationRow::Busy))
++    );
++    assert_eq!(floor_of(&fixture, &n), (1, 0, false));
++    let namespace = namespace_path(&fixture, &n);
++    assert!(!namespace.join("grant-journal.sqlite").exists());
++    assert!(!namespace.join("grant-journal.witness.json").exists());
++    assert!(fence_free(&fixture));
++    assert!(free(&namespace.join(WRITER_LEASE), LockMode::Exclusive));
++    drop(reader);
++}
++
++#[test]
++fn a_busy_writer_lease_skips_the_floor_step_and_the_lease_is_busy() {
++    let (fixture, project, n) = eligible("x2e-skip");
++    let other = hold(
++        &namespace_path(&fixture, &n).join(WRITER_LEASE),
++        LockMode::Exclusive,
++    );
++    let (mut writer, _trees) = new_writer(&fixture, "x2e-skip");
++    let subject = admitted(&mut writer, &project);
++    let row = refusal_row(writer.begin_operation(subject, WriterLease::AppendWrite, &inputs()));
++    assert_eq!(
++        row,
++        OperationRow::Project(ProjectWriteRow::Project(RegistrationRow::Busy))
++    );
++    // The skip wrote nothing: no floor directory, no carrier.
++    assert!(!fixture.installation.join("trust/carrier-floors").exists());
++    assert!(
++        !namespace_path(&fixture, &n)
++            .join("grant-journal.sqlite")
++            .exists()
++    );
++    assert!(fence_free(&fixture));
++    drop(other);
++}
++
++#[test]
++fn a_floor_step_quarantine_refuses_before_the_lease_and_writes_nothing() {
++    let (fixture, project, n) = eligible("x2e-floorlost");
++    // A witness in N with no floor: `floorLost` (X3b item 3 step 4).
++    let witness = namespace_path(&fixture, &n).join("grant-journal.witness.json");
++    fs::write(&witness, b"{}\n").unwrap();
++    fs::set_permissions(&witness, fs::Permissions::from_mode(0o600)).unwrap();
++    private(&witness);
++    let (mut writer, _trees) = new_writer(&fixture, "x2e-floorlost");
++    let subject = admitted(&mut writer, &project);
++    let row = refusal_row(writer.begin_operation(subject, WriterLease::AppendWrite, &inputs()));
++    assert_eq!(row, OperationRow::Carrier(CarrierRow::LedgerCorrupt));
++    assert!(!fixture.installation.join("trust/carrier-floors").exists());
++    assert_eq!(fs::read(&witness).unwrap(), b"{}\n");
++    assert!(fence_free(&fixture) && unlocked(&fixture, &n));
++}
++
++#[test]
++fn a_refusal_after_the_carrier_start_releases_the_lease_then_the_fence() {
++    // Measure one whole handoff's attempt-ledger use on a twin fixture...
++    let (twin, twin_project, _) = eligible("x2e-cut-a");
++    let (mut measured, _trees) = new_writer(&twin, "x2e-cut-a");
++    let subject = admitted(&mut measured, &twin_project);
++    let operation = measured
++        .begin_operation(subject, WriterLease::AppendWrite, &inputs())
++        .unwrap();
++    let total = operation.attempt_used();
++    drop(operation);
++    // ...then cap this writer's attempt ledger one byte short of it. The
++    // handoff's last attempt charge (the receipt's recheck after the
++    // post-start recheck) is refused after the carrier started.
++    let (fixture, project, n) = eligible("x2e-cut-b");
++    let cut = WorkCost {
++        bytes: total.bytes - 1,
++        ..total
++    };
++    let (mut writer, _trees) = writer_with(&fixture, "x2e-cut-b", Some(cut));
++    let subject = admitted(&mut writer, &project);
++    let result = writer.begin_operation(subject, WriterLease::AppendWrite, &inputs());
++    match &result {
++        Err(OperationRefusal::Project(ProjectWriteRefusal::Receipt(row))) => {
++            assert_eq!(row, &T::BudgetExhausted);
++        }
++        other => panic!("{other:?}"),
++    }
++    // The carrier started, then the lock, the lease and the fence went.
++    assert_eq!(witness_of(&fixture, &n), (1, 0, "COMMITTED".into()));
++    assert!(fence_free(&fixture) && unlocked(&fixture, &n));
++    // The next writer reconciles and starts on what the refused one left.
++    let (mut next, _trees) = new_writer(&fixture, "x2e-cut-c");
++    let subject = admitted(&mut next, &project);
++    let operation = next
++        .begin_operation(subject, WriterLease::AppendWrite, &inputs())
++        .unwrap();
++    assert_eq!(operation.carrier().created(), None);
++    assert_eq!(operation.carrier().start_tail(), (1, 0, None));
++}
++
++// ------------------------------------------------------------ the end path
++
++#[test]
++fn an_uncertain_outcome_releases_the_lease_and_takes_no_fence() {
++    let (fixture, project, n) = eligible("x2e-uncertain");
++    let (mut writer, _trees) = new_writer(&fixture, "x2e-uncertain");
++    let subject = admitted(&mut writer, &project);
++    let mut operation = writer
++        .begin_operation(subject, WriterLease::AppendWrite, &inputs())
++        .unwrap();
++    append_ra(&mut operation);
++    // Another invocation holds the fence: a fence wait would block, and a
++    // copy would move the floor. Neither happens.
++    let fence = hold(&fence_path(&fixture), LockMode::Exclusive);
++    match operation.end_with(
++        JournalOutcome::Uncertain,
++        &mut Scripted(Duration::ZERO),
++        operation_end_after_exhaustion,
++    ) {
++        OperationEnd::NotEntered => {}
++        other => panic!("{other:?}"),
++    }
++    assert!(unlocked(&fixture, &n));
++    assert_eq!(floor_of(&fixture, &n), (1, 0, false));
++    drop(fence);
++    // The next writer's floor step copies it forward.
++    let (mut next, _trees) = new_writer(&fixture, "x2e-uncertaio");
++    let subject = admitted(&mut next, &project);
++    let operation = next
++        .begin_operation(subject, WriterLease::AppendWrite, &inputs())
++        .unwrap();
++    assert_eq!(floor_of(&fixture, &n), (1, 1, true));
++    assert_eq!(operation.carrier().start_tail().1, 1);
++}
++
++#[test]
++fn a_busy_fence_at_the_end_is_waited_for_within_the_bound_then_disclosed() {
++    let (fixture, project, n) = eligible("x2e-endbusy");
++    let (mut writer, _trees) = new_writer(&fixture, "x2e-endbusy");
++    let subject = admitted(&mut writer, &project);
++    let mut operation = writer
++        .begin_operation(subject, WriterLease::AppendWrite, &inputs())
++        .unwrap();
++    append_ra(&mut operation);
++    let fence = hold(&fence_path(&fixture), LockMode::Exclusive);
++    let failure = match operation.end_with(
++        JournalOutcome::Certain,
++        &mut Scripted(Duration::ZERO),
++        operation_end_after_exhaustion,
++    ) {
++        OperationEnd::Failed(failure) => failure,
++        other => panic!("{other:?}"),
++    };
++    assert_eq!(failure.row(), OperationRow::Installation(T::Busy));
++    // The lease went first; nothing was copied.
++    assert!(unlocked(&fixture, &n));
++    assert_eq!(floor_of(&fixture, &n), (1, 0, false));
++    drop(fence);
++}
++
++#[test]
++fn a_closed_attempt_ledger_does_not_enter_the_end_step() {
++    let (fixture, project, n) = eligible("x2e-closed");
++    let (mut writer, _trees) = new_writer(&fixture, "x2e-closed");
++    let subject = admitted(&mut writer, &project);
++    let mut operation = writer
++        .begin_operation(subject, WriterLease::AppendWrite, &inputs())
++        .unwrap();
++    append_ra(&mut operation);
++    // A certain refusal on the attempt ledger closes it for good.
++    assert!(
++        operation
++            .journal::<(), ()>(|_, _, _| Err(WorkFailure::Operation(())))
++            .is_err()
++    );
++    assert!(operation.attempt_closed());
++    // X3b r10 item 4: the end step is not entered. The fence is held
++    // elsewhere, so a walk would wait; none is attempted, nothing is read
++    // or copied, and nothing is disclosed.
++    let fence = hold(&fence_path(&fixture), LockMode::Exclusive);
++    match operation.end_with(
++        JournalOutcome::Certain,
++        &mut Scripted(Duration::ZERO),
++        operation_end_after_exhaustion,
++    ) {
++        OperationEnd::NotEntered => {}
++        other => panic!("{other:?}"),
++    }
++    assert!(unlocked(&fixture, &n));
++    assert_eq!(floor_of(&fixture, &n), (1, 0, false));
++    drop(fence);
++    // The next writer's floor step copies it forward.
++    let (mut next, _trees) = new_writer(&fixture, "x2e-closee");
++    let subject = admitted(&mut next, &project);
++    let operation = next
++        .begin_operation(subject, WriterLease::AppendWrite, &inputs())
++        .unwrap();
++    assert_eq!(floor_of(&fixture, &n), (1, 1, true));
++    assert_eq!(operation.carrier().start_tail().1, 1);
++}
++
++#[test]
++fn a_moved_namespace_at_the_end_refuses_the_copy_and_releases_the_fence() {
++    let (fixture, project, n) = eligible("x2e-moved");
++    let (mut writer, _trees) = new_writer(&fixture, "x2e-moved");
++    let subject = admitted(&mut writer, &project);
++    let mut operation = writer
++        .begin_operation(subject, WriterLease::AppendWrite, &inputs())
++        .unwrap();
++    append_ra(&mut operation);
++    let namespace = namespace_path(&fixture, &n);
++    let moved = namespace.with_file_name("moved");
++    fs::rename(&namespace, &moved).unwrap();
++    let failure = match operation.end(JournalOutcome::Certain) {
++        OperationEnd::Failed(failure) => failure,
++        other => panic!("{other:?}"),
++    };
++    assert_eq!(
++        failure.row(),
++        OperationRow::Project(ProjectWriteRow::Project(RegistrationRow::Admission(
++            ProjectAdmissionRow::RequiredFilesChanged
++        )))
++    );
++    assert!(fence_free(&fixture));
++    assert_eq!(floor_of(&fixture, &n), (1, 0, false));
++}
++
++#[test]
++fn an_exhausted_generation_rolls_over_under_the_retaken_fence_then_copies_the_floor() {
++    use crate::journal_store::plant_committed_tail_for_tests;
++    // X3b r10 item 5a: no SEAL fits after 9007199254740987.
++    const EXHAUSTED: i64 = 9_007_199_254_740_990;
++    let (fixture, project, n) = eligible("x2e-rollover");
++    // A first operation creates the carrier; then the generation is filled
++    // to an exhausted tail with X3b-2's reserved-slot technique.
++    let (mut writer, _trees) = new_writer(&fixture, "x2e-rollover");
++    let subject = admitted(&mut writer, &project);
++    let operation = writer
++        .begin_operation(subject, WriterLease::AppendWrite, &inputs())
++        .unwrap();
++    assert!(matches!(
++        operation.end(JournalOutcome::Certain),
++        OperationEnd::Ended(EndOutcome::Unchanged)
++    ));
++    plant_committed_tail_for_tests(&namespace_path(&fixture, &n), &n, EXHAUSTED);
++    // The next operation's floor step copies the floor to that tail.
++    let (mut next, _trees) = new_writer(&fixture, "x2e-rollovfr");
++    let subject = admitted(&mut next, &project);
++    let operation = next
++        .begin_operation(subject, WriterLease::AppendWrite, &inputs())
++        .unwrap();
++    assert_eq!(operation.carrier().start_tail().1, EXHAUSTED);
++    assert_eq!(floor_of(&fixture, &n), (1, EXHAUSTED, true));
++    // X3d reports `CarrierCapacityExhausted`: the end step rolls over under
++    // the retaken fence, then copies the floor to G+1's empty tail.
++    let ended = operation.end(JournalOutcome::Exhausted {
++        exhaustion: CapacityExhaustion::new(1, EXHAUSTED),
++        operation_ref: format!("op-{}", "d".repeat(32)),
++    });
++    match ended {
++        OperationEnd::RolledOver {
++            rollover: RolloverOutcome::Rolled { closed, opened: 2 },
++            end: Ok(EndOutcome::CopiedForward),
++        } => assert_eq!(closed, (1, EXHAUSTED + 1)),
++        other => panic!("{other:?}"),
++    }
++    assert_eq!(witness_of(&fixture, &n), (2, 0, "COMMITTED".into()));
++    assert_eq!(floor_of(&fixture, &n), (2, 0, false));
++    assert!(fence_free(&fixture) && unlocked(&fixture, &n));
++    // The next writer starts in generation 2.
++    let (mut third, _trees) = new_writer(&fixture, "x2e-rollovgr");
++    let subject = admitted(&mut third, &project);
++    let operation = third
++        .begin_operation(subject, WriterLease::AppendWrite, &inputs())
++        .unwrap();
++    assert_eq!(operation.carrier().start_tail(), (2, 0, None));
++}
++
++// ------------------------------------- the rollover's outcome is kept
++
++/// An exhausted tail: no `SEAL` fits after 9007199254740987 (X3b r10 5a).
++const EXHAUSTED: i64 = 9_007_199_254_740_990;
++fn exhausted() -> JournalOutcome {
++    JournalOutcome::Exhausted {
++        exhaustion: CapacityExhaustion::new(1, EXHAUSTED),
++        operation_ref: format!("op-{}", "d".repeat(32)),
++    }
++}
++/// A project whose generation 1 is exhausted at `EXHAUSTED` (a first
++/// operation creates the carrier, then X3b-2's reserved-slot technique
++/// fills it), and an operation begun on it by a writer whose attempt ledger
++/// is capped at `limits`. Twins must use tags of equal length.
++fn exhausted_operation(
++    tag: &str,
++    limits: Option<WorkCost>,
++) -> (ReadFixture, String, ProjectOperation, [ReadProducers; 2]) {
++    use crate::journal_store::plant_committed_tail_for_tests;
++    let (fixture, project, n) = eligible(tag);
++    let (mut first, first_trees) = new_writer(&fixture, tag);
++    let subject = admitted(&mut first, &project);
++    let operation = first
++        .begin_operation(subject, WriterLease::AppendWrite, &inputs())
++        .unwrap();
++    assert!(matches!(
++        operation.end(JournalOutcome::Certain),
++        OperationEnd::Ended(EndOutcome::Unchanged)
++    ));
++    plant_committed_tail_for_tests(&namespace_path(&fixture, &n), &n, EXHAUSTED);
++    let (mut writer, trees) = writer_with(&fixture, &format!("{tag}-x"), limits);
++    let subject = admitted(&mut writer, &project);
++    let operation = writer
++        .begin_operation(subject, WriterLease::AppendWrite, &inputs())
++        .unwrap();
++    assert_eq!(operation.carrier().start_tail().1, EXHAUSTED);
++    (fixture, n, operation, [first_trees, trees])
++}
++/// Nothing of generation 2 exists, the floor is still at the exhausted
++/// tail, and nothing is locked.
++fn not_rolled(fixture: &ReadFixture, n: &str) {
++    assert_eq!(witness_of(fixture, n), (1, EXHAUSTED, "COMMITTED".into()));
++    assert_eq!(floor_of(fixture, n), (1, EXHAUSTED, true));
++    assert!(fence_free(fixture) && unlocked(fixture, n));
++}
++fn end_at(operation: ProjectOperation, points: &crate::journal_store::TestPoints) -> OperationEnd {
++    operation.end_with(
++        exhausted(),
++        &mut Scripted(Duration::ZERO),
++        |location, exhaustion, released, work| {
++            crate::journal_store::end_step_after_exhaustion_at(
++                location, exhaustion, released, points, work,
++            )
++        },
++    )
++}
++fn floor_file(fixture: &ReadFixture, n: &str, mode: u32) {
++    fs::set_permissions(floor_path(fixture, n), fs::Permissions::from_mode(mode)).unwrap();
++}
++
++#[test]
++fn a_failed_rollover_reservation_is_returned_with_no_copy() {
++    // Measure a twin's attempt ledger after the handoff, then leave this
++    // writer room for the end walk and rebinds (well under 1 MiB) but not
++    // for the rollover's reservation (several MiB, X3b r10 item 9).
++    let (_twin, _, measured, _trees) = exhausted_operation("x2e-rsv-a", None);
++    let used = measured.attempt_used();
++    drop(measured);
++    // Objects and edges stay at the platform's maxima; bytes bind.
++    let cap = WorkCost {
++        objects: 65_536,
++        edges: 131_072,
++        bytes: used.bytes + (1 << 20),
++    };
++    let (fixture, n, operation, _trees) = exhausted_operation("x2e-rsv-b", Some(cap));
++    match operation.end(exhausted()) {
++        OperationEnd::RolledOver {
++            rollover: RolloverOutcome::Refused(WorkFailure::Budget(_)),
++            end: Ok(EndOutcome::NotCopied),
++        } => {}
++        other => panic!("{other:?}"),
++    }
++    not_rolled(&fixture, &n);
++}
++
++#[test]
++fn a_busy_writer_lease_skips_the_rollover_and_the_copy() {
++    use crate::journal_store::{RolloverStep, TestPoints};
++    let (fixture, n, operation, _trees) = exhausted_operation("x2e-skp-a", None);
++    // Another writer takes `writer.lease` after this operation released it
++    // and before the rollover's EXCLUSIVE (at X3b-4's `Reserved` point).
++    let carrier = namespace_path(&fixture, &n).join(WRITER_LEASE);
++    let other = std::sync::Arc::new(std::sync::Mutex::new(None));
++    let taken = std::sync::Arc::clone(&other);
++    let points = TestPoints {
++        step: Some(std::sync::Arc::new(move |step| {
++            if step == RolloverStep::Reserved {
++                *taken.lock().unwrap() = Some(hold(&carrier, LockMode::Exclusive));
++            }
++            None
++        })),
++        ..TestPoints::default()
++    };
++    match end_at(operation, &points) {
++        OperationEnd::RolledOver {
++            rollover: RolloverOutcome::Skipped,
++            end: Ok(EndOutcome::Skipped),
++        } => {}
++        other => panic!("{other:?}"),
++    }
++    assert!(other.lock().unwrap().is_some());
++    drop(other.lock().unwrap().take());
++    not_rolled(&fixture, &n);
++}
++
++#[test]
++fn an_io_refusal_inside_the_rollover_is_returned_on_its_own_row() {
++    let (fixture, n, operation, _trees) = exhausted_operation("x2e-iof-a", None);
++    // The rollover's observation reads the floor (item 13 step 3), and so
++    // does the copy after it: both refuse on the host I/O row, and both
++    // are returned.
++    floor_file(&fixture, &n, 0o000);
++    let ended = operation.end(exhausted());
++    floor_file(&fixture, &n, 0o600);
++    match ended {
++        OperationEnd::RolledOver {
++            rollover: rollover @ RolloverOutcome::Refused(WorkFailure::Operation(_)),
++            end: Err(failure),
++        } => {
++            assert_eq!(rollover.row(), Some(CarrierRow::HostIo));
++            assert_eq!(failure.row(), OperationRow::Carrier(CarrierRow::HostIo));
++        }
++        other => panic!("{other:?}"),
++    }
++    not_rolled(&fixture, &n);
++}
++
++#[test]
++fn an_undetermined_rollover_is_returned_for_its_durability_row() {
++    use crate::journal_store::{Fault, RolloverStep, TestPoints};
++    let (fixture, n, operation, _trees) = exhausted_operation("x2e-und-a", None);
++    // OPEN's witness publication fails after visibility (X3b-4's point).
++    let points = TestPoints {
++        step: Some(std::sync::Arc::new(|step| {
++            (step == RolloverStep::Opened).then_some(Fault::Fail)
++        })),
++        ..TestPoints::default()
++    };
++    match end_at(operation, &points) {
++        OperationEnd::RolledOver {
++            rollover: rollover @ RolloverOutcome::Undetermined(_),
++            end: Ok(EndOutcome::NotCopied),
++        } => assert_eq!(rollover.row(), Some(CarrierRow::DurabilityUndetermined)),
++        other => panic!("{other:?}"),
++    }
++    // Nothing followed: the floor was not copied; the next writer's floor
++    // step and start take it from the durable state.
++    assert_eq!(floor_of(&fixture, &n), (1, EXHAUSTED, true));
++    assert!(fence_free(&fixture) && unlocked(&fixture, &n));
++}
++
++#[test]
++fn a_failed_copy_after_a_rollover_keeps_the_rolled_outcome() {
++    use crate::journal_store::TestPoints;
++    let (fixture, n, operation, _trees) = exhausted_operation("x2e-cpy-a", None);
++    // After the rollover released its lease, the floor becomes unreadable,
++    // so the end step's copy (steps 4 and 5) fails.
++    let floor = floor_path(&fixture, &n);
++    let points = TestPoints {
++        step: Some(std::sync::Arc::new(move |step| {
++            if step == crate::journal_store::RolloverStep::WriterReleased {
++                fs::set_permissions(&floor, fs::Permissions::from_mode(0o000)).unwrap();
++            }
++            None
++        })),
++        ..TestPoints::default()
++    };
++    let ended = end_at(operation, &points);
++    floor_file(&fixture, &n, 0o600);
++    match ended {
++        OperationEnd::RolledOver {
++            rollover: RolloverOutcome::Rolled { closed, opened: 2 },
++            end: Err(failure),
++        } => {
++            assert_eq!(closed, (1, EXHAUSTED + 1));
++            assert_eq!(failure.row(), OperationRow::Carrier(CarrierRow::HostIo));
++        }
++        other => panic!("{other:?}"),
++    }
++    // Generation 2 is open; the floor is still in generation 1.
++    assert_eq!(witness_of(&fixture, &n), (2, 0, "COMMITTED".into()));
++    assert_eq!(floor_of(&fixture, &n), (1, EXHAUSTED, true));
++    assert!(fence_free(&fixture) && unlocked(&fixture, &n));
++}
++
++// ------------------------------------------------------------ the seams
++
++#[test]
++fn the_carrier_location_has_no_production_constructor_but_the_admitted_place() {
++    let floor = include_str!("../journal_store/carrier_floor.rs");
++    let operation = include_str!("../journal_store/carrier_operation.rs");
++    let handoff = include_str!("operation_handoff.rs");
++    // carrier_floor builds a location only in its `cfg(test)` constructor.
++    let for_tests = floor.find("pub(crate) fn for_tests(").unwrap();
++    assert!(floor[..for_tests].trim_end().ends_with("#[cfg(test)]"));
++    assert_eq!(floor.matches("CarrierLocation {").count(), 0);
++    // The one production constructor takes X2e's place, and only this
++    // module builds a place.
++    assert!(operation.contains("pub(crate) fn admitted(place: &CarrierPlace<'a>) -> Self"));
++    assert!(!handoff.contains("for_tests("));
++    assert!(handoff.contains("pub(crate) struct CarrierPlace<'a> {\n    trust:"));
++}
+diff --git a/crates/security/src/custody/ordinary_writer.rs b/crates/security/src/custody/ordinary_writer.rs
+index cd1f9c0..1c2bffd 100644
+--- a/crates/security/src/custody/ordinary_writer.rs
++++ b/crates/security/src/custody/ordinary_writer.rs
+@@ -24,11 +24,13 @@ use super::read_premise::{WritePlatformReceipt, produce_write_platform};
+ use super::store_endpoint::{SelectedStoreEndpoint, validate_endpoint};
+ use super::namespace_lease::{
+     self, Failure as NamespaceFailure, FenceHolder, Held, NamespaceRefusal, NamespaceSubject,
+-    NamespaceTarget,
++    NamespaceTarget, WriterLease,
+ };
++use super::operation_handoff::{OperationRefusal, ProjectOperation};
+ use super::project_admission::judged_registry;
+ use super::project_chain::ProjectChainPolicy;
+ use crate::InstallationTermination as T;
++use crate::journal_store::CarrierRefusal;
+ use opensip_platform::{DescriptorFilesystem, WorkFailure, WorkScope};
+ 
+ /// Item 4: an admitted ordinary writer. Private, not Clone, no serialized
+@@ -205,6 +207,92 @@ impl OrdinaryWriteAdmission {
+         namespace_lease::admit(self, subject, inputs)
+     }
+ 
++    /// Law X2 r8 item 7a (unit X2e, with X3b-3): the checked operation
++    /// handoff. The selected store endpoint is joined from this gate's one
++    /// read; the subject's namespace is admitted (X2d); X3b's floor step
++    /// runs at the lease-free point; the lease is taken in `lease`; then,
++    /// with the same fence held, the owners move into `ProjectOperation`,
++    /// X3b's carrier start runs, and only then is the fence released. Any
++    /// refusal spends the gate and releases every project lock, then the
++    /// fence. One operation per writer: this consumes it.
++    pub(crate) fn begin_operation(
++        self,
++        subject: NamespaceSubject,
++        lease: WriterLease,
++        inputs: &ProjectInputs<'_>,
++    ) -> Result<ProjectOperation, OperationRefusal> {
++        super::operation_handoff::begin(self, subject, lease, inputs)
++    }
++    /// Item 7a step 1's endpoint half (law X3a r5 items 1 and 2, unit X2e):
++    /// the selected store endpoint validated from the gate's one read on its
++    /// own ledger, then the gate's recheck and the receipt's, with the
++    /// fence held. Unlike `admit_store_endpoint` this keeps the writer for
++    /// the namespace steps; a refusal spends the gate, and dropping the
++    /// writer releases the fence.
++    pub(super) fn join_store_endpoint(&mut self) -> Result<(), T> {
++        if self.gate.is_spent() {
++            return Err(T::Invariant);
++        }
++        let (closure, writer) = {
++            let (closure, writer) = self.receipt.selected_core();
++            (closure.to_owned(), writer)
++        };
++        let checked = self
++            .gate
++            .charged(|work| validate_endpoint(self.installation.endpoint(), &closure, writer, work))
++            .and_then(|()| {
++                self.gate
++                    .recheck(&self.installation, self.receipt.qualification())
++            })
++            .map_err(|refusal| gate_refusal(&refusal))
++            .and_then(|()| self.receipt.recheck());
++        if checked.is_err() {
++            self.gate.spend();
++        }
++        checked
++    }
++    /// Unit X2e with X3b-3: one X3b step under this writer's held fence,
++    /// charged to the write receipt's attempt ledger (X3b r10 item 9's
++    /// operation ledger), then the gate's full recheck and the receipt's,
++    /// still under the fence. Any refusal spends the gate too.
++    pub(super) fn attempt_step<R>(
++        &mut self,
++        action: impl FnOnce(
++            &DurableInstallation,
++            &mut WorkScope<'_>,
++        ) -> Result<R, WorkFailure<CarrierRefusal>>,
++    ) -> Result<R, OperationRefusal> {
++        if self.gate.is_spent() {
++            return Err(OperationRefusal::Project(ProjectWriteRefusal::Latched));
++        }
++        let installation = &self.installation;
++        let value = match self.receipt.charge(|_, work| action(installation, work)) {
++            Ok(value) => value,
++            Err(failure) => {
++                self.gate.spend();
++                return Err(OperationRefusal::Carrier(failure));
++            }
++        };
++        let rechecked = self
++            .gate
++            .recheck(&self.installation, self.receipt.qualification())
++            .map_err(ProjectWriteRefusal::Gate);
++        self.settle(rechecked).map_err(OperationRefusal::Project)?;
++        Ok(value)
++    }
++    /// Item 7a step 2 (unit X2e): the writer's owners moved apart. The
++    /// installation still holds the fence.
++    pub(super) fn into_parts(
++        self,
++    ) -> (DurableInstallation, WritePlatformReceipt, DurableWriteGate) {
++        let Self {
++            installation,
++            receipt,
++            gate,
++        } = self;
++        (installation, receipt, gate)
++    }
++
+     /// Law X3a r3 items 1 and 2: admit the selected store endpoint from the
+     /// gate's one read. The retained values are validated in memory on the
+     /// gate's own ledger against the write receipt's selected core, then the
+diff --git a/crates/security/src/custody/read_premise.rs b/crates/security/src/custody/read_premise.rs
+index 1b30423..ba57bd5 100644
+--- a/crates/security/src/custody/read_premise.rs
++++ b/crates/security/src/custody/read_premise.rs
+@@ -161,6 +161,30 @@ where
+     pub(crate) fn qualification(&self) -> &impl DurableBarrierQualification {
+         &self.platform
+     }
++    /// Law X3b r10 item 9 (unit X2e with X3b-3): one charged step on this
++    /// receipt's attempt ledger, the operation ledger of X3b, X3d and X4,
++    /// with the same lending as `qualification` beside it. Refused `Closed`
++    /// once the attempt is latched; any failure latches it for good (X1
++    /// item 5's ledger, the platform's failure latch).
++    pub(crate) fn charge<R, E>(
++        &mut self,
++        action: impl FnOnce(
++            &dyn DurableBarrierQualification,
++            &mut opensip_platform::WorkScope<'_>,
++        ) -> Result<R, WorkFailure<E>>,
++    ) -> Result<R, WorkFailure<E>> {
++        let platform = &self.platform;
++        self.attempt.run(|work| action(platform, work))
++    }
++    /// Whether the attempt ledger is closed: every later charge refuses.
++    pub(crate) fn is_closed(&self) -> bool {
++        self.attempt.is_latched()
++    }
++    /// The attempt ledger's use so far, for budget tests.
++    #[cfg(test)]
++    pub(crate) fn attempt_used(&self) -> opensip_platform::WorkCost {
++        self.attempt.used()
++    }
+ }
+ /// The receipt's rechecks, borrowed alongside its lending. Not Clone.
+ pub(crate) struct ReceiptRecheck<'a> {
+diff --git a/crates/security/src/journal_store.rs b/crates/security/src/journal_store.rs
+index 4bd4f12..e470b7a 100644
+--- a/crates/security/src/journal_store.rs
++++ b/crates/security/src/journal_store.rs
+@@ -3027,3 +3027,23 @@ mod carrier_floor;
+ // one private file protocol (judgment call: reuse, not a copy).
+ #[cfg(target_os = "macos")]
+ pub(crate) use carrier_floor::publish_private_file;
++
++#[cfg(all(test, target_os = "macos"))]
++pub(crate) use carrier_floor::CreationOutcome;
++#[cfg(all(test, target_os = "macos"))]
++pub(crate) use carrier_floor::operation::{
++    AppendError, Fault, RecordDraft, RolloverStep, TestPoints, end_step_after_exhaustion_at,
++    plant_committed_tail_for_tests,
++};
++/// Unit X3b-3 (with X2e): the journal half of the operation handoff, and
++/// what the composition owner names of the carrier.
++#[cfg(target_os = "macos")]
++pub(crate) use carrier_floor::operation::{
++    CapacityExhaustion, EndOutcome, ExhaustedEnd, OperationCarrier, OperationFloor,
++    RolloverOutcome, operation_end_after_exhaustion, operation_end_copy, operation_floor_step,
++    operation_start,
++};
++/// `carrier_floor::CarrierRow` (X3b item 8's carrier rows), named apart from
++/// this module's own physical `CarrierRow`.
++#[cfg(target_os = "macos")]
++pub(crate) use carrier_floor::{CarrierLocation, CarrierRefusal, CarrierRow as CarrierRefusalRow};
+diff --git a/crates/security/src/journal_store/carrier_floor.rs b/crates/security/src/journal_store/carrier_floor.rs
+index 6c37dd3..0a432de 100644
+--- a/crates/security/src/journal_store/carrier_floor.rs
++++ b/crates/security/src/journal_store/carrier_floor.rs
+@@ -1166,6 +1166,10 @@ mod append;
+ #[path = "carrier_rollover.rs"]
+ mod rollover;
+ 
++#[cfg(target_os = "macos")]
++#[path = "carrier_operation.rs"]
++pub(super) mod operation;
++
+ #[cfg(test)]
+ #[path = "carrier_floor_tests.rs"]
+ mod tests;
+diff --git a/crates/security/src/journal_store/carrier_operation.rs b/crates/security/src/journal_store/carrier_operation.rs
+new file mode 100644
+index 0000000..8ed8ca6
+--- /dev/null
++++ b/crates/security/src/journal_store/carrier_operation.rs
+@@ -0,0 +1,218 @@
++//! Law X3b r10 items 1, 3, 3a, 4 and 11 (unit X3b-3, composed with X2e's
++//! operation handoff, law X2 r8 item 7a): the journal half of one writer
++//! operation. It adds no carrier semantics; it composes X3b-1's and X3b-2's
++//! steps in the order X2's single fence hold fixes:
++//! - `operation_floor_step`: item 3's floor step at X2's lease-free point,
++//!   under the fence with no project lock held, keeping the observation the
++//!   start must confirm;
++//! - `operation_start`: inside X2e's handoff, under the fence and the
++//!   operation's APPEND-WRITE or EXCLUSIVE lease, item 3a's creation when
++//!   the floor step found INIT, then item 4's carrier start, then item 6's
++//!   `JournalAppendLock` from that start;
++//! - `operation_end_copy`: item 4's end step, steps 4 and 5, after the
++//!   operation's lease is released and the fence retaken by the composition
++//!   owner, with no project lock held. After an uncertain outcome the
++//!   composition owner never calls it (r9: nothing follows; the next
++//!   writer's floor step and start reconcile);
++//! - `operation_end_after_exhaustion`: the same end step from its step 3
++//!   (X3b-4's `end_step_after_exhaustion`), when the operation's outcome was
++//!   X3d's `CarrierCapacityExhausted` and every journal outcome was certain:
++//!   item 13's rollover under its own `EXCLUSIVE` lease, then the copy.
++//!
++//! `CarrierLocation::admitted` is item 11's production constructor: it is
++//! built only from the `CarrierPlace` X2e's handoff confirms, never from a
++//! caller's paths. Every refusal keeps its item 8 row (`CarrierRow`); the
++//! composition owner names it. Library only.
++#[cfg(test)]
++pub(crate) use super::append::Fault;
++use super::append::JournalAppendLock;
++#[cfg(test)]
++pub(crate) use super::append::{AppendError, RecordDraft};
++use super::rollover::end_step_after_exhaustion;
++pub(crate) use super::rollover::{CapacityExhaustion, ExhaustedEnd, RolloverOutcome};
++#[cfg(test)]
++pub(crate) use super::rollover::{RolloverStep, TestPoints, end_step_after_exhaustion_at};
++use super::start::{EndInput, carrier_start, end_step};
++pub(crate) use super::start::{EndOutcome, StartReconciliation};
++use super::{
++    CarrierLocation, CarrierRefusal, CommittedTail, CreationOutcome, FloorStepOutcome, Refused,
++    create_carrier, floor_step_observed, refuse,
++};
++use crate::custody::operation_handoff::CarrierPlace;
++use opensip_platform::WorkScope;
++
++impl<'a> CarrierLocation<'a> {
++    /// Item 11's production constructor: the location of the namespace X2e
++    /// admitted, leased and confirmed, with the `I/trust` it confirmed under
++    /// the same fence. There is no other production constructor.
++    pub(crate) fn admitted(place: &CarrierPlace<'a>) -> Self {
++        Self {
++            trust: place.trust(),
++            namespace: place.namespace(),
++            namespace_path: place.namespace_path(),
++            namespace_id: place.namespace_id(),
++            uid: place.uid(),
++        }
++    }
++}
++
++/// Item 3's result at the lease-free point: what the floor step did, and the
++/// committed tail the carrier start must confirm (absent only when the probe
++/// found `writer.lease` busy and the step was skipped). Private, not Clone.
++#[derive(Debug)]
++pub(crate) struct OperationFloor {
++    outcome: FloorStepOutcome,
++    observed: Option<CommittedTail>,
++}
++impl OperationFloor {
++    pub(crate) fn outcome(&self) -> &FloorStepOutcome {
++        &self.outcome
++    }
++}
++
++/// Item 3: the floor step, under the fence with no project lock held, before
++/// X2d takes the lease. A skip on a busy `writer.lease` writes nothing; X2d
++/// then reports the busy row.
++pub(crate) fn operation_floor_step(
++    location: &CarrierLocation<'_>,
++    work: &mut WorkScope<'_>,
++) -> Refused<OperationFloor> {
++    let (outcome, observed) = floor_step_observed(location, work)?;
++    Ok(OperationFloor { outcome, observed })
++}
++
++/// Item 4's start, as the operation holds it: the append lock (item 6), the
++/// start tail X4 binds its epoch to, what reconciliation did, and whether
++/// item 3a's creation ran. Private, not Clone; no append authority beyond
++/// the lock, which needs the operation's lease and level 3 to be used.
++pub(crate) struct OperationCarrier {
++    lock: JournalAppendLock,
++    tail: (i64, i64, Option<String>),
++    reconciliation: StartReconciliation,
++    created: Option<CreationOutcome>,
++}
++impl std::fmt::Debug for OperationCarrier {
++    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
++        f.debug_struct("OperationCarrier")
++            .field("tail", &self.tail)
++            .field("reconciliation", &self.reconciliation)
++            .field("created", &self.created)
++            .finish_non_exhaustive()
++    }
++}
++impl OperationCarrier {
++    /// The start tail: grant generation, committed sequence and body hash.
++    pub(crate) fn start_tail(&self) -> (i64, i64, Option<&str>) {
++        (self.tail.0, self.tail.1, self.tail.2.as_deref())
++    }
++    pub(crate) fn reconciliation(&self) -> StartReconciliation {
++        self.reconciliation
++    }
++    /// Item 3a's outcome, when the floor step found INIT.
++    pub(crate) fn created(&self) -> Option<CreationOutcome> {
++        self.created
++    }
++    /// The carrier's one append lock (item 6).
++    pub(crate) fn lock(&self) -> &JournalAppendLock {
++        &self.lock
++    }
++}
++
++/// Inside X2e's handoff, after the transfer and before the fence's release,
++/// under the operation's writer lease: item 3a's creation when the floor
++/// step found INIT (it re-observes its own preconditions), then item 4's
++/// start against the floor step's observation, then the append lock. A
++/// floor step skipped on a busy `writer.lease` left no observation to
++/// confirm: if the lease was nevertheless taken (the other writer released
++/// it in between), the start refuses on the busy row and writes nothing.
++pub(crate) fn operation_start(
++    location: &CarrierLocation<'_>,
++    floor: OperationFloor,
++    work: &mut WorkScope<'_>,
++) -> Refused<OperationCarrier> {
++    let OperationFloor { outcome, observed } = floor;
++    let Some(expected) = observed else {
++        return refuse(CarrierRefusal::Busy);
++    };
++    let created = match outcome {
++        FloorStepOutcome::InitFloorWritten | FloorStepOutcome::InitPending => {
++            Some(create_carrier(location, work)?)
++        }
++        _ => None,
++    };
++    let start = carrier_start(location, &expected, work)?;
++    let tail = {
++        let (generation, seq, body) = start.tail();
++        (generation, seq, body.map(str::to_owned))
++    };
++    let reconciliation = start.reconciliation();
++    let lock = JournalAppendLock::after_start(location, start)?;
++    Ok(OperationCarrier {
++        lock,
++        tail,
++        reconciliation,
++        created,
++    })
++}
++
++/// Item 4's end step, steps 4 and 5, after every journal outcome of the
++/// operation was certain: probe `writer.lease`, read the tail, copy the
++/// floor forward only if it is higher. The composition owner has released
++/// the lease, retaken the fence and holds no project lock.
++pub(crate) fn operation_end_copy(
++    location: &CarrierLocation<'_>,
++    work: &mut WorkScope<'_>,
++) -> Refused<EndOutcome> {
++    end_step(location, EndInput::Certain, work)
++}
++
++/// Item 4's end step from step 3 (X3b-4): when the operation's outcome was
++/// `CarrierCapacityExhausted` and every journal outcome was certain, item
++/// 13's rollover, then steps 4 and 5's floor copy. `released_operation_ref`
++/// is the released operation's `operationRef`, which the closure's token
++/// must not equal. The composition owner holds the fence and no project
++/// lock; the rollover takes and releases its own lease.
++pub(crate) fn operation_end_after_exhaustion(
++    location: &CarrierLocation<'_>,
++    exhaustion: CapacityExhaustion,
++    released_operation_ref: &str,
++    work: &mut WorkScope<'_>,
++) -> ExhaustedEnd {
++    end_step_after_exhaustion(location, exhaustion, released_operation_ref, work)
++}
++
++/// Test support for the composition owner's tests: plant a committed `RA`
++/// at (1, `seq`) in N's carrier with X3b-2's reserved-slot technique (the
++/// append trigger lifted and reinstalled from its own stored SQL), and the
++/// witness `COMMITTED` at it. Never compiled into a release build.
++#[cfg(test)]
++pub(crate) fn plant_committed_tail_for_tests(
++    namespace_path: &std::path::Path,
++    namespace_id: &str,
++    seq: i64,
++) {
++    let body =
++        opensip_identity::digest_hex(&opensip_identity::raw_sha256(format!("1:{seq}").as_bytes()));
++    let c = rusqlite::Connection::open(namespace_path.join(super::CARRIER_NAME)).unwrap();
++    let trigger: String = c
++        .query_row(
++            "SELECT sql FROM sqlite_schema WHERE name='gj3_append_laws'",
++            [],
++            |r| r.get(0),
++        )
++        .unwrap();
++    c.execute_batch("DROP TRIGGER gj3_append_laws").unwrap();
++    c.execute(
++        "INSERT INTO grant_journal_v3(grantGeneration,seq,record_schema,record_type,operation_ref,body,body_sha256,prev_sha256) VALUES(1,?1,3,'RA',?2,'{}',?3,?4)",
++        rusqlite::params![seq, format!("op-{}", "c".repeat(32)), body, "b".repeat(64)],
++    )
++    .unwrap();
++    c.execute_batch(&trigger).unwrap();
++    drop(c);
++    let witness = super::witness_bytes(namespace_id, 1, seq, Some(&body), true).unwrap();
++    std::fs::write(namespace_path.join(super::WITNESS_NAME), witness).unwrap();
++}
++
++#[cfg(test)]
++#[path = "carrier_operation_tests.rs"]
++mod tests;
+diff --git a/crates/security/src/journal_store/carrier_operation_tests.rs b/crates/security/src/journal_store/carrier_operation_tests.rs
+new file mode 100644
+index 0000000..5b12baf
+--- /dev/null
++++ b/crates/security/src/journal_store/carrier_operation_tests.rs
+@@ -0,0 +1,125 @@
++//! Law X3b r10 items 3, 3a, 4 and 11 for unit X3b-3's journal half, on X3b-1's
++//! scratch carrier fixture: the floor step's observation carried to the
++//! start, creation only after an INIT floor step, the busy skip that leaves
++//! nothing to confirm, and the end copy after certain appends. The real
++//! composition under the fence and the lease is X2e's (operation_handoff).
++use super::super::append::RecordDraft;
++use super::super::tests::Fixture;
++use super::*;
++use opensip_platform::{FileLock, LockMode, WorkFailure, WorkLedger};
++use std::fs::{self, File};
++
++fn floor(f: &Fixture) -> Refused<OperationFloor> {
++    WorkLedger::new().scope(|w| operation_floor_step(&f.location(), w))
++}
++fn start(f: &Fixture, floor: OperationFloor) -> Refused<OperationCarrier> {
++    WorkLedger::new().scope(|w| operation_start(&f.location(), floor, w))
++}
++fn end(f: &Fixture) -> Refused<EndOutcome> {
++    WorkLedger::new().scope(|w| operation_end_copy(&f.location(), w))
++}
++/// One `RA` through the started carrier's lock.
++fn append_ra(f: &Fixture, carrier: &OperationCarrier) {
++    let location = f.location();
++    WorkLedger::new()
++        .scope(|w| {
++            let held = carrier.lock().begin(&location, w)?.acquire()?;
++            held.append(
++                &format!("op-{}", "a".repeat(32)),
++                &RecordDraft::Ra {
++                    request_ref: "request-1".into(),
++                },
++                w,
++            )
++            .map_err(|error| match error {
++                super::super::append::AppendError::Refused(f)
++                | super::super::append::AppendError::Undetermined(f) => f,
++            })
++        })
++        .unwrap();
++}
++
++#[test]
++fn an_init_floor_step_creates_then_starts_and_the_end_copy_follows_appends() {
++    let f = Fixture::new();
++    let observed = floor(&f).unwrap();
++    assert_eq!(observed.outcome(), &FloorStepOutcome::InitFloorWritten);
++    assert!(f.floor_path().exists());
++    // The floor step writes nothing in the namespace.
++    assert!(!f.carrier().exists() && !f.witness().exists());
++    let carrier = start(&f, observed).unwrap();
++    assert_eq!(carrier.created(), Some(CreationOutcome::Created));
++    assert_eq!(carrier.reconciliation(), StartReconciliation::Consistent);
++    assert_eq!(carrier.start_tail(), (1, 0, None));
++    assert!(f.carrier().exists() && f.witness().exists());
++    // Certain appends, then the end copy raises the floor to the tail.
++    let floor_before = fs::read(f.floor_path()).unwrap();
++    assert_eq!(end(&f).unwrap(), EndOutcome::Unchanged);
++    append_ra(&f, &carrier);
++    assert_eq!(fs::read(f.floor_path()).unwrap(), floor_before);
++    drop(carrier);
++    assert_eq!(end(&f).unwrap(), EndOutcome::CopiedForward);
++    assert_ne!(fs::read(f.floor_path()).unwrap(), floor_before);
++    // The next operation's floor step finds the floor at the tail.
++    let next = floor(&f).unwrap();
++    assert_eq!(next.outcome(), &FloorStepOutcome::Unchanged);
++    let carrier = start(&f, next).unwrap();
++    assert_eq!(carrier.created(), None);
++    assert_eq!(carrier.start_tail().1, 1);
++}
++
++#[test]
++fn an_init_floor_found_without_a_carrier_resumes_creation_at_the_start() {
++    let f = Fixture::new();
++    // A crash after the floor-first INIT write: the floor is there, no carrier.
++    let first = floor(&f).unwrap();
++    assert_eq!(first.outcome(), &FloorStepOutcome::InitFloorWritten);
++    drop(first);
++    let resumed = floor(&f).unwrap();
++    assert_eq!(resumed.outcome(), &FloorStepOutcome::InitPending);
++    let carrier = start(&f, resumed).unwrap();
++    assert_eq!(carrier.created(), Some(CreationOutcome::Created));
++    assert_eq!(carrier.start_tail(), (1, 0, None));
++}
++
++#[test]
++fn a_skipped_floor_step_leaves_nothing_to_confirm_and_the_start_refuses_busy() {
++    let f = Fixture::new();
++    let busy = FileLock::try_acquire(
++        File::open(f.namespace_path.join("writer.lease")).unwrap(),
++        LockMode::Exclusive,
++    )
++    .unwrap()
++    .unwrap();
++    let skipped = floor(&f).unwrap();
++    assert_eq!(skipped.outcome(), &FloorStepOutcome::Skipped);
++    assert!(!f.floors().exists());
++    // The other writer released `writer.lease` before this one's lease.
++    drop(busy);
++    match start(&f, skipped) {
++        Err(WorkFailure::Operation(refusal)) => {
++            assert!(matches!(refusal, CarrierRefusal::Busy));
++            assert_eq!(refusal.row(), super::super::CarrierRow::Busy);
++        }
++        other => panic!("{other:?}"),
++    }
++    assert!(!f.carrier().exists() && !f.witness().exists() && !f.floors().exists());
++}
++
++#[test]
++fn the_end_copy_is_skipped_while_another_writer_holds_the_lease() {
++    let f = Fixture::new();
++    let carrier = start(&f, floor(&f).unwrap()).unwrap();
++    append_ra(&f, &carrier);
++    drop(carrier);
++    let floor_before = fs::read(f.floor_path()).unwrap();
++    let busy = FileLock::try_acquire(
++        File::open(f.namespace_path.join("writer.lease")).unwrap(),
++        LockMode::Exclusive,
++    )
++    .unwrap()
++    .unwrap();
++    assert_eq!(end(&f).unwrap(), EndOutcome::Skipped);
++    assert_eq!(fs::read(f.floor_path()).unwrap(), floor_before);
++    drop(busy);
++}
+diff --git a/crates/security/src/journal_store/carrier_rollover.rs b/crates/security/src/journal_store/carrier_rollover.rs
+index cf397b6..8354106 100644
+--- a/crates/security/src/journal_store/carrier_rollover.rs
++++ b/crates/security/src/journal_store/carrier_rollover.rs
+@@ -173,6 +173,27 @@ fn end_after(
+     ExhaustedEnd { rollover, end }
+ }
+ 
++/// `end_step_after_exhaustion` with test points, for the composition owner's
++/// tests (unit X2e with X3b-3): the same rollover and end, with this module's
++/// test-only sources and hooks. Never compiled into a release build.
++#[cfg(test)]
++pub(crate) fn end_step_after_exhaustion_at(
++    location: &CarrierLocation<'_>,
++    exhaustion: CapacityExhaustion,
++    released_operation_ref: &str,
++    points: &TestPoints,
++    work: &mut WorkScope<'_>,
++) -> ExhaustedEnd {
++    let rollover = Rollover {
++        location,
++        exhaustion,
++        released: released_operation_ref,
++        points,
++    }
++    .run(work);
++    end_after(location, rollover, work)
++}
++
+ /// Item 13: `rollover(location, exhaustion, work)`, with the released
+ /// operation's `operationRef`, which the closure's token must not equal.
+ pub(crate) fn rollover(
