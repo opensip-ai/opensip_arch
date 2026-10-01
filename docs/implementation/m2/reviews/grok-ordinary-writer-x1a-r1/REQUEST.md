@@ -1,4 +1,4 @@
-REVIEWER review: X1a, the purpose-sealed platform receipt and `admit_ordinary_writer`, and inventory v81. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/REVIEWDIR.
+Grok review: X1a, the purpose-sealed platform receipt and `admit_ordinary_writer`, and inventory v81. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/grok-ordinary-writer-x1a-r1.
 
 Law: `docs/implementation/m2/ordinary-platform-x1/PROPOSAL.md` r1 (accepted).
 
