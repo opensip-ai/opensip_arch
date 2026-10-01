@@ -1,19 +1,18 @@
-"""Build inventory89 from inventory84 (unit X2a, selected at product 8bfc78a)
+"""Build inventory89 from inventory87 (unit X4T-0, selected at product 5b5f04c)
 by adding exactly the three X3c-1 rows, and write its successor record. It
-projects the sixteen rows inherited through inventory84. The number 89 is
-reserved for X3c-1; inventories 85 to 88 are other units in flight, so this
-successor is renumbered and rebuilt on the real predecessor at integration.
-Run with python3 -I -B from any directory. Deterministic: rerunning
-reproduces the same bytes. It refuses to write over any path git already
-tracks."""
-import hashlib, json, subprocess
+projects the sixteen rows inherited through inventory87. Run with
+python3 -I -B from any directory. Deterministic: rerunning reproduces the
+same bytes. It refuses to write over any other unit's inventory: the only
+tracked paths it may rewrite are this unit's own (inventory89 and its
+successor record), and only while they are not selected by a lock."""
+import hashlib, json
 from pathlib import Path
 A = Path(__file__).resolve().parents[5]
 M = 'docs/implementation/m2/'
 OUT = M + 'repository-file-inventory.v89.json'
 RECORD = M + 'ledger-creation-inventory-v89/successor.json'
-tracked = subprocess.run(['git', '-C', str(A), 'ls-files', OUT, RECORD], capture_output=True, text=True)
-assert not tracked.stdout.strip(), f'refusing to overwrite tracked paths: {tracked.stdout}'
+lock = json.loads(Path('/Users/sb/code/opensip-ai/opensip/design-lock.json').read_bytes())
+assert all(s['candidate']['path'] != OUT for s in lock['inventorySuccessors']), 'inventory89 is selected; refusing to rebuild it'
 def pin(p):
     b = (A / p).read_bytes(); return {'path': p, 'bytes': len(b), 'sha256': hashlib.sha256(b).hexdigest()}
 def row(path, package, role, description):
@@ -26,7 +25,7 @@ ADDED = [
     row('crates/storage/src/ledger_store/project_ledger_tests.rs', 'opensip-storage', 'test',
         "Check X3c-1 on a scratch installation under the temp directory with a held test writer lease: owner201 spellings and component grammar; directories created then admitted 0700, and a non-private, linked or non-directory entry refused and left unchanged; ledger creation committing exactly the selected schema in WAL and then admitted unchanged; an empty file with no -wal resumed; every other creation footprint (empty with -wal, non-database bytes, WAL with no schema, a partial schema, an extra object, rollback-journal mode, a foreign file mode) refused as LEDGER.CORRUPT; the attempt row committed before any object directory; a reused ExecutionId and a foreign or settled record refused as the invariant row with nothing written; a busy ledger refused at once; a short ledger refused before any directory; the item 10 rows; and a source pin that the module deletes, renames, publishes and settles nothing."),
 ]
-parent = pin(M + 'repository-file-inventory.v84.json')
+parent = pin(M + 'repository-file-inventory.v87.json')
 v84 = json.loads((A / parent['path']).read_bytes())
 v89 = dict(v84)
 v89['standing'] = 'PROPOSED additive evidence ledger layout and creation (law X3c r6); no release, custody, profile, boot or creator qualification'
@@ -39,8 +38,8 @@ old = {r['path']: r for r in v84['files']}
 assert all(old[r['path']] == r for r in files if r['path'] in old)
 assert {k: v for k, v in v89.items() if k not in ('files', 'standing')} == {k: v for k, v in v84.items() if k not in ('files', 'standing')}
 index = {r['path']: i for i, r in enumerate(files)}
-prior = json.loads((A / M / 'project-chain-inventory-v84/successor.json').read_bytes())
-assert prior['candidate'] == parent, 'inventory84 is not the committed X2a candidate'
+prior = json.loads((A / M / 'signed-store-inventory-v87/successor.json').read_bytes())
+assert prior['candidate'] == parent, 'inventory87 is not the committed X4T-0 candidate'
 projection = []
 for p in prior['descriptionOverrideProjection']:
     projection.append({'filePath': p['filePath'], 'parentSelector': p['candidateSelector'],
@@ -60,7 +59,7 @@ record = {
     'addedFiles': [r['path'] for r in ADDED],
     'carriedUnresolvedObligations': prior['carriedUnresolvedObligations'],
     'descriptionOverrideProjection': projection,
-    'projectionRule': 'Resolve all sixteen effective descriptions by stable file path from the rows bound to inventory84, which carries them unchanged from inventory83. Preserve exact before/effective text and projected selector; never drop inherited meaning.',
+    'projectionRule': 'Resolve all sixteen effective descriptions by stable file path from the rows bound to inventory87, which carries them unchanged from inventory84. Preserve exact before/effective text and projected selector; never drop inherited meaning.',
 }
 (A / RECORD).write_text(json.dumps(record, indent=2) + '\n')
 print(json.dumps({'files': len(files), 'added': len(ADDED), 'projectionRows': len(projection)}))

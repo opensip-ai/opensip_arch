@@ -1,6 +1,6 @@
 """Scratch-only: run a product worktree's real verify_design with the
-inventory89 successor appended to its lock (which selects inventory84, unit
-X2a, at product 8bfc78a) and the re-projected inheritance, with a synthetic
+inventory89 successor appended to its lock (which selects inventory87, unit
+X4T-0, at product 5b5f04c) and the re-projected inheritance, with a synthetic
 in-memory review and assent (SCRATCH-X3C1/ paths). Nothing is written to either
 repository. Proves only that everything except the missing independent review
 and root assent passes. Usage: verify_scratch.py [WORKTREE]."""
@@ -11,7 +11,7 @@ A = Path('/Users/sb/code/opensip-ai/opensip_arch')
 spec = importlib.util.spec_from_file_location('vd', W / 'tools/verify_design.py'); m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
 M = 'docs/implementation/m2/'
 def pin(p): b = (A / p).read_bytes(); return {'path': p, 'bytes': len(b), 'sha256': hashlib.sha256(b).hexdigest()}
-parent, candidate = pin(M + 'repository-file-inventory.v84.json'), pin(M + 'repository-file-inventory.v89.json')
+parent, candidate = pin(M + 'repository-file-inventory.v87.json'), pin(M + 'repository-file-inventory.v89.json')
 record, subject = pin(M + 'ledger-creation-inventory-v89/successor.json'), pin(M + 'ledger-creation-inventory-v89-subject.json')
 review = json.dumps({'verdict': 'ACCEPT-UNIT', 'requiredFindings': [], 'subjectManifestSha256': subject['sha256'],
     'inventoryCandidateAssessment': {'verdict': 'ACCEPT', 'requiredFindings': [], **candidate, 'parent': parent, 'successorRecord': record}}).encode()
@@ -27,7 +27,7 @@ def pinned_bytes(root, row):
     return real(root, row)
 m.pinned_bytes = pinned_bytes
 lock = json.loads((W / 'design-lock.json').read_text())
-assert lock['inventorySuccessors'][-1]['candidate'] == parent, 'the lock must select inventory84'
+assert lock['inventorySuccessors'][-1]['candidate'] == parent, 'the lock must select inventory87'
 lock['inventorySuccessors'].append({'parent': parent, 'candidate': candidate, 'record': record, 'review': rpin, 'assent': apin})
 rows = json.loads((A / record['path']).read_text())['descriptionOverrideProjection']
 lock['inventoryPassageInheritance'] = sorted(
