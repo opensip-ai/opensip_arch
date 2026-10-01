@@ -1,4 +1,4 @@
-REVIEWER re-review: X2b-1 r2 (project admission) after Grok's r1 findings. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/REVIEWDIR. If you build, use a CARGO_TARGET_DIR under it.
+Grok re-review: X2b-1 r2 (project admission) after Grok's r1 findings. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/grok-project-admission-x2b1-r2. If you build, use a CARGO_TARGET_DIR under it.
 
 Subject: the worktree `/Users/sb/code/opensip-ai/opensip-x2b`, rebased onto 5b5f04c (v87 selected). Pins are in hashes.txt. Save the diff as product.diff and report its sha256. Inventory v88 is rebuilt with parent v87. The r1 review is `reviews/grok-project-admission-x2b1-r1/`.
 
