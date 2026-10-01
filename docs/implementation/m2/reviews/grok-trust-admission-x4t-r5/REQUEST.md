@@ -1,4 +1,4 @@
-REVIEWER re-review: law X4T r5 after Grok's r4 finding. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/REVIEWDIR. Law review; no product cargo. Product HEAD is 8bfc78a.
+Grok re-review: law X4T r5 after Grok's r4 finding. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/grok-trust-admission-x4t-r5. Law review; no product cargo. Product HEAD is 8bfc78a.
 
 Subject: docs/implementation/m2/trust-admission-x4t/PROPOSAL.md r5 (pin in hashes.txt). `diff` it against PROPOSAL-r4.md, which equals the reviewed r4 (sha f6a9a27b…).
 
