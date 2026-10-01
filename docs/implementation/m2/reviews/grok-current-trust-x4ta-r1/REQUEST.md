@@ -1,4 +1,4 @@
-REVIEWER review: X4T-a, the read-only current-trust admission, with inventory v90. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/REVIEWDIR. If you build, use a CARGO_TARGET_DIR under it.
+Grok review: X4T-a, the read-only current-trust admission, with inventory v90. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/grok-current-trust-x4ta-r1. If you build, use a CARGO_TARGET_DIR under it.
 
 Law: `docs/implementation/m2/trust-admission-x4t/PROPOSAL.md` r5 (accepted). X4T-a's scope: items 1–6 and 8–11, with time report-only and no floor publication.
 

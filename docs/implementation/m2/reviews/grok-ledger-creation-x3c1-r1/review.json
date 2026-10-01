@@ -1,0 +1,39 @@
+{
+  "actualModel": "Grok",
+  "verdict": "REQUIRED-FINDINGS",
+  "requiredFindings": [
+    {
+      "id": "RF-1",
+      "title": "Creation's busy SQLite results take host I/O",
+      "failureScenario": "write_schema maps the creation open, PRAGMA journal_mode=WAL, BEGIN IMMEDIATE, and DDL errors through Sql, and Sql.row() is host I/O. Item 10's first row is a busy ledger at level 3: LEDGER.BUSY_TIMEOUT, ledger-busy, PROJECT.BUSY. admit_attempt and open_verified already classify SQLITE_BUSY and SQLITE_LOCKED as Busy. The busy test covers admit_attempt only. Required: those two codes on the creation open, the journal-mode pragma, BEGIN IMMEDIATE, and the DDL statements are ProjectLedgerRow::Busy. Other pre-COMMIT I/O and SQL errors stay host I/O. A journal mode other than wal, and a stored schema other than the selected DDL, stay LEDGER.CORRUPT with domainDetail omitted. A creation COMMIT error stays CreationUndetermined, host I/O."
+    },
+    {
+      "id": "RF-2",
+      "title": "Store custody and a changed identity take the quarantine row",
+      "failureScenario": "row() maps NotPrivate, Kind, Filesystem, NameChanged, and IdentityChanged to LEDGER.CORRUPT. Item 10 gives that row to a schema other than the selected DDL, a partial creation footprint other than the resumable empty file, and an unequal object. S12 fixes CONFIG.CUSTODY_REFUSED for SYMLINK and WRITABLE_BY_OTHERS, and 468c's InstallationTermination already has that arm: request-rejected, exit 2, CONFIG.INVALID, detail CONFIG.CUSTODY_REFUSED, with existing subjects mode, private, not-fresh, name-changed, and required-files-changed. A 0755 directory, a symlink, and a 0644 ledger name are left in place and reported as LedgerCorrupt. StoreCustodyRefusal::Io stays host I/O, and a malformed component stays the invariant row. Required: NotPrivate (including NotFresh), Kind, Filesystem, NameChanged, and IdentityChanged take the existing custody row and those existing subjects. Schema mismatch, a non-resumable ledger footprint, and an unequal object stay LEDGER.CORRUPT with domainDetail omitted."
+    }
+  ],
+  "subjectManifestSha256": "f6136e5ce809048ba838f35ffb12b3bb5a09be0afb74bc9ac32c1dbeacbc3e3e",
+  "inventoryCandidateAssessment": {
+    "verdict": "ACCEPT",
+    "requiredFindings": [],
+    "path": "docs/implementation/m2/repository-file-inventory.v89.json",
+    "bytes": 328461,
+    "sha256": "7bde76bfadc116a6e7af595ad758d1ca51dc18f2bb3a5f164afc37d928467eab",
+    "parent": {
+      "path": "docs/implementation/m2/repository-file-inventory.v87.json",
+      "bytes": 324832,
+      "sha256": "f4240a79718874c8d8e323750b918b11a86ec0b22f7e050f30b53f2472a8d209"
+    },
+    "successorRecord": {
+      "path": "docs/implementation/m2/ledger-creation-inventory-v89/successor.json",
+      "bytes": 20222,
+      "sha256": "fbea0026f03c868f4b60fff184c389cf0c84aa15e109437c900e9e27fcf1cf50"
+    }
+  },
+  "productHead": "5b5f04cf3132d4aa91ced618d4b40544f2aaf2f5",
+  "productDiffSha256": "4b59bfbcf7c8d8f3fc6e5a6935dc20bacbf235c373f955f7978c53bee4ed74bb",
+  "productDiffBytes": 51638,
+  "realOpenSipAbsent": true,
+  "scope": "X3c-1 r1. RF-1: SQLITE_BUSY and SQLITE_LOCKED on the creation path are the busy row; a creation COMMIT stays host I/O. RF-2: store custody and a changed identity take CONFIG.CUSTODY_REFUSED. Inventory v89 ACCEPT. Replay: opensip-storage project_ledger 15 passed. Workspace suite, clippy, fmt, check_package_edges, and verify_scratch were not replayed."
+}
