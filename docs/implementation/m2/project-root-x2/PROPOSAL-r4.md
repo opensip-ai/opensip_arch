@@ -1,4 +1,4 @@
-# Project-root custody, project admission and first registration — proposal X2 r5
+# Project-root custody, project admission and first registration — proposal X2 r4
 
 2026-09-30. Claude Opus 5.5, implementation lead. Law for unit X2 of EXIT-PLAN.md, under owner.md §1b, §5, §7 and §8; the selected project registry owner (`project-registry-owner-selection-v2/owner.md`); the security contract S3 (discovery and custody), S7 (locks and leases) and S12; identity-and-evidence §2 and §5; and laws 458 (§3 and §5), 458b, 462, 465 item 4, 468 r5, 458c r6, 461 r3 (item 9, which requires this law) and X1. Every choice here is a lead decision, made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation; each is dated and names the alternative it rejects. r2 answers Codex X2 r1 RF-1 to RF-7 against product f7acb6d (X1a integrated). r1 bytes are preserved in PROPOSAL-r1.md. r3 answers Codex X2 r2 RF-1 to RF-4, and r2 bytes are preserved in PROPOSAL-r2.md. r4 answers Grok X2 r3 RF-1 to RF-3, and r3 bytes are preserved in PROPOSAL-r3.md. Not code. Library only: CLI enablement is X11.
 
