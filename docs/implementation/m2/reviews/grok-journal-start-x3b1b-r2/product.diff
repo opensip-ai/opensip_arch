@@ -1,0 +1,928 @@
+diff --git a/crates/security/src/journal_store/carrier_floor.rs b/crates/security/src/journal_store/carrier_floor.rs
+index 29a642c..b52f812 100644
+--- a/crates/security/src/journal_store/carrier_floor.rs
++++ b/crates/security/src/journal_store/carrier_floor.rs
+@@ -195,13 +195,18 @@ pub(crate) enum CarrierRefusal {
+     Private(PreparePrivateError),
+     /// A carrier creation step failed after the file was made.
+     Create(CreationStep),
++    /// The carrier start found no carrier, or a committed tail other than the
++    /// floor step observed, though the fence was held throughout (item 4).
++    TailChanged,
+ }
+ impl CarrierRefusal {
+     pub(crate) fn row(&self) -> CarrierRow {
+         match self {
+-            Self::NamespaceId | Self::Quarantine(_) | Self::Binding | Self::NotInit => {
+-                CarrierRow::LedgerCorrupt
+-            }
++            Self::NamespaceId
++            | Self::Quarantine(_)
++            | Self::Binding
++            | Self::NotInit
++            | Self::TailChanged => CarrierRow::LedgerCorrupt,
+             Self::Footprint => CarrierRow::MigrationCorrupt,
+             Self::Inherited => CarrierRow::InheritedCarrier,
+             Self::Busy => CarrierRow::Busy,
+@@ -337,6 +342,17 @@ pub(super) struct CommittedTail {
+     pub(super) seq: i64,
+     pub(super) body: Option<String>,
+ }
++impl CommittedTail {
++    /// The empty tail of a freshly created carrier: generation 1, nothing
++    /// committed (item 3a).
++    pub(super) fn init() -> Self {
++        Self {
++            generation: 1,
++            seq: 0,
++            body: None,
++        }
++    }
++}
+ /// The carrier after item 3 step 3's dispatch. Every other classification is
+ /// a refusal returned by `classify_carrier`.
+ pub(super) enum CarrierClass {
+@@ -485,35 +501,9 @@ pub(super) fn decide_floor(
+             _ => FloorDecision::Quarantine(Quarantine::UncertainTailLoss),
+         },
+         (FloorObservation::Present(floor), CarrierClass::Current(tail)) => {
+-            let observed;
+-            let tail_observation = match &tail.body {
+-                None => TailObservation::Empty,
+-                Some(body) => {
+-                    observed = ObservedTail {
+-                        seq: tail.seq,
+-                        body: body.clone(),
+-                    };
+-                    TailObservation::Present(&observed)
+-                }
+-            };
+-            let witness_observation = match witness {
+-                WitnessFile::Absent => WitnessObservation::Absent,
+-                WitnessFile::Malformed => WitnessObservation::Malformed,
+-                WitnessFile::Present(w) => WitnessObservation::Present(w),
+-            };
+-            let proposal = reconcile_observations(
+-                namespace_id,
+-                tail.generation,
+-                tail_observation,
+-                witness_observation,
+-            );
+-            match proposal {
++            match reconcile_witness(namespace_id, tail, witness) {
+                 WitnessProposal::Unavailable => FloorDecision::Unavailable,
+-                WitnessProposal::Quarantine => FloorDecision::Quarantine(match witness {
+-                    WitnessFile::Absent => Quarantine::WitnesslessRestore,
+-                    WitnessFile::Malformed => Quarantine::WitnessMalformed,
+-                    WitnessFile::Present(_) => Quarantine::ProtocolViolation,
+-                }),
++                WitnessProposal::Quarantine => FloorDecision::Quarantine(quarantine_kind(witness)),
+                 WitnessProposal::Initialize => {
+                     if is_init_floor(floor) {
+                         FloorDecision::ResumeInit
+@@ -528,6 +518,45 @@ pub(super) fn decide_floor(
+         }
+     }
+ }
++/// `reconcile_witness` (§5.4) over one committed tail and one witness
++/// observation: a pure decision, shared by the floor step (read-only), the
++/// carrier start and the post-uncertainty reconciliation (item 4).
++pub(super) fn reconcile_witness(
++    namespace_id: &str,
++    tail: &CommittedTail,
++    witness: &WitnessFile,
++) -> WitnessProposal {
++    let observed;
++    let tail_observation = match &tail.body {
++        None => TailObservation::Empty,
++        Some(body) => {
++            observed = ObservedTail {
++                seq: tail.seq,
++                body: body.clone(),
++            };
++            TailObservation::Present(&observed)
++        }
++    };
++    let witness_observation = match witness {
++        WitnessFile::Absent => WitnessObservation::Absent,
++        WitnessFile::Malformed => WitnessObservation::Malformed,
++        WitnessFile::Present(w) => WitnessObservation::Present(w),
++    };
++    reconcile_observations(
++        namespace_id,
++        tail.generation,
++        tail_observation,
++        witness_observation,
++    )
++}
++/// The quarantine kind of a QUARANTINE proposal, named by the witness state.
++pub(super) fn quarantine_kind(witness: &WitnessFile) -> Quarantine {
++    match witness {
++        WitnessFile::Absent => Quarantine::WitnesslessRestore,
++        WitnessFile::Malformed => Quarantine::WitnessMalformed,
++        WitnessFile::Present(_) => Quarantine::ProtocolViolation,
++    }
++}
+ /// After OK, REVERT or ADVANCE: regression, or the copy forward (never down).
+ fn compare_with_floor(floor: &CarrierFloor, tail: &CommittedTail) -> FloorDecision {
+     use std::cmp::Ordering::{Equal, Greater, Less};
+@@ -571,16 +600,30 @@ pub(crate) fn floor_step(
+     location: &CarrierLocation<'_>,
+     work: &mut WorkScope<'_>,
+ ) -> Refused<FloorStepOutcome> {
++    floor_step_observed(location, work).map(|(outcome, _)| outcome)
++}
++/// The floor step, also returning the committed tail the carrier start must
++/// confirm (item 4): the observed tail of a current carrier, or the INIT tail
++/// when the floor step found no carrier and creation follows. `None` only
++/// when the step was skipped on a busy writer lease.
++pub(crate) fn floor_step_observed(
++    location: &CarrierLocation<'_>,
++    work: &mut WorkScope<'_>,
++) -> Refused<(FloorStepOutcome, Option<CommittedTail>)> {
+     if !canonical_namespace_id(location.namespace_id) {
+         return refuse(CarrierRefusal::NamespaceId);
+     }
+     if !probe_writer_lease(location, work)? {
+-        return Ok(FloorStepOutcome::Skipped);
++        return Ok((FloorStepOutcome::Skipped, None));
+     }
+     // Item 3 step 3 (RF-1): the carrier is classified before the floor is
+     // read at all, so a format-1/2 carrier or a format-3 footprint refuses on
+     // its own row whatever the floor directory or floor file holds.
+     let carrier = classify_carrier(location, work)?;
++    let observed = Some(match &carrier {
++        CarrierClass::None => CommittedTail::init(),
++        CarrierClass::Current(tail) => tail.clone(),
++    });
+     let floors = location
+         .trust
+         .open_child_directory_if_present_accounted(OsStr::new(FLOORS_NAME), work)
+@@ -606,9 +649,9 @@ pub(crate) fn floor_step(
+                 None => create_floor_directory(location, work)?,
+             };
+             write_floor(&floors, location, 1, 0, None, work)?;
+-            Ok(FloorStepOutcome::InitFloorWritten)
++            Ok((FloorStepOutcome::InitFloorWritten, observed))
+         }
+-        FloorDecision::ResumeInit => Ok(FloorStepOutcome::InitPending),
++        FloorDecision::ResumeInit => Ok((FloorStepOutcome::InitPending, observed)),
+         FloorDecision::CopyForward(tail) => {
+             let floors = floors.ok_or(WorkFailure::Operation(CarrierRefusal::Quarantine(
+                 Quarantine::FloorLost,
+@@ -621,9 +664,9 @@ pub(crate) fn floor_step(
+                 tail.body.as_deref(),
+                 work,
+             )?;
+-            Ok(FloorStepOutcome::CopiedForward)
++            Ok((FloorStepOutcome::CopiedForward, observed))
+         }
+-        FloorDecision::Unchanged => Ok(FloorStepOutcome::Unchanged),
++        FloorDecision::Unchanged => Ok((FloorStepOutcome::Unchanged, observed)),
+         FloorDecision::Quarantine(kind) => refuse(CarrierRefusal::Quarantine(kind)),
+         FloorDecision::Unavailable => refuse(CarrierRefusal::Unreadable),
+     }
+@@ -905,6 +948,10 @@ fn configure_writer(c: &rusqlite::Connection) -> Result<(), CreationStep> {
+     Ok(())
+ }
+ 
++#[cfg(target_os = "macos")]
++#[path = "carrier_start.rs"]
++mod start;
++
+ #[cfg(test)]
+ #[path = "carrier_floor_tests.rs"]
+ mod tests;
+diff --git a/crates/security/src/journal_store/carrier_floor_tests.rs b/crates/security/src/journal_store/carrier_floor_tests.rs
+index 1eb4d65..831557b 100644
+--- a/crates/security/src/journal_store/carrier_floor_tests.rs
++++ b/crates/security/src/journal_store/carrier_floor_tests.rs
+@@ -8,18 +8,18 @@ use std::fs;
+ use std::os::unix::fs::PermissionsExt;
+ use std::path::PathBuf;
+ 
+-const N: &str = "0f8fad5b-d9cb-469f-a165-70867728950e";
++pub(super) const N: &str = "0f8fad5b-d9cb-469f-a165-70867728950e";
+ const OTHER: &str = "7c9e6679-7425-40de-944b-e07fc1f90ae7";
+ 
+-struct Fixture {
++pub(super) struct Fixture {
+     root: PathBuf,
+     trust: RetainedDirectory,
+     namespace: RetainedDirectory,
+-    namespace_path: PathBuf,
++    pub(super) namespace_path: PathBuf,
+     uid: u32,
+ }
+ impl Fixture {
+-    fn new() -> Self {
++    pub(super) fn new() -> Self {
+         let tag = opensip_identity::digest_hex(&opensip_identity::raw_sha256(
+             &opensip_platform::request_entropy().unwrap(),
+         ));
+@@ -45,10 +45,10 @@ impl Fixture {
+             uid,
+         }
+     }
+-    fn location(&self) -> CarrierLocation<'_> {
++    pub(super) fn location(&self) -> CarrierLocation<'_> {
+         self.location_for(N)
+     }
+-    fn location_for<'a>(&'a self, n: &'a str) -> CarrierLocation<'a> {
++    pub(super) fn location_for<'a>(&'a self, n: &'a str) -> CarrierLocation<'a> {
+         CarrierLocation::for_tests(
+             &self.trust,
+             &self.namespace,
+@@ -57,26 +57,32 @@ impl Fixture {
+             self.uid,
+         )
+     }
+-    fn step(&self) -> Refused<FloorStepOutcome> {
++    pub(super) fn step(&self) -> Refused<FloorStepOutcome> {
+         WorkLedger::new().scope(|w| floor_step(&self.location(), w))
+     }
+-    fn create(&self) -> Refused<CreationOutcome> {
++    pub(super) fn create(&self) -> Refused<CreationOutcome> {
+         WorkLedger::new().scope(|w| create_carrier(&self.location(), w))
+     }
+-    fn floors(&self) -> PathBuf {
++    pub(super) fn floors(&self) -> PathBuf {
+         self.root.join("I/trust/carrier-floors")
+     }
+-    fn floor_path(&self) -> PathBuf {
++    pub(super) fn floor_path(&self) -> PathBuf {
+         self.floors().join(format!("{N}.v1"))
+     }
+-    fn carrier(&self) -> PathBuf {
++    pub(super) fn carrier(&self) -> PathBuf {
+         self.namespace_path.join(CARRIER_NAME)
+     }
+-    fn witness(&self) -> PathBuf {
++    pub(super) fn witness(&self) -> PathBuf {
+         self.namespace_path.join(WITNESS_NAME)
+     }
+     /// A floor written outside the protocol, for table rows.
+-    fn plant_floor(&self, digest_of: &str, generation: i64, seq: i64, body: Option<&str>) {
++    pub(super) fn plant_floor(
++        &self,
++        digest_of: &str,
++        generation: i64,
++        seq: i64,
++        body: Option<&str>,
++    ) {
+         self.private_floors();
+         fs::write(
+             self.floor_path(),
+@@ -84,7 +90,13 @@ impl Fixture {
+         )
+         .unwrap();
+     }
+-    fn plant_witness(&self, generation: i64, seq: i64, body: Option<&str>, committed: bool) {
++    pub(super) fn plant_witness(
++        &self,
++        generation: i64,
++        seq: i64,
++        body: Option<&str>,
++        committed: bool,
++    ) {
+         fs::write(
+             self.witness(),
+             witness_bytes(N, generation, seq, body, committed).unwrap(),
+@@ -93,24 +105,24 @@ impl Fixture {
+     }
+     /// The floor directory as production creates it: private, with the
+     /// zero-rights owner allow.
+-    fn private_floors(&self) {
++    pub(super) fn private_floors(&self) {
+         if !self.floors().exists() {
+             WorkLedger::new()
+                 .scope(|w| create_floor_directory(&self.location(), w))
+                 .unwrap();
+         }
+     }
+-    fn floor(&self) -> CarrierFloor {
++    pub(super) fn floor(&self) -> CarrierFloor {
+         CarrierFloor::from_file_bytes(&fs::read(self.floor_path()).unwrap())
+             .unwrap()
+             .record
+     }
+     /// A complete published carrier through the production creation path.
+-    fn created(&self) {
++    pub(super) fn created(&self) {
+         assert_eq!(self.step().unwrap(), FloorStepOutcome::InitFloorWritten);
+         assert_eq!(self.create().unwrap(), CreationOutcome::Created);
+     }
+-    fn append_raw(&self, seq: i64, body_sha: &str) {
++    pub(super) fn append_raw(&self, seq: i64, body_sha: &str) {
+         let c = rusqlite::Connection::open(self.carrier()).unwrap();
+         c.execute(
+             "INSERT INTO grant_journal_v3(grantGeneration,seq,record_schema,record_type,operation_ref,body,body_sha256,prev_sha256) VALUES(1,?1,3,'RA',?2,'{}',?3,?4)",
+@@ -124,19 +136,19 @@ impl Drop for Fixture {
+         let _ = fs::remove_dir_all(&self.root);
+     }
+ }
+-fn quarantine(result: Refused<impl std::fmt::Debug>) -> Quarantine {
++pub(super) fn quarantine(result: Refused<impl std::fmt::Debug>) -> Quarantine {
+     match result {
+         Err(WorkFailure::Operation(CarrierRefusal::Quarantine(kind))) => kind,
+         other => panic!("expected a quarantine, got {other:?}"),
+     }
+ }
+-fn refusal<T: std::fmt::Debug>(result: Refused<T>) -> CarrierRefusal {
++pub(super) fn refusal<T: std::fmt::Debug>(result: Refused<T>) -> CarrierRefusal {
+     match result {
+         Err(WorkFailure::Operation(refusal)) => refusal,
+         other => panic!("expected a refusal, got {other:?}"),
+     }
+ }
+-fn h(c: char) -> String {
++pub(super) fn h(c: char) -> String {
+     c.to_string().repeat(64)
+ }
+ 
+diff --git a/crates/security/src/journal_store/carrier_start.rs b/crates/security/src/journal_store/carrier_start.rs
+new file mode 100644
+index 0000000..92db19e
+--- /dev/null
++++ b/crates/security/src/journal_store/carrier_start.rs
+@@ -0,0 +1,282 @@
++//! The carrier start and the end step of law X3b r6 item 4 (unit X3b-1b),
++//! with the post-uncertainty reconciliation that X3d r3's `finish` relies on
++//! (X3b items 4 and 5; X3d item 7 steps 1 and 3). The start runs under the
++//! fence and the operation lease and writes only the witness. The end step
++//! runs under the fence with no project lock held and writes only the floor.
++//! Taking and releasing the fence and the lease belongs to the composition
++//! owner (X3b-3, with X2e); these functions take the location only.
++use super::{
++    CarrierClass, CarrierLocation, CarrierRefusal, CommittedTail, FLOORS_NAME, FloorDecision,
++    FloorObservation, Quarantine, Refused, WITNESS_NAME, WRITER_LEASE, canonical_namespace_id,
++    carrier_digest, classify_carrier, compare_with_floor, lease_probe_cost, lift, observe_floor,
++    observe_witness, publish_private_file, quarantine_kind, reconcile_witness, refuse,
++    witness_bytes, write_floor,
++};
++use crate::journal_store::WitnessProposal;
++use crate::private_access::observe_private_directory;
++use opensip_platform::{FileLock, LockMode, WorkFailure, WorkScope};
++use std::ffi::OsStr;
++
++/// What the carrier start's reconciliation did to the witness.
++#[derive(Debug, Clone, Copy, PartialEq, Eq)]
++pub(crate) enum StartReconciliation {
++    /// OK: the witness already named the committed tail. Nothing was written.
++    Consistent,
++    /// REVERT: a PENDING one beyond the tail became COMMITTED at the tail.
++    Reverted,
++    /// ADVANCE: a PENDING at the tail became COMMITTED at the tail.
++    Advanced,
++    /// INIT: an empty journal with no witness gained `COMMITTED 0`.
++    Initialized,
++}
++
++/// The carrier start's result: the start tail X4 binds its epoch to, and
++/// the reconciliation that ran. It grants no append authority by itself.
++#[derive(Debug, PartialEq, Eq)]
++pub(crate) struct CarrierStart {
++    tail: CommittedTail,
++    reconciliation: StartReconciliation,
++}
++impl CarrierStart {
++    /// The start tail: grant generation, committed sequence and its body hash.
++    pub(crate) fn tail(&self) -> (i64, i64, Option<&str>) {
++        (
++            self.tail.generation,
++            self.tail.seq,
++            self.tail.body.as_deref(),
++        )
++    }
++    pub(crate) fn reconciliation(&self) -> StartReconciliation {
++        self.reconciliation
++    }
++}
++
++/// Item 4's carrier start, inside X2e under the fence and the operation lease
++/// (APPEND-WRITE or EXCLUSIVE), after creation when the floor step found INIT.
++/// `expected` is the tail `floor_step_observed` returned. The carrier is
++/// opened and classified (format and `SHA-256(N)` binding), the tail and the
++/// witness are read, and the tail is confirmed equal to `expected` before any
++/// write. Then `reconcile_witness` runs: REVERT, ADVANCE and INIT write only
++/// the witness, by the file protocol; QUARANTINE refuses and writes nothing.
++/// The start writes no floor.
++pub(crate) fn carrier_start(
++    location: &CarrierLocation<'_>,
++    expected: &CommittedTail,
++    work: &mut WorkScope<'_>,
++) -> Refused<CarrierStart> {
++    if !canonical_namespace_id(location.namespace_id) {
++        return refuse(CarrierRefusal::NamespaceId);
++    }
++    let tail = match classify_carrier(location, work)? {
++        CarrierClass::Current(tail) => tail,
++        // Creation precedes the start whenever the floor step found no carrier.
++        CarrierClass::None => return refuse(CarrierRefusal::TailChanged),
++    };
++    let witness = observe_witness(location, work)?;
++    if &tail != expected {
++        return refuse(CarrierRefusal::TailChanged);
++    }
++    let reconciliation = match reconcile_witness(location.namespace_id, &tail, &witness) {
++        WitnessProposal::Consistent => StartReconciliation::Consistent,
++        WitnessProposal::Revert => {
++            write_committed_witness(location, &tail, work)?;
++            StartReconciliation::Reverted
++        }
++        WitnessProposal::Advance => {
++            write_committed_witness(location, &tail, work)?;
++            StartReconciliation::Advanced
++        }
++        WitnessProposal::Initialize => {
++            write_committed_witness(location, &tail, work)?;
++            StartReconciliation::Initialized
++        }
++        WitnessProposal::Quarantine => {
++            return refuse(CarrierRefusal::Quarantine(quarantine_kind(&witness)));
++        }
++        WitnessProposal::Unavailable => return refuse(CarrierRefusal::Unreadable),
++    };
++    Ok(CarrierStart {
++        tail,
++        reconciliation,
++    })
++}
++/// The witness `COMMITTED` at the committed tail, by the file protocol.
++fn write_committed_witness(
++    location: &CarrierLocation<'_>,
++    tail: &CommittedTail,
++    work: &mut WorkScope<'_>,
++) -> Refused<()> {
++    let bytes = witness_bytes(
++        location.namespace_id,
++        tail.generation,
++        tail.seq,
++        tail.body.as_deref(),
++        true,
++    )
++    .ok_or(WorkFailure::Operation(CarrierRefusal::Unreadable))?;
++    publish_private_file(location.namespace, WITNESS_NAME, &bytes, location.uid, work)
++        .map_err(lift(CarrierRefusal::File))
++}
++
++/// A committed tail established by reconciliation after an uncertain
++/// outcome. Only `reconcile_after_uncertain` makes one, so the end step can
++/// copy nothing but a reconciled tail (X3d item 7 step 3).
++#[derive(Debug, PartialEq, Eq)]
++pub(crate) struct ReconciledTail(CommittedTail);
++
++/// The outcome of reconciling after an uncertain journal commit or barrier.
++#[derive(Debug, PartialEq, Eq)]
++pub(crate) enum UncertainReconciliation {
++    /// OK, REVERT or ADVANCE: the floor copy may run, from this tail only.
++    Copyable(ReconciledTail),
++    /// QUARANTINE: the floor stays untouched; the writer stored nothing.
++    Quarantined(Quarantine),
++    /// INIT: an empty journal with no witness. The witness `COMMITTED 0` was
++    /// written, as the start writes it; INIT is not OK, REVERT or ADVANCE,
++    /// so the floor copy stays off.
++    Initialize,
++}
++
++/// After a failure after visibility (item 5, §5.6), still under the
++/// operation lease: reopen the carrier and run `reconcile_witness`, writing
++/// only the witness on REVERT, ADVANCE or INIT (item 4). A refusal (including a read or
++/// write failure) is returned as `Err`; the floor stays untouched and the
++/// next opener reconciles.
++pub(crate) fn reconcile_after_uncertain(
++    location: &CarrierLocation<'_>,
++    work: &mut WorkScope<'_>,
++) -> Refused<UncertainReconciliation> {
++    if !canonical_namespace_id(location.namespace_id) {
++        return refuse(CarrierRefusal::NamespaceId);
++    }
++    let tail = match classify_carrier(location, work)? {
++        CarrierClass::Current(tail) => tail,
++        CarrierClass::None => return refuse(CarrierRefusal::TailChanged),
++    };
++    let witness = observe_witness(location, work)?;
++    match reconcile_witness(location.namespace_id, &tail, &witness) {
++        WitnessProposal::Consistent => Ok(UncertainReconciliation::Copyable(ReconciledTail(tail))),
++        WitnessProposal::Revert | WitnessProposal::Advance => {
++            write_committed_witness(location, &tail, work)?;
++            Ok(UncertainReconciliation::Copyable(ReconciledTail(tail)))
++        }
++        WitnessProposal::Initialize => {
++            write_committed_witness(location, &tail, work)?;
++            Ok(UncertainReconciliation::Initialize)
++        }
++        WitnessProposal::Quarantine => Ok(UncertainReconciliation::Quarantined(quarantine_kind(
++            &witness,
++        ))),
++        WitnessProposal::Unavailable => refuse(CarrierRefusal::Unreadable),
++    }
++}
++
++/// What the end step copies.
++#[derive(Debug)]
++pub(crate) enum EndInput {
++    /// The operation's journal outcomes were all durable: copy the committed
++    /// tail read under the end step's probe.
++    Certain,
++    /// The operation had an uncertain journal outcome. `Some` carries the
++    /// tail reconciliation established, the only tail copied; `None` (a
++    /// quarantine, INIT or failed reconciliation) copies nothing and runs no
++    /// effect at all.
++    Uncertain(Option<ReconciledTail>),
++}
++
++/// The end step's result. A refusal is disclosed by the caller and never
++/// rewrites the operation's outcome.
++#[derive(Debug, Clone, Copy, PartialEq, Eq)]
++pub(crate) enum EndOutcome {
++    /// `writer.lease` was busy: a later writer's start observed a tail at or
++    /// above ours. Nothing was copied.
++    Skipped,
++    /// An uncertain outcome without a copyable reconciliation: nothing ran.
++    NotCopied,
++    /// The floor already equals the tail.
++    Unchanged,
++    /// The floor was copied forward to the tail.
++    CopiedForward,
++}
++
++/// Item 4's end step, run after the operation lease is released and the
++/// fence retaken (by the composition owner), with no project lock held:
++/// probe `writer.lease` without waiting, read the tail to copy while the
++/// probe is held, release the probe, then copy the floor forward only if the
++/// tail is higher. The floor never moves down; a missing floor is
++/// `floorLost` and a floor above the tail is regression, each writing nothing.
++pub(crate) fn end_step(
++    location: &CarrierLocation<'_>,
++    input: EndInput,
++    work: &mut WorkScope<'_>,
++) -> Refused<EndOutcome> {
++    if !canonical_namespace_id(location.namespace_id) {
++        return refuse(CarrierRefusal::NamespaceId);
++    }
++    let reconciled = match input {
++        EndInput::Uncertain(None) => return Ok(EndOutcome::NotCopied),
++        EndInput::Uncertain(Some(ReconciledTail(tail))) => Some(tail),
++        EndInput::Certain => None,
++    };
++    let probe = work.run(lease_probe_cost(), |_| {
++        let file = location
++            .namespace
++            .open_regular(WRITER_LEASE)
++            .map_err(|e| WorkFailure::Operation(CarrierRefusal::Io(e)))?;
++        FileLock::try_acquire(file, LockMode::Exclusive)
++            .map_err(|e| WorkFailure::Operation(CarrierRefusal::Io(e)))
++    })?;
++    let Some(probe) = probe else {
++        return Ok(EndOutcome::Skipped);
++    };
++    let tail = match reconciled {
++        Some(tail) => tail,
++        None => match classify_carrier(location, work)? {
++            CarrierClass::Current(tail) => tail,
++            CarrierClass::None => {
++                return refuse(CarrierRefusal::Quarantine(Quarantine::UncertainTailLoss));
++            }
++        },
++    };
++    drop(probe);
++    let floors = location
++        .trust
++        .open_child_directory_if_present_accounted(OsStr::new(FLOORS_NAME), work)
++        .map_err(lift(CarrierRefusal::Io))?
++        .ok_or(WorkFailure::Operation(CarrierRefusal::Quarantine(
++            Quarantine::FloorLost,
++        )))?;
++    observe_private_directory(floors.as_file(), location.uid, work)
++        .map_err(lift(CarrierRefusal::Private))?;
++    let floor = match observe_floor(&floors, location, work)? {
++        FloorObservation::Present(floor) => floor,
++        FloorObservation::Absent => {
++            return refuse(CarrierRefusal::Quarantine(Quarantine::FloorLost));
++        }
++    };
++    if floor.project != carrier_digest(location.namespace_id) {
++        return refuse(CarrierRefusal::Binding);
++    }
++    match compare_with_floor(&floor, &tail) {
++        FloorDecision::CopyForward(tail) => {
++            write_floor(
++                &floors,
++                location,
++                tail.generation,
++                tail.seq,
++                tail.body.as_deref(),
++                work,
++            )?;
++            Ok(EndOutcome::CopiedForward)
++        }
++        FloorDecision::Unchanged => Ok(EndOutcome::Unchanged),
++        FloorDecision::Quarantine(kind) => refuse(CarrierRefusal::Quarantine(kind)),
++        FloorDecision::WriteInitFloor | FloorDecision::ResumeInit | FloorDecision::Unavailable => {
++            refuse(CarrierRefusal::Unreadable)
++        }
++    }
++}
++
++#[cfg(test)]
++#[path = "carrier_start_tests.rs"]
++mod tests;
+diff --git a/crates/security/src/journal_store/carrier_start_tests.rs b/crates/security/src/journal_store/carrier_start_tests.rs
+new file mode 100644
+index 0000000..a1c677d
+--- /dev/null
++++ b/crates/security/src/journal_store/carrier_start_tests.rs
+@@ -0,0 +1,292 @@
++//! Law X3b r6 item 4's tests for X3b-1b, on scratch installations only: the
++//! carrier start's confirmation and reconciliation writes (OK, REVERT,
++//! ADVANCE, INIT, QUARANTINE), the post-uncertainty reconciliation, and the
++//! end step's probe, never-down copy, reconciled-tail-only copy and refusals.
++use super::super::tests::{Fixture, N, h, quarantine, refusal};
++use super::*;
++use crate::journal_store::{CarrierFloor, Witness, WitnessState};
++use opensip_platform::WorkLedger;
++use std::fs::{self, File};
++use std::os::unix::fs::MetadataExt;
++
++impl Fixture {
++    fn start(&self, expected: &CommittedTail) -> Refused<CarrierStart> {
++        WorkLedger::new().scope(|w| carrier_start(&self.location(), expected, w))
++    }
++    fn end(&self, input: EndInput) -> Refused<EndOutcome> {
++        WorkLedger::new().scope(|w| end_step(&self.location(), input, w))
++    }
++    fn reconcile(&self) -> Refused<UncertainReconciliation> {
++        WorkLedger::new().scope(|w| reconcile_after_uncertain(&self.location(), w))
++    }
++    fn witness_state(&self) -> (i64, i64, Option<String>, WitnessState) {
++        let w = Witness::from_file_bytes(&fs::read(self.witness()).unwrap())
++            .unwrap()
++            .record;
++        (w.generation, w.seq, w.body, w.state)
++    }
++    fn floor_state(&self) -> (i64, i64, Option<String>) {
++        let f: CarrierFloor = self.floor();
++        (f.generation, f.seq, f.body)
++    }
++    fn hold_writer_lease(&self) -> FileLock {
++        FileLock::try_acquire(
++            File::options()
++                .read(true)
++                .write(true)
++                .open(self.namespace_path.join("writer.lease"))
++                .unwrap(),
++            LockMode::Exclusive,
++        )
++        .unwrap()
++        .unwrap()
++    }
++}
++fn tail(seq: i64, body: Option<&str>) -> CommittedTail {
++    CommittedTail {
++        generation: 1,
++        seq,
++        body: body.map(str::to_string),
++    }
++}
++
++#[test]
++fn the_floor_step_reports_the_tail_the_start_must_confirm() {
++    let f = Fixture::new();
++    let (outcome, expected) = WorkLedger::new()
++        .scope(|w| super::super::floor_step_observed(&f.location(), w))
++        .unwrap();
++    assert_eq!(outcome, super::super::FloorStepOutcome::InitFloorWritten);
++    assert_eq!(expected, Some(CommittedTail::init()));
++    f.create().unwrap();
++    let held = f.hold_writer_lease();
++    let (outcome, expected) = WorkLedger::new()
++        .scope(|w| super::super::floor_step_observed(&f.location(), w))
++        .unwrap();
++    assert_eq!(
++        (outcome, expected),
++        (super::super::FloorStepOutcome::Skipped, None)
++    );
++    drop(held);
++    f.append_raw(1, &h('d'));
++    f.plant_witness(1, 1, Some(&h('d')), true);
++    let (_, expected) = WorkLedger::new()
++        .scope(|w| super::super::floor_step_observed(&f.location(), w))
++        .unwrap();
++    assert_eq!(expected, Some(tail(1, Some(&h('d')))));
++}
++
++#[test]
++fn a_consistent_start_writes_nothing_and_returns_the_start_tail() {
++    let f = Fixture::new();
++    f.created();
++    let witness = fs::metadata(f.witness()).unwrap().ino();
++    let floor = fs::read(f.floor_path()).unwrap();
++    let _lease = f.hold_writer_lease();
++    let start = f.start(&CommittedTail::init()).unwrap();
++    assert_eq!(start.reconciliation(), StartReconciliation::Consistent);
++    assert_eq!(start.tail(), (1, 0, None));
++    assert_eq!(fs::metadata(f.witness()).unwrap().ino(), witness);
++    assert_eq!(fs::read(f.floor_path()).unwrap(), floor);
++}
++
++#[test]
++fn a_moved_tail_or_missing_carrier_refuses_before_any_write() {
++    let f = Fixture::new();
++    f.created();
++    f.append_raw(1, &h('d'));
++    f.plant_witness(1, 2, Some(&h('e')), false);
++    let before = fs::read(f.witness()).unwrap();
++    let r = refusal(f.start(&CommittedTail::init()));
++    assert!(matches!(r, CarrierRefusal::TailChanged), "{r:?}");
++    assert_eq!(r.row(), super::super::CarrierRow::LedgerCorrupt);
++    assert_eq!(fs::read(f.witness()).unwrap(), before);
++    let g = Fixture::new();
++    g.plant_floor(N, 1, 0, None);
++    assert!(matches!(
++        refusal(g.start(&CommittedTail::init())),
++        CarrierRefusal::TailChanged
++    ));
++    assert!(!g.witness().exists());
++}
++
++#[test]
++fn revert_advance_and_init_write_only_the_witness() {
++    // REVERT: PENDING one beyond the tail.
++    let f = Fixture::new();
++    f.created();
++    f.append_raw(1, &h('d'));
++    f.plant_witness(1, 2, Some(&h('e')), false);
++    let floor = fs::read(f.floor_path()).unwrap();
++    let start = f.start(&tail(1, Some(&h('d')))).unwrap();
++    assert_eq!(start.reconciliation(), StartReconciliation::Reverted);
++    assert_eq!(
++        f.witness_state(),
++        (1, 1, Some(h('d')), WitnessState::Committed)
++    );
++    // ADVANCE: PENDING at the tail with its body.
++    f.append_raw(2, &h('e'));
++    f.plant_witness(1, 2, Some(&h('e')), false);
++    let start = f.start(&tail(2, Some(&h('e')))).unwrap();
++    assert_eq!(start.reconciliation(), StartReconciliation::Advanced);
++    assert_eq!(start.tail(), (1, 2, Some(h('e').as_str())));
++    assert_eq!(
++        f.witness_state(),
++        (1, 2, Some(h('e')), WitnessState::Committed)
++    );
++    // INIT: an empty journal with no witness.
++    let g = Fixture::new();
++    g.created();
++    fs::remove_file(g.witness()).unwrap();
++    let start = g.start(&CommittedTail::init()).unwrap();
++    assert_eq!(start.reconciliation(), StartReconciliation::Initialized);
++    assert_eq!(g.witness_state(), (1, 0, None, WitnessState::Committed));
++    // The start never writes the floor.
++    assert_eq!(fs::read(f.floor_path()).unwrap(), floor);
++}
++
++#[test]
++fn a_quarantine_at_start_refuses_and_writes_nothing() {
++    let f = Fixture::new();
++    f.created();
++    f.append_raw(1, &h('d'));
++    let expected = tail(1, Some(&h('d')));
++    fs::remove_file(f.witness()).unwrap();
++    assert_eq!(
++        quarantine(f.start(&expected)),
++        Quarantine::WitnesslessRestore
++    );
++    assert!(!f.witness().exists());
++    fs::write(f.witness(), b"{bad").unwrap();
++    assert_eq!(quarantine(f.start(&expected)), Quarantine::WitnessMalformed);
++    assert_eq!(fs::read(f.witness()).unwrap(), b"{bad");
++    f.plant_witness(1, 3, Some(&h('e')), true);
++    assert_eq!(
++        quarantine(f.start(&expected)),
++        Quarantine::ProtocolViolation
++    );
++}
++
++#[test]
++fn reconciliation_after_an_uncertain_outcome_copies_only_ok_revert_or_advance() {
++    let f = Fixture::new();
++    f.created();
++    f.append_raw(1, &h('d'));
++    f.plant_witness(1, 1, Some(&h('d')), true);
++    assert_eq!(
++        f.reconcile().unwrap(),
++        UncertainReconciliation::Copyable(ReconciledTail(tail(1, Some(&h('d')))))
++    );
++    // REVERT writes the witness, then is copyable from the committed tail.
++    f.plant_witness(1, 2, Some(&h('e')), false);
++    assert_eq!(
++        f.reconcile().unwrap(),
++        UncertainReconciliation::Copyable(ReconciledTail(tail(1, Some(&h('d')))))
++    );
++    assert_eq!(
++        f.witness_state(),
++        (1, 1, Some(h('d')), WitnessState::Committed)
++    );
++    // QUARANTINE writes nothing.
++    fs::remove_file(f.witness()).unwrap();
++    assert_eq!(
++        f.reconcile().unwrap(),
++        UncertainReconciliation::Quarantined(Quarantine::WitnesslessRestore)
++    );
++    assert!(!f.witness().exists());
++    // INIT writes the witness COMMITTED 0, as the start does, but is not
++    // copyable: the end step then copies nothing.
++    let g = Fixture::new();
++    g.created();
++    fs::remove_file(g.witness()).unwrap();
++    let floor = fs::read(g.floor_path()).unwrap();
++    assert_eq!(g.reconcile().unwrap(), UncertainReconciliation::Initialize);
++    assert_eq!(g.witness_state(), (1, 0, None, WitnessState::Committed));
++    assert_eq!(
++        g.end(EndInput::Uncertain(None)).unwrap(),
++        EndOutcome::NotCopied
++    );
++    assert_eq!(fs::read(g.floor_path()).unwrap(), floor);
++    // A second reconciliation now finds OK.
++    assert_eq!(
++        g.reconcile().unwrap(),
++        UncertainReconciliation::Copyable(ReconciledTail(CommittedTail::init()))
++    );
++}
++
++#[test]
++fn the_end_step_copies_the_committed_tail_forward_and_never_down() {
++    let f = Fixture::new();
++    f.created();
++    f.append_raw(1, &h('d'));
++    f.plant_witness(1, 1, Some(&h('d')), true);
++    assert_eq!(f.end(EndInput::Certain).unwrap(), EndOutcome::CopiedForward);
++    assert_eq!(f.floor_state(), (1, 1, Some(h('d'))));
++    assert_eq!(f.end(EndInput::Certain).unwrap(), EndOutcome::Unchanged);
++    // The probe was released before the floor write.
++    drop(f.hold_writer_lease());
++    // A floor above the tail is regression and is not rewritten.
++    f.plant_floor(N, 1, 3, Some(&h('c')));
++    let before = fs::read(f.floor_path()).unwrap();
++    assert_eq!(
++        quarantine(f.end(EndInput::Certain)),
++        Quarantine::FloorRegression
++    );
++    assert_eq!(fs::read(f.floor_path()).unwrap(), before);
++    // A missing floor is floorLost, and none is created.
++    fs::remove_file(f.floor_path()).unwrap();
++    assert_eq!(quarantine(f.end(EndInput::Certain)), Quarantine::FloorLost);
++    assert!(!f.floor_path().exists());
++}
++
++#[test]
++fn a_busy_writer_lease_skips_the_end_copy() {
++    let f = Fixture::new();
++    f.created();
++    f.append_raw(1, &h('d'));
++    f.plant_witness(1, 1, Some(&h('d')), true);
++    let held = f.hold_writer_lease();
++    assert_eq!(f.end(EndInput::Certain).unwrap(), EndOutcome::Skipped);
++    assert_eq!(f.floor_state(), (1, 0, None));
++    drop(held);
++}
++
++#[test]
++fn after_an_uncertain_outcome_only_the_reconciled_tail_is_copied() {
++    let f = Fixture::new();
++    f.created();
++    f.append_raw(1, &h('d'));
++    f.plant_witness(1, 1, Some(&h('d')), true);
++    let reconciled = match f.reconcile().unwrap() {
++        UncertainReconciliation::Copyable(tail) => tail,
++        other => panic!("{other:?}"),
++    };
++    // A later writer appended after the lease was released.
++    f.append_raw(2, &h('e'));
++    f.plant_witness(1, 2, Some(&h('e')), true);
++    assert_eq!(
++        f.end(EndInput::Uncertain(Some(reconciled))).unwrap(),
++        EndOutcome::CopiedForward
++    );
++    assert_eq!(f.floor_state(), (1, 1, Some(h('d'))));
++    // Without a copyable reconciliation nothing runs, even with a higher tail.
++    let before = fs::read(f.floor_path()).unwrap();
++    let held = f.hold_writer_lease();
++    assert_eq!(
++        f.end(EndInput::Uncertain(None)).unwrap(),
++        EndOutcome::NotCopied
++    );
++    drop(held);
++    assert_eq!(fs::read(f.floor_path()).unwrap(), before);
++}
++
++#[test]
++fn a_floor_bound_to_another_namespace_refuses_at_end() {
++    let f = Fixture::new();
++    f.created();
++    f.plant_floor("7c9e6679-7425-40de-944b-e07fc1f90ae7", 1, 0, None);
++    assert!(matches!(
++        refusal(f.end(EndInput::Certain)),
++        CarrierRefusal::Binding
++    ));
++}
