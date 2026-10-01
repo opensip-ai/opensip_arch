@@ -1,6 +1,6 @@
 REVIEWER review: X3a-1, the selected store endpoint, with inventory v83. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/REVIEWDIR.
 
-Law: `docs/implementation/m2/store-admission-x3a/PROPOSAL.md`. r3 is accepted, and r4 is under review: it drops the creator as an endpoint producer.
+Law: `docs/implementation/m2/store-admission-x3a/PROPOSAL.md`. r5 is accepted. It drops the creator as an endpoint producer, and a creator invocation never reaches a store.
 
 ## Subject
 
