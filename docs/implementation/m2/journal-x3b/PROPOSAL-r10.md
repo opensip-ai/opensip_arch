@@ -17,7 +17,7 @@
 - **No reconciliation in the same operation after an uncertain outcome (items 4, 4a, 5, 9, 11, 12 and 13, and the forbidden substitutes).** The attempt ledger is the platform's failure-latching `WorkLedger`. The failure after visibility closes it, so r8's in-operation reconciliation ("reconcile once" in item 13, X3b-2's reconciliation in item 5) was refused before it read anything and could never run. r9 withdraws it. The operation reports durability-undetermined, copies no floor, and the next writer's floor step and start reconcile, as they already do after a crash at the same point. Item 5 records the decision and the rejected alternatives. No platform change is made.
 - **Unchanged from r8:** everything else, including item 9's reserved cost (r9 only clarifies what its reconciliation line covers), every crash table and every refusal row.
 
-**r10 (2026-10-01) is an amendment required by X3d r6**, which is reviewed together with this revision. r9 bytes are preserved in PROPOSAL-r9.md. r10 ACCEPTED by Grok on 2026-10-02.
+**r10 (2026-10-01) is an amendment required by X3d r6**, which is reviewed together with this revision. r9 bytes are preserved in PROPOSAL-r9.md.
 - **What X3d r6 decides.** The end path's `REV` and `CLN` after a certain refusal that closed the attempt ledger are funded by a settlement reserve in `WorkLedger`, from platform unit X3d-0.
   - It is taken once, before the first attempt effect, in the same attempt ledger, at the exact cost of those two appends.
   - It is spendable after the latch, but only by X3d's `finish`, for those two appends.
