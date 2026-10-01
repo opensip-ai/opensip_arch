@@ -5,8 +5,8 @@ Law: `docs/implementation/m2/store-admission-x3a/PROPOSAL.md`. r3 is accepted, a
 ## Subject
 
 Pins are in hashes.txt.
-- **Product:** the worktree `/Users/sb/code/opensip-ai/opensip-x3a1`, based on f7acb6d. Save `git -C <worktree> diff` (new files are intent-to-add) as product.diff, and report its sha256.
-- **Arch:** `repository-file-inventory.v83.json` (parent: X10a's v82, which is under review), `store-endpoint-inventory-v83-subject.json` and `store-endpoint-inventory-v83/`. `evidence/verify_scratch.py` appends X10b, v82 and v83 in memory.
+- **Product:** the worktree `/Users/sb/code/opensip-ai/opensip-x3a1`, rebased onto 84a8bfd (X10a). Save `git -C <worktree> diff` (new files are intent-to-add) as product.diff, and report its sha256.
+- **Arch:** `repository-file-inventory.v83.json` (parent: X10a's v82, selected at 84a8bfd), `store-endpoint-inventory-v83-subject.json` and `store-endpoint-inventory-v83/`. `evidence/verify_scratch.py` appends only v83 in memory, over the real lock that selects v82 and X10b.
 
 ## What it does
 
