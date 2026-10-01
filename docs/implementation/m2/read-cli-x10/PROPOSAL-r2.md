@@ -1,6 +1,6 @@
-# Read-only CLI enablement: `opensip doctor` — proposal X10 r3
+# Read-only CLI enablement: `opensip doctor` — proposal X10 r2
 
-2026-09-30. Claude Opus 5.5, implementation lead. Law for unit X10 of `EXIT-PLAN.md`, under owner.md §1a, §5 and §6, and laws 464 (item 7), 468 r5 (items 6, 7 and 8), 458c r6 (items 1, 5, 7, 10 and 12) and 461 r3. Items 1, 4, 5 and 7 contain lead decisions made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation; each names the alternative it rejects. r2 answers Codex X10 r1 RF-1 (the nested doctor kind), RF-2 (outcome parity and human rendering of the termination detail) and RF-3 (a buildable test arrangement). r1 bytes are preserved in PROPOSAL-r1.md. r3 answers Codex X10 r2 RF-2 (fault cause in failure rendering) and RF-3 (test vectors by layer, and the retired `run_with`). r2 bytes are preserved in PROPOSAL-r2.md. Not code. It enables one read-only command; it enables no creator, writer or project path.
+2026-09-30. Claude Opus 5.5, implementation lead. Law for unit X10 of `EXIT-PLAN.md`, under owner.md §1a, §5 and §6, and laws 464 (item 7), 468 r5 (items 6, 7 and 8), 458c r6 (items 1, 5, 7, 10 and 12) and 461 r3. Items 1, 4, 5 and 7 contain lead decisions made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation; each names the alternative it rejects. r2 answers Codex X10 r1 RF-1 (the nested doctor kind), RF-2 (outcome parity and human rendering of the termination detail) and RF-3 (a buildable test arrangement). r1 bytes are preserved in PROPOSAL-r1.md. Not code. It enables one read-only command; it enables no creator, writer or project path.
 
 ## Problem
 
@@ -59,7 +59,7 @@ Law 464 item 7 left CLI enablement to its own unit. 468 item 7 deferred the back
      - one block per entry with "Detail:", optional "Subject:" and "Remedy:", in report order. The `INSTALLATION.DURABILITY_NOT_CHECKED` entry is labelled exactly "Informational: durability not checked" (owner §5) in place of "Detail:", followed by its remedy;
      - "Termination:" with the class, then "Error:" and "Fault cause:" when present, then the termination's carried `domainDetail` as "Detail:", optional "Subject:" and "Remedy:". So `DOCTOR.REPORT_NOT_PRODUCIBLE` and its remedy appear in human output even when `defects` is empty, and `DOCTOR.DEFECTS_FOUND` appears on a report with defects;
      - "Request:" with the request id.
-   - **Human output for a `failure` with `errors` and no `diagnostics`** uses the same termination renderer as the `doctor` kind. It renders "Termination", then "Error" and "Fault cause" when present. Request-rejected envelopes carry no fault cause and none is invented. Then come each `errors` entry's "Detail"/"Subject"/"Remedy", and "Request". The existing rule that a metadata failure requires `diagnostics` is kept only for the metadata ingress's own failures.
+   - **Human output for a `failure` with `errors` and no `diagnostics`** renders "Termination", "Error", each "Detail"/"Subject"/"Remedy", and "Request". The existing rule that a metadata failure requires `diagnostics` is kept only for the metadata ingress's own failures.
    - **Parity.** Every human fact is a field of the JSON envelope. The inventory row's parity fields are compared by test between the two formats:
      - report produced, defects found and defects;
      - `outcome`. Its carrier is the envelope `termination`, as the selected `doctor_projection.py` maps it. The test compares the complete carried termination facts: class, error code, fault cause, and domain detail code, subject and remedy. It does so for the healthy, defects-found, report-not-producible and refused outcomes.
@@ -69,8 +69,9 @@ Law 464 item 7 left CLI enablement to its own unit. 468 item 7 deferred the back
 5. **Tests, and no override seam in the binary (lead decision).** Owner §1a forbids any HOME, XDG, PATH, configuration or CLI override of I. So the binary gets no seam: no environment variable, argument, feature or `cfg` that points it at another home, profile or release.
    - **Layered tests (lead decision, replacing r1's in-process `run_with`).** The real producers and the scratch-home fixtures are crate-private, `cfg(test)` internals of `opensip-security`. A host test cannot reach them through the normal dependency, so no single in-process test runs real producers through the host renderer. X10 tests in three layers, each compiled with the crate's ordinary dependency configuration:
      - **Security, real producers on scratch homes.** In `opensip-security` with `installation_read_fixture` and synthetic signed V2 profiles, over `observe_with`, the same path `observe_installation_for_doctor` takes. They assert the `DoctorInstallation` or the 468c row for each case:
-       - a complete installation (`Complete`);
-       - an incomplete installation (`Incomplete`), one structural finding per kind, with no note;
+       - a complete installation;
+       - one other defect;
+       - an incomplete installation, one finding per kind;
        - each unreachable row: account, missing H, omitted ACL without a premise, busy, budget and not initialized.
 
        Most of these exist from 458c-c and are extended where a case is missing.
@@ -78,10 +79,7 @@ Law 464 item 7 left CLI enablement to its own unit. 468 item 7 deferred the back
        - the full rendered bytes;
        - schema validity (item 7);
        - parity (item 4);
-       - for native-shaped inputs, `Complete` with the production `other = []` (count 0 with the note), and `Incomplete` findings (one entry each, no note);
-       - for explicitly synthetic report-bound inputs, which supply `other` `DomainDetail` entries through the existing `doctor_installation` and assembler interface: one other defect plus the note (count 1), 255 plus the note versus 256, and partial 256 versus 257.
-
-     These synthetic vectors are labelled synthetic. The production ingress always passes `other = []` (item 1).
+       - the 255+note versus 256 and 256 versus 257 bounds.
      - **Binary**, below.
 
      Rejected: a cross-crate test-support bridge, such as a `pub` test-only module or feature in `opensip-security`. It would put a scratch-home and profile selector into the security crate's compiled surface. And a `pub(crate)` function with a `cfg(test)` caller is still compiled; it is unreachable, not absent.
@@ -95,8 +93,7 @@ Law 464 item 7 left CLI enablement to its own unit. 468 item 7 deferred the back
 7. **Envelope schema validation (lead decision).** Every doctor envelope produced in tests is validated against the selected command-envelope v7 source schema, as the metadata ingress's tests already do. It is never validated by checking only that it deserializes into `Envelope7Root`. Rejected alternative: trusting the generated types alone. Their `serde_json::Value` members (for example `Invocation5DoctorResult.kind`) do not enforce the schema's constants. A negative test also requires that an unproducible envelope with `doctor.kind` omitted or altered fails validation.
 8. **Units after the law.**
    - **X10a (code):**
-     - the doctor ingress, whose one producer call is `observe_installation_for_doctor()`. There is no producer-injection seam and no cross-crate test bridge;
-     - the layered tests of item 5;
+     - the doctor ingress and its `run_with` test seam;
      - argument parsing for `doctor`;
      - the envelope projection of item 3;
      - human rendering for `kind: doctor` and for detailed failures;
