@@ -1,4 +1,4 @@
-REVIEWER re-review, three laws: X5 r2, X6 r2, and the X2 r6 amendment. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/REVIEWDIR. Law review; no product cargo.
+Grok re-review, three laws: X5 r2, X6 r2, and the X2 r6 amendment. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/grok-x5r2-x6r2-x2r6. Law review; no product cargo.
 
 Pins are in hashes.txt. The r1 findings are in `reviews/grok-replay-join-x5-r1/` and `reviews/grok-carrier-recovery-x6-r1/`.
 
