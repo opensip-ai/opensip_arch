@@ -1,4 +1,4 @@
-REVIEWER review: F3, which isolates test scratch directories from cross-process churn. Test-support code only. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/REVIEWDIR.
+Grok review: F3, which isolates test scratch directories from cross-process churn. Test-support code only. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/grok-scratch-isolation-f3-r1.
 
 **Subject:** the worktree `/Users/sb/code/opensip-ai/opensip-f3`, based on 7e676a9. Four existing files change, so there is no inventory successor. Save `git -C <worktree> diff` as subject.diff and report its sha256. Pins are in hashes.txt. Precedent: F1 at b230250, which used the same style of `settled` setup retry.
 

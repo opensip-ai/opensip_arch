@@ -1,4 +1,4 @@
-REVIEWER re-review: X2b-1 r3, a rebase-only re-check before integration. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/REVIEWDIR.
+Grok re-review: X2b-1 r3, a rebase-only re-check before integration. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/grok-project-admission-x2b1-r3.
 
 You accepted the X2b-1 r2 code and inventory v88 (`reviews/grok-project-admission-x2b1-r2/`). Since then X3b-1a landed: product 7e676a9, with inventory v91 selected. verify_design needs a linear chain, so:
 - The worktree `/Users/sb/code/opensip-ai/opensip-x2b` is rebased onto 7e676a9. Save the diff as product.diff and report its sha256.
