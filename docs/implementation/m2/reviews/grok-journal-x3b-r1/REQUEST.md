@@ -1,4 +1,4 @@
-REVIEWER review: law X3b r1, journal append, witness and carrier high-water. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/REVIEWDIR. Law review; no product cargo. Product HEAD is f7acb6d.
+Grok review: law X3b r1, journal append, witness and carrier high-water. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/grok-journal-x3b-r1. Law review; no product cargo. Product HEAD is f7acb6d.
 
 Subject: docs/implementation/m2/journal-x3b/PROPOSAL.md r1 (pin in hashes.txt). Context:
 - EXIT-PLAN.md row X3b;
