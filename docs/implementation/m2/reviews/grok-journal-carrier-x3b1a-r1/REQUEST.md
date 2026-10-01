@@ -1,6 +1,6 @@
-REVIEWER review: X3b-1a, the journal floor step, the file protocol, carrier classification and creation, with inventory v85. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/REVIEWDIR. If you build, use a CARGO_TARGET_DIR under that directory.
+Grok review: X3b-1a, the journal floor step, the file protocol, carrier classification and creation, with inventory v85. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/grok-journal-carrier-x3b1a-r1. If you build, use a CARGO_TARGET_DIR under that directory.
 
-Law: `docs/implementation/m2/journal-x3b/PROPOSAL.md`. r4 is accepted; r6 is under review and changes only item 5 step 7, the SEAL-path lock hold, which is outside this unit. This is the first half of X3b-1. X3b-1b (the carrier start's witness writes under the lease, and the end step) follows.
+Law: `docs/implementation/m2/journal-x3b/PROPOSAL.md`. r6 is accepted; its changes since r4 are only to item 5 step 7, the SEAL-path lock hold, which is outside this unit. This is the first half of X3b-1. X3b-1b (the carrier start's witness writes under the lease, and the end step) follows.
 
 ## Subject
 
