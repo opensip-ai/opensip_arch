@@ -1,4 +1,4 @@
-REVIEWER re-review: law X3d r2 after Grok's r1 findings. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/REVIEWDIR. Law review; no product cargo.
+Grok re-review: law X3d r2 after Grok's r1 findings. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/grok-commit-session-x3d-r2. Law review; no product cargo.
 
 Subject: docs/implementation/m2/commit-session-x3d/PROPOSAL.md r2 (pin in hashes.txt). `diff` it against PROPOSAL-r1.md, which equals the reviewed r1. The r1 findings are in `reviews/grok-commit-session-x3d-r1/`.
 
