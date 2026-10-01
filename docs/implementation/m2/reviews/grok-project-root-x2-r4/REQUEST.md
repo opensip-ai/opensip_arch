@@ -1,4 +1,4 @@
-REVIEWER re-review: law X2 r4 after Grok's r3 findings. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/REVIEWDIR. Law review; no product cargo.
+Grok re-review: law X2 r4 after Grok's r3 findings. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/grok-project-root-x2-r4. Law review; no product cargo.
 
 Subject: docs/implementation/m2/project-root-x2/PROPOSAL.md r4 (pin in hashes.txt). `diff` it against PROPOSAL-r3.md. Earlier findings are in `reviews/codex-project-root-x2-r1/`, `-r2/` and `reviews/grok-project-root-x2-r3/`.
 
@@ -31,3 +31,5 @@ Subject: docs/implementation/m2/project-root-x2/PROPOSAL.md r4 (pin in hashes.tx
 - Is anything new wrong?
 
 review.json must contain top-level "verdict" (ACCEPT or REQUIRED-FINDINGS), "requiredFindings" and "subjectSha256". Write REVIEW.md and review.json. Do not commit.
+
+Note: r4 also carries a pre-review correction from X3b r2: item 7a step 3 orders X3b's floor step and carrier start inside the single fence hold.
