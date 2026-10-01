@@ -1,6 +1,6 @@
-REVIEWER review: law X4B r1, trust bootstrap acceptance (the first trusted state from the core's embedded bootstrap). Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/REVIEWDIR. Law review; no product cargo. Product HEAD is 7e676a9.
+Grok review: law X7 r1, finalization (DR-G27, F16 and F17, the delivery and outcome table, the CommitUndetermined route, the F32 rollover route). Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/grok-finalization-x7-r1. Law review; no product cargo. Product HEAD is 7e676a9.
 
-Subject: docs/implementation/m2/trust-bootstrap-x4b/PROPOSAL.md r1 (pin in hashes.txt).
+Subject: docs/implementation/m2/finalization-x7/PROPOSAL.md r1 (pin in hashes.txt).
 
 Context:
 - the accepted laws X2 r5, X3a r5, X3b r6, X3c r7, X3d r3, X4 r7 and X4T (r7 under review);

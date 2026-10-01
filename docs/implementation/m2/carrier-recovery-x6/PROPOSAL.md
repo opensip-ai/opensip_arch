@@ -7,7 +7,7 @@
 - the build plan's `RecoveredCommit` row (line 54) and failure cases F14, F15, F20–F29, F33–F37, F43–F53;
 - the accepted laws X3d r3 (items 3, 6, 9 and 10), X3b r6, X3c r7, X3a r5, X2 (r6, item 7's read-only recovery exception), X1 r1 and 458c r6.
 
-Items 1 to 9 contain lead decisions made under the owner's standing direction to proceed on the lead's recommendation; each names the alternative it rejects. r2 answers Grok X6 r1 RF-1 (the fence-free lease is now X2 r6's exception) and RF-2 (both projections of the degraded standing). r1 bytes are preserved in PROPOSAL-r1.md. Not code. Library only: no CLI command is wired; the `repair recover` CLI surface is not this selector.
+Items 1 to 9 contain lead decisions made under the owner's standing direction to proceed on the lead's recommendation; each names the alternative it rejects. r2 answers Grok X6 r1 RF-1 (the fence-free lease is now X2 r6's exception) and RF-2 (both projections of the degraded standing). r1 bytes are preserved in PROPOSAL-r1.md. r2 ACCEPTED by Grok on 2026-10-01. Not code. Library only: no CLI command is wired; the `repair recover` CLI surface is not this selector.
 
 ## Problem
 
