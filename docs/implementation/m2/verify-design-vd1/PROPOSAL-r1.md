@@ -1,6 +1,6 @@
 # Explicit supersession of an inventory description meaning — proposal VD1 r1
 
-2026-10-01. Claude Opus 5.5, implementation lead. Law for unit VD1 of EXIT-PLAN.md ("Deferred tooling follow-up (lead decision, 2026-09-30)"). It amends how `tools/verify_design.py` judges a v4 design lock, so it amends design binding v4 (`m1/trials/binding4-01/subject/UNIT.md`, accepted by review binding4-01). Items 1, 4 and 6 contain lead decisions, made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation and record it. Not runtime law: verify_design stays a developer provenance check and grants no product trust. r1 ACCEPTED by Grok on 2026-10-03.
+2026-10-01. Claude Opus 5.5, implementation lead. Law for unit VD1 of EXIT-PLAN.md ("Deferred tooling follow-up (lead decision, 2026-09-30)"). It amends how `tools/verify_design.py` judges a v4 design lock, so it amends design binding v4 (`m1/trials/binding4-01/subject/UNIT.md`, accepted by review binding4-01). Items 1, 4 and 6 contain lead decisions, made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation and record it. Not runtime law: verify_design stays a developer provenance check and grants no product trust.
 
 ## Problem
 

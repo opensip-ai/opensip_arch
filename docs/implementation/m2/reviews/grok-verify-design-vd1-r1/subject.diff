@@ -1,0 +1,404 @@
+diff --git a/tools/tests/test_design_binding.py b/tools/tests/test_design_binding.py
+index 68ca5b3..4a7aecc 100644
+--- a/tools/tests/test_design_binding.py
++++ b/tools/tests/test_design_binding.py
+@@ -574,12 +574,15 @@ class Fx:
+         self.lock["inventorySuccessors"].append(binding)
+         return binding
+ 
+-    def contract(self, parents, overrides=(), members=None):
++    def contract(self, parents, overrides=(), members=None, supersessions=None):
+         n = len(self.lock["contractSuccessors"]) + 1
+         if members is None:
+             members = [self.write(f"c{n}/member.json", {"unit": n})]
+-        rec = self.write(f"c{n}/record.json", {"schemaVersion": 1, "parents": by_path(copy.deepcopy(parents)),
+-                                               "candidates": by_path(copy.deepcopy(members)), "passageOverrides": copy.deepcopy(list(overrides))})
++        record = {"schemaVersion": 1, "parents": by_path(copy.deepcopy(parents)),
++                  "candidates": by_path(copy.deepcopy(members)), "passageOverrides": copy.deepcopy(list(overrides))}
++        if supersessions is not None:
++            record["passageSupersessions"] = copy.deepcopy(supersessions)
++        rec = self.write(f"c{n}/record.json", record)
+         man = self.write(f"c{n}/manifest.json", {"files": by_path([rec, *members])})
+         rev = self.write(f"c{n}/review.json", {"verdict": "ACCEPT-DESIGN-UNIT", "requiredFindings": [], "subjectManifestSha256": man["sha256"]})
+         ass = self.write(f"c{n}/assent.json", {"status": "ACCEPTED-DESIGN-UNIT", "rootSubstantiveAssent": True, "requiredUnitFindings": [],
+@@ -606,6 +609,13 @@ def proj(final, index, before, after):
+     return ov(final, index, before, after)
+ 
+ 
++def sup(parent, index, before, after, record, target_parent, target_index):
++    """VD1 supersession of the meaning at (record, target_parent, target_index)."""
++    return {**ov(parent, index, before, after),
++            "supersedes": {"record": record, "parent": target_parent,
++                           "selector": {"jsonPointer": f"/files/{target_index}/description"}}}
++
++
+ 
+ class BindingHistoryRegressionTests(unittest.TestCase):
+     def setUp(self):
+@@ -726,6 +736,203 @@ class BindingHistoryRegressionTests(unittest.TestCase):
+         self.assertTrue(self.verify()['passed'])
+ 
+ 
++class PassageSupersessionTests(unittest.TestCase):
++    """VD1: an explicit, linear supersession of an inventory description meaning.
++
++    History: inv0 rows b.py(0) d.py(1); inv1 adds c.py, so d.py is /files/2;
++    inv2 (history(2)) adds a.py, so d.py is /files/3.
++    """
++
++    def setUp(self):
++        tmp = tempfile.TemporaryDirectory()
++        self.addCleanup(tmp.cleanup)
++        self.fx = Fx(tmp.name)
++
++    history = BindingHistoryRegressionTests.history
++    verify = BindingHistoryRegressionTests.verify
++    refuse = BindingHistoryRegressionTests.refuse
++
++    def inherited_root(self, count=1):
++        pins = self.history(count)
++        base, final = pins[0], pins[-1]
++        root = self.fx.contract([base], [ov(base, 1, 'D0', 'D1')])['record']
++        index = 2 if count == 1 else 3
++        self.fx.lock['inventoryPassageInheritance'] = [proj(final, index, 'D0', 'D1')]
++        return pins, root
++
++    def test_supersession_of_inherited_row_on_final_inventory(self):
++        (base, final), root = self.inherited_root()
++        self.fx.contract([final], supersessions=[sup(final, 2, 'D1', 'D2', root, base, 1)])
++        result = self.verify()
++        self.assertEqual(result['inventoryPassageSupersessions'], 1)
++        # A final-inventory link is checked, not projected: the lock is unchanged.
++        self.assertEqual(result['inventoryPassageInheritance'], [proj(final, 2, 'D0', 'D1')])
++
++    def test_chain_of_supersessions_extends_the_tail(self):
++        (base, final), root = self.inherited_root()
++        first = self.fx.contract([final], supersessions=[sup(final, 2, 'D1', 'D2', root, base, 1)])['record']
++        self.fx.contract([final], supersessions=[sup(final, 2, 'D2', 'D3', first, final, 2)])
++        self.assertEqual(self.verify()['inventoryPassageSupersessions'], 2)
++
++    def test_supersession_of_direct_final_override(self):
++        base, final = self.history()
++        root = self.fx.contract([final], [ov(final, 2, 'D0', 'D1')])['record']
++        self.fx.contract([final], supersessions=[sup(final, 2, 'D1', 'D2', root, final, 2)])
++        result = self.verify()
++        self.assertEqual(result['inventoryPassageInheritance'], [])
++        self.assertEqual(result['inventoryPassageSupersessions'], 1)
++
++    def test_stale_before_refuses(self):
++        (base, final), root = self.inherited_root()
++        # Raw bytes are not the meaning being superseded.
++        self.fx.contract([final], supersessions=[sup(final, 2, 'D0', 'D2', root, base, 1)])
++        self.refuse('before text differs from the superseded meaning')
++
++    def test_stale_rebind_to_superseded_meaning_refuses(self):
++        (base, final), root = self.inherited_root()
++        first = self.fx.contract([final], supersessions=[sup(final, 2, 'D1', 'D2', root, base, 1)])['record']
++        # Naming the tail with the old text is a stale before.
++        self.fx.contract([final], supersessions=[sup(final, 2, 'D1', 'D3', first, final, 2)])
++        self.refuse('before text differs from the superseded meaning')
++
++    def test_double_supersession_of_one_meaning_refuses(self):
++        (base, final), root = self.inherited_root()
++        self.fx.contract([final], supersessions=[sup(final, 2, 'D1', 'D2', root, base, 1)])
++        self.fx.contract([final], supersessions=[sup(final, 2, 'D1', 'D3', root, base, 1)])
++        self.refuse('double supersession')
++
++    def test_double_supersession_through_identical_root_copy_refuses(self):
++        base, final = self.history()
++        root = self.fx.contract([base, final], [ov(base, 1, 'D0', 'D1'), ov(final, 2, 'D0', 'D1')])['record']
++        self.fx.contract([final], supersessions=[sup(final, 2, 'D1', 'D2', root, base, 1)])
++        self.fx.contract([final], supersessions=[sup(final, 2, 'D1', 'D3', root, final, 2)])
++        self.refuse('double supersession')
++
++    def test_two_supersessions_of_one_row_in_one_record_refuse(self):
++        (base, first, final), root = self.inherited_root(2)
++        self.fx.contract([first, final], supersessions=[sup(first, 2, 'D1', 'D2', root, base, 1),
++                                                         sup(final, 3, 'D1', 'D3', root, base, 1)])
++        self.refuse('double supersession')
++
++    def test_missing_chain_refuses(self):
++        (base, final), root = self.inherited_root()
++        unrelated = self.fx.write('elsewhere/record.json', {'passageOverrides': [ov(base, 1, 'D0', 'D1')]})
++        for named, target_parent, index, pattern in (
++                (unrelated, base, 1, 'not an earlier contract successor'),
++                ({**root, 'sha256': '0' * 64}, base, 1, 'not an earlier contract successor'),
++                (root, base, 0, 'not in the named record'),
++                (root, final, 1, 'not in the named record')):
++            with self.subTest(pattern=pattern, index=index):
++                del self.fx.lock['contractSuccessors'][1:]
++                self.fx.contract([final], supersessions=[sup(final, 2, 'D1', 'D2', named, target_parent, index)])
++                self.refuse(pattern)
++
++    def test_supersession_must_name_a_strictly_earlier_record(self):
++        (base, final), root = self.inherited_root()
++        self.fx.contract([final], supersessions=[sup(final, 2, 'D1', 'D2', root, base, 1)])
++        contracts = self.fx.lock['contractSuccessors']
++        contracts[:] = contracts[::-1]
++        self.refuse('not an earlier contract successor')
++
++    def test_supersession_of_another_row_or_passage_refuses(self):
++        (base, final), root = self.inherited_root()
++        self.fx.contract([final], supersessions=[sup(final, 0, 'D1', 'D2', root, base, 1)])
++        self.refuse('selects a different inventory row')
++        del self.fx.lock['contractSuccessors'][1:]
++        self.fx.contract([final], supersessions=[{**sup(final, 2, 'D1', 'D2', root, base, 1),
++                                                 'selector': {'jsonPointer': '/files/2/role'}}])
++        self.refuse('must select an inventory row description')
++
++    def test_supersession_of_non_inventory_passage_refuses(self):
++        base, final = self.history()
++        member = self.fx.write('doc.json', {'text': 'T0'})
++        self.fx.contract([base], members=[member])
++        root = self.fx.contract([member], [pointer(member, '/text', 'T0', 'T1')])['record']
++        self.fx.contract([member], supersessions=[{**sup(member, 0, 'T1', 'T2', root, member, 0),
++                                                  'selector': {'jsonPointer': '/text'},
++                                                  'supersedes': {'record': root, 'parent': member, 'selector': {'jsonPointer': '/text'}}}])
++        self.refuse('must select an inventory row description')
++        del self.fx.lock['contractSuccessors'][2:]
++        self.fx.contract([final], supersessions=[{**sup(final, 2, 'T1', 'D2', root, member, 0),
++                                                 'supersedes': {'record': root, 'parent': member, 'selector': {'jsonPointer': '/text'}}}])
++        self.refuse('superseded passage is not an inventory row description')
++
++    def test_supersession_parent_cannot_precede_target(self):
++        base, final = self.history()
++        root = self.fx.contract([final], [ov(final, 2, 'D0', 'D1')])['record']
++        self.fx.contract([base], supersessions=[sup(base, 1, 'D1', 'D2', root, final, 2)])
++        self.refuse('parent precedes the superseded passage')
++
++    def test_restating_a_superseded_meaning_refuses(self):
++        (base, final), root = self.inherited_root()
++        self.fx.contract([final], supersessions=[sup(final, 2, 'D1', 'D2', root, base, 1)])
++        self.fx.contract([base], [ov(base, 1, 'D0', 'D1')])
++        self.refuse('restates a superseded inventory meaning')
++        del self.fx.lock['contractSuccessors'][1:]
++        self.fx.contract([base, final], [ov(base, 1, 'D0', 'D1')],
++                         supersessions=[sup(final, 2, 'D1', 'D2', root, base, 1)])
++        self.refuse('restates a superseded inventory meaning')
++
++    def test_silent_change_of_inherited_row_still_refuses(self):
++        (base, final), root = self.inherited_root()
++        # An ordinary override of the effective text, without a supersession.
++        self.fx.contract([final], [ov(final, 2, 'D1', 'D2')])
++        self.refuse('before text differs from accepted parent')
++        del self.fx.lock['contractSuccessors'][1:]
++        self.fx.contract([final], [ov(final, 2, 'D0', 'D2')])
++        self.refuse('conflicts with direct override')
++
++    def test_ancestor_supersession_folds_into_one_inheritance_entry(self):
++        (base, first, final), root = self.inherited_root(2)
++        link = self.fx.contract([first], supersessions=[sup(first, 2, 'D1', 'D2', root, base, 1)])['record']
++        self.refuse('passage inheritance differs')  # the lock still shows D1
++        self.fx.lock['inventoryPassageInheritance'] = [proj(final, 3, 'D0', 'D2')]
++        self.assertEqual(self.verify()['inventoryPassageInheritance'], [proj(final, 3, 'D0', 'D2')])
++        # A later link on the final inventory chains from the folded meaning.
++        self.fx.contract([final], supersessions=[sup(final, 3, 'D2', 'D3', link, first, 2)])
++        self.assertEqual(self.verify()['inventoryPassageSupersessions'], 2)
++        del self.fx.lock['contractSuccessors'][2:]
++        self.fx.contract([final], supersessions=[sup(final, 3, 'D1', 'D3', link, first, 2)])
++        self.refuse('before text differs from the superseded meaning')
++
++    def test_ancestor_supersession_of_suppressed_projection_refuses(self):
++        base, first, final = self.history(2)
++        root = self.fx.contract([base, final], [ov(base, 1, 'D0', 'D1'), ov(final, 3, 'D0', 'D1')])['record']
++        self.fx.contract([first], supersessions=[sup(first, 2, 'D1', 'D2', root, base, 1)])
++        self.refuse('superseded inventory meaning is not inherited')
++
++    def test_malformed_supersessions_refuse(self):
++        (base, final), root = self.inherited_root()
++        good = sup(final, 2, 'D1', 'D2', root, base, 1)
++        for entries, pattern in (
++                ({}, 'supersessions must be a list'),
++                ([{**good, 'note': 'x'}], 'supersession has unknown or missing fields'),
++                ([{k: v for k, v in good.items() if k != 'supersedes'}], 'supersession has unknown or missing fields'),
++                ([{**good, 'supersedes': {**good['supersedes'], 'note': 'x'}}], 'superseded passage has unknown or missing fields'),
++                ([{**good, 'after': ''}], 'must change one text value'),
++                ([{**good, 'after': 'D1'}], 'must change one text value'),
++                ([{**good, 'parent': base}], 'parent is outside the accepted parent set'),
++                ([good, good], 'duplicate passage override')):
++            with self.subTest(pattern=pattern):
++                del self.fx.lock['contractSuccessors'][1:]
++                self.fx.contract([final], supersessions=entries)
++                self.refuse(pattern)
++        del self.fx.lock['contractSuccessors'][1:]
++        self.fx.contract([final], [ov(final, 2, 'D0', 'D1')], supersessions=[good])
++        self.refuse('duplicate passage override')
++
++    def test_version3_lock_refuses_supersession(self):
++        base, final = self.history()
++        stranger = self.fx.write('stranger.json', {})
++        self.fx.contract([final], supersessions=[sup(final, 2, 'D0', 'D2', stranger, final, 2)])
++        lock = self.fx.lock
++        lock['schemaVersion'] = 3
++        lock['inventorySuccessor'] = lock.pop('inventorySuccessors')[0]
++        lock['contractSuccessor'] = lock.pop('contractSuccessors')[0]
++        del lock['inventoryPassageInheritance']
++        self.refuse('require a v4 successor chain')
++
++
+ class GenerationSourceBindingTests(unittest.TestCase):
+     write = DesignBindingTests.write
+ 
+diff --git a/tools/verify_design.py b/tools/verify_design.py
+index 09bc6b7..c050b73 100644
+--- a/tools/verify_design.py
++++ b/tools/verify_design.py
+@@ -249,8 +249,30 @@ def contract_successor(architecture, binding, accepted):
+             raise DesignError("passage override must change one text value")
+         if selected_passage(parent_bytes[parent["path"]], override["selector"]) != before:
+             raise DesignError("passage override before text differs from accepted parent")
++    # VD1: a supersession's before is the meaning it names, never raw parent
++    # bytes; successor_chain checks the named target and the chain.
++    supersessions = record.get("passageSupersessions", [])
++    if not isinstance(supersessions, list):
++        raise DesignError("contract passage supersessions must be a list")
++    for entry in supersessions:
++        if not isinstance(entry, dict) or set(entry) != {"parent", "selector", "before", "after", "supersedes"}:
++            raise DesignError("contract passage supersession has unknown or missing fields")
++        parent = object_value(entry["parent"], "supersession parent")
++        if parent_map.get(parent.get("path")) != parent:
++            raise DesignError("passage supersession parent is outside the accepted parent set")
++        target = object_value(entry["supersedes"], "superseded passage")
++        if set(target) != {"record", "parent", "selector"}:
++            raise DesignError("superseded passage has unknown or missing fields")
++        selector_key = (parent["path"], json.dumps(entry["selector"], sort_keys=True))
++        if selector_key in seen:
++            raise DesignError("duplicate passage override")
++        seen.add(selector_key)
++        before, after = entry["before"], entry["after"]
++        if not isinstance(before, str) or not isinstance(after, str) or not after or before == after:
++            raise DesignError("passage supersession must change one text value")
++        selected_passage(parent_bytes[parent["path"]], entry["selector"])
+     return {"selected": binding["record"]["path"], "sha256": binding["record"]["sha256"],
+-            "inputs": candidates, "passageOverrides": overrides}
++            "inputs": candidates, "passageOverrides": overrides, "passageSupersessions": supersessions}
+ 
+ 
+ def successor_chain(architecture, lock, effective):
+@@ -286,13 +308,68 @@ def successor_chain(architecture, lock, effective):
+         inventory_pins.append(candidate)
+         accepted[candidate['path']] = candidate
+         seen.add(candidate['path'])
++    chain_index = {pin['path']: index for index, pin in enumerate(inventory_pins)}
++    inventory_documents = {}
++
++    def inventory_row(parent, selector):
++        """Return (chain index, row) for an inventory row description passage, else None."""
++        index = chain_index.get(parent.get('path'))
++        if index is None or inventory_pins[index] != parent:
++            return None
++        if not isinstance(selector, dict) or set(selector) != {'jsonPointer'} or not isinstance(selector['jsonPointer'], str):
++            return None
++        parts = selector['jsonPointer'].split('/')
++        if len(parts) != 4 or parts[0] or parts[1] != 'files' or parts[3] != 'description':
++            return None
++        if parent['path'] not in inventory_documents:
++            inventory_documents[parent['path']] = decode(pinned_bytes(architecture, parent))
++        files = inventory_documents[parent['path']].get('files')
++        if not isinstance(files, list) or not parts[2].isascii() or not parts[2].isdigit() or int(parts[2]) >= len(files):
++            return None
++        return index, files[int(parts[2])]
++
+     overrides = {}
+     contract_results = []
++    # VD1: published entries by (record path, parent path, selector JSON);
++    # earlier record pins; and each superseded file path's current chain tail.
++    published, earlier_records, tails, supersession_rows = {}, {}, {}, []
+     for binding in contracts:
+         result = contract_successor(architecture, binding, accepted)
+         members = [binding['record'], *result['inputs']]
+         if any(row['path'] in accepted or row['path'] in seen for row in members):
+             raise DesignError('contract candidate reuses an accepted path')
++        record_path = binding['record']['path']
++        for entry in result['passageSupersessions']:
++            here = inventory_row(entry['parent'], entry['selector'])
++            if here is None:
++                raise DesignError('passage supersession must select an inventory row description')
++            named = entry['supersedes']
++            if earlier_records.get(object_value(named['record'], 'superseded record').get('path')) != named['record']:
++                raise DesignError('superseded record is not an earlier contract successor')
++            target_key = (named['record']['path'], object_value(named['parent'], 'superseded parent').get('path'),
++                          json.dumps(named['selector'], sort_keys=True))
++            kind, target = published.get(target_key, (None, None))
++            if target is None or target['parent'] != named['parent']:
++                raise DesignError('superseded passage is not in the named record')
++            there = inventory_row(target['parent'], target['selector'])
++            if there is None:
++                raise DesignError('superseded passage is not an inventory row description')
++            if here[1] != there[1]:
++                raise DesignError('passage supersession selects a different inventory row')
++            if here[0] < there[0]:
++                raise DesignError('passage supersession parent precedes the superseded passage')
++            if entry['before'] != target['after']:
++                raise DesignError('passage supersession before text differs from the superseded meaning')
++            path = here[1].get('path')
++            tail = tails.get(path)
++            if (tail is None and kind != 'override') or (tail is not None and tail != target_key):
++                raise DesignError('double supersession: the named passage is not the current meaning')
++            tails[path] = (record_path, entry['parent']['path'], json.dumps(entry['selector'], sort_keys=True))
++            supersession_rows.append((here, entry))
++        for override in result['passageOverrides'] if tails else ():
++            row = inventory_row(override['parent'], override['selector'])
++            if row is not None and row[1].get('path') in tails:
++                raise DesignError('passage override restates a superseded inventory meaning')
+         for override in result['passageOverrides']:
+             if 'line' in override['selector']:
+                 try:
+@@ -308,6 +385,10 @@ def successor_chain(architecture, lock, effective):
+         for row in members:
+             accepted[row['path']] = row
+             seen.add(row['path'])
++        for kind, entries in (('override', result['passageOverrides']), ('supersession', result['passageSupersessions'])):
++            for entry in entries:
++                published[(record_path, entry['parent']['path'], json.dumps(entry['selector'], sort_keys=True))] = (kind, entry)
++        earlier_records[record_path] = binding['record']
+         contract_results.append(result)
+     final_pin = inventory_pins[-1]
+     final = decode(pinned_bytes(architecture, final_pin))
+@@ -339,13 +420,36 @@ def successor_chain(architecture, lock, effective):
+         if key in inherited and inherited[key] != projected:
+             raise DesignError('inherited inventory passage meanings conflict')
+         inherited[key] = projected
++    # VD1: fold each row's supersession chain in lock order. An ancestor link
++    # is projected into the row's one inheritance entry (before stays the raw
++    # final passage); a link on the final inventory is checked, not projected.
++    current = {}
++    for (index, row), entry in supersession_rows:
++        position, target = final_rows[row['path']]
++        if target != row:
++            raise DesignError('inherited inventory passage row changed')
++        key = (final_pin['path'], json.dumps({'jsonPointer': f'/files/{position}/description'}, sort_keys=True))
++        if index < len(inventory_pins) - 1:
++            if key not in inherited or inherited[key]['after'] != entry['before']:
++                raise DesignError('superseded inventory meaning is not inherited')
++            inherited[key] = {**inherited[key], 'after': entry['after']}
++            continue
++        if key not in current:
++            head = inherited.get(key) or overrides.get(key)
++            if head is None:
++                raise DesignError('superseded inventory meaning is not inherited')
++            current[key] = head['after']
++        if current[key] != entry['before']:
++            raise DesignError('passage supersession before text differs from the effective meaning')
++        current[key] = entry['after']
+     # Canonical order is parent path, then lexicographic selector JSON;
+     # /files/10/description therefore sorts before /files/2/description.
+     expected_inheritance = [inherited[key] for key in sorted(inherited)]
+     if lock['inventoryPassageInheritance'] != expected_inheritance:
+         raise DesignError('inventory passage inheritance differs from reviewed ancestor meaning')
+     return {'inventorySuccessors': inventory_results, 'contractSuccessors': contract_results,
+-            'selectedInventory': final_pin, 'inventoryPassageInheritance': expected_inheritance}
++            'selectedInventory': final_pin, 'inventoryPassageInheritance': expected_inheritance,
++            'inventoryPassageSupersessions': len(supersession_rows)}
+ 
+ 
+ def generation_sources(architecture, implementation, accepted):
+@@ -540,6 +644,8 @@ def verify(architecture: Path, lock: dict, implementation: Path | None = None) -
+     if version == 3:
+         accepted = {**effective, lock["inventorySuccessor"]["candidate"]["path"]: lock["inventorySuccessor"]["candidate"]}
+         result["contractSuccessor"] = contract_successor(architecture, lock["contractSuccessor"], accepted)
++        if result["contractSuccessor"]["passageSupersessions"]:
++            raise DesignError("passage supersessions require a v4 successor chain")
+     if version == 4:
+         result.update(successor_chain(architecture, lock, effective))
+     if implementation is not None:
