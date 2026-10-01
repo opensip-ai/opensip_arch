@@ -1,6 +1,6 @@
-# The CommitSession storage facade — proposal X3d r2
+# The CommitSession storage facade — proposal X3d r1
 
-2026-10-01. Claude Opus 5.5, implementation lead. Law for unit X3d of `EXIT-PLAN.md`, under owner.md §5 and §8, the build plan's "Decision: require independently minted prerequisites at the storage boundary", "Security/storage ownership and the final commit gate" and "Publication sequence and lock discipline" (`docs/v2/architecture/implementation-boundaries-and-build-plan.md`, lines 25–190), and the accepted laws X1 r1, X2 r5, X3a r5, X3b r6, X3c r7, X4 r7 and X4T r5. The lead decisions here are made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation. Each names the alternative it rejects. r2 answers Grok X3d r1 RF-1 to RF-5: the capacity threshold, the attempt-admission commit's outcomes, a single end-path REV owner, an end-path reserve taken first, and the exhaustive rows. r1 bytes are preserved in PROPOSAL-r1.md. Not code. Library only: no CLI command commits (X11 and M3).
+2026-10-01. Claude Opus 5.5, implementation lead. Law for unit X3d of `EXIT-PLAN.md`, under owner.md §5 and §8, the build plan's "Decision: require independently minted prerequisites at the storage boundary", "Security/storage ownership and the final commit gate" and "Publication sequence and lock discipline" (`docs/v2/architecture/implementation-boundaries-and-build-plan.md`, lines 25–190), and the accepted laws X1 r1, X2 r5, X3a r5, X3b r6, X3c r7, X4 r7 and X4T r5. The lead decisions here are made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation. Each names the alternative it rejects. Not code. Library only: no CLI command commits (X11 and M3).
 
 ## Problem
 
@@ -41,19 +41,15 @@ It has no `CommitSession`, `PreparedCommit`, `PublishedCommit`, `JournalWriteTxn
    - It binds N, the endpoint's (S, G, K), the carrier's `project_key_digest`, the receipt's selected core closure and the permitted operation. These are X4 item 4's operation joins, now complete.
    - **Rejected:** several commits per operation. That would need a reusable gate, which the one `FinalGate` per operation (X4 item 2) forbids, plus a second ExecutionId under one guard.
 
-3. **`prepare_commit(ReplayedRun, CommitSession)`.** Under the writer lease, in this order. Steps 0 to 3 are preflight and take no level-3 lock. Step 4 is X3c's own attempt transaction. Steps 5 and 6 are the objects.
-   0. **The end-path reserve (RF-4; lead decision).** First, before any check that can return a `StoppedSession`, reserve on the operation ledger the fixed cost of one `REV` and one `CLN` append. Each is a level-3-then-level-4 acquisition, a record, two witness writes and a commit, with its confirmations. The reserve is held by the session and spent only by `finish` (item 7). If it can't be reserved, `prepare_commit` refuses on the budget row before anything else. No `StoppedSession` then owes an append it can't fund, because the observer was started at the lease-free point and may already have latched. **Rejected:** reserving it together with the publication budget, where a failed combined reserve would leave a latched operation's `REV` unfunded.
+3. **`prepare_commit(ReplayedRun, CommitSession)`: storage's preflight, before any level-3 lock.** Under the writer lease, in this order:
    1. **Binding equality.** The `ReplayedRun`'s RunId, plan and proof bind to the session. Its evaluator closure equals the session's selected core closure. A mismatch is the invariant row (item 9). It is a broken caller, never a retry.
-   2. **Retention feasibility and the publication budget.** The declared object bytes, pins and every post-effect confirmation of steps 4 to 6 and of `publish` are reserved on the operation ledger (X3c item 9). If this reservation fails, the attempt refuses on the budget row before the first write. Step 0's end-path reserve is kept.
-   3. **Carrier capacity (F32, RF-1).** The reserved terminal slot is `9007199254740991`. When the proven tail is `9007199254740990`, X3b item 5 makes the next append `TERMINAL`, so an ordinary SEAL has no slot. If the proven tail is greater than or equal to `9007199254740990`, `prepare_commit` returns `CarrierCapacityExhausted { grantGeneration, provenTailSeq }` before any write. Storage never calls lifecycle. Host finalization (X7) completes cleanup, releases the lease, then routes the rollover under the fence.
-   4. **Attempt admission (X3c item 3, RF-2).** The `attempt_custody` row (`admitted`) is inserted in its own level-3, non-waiting ledger transaction and committed. Three outcomes, each stopping before any object:
-      - the insert hits the no-replace trigger: step 5;
-      - the `COMMIT` errors, or the connection is lost: `CommitUndetermined { executionId }` on item 9's durability row. The ExecutionId is retained, there is no RunId and no retry, and X6 decides the row;
-      - busy, or an I/O failure before the `COMMIT`: the busy or host I/O row (item 9).
+   2. **Retention feasibility and budget.** The declared object bytes, pins and every post-effect confirmation are reserved on the operation ledger (X3c item 9). If the reservation fails, the attempt refuses before any write.
+   3. **Carrier capacity (F32).** If the carrier tail is at or past the reserved terminal slot, the ordinary SEAL has no slot. `prepare_commit` returns `CarrierCapacityExhausted { grantGeneration, provenTailSeq }` before any write. Storage never calls lifecycle. Host finalization (X7) completes cleanup, releases the lease, then routes the rollover under the fence.
+   4. **Attempt admission (X3c item 3).** The `attempt_custody` row (`admitted`) is committed durably.
    5. **Duplicate ExecutionId (F34).** If the insert hits the no-replace trigger, an attempt with this exact ExecutionId already exists. `prepare_commit` writes nothing further, does not `INSERT OR REPLACE`, appends no SEAL, and returns `ExistingAttempt { executionId }` for the host to route to read-only recovery (X6). X6 compares the requested binding exactly and refuses a different one. Because a session's ExecutionId is a fresh CSPRNG draw, this cannot occur on a lawful first attempt. Until X6 exists, `ExistingAttempt` terminates on the invariant row. **Rejected:** treating the collision as a busy or corrupt ledger.
    6. **Objects (X3c item 4).** Each is published with its file and directory barriers.
 
-   A refusal at any of these steps leaves no acknowledged Run, appends no SEAL, and returns the session's `StoppedSession`, which still holds the end-path reserve.
+   A failure at any of these steps leaves no acknowledged Run, and returns the session's `StoppedSession` with no SEAL appended.
 
 4. **`PreparedCommit::publish`: the end-to-end order.** This is the order of X3c r7 item 8 and X3b r6 item 5. Locks are acquired only in the order shown.
    1. **Journal transaction.** `begin_journal_txn(session)` takes the journal `BEGIN IMMEDIATE` (level 3), never waiting.
@@ -72,13 +68,10 @@ It has no `CommitSession`, `PreparedCommit`, `PublishedCommit`, `JournalWriteTxn
       11. release level 4 once the `COMMIT` returns.
    4. **The result.** Storage builds `PublishedCommit` only on a successful `COMMIT` (item 6).
 
-   - **Stop order (RF-3).** If a certain refusal stops the path after step 3.1 and before 3.10 (a failed checkpoint, which latches the gate; a staging failure; no permit; or an observer latch), X3b r6 item 5 step 7's stop order applies exactly once inside `publish`:
-     1. roll back the open ledger transaction;
-     2. release level 4, then each level-3 transaction still open.
-
-     `publish` appends nothing. The one `REV`, and any `CLN`, are appended only by `finish` (item 7).
-   - **An uncertain journal commit or barrier** (step 3.4, 3.5 or 3.6 fails after visibility) does not enter that order. X3b r6 item 5's uncertain-outcome rule applies: refuse every further effect, roll back the ledger transaction, release level 4 and any open level-3 transaction, and return `CommitUndetermined { executionId }` on item 9's durability row. Neither state is assumed, and nothing is appended. The next lawful opener reconciles by X3b item 4.
-   - **A returned evidence `COMMIT`** (step 3.10), whether `Committed` or `CommitUndetermined`, releases level 4 exactly once. That `COMMIT`'s outcome is the caller's outcome.
+   - **Stop order.** If anything stops the path after step 3.1 and before 3.10 (a failed checkpoint, a staging failure, no permit, or an observer latch), X3b r6 item 5 step 7's stop order applies, exactly once:
+     1. roll back the ledger transaction;
+     2. release level 4, then each level-3 transaction still open;
+     3. the end path (item 7) appends `REV`.
    - **Lock-order rules.** Level 3 is never acquired or reacquired under level 4, and nothing waits on a fence or lease inside `publish`.
    - **Rejected:** committing in the staging callback; and releasing level 4 before the `COMMIT` on a path that continues to it.
 
@@ -90,19 +83,14 @@ It has no `CommitSession`, `PreparedCommit`, `PublishedCommit`, `JournalWriteTxn
 
 6. **Outcomes returned to callers.** `publish(self) -> (CommitOutcome, StoppedSession)`:
    - **`Committed(PublishedCommit)`.** Only after the ledger `COMMIT` returned success (F13). It carries the exact receipt, RunId, ExecutionId and `latchedAfterAdmission`.
-   - **`CommitUndetermined { executionId }`.** The evidence `COMMIT` errored or the connection was lost (F12, F40), or an uncertain journal commit or barrier stopped `publish` (item 4). `prepare_commit` returns the same outcome for an uncertain attempt-admission `COMMIT` (item 3 step 4). The ExecutionId is retained, there is no RunId, and nothing is retried. The `attempt_custody` row stays `admitted` for X6.
+   - **`CommitUndetermined { executionId }`.** The `COMMIT` errored or the connection was lost (F12, F40). The ExecutionId is retained, there is no RunId, and nothing is retried. The `attempt_custody` row stays `admitted` for X6.
    - **`Refused(InstallationTermination)`.** Any refusal before a permit was used.
-   - **`CarrierCapacityExhausted { grantGeneration, provenTailSeq }`, `ExistingAttempt { executionId }` and `CommitUndetermined`** can come from `prepare_commit` (item 3).
+   - **`CarrierCapacityExhausted { grantGeneration, provenTailSeq }` and `ExistingAttempt { executionId }`** come from `prepare_commit` (item 3).
 
    Whatever the outcome, the caller holds a `StoppedSession` and must finish it (item 7). **Rejected:** a single error enum, which would let a caller confuse undetermined with refused.
 
 7. **The end path, with X4c merged here.** `StoppedSession::finish(self)`:
-   1. **Cleanup records (the only `REV` and `CLN` owner).** While the operation lease is still held, `finish` appends one `REV` if any of these holds:
-      - a durable SEAL has no evidence commit;
-      - the gate is latched (an observer latch, or a failed checkpoint that fetch-ORed 2);
-      - a revocation was observed.
-
-      It appends `CLN` when cleanup residue must be recorded, including F38's SEAL-without-commit pair. Both go through one fresh, lawful level-3-then-level-4 acquisition on the same carrier (build plan line 148; X3b r6 item 6; X4 items 5 and 7), funded by item 3 step 0's reserve. A `REV` blocks any later `RA`, intent, commit or `SEAL`. After an uncertain journal commit or barrier, `finish` appends nothing: it releases and leaves reconciliation to the next opener (item 4).
+   1. **Cleanup records.** If the path stopped after a SEAL without a commit, or the observer latched, or a revocation was observed, `finish` appends `REV`. It appends `CLN` when cleanup residue must be recorded. Both are appended through a fresh, lawful level-3-then-level-4 acquisition on the same carrier, while the operation lease is still held (build plan line 148; X3b r6 item 6; X4 item 7). A `REV` blocks any later `RA`, intent, commit or `SEAL`.
    2. **Release.** Release the operation lease.
    3. **End step.** Run X3b item 4's end step: the floor copy under the fence, with no project lock held.
 
@@ -111,23 +99,19 @@ It has no `CommitSession`, `PreparedCommit`, `PublishedCommit`, `JournalWriteTxn
    - **Not claimed:** rollback of reversible brokered effects, because M2 performs none.
 
 8. **Budget.** All work is charged to the operation's ledger, which is X1's attempt ledger, already used by X3c item 9 and X4 item 9.
-   - The end-path reserve (one `REV` and one `CLN`) is taken first, at item 3 step 0, and survives every later refusal. `finish` spends it.
-   - The publication reserve (objects, confirmations, attempt admission, and `publish`'s fixed SEAL, witness, staging and commit costs) is taken at step 2. If it fails, the operation refuses before the first write.
+   - `prepare_commit` reserves the total for its own objects and confirmations, and for `publish`'s fixed SEAL, witness, staging and commit costs, before the first write.
    - The observer keeps its own per-observation ledger (X4 r7).
-   - **Rejected:** charging the end path at end time, or inside the publication reserve. Either could strand a latched operation's or an un-REVed SEAL's `REV`.
+   - The `REV` and `CLN` appends in `finish` are reserved by `prepare_commit`, so a budget refusal never prevents the end path.
+   - **Rejected:** charging the end path at end time. Budget exhaustion there would strand an un-REVed SEAL.
 
 9. **Refusal rows (existing details only).** Every row maps through 468c's `InstallationTermination`, every match is exhaustive, and S12 prevails where it fixes a class.
-   - **Busy journal or ledger transaction, or a lost lease:** operational-failed, 4, `LEDGER.BUSY_TIMEOUT`, `ledger-busy`, detail `PROJECT.BUSY`.
-   - **Host I/O:** an object, directory, journal or ledger I/O failure before any `COMMIT` is operational-failed, 4, `HOST.IO_FAILURE`, `host-io`.
-   - **Quarantine:** `LEDGER.CORRUPT`, `ledger-corrupt`, operational-failed, 4.
-     - The domain detail is `MIGRATION.CORRUPT` only for a carrierFormat 3 footprint that isn't a lawful durable prefix at a writer or maintenance open (S12; X3b r6 item 8).
-     - A ledger schema mismatch, a partial ledger creation footprint, or an unequal object keeps `domainDetail` omitted (X3c r7 item 10).
-     - Other journal quarantines take X3b r6 item 8's rows.
-   - **`CommitUndetermined`** (an attempt-admission or evidence `COMMIT`, or an uncertain journal commit or barrier): operational-failed, 4, `DURABILITY.COMMIT_FAILED`, `durability-commit`, with the ExecutionId and no RunId (F40).
+   - **Busy journal or ledger transaction, or a lost lease:** `LEDGER.BUSY_TIMEOUT`, `ledger-busy`, `PROJECT.BUSY`.
+   - **Carrier or ledger quarantine and footprints:** X3b and X3c's rows (`LEDGER.CORRUPT`, `ledger-corrupt`; `MIGRATION.CORRUPT`).
+   - **`CommitUndetermined`:** `DURABILITY.COMMIT_FAILED`, operational-failed, exit 4, `durability-commit`, with the ExecutionId and no RunId (F40).
    - **Revocation, observer fail-stop and stale guards:** X4 item 8's rows.
-   - **Invariant:** a `ReplayedRun` or session binding mismatch, or `ExistingAttempt` before X6 exists. Operational-failed, 4, `SYSTEM.OUTCOME.ILLEGAL_STATE`, `host-invariant`, detail `HOST.INVARIANT_VIOLATED` (as X3c item 10 gives a reused ExecutionId).
+   - **A ReplayedRun or session binding mismatch, or `ExistingAttempt` before X6:** the invariant row (`SYSTEM.OUTCOME.ILLEGAL_STATE`, `host-invariant`).
    - **`CarrierCapacityExhausted`:** no row of its own. X7 maps the outcome after rollover.
-   - **Budget:** operational-failed, 4, `SYSTEM.OUTCOME.ILLEGAL_STATE`, `host-invariant`, detail `WORK.BUDGET_EXHAUSTED`.
+   - **Budget:** `WORK.BUDGET_EXHAUSTED`.
    - **Post-admission latch:** `DELIVERY.REQUIRED_FAILED`, `delivery-required`, from X7.
 
 10. **Boundaries.**
@@ -169,8 +153,7 @@ It has no `CommitSession`, `PreparedCommit`, `PublishedCommit`, `JournalWriteTxn
 - Relabelling an admitted outcome after a latch.
 - Retrying an undetermined commit, or reading back its outcome on the write path.
 - Calling lifecycle from storage.
-- An end path whose `REV` or `CLN` budget was not reserved first.
-- A `REV` appended inside `publish`, or after an uncertain journal commit.
+- An end path whose `REV` or `CLN` budget was not reserved.
 - `PublishedCommit` before a successful `COMMIT`.
 - An external adapter or `SealOutcome` accepted by storage.
 - A production seam that supplies a `ProjectOperation` or `ReplayedRun`.
