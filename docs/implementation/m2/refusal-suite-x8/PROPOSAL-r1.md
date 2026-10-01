@@ -1,16 +1,11 @@
-# The opaque API refusal suite — proposal X8 r2
+# The opaque API refusal suite — proposal X8 r1
 
 2026-10-02. Claude Opus 5.5, implementation lead. Law for unit X8 of `EXIT-PLAN.md`. It is written under:
 - the build plan's M2 row (`implementation-boundaries-and-build-plan.md` line 886: "Opaque API refusal tests … pass; synthetic fixtures remain labelled, not compiler qualification");
 - its required checks (lines 591–613): `crates/host/tests/admission_tests.rs` "owns public-boundary scenarios", and "private evaluator/security unit tests own prerequisite construction" (lines 593–595); the compile-fail and behavioural checks of lines 597–604; and F01's line 609;
 - its tooling matrix row (line 1071), which leaves "trybuild versus isolated Cargo compile-fail fixtures" to a trial, requires that misuse "fail for the intended reason", and asks that each trial retain "the exact input set, candidate/tool version, configuration, observed failures and accepted limitations" (line 1077);
 - the offline build rule: every lane builds with `--locked --offline` from provisioned archives (product `README.md`, `tools/README.md`);
-- the accepted laws X3d r6 (items 1, 3, 4, 10, 11, 12 and 13), X4 r7 (items 2, 4, 6, 8 and 10), X5 r2, X2 r8 (item 7a), X7 r3 (items 2 and 10) and X9 r1 (`crash-matrix-x9/PROPOSAL.md`: items 2, 3, 6, 11 and 12, and gap G1), and X4T r4's `cfg(test)` store generator (X4T-0).
-
-**r2 (2026-10-02) answers Grok X8 r1 RF-1 and RF-2.** r1 bytes are preserved in PROPOSAL-r1.md.
-- **RF-1: one shared gate predicate (item 4b).** Accepted X9 r1 item 6 already widens the same fixture gates to `cfg(any(test, feature = "crash-matrix"))`, and X9-1 pins them. A Rust item has one cfg predicate. So both laws now use one site list, X9-1's pin, extended by name. Each shared site is written `cfg(any(test, feature = "crash-matrix", feature = "scenario-fixtures"))`. The two features stay separate, and so do their support modules. X8 records the joint predicate as the wording change to X9 item 6 and to X9's matching forbidden substitute. X9's accepted outcome stands. Items 4b, 4c, 4f and 4g, the units and the forbidden substitutes change to match.
-- **RF-2: B6 and B7 publish through X9 item 6's fenced helper, in a process that does not hold the operation lease (item 5a).** X4 item 2 forbids trust writes under a lease. r1's `publish_revocation` on the lease-holding test thread is withdrawn. The test thread waits for the helper process to exit, then calls `prepare_commit` and `publish`, with no sleep. B3 and B5 stay on the test thread.
-- **Unchanged from r1:** everything else, including items 1 to 3, B0 to B5 and B8, and item 6.
+- the accepted laws X3d r6 (items 1, 3, 4, 10, 11, 12 and 13), X4 r7 (items 4, 6, 8 and 10), X5 r2, X2 r8 (item 7a) and X7 r3 (items 2 and 10), and X4T r4's `cfg(test)` store generator (X4T-0).
 
 Every decision here is a lead decision, made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation; each names the alternative it rejects. Product baseline: `f1b8321` (X3d-0 integrated). Not code. X8 adds no public code, row or detail.
 
@@ -154,29 +149,9 @@ The trial driver is `/tmp/opensip-x8-trial/product/crates/host/tests/admission_t
 
 4. **The test seam for behavioural cases: one test-only Cargo feature (lead decision).**
    a. **The feature.** `opensip-security` declares `scenario-fixtures = []`. `opensip-storage` declares `scenario-fixtures = ["opensip-security/scenario-fixtures"]`. Storage's and host's `[dev-dependencies]` enable it, and nothing else does. Under it, security compiles one `#[doc(hidden)] pub mod scenario`, and storage one `#[doc(hidden)] pub mod scenario`.
-   b. **One shared site list and one joint predicate (r2, RF-1).** `scenario` uses the fixture gates that X9 r1 item 6 already widens for `crash_matrix_support`. A Rust item has only one cfg predicate, so the two laws share one list.
-      - **The list is X9-1's pin, extended by name.** There is no second list. At X9 r1 the shared sites are:
-        - `Image::Injected` in `security/src/trust/initial_core.rs`;
-        - `HomeSource::Fixture` and its match arm in `admit_with` (`security/src/custody/installation_admission.rs`);
-        - X4T-0 (`security/src/trust/accepted_store_fixture.rs` and its module declaration);
-        - the fenced `state.v1` publisher of X9 item 6 (item 5a).
-      - **The predicate.** Each shared site is written `cfg(any(test, feature = "crash-matrix", feature = "scenario-fixtures"))`, and nothing else.
-      - **What goes on the list.** A site goes on the list only if both support surfaces call it.
-        - X9's barrier and fault sites stay `cfg(test)` with X9's points beside them: `AppendStep`, `ObjectStep` and the ledger commit hook. `scenario` never names them.
-        - `scenario` adds no gate of its own inside a production item.
-        - If X8b finds that `operation` needs a fixture gate outside the list, that is a revision of this law, never a unit-level choice.
-      - **The source pin.** X9-1's source pin enforces the list. X8b extends that pin by name for the sites above, and adds no second pin.
-      - **The two features stay separate.**
-        - `scenario-fixtures` is enabled from storage's and host's `[dev-dependencies]`, so B0 to B8 run in `cargo test --workspace --all-targets`.
-        - `crash-matrix` keeps X9 item 2 unchanged: no manifest names it, only the matrix targets' `required-features` reach it, and a release build with it fails at `compile_error!`.
-        - Folding them into one feature would either compile X9's barrier points into every host test or drop B0 to B8 out of the documented lane.
-      - **The two modules stay separate.** `crash_matrix_support` still returns no authority type (X9 item 6). `scenario` is compiled only under `scenario-fixtures`. Its `operation` returns the `ProjectOperation` that the production chain returns, and nothing else.
-      - **Production behaviour does not change.** With either feature on, a shared site is reachable from outside security only through its feature's support module. Without both, the build is byte-for-byte today's.
-      - **Wording change to X9 r1 (record only).** Two sentences change wording:
-        - X9 item 6's "that `cfg(test)` becomes `cfg(any(test, feature = "crash-matrix"))` … no other site may use the feature" reads, for the shared sites, `cfg(any(test, feature = "crash-matrix", feature = "scenario-fixtures"))`.
-        - X9's forbidden substitute "a `cfg(any(test, feature = "crash-matrix"))` site … in a build reached without an explicit `--features crash-matrix`" excepts the shared sites reached through `scenario-fixtures`, which are still absent from every release build (item 4f).
-
-        No barrier point, `crash_matrix_support` item, row or outcome of X9 changes.
+   b. **Widening only existing gates.** The feature widens existing `cfg(test)` gates to `cfg(any(test, feature = "scenario-fixtures"))`, and gates the new `scenario` modules. It adds no gate of its own inside a production item.
+      - Some existing gates sit inside production items: for example `HomeSource::Fixture`'s variant and its match arm in `admit_with`. For those, the feature widens that exact gate and nothing else.
+      - Production behaviour does not change. With the feature on, a seam is reachable only through `scenario`. Without it, the build is byte-for-byte today's.
    c. **What security's `scenario` offers.**
       - **`ScenarioHome::create(parent)`:** a 0700 scratch home under the caller's scratch parent. It holds a P0 installation on 462's signed test trees and synthetic signed profile rows, and X4T-0's signed accepted store with its roles Trusted. Every path in it carries the label `synthetic`.
       - **`project(name)`:** a scratch project root.
@@ -188,8 +163,8 @@ The trial driver is `/tmp/opensip-x8-trial/product/crates/host/tests/admission_t
         - X3b's floor step and carrier start;
         - X2e's handoff.
 
-        It uses only the shared sites of item 4b: the injected image and the synthetic V2 profile set through the real creator path, as X9 item 6's installation does; the fixture home source; and X4T-0's store.
-      - **No in-process trust publication (r2, RF-2).** r1's `publish_revocation` is withdrawn. A trust update after the handoff runs only in a separate helper process (item 5a).
+        It uses only the seams those units' own tests use: the fixture home source and the test trust trees.
+      - **`publish_revocation(subjects)`:** an X4T-0-signed revocation record and an atomic replacement of `state.v1`. This is a lawful trust update.
       - **`paths(namespace)`:** the read-only paths of the root, `.opensip`, marker, lease, endpoint and lineage files.
       - **`carrier_census(namespace)`:** a read-only count of SEAL, REV, CLN and TERMINAL records.
    d. **What storage's `scenario` offers.**
@@ -202,8 +177,7 @@ The trial driver is `/tmp/opensip-x8-trial/product/crates/host/tests/admission_t
    f. **Release guard.**
       - **Source pin.** A source pin in `admission_tests.rs` checks every `Cargo.toml` in the workspace. `scenario-fixtures` may appear only in security's and storage's `[features]` and in `[dev-dependencies]`. It may never be a default feature or appear in `[dependencies]`.
       - **Compile-fail.** Group J's E0432 proves the plain `cargo check -p opensip-host` surface has no `scenario`. That is the surface `opensip-cli` builds against.
-      - **The shared sites.** With neither feature, every shared site of item 4b is `cfg(test)` only. X9 item 2's release-absence evidence covers them unchanged.
-   g. **Correction to X3d r6 item 12.** X3d-2's storage tests in the ordinary lane obtain their `ProjectOperation` through this feature (as a dev-dependency), not through crate-private `cfg(test)` fixtures, which storage cannot reach. Its matrix rows use X9's `crash-matrix` (X9 G1). Both reach the same shared site list of item 4b. X3d's next revision records this, naming that list. X3d's forbidden "production seam that supplies a `ProjectOperation`" stands, because this seam is absent from every release build (item 4f).
+   g. **Correction to X3d r6 item 12.** X3d-2's storage tests obtain their `ProjectOperation` through this feature (as a dev-dependency), not through crate-private `cfg(test)` fixtures, which storage cannot reach. X3d's next revision records it. X3d's forbidden "production seam that supplies a `ProjectOperation`" stands, because this seam is absent from every release build (item 4f).
 
    **Rejected:**
    - **Behavioural cases only in the owners' private tests.** Storage cannot reach security's `cfg(test)` fixtures, so `prepare_commit` with a real session would have no test at all. `admission_tests.rs` would lose the public-boundary scenarios line 593 assigns it.
@@ -227,16 +201,7 @@ The trial driver is `/tmp/opensip-x8-trial/product/crates/host/tests/admission_t
    - that no `PublishedCommit` exists, which the outcome type shows;
    - the durable census after `finish`.
 
-   **Synchronization.** Every alteration happens between two public calls on the test thread: after `operation` (the X2 item 7a handoff) or before `publish`. It is deterministic, with no sleep and no timing.
-   - **On the test thread:** B3 and B5 replace project files, and B4 plants a ledger row. None of them takes the installation fence or writes trust state.
-   - **In a helper process:** B6 and B7's trust publication (item 5a).
-
-   a. **The revocation helper (r2, RF-2).** X4 item 2 forbids writing trust state under a lease, and after the handoff the test's session holds the operation lease (X2 r8 item 7a).
-      - **Who publishes.** The publication is the fenced trust-owner update: X9 item 6's helper, the shared publisher on item 4b's site list. It takes the installation fence by its production walk, writes the signed revocation record, and replaces `state.v1` atomically.
-      - **Where it runs.** In a separate process that never ran `operation` and holds no operation lease. The test re-executes its own test binary (`std::env::current_exe()`) with `--exact` on one `#[ignore]`d helper test, passing the scratch home and the revocation subjects through the environment. The fence is free, because the handoff released it.
-      - **How the test thread waits.** It waits for the helper process to exit with success. Only then does it call `prepare_commit` and `publish`. There is no sleep, and a helper failure fails the case.
-      - **What the publication reaches.** The first checkpoint's monitored observation reads the published view, so the outcome does not depend on the observer's 5 s tick. If the observer ticks first, it latches on the same revocation, with the same row.
-      - **Rejected:** r1's in-process `publish_revocation` on the lease-holding thread, which either takes the fence under a lease or replaces `state.v1` with no fence; and a helper thread in the test process, which shares the process that holds the lease.
+   **Synchronization.** Every alteration happens on the test thread between two public calls: after `operation` (the X2 item 7a handoff) or before `publish`. It is deterministic, with no sleep and no timing.
 
    | Case | Alteration | Expected outcome | Census after `finish` | Owner of the refusal |
    |---|---|---|---|---|
@@ -246,8 +211,8 @@ The trial driver is `/tmp/opensip-x8-trial/product/crates/host/tests/admission_t
    | B3 namespace | the marker, then (separately) the lease file, replaced after the handoff | `Refused`, custody row `CONFIG.CUSTODY_REFUSED` / `required-files-changed` (X4 item 8); gate latched | attempt row `admitted`, no SEAL, 1 REV and a CLN exactly where X3d item 7 requires one, no receipt | X4a with X3d |
    | B4 execution | `plant_attempt(session.execution_id())` before `prepare_commit` | `ExistingAttempt`, then the invariant row until X6 routes it | the planted row unchanged and alone, no SEAL | X3d-2 / X3c |
    | B5 generation | the endpoint's lineage file replaced with one naming another generation, after the handoff | the custody row; gate latched | as B3 | X4a / X3a |
-   | B6 live revocation | after the handoff, the item 5a helper process publishes a revocation naming the session's core closure, and the test thread waits for it to exit | `Refused`, `TRUST.COMPONENT_REVOKED_DURING_OPERATION` (X4 item 8); gate `0 → 2` | as B3 | X4a |
-   | B7 unrelated revocation | the same helper publishes a revocation naming nothing in the closure | `Committed`, with `revocation-unrelated` drift recorded | as B0 | X4a |
+   | B6 live revocation | `publish_revocation` naming the session's core closure, after the handoff | `Refused`, `TRUST.COMPONENT_REVOKED_DURING_OPERATION` (X4 item 8); gate `0 → 2` | as B3 | X4a |
+   | B7 unrelated revocation | `publish_revocation` naming nothing in the closure | `Committed`, with `revocation-unrelated` drift recorded | as B0 | X4a |
    | B8 replay-invalid (F01, line 609) | one byte of a claimed output altered | `replay_run` returns `Mismatch`, so no `ReplayedRun` exists to pass on (row K pins that nothing else can stand in) | the scratch home has no attempt, carrier or lease | X5a |
 
    - **B0 is required.** It is the positive control that makes B1 to B8 non-vacuous: the same harness, home and corpus do reach a commit.
@@ -287,15 +252,14 @@ Each unit is reviewed with an inventory successor that lists its new files.
   - **X7a:** the projection rows A and B, and the projection's export (item 3c).
 
   Each owner's review runs the X8a driver green with its rows added.
-- **X8b (security, storage and host manifests).** The `scenario-fixtures` feature and both `scenario` modules (item 4); the joint predicate on item 4b's shared sites, extending X9-1's pin by name; group J; and the dev-dependency entries.
-  - **Depends on:** X9-1 (the site list, its pin and the fenced publisher), X2e (the handoff), X3a-1, X3b-3 (the carrier start), X4a (the monitor's first read in the chain), X4T-0, and X3c-2 (the ledger census).
+- **X8b (security, storage and host manifests).** The `scenario-fixtures` feature and both `scenario` modules (item 4); group J; and the dev-dependency entries.
+  - **Depends on:** X2e (the handoff), X3a-1, X3b-3 (the carrier start), X4a (the monitor's first read in the chain), X4T-0, and X3c-2 (the ledger census).
   - **Lands before X3d-2,** whose storage tests use it (item 4g).
 - **X8c (host tests).** B0 to B8 (item 5).
   - **Depends on:** X8b, X3d-2 (and so X3d-1, X4a and X3c-2), and X5a.
-  - **B6 and B7** also need X4T-b's admitted reading of a newly published revocation, which X4a's observation path depends on, and X9-1's fenced publisher (item 5a).
-- **X3d r7 (record only):** item 12's storage-test fixture source, naming item 4b's shared site list (item 4g); item 11's adapter case (item 3b); and "the X8 doctests" in item 13 (item 2). No decision of X3d changes.
-- **X9 (record only):** the joint-predicate wording of item 6 and of its matching forbidden substitute (item 4b). X9's accepted outcome stands.
-- **EXIT-PLAN:** the X8 row gains "law X8 r2; units X8a–X8c". The "Choices" recommendation, which extends doctests, is superseded by item 1.
+  - **B6 and B7** also need X4T-b's admitted reading of a newly published revocation, which X4a's observation path depends on.
+- **X3d r7 (record only):** item 12's storage-test fixture source (item 4g), item 11's adapter case (item 3b), and "the X8 doctests" in item 13 (item 2). No decision of X3d changes.
+- **EXIT-PLAN:** the X8 row gains "law X8 r1; units X8a–X8c". The "Choices" recommendation, which extends doctests, is superseded by item 1.
 
 ## Forbidden substitutes
 
@@ -311,12 +275,9 @@ Each unit is reviewed with an inventory successor that lists its new files.
 - **Claiming too much:** an unpinnable case claimed as compile-fail.
 - **The feature:**
   - `scenario-fixtures` as a default feature, in any `[dependencies]` table, as a new gate inside a production item's body (item 4b), or reachable from the plain host surface;
-  - a `scenario` item that constructs, accepts or returns an authority type, except `operation`'s production-chain `ProjectOperation`;
-  - (r2) a shared fixture site gated on one feature alone, a second site list or pin, a site on the list that only one surface calls, or X9's barrier and fault sites (`AppendStep`, `ObjectStep`, the ledger commit hook) widened to `scenario-fixtures`;
-  - (r2) folding `scenario-fixtures` and `crash-matrix` into one feature, or enabling `crash-matrix` from any manifest.
+  - a `scenario` item that constructs, accepts or returns an authority type, except `operation`'s production-chain `ProjectOperation`.
 - **Behavioural cases:**
   - one that sleeps, uses wall-clock timing, or alters state inside `publish` without X9's barrier points;
-  - (r2) a trust publication from the process or thread that holds the operation lease, or one not made under the installation fence by the shared publisher;
   - a refusal asserted without B0, or without the durable census.
 - **New vocabulary:** a new public code, row or detail.
 
