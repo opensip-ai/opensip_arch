@@ -1,4 +1,4 @@
-# Live security guards: operation guard, live revocation, stale guards and the observer latch — proposal X4 r5
+# Live security guards: operation guard, live revocation, stale guards and the observer latch — proposal X4 r4
 
 2026-09-30. Claude Opus 5.5, implementation lead. Law for unit X4 of `EXIT-PLAN.md` (DR-G09), under:
 - security-and-lifecycle S4 (trust time and floors), S5, S6 (live revocation), S7 (lock order) and S10 (execution principal `repository-code`), and S12;
@@ -14,7 +14,7 @@ r2 answers Codex X4 r1 RF-1 to RF-5:
 - RF-4: binding to the owned post-fence operation, with a complete mandatory guard set;
 - RF-5: freshness after blocking guard work and immediately before admission.
 
-r1 bytes are preserved in PROPOSAL-r1.md. r3 answers Grok X4 r2 RF-1 (the mixed-read retry runs inside one monitor read) and RF-2 (a dropped lease is the busy row, not a changed file), and aligns with X3b r2 and X4T r1. r2 bytes are preserved in PROPOSAL-r2.md. r4 answers Grok X4 r3 RF-1: X4T's fenced admission, the monitor's first read, runs at the lease-free point, never inside 7a. r3 bytes are preserved in PROPOSAL-r3.md. r4 was ACCEPTED by Grok on 2026-09-30. r5 is an amendment that follows X4T r4, the real trust closure: the retained trust directories, the per-observation ledger, policy drift and role standing. r4 bytes are preserved in PROPOSAL-r4.md. Not code. Library only: no command is wired.
+r1 bytes are preserved in PROPOSAL-r1.md. r3 answers Grok X4 r2 RF-1 (the mixed-read retry runs inside one monitor read) and RF-2 (a dropped lease is the busy row, not a changed file), and aligns with X3b r2 and X4T r1. r2 bytes are preserved in PROPOSAL-r2.md. r4 answers Grok X4 r3 RF-1: X4T's fenced admission, the monitor's first read, runs at the lease-free point, never inside 7a. r3 bytes are preserved in PROPOSAL-r3.md. r4 ACCEPTED by Grok on 2026-09-30. Not code. Library only: no command is wired.
 
 ## Problem
 
@@ -73,7 +73,7 @@ M2 exits on a real crash, lock and revocation matrix. Its revocation half needs 
    - **Missing inputs.** Preparatory units that lack an X2 or X3 input expose no production permit. The abstract test lock type exists only under `cfg(test)`, so it is absent from release builds.
    - **Rejected:** refreshing a stale guard in place, and treating global registry or pair captures as live obligations.
 5. **The observer and the mutable current view (RF-3; lead decision).** One observer thread per operation guard. It starts when the guard is moved into `ProjectOperation` and stops when the guard is dropped or stopped. Every 5 s it performs one observation through the shared monitor (item 2).
-   - **The reading path.** At handoff, under the fence, `ProjectOperation` retains no-follow handles to the trust store's `trust/stores/S` directory and all four collection directories, `objects`, `records`, `publications` and `events` (X4T r4 items 1 and 2). Each observation captures through X4T's existing binders, in X4T's order. Their identity, custody and filesystem are judged at capture. After the fence is released, each observation:
+   - **The reading path.** At handoff, under the fence, `ProjectOperation` retains no-follow handles to the trust store's `trust/stores/S` and `trust/records` directories. Their identity, custody and filesystem are judged at capture. After the fence is released, each observation:
      1. opens `state.v1` by name through the retained directory handle;
      2. captures it and the records it names, each opened by name through the retained records handle;
      3. runs X4T's admission over them, including authentication and the floor and rollback rejection;
@@ -95,7 +95,7 @@ M2 exits on a real crash, lock and revocation matrix. Its revocation half needs 
 
      The start epoch is never replaced. A newly named revocation record is actually opened and authenticated, never assumed.
    - **Not a refresh.** This is an authorized observation of mutable trust state. It is not a refresh of the immutable guard, and not a promotion of the fenced provisional `Head`. The old captures remain provenance.
-   - **Budget.** Each observation is charged to a fixed per-observation ledger of 2 × X4T r4's `TRUST_VIEW_COST`: at most 256 objects, 4096 edges and 224 MiB: 2 × X4T r4's ceiling of 128 objects, 2048 edges and 112 MiB, inside the owner's 256 MiB cap. That covers both attempts of one read. The operation's ledgers are not charged per tick, otherwise a long operation would exhaust its cap through observation alone. The per-observation ledger never resets the shared monitor history or the latch.
+   - **Budget.** Each observation is charged to a fixed per-observation ledger of 2 × X4T r2's `TRUST_VIEW_COST`: at most 128 objects, 2048 edges and 240 MiB (2 × X4T r2's ceiling of 64 objects, 1024 edges and 120 MiB, which covers every file at its cap). That covers both attempts of one read. The operation's ledgers are not charged per tick, otherwise a long operation would exhaust its cap through observation alone. The per-observation ledger never resets the shared monitor history or the latch.
    - **What the observer may not do.** It appends nothing. `REV(observer-fail-stop)` and cancellation are written on the operation's end path through a fresh lawful level-3 then level-4 append (S6, F19; X3b). X4 supplies the stop reason and the latched state.
    - **Rejected:** no thread, observing only at checkpoints (S6 requires the 5 s tick); an observer that takes the fence (this breaks S7); and requiring the global pointer to stay unchanged (this forbids lawful trust updates).
 6. **The operation guard and its owner (RF-4; lead decision).** `OperationGuard` is private, not Clone and not serializable. It is built inside X2e's handoff, under the held fence, from the monitor, admitted view and gate already created at the lease-free point (item 2). It runs no X4T admission and writes no trust state there, and it is moved into `ProjectOperation` with X2e's other owners. It never exists outside a `ProjectOperation`. It holds:
@@ -150,10 +150,6 @@ M2 exits on a real crash, lock and revocation matrix. Its revocation half needs 
     - **X4a (security):** the monitor's creation and first read at the lease-free point, `OperationGuard`'s creation inside X2e's handoff, the shared monitor history, the observer thread and per-observation ledger, the checkpoint over a `JournalAppendLock` borrow, `FinalGate` admission, and the termination mapping. Dependencies: X4T, X2e and X3a; X3b for the real lock type. Before X3b lands, only `cfg(test)` abstract locks exist.
     - **X4b (security):** `grants.rs` `admit_repo_execution_grant` per S10. No M2 dependency.
     - **X4c (inside X3d):** the end path's `REV`/`CLN` appends, and the repeated checkpoints after blocking SEAL and witness work, completing F19, F38 and F39.
-
-**Policy drift and role standing (r5).**
-- **Policy drift.** In M2 the global policy is empty (X4T r4 item 5), so policy drift can only come from a project policy. The drift rules are unchanged.
-- **Role standing.** The grant consults the admitted view's continuation standing, including `ExistingOnly` and `InstallGateRequiredForNewProcess`, before it allows an effect. A standing that forbids the operation refuses on the continuation row (X4T r4 item 10).
 
 ## Forbidden substitutes
 

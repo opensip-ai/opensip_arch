@@ -1,6 +1,6 @@
-# Native current-trust admission — proposal X4T r4
+# Native current-trust admission — proposal X4T r3
 
-2026-09-30. Claude Opus 5.5, implementation lead. Law for unit X4T, the prerequisite that X4 r2 item 1 (RF-1) created. It is written under the security contract's S4 (trust time), S5 (root chains) and S6 (live revocation), owner.md §5 and §7, and laws 463 (core, release and revocation), 466/467 (the P0 trust files), 458c r6, X1 r1, X2 r5, X3a r3, X3b r2 and X4 r3. Items 1, 2, 3, 6, 7, 8, 9 and 11 contain lead decisions made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation; each names the alternative it rejects. r1 carried one pre-review correction: rollback is judged against SC-TRUST's own retained floors, never the journal carrier floor (item 7). r2 answers Grok X4T r1 RF-1 to RF-6, aligned with X2 r5, X3b r2 and X4 r3. r1 bytes are preserved in PROPOSAL-r1.md. r3 answers Grok X4T r2 RF-1 (a root chain beyond ChainBudget takes the budget row). r2 bytes are preserved in PROPOSAL-r2.md. r3 ACCEPTED by Grok on 2026-09-30. r4 is an amendment from implementing X4T-a: the r3 read set did not match the product's trust store at 99f1c35. Items 1, 2, 5, 11, 12 and 13 are restated against the real capsule; r3 bytes are preserved in PROPOSAL-r3.md. Not code. It reads, authenticates and admits the installation's current trust; the only write it defines is the S4 write-ahead floor of item 7.
+2026-09-30. Claude Opus 5.5, implementation lead. Law for unit X4T, the prerequisite that X4 r2 item 1 (RF-1) created. It is written under the security contract's S4 (trust time), S5 (root chains) and S6 (live revocation), owner.md §5 and §7, and laws 463 (core, release and revocation), 466/467 (the P0 trust files), 458c r6, X1 r1, X2 r5, X3a r3, X3b r2 and X4 r3. Items 1, 2, 3, 6, 7, 8, 9 and 11 contain lead decisions made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation; each names the alternative it rejects. r1 carried one pre-review correction: rollback is judged against SC-TRUST's own retained floors, never the journal carrier floor (item 7). r2 answers Grok X4T r1 RF-1 to RF-6, aligned with X2 r5, X3b r2 and X4 r3. r1 bytes are preserved in PROPOSAL-r1.md. r3 answers Grok X4T r2 RF-1 (a root chain beyond ChainBudget takes the budget row). r2 bytes are preserved in PROPOSAL-r2.md. r3 ACCEPTED by Grok on 2026-09-30. Not code. It reads, authenticates and admits the installation's current trust; the only write it defines is the S4 write-ahead floor of item 7.
 
 ## Problem
 
@@ -15,9 +15,7 @@ X4's operation guard, observer and authority checkpoint all need one admitted cu
 
 1. **What an admitted current-trust view is (lead decision).** `AdmittedCurrentTrust` is private, not Clone and not serializable, and is borrowed from the session or operation that produced it. It holds:
    - **The head:** the installation's `trust/stores/S/state.v1` capsule for X3a's admitted S, decoded, capped, and joined to X3a's `C.store`.
-   - **The roles (r4).** Roles are not separate files. They are inline objects of the capsule, `roles.TR-BUNDLE`, `TR-COMPONENT`, `TR-CORE`, `TR-INDEX`, `TR-PROFILE` and `TR-REPAIR`, each `{state, accepted{root, rootAdmission, namespaces, catalog, by}, conditionEvidence, reset, ceremony}` (`initial_publication::blank_roles`; `trust_input_bindings::check_capsule_projection`). A role's state is `roles.*.state`, and it counts only when bound to the event its `accepted.by` names, as `check_capsule_projection` and the event binder already require.
-   - **The dependency closure (r4)** of a retained-phase capsule: the publication descriptor; `heads.root`, `heads.catalog` and `heads.revocation`, each a signed body and its envelope in the `objects` collection with its admission record; `history`; the event chain, which is `eventHead` and the current descriptor's `events`; and `clock.record` with its `timeEvidence`. Each member is reached by reference, decoded, capped and admitted by the existing binders: `native_current::capture_p2` (head, descriptor and its events), `current_record_bindings::bind` (the clock record and time evidence), and `trust_ordinary_roots::bind_retained_head` (the root head and its admission). The head counter identity (`clock.record`'s `rootVersion`, `indexSnapshotVersion` and `revocationVersion` equal to the heads') is the binder's existing check. **Rejected:** a second parser for the capsule. Two parsers of one record could disagree about what was admitted.
-   - **The phase.** Only a `retained`-phase capsule has heads and history. A pre-acceptance capsule (`heads` and `history` null, every role `ST-UNBOOTSTRAPPED`) is the P0 case, and refuses as item 10's F-absent row.
+   - **The dependency closure:** every record the capsule names (its publication descriptor, the role member records `TR-BUNDLE`, `TR-COMPONENT`, `TR-CORE`, `TR-INDEX`, `TR-PROFILE`, `TR-REPAIR`, and the documents those roles accept: the accepted root, the accepted revocation, the accepted permission policy), each at its exact locator, decoded, capped and admitted by its existing shape and record owners (`trust_record_reader`, `trust_record_shapes`, `admitted_trust_records`, `retained_trust_graph`).
    - **The authentication result** of item 3, the revocation set of item 4 and the effective policy of item 5.
    - **The time admission** of item 6: tEval, F, L and the anchor, after item 7's write-ahead if one was needed.
    - **The S6 trust epoch** `{rootVersion, indexSnapshotVersion, revocationVersion, permissionPolicyDigest}` derived from the above, plus the role states from `role_machine`.
@@ -34,30 +32,24 @@ X4's operation guard, observer and authority checkpoint all need one admitted cu
 
 2. **The read set and its order (lead decision).** One view reads, in this order, each step charged before it runs:
    1. `state.v1`, by name through the retained `trust/stores/S` handle (item 8 says which capture);
-   2. the publication descriptor and its event chain (`native_current::capture_p2`);
-   3. `heads.root`, `heads.catalog` and `heads.revocation`: body, envelope and admission record each;
-   4. `history`, `clock.record` and `timeEvidence` (`current_record_bindings::bind`);
+   2. the publication descriptor the capsule names;
+   3. each role member record the capsule names;
+   4. each accepted document those records name: root, revocation, policy;
    5. `state.v1` again, by name, to confirm it is the same file with the same full sample.
 
-   Role states are read from the capsule itself in step 1 and bound to their `accepted.by` events in step 2; no role file is read. Dependencies come from the four immutable collections under `trust/` (`objects`, `records`, `publications`, `events`), each opened through a retained directory handle with an exact-length cap at its owner's bound (at most 4 MiB, `retained_metadata_index::CAP`). The closure is closed: a reference outside it, a missing member, a duplicate disagreement or a cycle refuses as an incomplete installation. There is no directory scan; every file is reached through a reference.
+   Dependencies come from the immutable collections under `trust/` (`records`, `publications`, `stores/S/events`), each opened through a retained directory handle with an exact-length cap at its owner's bound (at most 4 MiB, `retained_metadata_index::CAP`). The closure is closed: a reference outside it, a missing member, a duplicate disagreement or a cycle refuses as an incomplete installation. There is no directory scan; every file is reached through a reference.
 
    **Rejected:** a census of every trust record (`native_census`). The current view needs only the closure its head names; the census is the doctor's and recovery's.
 
 3. **Authentication (lead decision).**
-   - **Which roots.** The view is authenticated from the installation's accepted root, `heads.root`, bound by `trust_ordinary_roots::bind_retained_head` and authenticated through `trust_ordinary_roots::authenticate_shared`. A root chain N+1..M recorded in the closure is evaluated link by link under S5 (continuity and possession thresholds, revoked keys excluded, final root unexpired at tEval).
+   - **Which roots.** The view is authenticated from the installation's accepted root, the document the `TR-CORE`/root role accepts, through `trust_ordinary_roots::authenticate_shared`. A root chain N+1..M recorded in the closure is evaluated link by link under S5 (continuity and possession thresholds, revoked keys excluded, final root unexpired at tEval).
    - **The embedded release's role.** 463 authenticates the running core against the embedded release root. X4T requires that the installation's accepted core closure equals the running core's, as X3a's endpoint join already checks, and that the embedded release's revocation (463) has not revoked it. The embedded root never stands in for the installation's root.
    - **Signatures.** Every accepted document's envelope is reverified against the accepted root's keys at their thresholds, with revoked keys excluded, by the existing envelope and quorum owners. A record whose envelope does not verify refuses; nothing is "accepted because it is in the store".
    - **Rejected:** trusting stored acceptance flags without reverifying signatures. A store rewritten by a local attacker would otherwise grant trust.
 
-4. **Revocation admission.** The accepted revocation document, `heads.revocation`, is verified by `admitted_revocations::verify_revocation` against the accepted root, with the keys revoked before it. Its version is the epoch's `revocationVersion`. A revoked component in the closure (the running core, the release, the signing keys, the namespace's catalog snapshot) refuses at admission. A lower revocation version than the floor records is never accepted (item 7).
+4. **Revocation admission.** The accepted revocation document is verified by `admitted_revocations::verify_revocation` against the accepted root, with the keys revoked before it. Its version is the epoch's `revocationVersion`. A revoked component in the closure (the running core, the release, the signing keys, the namespace's catalog snapshot) refuses at admission. A lower revocation version than the floor records is never accepted (item 7).
 
-5. **Policy and grant admission (r4; lead decision).** The trust store carries no permission policy. `trust_policy::merge` takes unsigned local sources, and `Source::Missing` is the empty policy.
-   - **Global policy in M2:** `Source::Missing`, the empty policy.
-   - **Project policy:** the project owner's (X2), when one exists; otherwise `Source::Missing`.
-   - **The digest.** The epoch's `permissionPolicyDigest` is exactly the digest `merge` returns, `Effective::digest()`: the domain-separated hash `opensip.metadata.policy-effective.1` over the merged policy's canonical bytes. The same function produces it on the fenced first read and on every reread, so an unchanged policy always compares equal. In M2, with no global policy file, it is the digest of the empty or project-only merge. The raw SHA-256 of the canonical bytes is never stored in the epoch.
-   - X4T admits the effective policy; it does not decide whether a given operation is granted. That is X4's operation grant, which reads the effective policy from the view.
-   - **Later unit:** a global policy file under I, with its own custody owner, is a separate later unit (Not claimed).
-   - **Rejected:** inventing a signed policy head in the trust store, which no owner defines; and the raw SHA-256 as the digest.
+5. **Policy and grant admission.** The accepted permission policy is merged by `trust_policy::merge` in the installation context. The epoch's `permissionPolicyDigest` is exactly the digest `merge` returns, `Effective::digest()`: the domain-separated hash `opensip.metadata.policy-effective.1` over the merged policy's canonical bytes. The same function produces it on the fenced first read and on every reread, so an unchanged policy always compares equal. The raw SHA-256 of the canonical bytes is never stored in the epoch. **Rejected:** the raw SHA-256, because comparing it with a domain-separated digest from another read reports a change that did not happen. X4T admits the effective policy; it does not decide whether a given operation is granted. That is X4's operation grant, which reads the effective policy from the view.
 
 6. **Time admission (lead decision).** X4T applies S4 exactly, through `trust_time::evaluate_retained_ordinary` over the admitted capsule's clock projection:
    - the payload future check, the plausibility check (W > A + 90 d refuses), and in-session continuity;
@@ -111,25 +103,17 @@ X4's operation guard, observer and authority checkpoint all need one admitted cu
     - I/O, a failed write-ahead confirmation, budget (including a root chain beyond `ChainBudget`, item 11): the host I/O and budget rows.
 
 11. **Budget (lead decision; RF-5).**
-    - **The closure is closed and counted (r4).** One view reads at most:
-      - one head and one publication descriptor;
-      - three heads (root, catalog, revocation), each a body, an envelope and an admission record: nine objects;
-      - `history`, `clock.record`'s record and `timeEvidence`: three;
-      - the event chain: `eventHead` and the current descriptor's `events`, at most `MAX_VIEW_EVENTS = 32`;
-      - the root chain N+1..M.
-
-      That is at most 47 files plus the chain.
-    - **The event-chain bound (r4; lead decision).** The view binds only the current publication's events: the descriptor's `events` list, ending at `eventHead`. It never walks earlier publications. Earlier publications are `history`'s, which is bound by reference, not walked. `MAX_VIEW_EVENTS = 32`: one publication records one trust transaction, which touches at most the six roles, each with at most four events (accept, condition, reset, ceremony), so 24 at most, with margin. A descriptor whose `events` list is longer refuses on the budget row; it is never truncated. **Rejected:** the record shape's own bound of 65536 events, which no per-view ceiling can cover; and walking every publication back to genesis, which is unbounded.
+    - **The closure is closed and counted.** One view reads at most: one head, one publication descriptor, six role member records, the accepted root, the accepted revocation and the accepted permission policy (eleven files), plus the root chain N+1..M.
     - **The chain budget.** The root verifier is called with `ChainBudget { max_links: 16, max_stored_bytes: 16 MiB }`. A recorded chain beyond either refuses on the existing budget row: `WORK.BUDGET_EXHAUSTED`, operational-failed, exit 4, `SYSTEM.OUTCOME.ILLEGAL_STATE`, `host-invariant`. A limit failure is unavailability (owner §7), and `ChainError::Limit` has no public detail of its own. The chain is never truncated. **Rejected:** the `max_links: 131072`, 256 MiB budget some test owners pass, which no per-view ceiling can cover.
-    - **The per-file cap stays the owners', with a closure total (r4; lead decision).** Every file keeps its owner's 4 MiB cap (`trust::metadata::MAX_BYTES`, `retained_metadata_index::CAP`). The closure's files together are also bounded by a stored-bytes total of 40 MiB, in the same way `ChainBudget` bounds the chain. A real store's closure is kilobytes (the P0 set is about 4 KiB). **Rejected:** per-file caps alone. At 47 × 4 MiB, doubled for two views, the cost exceeds the owner's 256 MiB cap. Also rejected: lowering the per-file caps, which would refuse lawful records.
-    - **The ceiling covers that closure at its bounds.** `TRUST_VIEW_COST` is:
-      - objects ≤ 128 (47 files and 16 links, with margin);
-      - edges ≤ 2048;
-      - bytes ≤ 112 MiB. That is 2 × (40 MiB + 16 MiB): each byte read is charged once on retention and once for its counted decoded tree, which `check_value` bounds by the same byte count.
-    - **Pinned by test.** X4T-a pins two measurements: the real cost of a view whose closure is at its 40 MiB total with 32 events and whose chain is at its 16-link, 16 MiB budget, and that this cost is at most `TRUST_VIEW_COST`. If the measurement shows a factor above two, the ceiling is raised to cover it before X4T-a is accepted, never the bounds lowered. A view over the ceiling refuses on the budget row; it is never truncated.
-    - **Where it is charged.** The fenced first read charges the gate ledger while the fence is held; the write-ahead reserves its post-publication confirmation before its first effect. An unfenced reread charges X4's per-observation ledger. At 2 × `TRUST_VIEW_COST` that ledger is 256 objects, 4096 edges and 224 MiB, inside the owner's 256 MiB byte cap. X4 must adopt these figures in place of the ones it states today (r4 note, below).
+    - **The per-file cap stays the owners'.** Every file keeps its owner's 4 MiB cap (`trust::metadata::MAX_BYTES`, `retained_metadata_index::CAP`). **Rejected:** lowering the caps to fit a smaller ceiling, which would refuse lawful records.
+    - **The ceiling covers that closure at its caps.** `TRUST_VIEW_COST` is:
+      - objects ≤ 64 (eleven files and sixteen links, with margin);
+      - edges ≤ 1024;
+      - bytes ≤ 120 MiB. That is 2 × (11 × 4 MiB + 16 MiB): each byte read is charged once on retention and once for its counted decoded tree, which `check_value` bounds by the same byte count.
+    - **Pinned by test.** X4T-a pins two measurements: the real cost of a view whose eleven files are each at their 4 MiB cap and whose chain is at its 16-link, 16 MiB budget, and that this cost is at most `TRUST_VIEW_COST`. If the measurement shows a factor above two, the ceiling is raised to cover it before X4T-a is accepted, never the caps lowered. A view over the ceiling refuses on the budget row; it is never truncated.
+    - **Where it is charged.** The fenced first read charges the gate ledger while the fence is held; the write-ahead reserves its post-publication confirmation before its first effect. An unfenced reread charges X4's per-observation ledger. At 2 × `TRUST_VIEW_COST` that ledger is 128 objects, 2048 edges and 240 MiB, inside the owner's 256 MiB byte cap. X4 r3 item 5 states its ledger from X4T r1's figures (2048 objects, 16384 edges, 64 MiB). Its 64 MiB does not cover two views at the caps, so X4 must adopt these figures.
 
-12. **Tests.** On scratch installations with real signed trust from X4T-0's generator (item 13). No signed end-to-end accepted store exists today: the existing trust corpora use placeholder hashes. The generator writes an accepted, retained-phase store after the P0 publication. Cases:
+12. **Tests.** On scratch installations with synthetic signed trust (the 462 signed test trees and the existing trust signing fixtures), built by a test-only fixture in the security crate that writes an accepted trust store (every role `Trusted`, accepted root, revocation and policy) after the P0 publication. Cases:
     - a P0 creator-only installation refuses `TRUST.NO_ADMITTED_TIME_CONTEXT`;
     - an admitted view, with its epoch;
     - each role state's row;
@@ -142,20 +126,12 @@ X4's operation guard, observer and authority checkpoint all need one admitted cu
     - role standing: F absent gives `TRUST.NO_ADMITTED_TIME_CONTEXT`; each continuation refusal gives its role-naming subject; `ExistingOnly` is admitted and carried; an index `Expired` by the clock is never an S5 row;
     - the policy digest is `Effective::digest()` on both reads, and an unchanged policy compares equal;
     - the fenced admission and its write-ahead run with the fence held and no project lock;
-    - budget: the measured cost of a closure at its 40 MiB total with 32 events and a 16-link chain, at most `TRUST_VIEW_COST`; a 33-event descriptor refuses; a 17-link chain refuses; a closure over 40 MiB refuses; the ceiling refusal;
-    - closure: roles read from the capsule and bound to their `accepted.by` events; a head counter mismatch refuses; a pre-acceptance capsule refuses as F absent; the existing binders are the only parsers.
+    - budget: the measured cost of the eleven files at their caps with a 16-link chain, at most `TRUST_VIEW_COST`; a 17-link chain refuses; the ceiling refusal.
 
     There is no production seam: the fixture is `cfg(test)` in the security crate.
 
 13. **Units.**
-    - **X4T-0 (new in r4; test-only).** A signed accepted-store generator in the security crate, `cfg(test)`. It produces:
-      - a real signed root, catalog and revocation, with envelopes, from test keys;
-      - consistent admission records, `history`, the event chain, the clock record and time evidence;
-      - roles in the requested states, each bound to its `accepted.by` event;
-      - the retained-phase capsule and `state.v1`.
-
-      It drives every item 12 case. It builds only through the existing producers and binders, so a store it writes must pass them. It is reviewed on its own, before X4T-a.
-    - **X4T-a:** the read-only admission (depends on X4T-0): items 1 to 6, 8, 9 (the fenced read and the one-attempt reread), 10 and 11, with report-only time. Depends on X3a-1.
+    - **X4T-a:** the read-only admission: items 1 to 6, 8, 9 (the fenced read and the one-attempt reread), 10 and 11, with report-only time. Depends on X3a-1.
     - **X4T-b:** the write-ahead floor publication and the retained `state.v1` advance (item 7). Depends on X4T-a and reuses 467's trust publication producers.
     - **First trust acceptance (new follow-up, X4B).** Until an installation's roles are `Trusted`, no operation can be admitted. The first acceptance of the core's embedded bootstrap payload (S4 step 2) as an authenticated installation trust event is a separate law and unit. It is not needed for the M2 exit matrix, which runs on synthetic signed trust stores, but it is needed before any real installation can commit. EXIT-PLAN gains it before X11.
 
@@ -165,7 +141,7 @@ The floor write or fenced admission under a project lease; a retry inside X4T's 
 
 ## Not claimed
 
-A global permission policy file under I and its custody owner (a later unit; item 5); the first trust acceptance (X4B); trust import, recovery challenge and recovery import (S4.5); X4's operation grant, observer, checkpoint and S6 predicate; rollback of effects; any doctor trust report; Linux; a qualified measured macOS 27 profile row. On this BASELINE-ATTESTED host a real installation never reaches X4T, because reads refuse at `/` without a premise.
+The first trust acceptance (X4B); trust import, recovery challenge and recovery import (S4.5); X4's operation grant, observer, checkpoint and S6 predicate; rollback of effects; any doctor trust report; Linux; a qualified measured macOS 27 profile row. On this BASELINE-ATTESTED host a real installation never reaches X4T, because reads refuse at `/` without a premise.
 
 ## Lead decision: two continuation codes (2026-09-30, under the owner's standing direction)
 
@@ -173,11 +149,3 @@ The security contract's role machine refuses a non-trusted index or component as
 - **Decision.** Add exactly these two codes in a contract successor (unit X4T-c), as 468a added three: common4 append, public detail registry rows, D9 routes, generation and drift check. They carry the continuation row's class: request-rejected, exit 2, `EXTENSION.ADMISSION_REJECTED`.
 - **Until X4T-c lands,** item 10 publishes them under the registered `CONTINUE-CORE-NOT-TRUSTED`, with a subject naming the role.
 - **Rejected:** permanently folding the index and component cases into the core code. The public detail would then name the wrong role.
-
-## r4 note: the matching X4 correction
-
-X4's current text needs these changes to match r4. They are X4's own amendment, not this law's:
-1. **Ledger.** Item 5's per-observation ledger becomes 2 × `TRUST_VIEW_COST`: 256 objects, 4096 edges and 224 MiB.
-2. **Retained handles.** Item 5's reading path retains `trust/stores/S` and the four collection directories (`objects`, `records`, `publications`, `events`), not only `trust/records`. Its step 2 captures through the existing binders in item 2's order.
-3. **Policy drift.** In M2 the global policy is `Source::Missing`, so a policy change can come only from the project owner's policy. X4's "policy removing a required grant" and `policy-unrelated` drift remain correct and can fire only then.
-4. **Role standing.** X4's grant consults the view's continuation standing (item 1), including `ExistingOnly`.
