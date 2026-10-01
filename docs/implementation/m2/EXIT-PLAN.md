@@ -157,3 +157,4 @@ Rejected: changing the trust-anchor tool now for one sentence.
   - **G4:** X4a places the observer-gate and checkpoint points.
   - **G5:** whether the sweep's X1 admission refuses when a closure subject is revoked. X1 or X6 decides this; until then the F18, F19 and F38 ladders stop at R2.
   - **G6:** X9-0 and X9-1 must land early (X9-0 before X3d-1).
+- **F5 widened (2026-10-02):** `namespace_lease::the_target_holds_no_project_lock_for_the_floor_step` failed once while the x2e worktree's tests ran concurrently, and passed alone. It and `a_lost_race_enters_the_gate_and_admits_the_winner` are candidates for the same treatment as F4: classify churn above the scratch parent. Also add the `initial_core.rs` row (law 463 r3–r8, now r9) to the D1 batch.
