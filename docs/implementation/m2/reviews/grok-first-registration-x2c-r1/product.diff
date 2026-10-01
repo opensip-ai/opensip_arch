@@ -1,0 +1,3780 @@
+diff --git a/crates/platform/src/lib.rs b/crates/platform/src/lib.rs
+index 2a28222..6994bd1 100644
+--- a/crates/platform/src/lib.rs
++++ b/crates/platform/src/lib.rs
+@@ -37,6 +37,16 @@ pub fn request_entropy() -> Result<[u8; 16], EntropyError> {
+     Ok(value)
+ }
+ 
++/// One complete, independent 256-bit OS CSPRNG draw for one ProjectId
++/// candidate (the registry owner's PROJECT-ID-V1 allocation: up to eight such
++/// draws). Failure returns no bytes and no partial guess. The draw is
++/// randomness only, never a registration, custody or authorization token.
++pub fn project_id_draw() -> Result<[u8; 32], EntropyError> {
++    let mut value = [0; 32];
++    getrandom::fill(&mut value).map_err(|_| EntropyError)?;
++    Ok(value)
++}
++
+ /// A complete 256-bit OS CSPRNG draw for a host recovery challenge.
+ /// Failure returns no nonce. Entropy is not a custody or authorization token.
+ pub fn recovery_nonce() -> Result<[u8; 32], EntropyError> {
+diff --git a/crates/security/src/custody.rs b/crates/security/src/custody.rs
+index ad60bec..dba7ed6 100644
+--- a/crates/security/src/custody.rs
++++ b/crates/security/src/custody.rs
+@@ -1814,6 +1814,10 @@ pub(crate) mod project_admission {
+ pub(crate) mod git_tracking {
+     include!("custody/git_tracking.rs");
+ }
++#[cfg(target_os = "macos")]
++pub(crate) mod first_registration {
++    include!("custody/first_registration.rs");
++}
+ #[cfg(all(test, target_os = "macos"))]
+ pub(crate) mod installation_read_fixture {
+     include!("custody/installation_read_fixture.rs");
+diff --git a/crates/security/src/custody/first_registration.rs b/crates/security/src/custody/first_registration.rs
+new file mode 100644
+index 0000000..c265dab
+--- /dev/null
++++ b/crates/security/src/custody/first_registration.rs
+@@ -0,0 +1,2397 @@
++// Law X2 r8 item 6 (unit X2c): first registration on the durable write
++// gate, with the registry replacement primitive and the create-or-admit of
++// `I/host`, `I/host/projects` and the project's `.opensip`. It follows the
++// registry owner's ordinary first-use sequence exactly, inside the held
++// fence, on the gate's one ledger:
++// - preconditions before any effect: a FirstUseCandidate with the marker
++//   absent, the admission's own recheck (chain, incarnation, marker, R0,
++//   v1 absence), item 6a's tracking observation rechecked, no transition
++//   state beside the lineage, capacity, collisions against all history,
++//   occupancy of the candidate namespace path and the private custody of a
++//   present `host` or `projects`;
++// - RESERVED through the replacement primitive (R0 to R1);
++// - the namespace `I/host/projects/N` with exactly `writer.lease` and
++//   `readers.lease`, by a staged no-replace directory publication;
++// - `.opensip`, created or admitted, then the 92-byte marker no-replace;
++// - every current owner rechecked, then ACTIVE through the replacement
++//   primitive (R1 to R2).
++// Each effect reserves its own confirmation work before it runs. Any failed
++// or uncertain step closes the gate's ledger: no later step, no retry and
++// no deletion. Each leftover is the registry owner's explicit-recovery case,
++// which is not implemented here. The write-gate entries for project
++// admission and tracking (X2b's, read side only until now) are here too.
++// Every refusal names its item 8 row; the public projection is the
++// composition owner's. Namespace leases (X2d) and the operation handoff
++// (X2e) are later units. Library only.
++use super::git_tracking::{
++    Failure as TrackingFailure, TrackingInputs, TrackingObservation, TrackingRefusal, TrackingRow,
++    observe_tracking, recheck_tracking,
++};
++use super::installation_admission::{
++    DurableBarrierQualification, DurableInstallation, DurableWriteGate, GateRefusal, plus, times,
++};
++use super::installation_routing::gate_refusal;
++use super::project_admission::{
++    Classification, Failure as AdmissionFailure, Incarnation, MARKER_DIRECTORY, MARKER_FILE,
++    MarkerObservation, ProjectAdmissionRefusal, ProjectAdmissionRow, ProjectRootAdmission,
++    REGISTRY, Selected, admit_project_root, classify, judged_registry, old_name_absent,
++    sample_incarnation,
++};
++use super::project_chain::{
++    ProjectChain, ProjectChainPolicy, ProjectChainRefusal, ProjectChainRow, ProjectObject,
++    judge_project_object,
++};
++use crate::InstallationTermination as T;
++use crate::private_access::{
++    PreparePrivateError, PrivateObjectKind, assess_private_descendant_capture,
++    observe_private_directory, prepare_fresh_private_sample,
++};
++use crate::trust::PrimitivePolicy;
++use opensip_identity::{
++    JsonInteger, JsonValue as V, PROJECT_MARKER_SIZE, PROJECT_REGISTRY_CAP,
++    PROJECT_REGISTRY_ROW_CAP, ProjectAllocationKind, ProjectIdMarker, ProjectRegistryDocument,
++    ProjectRegistryEntry, ProjectRegistryError, ProjectRegistryStatus, canonical_bytes,
++};
++use opensip_platform::{
++    DescriptorAclCapture, DescriptorAclCaptureError, DescriptorFilesystem, DescriptorMetadata,
++    DirectoryBarrier, DirectoryRenameClass, DirectoryVisitError, ExclusiveDirectoryError,
++    ExclusiveDirectoryOutcome, ExclusiveRegularError, ExclusiveRegularOutcome,
++    NamedDirectoryPublication, NewRegularWriteError, RenameReplaceError, RetainedDirectory,
++    WorkCost, WorkFailure, WorkScope,
++};
++use std::collections::{BTreeMap, BTreeSet};
++use std::ffi::{OsStr, OsString};
++use std::fs::File;
++use std::io::{self, Read};
++use std::os::unix::ffi::OsStrExt;
++use std::os::unix::fs::MetadataExt;
++use std::path::{Path, PathBuf};
++
++/// The installation's project parents (item 6 step 3) and the namespace's
++/// two lease carriers (the registry owner's initial namespace profile).
++const HOST: &str = "host";
++const PROJECTS: &str = "projects";
++const WRITER_LEASE: &str = "writer.lease";
++const READERS_LEASE: &str = "readers.lease";
++/// The installation's transition directory and the one entry P0 gives it.
++const TRANSITIONS: &str = "transitions";
++const LINEAGE: &[u8] = b"lineage";
++/// The registry owner: at most eight candidates of each kind.
++const CANDIDATES: usize = 8;
++/// The marker's fixed prefix (identity §2).
++const MARKER_PREFIX: &[u8] = b"opensip-project-id-v1\n";
++/// Directory scans: `.`, `..` and the admitted names, with one more entry
++/// to see an extra name, and a name-byte ceiling far above any of them.
++const SCAN_ENTRIES: usize = 5;
++const SCAN_NAME_BYTES: usize = 4 * 256;
++/// One status read with a buffer no smaller than the native `stat`.
++const STATUS: WorkCost = WorkCost {
++    objects: 0,
++    edges: 1,
++    bytes: 512,
++};
++/// One bounded directory scan: the stream, its entries, names and a dirent.
++const SCAN: WorkCost = WorkCost {
++    objects: 2,
++    edges: 3 + SCAN_ENTRIES,
++    bytes: SCAN_NAME_BYTES + 1024,
++};
++/// One OS entropy draw into its buffer and its hex spelling.
++const DRAW: WorkCost = WorkCost {
++    objects: 2,
++    edges: 1,
++    bytes: 32 + 64 + 5,
++};
++/// The publication's exact-name recheck: two binding rechecks (an open and
++/// four status reads each) around one native name sample.
++const EXACT_NAME: WorkCost = WorkCost {
++    objects: 2,
++    edges: 10,
++    bytes: 8 * 512,
++};
++/// A canonical root path is at most 4096 bytes (8192 hex digits); with every
++/// other member at its widest a row is below this many bytes.
++const ROW_BOUND: usize = 8192 + 1024;
++
++// ------------------------------------------------------------- refusals
++
++/// The registration step a refusal stopped (item 6's steps 2 to 6, with the
++/// preconditions before them and the final confirmation after ACTIVE).
++#[derive(Debug, Clone, Copy, PartialEq, Eq)]
++pub(crate) enum Step {
++    Preconditions,
++    Reserved,
++    Namespace,
++    MarkerDirectory,
++    Marker,
++    Active,
++    Confirmed,
++}
++/// The owner a refusal concerns.
++#[derive(Debug, Clone, Copy, PartialEq, Eq)]
++pub(crate) enum Owner {
++    Installation,
++    Registry,
++    Transitions,
++    Host,
++    Projects,
++    Namespace,
++    Root,
++    MarkerDirectory,
++    Marker,
++}
++impl Owner {
++    /// Project objects are judged by S3; the rest are installation-private.
++    fn in_project(self) -> bool {
++        matches!(self, Self::Root | Self::MarkerDirectory | Self::Marker)
++    }
++}
++
++/// Why first registration refused. Each variant has one item 8 row (`row`).
++#[derive(Debug)]
++pub(crate) enum RegistrationRefusal {
++    /// Item 4: only a FirstUseCandidate with the marker positively absent
++    /// registers.
++    NotFirstUse(Classification),
++    /// The admission's own recheck (chain, incarnation, marker, R0, v1).
++    Admission(ProjectAdmissionRefusal),
++    /// Item 6a's tracking observation, rechecked before any effect and
++    /// before ACTIVE.
++    Tracking(TrackingRefusal),
++    /// The registry owner's active-transition-recovery gate: `transitions`
++    /// holds an entry other than P0's `lineage`.
++    TransitionActive,
++    /// An owner failed its custody (subject as item 8 or 468 spell it).
++    Custody(Owner, &'static str),
++    /// Item 8's scope-limit row: `field:count>limit`.
++    ScopeLimit { field: &'static str, count: usize },
++    /// The OS CSPRNG returned no complete draw.
++    Entropy,
++    /// Eight candidates of this kind all collided.
++    Exhausted(&'static str),
++    /// A constructed replacement failed the decoder (a broken composition).
++    Document(ProjectRegistryError),
++    /// A retained owner, its name binding or its bytes changed.
++    Changed(Owner),
++    /// Native I/O, including a failed barrier, at this step on this owner.
++    Io(Step, Owner, io::Error),
++    /// A barrier receipt for another handle, at this step on this owner.
++    BarrierReceipt(Step, Owner),
++    /// A composition that cannot arise from the admitted inputs.
++    Invariant(&'static str),
++}
++/// Item 8's rows, named for the composition owner's projection.
++#[derive(Debug, Clone, PartialEq, Eq)]
++pub(crate) enum RegistrationRow {
++    /// An admission row (X2b-1's), unchanged.
++    Admission(ProjectAdmissionRow),
++    /// `PROJECT.ROOT_CUSTODY_REFUSED`, with this subject.
++    RootCustody(&'static str),
++    /// 468 item 6's custody row for an installation-private owner.
++    InstallationCustody(&'static str),
++    /// 468 item 6's incomplete-installation row (unavailable).
++    Incomplete,
++    /// `PROJECT.SCOPE_LIMIT`, request-rejected, with this S12 subject.
++    ScopeLimit(String),
++    /// The host I/O row (entropy, exhaustion, I/O and barriers).
++    HostIo,
++    /// The host invariant row: a broken composition.
++    Invariant,
++}
++impl RegistrationRefusal {
++    pub(crate) fn row(&self) -> RegistrationRow {
++        use RegistrationRow as Row;
++        match self {
++            Self::NotFirstUse(Classification::RecoveryNeeded { .. } | Classification::OneSided) => {
++                Row::RootCustody("identity-recovery-required")
++            }
++            Self::NotFirstUse(Classification::Contradiction) => {
++                Row::RootCustody("identity-contradiction")
++            }
++            Self::NotFirstUse(
++                Classification::Eligible { .. } | Classification::FirstUseCandidate,
++            ) => Row::Invariant,
++            Self::Admission(refusal) => Row::Admission(refusal.row()),
++            Self::Tracking(refusal) => match refusal.row() {
++                TrackingRow::RootCustody(subject) => Row::RootCustody(subject),
++                TrackingRow::HostIo => Row::HostIo,
++            },
++            Self::TransitionActive => Row::Incomplete,
++            Self::Custody(owner, subject) if owner.in_project() => Row::RootCustody(subject),
++            Self::Custody(_, subject) => Row::InstallationCustody(subject),
++            Self::ScopeLimit { field, count } => {
++                let limit = if *field == "registry-bytes" {
++                    PROJECT_REGISTRY_CAP
++                } else {
++                    PROJECT_REGISTRY_ROW_CAP
++                };
++                Row::ScopeLimit(format!("{field}:{count}>{limit}"))
++            }
++            Self::Entropy | Self::Exhausted(_) | Self::Io(..) => Row::HostIo,
++            Self::Changed(_) => Row::Admission(ProjectAdmissionRow::RequiredFilesChanged),
++            Self::Document(_) | Self::BarrierReceipt(..) | Self::Invariant(_) => Row::Invariant,
++        }
++    }
++}
++pub(crate) type Failure = WorkFailure<RegistrationRefusal>;
++fn refuse<T>(refusal: RegistrationRefusal) -> Result<T, Failure> {
++    Err(WorkFailure::Operation(refusal))
++}
++fn lift<E>(wrap: impl FnOnce(E) -> RegistrationRefusal) -> impl FnOnce(WorkFailure<E>) -> Failure {
++    move |failure| match failure {
++        WorkFailure::Budget(budget) => WorkFailure::Budget(budget),
++        WorkFailure::Operation(error) => WorkFailure::Operation(wrap(error)),
++    }
++}
++fn io_at(step: Step, owner: Owner) -> impl FnOnce(WorkFailure<io::Error>) -> Failure {
++    lift(move |error| RegistrationRefusal::Io(step, owner, error))
++}
++fn admission(failure: AdmissionFailure) -> Failure {
++    lift(RegistrationRefusal::Admission)(failure)
++}
++fn tracking(failure: TrackingFailure) -> Failure {
++    lift(RegistrationRefusal::Tracking)(failure)
++}
++fn chain(failure: WorkFailure<ProjectChainRefusal>) -> Failure {
++    lift(|refusal| RegistrationRefusal::Admission(ProjectAdmissionRefusal::Chain(refusal)))(failure)
++}
++/// A private-access failure: capture I/O and append I/O are the host I/O
++/// row; an unreadable capture or a refused predicate is custody.
++fn private(step: Step, owner: Owner) -> impl FnOnce(WorkFailure<PreparePrivateError>) -> Failure {
++    use RegistrationRefusal as R;
++    move |failure| {
++        let error = match failure {
++            WorkFailure::Budget(budget) => return WorkFailure::Budget(budget),
++            WorkFailure::Operation(error) => error,
++        };
++        WorkFailure::Operation(match error {
++            PreparePrivateError::Capture(WorkFailure::Budget(budget))
++            | PreparePrivateError::Append(WorkFailure::Budget(budget)) => {
++                return WorkFailure::Budget(budget);
++            }
++            PreparePrivateError::Capture(WorkFailure::Operation(
++                DescriptorAclCaptureError::Io(error),
++            )) => R::Io(step, owner, error),
++            PreparePrivateError::Capture(WorkFailure::Operation(_)) => {
++                R::Custody(owner, "acl-unreadable")
++            }
++            PreparePrivateError::Append(WorkFailure::Operation(error))
++            | PreparePrivateError::Create(error) => R::Io(step, owner, error),
++            PreparePrivateError::Access(_) => R::Custody(owner, "private"),
++            PreparePrivateError::Name => R::Invariant("private-name"),
++        })
++    }
++}
++/// A refused exclusive directory creation.
++fn exclusive_directory(
++    step: Step,
++    owner: Owner,
++) -> impl FnOnce(WorkFailure<ExclusiveDirectoryError>) -> Failure {
++    lift(move |error| match error {
++        ExclusiveDirectoryError::Name(_) => RegistrationRefusal::Invariant("directory-name"),
++        ExclusiveDirectoryError::NotFresh => RegistrationRefusal::Changed(owner),
++        ExclusiveDirectoryError::Create(error) | ExclusiveDirectoryError::AfterCreate(error) => {
++            RegistrationRefusal::Io(step, owner, error)
++        }
++    })
++}
++/// A refused exclusive regular-file creation.
++fn exclusive_regular(
++    step: Step,
++    owner: Owner,
++) -> impl FnOnce(WorkFailure<ExclusiveRegularError>) -> Failure {
++    lift(move |error| match error {
++        ExclusiveRegularError::Name(_) => RegistrationRefusal::Invariant("file-name"),
++        ExclusiveRegularError::Create(error) | ExclusiveRegularError::AfterCreate(error) => {
++            RegistrationRefusal::Io(step, owner, error)
++        }
++    })
++}
++/// A refused write: a failed barrier or read-back is I/O at that step.
++fn write(step: Step, owner: Owner) -> impl FnOnce(WorkFailure<NewRegularWriteError>) -> Failure {
++    lift(move |error| {
++        RegistrationRefusal::Io(
++            step,
++            owner,
++            match error {
++                NewRegularWriteError::Write(error)
++                | NewRegularWriteError::Status(error)
++                | NewRegularWriteError::ReadBack(error)
++                | NewRegularWriteError::Barrier(error) => error,
++                NewRegularWriteError::Length { .. } | NewRegularWriteError::Mismatch => {
++                    io::Error::new(io::ErrorKind::InvalidData, "written bytes differ")
++                }
++            },
++        )
++    })
++}
++/// macOS `ELOOP` and `ENOTDIR`: a link or a non-directory at a name.
++const ELOOP: i32 = 62;
++const ENOTDIR: i32 = 20;
++fn kind_or_io(step: Step, owner: Owner) -> impl FnOnce(WorkFailure<io::Error>) -> Failure {
++    lift(move |error: io::Error| match error.raw_os_error() {
++        Some(ELOOP) => RegistrationRefusal::Custody(owner, "symlink"),
++        Some(ENOTDIR) => RegistrationRefusal::Custody(owner, "not-a-directory"),
++        _ => RegistrationRefusal::Io(step, owner, error),
++    })
++}
++
++// ----------------------------------------------------------- test seam
++
++/// The points item 6's steps pass, in order. Tests stop a registration at
++/// any of them; production passes none.
++#[derive(Debug, Clone, Copy, PartialEq, Eq)]
++pub(crate) enum Point {
++    /// RESERVED's temporary file is written, barriered and confirmed.
++    ReservedWritten,
++    /// RESERVED is renamed over the registry, before I's barrier.
++    ReservedRenamed,
++    /// RESERVED is confirmed (R1), before the namespace step.
++    ReservedConfirmed,
++    /// `I/host` and `I/host/projects` are created or admitted.
++    ParentsReady,
++    /// The namespace stage is complete and barriered, before its rename.
++    NamespaceStaged,
++    /// The namespace is renamed to N, before `projects`' barrier.
++    NamespacePublished,
++    /// `.opensip` is created or admitted, before its barriers.
++    MarkerDirectoryReady,
++    /// The marker file is created empty, before its bytes.
++    MarkerCreated,
++    /// The marker's bytes are written and barriered, before `.opensip`'s.
++    MarkerWritten,
++    /// ACTIVE's temporary file is written, barriered and confirmed.
++    ActiveWritten,
++    /// ACTIVE is renamed over the registry, before I's barrier.
++    ActiveRenamed,
++}
++/// A scripted candidate draw (tests only): fills the buffer, or fails.
++#[cfg(test)]
++pub(crate) type Draw<'a> = dyn Fn(&mut [u8]) -> bool + 'a;
++/// Test seams: a hook at each point (it may change the filesystem; `true`
++/// injects an I/O failure there), and scripted candidate draws. Production
++/// passes `Seam::live()`.
++pub(crate) struct Seam<'a> {
++    #[cfg(test)]
++    pub(crate) fault: Option<&'a dyn Fn(Point) -> bool>,
++    #[cfg(test)]
++    pub(crate) draw: Option<&'a Draw<'a>>,
++    live: std::marker::PhantomData<&'a ()>,
++}
++impl Seam<'_> {
++    pub(crate) fn live() -> Self {
++        Self {
++            #[cfg(test)]
++            fault: None,
++            #[cfg(test)]
++            draw: None,
++            live: std::marker::PhantomData,
++        }
++    }
++    fn at(&self, point: Point, step: Step, owner: Owner) -> Result<(), Failure> {
++        #[cfg(test)]
++        if let Some(fault) = self.fault
++            && fault(point)
++        {
++            return refuse(RegistrationRefusal::Io(
++                step,
++                owner,
++                io::Error::other(format!("injected at {point:?}")),
++            ));
++        }
++        let _ = (point, step, owner, self.live);
++        Ok(())
++    }
++    /// One ProjectId candidate: a complete independent 32-byte draw.
++    fn project_draw(&self) -> Option<[u8; 32]> {
++        #[cfg(test)]
++        if let Some(draw) = self.draw {
++            let mut out = [0; 32];
++            return draw(&mut out).then_some(out);
++        }
++        opensip_platform::project_id_draw().ok()
++    }
++    /// One namespace candidate: its own independent 16-byte draw.
++    fn namespace_draw(&self) -> Option<[u8; 16]> {
++        #[cfg(test)]
++        if let Some(draw) = self.draw {
++            let mut out = [0; 16];
++            return draw(&mut out).then_some(out);
++        }
++        opensip_platform::request_entropy().ok()
++    }
++}
++
++/// What a project step needs besides the gate: the explicit `--trust-group`
++/// set, and the environment and fixed system sources item 6a reads only to
++/// refuse. Production passes the process environment and `SYSTEM_SOURCES`.
++pub(crate) struct ProjectInputs<'a> {
++    pub(crate) trust_groups: &'a BTreeSet<u32>,
++    pub(crate) environment: &'a [(OsString, OsString)],
++    pub(crate) system_sources: &'a [&'a Path],
++}
++
++// ------------------------------------------------------------- the costs
++
++fn capture_cost() -> WorkCost {
++    opensip_platform::descriptor_acl_capture_cost()
++}
++/// `prepare_fresh_private_sample`: a sample, the append and a sample.
++fn prepare_cost() -> WorkCost {
++    plus(&[
++        capture_cost(),
++        opensip_platform::append_owner_zero_allow_cost(),
++        capture_cost(),
++    ])
++}
++fn filesystem_cost() -> WorkCost {
++    opensip_platform::descriptor_filesystem_observation_cost()
++}
++fn barrier_cost() -> WorkCost {
++    opensip_platform::directory_barrier_cost()
++}
++fn name_cost() -> WorkCost {
++    opensip_platform::descriptor_name_observation_cost()
++}
++/// One reopened file's confirmation: the open, both samples and the read.
++fn confirm_cost(name: &str, len: usize) -> WorkCost {
++    plus(&[
++        RetainedDirectory::open_regular_cost(name),
++        capture_cost(),
++        capture_cost(),
++        read_cost(len),
++    ])
++}
++fn read_cost(len: usize) -> WorkCost {
++    WorkCost {
++        objects: 1,
++        edges: 2,
++        bytes: len.saturating_add(1),
++    }
++}
++/// The temporary file of the replacement primitive (steps 3).
++fn temporary_cost(temporary: &str, len: usize) -> WorkCost {
++    plus(&[
++        opensip_platform::create_exclusive_regular_cost(temporary),
++        prepare_cost(),
++        opensip_platform::write_new_regular_cost(len),
++        confirm_cost(temporary, len),
++    ])
++}
++/// The rename, I's barrier and the name recheck (steps 4 and 5).
++fn publish_cost(temporary: &str) -> WorkCost {
++    plus(&[
++        opensip_platform::rename_replace_cost(temporary, REGISTRY),
++        barrier_cost(),
++        capture_cost(),
++        RetainedDirectory::open_regular_cost(REGISTRY),
++        capture_cost(),
++    ])
++}
++/// 465 item 3's create-or-admit of one private directory, either branch.
++fn parent_cost(name: &str) -> WorkCost {
++    plus(&[
++        opensip_platform::create_exclusive_directory_cost(name),
++        prepare_cost(),
++        opensip_platform::open_child_directory_cost(OsStr::new(name)),
++        capture_cost(),
++        name_cost(),
++        filesystem_cost(),
++        times(STATUS, 2),
++        times(barrier_cost(), 2),
++    ])
++}
++/// The namespace's confirmation: its custody, its scan and both leases.
++fn footprint_cost() -> WorkCost {
++    let lease = plus(&[
++        RetainedDirectory::open_regular_cost(WRITER_LEASE),
++        capture_cost(),
++    ]);
++    plus(&[capture_cost(), SCAN, times(lease, 2)])
++}
++/// The staged namespace: the stage, its allow, both leases written empty
++/// with their barriers, the stage barrier, the exclusive rename, the
++/// parent barrier, the exact name and the footprint.
++fn namespace_cost() -> WorkCost {
++    let lease = plus(&[
++        opensip_platform::create_exclusive_regular_cost(READERS_LEASE),
++        prepare_cost(),
++        opensip_platform::write_new_regular_cost(0),
++    ]);
++    plus(&[
++        opensip_platform::private_directory_stage_cost(),
++        prepare_cost(),
++        times(lease, 2),
++        barrier_cost(),
++        opensip_platform::exclusive_publication_cost(),
++        barrier_cost(),
++        EXACT_NAME,
++        name_cost(),
++        footprint_cost(),
++    ])
++}
++/// `.opensip`'s create-or-admit with S3 custody under the premise.
++fn marker_directory_cost() -> WorkCost {
++    plus(&[
++        opensip_platform::create_exclusive_directory_cost(MARKER_DIRECTORY),
++        prepare_cost(),
++        opensip_platform::open_child_directory_cost(OsStr::new(MARKER_DIRECTORY)),
++        capture_cost(),
++        filesystem_cost(),
++        name_cost(),
++        filesystem_cost(),
++        times(barrier_cost(), 2),
++    ])
++}
++/// The marker: the exclusive create, its allow, its bytes and barrier,
++/// `.opensip`'s barrier and the confirmation.
++fn marker_cost() -> WorkCost {
++    plus(&[
++        opensip_platform::create_exclusive_regular_cost(MARKER_FILE),
++        prepare_cost(),
++        opensip_platform::write_new_regular_cost(PROJECT_MARKER_SIZE),
++        barrier_cost(),
++        confirm_cost(MARKER_FILE, PROJECT_MARKER_SIZE),
++    ])
++}
++
++// --------------------------------------------------------- native helpers
++
++/// One charged ACL capture of `file`.
++fn capture(
++    file: &File,
++    step: Step,
++    owner: Owner,
++    work: &mut WorkScope<'_>,
++) -> Result<DescriptorAclCapture, Failure> {
++    opensip_platform::capture_descriptor_acl_accounted(file, work).map_err(lift(move |error| {
++        match error {
++            DescriptorAclCaptureError::Io(error) => RegistrationRefusal::Io(step, owner, error),
++            _ => RegistrationRefusal::Custody(owner, "acl-unreadable"),
++        }
++    }))
++}
++/// A private regular file's full metadata sample, judged private.
++fn private_file(
++    file: &File,
++    step: Step,
++    owner: Owner,
++    uid: u32,
++    work: &mut WorkScope<'_>,
++) -> Result<DescriptorMetadata, Failure> {
++    let sample = capture(file, step, owner, work)?;
++    judge_private(&sample, owner, uid)?;
++    Ok(sample.metadata().clone())
++}
++fn judge_private(sample: &DescriptorAclCapture, owner: Owner, uid: u32) -> Result<(), Failure> {
++    assess_private_descendant_capture(PrivateObjectKind::RegularFile, uid, sample)
++        .map_err(|_| WorkFailure::Operation(RegistrationRefusal::Custody(owner, "private")))
++}
++/// A retained file still carries `expected` as its full sample (any
++/// difference, an unlinked or replaced file included, is a change), and is
++/// still private.
++fn same_private(
++    file: &File,
++    expected: &DescriptorMetadata,
++    step: Step,
++    owner: Owner,
++    uid: u32,
++    work: &mut WorkScope<'_>,
++) -> Result<(), Failure> {
++    let sample = capture(file, step, owner, work)?;
++    if sample.metadata() != expected {
++        return refuse(RegistrationRefusal::Changed(owner));
++    }
++    judge_private(&sample, owner, uid)
++}
++/// A no-follow open by name. A missing, linked or non-regular entry under a
++/// held fence is a change.
++fn open_named(
++    directory: &RetainedDirectory,
++    name: &str,
++    step: Step,
++    owner: Owner,
++    work: &mut WorkScope<'_>,
++) -> Result<File, Failure> {
++    work.run(RetainedDirectory::open_regular_cost(name), |_| {
++        directory.open_regular(name).map_err(|error| {
++            WorkFailure::Operation(
++                if error.kind() == io::ErrorKind::NotFound
++                    || error.kind() == io::ErrorKind::InvalidInput
++                    || error.raw_os_error() == Some(ELOOP)
++                {
++                    RegistrationRefusal::Changed(owner)
++                } else {
++                    RegistrationRefusal::Io(step, owner, error)
++                },
++            )
++        })
++    })
++}
++/// Read a reopened file whole (one byte past `len` shows a longer file).
++fn read_back(
++    file: &File,
++    len: usize,
++    step: Step,
++    owner: Owner,
++    work: &mut WorkScope<'_>,
++) -> Result<Vec<u8>, Failure> {
++    work.run(read_cost(len), |_| {
++        let mut bytes = Vec::with_capacity(len.saturating_add(1));
++        file.take(len as u64 + 1)
++            .read_to_end(&mut bytes)
++            .map_err(|error| WorkFailure::Operation(RegistrationRefusal::Io(step, owner, error)))?;
++        Ok(bytes)
++    })
++}
++/// Confirm a written file by identity and exact bytes: reopened by name
++/// no-follow, the same full sample as its own descriptor's, private, and
++/// holding exactly `bytes`. Returns that sample.
++#[allow(clippy::too_many_arguments)]
++fn confirm_file(
++    directory: &RetainedDirectory,
++    name: &str,
++    file: &File,
++    bytes: &[u8],
++    uid: u32,
++    step: Step,
++    owner: Owner,
++    work: &mut WorkScope<'_>,
++) -> Result<DescriptorMetadata, Failure> {
++    let reopened = open_named(directory, name, step, owner, work)?;
++    let held = capture(file, step, owner, work)?;
++    let named = capture(&reopened, step, owner, work)?;
++    if held.metadata() != named.metadata() {
++        return refuse(RegistrationRefusal::Changed(owner));
++    }
++    judge_private(&held, owner, uid)?;
++    if read_back(&reopened, bytes.len(), step, owner, work)? != bytes {
++        return refuse(RegistrationRefusal::Changed(owner));
++    }
++    Ok(held.metadata().clone())
++}
++/// One directory barrier on this exact handle: its receipt must be for the
++/// handle, and the receipt's policy must accept the kind (as the gate's).
++fn barrier(
++    directory: &RetainedDirectory,
++    policy: PrimitivePolicy,
++    step: Step,
++    owner: Owner,
++    work: &mut WorkScope<'_>,
++) -> Result<(), Failure> {
++    let receipt = directory
++        .confirm_directory_barrier_accounted(work)
++        .map_err(io_at(step, owner))?;
++    if !receipt.is_for(directory) {
++        return refuse(RegistrationRefusal::BarrierReceipt(step, owner));
++    }
++    match (policy, receipt.barrier()) {
++        (PrimitivePolicy::Apfs, DirectoryBarrier::FullFlush | DirectoryBarrier::Fsync) => Ok(()),
++    }
++}
++/// The retained directory still has its exact name.
++fn named(
++    directory: &RetainedDirectory,
++    name: &str,
++    step: Step,
++    owner: Owner,
++    work: &mut WorkScope<'_>,
++) -> Result<(), Failure> {
++    if opensip_platform::descriptor_name_matches_accounted(
++        directory.as_file(),
++        OsStr::new(name),
++        work,
++    )
++    .map_err(io_at(step, owner))?
++    {
++        Ok(())
++    } else {
++        refuse(RegistrationRefusal::Changed(owner))
++    }
++}
++fn identity(
++    file: &File,
++    step: Step,
++    owner: Owner,
++    work: &mut WorkScope<'_>,
++) -> Result<(u64, u64), Failure> {
++    work.run(STATUS, |_| {
++        file.metadata()
++            .map(|m| (m.dev(), m.ino()))
++            .map_err(|error| WorkFailure::Operation(RegistrationRefusal::Io(step, owner, error)))
++    })
++}
++/// The retained `child` is still the directory a no-follow reopen of `name`
++/// under `parent` finds, and still has its exact name.
++fn rebind(
++    parent: &RetainedDirectory,
++    name: &str,
++    child: &RetainedDirectory,
++    step: Step,
++    owner: Owner,
++    work: &mut WorkScope<'_>,
++) -> Result<(), Failure> {
++    let reopened = parent
++        .open_child_directory_if_present_accounted(OsStr::new(name), work)
++        .map_err(lift(move |_| RegistrationRefusal::Changed(owner)))?;
++    let Some(reopened) = reopened else {
++        return refuse(RegistrationRefusal::Changed(owner));
++    };
++    if identity(reopened.as_file(), step, owner, work)?
++        != identity(child.as_file(), step, owner, work)?
++    {
++        return refuse(RegistrationRefusal::Changed(owner));
++    }
++    named(child, name, step, owner, work)
++}
++/// An installation-private child directory if present: opened no-follow,
++/// judged private (0700, owned, an ACL with no foreign grant) and named.
++fn private_child(
++    parent: &RetainedDirectory,
++    name: &str,
++    uid: u32,
++    step: Step,
++    owner: Owner,
++    work: &mut WorkScope<'_>,
++) -> Result<Option<RetainedDirectory>, Failure> {
++    let child = parent
++        .open_child_directory_if_present_accounted(OsStr::new(name), work)
++        .map_err(kind_or_io(step, owner))?;
++    let Some(child) = child else {
++        return Ok(None);
++    };
++    observe_private_directory(child.as_file(), uid, work).map_err(private(step, owner))?;
++    named(&child, name, step, owner, work)?;
++    Ok(Some(child))
++}
++/// Item 1: an object the premise admits must also be on H's volume.
++fn home_volume(
++    file: &File,
++    home_filesystem: &dyn Fn(&DescriptorFilesystem) -> bool,
++    step: Step,
++    owner: Owner,
++    work: &mut WorkScope<'_>,
++) -> Result<(), Failure> {
++    let sample =
++        opensip_platform::observe_filesystem_accounted(file, work).map_err(io_at(step, owner))?;
++    if home_filesystem(&sample) {
++        Ok(())
++    } else {
++        refuse(RegistrationRefusal::Custody(owner, "volume-unsupported"))
++    }
++}
++/// A project object's S3 custody judgment: host I/O stays I/O; every other
++/// refusal is that object's custody subject.
++fn project_object(
++    directory: &RetainedDirectory,
++    uid: u32,
++    policy: &ProjectChainPolicy<'_>,
++    owner: Owner,
++    subject: &'static str,
++    work: &mut WorkScope<'_>,
++) -> Result<(), Failure> {
++    match judge_project_object(
++        directory.as_file(),
++        ProjectObject::Directory,
++        uid,
++        policy,
++        work,
++    ) {
++        Ok(()) => Ok(()),
++        Err(WorkFailure::Budget(budget)) => Err(WorkFailure::Budget(budget)),
++        Err(WorkFailure::Operation(refusal)) if refusal.row() == ProjectChainRow::HostIo => refuse(
++            RegistrationRefusal::Admission(ProjectAdmissionRefusal::Chain(refusal)),
++        ),
++        Err(WorkFailure::Operation(_)) => refuse(RegistrationRefusal::Custody(owner, subject)),
++    }
++}
++/// Run `action` as one effect whose whole work, the effect and its
++/// confirmations, is reserved before it starts (467 item 6). A shortfall
++/// fails closed before the work it would cover.
++fn effect<R>(
++    work: &mut WorkScope<'_>,
++    reserve: WorkCost,
++    action: impl FnOnce(&mut WorkScope<'_>) -> Result<R, Failure>,
++) -> Result<R, Failure> {
++    work.effect(WorkCost::default(), reserve, |post| {
++        post.prepaid(reserve, action)
++    })
++}
++fn hex(bytes: &[u8]) -> String {
++    const DIGITS: &[u8; 16] = b"0123456789abcdef";
++    let mut out = String::with_capacity(bytes.len() * 2);
++    for b in bytes {
++        out.push(DIGITS[usize::from(b >> 4)] as char);
++        out.push(DIGITS[usize::from(b & 15)] as char);
++    }
++    out
++}
++/// The canonical lowercase UUIDv4 of one 16-byte draw: version 4 and the
++/// RFC variant set, the other 122 bits from the draw.
++pub(crate) fn namespace_text(mut draw: [u8; 16]) -> String {
++    draw[6] = (draw[6] & 0x0f) | 0x40;
++    draw[8] = (draw[8] & 0x3f) | 0x80;
++    let h = hex(&draw);
++    format!(
++        "{}-{}-{}-{}-{}",
++        &h[0..8],
++        &h[8..12],
++        &h[12..16],
++        &h[16..20],
++        &h[20..32]
++    )
++}
++/// The 92-byte marker frame for a ProjectId.
++fn marker_bytes(project: &str) -> Vec<u8> {
++    let mut bytes = Vec::with_capacity(PROJECT_MARKER_SIZE);
++    bytes.extend_from_slice(MARKER_PREFIX);
++    bytes.extend_from_slice(project.as_bytes());
++    bytes.push(b'\n');
++    bytes
++}
++
++// ------------------------------------------------------ the document
++
++fn status_text(status: ProjectRegistryStatus) -> &'static str {
++    match status {
++        ProjectRegistryStatus::Reserved => "RESERVED",
++        ProjectRegistryStatus::Active => "ACTIVE",
++        ProjectRegistryStatus::Retired => "RETIRED",
++        ProjectRegistryStatus::Abandoned => "ABANDONED",
++    }
++}
++/// The longest status a row can lawfully reach later: RESERVED may end
++/// ABANDONED, ACTIVE may end RETIRED; terminal rows never change.
++fn worst_status(status: ProjectRegistryStatus) -> ProjectRegistryStatus {
++    match status {
++        ProjectRegistryStatus::Reserved => ProjectRegistryStatus::Abandoned,
++        ProjectRegistryStatus::Active => ProjectRegistryStatus::Retired,
++        terminal => terminal,
++    }
++}
++fn text(s: &str) -> V {
++    V::String(s.to_owned())
++}
++fn integer(n: i128) -> Result<V, RegistrationRefusal> {
++    JsonInteger::new(n)
++        .map(V::Integer)
++        .map_err(|_| RegistrationRefusal::Invariant("integer"))
++}
++/// The closed NativeProjectRootV2 of one row.
++struct RootValues<'a> {
++    path: &'a [u8],
++    volume: &'a [u8; 16],
++    inode: u64,
++    seconds: i64,
++    nanoseconds: u32,
++}
++fn root_value(root: &RootValues<'_>) -> Result<V, RegistrationRefusal> {
++    Ok(V::Object(BTreeMap::from([
++        ("platform".to_owned(), text("macos")),
++        ("canonicalPathBytesHex".to_owned(), text(&hex(root.path))),
++        (
++            "volumeIdentity".to_owned(),
++            V::Object(BTreeMap::from([
++                ("kind".to_owned(), text("macos-apfs-volume-uuid-v1")),
++                ("value".to_owned(), text(&hex(root.volume))),
++            ])),
++        ),
++        ("inodeId".to_owned(), text(&root.inode.to_string())),
++        (
++            "birthSeconds".to_owned(),
++            integer(i128::from(root.seconds))?,
++        ),
++        (
++            "birthNanoseconds".to_owned(),
++            integer(i128::from(root.nanoseconds))?,
++        ),
++    ])))
++}
++fn row_value(
++    project: &str,
++    namespace: &str,
++    root: V,
++    status: ProjectRegistryStatus,
++    allocation: ProjectAllocationKind,
++) -> V {
++    V::Object(BTreeMap::from([
++        ("projectId".to_owned(), text(project)),
++        ("namespaceId".to_owned(), text(namespace)),
++        ("root".to_owned(), root),
++        ("status".to_owned(), text(status_text(status))),
++        (
++            "allocationKind".to_owned(),
++            text(match allocation {
++                ProjectAllocationKind::Random => "random",
++                ProjectAllocationKind::Adopt => "adopt",
++            }),
++        ),
++    ]))
++}
++/// An admitted row re-encoded from its decoded members, at `status`.
++fn existing_row(
++    entry: &ProjectRegistryEntry,
++    status: ProjectRegistryStatus,
++) -> Result<V, RegistrationRefusal> {
++    let root = entry.root();
++    let values = RootValues {
++        path: root.path_bytes(),
++        volume: root.volume_uuid_bytes(),
++        inode: root.inode(),
++        seconds: root.birth_seconds(),
++        nanoseconds: root.birth_nanoseconds(),
++    };
++    Ok(row_value(
++        entry.project_id(),
++        entry.namespace_id(),
++        root_value(&values)?,
++        status,
++        entry.allocation_kind(),
++    ))
++}
++fn document_value(rows: Vec<V>) -> Result<V, RegistrationRefusal> {
++    Ok(V::Object(BTreeMap::from([
++        ("entries".to_owned(), V::Array(rows)),
++        ("schemaVersion".to_owned(), integer(2)?),
++    ])))
++}
++fn encoded(value: &V) -> Result<Vec<u8>, RegistrationRefusal> {
++    canonical_bytes(value).map_err(|_| RegistrationRefusal::Invariant("canonical-encoding"))
++}
++/// The canonical length of a document whose rows have these canonical
++/// lengths: the empty envelope, every row, and the commas between them.
++fn document_length(empty: usize, rows: impl Iterator<Item = usize>) -> usize {
++    let (count, sum) = rows.fold((0usize, 0usize), |(n, s), len| {
++        (n + 1, s.saturating_add(len))
++    });
++    empty
++        .saturating_add(sum)
++        .saturating_add(count.saturating_sub(1))
++}
++/// A complete replacement document, built canonically and validated by the
++/// same decoder as the capture (item 6 step 2). Only `build` makes one.
++pub(crate) struct Built {
++    bytes: Vec<u8>,
++    document: ProjectRegistryDocument,
++}
++fn build(rows: Vec<V>, work: &mut WorkScope<'_>) -> Result<Built, Failure> {
++    let value = document_value(rows).map_err(WorkFailure::Operation)?;
++    let bytes = work.run(
++        WorkCost {
++            objects: 1,
++            edges: 1,
++            bytes: PROJECT_REGISTRY_CAP,
++        },
++        |_| encoded(&value).map_err(WorkFailure::Operation),
++    )?;
++    let decode = WorkCost {
++        objects: 1,
++        edges: 1,
++        bytes: bytes.len(),
++    };
++    let document = work.run(decode, |_| {
++        ProjectRegistryDocument::decode(&bytes)
++            .map_err(|error| WorkFailure::Operation(RegistrationRefusal::Document(error)))
++    })?;
++    Ok(Built { bytes, document })
++}
++
++/// The new row's members.
++struct NewRow<'a> {
++    project: &'a str,
++    namespace: &'a str,
++    path: &'a [u8],
++    incarnation: &'a Incarnation,
++}
++impl NewRow<'_> {
++    fn value(&self, status: ProjectRegistryStatus) -> Result<V, RegistrationRefusal> {
++        let root = RootValues {
++            path: self.path,
++            volume: &self.incarnation.volume,
++            inode: self.incarnation.inode,
++            seconds: self.incarnation.birth_seconds,
++            nanoseconds: self.incarnation.birth_nanoseconds,
++        };
++        Ok(row_value(
++            self.project,
++            self.namespace,
++            root_value(&root)?,
++            status,
++            ProjectAllocationKind::Random,
++        ))
++    }
++}
++
++/// Item 6's capacity, before any effect: the resulting rows, the canonical
++/// bytes of the RESERVED and ACTIVE documents and of the worst later
++/// terminal spelling, and the worst all-registered transition wrapper, all
++/// within the 4096-row profile. Then RESERVED is built and validated.
++/// R0's rows are re-encoded once; they must reproduce R0's exact bytes.
++fn plan_reserved(
++    document: &ProjectRegistryDocument,
++    new: &NewRow<'_>,
++    work: &mut WorkScope<'_>,
++) -> Result<Built, Failure> {
++    let entries = document.entries();
++    let count = entries.len() + 1;
++    if count > PROJECT_REGISTRY_ROW_CAP {
++        return refuse(RegistrationRefusal::ScopeLimit {
++            field: "registry-rows",
++            count,
++        });
++    }
++    // Every row encoded once, the new row three times, then R0's bytes.
++    let serialize = WorkCost {
++        objects: count.saturating_add(3),
++        edges: count.saturating_add(3),
++        bytes: document
++            .raw()
++            .len()
++            .saturating_add(3 * ROW_BOUND)
++            .saturating_add(document.raw().len()),
++    };
++    let (rows, lengths, worst, reserved_len, active_len, abandoned_len) =
++        work.run(serialize, |_| {
++            let mut rows = Vec::with_capacity(count);
++            let mut lengths = Vec::with_capacity(count);
++            let mut worst = Vec::with_capacity(count);
++            for entry in entries {
++                let row = existing_row(entry, entry.status()).map_err(WorkFailure::Operation)?;
++                let len = encoded(&row).map_err(WorkFailure::Operation)?.len();
++                // RESERVED to ABANDONED and ACTIVE to RETIRED each add one byte.
++                let later = len + usize::from(worst_status(entry.status()) != entry.status());
++                rows.push(row);
++                lengths.push(len);
++                worst.push(later);
++            }
++            let reserved = new
++                .value(ProjectRegistryStatus::Reserved)
++                .map_err(WorkFailure::Operation)?;
++            let reserved_len = encoded(&reserved).map_err(WorkFailure::Operation)?.len();
++            let active = new
++                .value(ProjectRegistryStatus::Active)
++                .map_err(WorkFailure::Operation)?;
++            let active_len = encoded(&active).map_err(WorkFailure::Operation)?.len();
++            let abandoned = new
++                .value(ProjectRegistryStatus::Abandoned)
++                .map_err(WorkFailure::Operation)?;
++            let abandoned_len = encoded(&abandoned).map_err(WorkFailure::Operation)?.len();
++            let again = encoded(&document_value(rows.clone()).map_err(WorkFailure::Operation)?)
++                .map_err(WorkFailure::Operation)?;
++            if again != document.raw() {
++                return refuse(RegistrationRefusal::Invariant("r0-reencoding"));
++            }
++            let at =
++                entries.partition_point(|e| e.namespace_id().as_bytes() < new.namespace.as_bytes());
++            rows.insert(at, reserved);
++            Ok((
++                rows,
++                lengths,
++                worst,
++                reserved_len,
++                active_len,
++                abandoned_len,
++            ))
++        })?;
++    let empty = encoded(&document_value(Vec::new()).map_err(WorkFailure::Operation)?)
++        .map_err(WorkFailure::Operation)?
++        .len();
++    let reserved = document_length(empty, lengths.iter().copied().chain([reserved_len]));
++    let active = document_length(empty, lengths.iter().copied().chain([active_len]));
++    let terminal = document_length(empty, worst.iter().copied().chain([abandoned_len]));
++    for n in [reserved, active, terminal] {
++        if n > PROJECT_REGISTRY_CAP {
++            return refuse(RegistrationRefusal::ScopeLimit {
++                field: "registry-bytes",
++                count: n,
++            });
++        }
++    }
++    // The worst legal all-registered wrapper: every row that can still be
++    // registered (RESERVED, ACTIVE, RETIRED; never ABANDONED), and this one.
++    let registered = entries
++        .iter()
++        .filter(|e| e.status() != ProjectRegistryStatus::Abandoned)
++        .count()
++        + 1;
++    if registered > PROJECT_REGISTRY_ROW_CAP {
++        return refuse(RegistrationRefusal::ScopeLimit {
++            field: "registry-transition-rows",
++            count: registered,
++        });
++    }
++    let built = build(rows, work)?;
++    if built.bytes.len() != reserved {
++        return refuse(RegistrationRefusal::Invariant("reserved-length"));
++    }
++    Ok(built)
++}
++/// ACTIVE from R1's validated document, never from the candidate IDs
++/// alone: the one RESERVED random row at N becomes ACTIVE, every other row
++/// is carried by value.
++fn plan_active(
++    document: &ProjectRegistryDocument,
++    namespace: &str,
++    work: &mut WorkScope<'_>,
++) -> Result<Built, Failure> {
++    let entries = document.entries();
++    let serialize = WorkCost {
++        objects: entries.len().saturating_add(1),
++        edges: entries.len().saturating_add(1),
++        bytes: document.raw().len().saturating_add(ROW_BOUND),
++    };
++    let rows = work.run(serialize, |_| {
++        let mut found = 0;
++        let mut rows = Vec::with_capacity(entries.len());
++        for entry in entries {
++            let status = if entry.namespace_id() == namespace {
++                found += 1;
++                if entry.status() != ProjectRegistryStatus::Reserved
++                    || entry.allocation_kind() != ProjectAllocationKind::Random
++                {
++                    return refuse(RegistrationRefusal::Invariant("reserved-row"));
++                }
++                ProjectRegistryStatus::Active
++            } else {
++                entry.status()
++            };
++            rows.push(existing_row(entry, status).map_err(WorkFailure::Operation)?);
++        }
++        if found != 1 {
++            return refuse(RegistrationRefusal::Invariant("reserved-row"));
++        }
++        Ok(rows)
++    })?;
++    build(rows, work)
++}
++
++// ------------------------------------------- the replacement primitive
++
++/// The current registry owner R (item 6): the retained descriptor of the
++/// file now named `project-registry.v2`, its full sample, and its
++/// validated document. R0 is item 5's capture; R1 and R2 are the
++/// temporary files' own descriptors carried across their renames.
++pub(crate) struct RegistryOwner {
++    file: File,
++    metadata: DescriptorMetadata,
++    document: ProjectRegistryDocument,
++}
++impl RegistryOwner {
++    pub(crate) fn document(&self) -> &ProjectRegistryDocument {
++        &self.document
++    }
++}
++/// Step 1: R by its retained descriptor and full sample (private, the same
++/// sample), the name binding under I (a no-follow reopen with the same
++/// sample), and the old name still positively absent. I itself is the
++/// gate's, rechecked by the gate.
++fn reconfirm(
++    i: &RetainedDirectory,
++    owner: &RegistryOwner,
++    step: Step,
++    uid: u32,
++    work: &mut WorkScope<'_>,
++) -> Result<(), Failure> {
++    same_private(
++        &owner.file,
++        &owner.metadata,
++        step,
++        Owner::Registry,
++        uid,
++        work,
++    )?;
++    let named = open_named(i, REGISTRY, step, Owner::Registry, work)?;
++    same_private(&named, &owner.metadata, step, Owner::Registry, uid, work)?;
++    old_name_absent(i, work).map_err(admission)
++}
++/// Item 6's registry replacement primitive, used for RESERVED and ACTIVE;
++/// never a no-replace publication. Step 1 reconfirms R; step 2 is `next`,
++/// already built and validated; step 3 writes a fresh exclusive temporary
++/// name in I, private, with `F_FULLFSYNC`, confirmed by identity and exact
++/// bytes; step 4 renames it over the registry; step 5 takes I's barrier and
++/// rechecks that the name holds the new file by identity. Returns the new
++/// owner. The temporary file is never removed.
++#[allow(clippy::too_many_arguments)]
++fn replace(
++    i: &RetainedDirectory,
++    owner: &RegistryOwner,
++    next: Built,
++    step: Step,
++    uid: u32,
++    policy: PrimitivePolicy,
++    seam: &Seam<'_>,
++    work: &mut WorkScope<'_>,
++) -> Result<RegistryOwner, Failure> {
++    let (written, renamed) = match step {
++        Step::Reserved => (Point::ReservedWritten, Point::ReservedRenamed),
++        _ => (Point::ActiveWritten, Point::ActiveRenamed),
++    };
++    reconfirm(i, owner, step, uid, work)?;
++    let nonce = work.run(DRAW, |_| {
++        opensip_platform::request_entropy()
++            .map_err(|_| WorkFailure::Operation(RegistrationRefusal::Entropy))
++    })?;
++    let temporary = format!("{REGISTRY}.{}", hex(&nonce));
++    let Built { bytes, document } = next;
++    let file = effect(work, temporary_cost(&temporary, bytes.len()), |work| {
++        let file = match i
++            .create_exclusive_regular_accounted(&temporary, work)
++            .map_err(exclusive_regular(step, Owner::Registry))?
++        {
++            ExclusiveRegularOutcome::Created(file) => file,
++            ExclusiveRegularOutcome::EntryExists => {
++                return refuse(RegistrationRefusal::Changed(Owner::Registry));
++            }
++        };
++        prepare_fresh_private_sample(PrivateObjectKind::RegularFile, uid, &file, work)
++            .map_err(private(step, Owner::Registry))?;
++        let receipt = opensip_platform::write_new_regular_accounted(&file, &bytes, work)
++            .map_err(write(step, Owner::Registry))?;
++        if !receipt.is_for(&file) {
++            return refuse(RegistrationRefusal::BarrierReceipt(step, Owner::Registry));
++        }
++        seam.at(written, step, Owner::Registry)?;
++        confirm_file(
++            i,
++            &temporary,
++            &file,
++            &bytes,
++            uid,
++            step,
++            Owner::Registry,
++            work,
++        )?;
++        Ok(file)
++    })?;
++    effect(work, publish_cost(&temporary), |work| {
++        i.rename_replace_accounted(&temporary, REGISTRY, work)
++            .map_err(lift(|error| match error {
++                RenameReplaceError::TargetNotRegular => {
++                    RegistrationRefusal::Changed(Owner::Registry)
++                }
++                RenameReplaceError::Name(_) => RegistrationRefusal::Invariant("rename-name"),
++                RenameReplaceError::TargetStatus(error) | RenameReplaceError::Rename(error) => {
++                    RegistrationRefusal::Io(step, Owner::Registry, error)
++                }
++            }))?;
++        seam.at(renamed, step, Owner::Installation)?;
++        barrier(i, policy, step, Owner::Installation, work)?;
++        let metadata = private_file(&file, step, Owner::Registry, uid, work)?;
++        let named = open_named(i, REGISTRY, step, Owner::Registry, work)?;
++        same_private(&named, &metadata, step, Owner::Registry, uid, work)?;
++        Ok(RegistryOwner {
++            file,
++            metadata,
++            document,
++        })
++    })
++}
++
++// --------------------------------------------------------- preconditions
++
++/// The registry owner's active-transition-recovery gate. No transition
++/// carrier is implemented: P0's `transitions` holds only `lineage`, so any
++/// other entry may be a transition slot and refuses (unavailable).
++fn transitions_quiet(
++    i: &RetainedDirectory,
++    uid: u32,
++    step: Step,
++    work: &mut WorkScope<'_>,
++) -> Result<(), Failure> {
++    let Some(directory) = private_child(i, TRANSITIONS, uid, step, Owner::Transitions, work)?
++    else {
++        return Ok(());
++    };
++    work.run(SCAN, |_| {
++        directory
++            .visit_entry_names(SCAN_ENTRIES, SCAN_NAME_BYTES, |name| {
++                if matches!(name, b"." | b"..") || name == LINEAGE {
++                    Ok(())
++                } else {
++                    Err(())
++                }
++            })
++            .map(drop)
++            .map_err(|error| {
++                WorkFailure::Operation(match error {
++                    DirectoryVisitError::Native(error) => {
++                        RegistrationRefusal::Io(step, Owner::Transitions, error)
++                    }
++                    _ => RegistrationRefusal::TransitionActive,
++                })
++            })
++    })
++}
++/// A present `host` and `projects`, judged private before any effect, so a
++/// foreign parent refuses before RESERVED. Returns `projects` if present.
++fn observe_parents(
++    i: &RetainedDirectory,
++    uid: u32,
++    work: &mut WorkScope<'_>,
++) -> Result<Option<RetainedDirectory>, Failure> {
++    let step = Step::Preconditions;
++    let Some(host) = private_child(i, HOST, uid, step, Owner::Host, work)? else {
++        return Ok(None);
++    };
++    private_child(&host, PROJECTS, uid, step, Owner::Projects, work)
++}
++/// Up to eight independent ProjectId candidates; a collision with any row
++/// of the whole history draws again.
++fn allocate_project(
++    entries: &[ProjectRegistryEntry],
++    seam: &Seam<'_>,
++    work: &mut WorkScope<'_>,
++) -> Result<String, Failure> {
++    for _ in 0..CANDIDATES {
++        let draw = work.run(DRAW, |_| {
++            seam.project_draw()
++                .ok_or(WorkFailure::Operation(RegistrationRefusal::Entropy))
++        })?;
++        let project = format!("prj1-{}", hex(&draw));
++        let scan = WorkCost {
++            objects: 0,
++            edges: entries.len().max(1),
++            bytes: entries.len().saturating_mul(project.len()),
++        };
++        let recorded = work.run(scan, |_| {
++            Ok(entries.iter().any(|e| e.project_id() == project))
++        })?;
++        if !recorded {
++            return Ok(project);
++        }
++    }
++    refuse(RegistrationRefusal::Exhausted("project-id"))
++}
++/// Up to eight independent UUIDv4 namespace candidates; a recorded N or an
++/// occupied `I/host/projects/N` (any entry, by a no-follow lookup) draws
++/// again. Absent parents make every target path positively absent.
++fn allocate_namespace(
++    entries: &[ProjectRegistryEntry],
++    projects: Option<&RetainedDirectory>,
++    seam: &Seam<'_>,
++    work: &mut WorkScope<'_>,
++) -> Result<String, Failure> {
++    for _ in 0..CANDIDATES {
++        let draw = work.run(DRAW, |_| {
++            seam.namespace_draw()
++                .ok_or(WorkFailure::Operation(RegistrationRefusal::Entropy))
++        })?;
++        let namespace = namespace_text(draw);
++        let scan = WorkCost {
++            objects: 0,
++            edges: entries.len().max(1),
++            bytes: entries.len().saturating_mul(namespace.len()),
++        };
++        let recorded = work.run(scan, |_| {
++            Ok(entries.iter().any(|e| e.namespace_id() == namespace))
++        })?;
++        let occupied = match projects {
++            Some(projects) => !projects
++                .observe_child_absent_accounted(OsStr::new(&namespace), work)
++                .map_err(io_at(Step::Preconditions, Owner::Projects))?,
++            None => false,
++        };
++        if !recorded && !occupied {
++            return Ok(namespace);
++        }
++    }
++    refuse(RegistrationRefusal::Exhausted("namespace"))
++}
++
++/// Everything item 6 fixes before the first effect.
++struct Plan {
++    project: String,
++    namespace: String,
++    reserved: Built,
++}
++/// The preconditions, in order, all before any effect.
++#[allow(clippy::too_many_arguments)]
++fn preconditions(
++    admission: &ProjectRootAdmission,
++    observed: &TrackingObservation,
++    installation: &DurableInstallation,
++    policy: &ProjectChainPolicy<'_>,
++    inputs: &ProjectInputs<'_>,
++    seam: &Seam<'_>,
++    work: &mut WorkScope<'_>,
++) -> Result<Plan, Failure> {
++    match (admission.classification(), admission.marker()) {
++        (Classification::FirstUseCandidate, MarkerObservation::Absent) => {}
++        (classification, _) => {
++            return refuse(RegistrationRefusal::NotFirstUse(classification.clone()));
++        }
++    }
++    let uid = installation.uid();
++    let i = installation.installation_directory();
++    let judged = judged_registry(installation.required()).ok_or(WorkFailure::Operation(
++        RegistrationRefusal::Invariant("no-registry"),
++    ))?;
++    admission
++        .recheck(uid, i, judged, policy, work)
++        .map_err(admission_failure)?;
++    let inputs = TrackingInputs {
++        chain: admission.chain(),
++        uid,
++        policy,
++        home: installation.home_spelling(),
++        environment: inputs.environment,
++        system_sources: inputs.system_sources,
++    };
++    recheck_tracking(observed, &inputs, work).map_err(tracking)?;
++    transitions_quiet(i, uid, Step::Preconditions, work)?;
++    let projects = observe_parents(i, uid, work)?;
++    let document = admission.registry().document();
++    let project = allocate_project(document.entries(), seam, work)?;
++    let namespace = allocate_namespace(document.entries(), projects.as_ref(), seam, work)?;
++    let new = NewRow {
++        project: &project,
++        namespace: &namespace,
++        path: admission.chain().spelling().as_os_str().as_bytes(),
++        incarnation: admission.incarnation(),
++    };
++    let reserved = plan_reserved(document, &new, work)?;
++    Ok(Plan {
++        project,
++        namespace,
++        reserved,
++    })
++}
++fn admission_failure(failure: AdmissionFailure) -> Failure {
++    admission(failure)
++}
++
++// ----------------------------------------------------- steps 3 to 5
++
++/// 465 item 3 for one installation-private directory: an exclusive `0700`
++/// create with the zero-rights owner allow, or, only on a raw `EEXIST`, a
++/// fresh no-follow admission judged private (never changed). Either way
++/// the exact name, H's volume and the parent's device, the directory's own
++/// barrier and then the parent's. The whole step is reserved first.
++#[allow(clippy::too_many_arguments)]
++fn create_or_admit(
++    parent: &RetainedDirectory,
++    name: &str,
++    owner: Owner,
++    uid: u32,
++    home_filesystem: &dyn Fn(&DescriptorFilesystem) -> bool,
++    policy: PrimitivePolicy,
++    step: Step,
++    work: &mut WorkScope<'_>,
++) -> Result<RetainedDirectory, Failure> {
++    effect(work, parent_cost(name), |work| {
++        let child = match parent
++            .create_exclusive_directory_accounted(name, work)
++            .map_err(exclusive_directory(step, owner))?
++        {
++            ExclusiveDirectoryOutcome::Created(child) => {
++                prepare_fresh_private_sample(
++                    PrivateObjectKind::Directory,
++                    uid,
++                    child.as_file(),
++                    work,
++                )
++                .map_err(private(step, owner))?;
++                child
++            }
++            ExclusiveDirectoryOutcome::EntryExists => {
++                let Some(child) = parent
++                    .open_child_directory_if_present_accounted(OsStr::new(name), work)
++                    .map_err(kind_or_io(step, owner))?
++                else {
++                    return refuse(RegistrationRefusal::Changed(owner));
++                };
++                observe_private_directory(child.as_file(), uid, work)
++                    .map_err(private(step, owner))?;
++                child
++            }
++        };
++        named(&child, name, step, owner, work)?;
++        home_volume(child.as_file(), home_filesystem, step, owner, work)?;
++        if identity(child.as_file(), step, owner, work)?.0
++            != identity(parent.as_file(), step, owner, work)?.0
++        {
++            return refuse(RegistrationRefusal::Custody(owner, "volume-unsupported"));
++        }
++        barrier(&child, policy, step, owner, work)?;
++        barrier(parent, policy, step, owner, work)?;
++        Ok(child)
++    })
++}
++/// The namespace's complete footprint: a private directory holding exactly
++/// `writer.lease` and `readers.lease`, each an empty private regular file.
++fn confirm_footprint(
++    directory: &RetainedDirectory,
++    uid: u32,
++    step: Step,
++    work: &mut WorkScope<'_>,
++) -> Result<(), Failure> {
++    let owner = Owner::Namespace;
++    observe_private_directory(directory.as_file(), uid, work).map_err(private(step, owner))?;
++    let mut seen = [false; 2];
++    work.run(SCAN, |_| {
++        directory
++            .visit_entry_names(SCAN_ENTRIES, SCAN_NAME_BYTES, |name| {
++                match name {
++                    b"." | b".." => {}
++                    b"writer.lease" if !seen[0] => seen[0] = true,
++                    b"readers.lease" if !seen[1] => seen[1] = true,
++                    _ => return Err(()),
++                }
++                Ok(())
++            })
++            .map(drop)
++            .map_err(|error| {
++                WorkFailure::Operation(match error {
++                    DirectoryVisitError::Native(error) => {
++                        RegistrationRefusal::Io(step, owner, error)
++                    }
++                    _ => RegistrationRefusal::Changed(owner),
++                })
++            })
++    })?;
++    if seen != [true, true] {
++        return refuse(RegistrationRefusal::Changed(owner));
++    }
++    for lease in [WRITER_LEASE, READERS_LEASE] {
++        let file = open_named(directory, lease, step, owner, work)?;
++        if private_file(&file, step, owner, uid, work)?.size != 0 {
++            return refuse(RegistrationRefusal::Changed(owner));
++        }
++    }
++    Ok(())
++}
++/// Item 6 step 3: `I/host` and `I/host/projects` created or admitted, then
++/// `I/host/projects/N` published whole: a private same-parent stage holding
++/// exactly the two empty lease files, each written with its file barrier,
++/// the stage's barrier, one exclusive rename to N, `projects`' barrier, the
++/// exact name and the footprint confirmed. The positively absent N becomes
++/// the published namespace's owner here.
++#[allow(clippy::too_many_arguments)]
++fn publish_namespace(
++    i: &RetainedDirectory,
++    namespace: &str,
++    uid: u32,
++    home_filesystem: &dyn Fn(&DescriptorFilesystem) -> bool,
++    policy: PrimitivePolicy,
++    seam: &Seam<'_>,
++    work: &mut WorkScope<'_>,
++) -> Result<
++    (
++        RetainedDirectory,
++        RetainedDirectory,
++        NamedDirectoryPublication,
++    ),
++    Failure,
++> {
++    let step = Step::Namespace;
++    seam.at(Point::ReservedConfirmed, step, Owner::Registry)?;
++    let host = create_or_admit(
++        i,
++        HOST,
++        Owner::Host,
++        uid,
++        home_filesystem,
++        policy,
++        step,
++        work,
++    )?;
++    let projects = create_or_admit(
++        &host,
++        PROJECTS,
++        Owner::Projects,
++        uid,
++        home_filesystem,
++        policy,
++        step,
++        work,
++    )?;
++    seam.at(Point::ParentsReady, step, Owner::Projects)?;
++    let owner = Owner::Namespace;
++    let publication = effect(work, namespace_cost(), |work| {
++        let stage = projects
++            .create_private_directory_stage_accounted(work)
++            .map_err(io_at(step, owner))?;
++        prepare_fresh_private_sample(
++            PrivateObjectKind::Directory,
++            uid,
++            stage.directory().as_file(),
++            work,
++        )
++        .map_err(private(step, owner))?;
++        for lease in [WRITER_LEASE, READERS_LEASE] {
++            let file = match stage
++                .directory()
++                .create_exclusive_regular_accounted(lease, work)
++                .map_err(exclusive_regular(step, owner))?
++            {
++                ExclusiveRegularOutcome::Created(file) => file,
++                ExclusiveRegularOutcome::EntryExists => {
++                    return refuse(RegistrationRefusal::Changed(owner));
++                }
++            };
++            prepare_fresh_private_sample(PrivateObjectKind::RegularFile, uid, &file, work)
++                .map_err(private(step, owner))?;
++            let receipt = opensip_platform::write_new_regular_accounted(&file, b"", work)
++                .map_err(write(step, owner))?;
++            if !receipt.is_for(&file) {
++                return refuse(RegistrationRefusal::BarrierReceipt(step, owner));
++            }
++        }
++        barrier(stage.directory(), policy, step, owner, work)?;
++        seam.at(Point::NamespaceStaged, step, owner)?;
++        let publication = stage
++            .publish_exclusive_accounted(OsStr::new(namespace), work)
++            .map_err(lift(
++                |failure: opensip_platform::DirectoryRenameFailure| match failure.class() {
++                    DirectoryRenameClass::LostRace => RegistrationRefusal::Changed(owner),
++                    DirectoryRenameClass::NotPerformed | DirectoryRenameClass::Indeterminate => {
++                        RegistrationRefusal::Io(
++                            step,
++                            owner,
++                            io::Error::new(failure.error().kind(), failure.error().to_string()),
++                        )
++                    }
++                },
++            ))?;
++        seam.at(Point::NamespacePublished, step, owner)?;
++        barrier(
++            publication.parent_directory(),
++            policy,
++            step,
++            Owner::Projects,
++            work,
++        )?;
++        let exact = work.run(plus(&[EXACT_NAME, name_cost()]), |_| {
++            publication.recheck_exact_name().map_err(|error| {
++                WorkFailure::Operation(RegistrationRefusal::Io(step, owner, error))
++            })
++        })?;
++        if !exact {
++            return refuse(RegistrationRefusal::Changed(owner));
++        }
++        confirm_footprint(publication.directory(), uid, step, work)?;
++        Ok(publication)
++    })?;
++    Ok((host, projects, publication))
++}
++/// Item 6 step 4: `.opensip` created or admitted under the retained root,
++/// as 465 item 3 does: the exact name, S3 directory custody with item 1's
++/// premise and H's volume, the zero-rights owner allow on creation, then
++/// `.opensip`'s barrier and the root's. A reused `.opensip` takes both
++/// barriers too: existence is not a durability receipt.
++fn marker_directory(
++    chain: &ProjectChain,
++    uid: u32,
++    policy: &ProjectChainPolicy<'_>,
++    barrier_policy: PrimitivePolicy,
++    seam: &Seam<'_>,
++    work: &mut WorkScope<'_>,
++) -> Result<RetainedDirectory, Failure> {
++    let step = Step::MarkerDirectory;
++    let owner = Owner::MarkerDirectory;
++    let root = chain.root();
++    effect(work, marker_directory_cost(), |work| {
++        let directory = match root
++            .create_exclusive_directory_accounted(MARKER_DIRECTORY, work)
++            .map_err(exclusive_directory(step, owner))?
++        {
++            ExclusiveDirectoryOutcome::Created(directory) => {
++                prepare_fresh_private_sample(
++                    PrivateObjectKind::Directory,
++                    uid,
++                    directory.as_file(),
++                    work,
++                )
++                .map_err(private(step, owner))?;
++                directory
++            }
++            ExclusiveDirectoryOutcome::EntryExists => {
++                let Some(directory) = root
++                    .open_child_directory_if_present_accounted(OsStr::new(MARKER_DIRECTORY), work)
++                    .map_err(lift(move |error: io::Error| match error.raw_os_error() {
++                        Some(ELOOP) | Some(ENOTDIR) => {
++                            RegistrationRefusal::Custody(owner, "marker-directory-custody")
++                        }
++                        _ => RegistrationRefusal::Io(step, owner, error),
++                    }))?
++                else {
++                    return refuse(RegistrationRefusal::Changed(owner));
++                };
++                directory
++            }
++        };
++        project_object(
++            &directory,
++            uid,
++            policy,
++            owner,
++            "marker-directory-custody",
++            work,
++        )?;
++        named(&directory, MARKER_DIRECTORY, step, owner, work)?;
++        home_volume(
++            directory.as_file(),
++            policy.home_filesystem(),
++            step,
++            owner,
++            work,
++        )?;
++        seam.at(Point::MarkerDirectoryReady, step, owner)?;
++        barrier(&directory, barrier_policy, step, owner, work)?;
++        barrier(root, barrier_policy, step, Owner::Root, work)?;
++        Ok(directory)
++    })
++}
++/// Item 6 step 5: the 92-byte marker created no-replace under the retained
++/// `.opensip`, with the zero-rights owner allow, written with its file
++/// barrier, then `.opensip`'s barrier, and confirmed by identity and bytes.
++fn create_marker(
++    directory: &RetainedDirectory,
++    project: &str,
++    uid: u32,
++    policy: PrimitivePolicy,
++    seam: &Seam<'_>,
++    work: &mut WorkScope<'_>,
++) -> Result<(File, DescriptorMetadata), Failure> {
++    let step = Step::Marker;
++    let owner = Owner::Marker;
++    let bytes = marker_bytes(project);
++    if bytes.len() != PROJECT_MARKER_SIZE || ProjectIdMarker::decode(&bytes).is_err() {
++        return refuse(RegistrationRefusal::Invariant("marker-frame"));
++    }
++    effect(work, marker_cost(), |work| {
++        let file = match directory
++            .create_exclusive_regular_accounted(MARKER_FILE, work)
++            .map_err(exclusive_regular(step, owner))?
++        {
++            ExclusiveRegularOutcome::Created(file) => file,
++            ExclusiveRegularOutcome::EntryExists => {
++                return refuse(RegistrationRefusal::Changed(owner));
++            }
++        };
++        prepare_fresh_private_sample(PrivateObjectKind::RegularFile, uid, &file, work)
++            .map_err(private(step, owner))?;
++        seam.at(Point::MarkerCreated, step, owner)?;
++        let receipt = opensip_platform::write_new_regular_accounted(&file, &bytes, work)
++            .map_err(write(step, owner))?;
++        if !receipt.is_for(&file) {
++            return refuse(RegistrationRefusal::BarrierReceipt(step, owner));
++        }
++        seam.at(Point::MarkerWritten, step, owner)?;
++        barrier(directory, policy, step, Owner::MarkerDirectory, work)?;
++        let metadata = confirm_file(
++            directory,
++            MARKER_FILE,
++            &file,
++            &bytes,
++            uid,
++            step,
++            owner,
++            work,
++        )?;
++        Ok((file, metadata))
++    })
++}
++
++// ------------------------------------------------- the registered project
++
++/// A project this admission has just registered (item 6, R2). Private, not
++/// Clone, not serializable. It holds the root admission's chain, the
++/// `.opensip`, marker, `host`, `projects` and namespace owners published or
++/// admitted by steps 3 to 5, the current registry owner R2 with its exact
++/// ACTIVE row, and the tracking observation. R0 and R1 are provenance. It
++/// grants exactly what Eligible grants (item 4): namespace admission, which
++/// is X2d's; it takes no lease and holds no lock of its own.
++pub(crate) struct RegisteredProject {
++    chain: ProjectChain,
++    selected: Selected,
++    incarnation: Incarnation,
++    marker_directory: RetainedDirectory,
++    marker: File,
++    marker_metadata: DescriptorMetadata,
++    host: RetainedDirectory,
++    projects: RetainedDirectory,
++    namespace: NamedDirectoryPublication,
++    registry: RegistryOwner,
++    row: ProjectRegistryEntry,
++    tracking: TrackingObservation,
++}
++impl std::fmt::Debug for RegisteredProject {
++    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
++        f.debug_struct("RegisteredProject")
++            .field("namespace", &self.row.namespace_id())
++            .field("project", &self.row.project_id())
++            .finish_non_exhaustive()
++    }
++}
++impl RegisteredProject {
++    /// N, from R2's ACTIVE row only.
++    pub(crate) fn namespace_id(&self) -> &str {
++        self.row.namespace_id()
++    }
++    pub(crate) fn project_id(&self) -> &str {
++        self.row.project_id()
++    }
++    /// R2's exact ACTIVE row.
++    pub(crate) fn row(&self) -> &ProjectRegistryEntry {
++        &self.row
++    }
++    /// The current registry owner, R2.
++    pub(crate) fn registry(&self) -> &RegistryOwner {
++        &self.registry
++    }
++    pub(crate) fn selected(&self) -> &Selected {
++        &self.selected
++    }
++    pub(crate) fn chain(&self) -> &ProjectChain {
++        &self.chain
++    }
++    pub(crate) fn tracking(&self) -> &TrackingObservation {
++        &self.tracking
++    }
++    /// The published namespace directory, `I/host/projects/N`.
++    pub(crate) fn namespace(&self) -> &RetainedDirectory {
++        self.namespace.directory()
++    }
++    /// The classification R2 gives this root with its marker: Eligible.
++    pub(crate) fn classification(&self) -> Classification {
++        classify(
++            self.registry.document.entries(),
++            self.chain.spelling().as_os_str().as_bytes(),
++            &self.incarnation,
++            &MarkerObservation::Present {
++                project: self.row.project_id().to_owned(),
++                metadata: self.marker_metadata.clone(),
++            },
++        )
++    }
++}
++/// The current owners step 6 rechecks, and the registered project's
++/// recheck: the chain with the root's birth and incarnation, `.opensip`
++/// and the marker, `host`, `projects` and the namespace footprint, the
++/// registry owner R with the old name absent, and the tracking observation,
++/// each through its own retained descriptor. R's predecessors are not
++/// rechecked.
++struct Current<'a> {
++    chain: &'a ProjectChain,
++    incarnation: &'a Incarnation,
++    marker_directory: &'a RetainedDirectory,
++    marker: &'a File,
++    marker_metadata: &'a DescriptorMetadata,
++    host: &'a RetainedDirectory,
++    projects: &'a RetainedDirectory,
++    namespace: &'a RetainedDirectory,
++    namespace_id: &'a str,
++    registry: &'a RegistryOwner,
++    tracking: &'a TrackingObservation,
++}
++#[allow(clippy::too_many_arguments)]
++fn recheck_current(
++    current: &Current<'_>,
++    installation: &DurableInstallation,
++    policy: &ProjectChainPolicy<'_>,
++    inputs: &ProjectInputs<'_>,
++    step: Step,
++    work: &mut WorkScope<'_>,
++) -> Result<(), Failure> {
++    let uid = installation.uid();
++    let i = installation.installation_directory();
++    current.chain.recheck(uid, policy, work).map_err(chain)?;
++    if &sample_incarnation(current.chain, work).map_err(admission_failure)? != current.incarnation {
++        return refuse(RegistrationRefusal::Changed(Owner::Root));
++    }
++    rebind(
++        current.chain.root(),
++        MARKER_DIRECTORY,
++        current.marker_directory,
++        step,
++        Owner::MarkerDirectory,
++        work,
++    )?;
++    project_object(
++        current.marker_directory,
++        uid,
++        policy,
++        Owner::MarkerDirectory,
++        "marker-directory-custody",
++        work,
++    )?;
++    same_private(
++        current.marker,
++        current.marker_metadata,
++        step,
++        Owner::Marker,
++        uid,
++        work,
++    )?;
++    let named_marker = open_named(
++        current.marker_directory,
++        MARKER_FILE,
++        step,
++        Owner::Marker,
++        work,
++    )?;
++    same_private(
++        &named_marker,
++        current.marker_metadata,
++        step,
++        Owner::Marker,
++        uid,
++        work,
++    )?;
++    rebind(i, HOST, current.host, step, Owner::Host, work)?;
++    observe_private_directory(current.host.as_file(), uid, work)
++        .map_err(private(step, Owner::Host))?;
++    rebind(
++        current.host,
++        PROJECTS,
++        current.projects,
++        step,
++        Owner::Projects,
++        work,
++    )?;
++    observe_private_directory(current.projects.as_file(), uid, work)
++        .map_err(private(step, Owner::Projects))?;
++    rebind(
++        current.projects,
++        current.namespace_id,
++        current.namespace,
++        step,
++        Owner::Namespace,
++        work,
++    )?;
++    confirm_footprint(current.namespace, uid, step, work)?;
++    reconfirm(i, current.registry, step, uid, work)?;
++    let tracking_inputs = TrackingInputs {
++        chain: current.chain,
++        uid,
++        policy,
++        home: installation.home_spelling(),
++        environment: inputs.environment,
++        system_sources: inputs.system_sources,
++    };
++    recheck_tracking(current.tracking, &tracking_inputs, work).map_err(tracking)
++}
++
++// --------------------------------------------------- write-gate entries
++
++/// A project step's refusal on the write gate: the gate's own (its latch or
++/// recheck), the write receipt's recheck, or the step's own (law X2 item
++/// 8). Any of them spends the gate.
++#[derive(Debug)]
++pub(crate) enum ProjectWriteRefusal {
++    /// An earlier refusal spent this writer's gate.
++    Latched,
++    Gate(GateRefusal),
++    Receipt(T),
++    Project(AdmissionFailure),
++    Tracking(TrackingFailure),
++    Registration(Failure),
++}
++/// The row a write-gate project refusal names, for the composition owner.
++#[derive(Debug, Clone, PartialEq, Eq)]
++pub(crate) enum ProjectWriteRow {
++    /// 468 item 6's row, through 468c's map.
++    Installation(T),
++    /// Law X2 item 8's row.
++    Project(RegistrationRow),
++    /// `WORK.BUDGET_EXHAUSTED`.
++    BudgetExhausted,
++}
++impl ProjectWriteRefusal {
++    pub(crate) fn row(&self) -> ProjectWriteRow {
++        use ProjectWriteRow as Row;
++        fn work<E>(
++            failure: &WorkFailure<E>,
++            row: impl FnOnce(&E) -> RegistrationRow,
++        ) -> ProjectWriteRow {
++            match failure {
++                WorkFailure::Budget(_) => ProjectWriteRow::BudgetExhausted,
++                WorkFailure::Operation(refusal) => ProjectWriteRow::Project(row(refusal)),
++            }
++        }
++        match self {
++            Self::Latched => Row::Installation(T::Invariant),
++            Self::Gate(refusal) => Row::Installation(gate_refusal(refusal)),
++            Self::Receipt(row) => Row::Installation(row.clone()),
++            Self::Project(failure) => work(failure, |r| RegistrationRow::Admission(r.row())),
++            Self::Tracking(failure) => work(failure, |r| match r.row() {
++                TrackingRow::RootCustody(subject) => RegistrationRow::RootCustody(subject),
++                TrackingRow::HostIo => RegistrationRow::HostIo,
++            }),
++            Self::Registration(failure) => work(failure, RegistrationRefusal::row),
++        }
++    }
++}
++
++/// Law X2 items 2 to 5 on the write gate (X2b's entry, which X2b-1 left to
++/// this unit): S3 selection, the chain walk, the incarnation, the marker,
++/// the one registry capture (R0) and the classification, on the gate's own
++/// ledger under its held fence, with the write receipt's premise; then the
++/// admission's recheck and the gate's full recheck.
++pub(super) fn admit_on_gate(
++    gate: &mut DurableWriteGate,
++    installation: &DurableInstallation,
++    qualification: &impl DurableBarrierQualification,
++    launch: &Path,
++    explicit: Option<&Path>,
++    trust_groups: &BTreeSet<u32>,
++) -> Result<ProjectRootAdmission, ProjectWriteRefusal> {
++    if gate.is_spent() {
++        return Err(ProjectWriteRefusal::Latched);
++    }
++    let home_filesystem = |sample: &DescriptorFilesystem| qualification.is_home_filesystem(sample);
++    let policy = ProjectChainPolicy::new(
++        qualification.omission_premise(),
++        &home_filesystem,
++        trust_groups,
++    );
++    let uid = installation.uid();
++    let i = installation.installation_directory();
++    // The gate judged the registry among the required files (468 item 5).
++    let Some(judged) = judged_registry(installation.required()).cloned() else {
++        gate.spend();
++        return Err(ProjectWriteRefusal::Registration(WorkFailure::Operation(
++            RegistrationRefusal::Invariant("no-registry"),
++        )));
++    };
++    let admission = gate
++        .scope(|work| {
++            let admission = admit_project_root(
++                installation.home_spelling(),
++                uid,
++                launch,
++                explicit,
++                i,
++                &judged,
++                &policy,
++                work,
++            )?;
++            admission.recheck(uid, i, &judged, &policy, work)?;
++            Ok(admission)
++        })
++        .map_err(ProjectWriteRefusal::Project)?;
++    gate.recheck(installation, qualification)
++        .map_err(ProjectWriteRefusal::Gate)?;
++    Ok(admission)
++}
++
++/// Item 6a on the write gate: the tracking observation for an admitted
++/// root and its recheck, on the gate's ledger, then the gate's recheck.
++pub(super) fn observe_tracking_on_gate(
++    gate: &mut DurableWriteGate,
++    installation: &DurableInstallation,
++    qualification: &impl DurableBarrierQualification,
++    admission: &ProjectRootAdmission,
++    inputs: &ProjectInputs<'_>,
++) -> Result<TrackingObservation, ProjectWriteRefusal> {
++    if gate.is_spent() {
++        return Err(ProjectWriteRefusal::Latched);
++    }
++    let home_filesystem = |sample: &DescriptorFilesystem| qualification.is_home_filesystem(sample);
++    let policy = ProjectChainPolicy::new(
++        qualification.omission_premise(),
++        &home_filesystem,
++        inputs.trust_groups,
++    );
++    let tracking_inputs = TrackingInputs {
++        chain: admission.chain(),
++        uid: installation.uid(),
++        policy: &policy,
++        home: installation.home_spelling(),
++        environment: inputs.environment,
++        system_sources: inputs.system_sources,
++    };
++    let observed = gate
++        .scope(|work| {
++            let observed = observe_tracking(&tracking_inputs, work)?;
++            recheck_tracking(&observed, &tracking_inputs, work)?;
++            Ok(observed)
++        })
++        .map_err(ProjectWriteRefusal::Tracking)?;
++    gate.recheck(installation, qualification)
++        .map_err(ProjectWriteRefusal::Gate)?;
++    Ok(observed)
++}
++
++/// Item 6: first registration under the write gate's held fence, on its one
++/// ledger. The preconditions run before any effect, then the gate's full
++/// recheck; RESERVED (R0 to R1), the namespace, `.opensip` and the marker;
++/// every current owner rechecked and ACTIVE (R1 to R2). The gate's retained
++/// registry sample advances only with each confirmed publication. Then R2
++/// must classify this root Eligible, the registered project is rechecked,
++/// and the gate's full recheck runs. Any refusal spends the gate.
++pub(super) fn register_on_gate(
++    gate: &mut DurableWriteGate,
++    installation: &mut DurableInstallation,
++    qualification: &impl DurableBarrierQualification,
++    admission: ProjectRootAdmission,
++    observed: TrackingObservation,
++    inputs: &ProjectInputs<'_>,
++    seam: &Seam<'_>,
++) -> Result<RegisteredProject, ProjectWriteRefusal> {
++    use ProjectWriteRefusal::{Gate, Registration};
++    if gate.is_spent() {
++        return Err(ProjectWriteRefusal::Latched);
++    }
++    let home_filesystem = |sample: &DescriptorFilesystem| qualification.is_home_filesystem(sample);
++    let policy = ProjectChainPolicy::new(
++        qualification.omission_premise(),
++        &home_filesystem,
++        inputs.trust_groups,
++    );
++    let barrier_policy = qualification.barrier_policy();
++    let uid = installation.uid();
++
++    // Preconditions, all before any effect, then the gate's recheck.
++    let plan = gate
++        .scope(|work| {
++            preconditions(
++                &admission,
++                &observed,
++                installation,
++                &policy,
++                inputs,
++                seam,
++                work,
++            )
++        })
++        .map_err(Registration)?;
++    gate.recheck(installation, qualification).map_err(Gate)?;
++
++    let parts = admission.into_parts();
++    let (file, metadata, document) = parts.registry.into_parts();
++    let r0 = RegistryOwner {
++        file,
++        metadata,
++        document,
++    };
++
++    // Step 2: RESERVED (R0 to R1).
++    let Plan {
++        project,
++        namespace,
++        reserved,
++    } = plan;
++    let r1 = gate
++        .scope(|work| {
++            replace(
++                installation.installation_directory(),
++                &r0,
++                reserved,
++                Step::Reserved,
++                uid,
++                barrier_policy,
++                seam,
++                work,
++            )
++        })
++        .map_err(Registration)?;
++    if !installation.advance_registry(&r0.metadata, r1.metadata.clone()) {
++        gate.spend();
++        return Err(Registration(WorkFailure::Operation(
++            RegistrationRefusal::Invariant("registry-advance"),
++        )));
++    }
++    drop(r0);
++
++    // Step 3: the namespace and its parents.
++    let (host, projects, publication) = gate
++        .scope(|work| {
++            publish_namespace(
++                installation.installation_directory(),
++                &namespace,
++                uid,
++                &home_filesystem,
++                barrier_policy,
++                seam,
++                work,
++            )
++        })
++        .map_err(Registration)?;
++
++    // Step 4: `.opensip`.
++    let opensip = gate
++        .scope(|work| marker_directory(&parts.chain, uid, &policy, barrier_policy, seam, work))
++        .map_err(Registration)?;
++
++    // Step 5: the marker.
++    let (marker, marker_metadata) = gate
++        .scope(|work| create_marker(&opensip, &project, uid, barrier_policy, seam, work))
++        .map_err(Registration)?;
++
++    // Step 6: every current owner, then ACTIVE (R1 to R2).
++    let r2 = gate
++        .scope(|work| {
++            let current = Current {
++                chain: &parts.chain,
++                incarnation: &parts.incarnation,
++                marker_directory: &opensip,
++                marker: &marker,
++                marker_metadata: &marker_metadata,
++                host: &host,
++                projects: &projects,
++                namespace: publication.directory(),
++                namespace_id: &namespace,
++                registry: &r1,
++                tracking: &observed,
++            };
++            recheck_current(&current, installation, &policy, inputs, Step::Active, work)?;
++            transitions_quiet(
++                installation.installation_directory(),
++                uid,
++                Step::Active,
++                work,
++            )?;
++            let active = plan_active(r1.document(), &namespace, work)?;
++            replace(
++                installation.installation_directory(),
++                &r1,
++                active,
++                Step::Active,
++                uid,
++                barrier_policy,
++                seam,
++                work,
++            )
++        })
++        .map_err(Registration)?;
++    if !installation.advance_registry(&r1.metadata, r2.metadata.clone()) {
++        gate.spend();
++        return Err(Registration(WorkFailure::Operation(
++            RegistrationRefusal::Invariant("registry-advance"),
++        )));
++    }
++    drop(r1);
++
++    // R2 is the only source of the ACTIVE row and of Eligible.
++    let row = r2
++        .document
++        .entries()
++        .iter()
++        .find(|entry| entry.namespace_id() == namespace)
++        .cloned();
++    let Some(row) = row else {
++        gate.spend();
++        return Err(Registration(WorkFailure::Operation(
++            RegistrationRefusal::Invariant("active-row"),
++        )));
++    };
++    let registered = RegisteredProject {
++        chain: parts.chain,
++        selected: parts.selected,
++        incarnation: parts.incarnation,
++        marker_directory: opensip,
++        marker,
++        marker_metadata,
++        host,
++        projects,
++        namespace: publication,
++        registry: r2,
++        row,
++        tracking: observed,
++    };
++    gate.scope(|work| {
++        let eligible = work.run(
++            WorkCost {
++                objects: 1,
++                edges: registered.registry.document.entries().len().max(1),
++                bytes: registered.registry.document.raw().len(),
++            },
++            |_| Ok(registered.classification()),
++        )?;
++        let expected = Classification::Eligible {
++            namespace: namespace.clone(),
++            project: project.clone(),
++        };
++        if eligible != expected || registered.row.status() != ProjectRegistryStatus::Active {
++            return refuse(RegistrationRefusal::Invariant("not-eligible"));
++        }
++        recheck_registered(
++            &registered,
++            installation,
++            &policy,
++            inputs,
++            Step::Confirmed,
++            work,
++        )
++    })
++    .map_err(Registration)?;
++    gate.recheck(installation, qualification).map_err(Gate)?;
++    Ok(registered)
++}
++
++/// The registered project's recheck set (item 3's, with the owners item 6
++/// published), on the given ledger.
++fn recheck_registered(
++    registered: &RegisteredProject,
++    installation: &DurableInstallation,
++    policy: &ProjectChainPolicy<'_>,
++    inputs: &ProjectInputs<'_>,
++    step: Step,
++    work: &mut WorkScope<'_>,
++) -> Result<(), Failure> {
++    let current = Current {
++        chain: &registered.chain,
++        incarnation: &registered.incarnation,
++        marker_directory: &registered.marker_directory,
++        marker: &registered.marker,
++        marker_metadata: &registered.marker_metadata,
++        host: &registered.host,
++        projects: &registered.projects,
++        namespace: registered.namespace.directory(),
++        namespace_id: registered.row.namespace_id(),
++        registry: &registered.registry,
++        tracking: &registered.tracking,
++    };
++    recheck_current(&current, installation, policy, inputs, step, work)
++}
++
++/// The registered project's recheck on the write gate, then the gate's.
++pub(super) fn recheck_registered_on_gate(
++    gate: &mut DurableWriteGate,
++    installation: &DurableInstallation,
++    qualification: &impl DurableBarrierQualification,
++    registered: &RegisteredProject,
++    inputs: &ProjectInputs<'_>,
++) -> Result<(), ProjectWriteRefusal> {
++    if gate.is_spent() {
++        return Err(ProjectWriteRefusal::Latched);
++    }
++    let home_filesystem = |sample: &DescriptorFilesystem| qualification.is_home_filesystem(sample);
++    let policy = ProjectChainPolicy::new(
++        qualification.omission_premise(),
++        &home_filesystem,
++        inputs.trust_groups,
++    );
++    gate.scope(|work| {
++        recheck_registered(
++            registered,
++            installation,
++            &policy,
++            inputs,
++            Step::Confirmed,
++            work,
++        )
++    })
++    .map_err(ProjectWriteRefusal::Registration)?;
++    gate.recheck(installation, qualification)
++        .map_err(ProjectWriteRefusal::Gate)
++}
++
++/// The process environment and the fixed system sources, for the
++/// production entries (item 6a reads them only to refuse).
++pub(crate) fn production_sources() -> (Vec<(OsString, OsString)>, Vec<PathBuf>) {
++    (
++        super::git_tracking::process_environment(),
++        super::git_tracking::SYSTEM_SOURCES
++            .iter()
++            .map(PathBuf::from)
++            .collect(),
++    )
++}
++
++#[cfg(test)]
++mod tests {
++    include!("first_registration_tests.rs");
++}
+diff --git a/crates/security/src/custody/first_registration_tests.rs b/crates/security/src/custody/first_registration_tests.rs
+new file mode 100644
+index 0000000..9239f7b
+--- /dev/null
++++ b/crates/security/src/custody/first_registration_tests.rs
+@@ -0,0 +1,997 @@
++// Law X2 r8 item 6 (unit X2c), on scratch homes only. Each test publishes a
++// real P0 under a scratch H (`installation_read_fixture`), admits an
++// ordinary writer on it over 462's signed test trees (the write receipt and
++// the 468 gate with the scratch H), and registers a scratch project under
++// that H. Tracking reads an empty environment and no system sources.
++// Nothing here opens the real account's I or runs Git.
++use super::super::installation_admission::{GateSeam, HomeSource};
++use super::super::installation_read_fixture::{ReadFixture, private};
++use super::super::ordinary_writer::{OrdinaryWriteAdmission, admit_with};
++use super::super::project_admission::{ProjectRootAdmission, REGISTRY};
++use super::super::read_premise::{Write, WritePlatformReceipt, produce_for};
++use super::*;
++use crate::initial_installation::InitialInstallationAttempt;
++use crate::trust::{ReadProducers, read_producers};
++use opensip_identity::parse_json;
++use std::cell::Cell;
++use std::fs;
++use std::os::unix::fs::PermissionsExt;
++use std::sync::atomic::AtomicBool;
++
++// ---------------------------------------------------------------- helpers
++
++fn directory(path: &Path, mode: u32) {
++    fs::create_dir(path).unwrap();
++    fs::set_permissions(path, fs::Permissions::from_mode(mode)).unwrap();
++}
++/// A private installation directory, as the creator makes them.
++fn private_directory(path: &Path) {
++    directory(path, 0o700);
++    private(path);
++}
++/// A project under the fixture's H, 0755 with no ACL, as on a stock Mac.
++fn fixture_project(fixture: &ReadFixture) -> PathBuf {
++    let code = fixture.home.join("code");
++    directory(&code, 0o755);
++    let project = code.join("project");
++    directory(&project, 0o755);
++    project
++}
++/// An ordinary writer on the fixture's I, and the signed trees it needs.
++fn writer(fixture: &ReadFixture, tag: &str) -> (OrdinaryWriteAdmission, ReadProducers) {
++    let producers = read_producers(&format!("{tag}-write"), true, Some(&fixture.home));
++    let receipt = produce_for::<Write>(
++        InitialInstallationAttempt::for_tests(&AtomicBool::new(false), None),
++        InitialInstallationAttempt::observe_actor,
++        |attempt| producers.core(attempt),
++        |attempt, actor, core| producers.platform(attempt, actor, core),
++    )
++    .unwrap();
++    let admission = admit_with(
++        receipt,
++        WritePlatformReceipt::recheck,
++        || DurableWriteGate::for_tests(&AtomicBool::new(false), None),
++        |gate, receipt| {
++            gate.admit_with(
++                receipt.qualification(),
++                HomeSource::Fixture(&fixture.home),
++                &GateSeam::live(),
++            )
++        },
++    )
++    .unwrap();
++    (admission, producers)
++}
++const NO_GROUPS: &BTreeSet<u32> = &BTreeSet::new();
++fn inputs() -> ProjectInputs<'static> {
++    ProjectInputs {
++        trust_groups: NO_GROUPS,
++        environment: &[],
++        system_sources: &[],
++    }
++}
++/// The admission and the tracking observation on the writer's gate.
++fn admitted(
++    writer: &mut OrdinaryWriteAdmission,
++    project: &Path,
++) -> (ProjectRootAdmission, TrackingObservation) {
++    let admission = writer.admit_project_root(project, None, NO_GROUPS).unwrap();
++    let tracking = writer
++        .observe_project_tracking_with(&admission, &inputs())
++        .unwrap();
++    (admission, tracking)
++}
++fn register(
++    writer: &mut OrdinaryWriteAdmission,
++    project: &Path,
++    seam: &Seam<'_>,
++) -> Result<RegisteredProject, ProjectWriteRefusal> {
++    let (admission, tracking) = admitted(writer, project);
++    writer.register_first_use_with(admission, tracking, &inputs(), seam)
++}
++fn row(result: Result<RegisteredProject, ProjectWriteRefusal>) -> ProjectWriteRow {
++    match result {
++        Err(refusal) => refusal.row(),
++        Ok(registered) => panic!("expected a refusal, got {registered:?}"),
++    }
++}
++fn project_row(subject: RegistrationRow) -> ProjectWriteRow {
++    ProjectWriteRow::Project(subject)
++}
++/// A read session's classification of the root, after the writer is gone.
++fn classified(fixture: &ReadFixture, project: &Path) -> Classification {
++    let session = fixture.session(None).unwrap();
++    session
++        .admit_project_root(project, None, NO_GROUPS)
++        .unwrap()
++        .classification()
++        .clone()
++}
++fn registry(fixture: &ReadFixture) -> Vec<u8> {
++    fs::read(fixture.installation.join(REGISTRY)).unwrap()
++}
++fn names(path: &Path) -> Vec<String> {
++    let mut names: Vec<String> = fs::read_dir(path)
++        .unwrap()
++        .map(|e| e.unwrap().file_name().into_string().unwrap())
++        .collect();
++    names.sort();
++    names
++}
++fn temporaries(fixture: &ReadFixture) -> usize {
++    names(&fixture.installation)
++        .iter()
++        .filter(|n| n.starts_with("project-registry.v2."))
++        .count()
++}
++fn mode(path: &Path) -> u32 {
++    fs::symlink_metadata(path).unwrap().mode() & 0o7777
++}
++fn seam<'a>(fault: &'a dyn Fn(Point) -> bool) -> Seam<'a> {
++    Seam {
++        fault: Some(fault),
++        draw: None,
++        live: std::marker::PhantomData,
++    }
++}
++/// The writer is spent: every later step refuses as latched.
++fn spent(writer: &mut OrdinaryWriteAdmission, project: &Path) {
++    assert!(matches!(
++        writer.admit_project_root(project, None, NO_GROUPS),
++        Err(ProjectWriteRefusal::Latched)
++    ));
++}
++
++/// One registry row as canonical JSON.
++#[allow(clippy::too_many_arguments)]
++fn row_json(
++    project: &str,
++    namespace: &str,
++    status: &str,
++    path: &[u8],
++    volume: &[u8; 16],
++    inode: u64,
++    seconds: i64,
++    nanos: u32,
++) -> V {
++    parse_json(
++        format!(
++            r#"{{"projectId":"{project}","namespaceId":"{namespace}","status":"{status}","allocationKind":"random","root":{{"platform":"macos","canonicalPathBytesHex":"{}","volumeIdentity":{{"kind":"macos-apfs-volume-uuid-v1","value":"{}"}},"inodeId":"{inode}","birthSeconds":{seconds},"birthNanoseconds":{nanos}}}}}"#,
++            hex(path),
++            hex(volume),
++        )
++        .as_bytes(),
++    )
++    .unwrap()
++}
++fn numbered_project(i: usize) -> String {
++    format!("prj1-{i:064x}")
++}
++fn numbered_namespace(i: usize) -> String {
++    format!("{i:08x}-0000-4000-8000-000000000000")
++}
++fn document_bytes(rows: Vec<V>) -> Vec<u8> {
++    canonical_bytes(&document_value(rows).unwrap()).unwrap()
++}
++/// The root's incarnation as the admission samples it.
++fn observed(project: &Path) -> Incarnation {
++    let path = opensip_platform::RetainedDirectoryPath::open_project_root(project, 256).unwrap();
++    let birth = path.directory().observe_birth().unwrap();
++    let volume = path.directory().observe_volume().unwrap();
++    Incarnation {
++        volume: *volume.uuid_bytes(),
++        inode: birth.metadata().inode,
++        birth_seconds: birth.birth_seconds(),
++        birth_nanoseconds: birth.birth_nanoseconds(),
++    }
++}
++/// The root's own registry row at `status`, and its marker.
++fn own_row(project: &Path, i: usize, status: &str) -> V {
++    let inc = observed(project);
++    row_json(
++        &numbered_project(i),
++        &numbered_namespace(i),
++        status,
++        project.as_os_str().as_bytes(),
++        &inc.volume,
++        inc.inode,
++        inc.birth_seconds,
++        inc.birth_nanoseconds,
++    )
++}
++fn write_marker(project: &Path, i: usize) {
++    let opensip = project.join(MARKER_DIRECTORY);
++    directory(&opensip, 0o700);
++    let marker = opensip.join(MARKER_FILE);
++    fs::write(&marker, marker_bytes(&numbered_project(i))).unwrap();
++    fs::set_permissions(&marker, fs::Permissions::from_mode(0o600)).unwrap();
++    private(&marker);
++}
++
++// ------------------------------------------------------------- pure parts
++
++#[test]
++fn namespace_candidates_are_canonical_uuid_v4() {
++    assert_eq!(
++        namespace_text([0; 16]),
++        "00000000-0000-4000-8000-000000000000"
++    );
++    assert_eq!(
++        namespace_text([0xff; 16]),
++        "ffffffff-ffff-4fff-bfff-ffffffffffff"
++    );
++    // Every candidate is a namespace the registry decoder admits.
++    for draw in [[0u8; 16], [0xff; 16], [0x5a; 16]] {
++        let n = namespace_text(draw);
++        let raw = document_bytes(vec![row_json(
++            &numbered_project(1),
++            &n,
++            "RETIRED",
++            b"/a",
++            &[1; 16],
++            1,
++            0,
++            0,
++        )]);
++        assert_eq!(
++            ProjectRegistryDocument::decode(&raw).unwrap().entries()[0].namespace_id(),
++            n
++        );
++    }
++}
++
++#[test]
++fn document_lengths_and_later_spellings_are_exact() {
++    let rows: Vec<V> = (0..5)
++        .map(|i| {
++            row_json(
++                &numbered_project(i),
++                &numbered_namespace(i),
++                ["RESERVED", "ACTIVE", "RETIRED", "ABANDONED", "ACTIVE"][i],
++                format!("/p{i}").as_bytes(),
++                &[i as u8 + 1; 16],
++                i as u64,
++                -5,
++                7,
++            )
++        })
++        .collect();
++    let empty = document_bytes(Vec::new()).len();
++    let lengths: Vec<usize> = rows
++        .iter()
++        .map(|r| canonical_bytes(r).unwrap().len())
++        .collect();
++    let whole = document_bytes(rows.clone());
++    assert_eq!(document_length(empty, lengths.iter().copied()), whole.len());
++    assert_eq!(document_length(empty, std::iter::empty()), empty);
++    // Each live row's worst later spelling is exactly one byte longer.
++    let document = ProjectRegistryDocument::decode(&whole).unwrap();
++    for entry in document.entries() {
++        let now = canonical_bytes(&existing_row(entry, entry.status()).unwrap())
++            .unwrap()
++            .len();
++        let later = canonical_bytes(&existing_row(entry, worst_status(entry.status())).unwrap())
++            .unwrap()
++            .len();
++        let live = matches!(
++            entry.status(),
++            ProjectRegistryStatus::Reserved | ProjectRegistryStatus::Active
++        );
++        assert_eq!(later, now + usize::from(live));
++    }
++    // Re-encoding every decoded row reproduces the exact bytes.
++    let again: Vec<V> = document
++        .entries()
++        .iter()
++        .map(|e| existing_row(e, e.status()).unwrap())
++        .collect();
++    assert_eq!(document_bytes(again), whole);
++}
++
++#[test]
++fn scope_limit_rows_use_the_s12_subjects() {
++    let rows = RegistrationRefusal::ScopeLimit {
++        field: "registry-rows",
++        count: 4097,
++    };
++    assert_eq!(
++        rows.row(),
++        RegistrationRow::ScopeLimit("registry-rows:4097>4096".into())
++    );
++    let bytes = RegistrationRefusal::ScopeLimit {
++        field: "registry-bytes",
++        count: 4194305,
++    };
++    assert_eq!(
++        bytes.row(),
++        RegistrationRow::ScopeLimit("registry-bytes:4194305>4194304".into())
++    );
++    assert_eq!(
++        RegistrationRefusal::NotFirstUse(Classification::OneSided).row(),
++        RegistrationRow::RootCustody("identity-recovery-required")
++    );
++    assert_eq!(
++        RegistrationRefusal::NotFirstUse(Classification::Contradiction).row(),
++        RegistrationRow::RootCustody("identity-contradiction")
++    );
++    assert_eq!(
++        RegistrationRefusal::TransitionActive.row(),
++        RegistrationRow::Incomplete
++    );
++    assert_eq!(
++        RegistrationRefusal::Custody(Owner::Host, "private").row(),
++        RegistrationRow::InstallationCustody("private")
++    );
++    assert_eq!(
++        RegistrationRefusal::Custody(Owner::MarkerDirectory, "marker-directory-custody").row(),
++        RegistrationRow::RootCustody("marker-directory-custody")
++    );
++}
++
++// ------------------------------------------------------- the whole act
++
++#[test]
++fn first_registration_publishes_reserved_namespace_marker_then_active() {
++    let fixture = ReadFixture::new("x2c-ok");
++    let project = fixture_project(&fixture);
++    let r0 = registry(&fixture);
++    let (mut writer, _trees) = writer(&fixture, "x2c-ok");
++    let registered = register(&mut writer, &project, &Seam::live()).unwrap();
++    let n = registered.namespace_id().to_owned();
++    let id = registered.project_id().to_owned();
++    assert_eq!(
++        registered.classification(),
++        Classification::Eligible {
++            namespace: n.clone(),
++            project: id.clone()
++        }
++    );
++    // The registry: R0's empty history plus exactly one ACTIVE random row
++    // binding this root's path and native incarnation.
++    assert_ne!(registry(&fixture), r0);
++    let document = ProjectRegistryDocument::decode(&registry(&fixture)).unwrap();
++    assert_eq!(document.raw(), registered.registry().document().raw());
++    let [entry] = document.entries() else {
++        panic!("one row");
++    };
++    assert_eq!(entry.status(), ProjectRegistryStatus::Active);
++    assert_eq!(entry.allocation_kind(), ProjectAllocationKind::Random);
++    assert_eq!(
++        (entry.project_id(), entry.namespace_id()),
++        (id.as_str(), n.as_str())
++    );
++    assert_eq!(entry.root().path_bytes(), project.as_os_str().as_bytes());
++    let inc = observed(&project);
++    assert_eq!(entry.root().volume_uuid_bytes(), &inc.volume);
++    assert_eq!(
++        (
++            entry.root().inode(),
++            entry.root().birth_seconds(),
++            entry.root().birth_nanoseconds()
++        ),
++        (inc.inode, inc.birth_seconds, inc.birth_nanoseconds)
++    );
++    // The namespace: private parents, and exactly two empty private leases.
++    let host = fixture.installation.join(HOST);
++    let projects = host.join(PROJECTS);
++    let namespace = projects.join(&n);
++    for dir in [&host, &projects, &namespace] {
++        assert_eq!(mode(dir), 0o700, "{dir:?}");
++    }
++    assert_eq!(names(&projects), vec![n.clone()]);
++    assert_eq!(names(&namespace), vec!["readers.lease", "writer.lease"]);
++    for lease in [WRITER_LEASE, READERS_LEASE] {
++        let path = namespace.join(lease);
++        assert_eq!(mode(&path), 0o600);
++        assert_eq!(fs::metadata(&path).unwrap().len(), 0);
++    }
++    // The marker: 0600, the exact frame, in a new 0700 `.opensip`.
++    let opensip = project.join(MARKER_DIRECTORY);
++    assert_eq!(mode(&opensip), 0o700);
++    assert_eq!(names(&opensip), vec![MARKER_FILE]);
++    let marker = fs::read(opensip.join(MARKER_FILE)).unwrap();
++    assert_eq!(marker.len(), 92);
++    assert_eq!(ProjectIdMarker::decode(&marker).unwrap().project_id(), id);
++    // No temporary file stays: both temporaries became the registry.
++    assert_eq!(temporaries(&fixture), 0);
++    // The gate's retained registry sample advanced with each publication:
++    // its recheck and the registered project's recheck pass.
++    writer.recheck_registered(&registered, &inputs()).unwrap();
++    // Registering again is not a first use: the same writer would refuse.
++    drop(registered);
++    writer.release().unwrap();
++    assert_eq!(
++        classified(&fixture, &project),
++        Classification::Eligible {
++            namespace: n.clone(),
++            project: id.clone()
++        }
++    );
++    let (mut again, _trees) = self::writer(&fixture, "x2c-ok-again");
++    assert_eq!(
++        row(register(&mut again, &project, &Seam::live())),
++        ProjectWriteRow::Project(RegistrationRow::Invariant)
++    );
++    assert_eq!(
++        ProjectRegistryDocument::decode(&registry(&fixture))
++            .unwrap()
++            .entries()
++            .len(),
++        1
++    );
++}
++
++#[test]
++fn a_reused_opensip_and_existing_parents_are_admitted_never_changed() {
++    let fixture = ReadFixture::new("x2c-reuse");
++    let project = fixture_project(&fixture);
++    // `.opensip` from an earlier tool: 0755, no ACL, empty.
++    directory(&project.join(MARKER_DIRECTORY), 0o755);
++    // Parents left by an earlier registration of another project.
++    private_directory(&fixture.installation.join(HOST));
++    private_directory(&fixture.installation.join(HOST).join(PROJECTS));
++    let other = numbered_namespace(7);
++    private_directory(&fixture.installation.join(HOST).join(PROJECTS).join(&other));
++    let (mut writer, _trees) = writer(&fixture, "x2c-reuse");
++    let registered = register(&mut writer, &project, &Seam::live()).unwrap();
++    // The reused `.opensip` keeps its mode; the marker is new and private.
++    assert_eq!(mode(&project.join(MARKER_DIRECTORY)), 0o755);
++    assert_eq!(
++        mode(&project.join(MARKER_DIRECTORY).join(MARKER_FILE)),
++        0o600
++    );
++    let mut expected = vec![other, registered.namespace_id().to_owned()];
++    expected.sort();
++    assert_eq!(
++        names(&fixture.installation.join(HOST).join(PROJECTS)),
++        expected
++    );
++    writer.recheck_registered(&registered, &inputs()).unwrap();
++}
++
++// ------------------------------------------- refusals before any effect
++
++#[test]
++fn only_a_first_use_candidate_registers_and_nothing_is_written() {
++    // Eligible (a registered root with its marker): a broken composition.
++    let fixture = ReadFixture::new("x2c-eligible");
++    let project = fixture_project(&fixture);
++    write_marker(&project, 3);
++    fixture.write(
++        REGISTRY,
++        &document_bytes(vec![own_row(&project, 3, "ACTIVE")]),
++    );
++    let before = registry(&fixture);
++    let (mut writer, _trees) = writer(&fixture, "x2c-eligible");
++    assert_eq!(
++        row(register(&mut writer, &project, &Seam::live())),
++        project_row(RegistrationRow::Invariant)
++    );
++    spent(&mut writer, &project);
++    assert_eq!(registry(&fixture), before);
++    assert!(!fixture.installation.join(HOST).exists());
++
++    // A matching RESERVED row needs explicit recovery.
++    let fixture = ReadFixture::new("x2c-reserved");
++    let project = fixture_project(&fixture);
++    fixture.write(
++        REGISTRY,
++        &document_bytes(vec![own_row(&project, 4, "RESERVED")]),
++    );
++    let before = registry(&fixture);
++    let (mut writer, _trees) = self::writer(&fixture, "x2c-reserved");
++    assert_eq!(
++        row(register(&mut writer, &project, &Seam::live())),
++        project_row(RegistrationRow::RootCustody("identity-recovery-required"))
++    );
++    assert_eq!(registry(&fixture), before);
++    assert!(!project.join(MARKER_DIRECTORY).exists());
++
++    // A marker with no live row is one-sided.
++    let fixture = ReadFixture::new("x2c-onesided");
++    let project = fixture_project(&fixture);
++    write_marker(&project, 5);
++    let (mut writer, _trees) = self::writer(&fixture, "x2c-onesided");
++    assert_eq!(
++        row(register(&mut writer, &project, &Seam::live())),
++        project_row(RegistrationRow::RootCustody("identity-recovery-required"))
++    );
++    assert!(!fixture.installation.join(HOST).exists());
++}
++
++#[test]
++fn a_vcs_change_after_the_observation_refuses_before_any_effect() {
++    let fixture = ReadFixture::new("x2c-vcs");
++    let project = fixture_project(&fixture);
++    let before = registry(&fixture);
++    let (mut writer, _trees) = writer(&fixture, "x2c-vcs");
++    let (admission, tracking) = admitted(&mut writer, &project);
++    directory(&project.join(".hg"), 0o755);
++    let result = writer.register_first_use_with(admission, tracking, &inputs(), &Seam::live());
++    assert_eq!(
++        row(result),
++        project_row(RegistrationRow::RootCustody("vcs-unsupported"))
++    );
++    spent(&mut writer, &project);
++    assert_eq!(registry(&fixture), before);
++    assert_eq!(temporaries(&fixture), 0);
++    assert!(!project.join(MARKER_DIRECTORY).exists());
++}
++
++#[test]
++fn transition_state_and_foreign_parents_refuse_before_any_effect() {
++    // An entry beside P0's lineage may be a transition slot.
++    let fixture = ReadFixture::new("x2c-slot");
++    let project = fixture_project(&fixture);
++    fixture.write("transitions/active.slot", b"{}");
++    let before = registry(&fixture);
++    let (mut writer, _trees) = writer(&fixture, "x2c-slot");
++    assert_eq!(
++        row(register(&mut writer, &project, &Seam::live())),
++        project_row(RegistrationRow::Incomplete)
++    );
++    assert_eq!(registry(&fixture), before);
++    assert!(!fixture.installation.join(HOST).exists());
++
++    // A `host` that is not private refuses before RESERVED.
++    let fixture = ReadFixture::new("x2c-host");
++    let project = fixture_project(&fixture);
++    directory(&fixture.installation.join(HOST), 0o755);
++    let before = registry(&fixture);
++    let (mut writer, _trees) = self::writer(&fixture, "x2c-host");
++    assert_eq!(
++        row(register(&mut writer, &project, &Seam::live())),
++        project_row(RegistrationRow::InstallationCustody("private"))
++    );
++    assert_eq!(registry(&fixture), before);
++    assert_eq!(temporaries(&fixture), 0);
++    assert!(names(&fixture.installation.join(HOST)).is_empty());
++}
++
++#[test]
++fn candidates_collide_with_history_and_occupancy_up_to_eight_draws() {
++    // Every ProjectId draw repeats a terminal row's ProjectId.
++    let fixture = ReadFixture::new("x2c-collide");
++    let project = fixture_project(&fixture);
++    let zero = format!("prj1-{}", "0".repeat(64));
++    fixture.write(
++        REGISTRY,
++        &document_bytes(vec![row_json(
++            &zero,
++            &numbered_namespace(9),
++            "RETIRED",
++            b"/old",
++            &[3; 16],
++            3,
++            0,
++            0,
++        )]),
++    );
++    let before = registry(&fixture);
++    let draws = Cell::new(0);
++    let zeros = |out: &mut [u8]| {
++        draws.set(draws.get() + 1);
++        out.fill(0);
++        true
++    };
++    let none = |_: Point| false;
++    let seam = Seam {
++        fault: Some(&none),
++        draw: Some(&zeros),
++        live: std::marker::PhantomData,
++    };
++    let (mut writer, _trees) = writer(&fixture, "x2c-collide");
++    assert_eq!(
++        row(register(&mut writer, &project, &seam)),
++        project_row(RegistrationRow::HostIo)
++    );
++    assert_eq!(draws.get(), 8);
++    assert_eq!(registry(&fixture), before);
++
++    // Every namespace draw names an occupied `I/host/projects/N`.
++    let fixture = ReadFixture::new("x2c-occupied");
++    let project = fixture_project(&fixture);
++    let projects = fixture.installation.join(HOST).join(PROJECTS);
++    private_directory(&fixture.installation.join(HOST));
++    private_directory(&projects);
++    fs::write(projects.join(namespace_text([0; 16])), b"").unwrap();
++    let before = registry(&fixture);
++    draws.set(0);
++    let (mut writer, _trees) = self::writer(&fixture, "x2c-occupied");
++    assert_eq!(
++        row(register(&mut writer, &project, &seam)),
++        project_row(RegistrationRow::HostIo)
++    );
++    // One ProjectId draw, then eight namespace draws.
++    assert_eq!(draws.get(), 9);
++    assert_eq!(registry(&fixture), before);
++
++    // No entropy: the host I/O row and no partial guess.
++    let fixture = ReadFixture::new("x2c-entropy");
++    let project = fixture_project(&fixture);
++    let fail = |_: &mut [u8]| false;
++    let seam = Seam {
++        fault: None,
++        draw: Some(&fail),
++        live: std::marker::PhantomData,
++    };
++    let (mut writer, _trees) = self::writer(&fixture, "x2c-entropy");
++    let result = register(&mut writer, &project, &seam);
++    assert!(matches!(
++        &result,
++        Err(ProjectWriteRefusal::Registration(WorkFailure::Operation(
++            RegistrationRefusal::Entropy
++        )))
++    ));
++    assert_eq!(row(result), project_row(RegistrationRow::HostIo));
++}
++
++/// A registry whose canonical length is `target` or at most three bytes
++/// less, built from rows with long paths at `status`. Live
++/// rows get distinct ProjectIds, paths and incarnations.
++fn filled(status: &str, target: usize) -> Vec<u8> {
++    let make = |i: usize, width: usize| {
++        row_json(
++            &numbered_project(i + 100),
++            &numbered_namespace(i + 100),
++            status,
++            format!("/{i:0>width$}").as_bytes(),
++            &[0x22; 16],
++            // Fixed-width inodes keep every row's length the same.
++            i as u64 + 1_000_000,
++            0,
++            0,
++        )
++    };
++    let empty = document_bytes(Vec::new()).len();
++    let full = canonical_bytes(&make(0, 4095)).unwrap().len();
++    let short = canonical_bytes(&make(0, 8)).unwrap().len();
++    let mut rows = Vec::new();
++    let mut length = empty;
++    // Whole rows while more than two whole rows' room remains.
++    while target - length > 2 * (full + 1) {
++        rows.push(make(rows.len(), 4095));
++        length += full + usize::from(rows.len() > 1);
++    }
++    // Two last rows share the rest (hex adds two bytes per path byte).
++    let half = (target - length - 2) / 2;
++    for _ in 0..2 {
++        rows.push(make(rows.len(), 8 + (half - short) / 2));
++    }
++    let bytes = document_bytes(rows);
++    assert!(
++        bytes.len() <= target && bytes.len() + 3 >= target,
++        "{} {target}",
++        bytes.len()
++    );
++    ProjectRegistryDocument::decode(&bytes).unwrap();
++    bytes
++}
++
++#[test]
++fn capacity_refuses_rows_bytes_and_later_spellings_before_any_effect() {
++    // 4096 terminal rows: the 4097th row refuses.
++    let fixture = ReadFixture::new("x2c-rows");
++    let project = fixture_project(&fixture);
++    let rows: Vec<V> = (0..4096)
++        .map(|i| {
++            row_json(
++                &numbered_project(i),
++                &numbered_namespace(i),
++                "RETIRED",
++                b"/old",
++                &[3; 16],
++                3,
++                0,
++                0,
++            )
++        })
++        .collect();
++    fixture.write(REGISTRY, &document_bytes(rows));
++    let before = registry(&fixture);
++    let (mut writer, _trees) = writer(&fixture, "x2c-rows");
++    assert_eq!(
++        row(register(&mut writer, &project, &Seam::live())),
++        project_row(RegistrationRow::ScopeLimit(
++            "registry-rows:4097>4096".into()
++        ))
++    );
++    assert_eq!(registry(&fixture), before);
++    assert!(!fixture.installation.join(HOST).exists());
++
++    // A registry 64 bytes under the cap: the RESERVED document is over it.
++    let fixture = ReadFixture::new("x2c-bytes");
++    let project = fixture_project(&fixture);
++    fixture.write(REGISTRY, &filled("RETIRED", PROJECT_REGISTRY_CAP - 64));
++    let (mut writer, _trees) = self::writer(&fixture, "x2c-bytes");
++    match row(register(&mut writer, &project, &Seam::live())) {
++        ProjectWriteRow::Project(RegistrationRow::ScopeLimit(subject)) => {
++            let (field, rest) = subject.split_once(':').unwrap();
++            let (n, limit) = rest.split_once('>').unwrap();
++            assert_eq!((field, limit), ("registry-bytes", "4194304"));
++            assert!(n.parse::<usize>().unwrap() > PROJECT_REGISTRY_CAP);
++        }
++        other => panic!("{other:?}"),
++    }
++    assert!(!fixture.installation.join(HOST).exists());
++
++    // ACTIVE rows: RESERVED fits, but every live row's later terminal
++    // spelling is one byte longer, and that document would not fit.
++    let fixture = ReadFixture::new("x2c-later");
++    let project = fixture_project(&fixture);
++    let new_row = {
++        let inc = observed(&project);
++        canonical_bytes(&row_json(
++            &numbered_project(1),
++            &numbered_namespace(1),
++            "RESERVED",
++            project.as_os_str().as_bytes(),
++            &inc.volume,
++            inc.inode,
++            inc.birth_seconds,
++            inc.birth_nanoseconds,
++        ))
++        .unwrap()
++        .len()
++    };
++    let existing = filled("ACTIVE", PROJECT_REGISTRY_CAP - new_row - 1 - 16);
++    let live = ProjectRegistryDocument::decode(&existing)
++        .unwrap()
++        .entries()
++        .len();
++    assert!(existing.len() + 1 + new_row <= PROJECT_REGISTRY_CAP);
++    assert!(existing.len() + 1 + new_row + live + 1 > PROJECT_REGISTRY_CAP);
++    fixture.write(REGISTRY, &existing);
++    let (mut writer, _trees) = self::writer(&fixture, "x2c-later");
++    let terminal = existing.len() + 1 + new_row + live + 1;
++    assert_eq!(
++        row(register(&mut writer, &project, &Seam::live())),
++        project_row(RegistrationRow::ScopeLimit(format!(
++            "registry-bytes:{terminal}>4194304"
++        )))
++    );
++    assert!(!fixture.installation.join(HOST).exists());
++}
++
++// ------------------------------------------- durable prefixes and changes
++
++/// What the disk holds after a stop.
++#[derive(Debug, PartialEq, Eq)]
++struct Prefix {
++    status: Option<&'static str>,
++    parents: bool,
++    stage: bool,
++    namespace: bool,
++    opensip: bool,
++    marker: Option<usize>,
++}
++fn prefix(fixture: &ReadFixture, project: &Path) -> Prefix {
++    let document = ProjectRegistryDocument::decode(&registry(fixture)).unwrap();
++    let status = document.entries().first().map(|e| status_text(e.status()));
++    let projects = fixture.installation.join(HOST).join(PROJECTS);
++    let entries = if projects.exists() {
++        names(&projects)
++    } else {
++        Vec::new()
++    };
++    let marker = project.join(MARKER_DIRECTORY).join(MARKER_FILE);
++    Prefix {
++        status,
++        parents: projects.exists(),
++        stage: entries
++            .iter()
++            .any(|n| n.starts_with(".opensip-stage-install-")),
++        namespace: entries.iter().any(|n| !n.starts_with('.')),
++        opensip: project.join(MARKER_DIRECTORY).exists(),
++        marker: marker
++            .exists()
++            .then(|| fs::metadata(&marker).unwrap().len() as usize),
++    }
++}
++
++#[test]
++fn each_stop_leaves_its_durable_prefix_and_spends_the_writer() {
++    use Point as P;
++    let cases: [(Point, Prefix, Classification); 11] = {
++        let p = |status, parents, stage, namespace, opensip, marker| Prefix {
++            status,
++            parents,
++            stage,
++            namespace,
++            opensip,
++            marker,
++        };
++        let reserved = Some("RESERVED");
++        let recovery = || Classification::RecoveryNeeded {
++            namespace: String::new(),
++            project: String::new(),
++        };
++        [
++            (
++                P::ReservedWritten,
++                p(None, false, false, false, false, None),
++                Classification::FirstUseCandidate,
++            ),
++            (
++                P::ReservedRenamed,
++                p(reserved, false, false, false, false, None),
++                recovery(),
++            ),
++            (
++                P::ReservedConfirmed,
++                p(reserved, false, false, false, false, None),
++                recovery(),
++            ),
++            (
++                P::ParentsReady,
++                p(reserved, true, false, false, false, None),
++                recovery(),
++            ),
++            (
++                P::NamespaceStaged,
++                p(reserved, true, true, false, false, None),
++                recovery(),
++            ),
++            (
++                P::NamespacePublished,
++                p(reserved, true, false, true, false, None),
++                recovery(),
++            ),
++            (
++                P::MarkerDirectoryReady,
++                p(reserved, true, false, true, true, None),
++                recovery(),
++            ),
++            (
++                P::MarkerCreated,
++                p(reserved, true, false, true, true, Some(0)),
++                Classification::Contradiction,
++            ),
++            (
++                P::MarkerWritten,
++                p(reserved, true, false, true, true, Some(92)),
++                recovery(),
++            ),
++            (
++                P::ActiveWritten,
++                p(reserved, true, false, true, true, Some(92)),
++                recovery(),
++            ),
++            (
++                P::ActiveRenamed,
++                p(Some("ACTIVE"), true, false, true, true, Some(92)),
++                Classification::Eligible {
++                    namespace: String::new(),
++                    project: String::new(),
++                },
++            ),
++        ]
++    };
++    for (index, (point, expected, class)) in cases.into_iter().enumerate() {
++        let fixture = ReadFixture::new(&format!("x2c-stop{index}"));
++        let project = fixture_project(&fixture);
++        let (mut writer, _trees) = writer(&fixture, &format!("x2c-stop{index}"));
++        let fault = move |at: Point| at == point;
++        let result = register(&mut writer, &project, &seam(&fault));
++        assert_eq!(
++            row(result),
++            project_row(RegistrationRow::HostIo),
++            "{point:?}"
++        );
++        spent(&mut writer, &project);
++        writer.release().unwrap();
++        assert_eq!(prefix(&fixture, &project), expected, "{point:?}");
++        // Leftovers are the registry owner's explicit-recovery cases: a
++        // fresh read admission never sees a first use after RESERVED.
++        let observed = classified(&fixture, &project);
++        assert_eq!(
++            std::mem::discriminant(&observed),
++            std::mem::discriminant(&class),
++            "{point:?}: {observed:?}"
++        );
++        // A temporary file stays only where its rename did not run.
++        let left = matches!(point, P::ReservedWritten | P::ActiveWritten);
++        assert_eq!(temporaries(&fixture), usize::from(left), "{point:?}");
++    }
++}
++
++#[test]
++fn a_registry_or_marker_change_before_active_refuses_without_active() {
++    // The registry rewritten in place after RESERVED: R1's reconfirmation.
++    let fixture = ReadFixture::new("x2c-r1");
++    let project = fixture_project(&fixture);
++    let path = fixture.installation.join(REGISTRY);
++    let rewrite = |at: Point| {
++        if at == Point::MarkerWritten {
++            let bytes = fs::read(&path).unwrap();
++            fs::write(&path, bytes).unwrap();
++        }
++        false
++    };
++    let (mut writer, _trees) = writer(&fixture, "x2c-r1");
++    assert_eq!(
++        row(register(&mut writer, &project, &seam(&rewrite))),
++        project_row(RegistrationRow::Admission(
++            ProjectAdmissionRow::RequiredFilesChanged
++        ))
++    );
++    spent(&mut writer, &project);
++    let document = ProjectRegistryDocument::decode(&registry(&fixture)).unwrap();
++    assert_eq!(
++        document.entries()[0].status(),
++        ProjectRegistryStatus::Reserved
++    );
++
++    // The marker replaced after it was written: the marker owner's recheck.
++    let fixture = ReadFixture::new("x2c-marker");
++    let project = fixture_project(&fixture);
++    let marker = project.join(MARKER_DIRECTORY).join(MARKER_FILE);
++    let replace_marker = |at: Point| {
++        if at == Point::ActiveWritten {
++            let bytes = fs::read(&marker).unwrap();
++            fs::remove_file(&marker).unwrap();
++            fs::write(&marker, bytes).unwrap();
++        }
++        false
++    };
++    let (mut writer, _trees) = self::writer(&fixture, "x2c-marker");
++    // The change lands after ACTIVE's temporary file, so R1's reconfirm
++    // already passed; the stop comes from the name recheck after the rename
++    // only if the registry changed. Here ACTIVE publishes, and the final
++    // recheck sees the replaced marker.
++    assert_eq!(
++        row(register(&mut writer, &project, &seam(&replace_marker))),
++        project_row(RegistrationRow::Admission(
++            ProjectAdmissionRow::RequiredFilesChanged
++        ))
++    );
++    spent(&mut writer, &project);
++
++    // The marker replaced before step 6: no ACTIVE at all.
++    let fixture = ReadFixture::new("x2c-marker6");
++    let project = fixture_project(&fixture);
++    let marker = project.join(MARKER_DIRECTORY).join(MARKER_FILE);
++    let replace_early = |at: Point| {
++        if at == Point::MarkerWritten {
++            let bytes = fs::read(&marker).unwrap();
++            fs::remove_file(&marker).unwrap();
++            fs::write(&marker, bytes).unwrap();
++            fs::set_permissions(&marker, fs::Permissions::from_mode(0o600)).unwrap();
++            private(&marker);
++        }
++        false
++    };
++    let (mut writer, _trees) = self::writer(&fixture, "x2c-marker6");
++    assert_eq!(
++        row(register(&mut writer, &project, &seam(&replace_early))),
++        project_row(RegistrationRow::Admission(
++            ProjectAdmissionRow::RequiredFilesChanged
++        ))
++    );
++    let document = ProjectRegistryDocument::decode(&registry(&fixture)).unwrap();
++    assert_eq!(
++        document.entries()[0].status(),
++        ProjectRegistryStatus::Reserved
++    );
++}
++
++#[test]
++fn a_registered_projects_recheck_sees_a_later_registry_change() {
++    let fixture = ReadFixture::new("x2c-after");
++    let project = fixture_project(&fixture);
++    let (mut writer, _trees) = writer(&fixture, "x2c-after");
++    let registered = register(&mut writer, &project, &Seam::live()).unwrap();
++    let path = fixture.installation.join(REGISTRY);
++    let bytes = fs::read(&path).unwrap();
++    fs::write(&path, bytes).unwrap();
++    let refusal = writer
++        .recheck_registered(&registered, &inputs())
++        .unwrap_err();
++    assert_eq!(
++        refusal.row(),
++        project_row(RegistrationRow::Admission(
++            ProjectAdmissionRow::RequiredFilesChanged
++        ))
++    );
++    spent(&mut writer, &project);
++}
+diff --git a/crates/security/src/custody/installation_admission.rs b/crates/security/src/custody/installation_admission.rs
+index 8e71b8f..66c1804 100644
+--- a/crates/security/src/custody/installation_admission.rs
++++ b/crates/security/src/custody/installation_admission.rs
+@@ -483,6 +483,41 @@ impl DurableInstallation {
+     pub(crate) fn endpoint(&self) -> &EndpointValues {
+         &self.endpoint
+     }
++    /// The retained I, for law X2's project admission and first registration
++    /// on the write gate (unit X2c). No authority beyond the held fence.
++    pub(super) fn installation_directory(&self) -> &RetainedDirectory {
++        &self.chain.installation
++    }
++    /// H's spelling exactly as step 0 walked it (law X2 item 3).
++    pub(super) fn home_spelling(&self) -> &Path {
++        self.chain.home_spelling()
++    }
++    /// The admitted account's UID.
++    pub(super) fn uid(&self) -> u32 {
++        self.account.uid
++    }
++    /// Law X2 r8 item 6: the retained registry owner R advances only through
++    /// a confirmed publication of `project-registry.v2` (R0 to R1 to R2). The
++    /// retained sample changes only when it still equals `from`, the
++    /// predecessor that publication reconfirmed; any other change to the
++    /// registry still fails the recheck set. Returns whether it advanced.
++    pub(super) fn advance_registry(
++        &mut self,
++        from: &DescriptorMetadata,
++        to: DescriptorMetadata,
++    ) -> bool {
++        match self
++            .required
++            .iter_mut()
++            .find(|file| file.relative == "project-registry.v2")
++        {
++            Some(file) if &file.metadata == from => {
++                file.metadata = to;
++                true
++            }
++            _ => false,
++        }
++    }
+     /// Unlock the fence, then close every retained handle.
+     pub(crate) fn release(self) -> io::Result<()> {
+         let Self { fence, chain, .. } = self;
+@@ -753,6 +788,28 @@ impl DurableWriteGate {
+         self.ledger.scope(action).map_err(flatten)
+     }
+ 
++    /// Law X2 (units X2b and X2c on the write gate): one more charged step on
++    /// this gate's own ledger with the step's own refusal type. A refusal or
++    /// budget failure closes the ledger, so the gate stays spent; a closed
++    /// ledger refuses before the action runs.
++    pub(super) fn scope<R, E>(
++        &mut self,
++        action: impl FnOnce(&mut WorkScope<'_>) -> Result<R, WorkFailure<E>>,
++    ) -> Result<R, WorkFailure<E>> {
++        self.ledger.scope(action)
++    }
++    /// Whether this gate's ledger has closed: every later step refuses.
++    pub(super) fn is_spent(&self) -> bool {
++        self.ledger.is_failed()
++    }
++    /// Close this gate's ledger for good, for a refusal that arose outside
++    /// it (the write receipt's recheck). Nothing runs.
++    pub(super) fn spend(&mut self) {
++        let _ = self
++            .ledger
++            .scope::<(), ()>(|_| Err(WorkFailure::Operation(())));
++    }
++
+     /// Law X3a item 2: one full session recheck of the installation this
+     /// gate admitted, on its own ledger: the recheck set of item 3, with the
+     /// required files compared by their retained full samples. Nothing is
+diff --git a/crates/security/src/custody/ordinary_writer.rs b/crates/security/src/custody/ordinary_writer.rs
+index cad5cd4..b72b480 100644
+--- a/crates/security/src/custody/ordinary_writer.rs
++++ b/crates/security/src/custody/ordinary_writer.rs
+@@ -11,7 +11,12 @@
+ // positive absence; nothing is ever created on this path. Every refusal is
+ // its law 468 item 6 row through 468c's maps. Library only: no command is
+ // wired.
++use super::first_registration::{
++    self, ProjectInputs, ProjectWriteRefusal, RegisteredProject, Seam,
++};
++use super::git_tracking::TrackingObservation;
+ use super::installation_admission::{DurableInstallation, DurableWriteGate, GateRefusal};
++use super::project_admission::ProjectRootAdmission;
+ use super::installation_routing::gate_refusal;
+ use super::read_premise::{WritePlatformReceipt, produce_write_platform};
+ use super::store_endpoint::{SelectedStoreEndpoint, validate_endpoint};
+@@ -54,6 +59,129 @@ impl OrdinaryWriteAdmission {
+         })
+     }
+ 
++    /// Spend the gate on a refusal; then, on success, the receipt's recheck
++    /// while the fence is still held (a refusal of it spends the gate too).
++    fn settle<R>(
++        &mut self,
++        result: Result<R, ProjectWriteRefusal>,
++    ) -> Result<R, ProjectWriteRefusal> {
++        let value = match result {
++            Ok(value) => value,
++            Err(refusal) => {
++                self.gate.spend();
++                return Err(refusal);
++            }
++        };
++        if let Err(row) = self.receipt.recheck() {
++            self.gate.spend();
++            return Err(ProjectWriteRefusal::Receipt(row));
++        }
++        Ok(value)
++    }
++    /// Law X2 items 2 to 5 on this writer's gate (unit X2c): select and
++    /// admit the project root with its registry classification, under the
++    /// held fence, with the write receipt's premise. Grants nothing alone.
++    pub(crate) fn admit_project_root(
++        &mut self,
++        launch: &std::path::Path,
++        explicit: Option<&std::path::Path>,
++        trust_groups: &std::collections::BTreeSet<u32>,
++    ) -> Result<ProjectRootAdmission, ProjectWriteRefusal> {
++        let result = first_registration::admit_on_gate(
++            &mut self.gate,
++            &self.installation,
++            self.receipt.qualification(),
++            launch,
++            explicit,
++            trust_groups,
++        );
++        self.settle(result)
++    }
++    /// Law X2 item 6a on this writer's gate, over the process environment
++    /// and the fixed system sources.
++    pub(crate) fn observe_project_tracking(
++        &mut self,
++        admission: &ProjectRootAdmission,
++        trust_groups: &std::collections::BTreeSet<u32>,
++    ) -> Result<TrackingObservation, ProjectWriteRefusal> {
++        let (environment, sources) = first_registration::production_sources();
++        let sources: Vec<&std::path::Path> = sources.iter().map(|p| p.as_path()).collect();
++        let inputs = ProjectInputs {
++            trust_groups,
++            environment: &environment,
++            system_sources: &sources,
++        };
++        self.observe_project_tracking_with(admission, &inputs)
++    }
++    /// `observe_project_tracking` over given inputs (the crate seam).
++    pub(crate) fn observe_project_tracking_with(
++        &mut self,
++        admission: &ProjectRootAdmission,
++        inputs: &ProjectInputs<'_>,
++    ) -> Result<TrackingObservation, ProjectWriteRefusal> {
++        let result = first_registration::observe_tracking_on_gate(
++            &mut self.gate,
++            &self.installation,
++            self.receipt.qualification(),
++            admission,
++            inputs,
++        );
++        self.settle(result)
++    }
++    /// Law X2 item 6 (unit X2c): first registration of a FirstUseCandidate
++    /// with its untracked observation, under this writer's held fence, over
++    /// the process environment and the fixed system sources.
++    pub(crate) fn register_first_use(
++        &mut self,
++        admission: ProjectRootAdmission,
++        tracking: TrackingObservation,
++        trust_groups: &std::collections::BTreeSet<u32>,
++    ) -> Result<RegisteredProject, ProjectWriteRefusal> {
++        let (environment, sources) = first_registration::production_sources();
++        let sources: Vec<&std::path::Path> = sources.iter().map(|p| p.as_path()).collect();
++        let inputs = ProjectInputs {
++            trust_groups,
++            environment: &environment,
++            system_sources: &sources,
++        };
++        self.register_first_use_with(admission, tracking, &inputs, &Seam::live())
++    }
++    /// `register_first_use` over given inputs and seam (the crate seam;
++    /// production passes `Seam::live()`).
++    pub(crate) fn register_first_use_with(
++        &mut self,
++        admission: ProjectRootAdmission,
++        tracking: TrackingObservation,
++        inputs: &ProjectInputs<'_>,
++        seam: &Seam<'_>,
++    ) -> Result<RegisteredProject, ProjectWriteRefusal> {
++        let result = first_registration::register_on_gate(
++            &mut self.gate,
++            &mut self.installation,
++            self.receipt.qualification(),
++            admission,
++            tracking,
++            inputs,
++            seam,
++        );
++        self.settle(result)
++    }
++    /// A registered project's recheck set on this writer's gate.
++    pub(crate) fn recheck_registered(
++        &mut self,
++        registered: &RegisteredProject,
++        inputs: &ProjectInputs<'_>,
++    ) -> Result<(), ProjectWriteRefusal> {
++        let result = first_registration::recheck_registered_on_gate(
++            &mut self.gate,
++            &self.installation,
++            self.receipt.qualification(),
++            registered,
++            inputs,
++        );
++        self.settle(result)
++    }
++
+     /// Law X3a r3 items 1 and 2: admit the selected store endpoint from the
+     /// gate's one read. The retained values are validated in memory on the
+     /// gate's own ledger against the write receipt's selected core, then the
+diff --git a/crates/security/src/custody/project_admission.rs b/crates/security/src/custody/project_admission.rs
+index 5e45481..d1d7ae2 100644
+--- a/crates/security/src/custody/project_admission.rs
++++ b/crates/security/src/custody/project_admission.rs
+@@ -38,8 +38,8 @@ const VCS_MARKERS: [&str; 4] = [".git", ".hg", ".svn", ".jj"];
+ pub(crate) const MARKER_DIRECTORY: &str = ".opensip";
+ pub(crate) const MARKER_FILE: &str = "project-id.v1";
+ /// The registry under I, and the old name that must be positively absent.
+-const REGISTRY: &str = "project-registry.v2";
+-const REGISTRY_V1: &str = "project-registry.v1";
++pub(super) const REGISTRY: &str = "project-registry.v2";
++pub(super) const REGISTRY_V1: &str = "project-registry.v1";
+ /// S3: the selection walk examines at most 256 levels (item 9).
+ const MAX_WALK_LEVELS: usize = 256;
+ 
+@@ -414,8 +414,11 @@ fn owned(path: &Path, work: &mut WorkScope<'_>) -> Result<PathBuf, Failure> {
+ /// session already judged, its full metadata sample required to equal that
+ /// judgment's (so it is the same file, unchanged), read once within 4 MiB,
+ /// and decoded whole before any classification. `project-registry.v1` is
+-/// observed positively absent. Unavailable, never empty.
++/// observed positively absent. Unavailable, never empty. The descriptor
++/// that was read is retained (item 5): it is R0, the predecessor first
++/// registration reconfirms (item 6, unit X2c).
+ pub(crate) struct RegistryCapture {
++    file: File,
+     metadata: DescriptorMetadata,
+     document: ProjectRegistryDocument,
+ }
+@@ -431,6 +434,15 @@ impl RegistryCapture {
+     pub(crate) fn document(&self) -> &ProjectRegistryDocument {
+         &self.document
+     }
++    /// The full metadata sample of the file that was read.
++    pub(super) fn metadata(&self) -> &DescriptorMetadata {
++        &self.metadata
++    }
++    /// R0 as its parts: the retained descriptor, its sample and the
++    /// validated document (item 6's replacement primitive, unit X2c).
++    pub(super) fn into_parts(self) -> (File, DescriptorMetadata, ProjectRegistryDocument) {
++        (self.file, self.metadata, self.document)
++    }
+ }
+ pub(crate) fn capture_registry(
+     installation: &RetainedDirectory,
+@@ -472,7 +484,11 @@ pub(crate) fn capture_registry(
+         return refuse(ProjectAdmissionRefusal::Changed);
+     }
+     old_name_absent(installation, work)?;
+-    Ok(RegistryCapture { metadata, document })
++    Ok(RegistryCapture {
++        file,
++        metadata,
++        document,
++    })
+ }
+ /// The registry's full metadata sample now, required to equal the session's
+ /// judgment of it.
+@@ -501,7 +517,10 @@ fn registry_sample(
+     }
+     Ok(sample.metadata().clone())
+ }
+-fn old_name_absent(installation: &RetainedDirectory, work: &mut WorkScope<'_>) -> Result<(), Failure> {
++pub(super) fn old_name_absent(
++    installation: &RetainedDirectory,
++    work: &mut WorkScope<'_>,
++) -> Result<(), Failure> {
+     let absent = installation
+         .observe_child_absent_accounted(OsStr::new(REGISTRY_V1), work)
+         .map_err(io_failure)?;
+@@ -713,6 +732,15 @@ pub(crate) struct ProjectRootAdmission {
+     registry: RegistryCapture,
+     classification: Classification,
+ }
++/// A `ProjectRootAdmission` moved apart into its owners (unit X2c).
++pub(super) struct AdmissionParts {
++    pub(super) chain: ProjectChain,
++    pub(super) selected: Selected,
++    pub(super) incarnation: Incarnation,
++    pub(super) marker: MarkerObservation,
++    pub(super) registry: RegistryCapture,
++    pub(super) classification: Classification,
++}
+ impl std::fmt::Debug for ProjectRootAdmission {
+     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+         f.debug_struct("ProjectRootAdmission")
+@@ -740,6 +768,18 @@ impl ProjectRootAdmission {
+     pub(crate) fn chain(&self) -> &ProjectChain {
+         &self.chain
+     }
++    /// The admission as its owners, for first registration (unit X2c),
++    /// which moves them into the registered project.
++    pub(super) fn into_parts(self) -> AdmissionParts {
++        AdmissionParts {
++            chain: self.chain,
++            selected: self.selected,
++            incarnation: self.incarnation,
++            marker: self.marker,
++            registry: self.registry,
++            classification: self.classification,
++        }
++    }
+     /// Item 3's recheck set with the project chain added: the chain (names,
+     /// custody, volume, birth), the root's volume UUID, the marker (still
+     /// absent, or the same file unchanged), and the registry (the same
+@@ -770,7 +810,10 @@ impl ProjectRootAdmission {
+ /// The root's incarnation from the retained root descriptor: the APFS
+ /// volume UUID (charged first; unsupported refuses, with no device or fsid
+ /// substitute) on the same device as the X2a birth sample.
+-fn sample_incarnation(chain: &ProjectChain, work: &mut WorkScope<'_>) -> Result<Incarnation, Failure> {
++pub(super) fn sample_incarnation(
++    chain: &ProjectChain,
++    work: &mut WorkScope<'_>,
++) -> Result<Incarnation, Failure> {
+     let volume = work.run(opensip_platform::directory_volume_observation_cost(), |_| {
+         chain
+             .root()
