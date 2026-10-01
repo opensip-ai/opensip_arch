@@ -1,4 +1,4 @@
-REVIEWER review: law X4 r1, the live security guards (operation grant, live revocation, stale guards, observer latch). Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/REVIEWDIR. Law review; no product cargo. Product HEAD is f7acb6d; you may read it.
+Codex review: law X4 r1, the live security guards (operation grant, live revocation, stale guards, observer latch). Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/codex-live-guards-x4-r1. Law review; no product cargo. Product HEAD is f7acb6d; you may read it.
 
 Subject: docs/implementation/m2/live-guards-x4/PROPOSAL.md r1 (pin in hashes.txt). Context:
 - EXIT-PLAN.md row X4;
