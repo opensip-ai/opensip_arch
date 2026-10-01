@@ -16,7 +16,12 @@ It keeps all 758 existing rows by value, along with the packages and dependencie
 **Changes to existing rows.** These descriptions stay true:
 - `platform/src/filesystem.rs` gains the module declaration and re-export;
 - `platform/src/lib.rs` gains the re-export;
-- `security/src/journal_store.rs` gains the module declaration.
+- `security/src/journal_store.rs` gains the module declaration;
+- `lifecycle/src/locations.rs`: the witness becomes `grant-journal.witness.json` and the floor becomes `trust/carrier-floors/N.v1`, replacing `grant-journal.witness` and `trust/journal-floors/N/G.floor`.
+
+**Source of the `locations.rs` paths.** They came from reference checkpoint 201, which is reviewed but unselected: it is not in the design lock.
+- The selected `host-foundation-completion.v2.md` spells the witness `grant-journal.witness.json`.
+- No selected source spells a floor path, so law X3b r4 item 2's `trust/carrier-floors/N.v1` governs.
 
 No other existing source changes.
 
