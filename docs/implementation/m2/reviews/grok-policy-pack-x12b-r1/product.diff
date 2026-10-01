@@ -1,0 +1,705 @@
+diff --git a/crates/host/Cargo.toml b/crates/host/Cargo.toml
+index dee14cc..c3c1b5c 100644
+--- a/crates/host/Cargo.toml
++++ b/crates/host/Cargo.toml
+@@ -17,6 +17,4 @@ opensip-lifecycle = { path = "../lifecycle" }
+ opensip-security = { path = "../security" }
+ 
+ opensip-storage = { path = "../storage" }
+-
+-[dev-dependencies]
+ opensip-evaluator = { path = "../evaluator" }
+diff --git a/crates/host/src/configuration.rs b/crates/host/src/configuration.rs
+new file mode 100644
+index 0000000..91136e2
+--- /dev/null
++++ b/crates/host/src/configuration.rs
+@@ -0,0 +1,118 @@
++//! Law X12 r3 (unit X12b): the M2 slice of the configuration resolver, which
++//! is policy-pack admission only (item 1). Layer merge, discovery, profiles,
++//! capabilities, waiver IDs and `resolvedConfigDigest` arrive with M3 in this
++//! module.
++//!
++//! Item 8: admission is pure. It does no I/O, takes no lock and charges no
++//! ledger, so the analysis request (M3) can and must run it first, before any
++//! write or project admission, fence, provider, snapshot, facts or Coverage
++//! consumption, Plan construction or evaluation; a refusal has nothing to
++//! clean up. Its only admission call is `admit_pack`; the host's part is the
++//! selection count, the embedded schema registry and the public mapping
++//! (item 7). Library only: no CLI command or analysis request calls it yet.
++use crate::InstallationTerminationV1;
++use opensip_contracts::generated::evidence::{
++    Common4D9Class as Class, Common4D9ErrorCode as Code, Common4D9FaultCause as Fault,
++    Common4DomainDetailCode as Detail,
++};
++use opensip_evaluator::{AdmittedPack, PackDefect, PackRefusal, PackSource, admit_pack};
++use opensip_identity::{digest_hex, raw_sha256};
++
++/// `PUBLIC_ROUTE_REMEDIES["CONFIG.INVALID"]`, byte for byte as contract
++/// successor X12-0 widened it. The remedy is keyed by the public code, so
++/// rows 1, 2 and 3a carry this one string (item 7, "Remedy keying").
++pub(crate) const REMEDY_CONFIG_INVALID: &str = "the configured capability or policy selection is invalid: for capabilities, name a registered capability id from the native capability matrix, and state at most one row per (capabilityId, languageMode, workspaceRoot); for policy, name exactly one bundled policy pack id, written exactly as name:version, and supply no policy document of your own or from a third party";
++/// Row 3's caller remedy: the command inventory's `POLICY.IMPERATIVE_KEY_REFUSED`
++/// row (workflows-and-surfaces §5).
++pub(crate) const REMEDY_IMPERATIVE_KEY: &str = "the policy DSL is declarative data only";
++
++/// Why a policy selection was not admitted. Every value maps to exactly one
++/// row of item 7 through `policy_selection_termination`.
++#[derive(Debug, Clone, PartialEq, Eq)]
++pub(crate) enum PolicySelectionRefusal {
++    /// Row 1: a selection of zero, or more than one, sources.
++    Count(usize),
++    /// The evaluator's refusal of the one source, unchanged (rows 1 to 4).
++    Pack(PackRefusal),
++}
++
++/// Admit the policy selection of an analysis request (items 5 and 8): exactly
++/// one source, admitted by the evaluator against the bundled registry. The
++/// result is the evaluator's own `AdmittedPack`, unwrapped.
++pub(crate) fn admit_policy_selection(
++    selection: &[PackSource<'_>],
++) -> Result<AdmittedPack, PolicySelectionRefusal> {
++    let [source] = selection else {
++        return Err(PolicySelectionRefusal::Count(selection.len()));
++    };
++    // The host's exact pinned schema registry, for item 6.3 only. It cannot
++    // fail on the embedded sources; if it does, that is the signed core's
++    // fault (row 4), with the subject the evaluator gives its own faults.
++    let schemas = crate::embedded_schema_registry().map_err(|_| {
++        PolicySelectionRefusal::Pack(PackRefusal::HostInvariant {
++            subject: host_fault_subject(source),
++            defect: PackDefect::Registry,
++        })
++    })?;
++    admit_pack(&schemas, source).map_err(PolicySelectionRefusal::Pack)
++}
++
++/// Row 4's subject for a fault found before the evaluator sees the source:
++/// `pack:<presented id>`, or the supplied bytes' digest subject.
++fn host_fault_subject(source: &PackSource<'_>) -> String {
++    match source {
++        PackSource::Named(id) => format!("pack:{id}"),
++        PackSource::Supplied { bytes, provenance } => format!(
++            "supplied:{}:sha256:{}",
++            provenance.name(),
++            digest_hex(&raw_sha256(bytes))
++        ),
++    }
++}
++
++/// Item 7: the one public termination of each refusal, in law 468 r5 item
++/// 6's shape. The match is exhaustive with no wildcard arm, so a new refusal
++/// cannot compile without its row. No new code: every code is an existing
++/// generated member.
++pub(crate) fn policy_selection_termination(
++    refusal: &PolicySelectionRefusal,
++) -> InstallationTerminationV1 {
++    let rejected = |detail, subject| InstallationTerminationV1 {
++        class: Class::RequestRejected,
++        exit: 2,
++        error_code: Code::ConfigInvalid,
++        fault_cause: Fault::None,
++        detail: Some(detail),
++        subject: Some(subject),
++    };
++    match refusal {
++        // Row 1, selection count.
++        PolicySelectionRefusal::Count(n) => rejected(Detail::ConfigInvalid, format!("count:{n}")),
++        PolicySelectionRefusal::Pack(pack) => match pack {
++            // Row 1: the presented ID.
++            PackRefusal::NotBundled { .. } => rejected(Detail::ConfigInvalid, pack.subject()),
++            // Row 2: `supplied:<provenance>:sha256:<hex>`.
++            PackRefusal::SuppliedPack { .. } => rejected(Detail::ConfigInvalid, pack.subject()),
++            // Row 3: a caller document's imperative member, by its pointer.
++            PackRefusal::ImperativeMember { .. } => {
++                rejected(Detail::PolicyImperativeKeyRefused, pack.subject())
++            }
++            // Row 3a: `supplied:<provenance>:sha256:<hex>`.
++            PackRefusal::SuppliedInvalid { .. } => rejected(Detail::ConfigInvalid, pack.subject()),
++            // Row 4: a defect in the signed core, never the caller's input.
++            PackRefusal::HostInvariant { .. } => InstallationTerminationV1 {
++                class: Class::OperationalFailed,
++                exit: 4,
++                error_code: Code::SystemOutcomeIllegalState,
++                fault_cause: Fault::HostInvariant,
++                detail: Some(Detail::HostInvariantViolated),
++                subject: Some(pack.subject()),
++            },
++        },
++    }
++}
++
++#[cfg(test)]
++mod tests {
++    include!("configuration_tests.rs");
++}
+diff --git a/crates/host/src/configuration_tests.rs b/crates/host/src/configuration_tests.rs
+new file mode 100644
+index 0000000..6b9a793
+--- /dev/null
++++ b/crates/host/src/configuration_tests.rs
+@@ -0,0 +1,494 @@
++// Law X12 r3 item 10, host side (unit X12b; X12a judgment call 14): the
++// selection count, the public mapping of every item 7 row into law 468 r5
++// item 6's termination shape, the CONFIG.INVALID remedy bytes, and the
++// purity and "no evaluation" pins on configuration.rs. Every input here is
++// synthetic; the evaluator's cfg(test) registry is unreachable from the host,
++// so every Named source meets the release registry, which has zero rows.
++use super::*;
++use crate::doctor_ingress::failure_envelope;
++use opensip_evaluator::SuppliedProvenance;
++use opensip_identity::{JsonValue as V, canonical_bytes, parse_json};
++use serde_json::Value;
++
++const REQUEST: &str = "req1_0123456789abcdef0123456789abcdef";
++const ENVELOPE: &str = "urn:opensip:product-v1:workflows:evaluator3:command-envelope:7";
++/// The X12-0 string: 367 ASCII bytes, SHA-256 of the exact text in the
++/// successor's `after` line.
++const X12_0_SHA256: &str = "f6e37558f18fda1af2cde5a06c2f61cb853a22ecfed5e57a92c5a2069cc5bd8e";
++/// The evaluator's synthetic test pack document (unit X12a), bundled only in
++/// its cfg(test) registry.
++const TEST_DOCUMENT: &[u8] =
++    include_bytes!("../../evaluator/tests/fixtures/policy-pack-test-fixture.policy.json");
++const TEST_ID: &str = "opensip.test.fixture.pack:1";
++const BOTH: [SuppliedProvenance; 2] = [SuppliedProvenance::User, SuppliedProvenance::ThirdParty];
++
++fn refuse(selection: &[PackSource<'_>]) -> PolicySelectionRefusal {
++    admit_policy_selection(selection).unwrap_err()
++}
++fn named(id: &str) -> PolicySelectionRefusal {
++    refuse(&[PackSource::Named(id)])
++}
++fn supplied(bytes: &[u8], provenance: SuppliedProvenance) -> PolicySelectionRefusal {
++    refuse(&[PackSource::Supplied { bytes, provenance }])
++}
++fn supplied_subject(bytes: &[u8], provenance: SuppliedProvenance) -> String {
++    format!(
++        "supplied:{}:sha256:{}",
++        provenance.name(),
++        digest_hex(&raw_sha256(bytes))
++    )
++}
++fn rejected(detail: Detail, subject: &str) -> InstallationTerminationV1 {
++    InstallationTerminationV1 {
++        class: Class::RequestRejected,
++        exit: 2,
++        error_code: Code::ConfigInvalid,
++        fault_cause: Fault::None,
++        detail: Some(detail),
++        subject: Some(subject.to_owned()),
++    }
++}
++/// Insert `value` at a pointer whose parent exists (`/a/0/b`).
++fn with(pointer: &str, value: V) -> Vec<u8> {
++    let mut doc = parse_json(TEST_DOCUMENT).unwrap();
++    let parts: Vec<&str> = pointer[1..].split('/').collect();
++    let (last, path) = parts.split_last().unwrap();
++    let mut node = &mut doc;
++    for part in path {
++        node = match node {
++            V::Object(o) => o.get_mut(*part).unwrap(),
++            V::Array(a) => &mut a[part.parse::<usize>().unwrap()],
++            _ => panic!("{pointer}"),
++        };
++    }
++    match node {
++        V::Object(o) => {
++            o.insert((*last).into(), value);
++        }
++        V::Array(a) => a[last.parse::<usize>().unwrap()] = value,
++        _ => panic!("{pointer}"),
++    }
++    canonical_bytes(&doc).unwrap()
++}
++fn s(v: &str) -> V {
++    V::String(v.into())
++}
++
++/// The shared failure-envelope path: validated against the selected
++/// command-envelope v7 source schema, exit derived from the class, and the
++/// human rendering. Returns the JSON value.
++fn envelope(t: &InstallationTerminationV1) -> (Value, String) {
++    let (envelope, exit_code) = failure_envelope(REQUEST, None, t).unwrap();
++    let raw = opensip_reporting::render_json(&envelope).unwrap();
++    assert!(
++        crate::embedded_schema_registry()
++            .unwrap()
++            .schema(ENVELOPE, "")
++            .unwrap()
++            .admit_json(&raw, 64 * 1024 * 1024)
++            .is_ok(),
++        "{}",
++        String::from_utf8_lossy(&raw)
++    );
++    let value: Value = serde_json::from_slice(&raw).unwrap();
++    assert_eq!(value["kind"], "failure");
++    assert_eq!(exit_code, t.exit);
++    assert_eq!(value["exitCode"], t.exit);
++    let human = String::from_utf8(opensip_reporting::render_human(&envelope).unwrap()).unwrap();
++    (value, human)
++}
++
++#[test]
++fn nt1_wrong_pack_identity_is_row_1_with_the_presented_id() {
++    // G24.nt1.wrong-pack-identity. In M2 the release registry has zero rows,
++    // so the DR-131 identity itself is not bundled, and the evaluator's
++    // synthetic test ID is unreachable from the host.
++    for id in [
++        "opensip.preview.typescript.pack:1",
++        "opensip.preview.typescript.pack:2",
++        "opensip.preview.typescript.pack",
++        "opensip.preview.typescript.pack:01",
++        "OPENSIP.PREVIEW.TYPESCRIPT.PACK:1",
++        "opensip.preview.TypeScript.pack:1",
++        "opensip.preview.typescript.pack:1\n",
++        " opensip.preview.typescript.pack:1",
++        "opensip.preview.javascript.pack:1",
++        ":01",
++        "",
++        TEST_ID,
++    ] {
++        let refusal = named(id);
++        assert_eq!(
++            refusal,
++            PolicySelectionRefusal::Pack(PackRefusal::NotBundled {
++                pack_id: id.to_owned()
++            }),
++            "{id:?}"
++        );
++        assert_eq!(
++            policy_selection_termination(&refusal),
++            rejected(Detail::ConfigInvalid, id),
++            "{id:?}"
++        );
++    }
++}
++
++#[test]
++fn nt1_user_and_third_party_packs_are_row_2_whatever_their_bytes() {
++    // G24.nt1.user-pack and G24.nt1.third-party-pack, including the test
++    // pack's bundled bytes exactly: admission is by identity only.
++    let canonical = canonical_bytes(&parse_json(TEST_DOCUMENT).unwrap()).unwrap();
++    let mut newline = TEST_DOCUMENT.to_vec();
++    newline.push(b'\n');
++    for bytes in [TEST_DOCUMENT.to_vec(), canonical, newline] {
++        for provenance in BOTH {
++            let refusal = supplied(&bytes, provenance);
++            assert_eq!(
++                refusal,
++                PolicySelectionRefusal::Pack(PackRefusal::SuppliedPack {
++                    provenance,
++                    sha256: raw_sha256(&bytes)
++                })
++            );
++            assert_eq!(
++                policy_selection_termination(&refusal),
++                rejected(Detail::ConfigInvalid, &supplied_subject(&bytes, provenance))
++            );
++        }
++    }
++}
++
++#[test]
++fn nt2_imperative_members_and_string_expressions_are_row_3_with_the_pointer() {
++    // G24.nt2.non-declarative-pack, a document the caller presents.
++    let mut cases = Vec::new();
++    for key in ["script", "hook", "exec", "include"] {
++        cases.push((format!("/{key}"), s("rm -rf /")));
++        cases.push((format!("/rules/0/{key}"), s("curl evil")));
++    }
++    cases.push(("/rules/0/emitWhen".to_owned(), s("count(file) > 0")));
++    for (pointer, value) in cases {
++        let bytes = with(&pointer, value);
++        for provenance in BOTH {
++            let refusal = supplied(&bytes, provenance);
++            assert_eq!(
++                refusal,
++                PolicySelectionRefusal::Pack(PackRefusal::ImperativeMember {
++                    pointer: pointer.clone()
++                }),
++                "{pointer}"
++            );
++            assert_eq!(
++                policy_selection_termination(&refusal),
++                rejected(Detail::PolicyImperativeKeyRefused, &pointer),
++                "{pointer}"
++            );
++        }
++    }
++}
++
++#[test]
++fn nt2_non_json_component_contributions_are_row_3a() {
++    let wasm: &[u8] = b"\0asm\x01\0\0\0\x01\x04\x01\x60\0\0";
++    let v1 = with("/schemaMajor", parse_json(b"1").unwrap());
++    for bytes in [
++        wasm.to_vec(),
++        b"#!/bin/sh\nrm -rf /\n".to_vec(),
++        Vec::new(),
++        br#"{"schemaMajor":2,"schemaMajor":2}"#.to_vec(),
++        v1,
++    ] {
++        for provenance in BOTH {
++            let refusal = supplied(&bytes, provenance);
++            assert_eq!(
++                refusal,
++                PolicySelectionRefusal::Pack(PackRefusal::SuppliedInvalid {
++                    provenance,
++                    sha256: raw_sha256(&bytes)
++                })
++            );
++            assert_eq!(
++                policy_selection_termination(&refusal),
++                rejected(Detail::ConfigInvalid, &supplied_subject(&bytes, provenance))
++            );
++        }
++    }
++}
++
++#[test]
++fn a_selection_of_zero_or_several_sources_is_row_1_before_any_source_is_read() {
++    let imperative = with("/exec", s("x"));
++    let user = PackSource::Supplied {
++        bytes: &imperative,
++        provenance: SuppliedProvenance::User,
++    };
++    let preview = PackSource::Named("opensip.preview.typescript.pack:1");
++    for (selection, n) in [
++        (vec![], 0),
++        (vec![preview, preview], 2),
++        (vec![preview, user], 2),
++        (vec![user, user, preview], 3),
++    ] {
++        let refusal = refuse(&selection);
++        assert_eq!(refusal, PolicySelectionRefusal::Count(n));
++        assert_eq!(
++            policy_selection_termination(&refusal),
++            rejected(Detail::ConfigInvalid, &format!("count:{n}"))
++        );
++    }
++}
++
++/// One refusal per row of item 7, with its subject.
++fn every_row() -> Vec<(&'static str, PolicySelectionRefusal)> {
++    let mut rows = vec![
++        ("1", named("opensip.preview.typescript.pack:1")),
++        ("1", refuse(&[])),
++        ("2", supplied(TEST_DOCUMENT, SuppliedProvenance::ThirdParty)),
++        (
++            "3",
++            supplied(&with("/rules/0/hook", s("x")), SuppliedProvenance::User),
++        ),
++        ("3a", supplied(b"\0asm", SuppliedProvenance::User)),
++    ];
++    // Row 4 is unreachable through the release registry (zero rows, pinned
++    // schema sources), so its refusals are built directly, one per defect.
++    for defect in [
++        PackDefect::Registry,
++        PackDefect::Lexical,
++        PackDefect::Imperative("/rules/0/exec".into()),
++        PackDefect::Schema,
++        PackDefect::Digest,
++        PackDefect::RuleLaw("unknown relation".into()),
++        PackDefect::Contribution("other".into()),
++        PackDefect::Limit,
++    ] {
++        rows.push((
++            "4",
++            PolicySelectionRefusal::Pack(PackRefusal::HostInvariant {
++                subject: format!("pack:{TEST_ID}"),
++                defect,
++            }),
++        ));
++    }
++    rows
++}
++
++#[test]
++fn every_row_maps_to_its_published_route_and_generated_members() {
++    for (row, refusal) in every_row() {
++        let t = policy_selection_termination(&refusal);
++        let (class, exit, code, fault, detail) = match row {
++            "1" | "2" | "3a" => (
++                "request-rejected",
++                2,
++                "CONFIG.INVALID",
++                "none",
++                "CONFIG.INVALID",
++            ),
++            "3" => (
++                "request-rejected",
++                2,
++                "CONFIG.INVALID",
++                "none",
++                "POLICY.IMPERATIVE_KEY_REFUSED",
++            ),
++            "4" => (
++                "operational-failed",
++                4,
++                "SYSTEM.OUTCOME.ILLEGAL_STATE",
++                "host-invariant",
++                "HOST.INVARIANT_VIOLATED",
++            ),
++            other => panic!("{other}"),
++        };
++        assert_eq!(t.class, class.parse::<Class>().unwrap(), "{refusal:?}");
++        assert_eq!(t.exit, exit, "{refusal:?}");
++        assert_eq!(t.error_code, code.parse::<Code>().unwrap(), "{refusal:?}");
++        assert_eq!(
++            t.fault_cause,
++            fault.parse::<Fault>().unwrap(),
++            "{refusal:?}"
++        );
++        assert_eq!(
++            t.detail,
++            Some(detail.parse::<Detail>().unwrap()),
++            "{refusal:?}"
++        );
++        let PolicySelectionRefusal::Pack(pack) = &refusal else {
++            assert_eq!(t.subject.as_deref(), Some("count:0"));
++            continue;
++        };
++        assert_eq!(t.subject, Some(pack.subject()), "{refusal:?}");
++        if row == "4" {
++            assert_eq!(
++                t.subject.as_deref(),
++                Some("pack:opensip.test.fixture.pack:1")
++            );
++        }
++    }
++    // The other two details item 7 names stay inside row 4's cause and never
++    // reach the public detail, but are registered members all the same.
++    for code in ["POLICY.UNKNOWN_RULE", "IMPORT.ABSENT_FOR_PREDICATE"] {
++        assert!(code.parse::<Detail>().is_ok(), "{code}");
++    }
++}
++
++#[test]
++fn rows_1_2_and_3a_emit_the_x12_0_remedy_byte_for_byte() {
++    assert_eq!(REMEDY_CONFIG_INVALID.len(), 367);
++    assert!(REMEDY_CONFIG_INVALID.is_ascii());
++    assert_eq!(
++        digest_hex(&raw_sha256(REMEDY_CONFIG_INVALID.as_bytes())),
++        X12_0_SHA256
++    );
++    for (row, refusal) in every_row() {
++        let t = policy_selection_termination(&refusal);
++        let (value, human) = envelope(&t);
++        let remedy = match row {
++            "1" | "2" | "3a" => REMEDY_CONFIG_INVALID,
++            "3" => REMEDY_IMPERATIVE_KEY,
++            _ => crate::doctor_ingress::REMEDY_INVARIANT,
++        };
++        let subject = t.subject.clone().unwrap();
++        let detail = serde_json::json!({
++            "code": t.detail.as_ref().unwrap().to_string(),
++            "remedy": remedy,
++            "subject": subject,
++        });
++        assert_eq!(value["termination"]["domainDetail"], detail, "{refusal:?}");
++        assert_eq!(value["errors"], serde_json::json!([detail]), "{refusal:?}");
++        assert_eq!(value["termination"]["errorCode"], t.error_code.to_string());
++        assert_eq!(
++            value["termination"].get("faultCause").is_some(),
++            row == "4",
++            "{refusal:?}"
++        );
++        let mut lines = vec![
++            format!("Termination: {}", t.class),
++            format!("Error: {}", t.error_code),
++        ];
++        if row == "4" {
++            lines.push("Fault cause: host-invariant".to_owned());
++        }
++        lines.push(format!("Detail: {}", t.detail.as_ref().unwrap()));
++        lines.push(format!("Subject: {subject}"));
++        lines.push(format!("Remedy: {remedy}"));
++        lines.push(format!("Request: {REQUEST}"));
++        assert_eq!(human, lines.join("\n") + "\n", "{refusal:?}");
++    }
++}
++
++#[test]
++fn a_subject_beyond_the_bounded_text_is_never_truncated() {
++    // The termination carries the presented ID unchanged; its envelope cannot
++    // be projected, and is refused rather than truncated.
++    let long = "a".repeat(1025);
++    let t = policy_selection_termination(&named(&long));
++    assert_eq!(t.subject.as_deref(), Some(long.as_str()));
++    assert!(matches!(
++        failure_envelope(REQUEST, None, &t),
++        Err(crate::MetadataError::Projection)
++    ));
++    let fits = "a".repeat(1024);
++    let t = policy_selection_termination(&named(&fits));
++    assert_eq!(envelope(&t).0["errors"][0]["subject"], fits.as_str());
++}
++
++#[test]
++fn a_host_fault_subject_matches_the_evaluators_own_subjects() {
++    assert_eq!(
++        host_fault_subject(&PackSource::Named("opensip.preview.typescript.pack:1")),
++        "pack:opensip.preview.typescript.pack:1"
++    );
++    for provenance in BOTH {
++        let evaluator = PackRefusal::SuppliedPack {
++            provenance,
++            sha256: raw_sha256(TEST_DOCUMENT),
++        };
++        assert_eq!(
++            host_fault_subject(&PackSource::Supplied {
++                bytes: TEST_DOCUMENT,
++                provenance
++            }),
++            evaluator.subject()
++        );
++    }
++}
++
++/// configuration.rs without its test module.
++fn production_source() -> &'static str {
++    let text = include_str!("configuration.rs");
++    let (production, tests) = text.split_once("#[cfg(test)]").unwrap();
++    assert_eq!(
++        tests.trim(),
++        "mod tests {\n    include!(\"configuration_tests.rs\");\n}"
++    );
++    production
++}
++
++#[test]
++fn source_pin_admission_calls_only_admit_pack_and_reaches_nothing_else() {
++    let source = production_source();
++    // The only evaluator names are the boundary types and admit_pack.
++    assert_eq!(source.matches("opensip_evaluator").count(), 1);
++    assert!(source.contains(
++        "use opensip_evaluator::{AdmittedPack, PackDefect, PackRefusal, PackSource, admit_pack};"
++    ));
++    assert_eq!(source.matches("admit_pack(").count(), 1);
++    // The only crate calls: the embedded schema registry, and the shared
++    // termination shape.
++    let crate_uses: Vec<&str> = source
++        .match_indices("crate::")
++        .map(|(i, _)| &source[i..])
++        .collect();
++    assert_eq!(crate_uses.len(), 2);
++    assert!(crate_uses[0].starts_with("crate::InstallationTerminationV1;"));
++    assert!(crate_uses[1].starts_with("crate::embedded_schema_registry()"));
++    // No evaluation, provider, facts, Coverage, Plan, replay, custody,
++    // storage, lock, ledger, I/O, environment or process.
++    for forbidden in [
++        "check_plan_pack",
++        "compile_plan_policy",
++        "inspect_",
++        "replay",
++        "evaluate",
++        "provider",
++        "snapshot",
++        "coverage",
++        "Coverage",
++        "fact",
++        "opensip_security",
++        "opensip_storage",
++        "opensip_platform",
++        "opensip_lifecycle",
++        "opensip_reporting",
++        "std::",
++        "fs::",
++        "env::",
++        "Command",
++        "Mutex",
++        "OnceLock",
++        "static ",
++        "unsafe",
++        "ledger",
++        "fence",
++        ".lock(",
++    ] {
++        let hits: Vec<&str> = source
++            .lines()
++            .filter(|l| !l.trim_start().starts_with("//"))
++            .filter(|l| l.contains(forbidden))
++            .collect();
++        assert!(hits.is_empty(), "{forbidden}: {hits:?}");
++    }
++    // Item 8's order inside admission: the count, then the schema registry,
++    // then the evaluator. A refusal returns before any AdmittedPack exists.
++    let count = source
++        .find("PolicySelectionRefusal::Count(selection.len())")
++        .unwrap();
++    let registry = source.find("crate::embedded_schema_registry()").unwrap();
++    let admit = source.find("admit_pack(&schemas, source)").unwrap();
++    assert!(count < registry && registry < admit);
++    // The exhaustive match has no wildcard arm.
++    assert!(!source.contains("_ =>"));
++}
+diff --git a/crates/host/src/doctor_ingress.rs b/crates/host/src/doctor_ingress.rs
+index 1eee90a..275c8bf 100644
+--- a/crates/host/src/doctor_ingress.rs
++++ b/crates/host/src/doctor_ingress.rs
+@@ -70,10 +70,31 @@ pub(crate) fn doctor_envelope(
+     correlation: Option<&str>,
+     outcome: &DoctorOutcome,
+ ) -> Result<(Envelope7Root, u8), MetadataError> {
+-    let (mut envelope, class) = match outcome {
+-        DoctorOutcome::Report(report) => report_envelope(request_id, report)?,
+-        DoctorOutcome::Refused(row) => refused_envelope(request_id, row)?,
+-    };
++    match outcome {
++        DoctorOutcome::Report(report) => {
++            let (envelope, class) = report_envelope(request_id, report)?;
++            project(envelope, class, correlation)
++        }
++        DoctorOutcome::Refused(row) => failure_envelope(request_id, correlation, row),
++    }
++}
++
++/// The `kind: failure` envelope of one public termination row and its exit
++/// code: a law 468 item 6 row, or a law X12 r3 item 7 policy-selection row.
++pub(crate) fn failure_envelope(
++    request_id: &str,
++    correlation: Option<&str>,
++    row: &InstallationTerminationV1,
++) -> Result<(Envelope7Root, u8), MetadataError> {
++    let (envelope, class) = refused_envelope(request_id, row)?;
++    project(envelope, class, correlation)
++}
++
++fn project(
++    mut envelope: Value,
++    class: Class,
++    correlation: Option<&str>,
++) -> Result<(Envelope7Root, u8), MetadataError> {
+     let exit_code = exit(&class)?;
+     envelope["exitCode"] = json!(exit_code);
+     if let Some(value) = correlation {
+@@ -190,7 +211,12 @@ fn row_remedy(
+         Detail::ProjectBusy => REMEDY_BUSY,
+         Detail::WorkBudgetExhausted => REMEDY_BUDGET,
+         Detail::HostInvariantViolated => REMEDY_INVARIANT,
+-        // 468c's projection names no other detail.
++        // Law X12 r3 item 7 rows 1, 2 and 3a: the published route remedy,
++        // keyed by the public code, as contract successor X12-0 widened it.
++        Detail::ConfigInvalid => crate::configuration::REMEDY_CONFIG_INVALID,
++        // Row 3: the command inventory's remedy for this detail.
++        Detail::PolicyImperativeKeyRefused => crate::configuration::REMEDY_IMPERATIVE_KEY,
++        // 468c's and X12's projections name no other detail.
+         _ => return Err(MetadataError::Projection),
+     })
+ }
+diff --git a/crates/host/src/lib.rs b/crates/host/src/lib.rs
+index dbaaed2..cc03afa 100644
+--- a/crates/host/src/lib.rs
++++ b/crates/host/src/lib.rs
+@@ -16,6 +16,11 @@ mod installation_termination;
+ pub use installation_termination::{InstallationTerminationV1, installation_termination};
+ 
+ mod doctor_ingress;
++
++// Law X12 r3 (unit X12b): policy-pack admission. Library only; no analysis
++// request calls it before M3.
++#[allow(dead_code)]
++mod configuration;
+ mod doctor_report;
+ pub use doctor_report::{
+     DURABILITY_NOT_CHECKED_LABEL, DURABILITY_NOT_CHECKED_REMEDY, DoctorOutcome,
