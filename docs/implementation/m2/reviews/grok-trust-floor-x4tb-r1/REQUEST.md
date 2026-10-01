@@ -1,12 +1,18 @@
-Grok review: X4T-a2 and X4T-b, implemented together as one unit: the `accepted.by` load by reference, the fenced first read's S4 write-ahead floor publication, the retained `state.v1` owner and its advance, and the handoff rollback check (law X4T r9 items 1, 2, 7, 8, 11 and 12), with inventory v106. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/grok-trust-floor-x4tb-r1. If you build or test, use a CARGO_TARGET_DIR under that directory. Run git only read-only, and only against the worktree below.
+Grok review: X4T-a2 and X4T-b, implemented together as one unit: the `accepted.by` load by reference, the fenced first read's S4 write-ahead floor publication, the retained `state.v1` owner and its advance, and the handoff rollback check (law X4T r9 items 1, 2, 7, 8, 11 and 12), with inventory v106 on v105. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/grok-trust-floor-x4tb-r1. If you build or test, use a CARGO_TARGET_DIR under that directory. Run git only read-only, and only against the worktree below.
 
 Law: `docs/implementation/m2/trust-admission-x4t/PROPOSAL.md` r9 (accepted; the file adds only the "r9 ACCEPTED" note to the reviewed bytes). X4T-a (items 1 to 6, 8 to 11) is integrated at product fc7dce7, and X4T-0 at 5b5f04c. Also read X4B r4 (`trust-bootstrap-x4b/PROPOSAL.md`, accepted), whose X4B-a uses this unit's publication protocol (its items 5 and 6), and X2 r5's registry replacement rule (item 6), which item 7 follows for the retained owner.
 
 ## Subject
 
 Pins are in hashes.txt.
-- **Product:** the worktree `/Users/sb/code/opensip-ai/opensip-x4tb`, based on b642c45 (X12a integrated, inventory v104 selected). Save `git -C <worktree> diff` (the two new files are intent-to-add) as product.diff and report its sha256. Lead's value: 37263cd87d47fc8fd2127ca7a7ee354a28b8e5a935819a9dd46d03d830cfc891, 99728 bytes, 13 files, 1943 insertions and 84 deletions.
-- **Arch:** v106 (parent v104): `trust-floor-x4tb-inventory-v106-subject.json` and `trust-floor-x4tb-inventory-v106/`. X2c's v105 is in flight on the same parent, v104.
+- **Product:** the worktree `/Users/sb/code/opensip-ai/opensip-x4tb`, based on 0206ce8 (X2c integrated, inventory v105 selected; X12-0's lock entry at b880e83). Save `git -C <worktree> diff` (the two new files are intent-to-add) as product.diff and report its sha256. Lead's value: 02ad321f99a370dc33f7d49f875e856637ec38d3671fa0ee89ba036d55c8fa90, 101126 bytes, 13 files, 1974 insertions and 84 deletions.
+- **Arch:** v106 (parent v105): `trust-floor-x4tb-inventory-v106-subject.json` and `trust-floor-x4tb-inventory-v106/`.
+
+**Rebase before review.** This unit was first prepared on b642c45 with v106 on v104. Neither was sent for review. X2c then integrated (0206ce8, v105), so the same change was moved onto 0206ce8 and v106 was rebuilt on v105 (one more PRIOR entry in `build_v106.py`; the same two rows). One textual conflict, resolved by hand:
+- **`custody/installation_admission.rs`, the `DurableInstallation` impl.** X2c added `installation_directory`, `home_spelling`, `uid` and `advance_registry` exactly where this unit adds `current_trust` and `advance_current`. Both sets are kept unchanged side by side.
+- **Coexistence of the two retained-sample advances (an addition at the rebase).** `advance_current` now follows `advance_registry`'s rule. It advances `state.v1`'s `RequiredFile` only while the retained sample still equals the predecessor the publication reconfirmed. `ConfirmedCurrent` carries that `predecessor` (the owner's sample when `publish` started), and any other sample is `required-files-changed`. The two paths touch disjoint required files (`project-registry.v2` and `trust/stores/S/state.v1`). The gate test checks both: a second advance with the same confirmation refuses, and the registry's retained sample is unchanged by the `state.v1` advance.
+
+Every other file applied cleanly. X2c's R0 file descriptor, `DurableWriteGate::{scope, is_spent, spend}` and its `ordinary_writer.rs`, `custody.rs`, `project_admission.rs` and `platform` changes do not interact with this unit.
 
 ## What it does
 
@@ -75,7 +81,12 @@ Failure rows:
 
 Nothing is retried or deleted.
 
-**The gate's advance.** `DurableInstallation::advance_current(&ConfirmedCurrent)` is the only change of `state.v1`'s `RequiredFile`. It requires the same path, and that the reread bytes decode to the same (S, G, K). It replaces the sample and the endpoint's bytes.
+**The gate's advance.** `DurableInstallation::advance_current(&ConfirmedCurrent)` is the only change of `state.v1`'s `RequiredFile`. It requires:
+- the same path;
+- the retained sample equal to the confirmation's `predecessor` (as X2c's `advance_registry`);
+- reread bytes that decode to the same (S, G, K).
+
+It replaces the sample and the endpoint's bytes.
 
 **Supporting edits.**
 - `journal_store.rs` re-exports `carrier_floor::publish_private_file` (judgment call 2).
@@ -86,7 +97,7 @@ Nothing is retried or deleted.
 ## Judgment calls: please rule on each
 
 1. **The floor publication's operation (gap 2).** It is `host-trust-admission` with `TrustAdmissionInputV1 {purpose: continue, surface: installed-component, closure: the running core closure}`. Of the fourteen existing actions, this is the one that names an operation's own trust admission. `refresh`, `ordinary-import` and `bootstrap` require a payload closure the floor write doesn't have. No definition is added, and `trust_input_bindings::descriptor` accepts it. The admission binder's install/continue contract (owned role events plus `EV-CLOCK`, each citing a clock-write by this operation) is untouched: this publication has no role event.
-2. **Reuse of X3b's file protocol (gap 4).** `publish_private_file`'s shape is the same at 9dbefb9 and b642c45, and X3b-2 only added rows to `carrier_floor.rs`. A one-line `pub(crate) use` in `journal_store.rs` reuses it rather than copying it, so the pointer and the carrier floor share one protocol. Its leftover `state.v1.<32 hex>` temporary file is never adopted or deleted (X4B item 6, owner §6). The census scans no `trust/stores/S` names.
+2. **Reuse of X3b's file protocol (gap 4).** `publish_private_file`'s shape is the same at 9dbefb9 and 0206ce8, and X3b-2 only added rows to `carrier_floor.rs`. A one-line `pub(crate) use` in `journal_store.rs` reuses it rather than copying it, so the pointer and the carrier floor share one protocol. Its leftover `state.v1.<32 hex>` temporary file is never adopted or deleted (X4B item 6, owner §6). The census scans no `trust/stores/S` names.
 3. **The S4 evaluation input.** `proposed_time_input::prepare`'s body moves unchanged into `assemble(proposal, capsule, before, invocation)`, which `prepare` now calls, so one producer assembles every write's input. Its values:
    - authority: `heads.root.admission`;
    - `beforeClock`: the capsule's clock;
@@ -97,7 +108,7 @@ Nothing is retried or deleted.
 6. **Verifiers before any effect.** As with 467's P0 builder, the existing successor and current binders check the exact bytes in memory, charged to the gate ledger.
 7. **Existing records and directories.** A content-addressed name that is already present is admitted when it is private and its bytes are equal (X4B item 6). An absence probe comes first, because a failed exclusive create would latch the ledger. Only the `by-predecessor` bucket and its parent may be created. Every other missing collection directory means an incomplete installation.
 8. **Rows.** Two new `TrustRow` variants for subjects item 7 already names, on the existing `CONFIG.CUSTODY_REFUSED` row: `trust-rollback` and `required-files-changed`. No new code.
-9. **The retained bytes live in `CurrentStore`.** Both the gate and the read session keep the bytes of their one read. Only the gate has `advance_current`; the read session never publishes.
+9. **The retained bytes live in `CurrentStore`.** Both the gate and the read session keep the bytes of their one read. Only the gate has `advance_current`; the read session never publishes. As with X2c's registry owner, the gate advances only from the reconfirmed predecessor. A fence hold with two confirmed publications (for example X4B's acceptance and then a floor write) advances the gate after each one, in order.
 10. **No production wiring.** `fenced_first_read` and `publish` take `&dyn HeldFence`. No adapter over the gate's `DurableInstallation` is built here, and the gate test uses a test-only one. Wiring is X4a and X4B-b, which is why the owner and `publish` leave their module only under `cfg(test)`.
 11. **Costs.** The reservation is the sum of per-file upper bounds from the platform's published cost functions:
     - each parent opened, judged and created;
@@ -131,16 +142,21 @@ On ACL-scratch installations (`test_scratch::acl_scratch`, under `<temp>/opensip
 - **A ledger short of the reservation** fails with nothing written.
 - **A reread mode** is not a fenced first read.
 
-**`installation_admission_tests.rs`: 1 new test.** On a real scratch P0 through the gate, `publish` with no dependencies gives a new confirmed file. With `advance_current`, the gate's recheck passes and holds the new sample and bytes. Without it, the recheck is `required-files-changed`.
+**`installation_admission_tests.rs`: 1 new test.** On a real scratch P0 through the gate, `publish` with no dependencies gives a new confirmed file whose predecessor is the gate's sample. With `advance_current`:
+- the gate's recheck passes, and the gate holds the new sample and bytes;
+- a second advance with the same confirmation refuses;
+- the registry's retained sample is unchanged.
+
+Without the advance, the recheck is `required-files-changed`.
 
 **`current_trust_admission_tests.rs`: 19 tests**, adapted to the new signature, including the stricter in-chain case. **`accepted_store_fixture_tests.rs`: 7 tests**, including the widened source pin.
 
 ## Checks
 
-- Full workspace, two runs on b642c45 plus this diff: 1379 passed, 0 failed, 3 ignored each.
+- Full workspace, two runs on 0206ce8 plus this diff: 1392 passed, 0 failed, 3 ignored each. (Before the rebase, on b642c45: 1379/0/3 twice.)
 - Clippy `--workspace --all-targets -D warnings` and `fmt --check` are clean.
 - `check_package_edges --lane host` against v106 passes; no edge is added.
-- verify_scratch (v106 appended over the worktree's lock at b642c45) passes: 70 inventory successors, 71 contract successors, 16 inheritance rows, v106 selected.
+- verify_scratch (v106 appended over the worktree's lock at 0206ce8) passes: 71 inventory successors, 72 contract successors, 16 inheritance rows, v106 selected.
 - verify_projection against the real lock: 16 rows, 83 corruptions refused.
 - `build_v106.py` reruns produce the same bytes.
 
@@ -156,15 +172,15 @@ On ACL-scratch installations (`test_scratch::acl_scratch`, under `<temp>/opensip
   - no retry or deletion.
 - Is the publication protocol fit for X4B-a's use (X4B items 5 and 6)?
 - Rule on the judgment calls, in particular 1, 2, 5, 9, 10 and 11.
-- Is v106 right on v104?
+- Is v106 right on v105? Is the rebase conflict resolution right, and do the two advance paths coexist correctly?
 - Is anything else wrong?
 
 review.json must contain:
 - "verdict": `ACCEPT-UNIT` or `REQUIRED-FINDINGS`;
 - "requiredFindings";
 - "subjectManifestSha256": the sha256 of `trust-floor-x4tb-inventory-v106-subject.json`;
-- "inventoryCandidateAssessment": {verdict, requiredFindings, path, bytes, sha256 of v106, parent (the v104 pin), successorRecord}.
+- "inventoryCandidateAssessment": {verdict, requiredFindings, path, bytes, sha256 of v106, parent (the v105 pin), successorRecord}.
 
 Write REVIEW.md and review.json. Do not commit.
 
-**Lead note on ordering.** X2c's inventory105 is in flight on the same parent, v104. If X2c integrates first, `build_v106.py` gets a parent-only rebuild on v105 (one more PRIOR entry), and the rebuilt v106 gets a quick rebase-only recheck. This review judges v106 on v104 as submitted.
+**Lead note on ordering.** No other inventory candidate is in flight on v105 at this writing. This review judges v106 on v105 as submitted.
