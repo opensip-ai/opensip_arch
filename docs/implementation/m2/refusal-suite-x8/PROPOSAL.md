@@ -1,0 +1,295 @@
+# The opaque API refusal suite — proposal X8 r1
+
+2026-10-02. Claude Opus 5.5, implementation lead. Law for unit X8 of `EXIT-PLAN.md`. It is written under:
+- the build plan's M2 row (`implementation-boundaries-and-build-plan.md` line 886: "Opaque API refusal tests … pass; synthetic fixtures remain labelled, not compiler qualification");
+- its required checks (lines 591–613): `crates/host/tests/admission_tests.rs` "owns public-boundary scenarios", and "private evaluator/security unit tests own prerequisite construction" (lines 593–595); the compile-fail and behavioural checks of lines 597–604; and F01's line 609;
+- its tooling matrix row (line 1071), which leaves "trybuild versus isolated Cargo compile-fail fixtures" to a trial, requires that misuse "fail for the intended reason", and asks that each trial retain "the exact input set, candidate/tool version, configuration, observed failures and accepted limitations" (line 1077);
+- the offline build rule: every lane builds with `--locked --offline` from provisioned archives (product `README.md`, `tools/README.md`);
+- the accepted laws X3d r6 (items 1, 3, 4, 10, 11, 12 and 13), X4 r7 (items 4, 6, 8 and 10), X5 r2, X2 r8 (item 7a) and X7 r3 (items 2 and 10), and X4T r4's `cfg(test)` store generator (X4T-0).
+
+Every decision here is a lead decision, made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation; each names the alternative it rejects. Product baseline: `f1b8321` (X3d-0 integrated). Not code. X8 adds no public code, row or detail.
+
+## Problem
+
+M2 completes only when "opaque API refusal tests" pass. Four things are missing.
+
+1. **No harness.** The product has 17 rustdoc `compile_fail` doctests: 10 in `platform/src/work_ledger.rs` (8 of them X3d-0's), one each in `evaluator/src/replay.rs`, `policy.rs` (X12a) and `capabilities.rs`, and two each in `security/src/installation_observation.rs` and `security/src/trust/native_read_session.rs`. A `compile_fail` doctest passes on any compile error, so none of them pins why it fails. X3d-0's reviewer checked each reason by compiling the snippets by hand (`grok-settlement-reserve-x3d0-r1/REVIEW.md`). That check is not repeatable.
+2. **The trial.** The tooling matrix asks for one, and X3d item 11 and X7 item 10 assume an answer: X3d says "pinned by `compile_fail` doctests", and X3d-2 delivers "the X8 doctests".
+3. **No behavioural home.** Lines 600–602 require altering an admitted input, inventory, namespace, execution or generation at the handoff, with no acknowledged authority resulting. No current crate can run that end to end:
+   - the X1–X2e write chain is `pub(crate)` in security;
+   - its test seams (`DurableWriteGate::for_tests`, `HomeSource::Fixture`, X4T-0's signed store) are `cfg(test)` in security;
+   - so neither storage's tests nor host's integration tests can build a `ProjectOperation`.
+
+   X3d item 12 says storage's tests build one "only through crate-private, `cfg(test)` fixtures". Across a crate boundary that cannot be done.
+4. **One case Rust cannot refuse at compile time.** X3d item 11 lists "passing a caller-implemented adapter … to storage's facade". The adapter trait is security's, and storage implements it. A public trait can be implemented, and a public function called, by every crate that depends on security, host included. Rust visibility cannot confine a trait's implementations, or a function's callers, to one sibling crate.
+
+## The trial (tooling matrix line 1071)
+
+**Inputs.**
+- Toolchain: rustc 1.95.0 (59807616e 2026-04-14) and cargo 1.95.0 (f2d3ce0bd 2026-03-21), from the pinned Homebrew cellar.
+- Product: `f1b8321`, exported read-only with `git archive` to `/tmp/opensip-x8-trial/product`.
+- Configuration: all builds `--locked --offline`.
+
+The trial driver is `/tmp/opensip-x8-trial/product/crates/host/tests/admission_tests.rs`. It has 12 cases in `tests/refusal/` and 5 must-reject cases in `tests/refusal-selftest/`. The logs are `run1.log`, `run2.log`, `doctest-trial.log`, `trybuild-offline.log` and `shapes.log` in `/tmp/opensip-x8-trial`; the doctest probe crate is `/tmp/opensip-x8-trial/a`. No repository was edited.
+
+**Observed.**
+1. **Stable rustdoc does not check error codes.** A doctest marked `compile_fail,E0599` whose snippet fails with E0451 passes. So does a `compile_fail` snippet that fails only on a typo in a path (`doctest-trial.log`). The `,E0505` and `,E0515` annotations in `native_read_session.rs` and `installation_observation.rs` are therefore documentation, not checks. Codes are enforced only behind the nightly gate (`RUSTC_BOOTSTRAP=1`), and even then a snippet without a code passes on any error.
+2. **The documented lane never runs doctests.** The README lane is `cargo test --locked --offline --workspace --all-targets`. `--all-targets` means `--lib --bins --tests --benches --examples`, and doctests are not among them. The trial confirmed this. Today the 17 doctests run only when someone runs `cargo test --doc` or `cargo test` without `--all-targets`.
+3. **trybuild cannot be resolved.** It is not in `Cargo.lock` (61 packages) or in the provisioned registry cache. `cargo generate-lockfile --offline` for a manifest naming `trybuild = "1"` fails with exit 101 (`trybuild-offline.log`). Adopting it would add a dependency selection: trybuild plus `glob`, `target-triple` and `termcolor`, with their archives, licences and policy rows.
+4. **An isolated-fixture driver works inside the existing lane.** The driver runs inside `cargo test -p opensip-host --test admission_tests`. It starts a nested `cargo check --locked --offline -p opensip-host --message-format=json` into `CARGO_TARGET_TMPDIR`, takes the `.rmeta` path of every `opensip_*` library and `serde_json` from cargo's `compiler-artifact` messages, and compiles each fixture twice with the pinned `rustc --error-format=json`.
+   - **Timing:** a cold surface check takes 17.5 s; warm, 0.05 s. All 17 cases take 0.86 s.
+   - **No deadlock** with the outer cargo, because the target directory is separate. trybuild uses the same nested-cargo pattern.
+5. **The driver separates intended from unintended failures.** All 12 cases passed. All 5 must-reject cases were rejected:
+   - a typo (E0422 instead of the intended reason);
+   - an extra, unrelated error;
+   - the right error on the wrong line;
+   - a vacuous case: `.clone()` on `&ReplayedRun` compiles, because references are `Clone`;
+   - a control that does not compile.
+6. **Diagnostic shapes on 1.95.0.** Some were measured on product types, and the sealed-trait, private-function, arity and `verified` shapes on the stand-in crate `/tmp/opensip-x8-trial/standin` (`shapes.log`).
+   - A struct literal naming every private field: E0451.
+   - A partial or empty literal: no code, with the message "cannot construct `T` with struct literal syntax due to private fields".
+   - A trait-bound probe for `Clone`, `Copy`, `Default` or `Deserialize`: E0277, "the trait bound `T: Clone` is not satisfied".
+   - A sealed-trait impl outside the crate: E0277 on the private supertrait.
+   - A private associated function: E0624.
+   - A private module: E0603.
+   - An unresolved import: E0432.
+   - Use after move: E0382.
+   - A wrong argument type: E0308.
+   - A literal naming a field the type does not have, such as `verified`: E0560, as the only error.
+   - A wrong arity: E0061.
+
+   The existing `AdmittedPack` and `CapabilityManifest` literals fail with E0451, the intended reason.
+
+**Accepted limitations.** Message fragments are rustc's English text. They are stable under the pinned toolchain, but a re-pin can change them (item 1d). The driver checks the public surface of a plain `cargo check`. It does not check other targets or platforms.
+
+## Decisions
+
+1. **The harness: isolated compile-fail fixtures, driven from `admission_tests.rs` by the pinned toolchain (lead decision; settles line 1071).**
+   a. **Where it lives.** Each case is one Rust file under `crates/host/tests/refusal/cases/`, and each driver self-test under `crates/host/tests/refusal/selftest/`. No fixture is named `main.rs`, so Cargo never discovers one as a target. One `#[test]` in `crates/host/tests/admission_tests.rs` drives all of them. A single test means no two nested builds race on one target directory.
+   b. **The surface.** The driver runs `$CARGO check --locked --offline -p opensip-host --message-format=json`, with `--manifest-path` set to the workspace root and `--target-dir` set to `CARGO_TARGET_TMPDIR/x8-surface`. It takes the `.rmeta` of each `opensip_*` library and of `serde_json` from the `compiler-artifact` messages; a duplicate name fails.
+      - This is the release public surface: no `cfg(test)`, no dev-dependencies and no features. A `cfg(test)` constructor is absent there exactly as it is in a release build.
+      - Fixtures may name only those crates. Transitive crates resolve through `-L dependency=`.
+   c. **One case, two compilations.** Each case is compiled with the same rustc, `--edition 2024 --crate-type lib --emit=metadata --error-format=json --cap-lints allow`:
+      - once as the **control**, without `--cfg x8_misuse`, which must produce no error diagnostic;
+      - once as the **misuse**, with `--cfg x8_misuse`.
+
+      The misuse line and its lawful twin differ only under that `cfg`. The case passes only if all of these hold:
+      - the misuse produces exactly one error diagnostic, not counting rustc's "aborting due to" summary;
+      - its `code` equals the annotation's code, or is absent where the annotation says `none`;
+      - its message contains the annotation's fragment;
+      - one of its primary spans starts on the annotated line.
+
+      The annotation is `//~ ERROR <code|none> "<fragment>"`. There is exactly one per case. `none` is allowed only where rustc 1.95.0 emits no code for the intended error; today that is the partial or empty private-field literal.
+
+      This pins the reason in four independent ways, and the compiling control proves that nothing else in the file is broken. A doctest pins none of them.
+   d. **Toolchain identity.** The driver reads `RUSTC`, or else `rustc`, and requires `rustc -vV` to report `release: 1.95.0`, the `rust-toolchain.toml` pin. It requires `CARGO` to be set.
+      - A missing or different toolchain fails the test; it never skips.
+      - A re-pin must update the pinned release in the same reviewed unit that re-checks every fragment and code.
+      - An `.rmeta` from another compiler fails as E0514, which is never an intended reason.
+   e. **Self-test.** The selftest directory holds at least the trial's five must-reject shapes: a wrong reason, an extra error, a wrong line, a vacuous misuse and a broken control. The driver fails if any of them passes. This shows that the driver can tell intended from unintended failures, not only that the cases fail.
+   f. **Census.** `admission_tests.rs` holds the case table of item 3, as `(file, owning crate, type, unit, category)`.
+      - The driver fails if the `cases/` listing differs from the table.
+      - It fails if any category of lines 597–598 and line 1071 has no case. The categories are raw DTO, boolean `verified`, structural-only input, serialized previous session, forged receipt, cloned or reused session, and private constructor.
+   g. **The lane.** It is an integration test, so it runs in the documented `cargo test --locked --offline --workspace --all-targets`. No new tool, dependency, lock file, Cargo root or lane is added. The test writes only under `CARGO_TARGET_TMPDIR`.
+
+   **Rejected:**
+   - **`compile_fail` doctests as the evidence** (EXIT-PLAN's "extending the rustdoc doctests"). Trial items 1 and 2: stable rustdoc accepts any error, ignores the code annotation, and the documented lane never runs doctests.
+   - **`RUSTC_BOOTSTRAP=1`** to enable code checks. It is a nightly gate on a pinned stable toolchain, and code-less cases would still pass on any error.
+   - **trybuild.** It cannot be resolved offline (trial item 3), and it needs a new dependency selection. It compares normalized rendered stderr, so every rustc message change rewrites every expectation. It asserts text, not code, line and a single error, and it has no lawful control. It also drives a nested cargo, as this driver does, so it adds no precision.
+   - **Fixture crates with their own Cargo root.** These need a second lock kept equal to the workspace lock, an `exclude` entry, and a manifest per case. They add no precision over rustc on the surface `.rmeta`.
+   - **Fixtures as workspace targets** (examples or bins). `--all-targets` and `clippy --all-targets` would build, and fail on, every misuse.
+   - **Locating `.rmeta` files by globbing `target/debug/deps`.** Stale hashes make that ambiguous. Cargo's own artifact messages are exact.
+
+2. **What becomes of `compile_fail` doctests (lead decision; succeeds X3d r6 item 11's "pinned by `compile_fail` doctests" and X3d-2's "the X8 doctests").**
+   - X8's fixtures are the pinned evidence for every must-not-compile case in X3d item 11, X7 item 10 and item 3 below.
+   - X3d-1, X3d-2, X5a and X7a add their cases as X8 fixtures, not doctests. A doctest may still illustrate a type, but it is never cited as evidence.
+   - The 17 existing doctests stay unchanged as documentation; removing reviewed lines buys nothing. Their cases are ported to fixtures in X8a (item 3, group L), so their reasons are pinned for the first time.
+   - **Rejected:** deleting the doctests, which is churn on accepted bytes; and leaving their reasons hand-checked.
+
+3. **The case list.** Each row is one fixture, or one fixture per listed type. "Unit" is the unit that adds the fixture, together with the type it pins.
+
+   **The export rule.** The owner unit declares whether each type is exported, and the table records it.
+   - **An exported type** gets the full capability set: literal, `Default`, `Clone`, `Deserialize`, `Serialize` and reuse.
+   - **A type the owner keeps crate-private** gets one unnameable case instead: E0603 (private item or module) or E0432 (unresolved), on its path. Being unnameable is the stronger refusal.
+
+   **Codes.** Codes are fixed here. Fragments name the type and trait, and the unit fixes their exact text.
+
+   | Group | Case (misuse line) | Owning type and crate | Expected | Unit |
+   |---|---|---|---|---|
+   | A raw DTO | `storage::prepare_commit(raw, session)` with `opensip_identity::JsonValue` holding a Run | `ReplayedRun` (evaluator) at `prepare_commit` (storage) | E0308 | X3d-2 |
+   | A | the same, with the generated contracts Run record | same | E0308 | X3d-2 |
+   | A | the authoritative projection given a `JsonValue` | X7's projection (host) | E0308 | X7a |
+   | B boolean `verified` | `prepare_commit(true, session)` | `ReplayedRun` at `prepare_commit` | E0308 | X3d-2 |
+   | B | the authoritative projection given `true`, a RunId `&str` or `&ReplayedRun` | X7's projection | E0308 each | X7a |
+   | B | `PublishedCommit { verified: true }` | `PublishedCommit` (storage) | E0560 "has no field named `verified`" | X3d-2 |
+   | C structural-only | `prepare_commit(&retained_inputs, session)`, an inert `RetainedInputs` | `ReplayedRun` at `prepare_commit` | E0308 | X3d-2 |
+   | D forged receipt | a partial literal; a `Default` probe; `serde_json::from_str::<T>` | `CommitSession`, `JournalWriteTxn`, `JournalSealBinding`, `StoppedSession` (security); `PreparedCommit`, `PublishedCommit` (storage); `ProjectOperation` (security) | none "struct literal syntax due to private fields"; E0277 "`T: Default`"; E0277 "`T: serde::Deserialize`" | X3d-1, X3d-2, X2e |
+   | D | unnameable | `AdmissionPermit`, `FinalGate`, `OperationGuard` (security, crate-private per X3d item 4 step 3.9 and X4 item 6) | E0603 | X4a |
+   | E cloned or reused | a `Clone` probe on every type in row D | same | E0277 "`T: Clone`" | X3d-1, X3d-2, X2e |
+   | E | `CommitSession::open(op)` twice; `prepare_commit` with a consumed session; `publish` twice; `finish` twice; a `ReplayedRun` passed to a second `prepare_commit` | `ProjectOperation`, `CommitSession`, `PreparedCommit`, `StoppedSession`, `ReplayedRun` | E0382 each | X2e/X3d-1, X3d-2, X5 r2 item 3 |
+   | F private constructor | each non-public or `cfg(test)` constructor of a row D type, found by item 3a's census | as listed | E0624 if private; E0599 "no function or associated item named" if absent outside `cfg(test)`; E0603 if the type is unnameable | the type's unit |
+   | F | `CommitSession::open(op, execution_id)`: no caller-chosen ExecutionId | `CommitSession` | E0061 | X3d-1 |
+   | G serialized previous session | `serde_json::to_string(&x)` | every row D type that is exported | E0277 "`T: Serialize`" | X3d-1, X3d-2, X2e |
+   | H external adapter | `prepared.publish(adapter)`; `prepare_commit(run, session, outcome)` | storage's facade (X3d item 1) | E0061 each | X3d-2 |
+   | I storage internals | `use opensip_storage::ledger_store` (where `stage_recovery_pair` and the SQL connection live) | storage | E0603 | X8a |
+   | J test seam | `use opensip_security::scenario` | item 4's module | E0432 | X8b |
+   | K replay | an empty literal; a `Deserialize` probe; `JsonValue` and `true` in place of `ReplayedRun` | `ReplayedRun` (evaluator) | none "…private fields"; E0277; E0308; E0308 | X8a |
+   | L ported doctests | every existing doctest's misuse, with a lawful control. `SettlementReserve`: clone, re-`settle`, `Default`, literal, both methods on `WorkScope` and on `ReservedPostchecks`. `WorkScope`: replacement and swap. `ReplayedRun`, `AdmittedPack` and `CapabilityManifest` literals. `NativeTrustReadSession` and the installation-observation fence: the use-after-drop and escape cases | platform, evaluator, security | E0599, E0382, E0277, E0451, E0505, E0515 and the rest, as each misuse yields on 1.95.0 | X8a |
+
+   a. **Constructor census (row F).** The unit that adds a row D type lists, in the case table, every inherent function or associated constant of that type, and every `cfg(test)` item that returns it, that is not public in a release build. Each one gets a case.
+      - Today's known members, all on crate-private types: `DurableWriteGate::for_tests`, `HomeSource::Fixture`, `InitialInstallationAttempt::for_tests`, `ObservationSession::for_tests`, `CarrierLocation::for_tests`, `AclOmissionPremise::for_tests`, X4T-0's `accepted_store_fixture`, and X4's abstract test lock.
+      - Each of these is pinned either by its type's unnameable case or by its own case.
+   b. **The adapter (X3d item 11, correction).** Group H pins storage's facade: it takes no adapter and no `SealOutcome`.
+      - **What compile-fail cannot pin.** It cannot pin that security's adapter trait, `begin_journal_txn` and `seal_under_append_lock` are used only by storage (Problem 4). The rest of X3d item 11's list stands as compile-fail cases.
+      - **A source pin instead.** It lives in `admission_tests.rs` and is added by X3d-2. In production code under `crates/*/src`, those three names may appear only in security's defining module and in `crates/storage/src/commit.rs`. A use anywhere else fails.
+      - **What a bypass could reach.** A caller that went around the pin could reach at most a durable SEAL without an evidence commit (F36 and F38's recoverable state). It still could not reach authority: only storage can construct `PublishedCommit` (row D), and only a `PublishedCommit` sets an authoritative label (X7 item 2).
+      - **Rejected:** claiming it as compile-fail, which would be a fixture that cannot pass.
+   c. **X7's projection.** X7a exports the authoritative projection, so that its signature can be pinned from outside. It is inert: it consumes only `&PublishedCommit`, which no caller can forge. X7 r3 does not fix its visibility, so no amendment is needed.
+   d. **ExecutionId reader.** X3d-1 gives `CommitSession` a read-only `execution_id()`. Item 5's B4 needs it. It returns the drawn identifier and admits nothing.
+
+4. **The test seam for behavioural cases: one test-only Cargo feature (lead decision).**
+   a. **The feature.** `opensip-security` declares `scenario-fixtures = []`. `opensip-storage` declares `scenario-fixtures = ["opensip-security/scenario-fixtures"]`. Storage's and host's `[dev-dependencies]` enable it, and nothing else does. Under it, security compiles one `#[doc(hidden)] pub mod scenario`, and storage one `#[doc(hidden)] pub mod scenario`.
+   b. **Widening only existing gates.** The feature widens existing `cfg(test)` gates to `cfg(any(test, feature = "scenario-fixtures"))`, and gates the new `scenario` modules. It adds no gate of its own inside a production item.
+      - Some existing gates sit inside production items: for example `HomeSource::Fixture`'s variant and its match arm in `admit_with`. For those, the feature widens that exact gate and nothing else.
+      - Production behaviour does not change. With the feature on, a seam is reachable only through `scenario`. Without it, the build is byte-for-byte today's.
+   c. **What security's `scenario` offers.**
+      - **`ScenarioHome::create(parent)`:** a 0700 scratch home under the caller's scratch parent. It holds a P0 installation on 462's signed test trees and synthetic signed profile rows, and X4T-0's signed accepted store with its roles Trusted. Every path in it carries the label `synthetic`.
+      - **`project(name)`:** a scratch project root.
+      - **`operation(&self, root) -> Result<ProjectOperation, InstallationTermination>`.** It runs the production chain:
+        - X1's write admission;
+        - X2's root admission, registration and namespace lease;
+        - X3a's endpoint;
+        - X4's lease-free monitor and first read;
+        - X3b's floor step and carrier start;
+        - X2e's handoff.
+
+        It uses only the seams those units' own tests use: the fixture home source and the test trust trees.
+      - **`publish_revocation(subjects)`:** an X4T-0-signed revocation record and an atomic replacement of `state.v1`. This is a lawful trust update.
+      - **`paths(namespace)`:** the read-only paths of the root, `.opensip`, marker, lease, endpoint and lineage files.
+      - **`carrier_census(namespace)`:** a read-only count of SEAL, REV, CLN and TERMINAL records.
+   d. **What storage's `scenario` offers.**
+      - **`ledger_census`:** a read-only list of each `attempt_custody` row (ExecutionId and phase) and the receipt count.
+      - **`plant_attempt(execution_id)`:** writes one `admitted` `attempt_custody` row through the ledger's ordinary insert, as an earlier process would have left it.
+   e. **What `scenario` never does.**
+      - It never constructs an authority type itself. The one exception is the `ProjectOperation` that the production chain returns from `operation`.
+      - It accepts no receipt, guard, gate, monitor, session, permit, `ReplayedRun` or clock from the caller.
+      - It exposes no `FinalGate`, monitor clock or barrier point.
+   f. **Release guard.**
+      - **Source pin.** A source pin in `admission_tests.rs` checks every `Cargo.toml` in the workspace. `scenario-fixtures` may appear only in security's and storage's `[features]` and in `[dev-dependencies]`. It may never be a default feature or appear in `[dependencies]`.
+      - **Compile-fail.** Group J's E0432 proves the plain `cargo check -p opensip-host` surface has no `scenario`. That is the surface `opensip-cli` builds against.
+   g. **Correction to X3d r6 item 12.** X3d-2's storage tests obtain their `ProjectOperation` through this feature (as a dev-dependency), not through crate-private `cfg(test)` fixtures, which storage cannot reach. X3d's next revision records it. X3d's forbidden "production seam that supplies a `ProjectOperation`" stands, because this seam is absent from every release build (item 4f).
+
+   **Rejected:**
+   - **Behavioural cases only in the owners' private tests.** Storage cannot reach security's `cfg(test)` fixtures, so `prepare_commit` with a real session would have no test at all. `admission_tests.rs` would lose the public-boundary scenarios line 593 assigns it.
+   - **A test-support crate.** X4T-0 and the write seams use security-private modules, so a separate crate would have to duplicate them, and the duplicate would diverge.
+   - **A `--cfg` set through `RUSTFLAGS`.** It rebuilds the whole closure, applies to every crate, and leaks into any build run in that environment.
+   - **Public seams without a feature.** That is a production seam.
+
+5. **The behavioural cases and how they run.**
+
+   Each is an ordinary `#[test]` in `admission_tests.rs`, named `synthetic_…` (line 886's label), on its own `ScenarioHome`. Each drives the public facade:
+   - `scenario::operation`;
+   - `CommitSession::open`;
+   - `evaluator::replay_run` on a corpus Run from `crates/evaluator/tests/fixtures`;
+   - `storage::prepare_commit`;
+   - `publish`;
+   - `finish`.
+
+   **What every refusal case asserts:**
+   - the outcome variant;
+   - its exact `InstallationTermination` row, from X3d item 9 or X4 item 8;
+   - that no `PublishedCommit` exists, which the outcome type shows;
+   - the durable census after `finish`.
+
+   **Synchronization.** Every alteration happens on the test thread between two public calls: after `operation` (the X2 item 7a handoff) or before `publish`. It is deterministic, with no sleep and no timing.
+
+   | Case | Alteration | Expected outcome | Census after `finish` | Owner of the refusal |
+   |---|---|---|---|---|
+   | B0 lawful control | none | `Committed(PublishedCommit)`, not latched | 1 SEAL, 1 receipt, no REV | X3d |
+   | B1 admitted input | a `ReplayedRun` of another corpus Run, whose RunId, plan or proof does not bind to the session | `Refused`, invariant row `HOST.INVARIANT_VIOLATED` (X3d item 3 step 1) | no attempt row, no SEAL, no receipt | X3d-2 |
+   | B2 inventory | a `ReplayedRun` whose evaluator closure differs from the session's selected core closure | the same invariant row | the same | X3d-2 |
+   | B3 namespace | the marker, then (separately) the lease file, replaced after the handoff | `Refused`, custody row `CONFIG.CUSTODY_REFUSED` / `required-files-changed` (X4 item 8); gate latched | attempt row `admitted`, no SEAL, 1 REV and a CLN exactly where X3d item 7 requires one, no receipt | X4a with X3d |
+   | B4 execution | `plant_attempt(session.execution_id())` before `prepare_commit` | `ExistingAttempt`, then the invariant row until X6 routes it | the planted row unchanged and alone, no SEAL | X3d-2 / X3c |
+   | B5 generation | the endpoint's lineage file replaced with one naming another generation, after the handoff | the custody row; gate latched | as B3 | X4a / X3a |
+   | B6 live revocation | `publish_revocation` naming the session's core closure, after the handoff | `Refused`, `TRUST.COMPONENT_REVOKED_DURING_OPERATION` (X4 item 8); gate `0 → 2` | as B3 | X4a |
+   | B7 unrelated revocation | `publish_revocation` naming nothing in the closure | `Committed`, with `revocation-unrelated` drift recorded | as B0 | X4a |
+   | B8 replay-invalid (F01, line 609) | one byte of a claimed output altered | `replay_run` returns `Mismatch`, so no `ReplayedRun` exists to pass on (row K pins that nothing else can stand in) | the scratch home has no attempt, carrier or lease | X5a |
+
+   - **B0 is required.** It is the positive control that makes B1 to B8 non-vacuous: the same harness, home and corpus do reach a commit.
+   - **Alterations inside `publish`** (between the SEAL and the repeated checkpoint, F19) need X3d's named barrier points, which X9's law fixes. They are X3d-1's private tests and X9's matrix, not X8's.
+   - **Timing cases** (the 10 s bound, a stall, a boot change, a lost lock on an unchanged descriptor) need scripted clocks. They stay in X4a's private tests (X4 item 10).
+   - **X4 item 10's last bullet** ("the build plan's altered input, inventory, execution and generation handoff tests") is met at the public boundary by B1 to B5. X4a's private guard-level tests remain X4's.
+   - **Rejected:**
+     - altering state from a second thread with sleeps;
+     - inferring "no authority" from the returned value alone, without the durable census;
+     - refusal cases without B0.
+
+6. **Failure cases and gates.** X8 tests these; their owners cover them:
+   - F01 (B8; X5);
+   - F18 (B6; X4);
+   - F34's routing (B4; X3d);
+   - the stale-guard half of the handoff checks (B3, B5; X4);
+   - lines 597–604 and line 1071.
+
+   It covers no F-case alone and qualifies no gate. M2 completion still needs X9.
+
+## Units after the law
+
+Each unit is reviewed with an inventory successor that lists its new files.
+
+- **X8a (host tests; no dependency, can land now on `f1b8321`).**
+  - The driver, annotation parser, toolchain check, census table and self-test (item 1).
+  - Groups I, K and L.
+  - The `scenario-fixtures` source pin, which passes vacuously until X8b adds the feature.
+
+  It lands first, so each later owner unit adds its rows to a working suite.
+- **Owner rows, added by their units:**
+  - **X2e:** `ProjectOperation` rows D, E, F and G.
+  - **X4a:** the unnameable rows for `AdmissionPermit`, `FinalGate` and `OperationGuard`.
+  - **X3d-1:** rows D, E, F and G for `CommitSession`, `JournalWriteTxn`, `JournalSealBinding` and `StoppedSession`; the `open` arity case; and `execution_id()` (item 3d). It depends on X3d-0, X4a and X2e, as X3d r6 states.
+  - **X3d-2:** rows A to D and G for `PreparedCommit` and `PublishedCommit`; group H; and the adapter source pin (item 3b). This replaces "the X8 doctests". It depends on X3d-1.
+  - **X5a:** the `ReplayedRun` reuse case in row E.
+  - **X7a:** the projection rows A and B, and the projection's export (item 3c).
+
+  Each owner's review runs the X8a driver green with its rows added.
+- **X8b (security, storage and host manifests).** The `scenario-fixtures` feature and both `scenario` modules (item 4); group J; and the dev-dependency entries.
+  - **Depends on:** X2e (the handoff), X3a-1, X3b-3 (the carrier start), X4a (the monitor's first read in the chain), X4T-0, and X3c-2 (the ledger census).
+  - **Lands before X3d-2,** whose storage tests use it (item 4g).
+- **X8c (host tests).** B0 to B8 (item 5).
+  - **Depends on:** X8b, X3d-2 (and so X3d-1, X4a and X3c-2), and X5a.
+  - **B6 and B7** also need X4T-b's admitted reading of a newly published revocation, which X4a's observation path depends on.
+- **X3d r7 (record only):** item 12's storage-test fixture source (item 4g), item 11's adapter case (item 3b), and "the X8 doctests" in item 13 (item 2). No decision of X3d changes.
+- **EXIT-PLAN:** the X8 row gains "law X8 r1; units X8a–X8c". The "Choices" recommendation, which extends doctests, is superseded by item 1.
+
+## Forbidden substitutes
+
+- **As evidence:** a `compile_fail` doctest, a doctest error-code annotation, or a reason checked by hand.
+- **Weak cases:**
+  - a fixture without a compiling control;
+  - a misuse that produces more than one error;
+  - an annotation with no line, no fragment, or `none` where rustc emits a code.
+- **Text matching:** comparing whole rendered or normalized stderr.
+- **Toolchain:** skipping instead of failing when `CARGO`, the pinned rustc or a surface artifact is missing or different; `RUSTC_BOOTSTRAP`, or any nightly feature.
+- **Dependencies:** trybuild or any new dependency; a second Cargo root or lock for fixtures; fixtures as workspace targets.
+- **The wrong surface:** compiling fixtures against a surface built with dev-dependencies, features or `cfg(test)`.
+- **Claiming too much:** an unpinnable case claimed as compile-fail.
+- **The feature:**
+  - `scenario-fixtures` as a default feature, in any `[dependencies]` table, as a new gate inside a production item's body (item 4b), or reachable from the plain host surface;
+  - a `scenario` item that constructs, accepts or returns an authority type, except `operation`'s production-chain `ProjectOperation`.
+- **Behavioural cases:**
+  - one that sleeps, uses wall-clock timing, or alters state inside `publish` without X9's barrier points;
+  - a refusal asserted without B0, or without the durable census.
+- **New vocabulary:** a new public code, row or detail.
+
+## Not claimed
+
+- **Not X9's matrix:** the crash, lock and revocation matrix, fresh-process recovery, and barrier points.
+- **Not qualification:**
+  - native scheduling and the 5 s and 10 s bounds;
+  - process isolation;
+  - compiler qualification ("synthetic fixtures remain labelled").
+- **Not general Rust guarantees:**
+  - that Rust visibility confines security's adapter trait or functions to storage (item 3b pins this by source instead);
+  - any toolchain other than rustc 1.95.0;
+  - other targets.
+- **Not owned here:** the owner units' private tests; X6's recovery routing of B4; CLI enablement.
