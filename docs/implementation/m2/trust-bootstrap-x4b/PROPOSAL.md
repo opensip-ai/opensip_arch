@@ -1,4 +1,4 @@
-# First trust acceptance from the embedded bootstrap payload — proposal X4B r4
+# First trust acceptance from the embedded bootstrap payload — proposal X4B r5
 
 2026-10-01. Claude Opus 5.5, implementation lead. Law for unit X4B of `EXIT-PLAN.md`, created by X4T r4 to r7 (item 13). It is written under:
 - the security contract's S4 (trust time, step 2 "fresh install") and S4.5, S5 and S6;
@@ -14,7 +14,7 @@ r2 answers Grok X4B r1:
 
 r1 bytes are preserved in PROPOSAL-r1.md.
 
-r3 answers Grok X4B r2 RF-1: the monitor exists before F is chosen. The `FreshnessMonitor` and `FinalGate` are created first (X4 item 2). Their single first `read` runs the retained-capsule admission and, on F absent, the acceptance and the one confirming admission, then returns that view. The acceptance uses that read's clock sample. Items 1, 3, 10 and 11 are corrected. r2 bytes are preserved in PROPOSAL-r2.md. r4 answers Grok X4B r3 RF-1: item 5 names item 1 step 2.3, the confirming admission, as the reader of the retained owner. r3 bytes are preserved in PROPOSAL-r3.md. r4 ACCEPTED by Grok on 2026-10-01.
+r3 answers Grok X4B r2 RF-1: the monitor exists before F is chosen. The `FreshnessMonitor` and `FinalGate` are created first (X4 item 2). Their single first `read` runs the retained-capsule admission and, on F absent, the acceptance and the one confirming admission, then returns that view. The acceptance uses that read's clock sample. Items 1, 3, 10 and 11 are corrected. r2 bytes are preserved in PROPOSAL-r2.md. r4 answers Grok X4B r3 RF-1: item 5 names item 1 step 2.3, the confirming admission, as the reader of the retained owner. r3 bytes are preserved in PROPOSAL-r3.md. r4 ACCEPTED by Grok on 2026-10-01. r5 (2026-10-01) is a lead decision under the owner's standing direction, made with law 463 r9. Implementing X4B-a found that r4 could not be met on a real release. Law 463 r8 item 9 let the embedded bootstrap list only root-chain and revocation envelopes, so it carried no signed catalog. Yet item 5's catalog admission, the retained capsule's `heads.catalog` and the payload closure's `catalog` all need one. It also carried no component manifest, so TR-INDEX and TR-COMPONENT stayed `Unbootstrapped`, and item 10's first case (the confirming admission admits the result) could never pass. Law 463 r9 lets the bootstrap carry a catalog pair and the component-manifest pairs, which `InitialCore` retains without judging them. r5 changes items 2, 4, 7, 10 and 11 to match: item 2 names those pairs as the catalog and component source; item 4 states the roles the bootstrap carries; item 10's first case expects that result; and X4B-a depends on unit 463h. Rejected alternatives: the same as 463 r9's. A second payload source and unsigned placeholders are both refused, and so is not carrying TR-COMPONENT. r4 bytes are preserved in PROPOSAL-r4.md.
 
 ## Problem
 
@@ -65,6 +65,14 @@ X4T-0 builds them only under `cfg(test)`. X4B is their production producer.
      - a separate `trust bootstrap` command: it would add a mandatory user step with nothing to decide.
 2. **What is accepted (lead decision).** Exactly the payload law 463 embeds, read from the running core's tree through the `InitialCore` that X1's write receipt retains.
    - **Authentication:** it is authenticated from the embedded root binding (schema, version, digest), against the signed root it carries, and through S5's chain within `ChainBudget{16 links, 16 MiB}`. Every signature is re-verified.
+   - **The documents and their source (r5).** The payload's documents are exactly the pairs `InitialCore` retains under law 463 r9 items 2 and 9:
+     - the root chain and the revocation, which `InitialCore` authenticated and verified;
+     - the bootstrap manifest (TR-BUNDLE) and the core inventory (TR-CORE), whose envelopes `InitialCore` verified;
+     - the catalog pair;
+     - each component-manifest pair.
+
+     `InitialCore` makes no trust decision on the catalog and component-manifest pairs, so X4B verifies them itself. Each is reverified against the payload's final root, with the embedded revocation's keys excluded, at its role's quorum: the catalog under TR-INDEX and each component manifest under TR-COMPONENT. A failure is `PAYLOAD-NOT-ADMISSIBLE` and writes nothing.
+   - **A bootstrap without a catalog (r5).** It refuses `PAYLOAD-NOT-ADMISSIBLE` (subject `catalog`) before any write. The selected shapes require a catalog in the retained capsule (`AcceptedHeads.catalog`) and in the payload closure (`PayloadMetadataClosureV1.catalog`), so no lawful acceptance record exists without one.
    - **No other source:** no network, import file or caller-supplied payload is consulted. A development build has no embedded bootstrap and refuses earlier, at `CORE.NO_EMBEDDED_RELEASE`.
    - **Rejected:** importing an ordinary payload here. That is S4.5 and later import units.
 3. **Time (S4 step 2, exactly).**
@@ -91,7 +99,14 @@ X4T-0 builds them only under `cfg(test)`. X4B is their production producer.
      - stale revocation: `PresentOrdinary` then `Clock`, ending at `ST-STALE-REVOCATION`;
      - revoked: `PresentOrdinary` then `Revoke`, ending at `ST-REVOKED`;
      - expired and revoked: all three events, ending at `ST-REVOKED`.
-   - **Roles the payload doesn't carry** stay `Unbootstrapped`, with no event recorded.
+   - **The roles the bootstrap carries (r5).** Each role and its document:
+     - TR-CORE: the core inventory;
+     - TR-BUNDLE: the bootstrap manifest;
+     - TR-INDEX: the catalog;
+     - TR-COMPONENT: the component manifests. It is carried only when the bootstrap lists at least one, and each listed manifest must verify (item 2). One `PresentOrdinary` is dispatched for the role, judged on all of them together.
+
+     TR-PROFILE and TR-REPAIR are not carried: the platform profile set is `InitialPlatform`'s (law 462), not a payload member, and the bootstrap carries no repair material.
+   - **Roles the payload doesn't carry** stay `Unbootstrapped`, with no event recorded. A release with no component manifest leaves TR-COMPONENT `Unbootstrapped`. The acceptance is still recorded, and the confirming admission then refuses on its continuation row (`component:unbootstrapped`).
    - **Continuation.** X4T's confirming admission (item 1, step 2.3) reads the stored `roles.*.state` and runs `continuation`. If core, index or component isn't continuable, it refuses on its continuation row, after the acceptance is durably recorded. The record is honest even when the result is unusable.
    - **Rejected:**
      - writing `Expired`, `StaleRevocation` or `Revoked` directly with one `PresentOrdinary` (RF-2): `decide` stores `Trusted` for that event;
@@ -115,7 +130,7 @@ X4T-0 builds them only under `cfg(test)`. X4B is their production producer.
    - **No deletion.** Nothing is ever deleted (owner §6).
 7. **Rows (existing only).**
    - no embedded bootstrap: `CORE.NO_EMBEDDED_RELEASE`;
-   - authentication: the `ROOT.*` and `PAYLOAD-NOT-ADMISSIBLE` rows X4T item 10 fixes;
+   - authentication: the `ROOT.*` and `PAYLOAD-NOT-ADMISSIBLE` rows X4T item 10 fixes. That includes a catalog or component manifest that fails reverification, and a bootstrap without a catalog (r5, item 2);
    - time: `PAYLOAD-NOT-ADMISSIBLE` or `CLOCK-EXCURSION-FORWARD`;
    - a revoked core at acceptance: the continuation row;
    - I/O and an uncertain publication: host I/O;
@@ -127,7 +142,13 @@ X4T-0 builds them only under `cfg(test)`. X4B is their production producer.
 9. **Relation to X4T-0.** Once X4B's producer exists, X4T-0's test-only constructor is replaced by calls to it, wherever X4B can produce the requested role states: `Trusted`, `Expired`, `StaleRevocation` and `Revoked`, through item 4's sequences. X4T-0 keeps only the states acceptance can't reach, such as `QuorumLost` and `Recovery`, as test-only constructions. Its source pin stays.
 10. **Tests.**
     - **Scratch installations,** with a test-only embedded release whose bootstrap payload is signed with the public quorum62 seeds (462/463's test trees). Covered cases:
-      - P0 → accepted, after which the confirming admission admits the result with every carried, fresh role `ST-TRUSTED` from a single `EV-PRESENT-PAYLOAD`;
+      - P0 → accepted (r5), from a test release built by 463h's signed release builder, with a TR-INDEX-signed catalog and a TR-COMPONENT-signed component manifest. The confirming admission then admits the result:
+        - TR-CORE, TR-BUNDLE, TR-INDEX and TR-COMPONENT are each `ST-TRUSTED` from a single `EV-PRESENT-PAYLOAD`;
+        - TR-PROFILE and TR-REPAIR are `ST-UNBOOTSTRAPPED` with no event;
+        - the standing is `InstallGateRequiredForNewProcess`;
+      - (r5) a bootstrap without a catalog gives `PAYLOAD-NOT-ADMISSIBLE` and writes nothing;
+      - (r5) a catalog or component manifest signed outside its role gives `PAYLOAD-NOT-ADMISSIBLE` and writes nothing;
+      - (r5) no component manifest: acceptance is recorded with TR-COMPONENT `ST-UNBOOTSTRAPPED`, and the confirming admission refuses as `component:unbootstrapped`;
       - the future-dated payload, beyond-horizon and fresh-install time rules;
       - an expired document at acceptance: `EV-PRESENT-PAYLOAD` then `EV-CLOCK`, stored `ST-EXPIRED`, with `accepted.by` naming the first event. The core expired gives X4T's continuation row;
       - a stale revocation: `ST-STALE-REVOCATION`. A revoked document: `EV-PRESENT-PAYLOAD` then `EV-REVOKE`, stored `ST-REVOKED`, with `revokedBy` set. Expired and revoked: three events, stored `ST-REVOKED`;
@@ -139,7 +160,10 @@ X4T-0 builds them only under `cfg(test)`. X4B is their production producer.
       - read-only commands never bootstrapping.
     - **Round trip:** X4T-a's loaders (`capture_p2`, `bind`, `bind_retained_head`, `Budget::load` and the `accepted.by` check) accept what X4B writes.
 11. **Units.**
-    - **X4B-a:** the producer: the records and the publication of items 2 to 6. It depends on X4T-a and on X4T-b's publication protocol.
+    - **X4B-a:** the producer: the records and the publication of items 2 to 6. It depends on:
+      - X4T-a;
+      - X4T-b's publication protocol;
+      - (r5) unit 463h, the `InitialCore` successor that retains the catalog and component-manifest pairs and gives the test release builder its signed catalog and component manifest.
     - **X4B-b:** the wiring at X4T's fenced first read (item 1): the F-absent branch, the acceptance and the one confirming admission on the confirmed retained `state.v1`, all inside the `FreshnessMonitor`'s single first `read`. It depends on:
       - X4B-a;
       - X1's returned fence;
