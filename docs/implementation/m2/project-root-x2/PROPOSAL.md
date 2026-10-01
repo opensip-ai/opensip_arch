@@ -1,6 +1,6 @@
 # Project-root custody, project admission and first registration — proposal X2 r5
 
-2026-09-30. Claude Opus 5.5, implementation lead. Law for unit X2 of EXIT-PLAN.md, under owner.md §1b, §5, §7 and §8; the selected project registry owner (`project-registry-owner-selection-v2/owner.md`); the security contract S3 (discovery and custody), S7 (locks and leases) and S12; identity-and-evidence §2 and §5; and laws 458 (§3 and §5), 458b, 462, 465 item 4, 468 r5, 458c r6, 461 r3 (item 9, which requires this law) and X1. Every choice here is a lead decision, made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation; each is dated and names the alternative it rejects. r2 answers Codex X2 r1 RF-1 to RF-7 against product f7acb6d (X1a integrated). r1 bytes are preserved in PROPOSAL-r1.md. r3 answers Codex X2 r2 RF-1 to RF-4, and r2 bytes are preserved in PROPOSAL-r2.md. r4 answers Grok X2 r3 RF-1 to RF-3, and r3 bytes are preserved in PROPOSAL-r3.md. Not code. Library only: CLI enablement is X11.
+2026-09-30. Claude Opus 5.5, implementation lead. Law for unit X2 of EXIT-PLAN.md, under owner.md §1b, §5, §7 and §8; the selected project registry owner (`project-registry-owner-selection-v2/owner.md`); the security contract S3 (discovery and custody), S7 (locks and leases) and S12; identity-and-evidence §2 and §5; and laws 458 (§3 and §5), 458b, 462, 465 item 4, 468 r5, 458c r6, 461 r3 (item 9, which requires this law) and X1. Every choice here is a lead decision, made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation; each is dated and names the alternative it rejects. r2 answers Codex X2 r1 RF-1 to RF-7 against product f7acb6d (X1a integrated). r1 bytes are preserved in PROPOSAL-r1.md. r3 answers Codex X2 r2 RF-1 to RF-4, and r2 bytes are preserved in PROPOSAL-r2.md. r4 answers Grok X2 r3 RF-1 to RF-3, and r3 bytes are preserved in PROPOSAL-r3.md. r5 answers Grok X2 r4 RF-1 (step 6 rechecks the current owners) and RF-2 (the floor step is ordered before item 7's lease, outside 7a). r4 bytes are preserved in PROPOSAL-r4.md. Not code. Library only: CLI enablement is X11.
 
 ## Problem
 
@@ -148,7 +148,7 @@ Without the premise, no project root can be admitted. Without an admitted root, 
 
       This applies to a reused `.opensip` too: existence is not a durability receipt. The retained `.opensip` handle and the root handle join the recheck set. A failed or uncertain confirmation stops before the marker.
    5. **Marker.** Create the 92-byte marker no-replace under the retained `.opensip`, with the zero-rights owner allow. Barrier the file, then `.opensip`'s directory barrier.
-   6. **ACTIVE.** Recheck every original root, `.opensip`, marker, namespace, registry, chain and tracking observation, then replace RESERVED with ACTIVE through the replacement primitive.
+   6. **ACTIVE.** Recheck the current owners: the root; the `.opensip`, marker and namespace owners published by steps 3 to 5; the registry owner R1; the chain; and the tracking observation. Each is checked through its own retained descriptor and metadata. R0 and any replaced capture stay provenance and are not rechecked. Then replace RESERVED with ACTIVE through the replacement primitive.
 
    **Durable prefixes.** These are for X2c's tests. Until a publication is confirmed, its predecessor is the last guaranteed authoritative state. An unconfirmed write is not guaranteed absent from durable storage.
    - **Before RESERVED is confirmed:** R0 is the guaranteed state. RESERVED may also be durable; the act stops.
@@ -207,7 +207,7 @@ Without the premise, no project root can be admitted. Without an admitted root, 
    - **Alternative rejected:** modelling Git's full configuration semantics, and relocated worktrees, linked worktrees, bare repositories, includes and SHA-256 repositories. Each adds unbounded or format-dependent evidence, and none is needed for an ordinary clone.
    - **Alternative rejected:** refusing index version 4. Its prefix compression is fully specified and simple to decode exactly, and refusing it would break repositories with `index.version = 4` or `feature.manyFiles`.
 
-7. **Namespace admission and leases.** For `Eligible(N)`, or for a root this admission has just registered (R2), with N taken only from the ACTIVE row of the current registry owner R (R0 for an Eligible root; R2 after this admission's own first registration) and never from a caller, under the same held fence:
+7. **Namespace admission and leases.** **Ordering note (X3b r2 item 1).** Before this item takes any lease, with the fence held and no project lock, X3b's floor step runs once R is current (R0 for an Eligible root, R2 after a fresh registration). S7 writes trust state only under the fence and never under a lease. For `Eligible(N)`, or for a root this admission has just registered (R2), with N taken only from the ACTIVE row of the current registry owner R (R0 for an Eligible root; R2 after this admission's own first registration) and never from a caller, under the same held fence:
    - Confirm the namespace directory and both lease files under custody.
    - Take the S7 lease without blocking, starting from the existing `lifecycle::leases` two-lock implementation:
      - **SHARED-READ:** `readers.lease` LOCK_SH|LOCK_NB only.
@@ -226,11 +226,7 @@ Without the premise, no project root can be admitted. Without an admitted root, 
       - the store endpoint and lineage owners.
 
       It is built by moving owners out of the fenced session or gate, never from copied fields.
-   3. **Journal steps inside the same fence hold (X3b r2 item 1).** Two X3b steps run in this one fence hold, in this order:
-      - X3b's floor step runs after R is current (R0 for a registered root, R2 after a fresh registration) and before X2d takes the lease;
-      - X3b's carrier start runs here in X2e, after the transfer and before the release.
-
-      X2 owns the ordering and X3b owns the steps (X3b-3 composes them).
+   3. **X3b's carrier start (X3b r2 item 1).** It runs here, after the transfer and before the release, inside the same fence hold. X3b's floor step is not part of 7a: it runs earlier, before item 7 takes the lease (see the ordering note in item 7). X2 owns the ordering and X3b owns the steps (X3b-3 composes them).
    4. **Release the fence.** Only then is the fence released, per owner §8 and S7.
 
    **After the release.** The mutable registry and pair captures become provenance. An unrelated registration, or a same-schema core selection, cannot invalidate the pinned operation. Same-N move, retirement or store reselection stays excluded by the lease.
