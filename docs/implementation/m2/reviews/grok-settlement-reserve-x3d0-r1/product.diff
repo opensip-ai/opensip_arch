@@ -1,0 +1,795 @@
+diff --git a/crates/platform/src/lib.rs b/crates/platform/src/lib.rs
+index 6994bd1..20a7ce1 100644
+--- a/crates/platform/src/lib.rs
++++ b/crates/platform/src/lib.rs
+@@ -156,7 +156,7 @@ pub use filesystem::{
+ mod work_ledger;
+ pub use work_ledger::{
+     BudgetFailure as WorkBudgetError, Cost as WorkCost, Failure as WorkFailure, ReservedPostchecks,
+-    WorkLedger, WorkScope,
++    SettlementReserve, WorkLedger, WorkScope,
+ };
+ 
+ mod work_reader;
+diff --git a/crates/platform/src/work_ledger.rs b/crates/platform/src/work_ledger.rs
+index 360222e..077e382 100644
+--- a/crates/platform/src/work_ledger.rs
++++ b/crates/platform/src/work_ledger.rs
+@@ -2,6 +2,12 @@
+ //! Counters are not native custody, admission, authorization or effect receipts.
+ //! One private operation owner must preserve this ledger across all sub-operations.
+ //! Creating a new ledger never licenses retrying a failed native operation.
++//! The one exception to the failure latch is a settlement reserve (law X3d r6
++//! item 8): an allowance charged before any effect, taken at most once per
++//! instance, and spendable once through `WorkLedger::settle` even after the
++//! instance has failed. Outside `settle` a failed ledger refuses everything.
++
++use core::sync::atomic::{AtomicU64, Ordering};
+ 
+ const OBJECT_LIMIT: usize = 65_536;
+ const EDGE_LIMIT: usize = 131_072;
+@@ -50,16 +56,123 @@ pub enum Failure<E> {
+     Operation(E),
+ }
+ 
++// Issue numbers that bind a settlement reserve to the one instance that took
++// it. Each is drawn once and never reused; exhaustion refuses the reservation.
++static SETTLEMENT_ISSUE: AtomicU64 = AtomicU64::new(1);
++
++// The instance's one settlement reserve (law X3d r6 item 8).
++#[derive(Clone, Copy, PartialEq, Eq)]
++enum Settlement {
++    Untaken,
++    // Charged to `used`; the reserve with this issue number is outstanding.
++    Reserved(u64),
++    // `settle` is running. Scopes inside it are checked against this latch,
++    // not against `failed`; any failure inside sets both.
++    Active { latched: bool },
++    // Consumed by `settle`, or refused there. Never taken again.
++    Spent,
++}
++
+ // No Clone, Default, reset, refund or deserialization. Public construction is
+ // deliberately accounting only; native operation ownership is enforced elsewhere.
+ pub struct WorkLedger {
+     limits: Cost,
+     used: Cost,
+     failed: bool,
+-    // While `ReservedPostchecks::prepaid` runs, charges draw from this carved,
+-    // already-charged allowance instead of the limits; `used` does not move.
++    // While `ReservedPostchecks::prepaid` or `settle` runs, charges draw from
++    // this carved, already-charged allowance instead of the limits; `used`
++    // does not move.
+     prepaid: Option<Cost>,
++    settlement: Settlement,
+ }
++
++/// The one settlement allowance of the [`WorkLedger`] that issued it (law X3d
++/// r6 item 8). Its cost was charged to that ledger's `used` when it was taken
++/// and is never refunded. It can be spent once, only through
++/// [`WorkLedger::settle`] on the issuing instance, and nothing adds to it.
++/// It is not `Clone`, `Copy`, `Default` or serializable, and
++/// [`WorkLedger::reserve_settlement`] is its only constructor. Dropping it
++/// unspent forfeits it.
++///
++/// ```
++/// use opensip_platform::{WorkCost, WorkLedger};
++/// let mut owner = WorkLedger::new();
++/// let two = WorkCost { edges: 2, ..WorkCost::default() };
++/// let reserve = owner.reserve_settlement(two).unwrap();
++/// owner.settle::<_, ()>(reserve, |work| work.charge(two)).unwrap();
++/// ```
++///
++/// It cannot be cloned or copied, so it is spent at most once:
++///
++/// ```compile_fail
++/// use opensip_platform::{WorkCost, WorkLedger};
++/// let mut owner = WorkLedger::new();
++/// let reserve = owner.reserve_settlement(WorkCost::default()).unwrap();
++/// let _copy = reserve.clone();
++/// ```
++///
++/// ```compile_fail
++/// use opensip_platform::{WorkCost, WorkLedger};
++/// let mut owner = WorkLedger::new();
++/// let reserve = owner.reserve_settlement(WorkCost::default()).unwrap();
++/// owner.settle::<(), ()>(reserve, |_| Ok(())).unwrap();
++/// owner.settle::<(), ()>(reserve, |_| Ok(())).unwrap();
++/// ```
++///
++/// It cannot be defaulted or constructed:
++///
++/// ```compile_fail
++/// use opensip_platform::SettlementReserve;
++/// let _reserve = SettlementReserve::default();
++/// ```
++///
++/// ```compile_fail
++/// use opensip_platform::{SettlementReserve, WorkCost};
++/// let _reserve = SettlementReserve { issuer: 1, allowance: WorkCost::default() };
++/// ```
++///
++/// It cannot be taken or spent from a helper's `WorkScope`:
++///
++/// ```compile_fail
++/// use opensip_platform::{WorkCost, WorkLedger};
++/// let mut owner = WorkLedger::new();
++/// owner.scope::<(), ()>(|helper| {
++///     let _ = helper.reserve_settlement(WorkCost::default());
++///     Ok(())
++/// }).unwrap();
++/// ```
++///
++/// ```compile_fail
++/// use opensip_platform::{WorkCost, WorkLedger};
++/// let mut owner = WorkLedger::new();
++/// let reserve = owner.reserve_settlement(WorkCost::default()).unwrap();
++/// owner.scope::<(), ()>(|helper| helper.settle(reserve, |_| Ok(()))).unwrap();
++/// ```
++///
++/// or from `ReservedPostchecks`:
++///
++/// ```compile_fail
++/// use opensip_platform::{WorkCost, WorkLedger};
++/// let mut owner = WorkLedger::new();
++/// owner.effect::<(), ()>(WorkCost::default(), WorkCost::default(), |post| {
++///     let _ = post.reserve_settlement(WorkCost::default());
++///     Ok(())
++/// }).unwrap();
++/// ```
++///
++/// ```compile_fail
++/// use opensip_platform::{WorkCost, WorkLedger};
++/// let mut owner = WorkLedger::new();
++/// let reserve = owner.reserve_settlement(WorkCost::default()).unwrap();
++/// owner.effect::<(), ()>(WorkCost::default(), WorkCost::default(), |post| {
++///     post.settle(reserve, |_| Ok(()))
++/// }).unwrap();
++/// ```
++pub struct SettlementReserve {
++    issuer: u64,
++    allowance: Cost,
++}
++
+ impl WorkLedger {
+     /// Charged work, including unused reservations; never decremented.
+     pub fn used(&self) -> Cost {
+@@ -83,6 +196,7 @@ impl WorkLedger {
+             used: Cost::default(),
+             failed: false,
+             prepaid: None,
++            settlement: Settlement::Untaken,
+         }
+     }
+ 
+@@ -103,6 +217,7 @@ impl WorkLedger {
+             used: Cost::default(),
+             failed: false,
+             prepaid: None,
++            settlement: Settlement::Untaken,
+         })
+     }
+ 
+@@ -134,7 +249,7 @@ impl WorkLedger {
+         &mut self,
+         action: impl FnOnce(&mut WorkScope<'_>) -> Result<T, Failure<E>>,
+     ) -> Result<T, Failure<E>> {
+-        if self.failed {
++        if self.closed() {
+             return Err(Failure::Budget(BudgetFailure::Closed));
+         }
+         let mut guard = LedgerScope {
+@@ -145,7 +260,7 @@ impl WorkLedger {
+             ledger: guard.ledger,
+         });
+         match result {
+-            Ok(value) if !guard.ledger.failed => {
++            Ok(value) if !guard.ledger.closed() => {
+                 guard.completed = true;
+                 Ok(value)
+             }
+@@ -237,6 +352,89 @@ impl WorkLedger {
+             })
+         })
+     }
++
++    /// Take this instance's one settlement reserve (law X3d r6 item 8). It is
++    /// on the owner's ledger only: `WorkScope` and `ReservedPostchecks` have
++    /// no such method. `cost` is charged to `used` at once, exactly as any
++    /// charge is, and is never refunded. A closed ledger refuses `Closed`;
++    /// a cost beyond the remaining limits refuses `Objects`, `Edges`, `Bytes`
++    /// or `Arithmetic`. Each refusal takes nothing and latches the ledger, as
++    /// any failed charge does. A second reservation on the same instance,
++    /// whether or not the first was spent, is refused `Closed` and latches.
++    pub fn reserve_settlement(&mut self, cost: Cost) -> Result<SettlementReserve, BudgetFailure> {
++        if self.settlement != Settlement::Untaken {
++            self.failed = true;
++            return Err(BudgetFailure::Closed);
++        }
++        if self.failed {
++            return Err(BudgetFailure::Closed);
++        }
++        let Ok(issuer) = SETTLEMENT_ISSUE
++            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |n| n.checked_add(1))
++        else {
++            self.failed = true;
++            return Err(BudgetFailure::Arithmetic);
++        };
++        match self.charge::<core::convert::Infallible>(cost) {
++            Ok(()) => {}
++            Err(Failure::Budget(failure)) => return Err(failure),
++            Err(Failure::Operation(never)) => match never {},
++        }
++        self.settlement = Settlement::Reserved(issuer);
++        Ok(SettlementReserve {
++            issuer,
++            allowance: cost,
++        })
++    }
++
++    /// Spend this instance's settlement reserve once (law X3d r6 item 8).
++    /// It is admitted whether or not the ledger has failed. `action` receives
++    /// a `WorkScope` on this ledger. Every charge inside it, including nested
++    /// `run`, `effect`, `ReservedPostchecks` and `prepaid`, draws only from the
++    /// reserve's allowance, never from the limits, and `used` does not move.
++    /// Scopes inside are checked against the settlement's own latch, not the
++    /// ledger's. Any `Err`, an overrun (refused `ReservedPostcheck` before the
++    /// work it covers) or an unwind latches both the settlement and the
++    /// ledger; the reserve is consumed, so nothing more can be drawn. A
++    /// reserve this instance did not issue is refused `Closed` before
++    /// `action` runs, and latches this ledger. Unused allowance is never
++    /// refunded, and nothing adds to it. Outside `settle` nothing changes: a
++    /// failed ledger still refuses every `scope`, `charge`, `run` and `effect`.
++    pub fn settle<T, E>(
++        &mut self,
++        reserve: SettlementReserve,
++        action: impl FnOnce(&mut WorkScope<'_>) -> Result<T, Failure<E>>,
++    ) -> Result<T, Failure<E>> {
++        let SettlementReserve { issuer, allowance } = reserve;
++        if self.settlement != Settlement::Reserved(issuer) {
++            self.failed = true;
++            return Err(Failure::Budget(BudgetFailure::Closed));
++        }
++        let guard = Settling {
++            saved: self.prepaid.replace(allowance),
++            ledger: self,
++        };
++        guard.ledger.settlement = Settlement::Active { latched: false };
++        guard.ledger.scope(action)
++    }
++
++    // Inside `settle` scopes answer to the settlement's latch; elsewhere,
++    // and on every ledger that never settles, to `failed` exactly as before.
++    fn closed(&self) -> bool {
++        match self.settlement {
++            Settlement::Active { latched } => latched,
++            _ => self.failed,
++        }
++    }
++
++    // A failed or unwound scope latches the ledger and, inside `settle`, the
++    // settlement too.
++    fn latch(&mut self) {
++        self.failed = true;
++        if let Settlement::Active { latched } = &mut self.settlement {
++            *latched = true;
++        }
++    }
+ }
+ /// A borrowed view for helpers. It cannot replace, clone or obtain the owner's
+ /// ledger. Only the private operation owner keeps the replaceable WorkLedger.
+@@ -291,10 +489,22 @@ struct LedgerScope<'a> {
+ impl Drop for LedgerScope<'_> {
+     fn drop(&mut self) {
+         if !self.completed {
+-            self.ledger.failed = true;
++            self.ledger.latch();
+         }
+     }
+ }
++// Ends a settlement however `settle` returns or unwinds: the reserve is spent
++// and the enclosing credit (none, at the owner) is restored.
++struct Settling<'a> {
++    ledger: &'a mut WorkLedger,
++    saved: Option<Cost>,
++}
++impl Drop for Settling<'_> {
++    fn drop(&mut self) {
++        self.ledger.prepaid = self.saved;
++        self.ledger.settlement = Settlement::Spent;
++    }
++}
+ pub struct ReservedPostchecks<'a> {
+     ledger: &'a mut WorkLedger,
+     remaining: Cost,
+@@ -308,7 +518,7 @@ impl ReservedPostchecks<'_> {
+         &mut self,
+         action: impl FnOnce(&mut ReservedPostchecks<'_>) -> Result<T, Failure<E>>,
+     ) -> Result<T, Failure<E>> {
+-        if self.ledger.failed {
++        if self.ledger.closed() {
+             return Err(Failure::Budget(BudgetFailure::Closed));
+         }
+         let mut guard = ReservedScope {
+@@ -317,7 +527,7 @@ impl ReservedPostchecks<'_> {
+         };
+         let result = action(guard.postchecks);
+         match result {
+-            Ok(value) if !guard.postchecks.ledger.failed => {
++            Ok(value) if !guard.postchecks.ledger.closed() => {
+                 guard.completed = true;
+                 Ok(value)
+             }
+@@ -394,7 +604,7 @@ struct ReservedScope<'borrow, 'owner> {
+ impl Drop for ReservedScope<'_, '_> {
+     fn drop(&mut self) {
+         if !self.completed {
+-            self.postchecks.ledger.failed = true;
++            self.postchecks.ledger.latch();
+         }
+     }
+ }
+@@ -694,4 +904,43 @@ mod tests {
+         assert!(ledger.is_failed());
+         assert_eq!(ledger.prepaid, None);
+     }
++
++    #[test]
++    fn settlement_ends_spent_with_no_credit_however_it_returns() {
++        // Success, Err and unwind each leave the reserve spent, no credit
++        // installed, and ordinary charging back on the limits and `failed`.
++        let mut ledger = WorkLedger::new();
++        let reserve = ledger.reserve_settlement(edges(3)).unwrap();
++        assert!(ledger.settlement == Settlement::Reserved(reserve.issuer));
++        ledger
++            .settle::<_, ()>(reserve, |work| work.charge(edges(1)))
++            .unwrap();
++        assert!(ledger.settlement == Settlement::Spent);
++        assert_eq!(ledger.prepaid, None);
++        assert!(!ledger.is_failed());
++        ledger.charge::<()>(edges(1)).unwrap();
++        assert_eq!(ledger.used(), edges(4));
++
++        let mut ledger = WorkLedger::new();
++        let reserve = ledger.reserve_settlement(edges(3)).unwrap();
++        assert_eq!(
++            ledger.settle::<(), _>(reserve, |_| Err(Failure::Operation(()))),
++            Err(Failure::Operation(()))
++        );
++        assert!(ledger.settlement == Settlement::Spent);
++        assert_eq!(ledger.prepaid, None);
++        assert!(ledger.is_failed() && ledger.closed());
++
++        let mut ledger = WorkLedger::new();
++        let reserve = ledger.reserve_settlement(edges(3)).unwrap();
++        assert!(
++            catch_unwind(AssertUnwindSafe(|| {
++                let _ = ledger.settle::<(), ()>(reserve, |_| panic!("append unwound"));
++            }))
++            .is_err()
++        );
++        assert!(ledger.settlement == Settlement::Spent);
++        assert_eq!(ledger.prepaid, None);
++        assert!(ledger.is_failed() && ledger.closed());
++    }
+ }
+diff --git a/crates/platform/tests/settlement_reserve_tests.rs b/crates/platform/tests/settlement_reserve_tests.rs
+new file mode 100644
+index 0000000..bae852f
+--- /dev/null
++++ b/crates/platform/tests/settlement_reserve_tests.rs
+@@ -0,0 +1,414 @@
++//! Law X3d r6 item 8, unit X3d-0: the settlement reserve through the public
++//! API only. Pure accounting and borrow tests; no journal, carrier or native
++//! effect. The cases are item 13's X3d-0 list.
++use opensip_platform::{
++    SettlementReserve, WorkBudgetError as BudgetFailure, WorkCost as Cost, WorkFailure as Failure,
++    WorkLedger,
++};
++use std::cell::Cell;
++use std::panic::{AssertUnwindSafe, catch_unwind};
++use std::path::Path;
++
++fn edges(n: usize) -> Cost {
++    Cost {
++        edges: n,
++        ..Cost::default()
++    }
++}
++
++fn closed<T>(result: Result<T, Failure<()>>) {
++    assert_eq!(result.err(), Some(Failure::Budget(BudgetFailure::Closed)));
++}
++
++// Every ordinary entry point refuses a failed ledger, exactly as before.
++fn refuses_everything_outside_settle(ledger: &mut WorkLedger) {
++    assert!(ledger.is_failed());
++    closed(ledger.scope::<(), ()>(|_| panic!("scope after the latch")));
++    closed(ledger.charge::<()>(Cost::default()));
++    closed(ledger.run::<(), ()>(Cost::default(), |_| panic!("run after the latch")));
++    closed(ledger.retained_record::<(), ()>(0, |_| panic!("record after the latch")));
++    closed(
++        ledger.effect::<(), ()>(Cost::default(), Cost::default(), |_| {
++            panic!("effect after the latch")
++        }),
++    );
++}
++
++// Each way the ledger closes after the reserve was taken.
++fn close_by_nested_failure(ledger: &mut WorkLedger) {
++    assert_eq!(
++        ledger.scope(|s| s.run::<(), _>(edges(1), |_| Err(Failure::Operation(())))),
++        Err(Failure::Operation(()))
++    );
++}
++fn close_by_unwind(ledger: &mut WorkLedger) {
++    assert!(
++        catch_unwind(AssertUnwindSafe(|| {
++            let _ = ledger.run::<(), ()>(edges(1), |_| panic!("native adapter unwound"));
++        }))
++        .is_err()
++    );
++}
++fn close_by_swallowed_failure(ledger: &mut WorkLedger) {
++    closed(ledger.scope(|s| {
++        let _ = s.run::<(), ()>(Cost::default(), |_| Err(Failure::Operation(())));
++        Ok::<_, Failure<()>>(())
++    }));
++}
++fn close_by_budget_overrun(ledger: &mut WorkLedger) {
++    assert_eq!(
++        ledger.charge::<()>(edges(usize::MAX)),
++        Err(Failure::Budget(BudgetFailure::Edges))
++    );
++}
++fn close_by_postcheck_overrun(ledger: &mut WorkLedger) {
++    assert_eq!(
++        ledger.effect::<(), ()>(Cost::default(), edges(1), |post| post.spend(edges(2))),
++        Err(Failure::Budget(BudgetFailure::ReservedPostcheck))
++    );
++}
++
++#[test]
++fn settlement_is_spendable_after_each_way_the_ledger_closes() {
++    type Closer = fn(&mut WorkLedger);
++    let closers: [(&str, Closer); 5] = [
++        ("nested failure", close_by_nested_failure),
++        ("unwind", close_by_unwind),
++        ("swallowed failure", close_by_swallowed_failure),
++        ("budget overrun", close_by_budget_overrun),
++        ("postcheck overrun", close_by_postcheck_overrun),
++    ];
++    for (name, close) in closers {
++        let mut ledger = WorkLedger::new();
++        let reserve = ledger.reserve_settlement(edges(4)).unwrap();
++        assert_eq!(ledger.used(), edges(4), "{name}: charged at once");
++        close(&mut ledger);
++        refuses_everything_outside_settle(&mut ledger);
++        let used = ledger.used();
++        let ran = Cell::new(false);
++        let value = ledger
++            .settle::<_, ()>(reserve, |work| {
++                ran.set(true);
++                work.charge(edges(1))?;
++                work.run(edges(3), |_| Ok(name))
++            })
++            .unwrap();
++        assert!(ran.get(), "{name}: admitted after the latch");
++        assert_eq!(value, name);
++        assert_eq!(ledger.used(), used, "{name}: drawn from the allowance");
++        // The settlement reopens nothing.
++        refuses_everything_outside_settle(&mut ledger);
++    }
++}
++
++#[test]
++fn charges_inside_settle_draw_only_from_the_allowance() {
++    // The limits are exhausted and the ledger has failed; every charge below
++    // still succeeds because it draws only from the settlement's allowance.
++    let limits = Cost {
++        objects: 2,
++        edges: 20,
++        bytes: 64,
++    };
++    let mut ledger = WorkLedger::with_limits(limits).unwrap();
++    let reserve = ledger.reserve_settlement(limits).unwrap();
++    assert_eq!(ledger.used(), limits);
++    close_by_budget_overrun(&mut ledger);
++    ledger
++        .settle::<_, ()>(reserve, |work| {
++            let before = work.used();
++            work.charge(edges(2))?;
++            work.run(edges(1), |inner| inner.charge(edges(1)))?;
++            work.retained_record(16, |_| Ok(()))?;
++            // A nested effect reserves its postchecks from the same allowance,
++            // and its prepaid run carves from those postchecks.
++            work.effect(edges(2), edges(8), |post| {
++                post.prepaid(edges(5), |paid| {
++                    paid.charge(edges(1))?;
++                    paid.run(edges(1), |_| Ok(()))?;
++                    paid.effect(edges(1), edges(2), |nested| {
++                        nested.spend(edges(1))?;
++                        nested.prepaid(edges(1), |deep| deep.charge(edges(1)))
++                    })
++                })?;
++                post.spend(edges(3))
++            })?;
++            assert_eq!(work.used(), before);
++            Ok(())
++        })
++        .unwrap();
++    assert_eq!(ledger.used(), limits);
++    assert!(ledger.is_failed());
++}
++
++#[test]
++fn overrun_inside_settle_is_refused_before_the_work_and_latches_both() {
++    // A direct overrun, on a ledger that was still open.
++    let mut ledger = WorkLedger::new();
++    let reserve = ledger.reserve_settlement(edges(3)).unwrap();
++    let ran = Cell::new(false);
++    assert_eq!(
++        ledger.settle::<(), ()>(reserve, |work| {
++            work.charge(edges(2))?;
++            work.run(edges(2), |_| {
++                ran.set(true);
++                Ok(())
++            })
++        }),
++        Err(Failure::Budget(BudgetFailure::ReservedPostcheck))
++    );
++    assert!(!ran.get());
++    assert_eq!(ledger.used(), edges(3));
++    refuses_everything_outside_settle(&mut ledger);
++
++    // A swallowed overrun latches the settlement: nothing more is drawn.
++    let mut ledger = WorkLedger::new();
++    let reserve = ledger.reserve_settlement(edges(5)).unwrap();
++    close_by_nested_failure(&mut ledger);
++    closed(ledger.settle::<(), ()>(reserve, |work| {
++        assert_eq!(
++            work.charge::<()>(edges(6)),
++            Err(Failure::Budget(BudgetFailure::ReservedPostcheck))
++        );
++        assert!(work.is_failed());
++        closed(work.charge::<()>(Cost::default()));
++        closed(work.run::<(), ()>(Cost::default(), |_| panic!("after the overrun")));
++        Ok(())
++    }));
++    refuses_everything_outside_settle(&mut ledger);
++
++    // An effect whose reservation exceeds the allowance never runs.
++    let mut ledger = WorkLedger::new();
++    let reserve = ledger.reserve_settlement(edges(4)).unwrap();
++    assert_eq!(
++        ledger.settle::<(), ()>(reserve, |work| {
++            work.effect(edges(2), edges(3), |_| {
++                panic!("effect beyond the allowance")
++            })
++        }),
++        Err(Failure::Budget(BudgetFailure::ReservedPostcheck))
++    );
++    refuses_everything_outside_settle(&mut ledger);
++}
++
++#[test]
++fn err_or_unwind_inside_settle_latches_both() {
++    // A returned Err.
++    let mut ledger = WorkLedger::new();
++    let reserve = ledger.reserve_settlement(edges(2)).unwrap();
++    assert_eq!(
++        ledger.settle::<(), _>(reserve, |work| {
++            work.charge(edges(1))?;
++            Err(Failure::Operation("REV append busy"))
++        }),
++        Err(Failure::Operation("REV append busy"))
++    );
++    refuses_everything_outside_settle(&mut ledger);
++
++    // A nested Err that the action swallows still latches the settlement.
++    let mut ledger = WorkLedger::new();
++    let reserve = ledger.reserve_settlement(edges(4)).unwrap();
++    let second = Cell::new(false);
++    closed(ledger.settle::<(), ()>(reserve, |work| {
++        let _ = work.run::<(), ()>(edges(1), |_| Err(Failure::Operation(())));
++        // No CLN after a failed REV: the second step is refused.
++        closed(work.run::<(), ()>(edges(1), |_| {
++            second.set(true);
++            Ok(())
++        }));
++        Ok(())
++    }));
++    assert!(!second.get());
++    refuses_everything_outside_settle(&mut ledger);
++
++    // An unwind, on an already failed ledger and on an open one.
++    for prefail in [true, false] {
++        let mut ledger = WorkLedger::new();
++        let reserve = ledger.reserve_settlement(edges(2)).unwrap();
++        if prefail {
++            close_by_unwind(&mut ledger);
++        }
++        assert!(
++            catch_unwind(AssertUnwindSafe(|| {
++                let _ = ledger.settle::<(), ()>(reserve, |work| {
++                    work.charge(edges(1))?;
++                    panic!("end-path append unwound")
++                });
++            }))
++            .is_err()
++        );
++        refuses_everything_outside_settle(&mut ledger);
++    }
++}
++
++#[test]
++fn a_successful_settlement_on_an_open_ledger_leaves_it_open_and_refunds_nothing() {
++    let mut ledger = WorkLedger::new();
++    let reserve = ledger.reserve_settlement(edges(5)).unwrap();
++    ledger
++        .settle::<_, ()>(reserve, |work| work.charge(edges(1)))
++        .unwrap();
++    assert!(!ledger.is_failed());
++    assert_eq!(ledger.used(), edges(5));
++    ledger.charge::<()>(edges(1)).unwrap();
++    assert_eq!(ledger.used(), edges(6));
++    // Dropping a reserve unspent forfeits it; nothing returns to the limits.
++    let mut ledger = WorkLedger::new();
++    let _ = ledger.reserve_settlement(edges(5)).unwrap();
++    assert_eq!(ledger.used(), edges(5));
++    assert!(!ledger.is_failed());
++}
++
++#[test]
++fn one_reservation_per_instance_and_none_on_a_closed_ledger() {
++    // A second reservation, while the first is outstanding, is refused
++    // Closed, takes nothing and latches. The first stays spendable.
++    let mut ledger = WorkLedger::new();
++    let first = ledger.reserve_settlement(edges(2)).unwrap();
++    assert_eq!(
++        ledger.reserve_settlement(edges(1)).err(),
++        Some(BudgetFailure::Closed)
++    );
++    assert_eq!(ledger.used(), edges(2));
++    refuses_everything_outside_settle(&mut ledger);
++    ledger
++        .settle::<_, ()>(first, |work| work.charge(edges(2)))
++        .unwrap();
++
++    // After it was spent, too.
++    let mut ledger = WorkLedger::new();
++    let first = ledger.reserve_settlement(edges(1)).unwrap();
++    ledger.settle::<_, ()>(first, |_| Ok(())).unwrap();
++    assert!(!ledger.is_failed());
++    assert_eq!(
++        ledger.reserve_settlement(edges(1)).err(),
++        Some(BudgetFailure::Closed)
++    );
++    assert_eq!(ledger.used(), edges(1));
++    refuses_everything_outside_settle(&mut ledger);
++
++    // A closed ledger refuses the reservation and takes nothing.
++    let mut ledger = WorkLedger::new();
++    close_by_swallowed_failure(&mut ledger);
++    let used = ledger.used();
++    assert_eq!(
++        ledger.reserve_settlement(edges(1)).err(),
++        Some(BudgetFailure::Closed)
++    );
++    assert_eq!(ledger.used(), used);
++    refuses_everything_outside_settle(&mut ledger);
++
++    // A cost beyond the remaining limits is refused on its dimension, takes
++    // nothing and latches, with no new BudgetFailure variant.
++    for (cost, expected) in [
++        (
++            Cost {
++                objects: 3,
++                ..Cost::default()
++            },
++            BudgetFailure::Objects,
++        ),
++        (edges(3), BudgetFailure::Edges),
++        (
++            Cost {
++                bytes: 3,
++                ..Cost::default()
++            },
++            BudgetFailure::Bytes,
++        ),
++    ] {
++        let mut ledger = WorkLedger::with_limits(Cost {
++            objects: 2,
++            edges: 2,
++            bytes: 2,
++        })
++        .unwrap();
++        assert_eq!(ledger.reserve_settlement(cost).err(), Some(expected));
++        assert_eq!(ledger.used(), Cost::default());
++        refuses_everything_outside_settle(&mut ledger);
++    }
++}
++
++#[test]
++fn a_reserve_from_another_instance_is_refused_before_its_action() {
++    let mut issuer = WorkLedger::new();
++    let foreign = issuer.reserve_settlement(edges(2)).unwrap();
++
++    // To a ledger with no reserve of its own.
++    let mut other = WorkLedger::new();
++    closed(other.settle::<(), ()>(foreign, |_| panic!("foreign settlement ran")));
++    assert_eq!(other.used(), Cost::default());
++    refuses_everything_outside_settle(&mut other);
++    // The issuer is unaffected, and its reserve was consumed by the refusal.
++    assert!(!issuer.is_failed());
++    assert_eq!(issuer.used(), edges(2));
++
++    // To a ledger that holds its own reserve: refused, and that ledger's own
++    // reserve is still the only one it admits.
++    let mut issuer = WorkLedger::new();
++    let foreign = issuer.reserve_settlement(edges(2)).unwrap();
++    let mut other = WorkLedger::new();
++    let own = other.reserve_settlement(edges(1)).unwrap();
++    closed(other.settle::<(), ()>(foreign, |_| panic!("foreign settlement ran")));
++    refuses_everything_outside_settle(&mut other);
++    other
++        .settle::<_, ()>(own, |work| work.charge(edges(1)))
++        .unwrap();
++}
++
++#[test]
++fn ledgers_without_a_settlement_are_unchanged() {
++    // Taking and spending a reserve on one ledger changes nothing on another.
++    let mut settled = WorkLedger::new();
++    let reserve = settled.reserve_settlement(edges(1)).unwrap();
++    let mut plain = WorkLedger::new();
++    close_by_nested_failure(&mut plain);
++    settled.settle::<_, ()>(reserve, |_| Ok(())).unwrap();
++    refuses_everything_outside_settle(&mut plain);
++    assert_eq!(plain.used(), edges(1));
++}
++
++#[test]
++fn no_production_source_reserves_or_settles_yet() {
++    // X3d-0 has no production caller. X3d-1 (law X3d r6 items 8 and 13)
++    // replaces this pin with one that admits exactly StoppedSession's private
++    // end-path step for `reserve_settlement` and `finish` for `settle`. A
++    // `settle` call needs a `SettlementReserve`, which only
++    // `reserve_settlement` constructs, so naming neither excludes both.
++    let _: Option<SettlementReserve> = None;
++    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
++    let allowed = [
++        root.join("crates/platform/src/work_ledger.rs"),
++        root.join("crates/platform/src/lib.rs"),
++    ];
++    let mut stack = vec![root.join("crates"), root.join("apps")];
++    let mut sources = 0;
++    while let Some(dir) = stack.pop() {
++        for entry in std::fs::read_dir(&dir).unwrap() {
++            let path = entry.unwrap().path();
++            if path.is_dir() {
++                // Integration tests are not production source.
++                if path
++                    .file_name()
++                    .is_some_and(|n| n == "tests" || n == "target" || n == "node_modules")
++                {
++                    continue;
++                }
++                stack.push(path);
++                continue;
++            }
++            if path.extension().is_none_or(|e| e != "rs") || allowed.contains(&path) {
++                continue;
++            }
++            sources += 1;
++            let text = std::fs::read_to_string(&path).unwrap();
++            for name in ["reserve_settlement", "SettlementReserve"] {
++                assert!(!text.contains(name), "{} names {name}", path.display());
++            }
++        }
++    }
++    assert!(sources > 100, "walked the workspace sources");
++    let lib = std::fs::read_to_string(&allowed[1]).unwrap();
++    assert_eq!(lib.matches("SettlementReserve").count(), 1);
++    assert!(!lib.contains("reserve_settlement"));
++}
