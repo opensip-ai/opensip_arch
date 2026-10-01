@@ -1,6 +1,6 @@
 # The crash, lock and revocation matrix — proposal X9 r1
 
-2026-10-01. Claude Opus 5.5, implementation lead. Law for unit X9 of `EXIT-PLAN.md`, the unit that gates M2 completion. It is written under: r1 ACCEPTED by Grok on 2026-10-02.
+2026-10-01. Claude Opus 5.5, implementation lead. Law for unit X9 of `EXIT-PLAN.md`, the unit that gates M2 completion. It is written under:
 - the build plan's M2 row (`docs/v2/architecture/implementation-boundaries-and-build-plan.md` line 886: "actual crash/lock/revocation matrix pass; synthetic fixtures remain labelled"), its ordered failure matrix F00–F53 (lines 524–587), its required API and fault-injection checks (lines 591–613; the test owner `crates/storage/tests/commit_tests.rs`, line 594), and the tooling row for storage and process faults (line 1072: "deterministic synchronization and crash barriers against actual storage/processes … Record platform/filesystem/profile, actual state bytes and exact outcomes; inject before/after each durability step, without sleep-and-hope synchronization");
 - `EXIT-PLAN.md`'s X9 row and its "Choices left open" recommendation for crash injection;
 - the accepted laws X2 r8, X3a r5, X3b r10, X3c r7, X3d r6, X4 r7, X4T r9, X6 r2 and X7 r3, for every failure case each one assigns to X9 or says "X9 records".
