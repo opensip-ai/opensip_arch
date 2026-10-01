@@ -1,4 +1,4 @@
-REVIEWER re-review: X3c-1 r2 (ledger creation) after Grok's r1 findings. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/REVIEWDIR. If you build, use a CARGO_TARGET_DIR under it.
+Grok re-review: X3c-1 r2 (ledger creation) after Grok's r1 findings. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/grok-ledger-creation-x3c1-r2. If you build, use a CARGO_TARGET_DIR under it.
 
 Subject: the worktree `/Users/sb/code/opensip-ai/opensip-x3c1` (base 5b5f04c). Pins are in hashes.txt. Save the diff as product.diff and report its sha256. The r1 review is `reviews/grok-ledger-creation-x3c1-r1/`.
 
@@ -29,3 +29,5 @@ review.json must contain:
 - "inventoryCandidateAssessment": {verdict, requiredFindings, path, bytes, sha256 of v89, parent (the v87 pin), successorRecord}.
 
 Write REVIEW.md and review.json. Do not commit.
+
+Note: the product has since moved to 7e676a9 (X3b-1a, v91). Review the code as pinned. The v89 inventory will be rebuilt on the current parent before integration and re-confirmed separately.
