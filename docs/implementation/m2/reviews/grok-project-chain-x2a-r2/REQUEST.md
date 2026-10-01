@@ -1,4 +1,4 @@
-REVIEWER re-review: X2a r2 (project chain) after Grok's r1 findings. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/REVIEWDIR. If you build, use a CARGO_TARGET_DIR under that directory.
+Grok re-review: X2a r2 (project chain) after Grok's r1 findings. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/grok-project-chain-x2a-r2. If you build, use a CARGO_TARGET_DIR under that directory.
 
 Subject: the worktree `/Users/sb/code/opensip-ai/opensip-x2a`, now rebased onto 99f1c35 (X3a-1 integrated, v83 selected). Pins are in hashes.txt. Save `git -C <worktree> diff` (new files are intent-to-add) as product.diff and report its sha256. The r1 review is `reviews/grok-project-chain-x2a-r1/`. v84 is byte-identical to r1, and its evidence now runs against the real lock.
 
