@@ -1,4 +1,4 @@
-# First trust acceptance from the embedded bootstrap payload — proposal X4B r4
+# First trust acceptance from the embedded bootstrap payload — proposal X4B r3
 
 2026-10-01. Claude Opus 5.5, implementation lead. Law for unit X4B of `EXIT-PLAN.md`, created by X4T r4 to r7 (item 13). It is written under:
 - the security contract's S4 (trust time, step 2 "fresh install") and S4.5, S5 and S6;
@@ -14,7 +14,7 @@ r2 answers Grok X4B r1:
 
 r1 bytes are preserved in PROPOSAL-r1.md.
 
-r3 answers Grok X4B r2 RF-1: the monitor exists before F is chosen. The `FreshnessMonitor` and `FinalGate` are created first (X4 item 2). Their single first `read` runs the retained-capsule admission and, on F absent, the acceptance and the one confirming admission, then returns that view. The acceptance uses that read's clock sample. Items 1, 3, 10 and 11 are corrected. r2 bytes are preserved in PROPOSAL-r2.md. r4 answers Grok X4B r3 RF-1: item 5 names item 1 step 2.3, the confirming admission, as the reader of the retained owner. r3 bytes are preserved in PROPOSAL-r3.md.
+r3 answers Grok X4B r2 RF-1: the monitor exists before F is chosen. The `FreshnessMonitor` and `FinalGate` are created first (X4 item 2). Their single first `read` runs the retained-capsule admission and, on F absent, the acceptance and the one confirming admission, then returns that view. The acceptance uses that read's clock sample. Items 1, 3, 10 and 11 are corrected. r2 bytes are preserved in PROPOSAL-r2.md.
 
 ## Problem
 
@@ -106,7 +106,7 @@ X4T-0 builds them only under `cfg(test)`. X4B is their production producer.
      - the revision-2 `PublicationDescriptorV1` on the P0 predecessor;
      - the retained-phase `TrustCapsuleV1`.
    - **How they are written:** each record is canonically encoded and admitted by its closed shape before it is written. Each file goes through 467's private-file producer with its file barrier. The `state.v1` pointer goes last, by atomic replacement (exclusive temporary name, file barrier, rename, directory barrier, reopen and confirm), exactly as X4T item 7's floor write-ahead does.
-   - **Retained evidence:** the confirmed new `state.v1` becomes X3a's retained owner while the fence is held, as X4T item 7 and X2's registry rule require. The decoded, capped capsule comes from the confirming reopen, not from X4B's own memory. The confirming admission (item 1, step 2.3) reads that retained owner, inside the first read; step 3 stays the start epoch.
+   - **Retained evidence:** the confirmed new `state.v1` becomes X3a's retained owner while the fence is held, as X4T item 7 and X2's registry rule require. The decoded, capped capsule comes from the confirming reopen, not from X4B's own memory. Item 1 step 3's re-admission reads that retained owner.
    - **Rejected:** writing records in place, or a pointer before its dependencies.
 6. **Crash states.**
    - **Before the pointer:** the store still points at P0. Any written records are unreferenced and harmless. The next first write runs X4B again with fresh names; records are content-addressed, so equal bytes are equal names.

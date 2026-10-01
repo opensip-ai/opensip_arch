@@ -16,7 +16,7 @@ r2 answers Grok X7 r1:
 
 r1 bytes are preserved in PROPOSAL-r1.md.
 
-r3 answers Grok X7 r2 RF-1. The rollover's reads, the `TERMINAL` append, the g+1 publication and their confirmations are attempt work. They are charged to the attempt ledger this invocation already opened (X1 item 5, X3d item 8, X3b item 9), and the gate ledger keeps only the gate's own work. Items 7 and 10 are corrected. r2 bytes are preserved in PROPOSAL-r2.md. r3 ACCEPTED by Grok on 2026-10-01.
+r3 answers Grok X7 r2 RF-1. The rollover's reads, the `TERMINAL` append, the g+1 publication and their confirmations are attempt work. They are charged to the attempt ledger this invocation already opened (X1 item 5, X3d item 8, X3b item 9), and the gate ledger keeps only the gate's own work. Items 7 and 10 are corrected. r2 bytes are preserved in PROPOSAL-r2.md.
 
 ## Problem
 
