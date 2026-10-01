@@ -1,0 +1,93 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "requiredFindings": [
+    {
+      "id": "RF-1",
+      "title": "Preserve the required nested doctor kind on an unproducible report",
+      "subjectLines": [
+        39,
+        40
+      ],
+      "finding": "Item 3 spells the unproducible doctor member as {reportProduced:false, defectsFound:0, defects:[]}. Invocation5 DoctorResult requires its own kind:\"doctor\" independently of Envelope7Root.kind. The specified object fails the selected source schema; the same envelope passes when that one nested field is added.",
+      "evidence": [
+        "opensip/schemas/sources/invocation-v5.schema.json:1808",
+        "opensip/crates/host/src/doctor_report.rs:135",
+        "In-memory selected schema-runtime probe: unavailable_as_written=false; unavailable_with_kind=true."
+      ],
+      "requiredChange": "Use the assembled Invocation5DoctorResult unchanged for both DoctorOutcome::Report branches, or explicitly include kind:\"doctor\" in the failed-report object. Keep the source-schema validation required by item 7.",
+      "validation": "Validate the complete unproducible envelope against command-envelope v7; also require omission or alteration of doctor.kind to fail validation."
+    },
+    {
+      "id": "RF-2",
+      "title": "Retain outcome parity and render the termination detail and remedy",
+      "subjectLines": [
+        54,
+        63
+      ],
+      "finding": "Item 4 incorrectly says outcome has no carrier or producer. The selected doctor projection maps outcome to the envelope termination. The proposed human layout prints its class and error code but omits faultCause and termination.domainDetail. On the unproducible-report branch defects is empty, so the human output loses DOCTOR.REPORT_NOT_PRODUCIBLE and its remedy entirely, although JSON carries both. The same omission hides the DOCTOR.DEFECTS_FOUND termination detail on successful reports with defects.",
+      "evidence": [
+        "opensip_arch/docs/implementation/m2/initial-root-binding-owner-selection-v1/reference/doctor_projection.py:46",
+        "opensip_arch/docs/implementation/m2/initial-root-binding-owner-selection-v1/reference/doctor_projection.py:59",
+        "opensip_arch/docs/implementation/m1/metadata-v2/command-inventory.v4.json:1129",
+        "opensip/crates/host/src/doctor_report.rs:162"
+      ],
+      "requiredChange": "Keep outcome parity using the existing termination carrier. Specify human rendering of its carried fault cause and domain detail, including code, optional subject and remedy, and compare that outcome between human and JSON. Treat offline-window separately: its missing producer does not justify omitting the existing outcome.",
+      "validation": "For healthy, defects-found, report-not-producible and refused outcomes, compare the complete carried termination facts across formats. In particular, human report-not-producible output must contain its detail code and selected remedy despite an empty defects array."
+    },
+    {
+      "id": "RF-3",
+      "title": "Specify a buildable test arrangement across the host/security crate boundary",
+      "subjectLines": [
+        65,
+        75
+      ],
+      "finding": "The promised host run_with tests cannot use the named existing seams and scratch-home fixtures as currently scoped. produce_on and observe_with are pub(super) inside opensip-security; installation_read_fixture, ReadProducers, HomeSource::Fixture and the per-test attempt/session constructors are crate-private and/or cfg(test) there. opensip-host depends on opensip-security as a normal dependency, whose cfg(test) internals are not made available by testing the host. Applying cfg(test) or pub(crate) to a new host wrapper does not solve that boundary. Injecting a constructed DoctorInstallation value would test projection, not the promised real-producer scratch-home composition.",
+      "evidence": [
+        "opensip/crates/security/src/custody/read_premise.rs:125",
+        "opensip/crates/security/src/custody/installation_session.rs:284",
+        "opensip/crates/security/src/custody.rs:1797",
+        "opensip/crates/security/src/trust.rs:10",
+        "opensip/crates/security/src/custody/installation_admission.rs:435",
+        "opensip/crates/host/Cargo.toml:17"
+      ],
+      "requiredChange": "Choose and describe the crate ownership and compilation boundary for a real-producer-to-renderer test before claiming this seam sound. Either provide a concrete test-only composition, or explicitly amend the claim to layered security-producer tests, host projection/rendering tests and the real dev-binary tests. Keep every scratch-home/profile selector absent from or unreachable in ordinary release compilation, without a selectable production feature or environment route. A pub(crate) function with a cfg(test) caller is not itself necessarily compiled out; distinguish absence from unreachability.",
+      "validation": "The chosen tests must compile with the intended dependency configuration and demonstrate the stated producer coverage. Check the ordinary bootstrap path and any new cross-crate bridge, not only environment-token absence in apps/cli and the host file. Confirm the release path remains bound to the native account and authenticated release/profile producers."
+    }
+  ],
+  "subjectSha256": "589938a555c1105989ea059dc33e4fcb669b5ae9a3966edea541a9eb7475aa60",
+  "subject": "docs/implementation/m2/read-cli-x10/PROPOSAL.md",
+  "subjectBytes": 12808,
+  "productHead": "d1b5edad4fc552122ca9ef7161d2a69cc30b0852",
+  "reviewType": "law",
+  "reviewer": "Codex",
+  "schemaChecks": [
+    {
+      "case": "unavailable_as_written",
+      "schemaValid": false
+    },
+    {
+      "case": "unavailable_with_kind",
+      "schemaValid": true
+    },
+    {
+      "case": "host_io_failure",
+      "schemaValid": true
+    },
+    {
+      "case": "f0_refusal",
+      "schemaValid": true
+    },
+    {
+      "case": "complete_with_note",
+      "schemaValid": true
+    }
+  ],
+  "notes": [
+    "Item 8 already provides the golden-successor mechanism. Its condition is met by the current assembler: reconcile both doctor remedy texts and the not-producible situation before accepting enabled CLI output.",
+    "No scratch-home selector was found on the inspected existing native doctor route; no X10 release binary exists to attest.",
+    "The second empty-errors exception is interrupted pre-commit failure, not a metadata-only form."
+  ],
+  "validationLimits": "Read-only source/law review and in-memory schema probes only; no Cargo, product build, native installation observation, or release-binary test.",
+  "repositoryEdits": false,
+  "delegation": false
+}

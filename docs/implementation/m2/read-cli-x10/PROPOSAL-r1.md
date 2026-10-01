@@ -1,6 +1,6 @@
-# Read-only CLI enablement: `opensip doctor` — proposal X10 r2
+# Read-only CLI enablement: `opensip doctor` — proposal X10 r1
 
-2026-09-30. Claude Opus 5.5, implementation lead. Law for unit X10 of `EXIT-PLAN.md`, under owner.md §1a, §5 and §6, and laws 464 (item 7), 468 r5 (items 6, 7 and 8), 458c r6 (items 1, 5, 7, 10 and 12) and 461 r3. Items 1, 4, 5 and 7 contain lead decisions made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation; each names the alternative it rejects. r2 answers Codex X10 r1 RF-1 (the nested doctor kind), RF-2 (outcome parity and human rendering of the termination detail) and RF-3 (a buildable test arrangement). r1 bytes are preserved in PROPOSAL-r1.md. Not code. It enables one read-only command; it enables no creator, writer or project path.
+2026-09-30. Claude Opus 5.5, implementation lead. Law for unit X10 of `EXIT-PLAN.md`, under owner.md §1a, §5 and §6, and laws 464 (item 7), 468 r5 (items 6, 7 and 8), 458c r6 (items 1, 5, 7, 10 and 12) and 461 r3. Items 1, 4, 5 and 7 contain lead decisions made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation; each names the alternative it rejects. Not code. It enables one read-only command; it enables no creator, writer or project path.
 
 ## Problem
 
@@ -37,7 +37,7 @@ Law 464 item 7 left CLI enablement to its own unit. 468 item 7 deferred the back
      - `termination: {class: "success"}`, plus `domainDetail` `DOCTOR.DEFECTS_FOUND` with its registered remedy only when `defectsFound > 0`;
      - `exitCode: 0`.
    - **A report that cannot be produced** (`DoctorOutcome::Report` with operational-failed) is `kind: "doctor"`:
-     - `doctor` is the `Invocation5DoctorResult` exactly as assembled for this branch, including its own required nested `kind: "doctor"`: `{kind: "doctor", reportProduced: false, defectsFound: 0, defects: []}`. Both `DoctorOutcome::Report` branches pass the assembled value through unchanged;
+     - `doctor: {reportProduced: false, defectsFound: 0, defects: []}`;
      - `termination: {class: "operational-failed", errorCode: "HOST.IO_FAILURE", faultCause: "host-io", domainDetail: DOCTOR.REPORT_NOT_PRODUCIBLE}`;
      - `exitCode: 4`.
 
@@ -57,40 +57,25 @@ Law 464 item 7 left CLI enablement to its own unit. 468 item 7 deferred the back
      - "Report produced: yes|no";
      - "Defects found: N";
      - one block per entry with "Detail:", optional "Subject:" and "Remedy:", in report order. The `INSTALLATION.DURABILITY_NOT_CHECKED` entry is labelled exactly "Informational: durability not checked" (owner §5) in place of "Detail:", followed by its remedy;
-     - "Termination:" with the class, then "Error:" and "Fault cause:" when present, then the termination's carried `domainDetail` as "Detail:", optional "Subject:" and "Remedy:". So `DOCTOR.REPORT_NOT_PRODUCIBLE` and its remedy appear in human output even when `defects` is empty, and `DOCTOR.DEFECTS_FOUND` appears on a report with defects;
+     - "Termination:" with the class, and "Error:" when there is an error code;
      - "Request:" with the request id.
    - **Human output for a `failure` with `errors` and no `diagnostics`** renders "Termination", "Error", each "Detail"/"Subject"/"Remedy", and "Request". The existing rule that a metadata failure requires `diagnostics` is kept only for the metadata ingress's own failures.
-   - **Parity.** Every human fact is a field of the JSON envelope. The inventory row's parity fields are compared by test between the two formats:
-     - report produced, defects found and defects;
-     - `outcome`. Its carrier is the envelope `termination`, as the selected `doctor_projection.py` maps it. The test compares the complete carried termination facts: class, error code, fault cause, and domain detail code, subject and remedy. It does so for the healthy, defects-found, report-not-producible and refused outcomes.
-
-     `offline-window` has no producer in M2 and is not claimed (item 1). Its absence does not affect `outcome`.
+   - **Parity.** Every human fact is a field of the JSON envelope. The inventory row's parity fields that the product carries are compared by test between the two formats: report produced, defects found, defects, and termination class. The `outcome` and `offline-window` parity fields have no carrier in `Invocation5DoctorResult` and no producer, and are not claimed (item 1).
    - **Rejected alternative:** a free-form human summary such as "Your installation is healthy". It adds facts the envelope does not carry.
 5. **Tests, and no override seam in the binary (lead decision).** Owner §1a forbids any HOME, XDG, PATH, configuration or CLI override of I. So the binary gets no seam: no environment variable, argument, feature or `cfg` that points it at another home, profile or release.
-   - **Layered tests (lead decision, replacing r1's in-process `run_with`).** The real producers and the scratch-home fixtures are crate-private, `cfg(test)` internals of `opensip-security`. A host test cannot reach them through the normal dependency, so no single in-process test runs real producers through the host renderer. X10 tests in three layers, each compiled with the crate's ordinary dependency configuration:
-     - **Security, real producers on scratch homes.** In `opensip-security` with `installation_read_fixture` and synthetic signed V2 profiles, over `observe_with`, the same path `observe_installation_for_doctor` takes. They assert the `DoctorInstallation` or the 468c row for each case:
-       - a complete installation;
-       - one other defect;
-       - an incomplete installation, one finding per kind;
-       - each unreachable row: account, missing H, omitted ACL without a premise, busy, budget and not initialized.
-
-       Most of these exist from 458c-c and are extended where a case is missing.
-     - **Host, projection and rendering.** These start from each `DoctorInstallation` or `InstallationTermination` value. That is exactly what the security layer produces, and the only thing the ingress consumes. They go through `doctor_installation`, the envelope, both renderers and the exit code. They assert:
-       - the full rendered bytes;
-       - schema validity (item 7);
-       - parity (item 4);
-       - the 255+note versus 256 and 256 versus 257 bounds.
-     - **Binary**, below.
-
-     Rejected: a cross-crate test-support bridge, such as a `pub` test-only module or feature in `opensip-security`. It would put a scratch-home and profile selector into the security crate's compiled surface. And a `pub(crate)` function with a `cfg(test)` caller is still compiled; it is unreachable, not absent.
+   - **End-to-end tests on scratch homes** run in-process, against a host entry point with the producers passed in. That entry point is `DoctorIngress::run_with(producers, format, …)`, built over 458c-a's `produce_on` seam and 458c-b's `observe_with`. It is `#[cfg(test)]`, or `pub(crate)` with a `#[cfg(test)]` caller, so it does not exist in a release build.
+   - They use the existing scratch-home fixtures, synthetic signed V2 profiles and `installation_read_fixture`, and assert the full rendered bytes and exit code for:
+     - a complete installation, with the note;
+     - one other defect plus the note;
+     - an incomplete installation, with one entry per finding;
+     - 255 entries plus the note, versus 256;
+     - the partial 256 versus 257 bounds;
+     - each unreachable row: account, missing H, omitted ACL without a premise, busy, budget and not initialized.
    - **Binary tests** run the real built `opensip doctor`, in both formats. They assert exactly the shipped behaviour of a development build: `CORE.NO_EMBEDDED_RELEASE`, exit 2, a schema-valid `kind: failure` envelope, and that `~/Library/Application Support/OpenSIP` is untouched. That exercises argument parsing, the ingress, the projection, both renderers and delivery end to end, with no override.
-   - **Pin.**
-     - A source check over `apps/cli`, the host doctor ingress and the bootstrap path's non-test text forbids `std::env::var`, `var_os`, `home_dir`, and any `cfg(feature` or `cfg(test)` item that selects a home, profile or release.
-     - The ingress has exactly one producer call, `observe_installation_for_doctor()`. Its only inputs are the native account and the authenticated release and profile producers, unchanged since 458c-c.
-     - No new cross-crate test bridge exists.
-   - **Also rejected:** a test-only environment variable read by the binary. It would be a production override behind a convention, which owner §1a forbids.
+   - **Pin.** A source check over `apps/cli` and the host doctor ingress's non-test text forbids `std::env::var`, `var_os`, `home_dir` and any `cfg(feature` that selects a home, profile or release. A test asserts that `run_with` is unreachable from `bootstrap::run`.
+   - **Rejected alternative:** a test-only environment variable read by the binary. It would be a production override behind a convention, which owner §1a forbids.
 6. **Help and completion.** The compiled command catalogue in `outcomes.rs` gains one row, `doctor` (`opensip doctor [--format human|json]`, "Report the health of this account's OpenSIP installation."), so `help`, `help doctor` and `completion` list it. Help text describes only what X10 implements.
-7. **Envelope schema validation (lead decision).** Every doctor envelope produced in tests is validated against the selected command-envelope v7 source schema, as the metadata ingress's tests already do. It is never validated by checking only that it deserializes into `Envelope7Root`. Rejected alternative: trusting the generated types alone. Their `serde_json::Value` members (for example `Invocation5DoctorResult.kind`) do not enforce the schema's constants. A negative test also requires that an unproducible envelope with `doctor.kind` omitted or altered fails validation.
+7. **Envelope schema validation (lead decision).** Every doctor envelope produced in tests is validated against the selected command-envelope v7 source schema, as the metadata ingress's tests already do. It is never validated by checking only that it deserializes into `Envelope7Root`. Rejected alternative: trusting the generated types alone. Their `serde_json::Value` members (for example `Invocation5DoctorResult.kind`) do not enforce the schema's constants.
 8. **Units after the law.**
    - **X10a (code):**
      - the doctor ingress and its `run_with` test seam;
