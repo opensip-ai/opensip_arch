@@ -1,6 +1,12 @@
-# The durable grant-journal append, its witness and the carrier high-water — proposal X3b r6
- r4 was ACCEPTED by Grok on 2026-09-30. r5 is an amendment found by Grok's X3c r1 review: on the SEAL path, level 4 is held through the evidence COMMIT, so no REV can slip between SEAL and commit. r4 bytes are preserved in PROPOSAL-r4.md. r6 answers Grok r5 RF-1 (the SEAL-path hold had no release when COMMIT is never called) and RF-2 (the r4 snapshot now equals the accepted bytes). r5 bytes are preserved in PROPOSAL-r5.md. r6 ACCEPTED by Grok on 2026-09-30.
-2026-09-30. Claude Opus 5.5, implementation lead. Law for unit X3b of `EXIT-PLAN.md` (DR-G19, COV-03), under owner.md §8, security-and-lifecycle S6 (linearization, commit-admission gate), S7 (lock order and modes) and S12, `security-completion.v8.md` §5.4 to §5.6 (the grant-journal carrier, lock handoff, witness, durability primitives), the selected physical carrier `design-corrections/security/grant-journal.carrier.v3.sql` (carrierFormat 3, S1 row 84), `host-foundation-completion.v2.md` (project namespace layout), the build plan's failure cases F06 to F11 and F19, and laws X1 r1, X3a r3, X2 r4 (items 5 to 7a: R0, R1, R2, X2d's lease, X2e's handoff), X4 r2 (`OperationGuard` inside X2e; the checkpoint under `JournalAppendLock`) and X4T r1. r2 answers Grok X3b r1 RF-1 (no floor write under a lease), RF-2 (the digest's preimage), RF-3 (no writer quarantine marker; the F46 row) and RF-4 (floor before witness). r1 bytes are preserved in PROPOSAL-r1.md. r3 answers Grok X3b r2 RF-1 (format dispatch before the floor table) and RF-2 (the floor table implements the crash list and reconciliation; a whole INIT floor). r2 bytes are preserved in PROPOSAL-r2.md. r4 answers Grok X3b r3 RF-1 (a present non-INIT floor with no carrier is `uncertainTailLoss`). r3 bytes are preserved in PROPOSAL-r3.md. r4 ACCEPTED by Grok on 2026-09-30. It keeps X2 r5 item 7's ordering (the floor step runs under the fence before any lease) and X4T r2's fenced admission at the same point. Items 1, 2, 3, 4, 5, 7 and 9 contain lead decisions made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation; each names the alternative it rejects. Not code. Library only: no command is wired.
+# The durable grant-journal append, its witness, the carrier high-water and grant-generation rollover — proposal X3b r7
+ r4 was ACCEPTED by Grok on 2026-09-30. r5 is an amendment found by Grok's X3c r1 review: on the SEAL path, level 4 is held through the evidence COMMIT, so no REV can slip between SEAL and commit. r4 bytes are preserved in PROPOSAL-r4.md. r6 answers Grok r5 RF-1 (the SEAL-path hold had no release when COMMIT is never called) and RF-2 (the r4 snapshot now equals the accepted bytes). r5 bytes are preserved in PROPOSAL-r5.md. r6 ACCEPTED by Grok on 2026-09-30; r6 bytes are preserved in PROPOSAL-r6.md.
+
+**r7 (2026-10-01) is an amendment required by the accepted X7 r3** (item 6 and its dependency note). It defines grant-generation rollover inside item 4's end step, under the fence that step already holds. It covers the `EXCLUSIVE` closure, the `TERMINAL` append and its `op-` token, the opening of generation g+1 with its crash states, the floor write for g+1, skip-if-busy, and the charge to the attempt ledger. It also reconciles X3d r3 item 3's capacity threshold with what the carrier admits.
+- **New:** item 4a (generation succession: the closed generation, the opened successor, the effective tail, the predecessor check), item 5a (the capacity window and the exact rollover trigger) and item 13 (the rollover operation).
+- **Amended:** items 3 (step 4's last table row), 4 (start and end), 5 (the `TERMINAL` bullet), 6, 8, 9, 10, 11 and 12, the forbidden substitutes and the not-claimed list.
+- **Unchanged from r6:** everything else.
+
+2026-09-30. Claude Opus 5.5, implementation lead. Law for unit X3b of `EXIT-PLAN.md` (DR-G19, COV-03), under owner.md §8, security-and-lifecycle S6 (linearization, commit-admission gate), S7 (lock order and modes) and S12, `security-completion.v8.md` §5.4 to §5.6 (the grant-journal carrier, lock handoff, witness, durability primitives), the selected physical carrier `design-corrections/security/grant-journal.carrier.v3.sql` (carrierFormat 3, S1 row 84), `host-foundation-completion.v2.md` (project namespace layout), the build plan's failure cases F06 to F11 and F19, and laws X1 r1, X3a r3, X2 r4 (items 5 to 7a: R0, R1, R2, X2d's lease, X2e's handoff), X4 r2 (`OperationGuard` inside X2e; the checkpoint under `JournalAppendLock`) and X4T r1; r7 is also written under X3d r3 (items 3, 7 and 8), X7 r3 (items 6, 6a and 7), X1 r1 item 5, `carrier-format.v3.md` §5, §7 and §8, and v8 §5.4's WA-13. r2 answers Grok X3b r1 RF-1 (no floor write under a lease), RF-2 (the digest's preimage), RF-3 (no writer quarantine marker; the F46 row) and RF-4 (floor before witness). r1 bytes are preserved in PROPOSAL-r1.md. r3 answers Grok X3b r2 RF-1 (format dispatch before the floor table) and RF-2 (the floor table implements the crash list and reconciliation; a whole INIT floor). r2 bytes are preserved in PROPOSAL-r2.md. r4 answers Grok X3b r3 RF-1 (a present non-INIT floor with no carrier is `uncertainTailLoss`). r3 bytes are preserved in PROPOSAL-r3.md. r4 ACCEPTED by Grok on 2026-09-30. It keeps X2 r5 item 7's ordering (the floor step runs under the fence before any lease) and X4T r2's fenced admission at the same point. Items 1, 2, 3, 4, 4a, 5, 5a, 7, 9 and 13 contain lead decisions made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation; each names the alternative it rejects. Not code. Library only: no command is wired.
 
 ## Problem
 
@@ -48,9 +54,9 @@ M2's commit path appends a `SEAL` to the project's grant journal under the level
       | absent | none | present | `floorLost` |
       | present | none | absent, and the floor is `grantGeneration 1, lastSeq 0` | INIT resumes under the lease (item 3a); nothing is written |
       | present | none | any witness state other than the INIT row above: a witness is present, or the floor is anything but `grantGeneration 1, lastSeq 0` (for example generation 2 at `lastSeq 0`) | `uncertainTailLoss` |
-      | present | complete format 3 | any | run `reconcile_witness` **as a decision only** (item 4's table, read-only; the witness is not written here). A QUARANTINE outcome (`witnesslessRestore`, `witnessMalformed`, `uncertainTailLoss`, protocol violation, carrier mismatch) refuses and leaves the floor untouched. An INIT outcome (empty journal, no witness) requires the floor to be `grantGeneration 1, lastSeq 0`, else `uncertainTailLoss`; nothing is written and item 3a finishes INIT. An OK, REVERT or ADVANCE outcome then compares the committed tail with the floor: a lower generation or a lower sequence in the floor's generation, or an equal sequence with a different body hash, is floor regression. Otherwise the floor is copied forward to the committed tail only if the tail is higher; it never moves down |
+      | present | complete format 3 | any | run `reconcile_witness`, with item 4a's successor rule (r7), **as a decision only** (item 4's table, read-only; the witness is not written here). A QUARANTINE outcome (`witnesslessRestore`, `witnessMalformed`, `uncertainTailLoss`, protocol violation, carrier mismatch) refuses and leaves the floor untouched. An INIT outcome (empty journal, no witness) requires the floor to be `grantGeneration 1, lastSeq 0`, else `uncertainTailLoss`; nothing is written and item 3a finishes INIT. An OK, REVERT, ADVANCE or OPEN (r7, item 4a) outcome then compares item 4a's copy tail with the floor: a lower generation or a lower sequence in the floor's generation, or an equal sequence with a different body hash, is floor regression. Otherwise the floor is copied forward to the committed tail only if the tail is higher; it never moves down |
 
-      The committed tail is the last committed row; REVERT and ADVANCE concern only the witness, so the copied tail is the same either way. The witness write that REVERT, ADVANCE or INIT needs is performed later by the carrier start under the lease (item 4).
+      The committed tail is the last committed row; REVERT and ADVANCE concern only the witness, so the copied tail is the same either way. On a closed generation (r7) the copied tail is item 4a's copy tail, which on an OPEN outcome is the closing `TERMINAL` row. The witness write that REVERT, ADVANCE or INIT needs is performed later by the carrier start under the lease (item 4).
       Writes use item 5's file protocol under `trust/carrier-floors/`, with the fence held and no project lock held.
 
    **Rejected:** r1's floor writes at creation, start and end while the lease was held (S7), and r1's witness-before-floor creation order, which made a crash between them indistinguishable from a deleted floor (RF-4). Floor first makes "floor absent" always mean "never published" when the namespace holds no carrier and no witness, and "lost" otherwise.
@@ -71,14 +77,53 @@ M2's commit path appends a `SEAL` to the project's grant journal under the level
 
 4. **Carrier start and the end step (the §5.4 handoff, refined by S7).**
    - **Start, inside X2e, under the fence and the lease:** open the carrier through the retained namespace handle; validate the format row's `project_key_digest` against `SHA-256(N)` (a mismatch is the carrier project-binding row); read the tail and the witness; run `reconcile_witness` (§5.4 table: INIT, OK, REVERT, ADVANCE, QUARANTINE), whose REVERT, ADVANCE and INIT write only the witness in the namespace; confirm the tail still equals the floor step's observation (nobody could append in between, since the probe succeeded and the fence has been held throughout); capture the start tail for X4's epoch binding. The carrier start writes no floor. Only an authorized writer (APPEND-WRITE or EXCLUSIVE) reconciles; read-only diagnosis (X6) only reports `would-REVERT` or `would-ADVANCE` (F07, F10).
+     **r7.** The start applies item 4a. On a closed generation it performs OPEN, which writes only the witness, as INIT does. The tail it confirms against the floor step's observation is the committed tail, which OPEN does not change. The start tail it returns, which X4 binds and `JournalAppendLock` follows, is item 4a's effective tail. X6 also reports `would-OPEN`.
    - **End (the only other floor write):**
      1. Release the operation lease (S7 end rule).
      2. Take the fence by the shared charged walk and no-follow fence open (458c-b1's helpers, with S7's bounded 5 s wait).
-     3. Probe `writer.lease` LOCK_EX|LOCK_NB. If it is busy, another writer was admitted after us and its start observed a tail at or above ours: skip the copy, release the fence, end.
-     4. If the probe succeeds, read the committed tail from one read snapshot, release the probe lock, then write the floor to that tail if it is higher, under the fence with no project lock held.
-     5. Release the fence.
+     3. **Rollover (r7).** Only when the operation's outcome was X3d's `CarrierCapacityExhausted` and every journal outcome of the operation was certain, run item 13's rollover under this fence. It takes and releases its own `EXCLUSIVE` lease and returns with no project lock held. A skip or a failure is disclosed and never stops the steps below.
+     4. Probe `writer.lease` LOCK_EX|LOCK_NB. If it is busy, another writer was admitted after us and its start observed a tail at or above ours: skip the copy, release the fence, end.
+     5. If the probe succeeds, read the committed tail and the witness from one observation, release the probe lock, then write the floor to item 4a's copy tail if it is higher, under the fence with no project lock held. The end step reads the witness and never writes it.
+     6. Release the fence.
 
-     The end step reuses this invocation's write receipt and gate admission; it takes no second gate (one per process), and performs only this floor write, with its own barriers. A failure at end is disclosed and never rewrites the operation's outcome.
+     The end step reuses this invocation's write receipt and gate admission; it takes no second gate (one per process). Its only effects are item 13's namespace effects under item 13's own lease, and this floor write with its own barriers. A failure at end is disclosed and never rewrites the operation's outcome.
+
+4a. **Generation succession: the closed generation and the opened successor (r7; lead decision).**
+   - **What a generation is.** Physically, a grant generation is exactly the `grant_journal_v3` rows carrying its `grantGeneration`. The `carrier_format` row is immutable, and `first_generation` stays 1 on the fresh path. Generation g+1 has no row until its first record. That record is at `seq` 1, and its `prev_sha256` is the genesis value for (N, g+1): `genesis_prev` with N as the key text, per item 2. So **opening g+1 writes no carrier row.** Opening is two things:
+     - the witness `COMMITTED {grantGeneration: g+1, seq: 0, bodySha256: null}`, written in the namespace under a writer lease;
+     - later, under the fence with no project lock held, the floor `{grantGeneration: g+1, lastSeq: 0, tailSha256: null}`.
+
+     Both closed shapes already admit these values.
+     - **Rejected:** a marker row opening g+1. `TERMINAL` is the only record type without grant-bearing members, and it closes a generation. Any other type would fabricate an operation.
+     - **Rejected:** a new carrier file per generation. Item 2 fixes one carrier per namespace, and §8's dispatch reads one carrier.
+     - **Rejected:** a `carrier_capacity_pause` row. It is an inherited side table, and item 8 already forbids writer-stored markers. Every open re-derives exhaustion from the tail.
+   - **The effective tail.** Let L be the committed tail as r6 defines it: the last row of the newest generation G, or the empty tail of `first_generation`.
+     - **L is not a `TERMINAL`:** reconcile against L, exactly as r6 does.
+     - **L is a `TERMINAL` at (G, s, h):**
+       1. **The witness is present, has the closed shape and names G+1.** Reconcile against the successor's empty tail (G+1, 0, none) by the unchanged §5.4 table:
+          - `COMMITTED 0` is OK: the successor is open;
+          - `PENDING 1` is REVERT: the witness becomes `COMMITTED (G+1, 0)`;
+          - every other state is QUARANTINE by that table. For example, `COMMITTED n` with n > 0 is `uncertainTailLoss`.
+       2. **Any other witness** (absent, malformed, naming G, or naming any other generation). Reconcile against L:
+          - **OK** (`COMMITTED s h`) **or ADVANCE** (`PENDING s h`) is **OPEN**. The `TERMINAL` is durable, so the one action is to write the witness `COMMITTED (G+1, 0, null)` directly by item 5's file protocol.
+          - **REVERT** (`PENDING s+1`) is QUARANTINE, protocol violation. Nothing can follow a `TERMINAL` (the DDL refuses it, and item 5a's lock refuses to build it), so a pending record after one was never lawful.
+          - **Absent** is `witnesslessRestore`, and **malformed** is `witnessMalformed`. A witness naming any other generation is QUARANTINE. INIT cannot arise, because L is not empty.
+       3. **G = 9223372036854775807.** No successor exists. OPEN refuses on the invariant row (item 8) and writes nothing. This is unreachable on the fresh path, because it needs 2^63 − 1 closures.
+
+     The **effective tail** is (G+1, 0, none) after case 1 succeeds or after OPEN; otherwise it is L.
+   - **Who performs OPEN (lead decision).** Exactly the writers that already write the witness on REVERT, ADVANCE or INIT:
+     - the carrier start, under APPEND-WRITE or EXCLUSIVE;
+     - item 13's rollover;
+     - the reconciliation after an uncertain outcome (item 5).
+
+     The floor step only decides, read-only. X6 reports `would-OPEN`.
+     **Rejected:** OPEN only under `EXCLUSIVE`. §7 step 1 puts the closure, the `TERMINAL` append, under `EXCLUSIVE`. Once that row is durable, the successor is fully determined, and OPEN is a witness write with the same standing as INIT, which the start already makes under APPEND-WRITE. Requiring `EXCLUSIVE` would turn a crash between `TERMINAL` and OPEN into a refusal for every writer until a rollover holder appears.
+   - **Which tail each step uses.**
+     - **The start tail** (X4's epoch binding and `JournalAppendLock`'s tail) is the effective tail after the start's reconciliation. A lock made after OPEN therefore appends `seq` 1 of G+1 with the genesis chain value.
+     - **The start's confirmation** against the floor step's observation compares the committed tail L, which OPEN does not change.
+     - **The copy tail.** The floor step and the end step copy the effective tail only when the witness reconciles OK against it (case 1, `COMMITTED 0`). Otherwise they copy L, so on OPEN the floor step copies the closing `TERMINAL` row. A floor at (G+1, 0, null) is therefore written only after the successor's `COMMITTED 0` witness.
+     - **Floor regression.** A floor at (G+1, 0) against an effective tail in G (a witness still naming G) is floor regression. The successor witness preceded that floor, and a witness never returns to G.
+   - **The predecessor check (r7).** Every writer open checks this in the same read snapshot: the floor step, creation, the start, the level-3 open, the end step and the rollover. If the newest generation G is above `first_generation`, the last row below G must be a `TERMINAL` in generation G − 1. Otherwise the open refuses with QUARANTINE, protocol violation (item 8), and writes nothing. It is one bounded indexed query, charged like the tail query. The DDL refuses appends to a superseded generation, but it does not refuse a gap or an unclosed predecessor; this law's writer never produces either. **Rejected:** trusting the DDL alone.
 
 5. **The append protocol (lead decision on the file protocol).** One append, in this order, under the operation lease:
    1. **Level 3:** `BEGIN IMMEDIATE` on the carrier, `busy_timeout` 0. Busy is never waited on (F06: S7 non-waiting, earlier resources released, orphan status preserved). The evidence-ledger transaction (X3c) is acquired after the journal transaction and before level 4, by X3d's composition; X3b exposes the journal half and the ordering rule.
@@ -91,9 +136,44 @@ M2's commit path appends a `SEAL` to the project's grant journal under the level
 
    **Witness file protocol:** write a fresh temporary file `grant-journal.witness.json.<32 hex>` created exclusively in the namespace directory, write the bytes, `F_FULLFSYNC`, rename over the witness name, then the namespace directory's barrier, then reopen by name and confirm the bytes and identity. The same protocol writes the floor in `trust/carrier-floors/`. A leftover temporary file is never adopted or read; it is ignored by name grammar and removed only by a later cleanup owner. **Rejected:** a fixed temporary name (a stale one from a crashed writer would be overwritten or adopted).
    - **Uncertain outcomes (§5.6):** a failure before visibility leaves the previous durable state; a failure after visibility (a failed commit, rename or barrier) is durability-undetermined: the writer refuses every further effect, reconciles by reopening the carrier and running item 4's reconciliation, and never assumes either state (F09). No evidence commit proceeds on an uncertain journal barrier.
-   - **TERMINAL and rollover:** at tail `9007199254740990` the append is `TERMINAL` with cause `grantGenerationClosure` and the generation advances (§5.4 v2, v8 WA-13); whole-generation `REV` closes the generation the same way. Both follow the same protocol.
+   - **TERMINAL and rollover (r7).** `TERMINAL` with cause `grantGenerationClosure` is appended only by item 13's rollover. It goes through this same protocol, inside item 5a's window, and is the frozen recordSchema-1 body (carrier-format.v3 §4). The generation advances by item 4a's OPEN (v8 WA-13).
+     - **Narrowed from r6.** r6 said that whole-generation `REV` closes the generation the same way. Under r7, WA-13's whole-generation `REV` closure would reuse item 13's operation under its own later law. It is not claimed in M2.
+     - **After the `TERMINAL`.** Once it commits, its lock admits no further record (item 5a).
 
-6. **The append lock X4 needs.** One `JournalAppendLock` per carrier per process: an in-process mutex owned by the operation's `ProjectOperation`, acquired only after the journal transaction (level 3) and never while waiting on the fence or a lease. It is the S6 linearization point: after a `REV` is appended under it, no `RA`, intent, commit or `SEAL` is appended. X4 r2's checkpoint (item 3) receives a borrow that proves level 4 is held; `OperationGuard` (X4 r2 item 6) lives in `ProjectOperation` beside this lock and never owns it. X4c (inside X3d) appends the end path's `REV`/`CLN` through this lock. Observers never take it (X4 r2 item 5).
+5a. **The capacity window and the rollover trigger (r7; lead decision; F32).** This item reconciles X3d r3 item 3, X7 r3 item 6 and the carrier.
+   - **What the carrier admits.**
+     - `gj3_append_laws` refuses an ordinary record at `9007199254740991` and every append after a `TERMINAL` in its generation. It admits `TERMINAL` at any `seq`, which carrier-format.v3 §7 step 1 relies on.
+     - The read side (`journal_store.rs` prefix verification) also admits `TERMINAL` at any `seq`, and ordinary records below the cap.
+     - X3b-2 at product 9dbefb9 is narrower: it builds `TERMINAL` only at tail `9007199254740990` (`TerminalSlot` elsewhere), and maps every capacity refusal to the invariant row.
+   - **The defect if r6 is kept.** X3d r3 item 3 admits a `SEAL` at every proven tail up to `9007199254740989`, so a `SEAL` can take `9007199254740990`. That `SEAL`'s end path needs ordinary slots: X3d item 7's one `REV`, and the `CLN` of F38's SEAL-without-commit pair. None remains, because `9007199254740991` takes only `TERMINAL`. Both records would be refused, on the invariant row at 9dbefb9.
+   - **The rule.** t is the committed tail of an open generation, one whose last row is not a `TERMINAL`:
+
+     | Record | Admitted when |
+     |---|---|
+     | `SEAL` | t ≤ `9007199254740987`. The `SEAL` takes at most `9007199254740988`, which leaves `…989` and `…990` for its `REV` and `CLN`. |
+     | `RA`, `REV`, `CLN` | t ≤ `9007199254740990` (unchanged) |
+     | `TERMINAL`, cause `grantGenerationClosure` | `9007199254740988` ≤ t ≤ `9007199254740990`, so the `TERMINAL` takes `…989` to `…991`. Only item 13 builds it. |
+     | anything | never after a `TERMINAL` in that generation |
+
+   - **The trigger (exact).** A generation is **exhausted** when its effective tail (item 4a) is open and t ≥ `9007199254740988`: no `SEAL` fits. That is exactly when X3d's `prepare_commit` returns `CarrierCapacityExhausted { grantGeneration, provenTailSeq }`. It is also the only condition on which item 13 appends `TERMINAL`.
+     - **X7's "namespace full"** is this condition. The generation is full; neither the namespace nor the generation counter is.
+     - **No other `TERMINAL` point exists.** A closed generation with an unopened successor is OPEN (item 4a), not a rollover. A generation at the counter's maximum is item 4a's invariant.
+     - **Against v2 §5.4, which v8 §5.4 keeps.** That section says that when the tail reaches `9007199254740990` the writer appends `TERMINAL` and rolls, so that no unrepresentable sequence can exist. r7 closes no later than that point. It closes earlier only inside the window, where no `SEAL` fits. The cause is the same (`grantGenerationClosure`, the uint53 rollover of WA-13), no schema or enum changes, and the DDL already admits a `TERMINAL` at any `seq`.
+   - **X3d.** Item 3's threshold, "proven tail ≥ `9007199254740990`", is superseded by "proven tail ≥ `9007199254740988`" (no `SEAL` fits).
+     - X3d-1 calls X3b's exported predicate (`seal_fits(tail)`) and never a literal. X3d's next revision cites this item.
+     - Because the start performs OPEN (item 4a), X3d never observes a `TERMINAL` tail.
+   - **Refusals, each certain and before any effect.**
+     - **`SealCeiling`:** a `SEAL` above the ceiling. Invariant: the caller skipped X3d's check.
+     - **`TerminalSlot`:** a `TERMINAL` below the window. Invariant.
+     - **`Capacity`:** any record after a `TERMINAL`. Invariant: a lock whose tail is a `TERMINAL`.
+     - **`GenerationFull`:** an `RA`, `REV` or `CLN` at t = `9007199254740990`. This is a lawful full generation, and it takes the busy row (X7 r3 item 6a; item 8). X3d's `finish` treats a `GenerationFull` `REV` or `CLN` as not appended. It can arise only for an operation that appended no `SEAL` in this generation, since the ceiling keeps two slots behind every `SEAL`.
+     - **S6 still holds.** No `SEAL` fits at that tail. Item 13's `TERMINAL` then refuses every later append in G. G+1's first operation captures its own trust epoch at its start (X4).
+   - **Rejected:**
+     - `TERMINAL` only at `9007199254740991`, with X3d's `9007199254740990` threshold. A `SEAL` at `…990` strands its `REV` and `CLN`.
+     - `TERMINAL` at any tail on request. WA-13 limits the causes of closure, and a writer could burn generations.
+     - A wider window. After a `SEAL`, the end path appends at most one `REV` and one `CLN` (X3d item 7).
+
+6. **The append lock X4 needs.** One `JournalAppendLock` per carrier per process: an in-process mutex owned by the operation's `ProjectOperation`, acquired only after the journal transaction (level 3) and never while waiting on the fence or a lease. It is the S6 linearization point: after a `REV` is appended under it, no `RA`, intent, commit or `SEAL` is appended. X4 r2's checkpoint (item 3) receives a borrow that proves level 4 is held; `OperationGuard` (X4 r2 item 6) lives in `ProjectOperation` beside this lock and never owns it. X4c (inside X3d) appends the end path's `REV`/`CLN` through this lock. Observers never take it (X4 r2 item 5). **Rollover (r7).** Item 13 makes its own lock from its own carrier start under its `EXCLUSIVE` lease. That happens after `finish` has consumed the operation's session and dropped the operation's lock, so the process still holds at most one lock per carrier at a time. The rollover's lock is dropped before its `EXCLUSIVE` lease is released.
 
 7. **The witness, the floor and what they prove (lead decision on standing).** The floor is exactly the closed `CarrierFloor` shape `{highWaterSchema:1, projectKeyDigest, grantGeneration, lastSeq, tailSha256}`: a journal high-water, not a trust epoch. It records no F, L, root, revocation or index snapshot version; those are SC-TRUST's own state (X4T). X4T r1 item 7's sentence that this floor "records the trust epoch at the last operation boundary" is corrected by X4T's next revision to compare its capsule against SC-TRUST's own retained floors. **Rejected:** widening the closed floor shape with trust-epoch members.
 
@@ -107,25 +187,144 @@ M2's commit path appends a `SEAL` to the project's grant journal under the level
    - **A complete carrierFormat 1 or 2 carrier** under the namespace (impossible on the fresh path, so a planted or foreign file): the F46 class, operational-failed, exit 4, `HOST.IO_FAILURE`, `host-io`, `domainDetail` omitted. Nothing is appended, migrated or published.
    - I/O, including durability-undetermined: `HOST.IO_FAILURE`, `host-io`.
    - Budget: 468's budget row.
+   - **r7 rows** (items 4a, 5a and 13; no new code, subject or remedy):
+     - **Generation full** (`GenerationFull`): the busy row, `LEDGER.BUSY_TIMEOUT`, `ledger-busy`, detail `PROJECT.BUSY`, unchanged from X7 r3 item 6a.
+     - **Broken succession:** an unclosed predecessor, a generation gap, or a pending record after a `TERMINAL`. This is the quarantine row, protocol violation, and nothing is written.
+     - **No successor generation** (G = `9223372036854775807`): operational-failed, exit 4, `SYSTEM.OUTCOME.ILLEGAL_STATE`, `host-invariant`, detail `HOST.INVARIANT_VIOLATED`. Nothing is written and no `TERMINAL` is appended. This state is unreachable lawfully, so the invariant row is honest here, unlike for a merely full generation (X7 r3 item 6a). **Rejected:** appending the `TERMINAL` anyway, which would leave a carrier with no open generation.
+     - **`SealCeiling`, `TerminalSlot`, and `Capacity` after a `TERMINAL`:** the invariant row, as at 9dbefb9. So is a minted rollover token equal to the released operation's (item 13).
+     - **An entropy or clock failure at the rollover:** `HOST.IO_FAILURE`, `host-io`, before any effect.
 
 9. **Budget (lead decision).** Every carrier read is bounded by the bracketed capture's existing limits (`max_file_bytes`, `max_generations`, `max_records`, `max_body_bytes`) and charged to the operation ledger before it runs. Start reads only the tail record, the witness and the floor, never the whole journal. Each append reserves its post-effect confirmation (witness reopen, directory barrier) before its first effect, as 467 item 6 does. **Rejected:** reading the full journal at start, which the protocol does not need.
+   - **The rollover (r7).** Item 13 charges only the attempt ledger: the ledger this item calls the operation ledger, which is X1 item 5's attempt ledger (X3d item 8, X7 r3 item 7). It never charges the gate ledger and opens no ledger.
+     - **One reservation, made before the `EXCLUSIVE` lease is taken.** It is a fixed rollover cost, and it covers:
+       - the two lease locks and their release;
+       - the classification, predecessor query, tail, witness and floor reads;
+       - the entropy draw and the clock sample;
+       - at most one reconciliation witness publication;
+       - one `TERMINAL` append at item 5's append cost: two witness publications with their confirmations, and the commit;
+       - one OPEN witness publication with its confirmation.
+     - **Spending.** Only those steps spend the reservation.
+     - **Failure.** If the reservation fails, the rollover is not attempted. The budget row is disclosed as a rollover failure, and the end step continues to its own charged floor copy.
+     - **Rejected:** charging step by step, which could exhaust the ledger after the `TERMINAL` and before OPEN. Item 4a would recover that state, but it is avoidable. **Rejected:** the gate ledger (X1 item 5).
 
 10. **Failure cases.**
     - **Covered by X3b:** F06 (journal half), F07, F08, F09, F10, and the journal half of F19 (after a failed post-SEAL checkpoint: abort the open journal transaction if any, release level 4 then level 3, and append `REV` through a fresh lawful level-3 then level-4 call; never reacquire level 3 under level 4).
-    - **Prepared, finished elsewhere:** F06's evidence half and F11 (X3c), F19's evidence abort (X3d), F38 to F41 (X4 and X3d).
+    - **Covered by X3b r7:** F32's journal half: the capacity window, the closure, OPEN and the g+1 floor (items 4a, 5a and 13).
+    - **Prepared, finished elsewhere:** F06's evidence half and F11 (X3c), F19's evidence abort (X3d), F38 to F41 (X4 and X3d), and F32's route and projection (X7).
     - **Not in scope:** F46 to F51 (no carrierFormat 1 or 2 carrier can exist under an X2 namespace).
 
 11. **Tests while X2e is pending.** Until X2e lands, no production path produces a `ProjectOperation`. Tests in `opensip-security` use a crate-private, `cfg(test)` carrier location fixture: a scratch installation's retained namespace directory with the zero-rights owner allow, a test N whose `SHA-256(N)` is the carrier digest, built with `installation_read_fixture`. They cover the floor step's table (including `floorLost`, the busy probe skip and the never-lower rule), INIT and each crash state, the full reconciliation table (twenty-four cases), the start and end steps (including the end probe's skip, and a test that no floor write happens while a project lock is held), each append step's crash (injected at crate-private step hooks, recorded like 458c-b1's step recorder), busy at level 3, TERMINAL rollover, quarantine rows and durability-undetermined reconciliation. No production seam or cross-crate bridge exists; the real composition test lands with X2e.
+    **r7 tests (X3b-4).** Generations and tails near the cap are reached by X3b-2's reserved-slot technique: lift `gj3_append_laws`, insert, then reinstall the trigger's stored SQL byte-identically. The tests cover:
+    - **item 5a's table at every boundary:**
+      - `SEAL` at tail `…987` is admitted, and at `…988` it is `SealCeiling`;
+      - `RA`, `REV` and `CLN` at `…990` are `GenerationFull`;
+      - `TERMINAL` at `…987` is `TerminalSlot`, and at `…988`, `…989` and `…990` it is admitted;
+      - nothing is admitted after a `TERMINAL`;
+    - **every case of item 4a:**
+      - OK and REVERT on the successor, and `COMMITTED (G+1, n>0)`;
+      - OPEN from OK and from ADVANCE;
+      - a `PENDING` after a `TERMINAL`, and an absent or malformed witness on a closed generation;
+      - G at `9223372036854775807`;
+      - the predecessor check (a gap, and an unclosed predecessor);
+      - the copy tail, and floor regression against a floor at (G+1, 0);
+      - a start after OPEN appending `seq` 1 of G+1 with the genesis chain value;
+    - **item 13:**
+      - a busy `writer.lease`; a busy `readers.lease` (with the writer lock released);
+      - `AlreadyRolled`; floor regression refused before any write;
+      - a crash at every row of the crash table, and an uncertain outcome at each effect with its reconciliation;
+      - a token that is fresh per attempt and differs from the released operation's ref; the `wallClockData` shape;
+      - a failed reservation, after which no lease is taken;
+      - charges to the attempt ledger before each effect, with a stand-in gate ledger left unchanged;
+      - no floor write while `EXCLUSIVE` is held;
+      - the end step writing (G+1, 0, null) only after `COMMITTED 0`.
 
 12. **Units after the law.**
     - **X3b-1:** the floor step, carrier creation, open, `reconcile_witness`, and the carrier start and end steps, with the item 11 tests. Inventory successor.
     - **X3b-2:** the append protocol, the witness file protocol, `JournalAppendLock`, record building for `SEAL`, `REV`, `CLN`, `RA`, `TERMINAL`, and the uncertain-outcome reconciliation. Inventory successor.
-    - **X3b-3, with X2e:** composing the floor step before X2d's lease and the carrier start inside X2e's handoff, and the end step into the operation's end path.
+    - **X3b-3, with X2e:** composing the floor step before X2d's lease and the carrier start inside X2e's handoff, and the end step into the operation's end path. **r7:** X3b-3 also threads the exhaustion from X3d's `finish` into the end step's step 3.
+    - **X3b-4 (r7): grant-generation rollover.** In `opensip-security`'s `journal_store`, X3b-4 adds:
+      - item 4a: the successor rule in the floor step's decision, the start, the uncertain reconciliation and the end step; OPEN; and the predecessor check in every writer open;
+      - item 5a: `SealCeiling`, the `TERMINAL` window replacing X3b-2's single-slot rule, `GenerationFull`, and the exported `seal_fits` predicate;
+      - item 13's `rollover`: its reservation, `EXCLUSIVE` order, token and clock draw, crash points and outcomes;
+      - the end step's exhaustion input;
+      - item 11's r7 tests.
+
+      It comes with an inventory successor. It depends only on X3b-1 and X3b-2, both integrated at 9dbefb9. It does not depend on X2e: its tests use the `cfg(test)` location fixture.
+      - **Relation to X7b.** X3b-4 is the library operation that X7 r3 item 6 step 3 calls. It adds no admission, gate, fence or ledger. The order is:
+        1. X3b-4;
+        2. X3b-3, which feeds the exhaustion into the end step;
+        3. X7b, which routes `CarrierCapacityExhausted` through `finish` to that end step and projects X7 r3 item 6a's row.
+
+        X7a ships before X7b, with no rollover, as X7 r3 item 11 says. X7b's crash-point integration tests reuse item 13's crash table.
+      - **Relation to X3d-1.** X3d-1 consumes `seal_fits`. Whichever of X3d-1 and X3b-4 lands second makes that join, and no literal threshold is written.
+
+13. **The rollover operation (r7; lead decision; F32).** `rollover(location, exhaustion, work)` is called only from item 4's end step, step 3, under the fence that step holds. No project lock is held, and the call runs on this invocation's one write receipt and gate admission (X7 r3 item 6). The `exhaustion` is X3d's `{grantGeneration: G, provenTailSeq}`, and `work` is the attempt ledger (item 9).
+   - **Precondition.** Every journal outcome of the operation was certain. After an uncertain outcome the rollover does not run (§5.6: no further effect, X3d item 7). The next writer reconciles and reaches the same route.
+   1. **Reserve** the fixed rollover cost (item 9). On failure, take the budget row and stop; no lease was taken.
+   2. **Take `EXCLUSIVE`**, as X2 item 7 does: `writer.lease` LOCK_EX|LOCK_NB, then `readers.lease` LOCK_EX|LOCK_NB, never waiting. **Skip if busy:** if either lock is busy, release any lock already taken, in reverse order, and return `Skipped` with nothing written. A busy `writer.lease` means another operation was admitted after this one. A busy `readers.lease` means a reader or the fence-free recovery selector holds it. The generation stays exhausted, and the next writer that reaches the exhaustion takes the route (X7 r3 item 6). The end step continues at its step 4.
+   3. **Observe and decide.** Under the lease, run the carrier start's observation: classification, binding, the predecessor check, the committed tail L and the witness (items 4 and 4a). Also read the floor and compare it with the copy tail as item 3 does. S7 forbids only writing trust state under a lease, and nothing here writes it. There is no floor-step observation to confirm, because the end step has held the fence throughout and wrote nothing before this point.
+
+      | Observed (item 4a) | Action |
+      |---|---|
+      | Any QUARANTINE, or floor regression | refuse on item 8's row; nothing is written |
+      | The newest generation is above G, or G+1 is open (case 1) | `AlreadyRolled`: nothing is written |
+      | L is a `TERMINAL` in G, and the witness reconciles OK or ADVANCE against it | OPEN only (step 6) |
+      | G is open and t is in item 5a's window, with the witness OK, REVERT or ADVANCE | write the witness for REVERT or ADVANCE as the start does, then steps 4 to 6 |
+      | G is open and t is below the window | the tail is below what the attempt proved: floor regression where the floor shows it, otherwise `uncertainTailLoss`; nothing is written |
+
+   4. **Mint the token and the wall-clock data (lead decision).**
+      - **Token.** The `TERMINAL`'s `operationRef` is `op-` followed by the lowercase hex of 16 bytes from the host CSPRNG (`opensip_platform::request_entropy`, the source X3d item 2 draws the ExecutionId from). It is drawn once per rollover attempt, after the lease is held. It must differ from the released operation's `operationRef`; if it is equal, the invariant row applies and there is no redraw.
+      - **Where the token lives.** It is persisted nowhere but in the `TERMINAL` body. A crashed attempt's token is either in a durable `TERMINAL` (lawful history, never redone, F50's rule) or nowhere (its `PENDING` was reverted).
+      - **`wallClockData`.** One clock sample, rendered in UTC to the second as `YYYY-MM-DDTHH:MM:SSZ`, the frozen body's lexical shape. It is data, never a trusted time input.
+      - **Rejected:** the released analysis operation's ref (§7 step 1; F47).
+      - **Rejected:** a token derived from (N, G). Two closure attempts would be indistinguishable in history and audit, and `operationRef` is a correlation id minted by the host per operation (security-completion v2 §5.4, kept by v8 §5.4).
+   5. **Append the `TERMINAL`** at t + 1, through item 5 unchanged, on a lock made from this start (item 6):
+      1. level 3, `BEGIN IMMEDIATE` with `busy_timeout` 0;
+      2. level 4;
+      3. build the frozen recordSchema-1 body, inside item 5a's window;
+      4. `PENDING`;
+      5. `INSERT` and `COMMIT`;
+      6. `COMMITTED`;
+      7. release level 4.
+
+      Busy at level 3 takes the busy row, with nothing written.
+   6. **OPEN.** Write the witness `COMMITTED (G+1, 0, null)` by item 5's file protocol (item 4a). It writes no carrier row, changes no format row and writes no `carrier_capacity_pause` row.
+   7. **Release.** Drop the lock, then release `readers.lease` and then `writer.lease`. Return `Rolled { closed: (G, t+1), opened: G+1 }`.
+
+   - **The floor for g+1.** The end step then continues at step 4. It probes, reads the tail and the witness, and copies the floor to (G+1, 0, null) by item 4a's copy rule. That write is under the fence with no project lock held, after the `EXCLUSIVE` lease is released, and is charged like any end-step copy. **Rejected:** writing the floor inside the rollover under `EXCLUSIVE` (S7).
+   - **Uncertain outcomes inside the rollover.**
+     - **The latch.** A failure after visibility in step 5 or 6 latches the rollover's lock, and no further effect follows.
+     - **Reconcile once.** Still under `EXCLUSIVE`, the rollover reconciles once, by item 4 with item 4a: it reopens the carrier, and REVERT, ADVANCE and OPEN write only the witness. Then it releases the lease.
+     - **What the end step copies.** It copies only a tail that this reconciliation established, which is X3d item 7 step 3's rule applied to the rollover. OK, REVERT, ADVANCE and OPEN are copyable. A quarantine or a failed reconciliation leaves the floor untouched.
+     - **Disclosure.** The rollover failure is disclosed as `DURABILITY.COMMIT_FAILED`. The attempt's outcome is never rewritten (X7 r3 item 6).
+   - **Crash states.** These cover process death at any point; the kernel releases the flocks. Each state is found by the next writer's floor step and start (item 4a):
+
+     | Durable state at the crash | What the next writer does |
+     |---|---|
+     | nothing written (before `PENDING`) | It finds G exhausted again. X3d returns the exhaustion, and that writer's end step runs the rollover with a fresh token. |
+     | witness `PENDING (G, t+1)`, no new row | The start REVERTs, then as above. |
+     | `TERMINAL` row, witness `PENDING (G, t+1)` matching it | The start ADVANCEs on the closing tail, which is OPEN; the operation proceeds in G+1. |
+     | `TERMINAL` row, witness `COMMITTED (G, t+1)` | The start OPENs; the operation proceeds in G+1. |
+     | `TERMINAL` row, witness `COMMITTED (G+1, 0)`, floor still in G | The floor step copies forward to (G+1, 0, null); the operation proceeds. |
+     | after the end step's floor write | done |
+
+     On the third and fourth rows, the floor step copies the closing `TERMINAL` row, and that writer's end step copies (G+1, …).
+   - **Outcome.** The rollover returns `Skipped`, `AlreadyRolled`, `Rolled` or `Refused(row)`. In every case X7 projects the attempt on its item 6a row, and a rollover refusal is disclosed on its own row (X7 r3 item 6).
 
 ## Forbidden substitutes
 
-Deriving N or (S, G, K) outside X2e; any floor write while this process holds a project lock; a creation order that writes the witness before the floor; a carrier digest over any preimage but N; a writer-stored quarantine marker or `carrier_quarantine` row; `MIGRATION.CORRUPT` for anything but a format-3 footprint or generation boundary; a carrier format other than 3, or any migration; a floor inside the namespace or keyed by projectKey bytes or digest; writing the floor under a lease; appending under level 4 without the journal transaction, or acquiring level 3 under level 4; waiting on a busy journal transaction; a fixed or adopted temporary witness name; proceeding to evidence commit on an uncertain journal barrier; assuming either state after a failure after visibility; reconciliation (REVERT, ADVANCE, INIT) by a read-only path; claiming interior-prefix authentication; a production seam to construct a carrier location.
+Deriving N or (S, G, K) outside X2e; any floor write while this process holds a project lock; a creation order that writes the witness before the floor; a carrier digest over any preimage but N; a writer-stored quarantine marker or `carrier_quarantine` row; `MIGRATION.CORRUPT` for anything but a format-3 footprint or generation boundary; a carrier format other than 3, or any migration; a floor inside the namespace or keyed by projectKey bytes or digest; writing the floor under a lease; appending under level 4 without the journal transaction, or acquiring level 3 under level 4; waiting on a busy journal transaction; a fixed or adopted temporary witness name; proceeding to evidence commit on an uncertain journal barrier; assuming either state after a failure after visibility; reconciliation (REVERT, ADVANCE, INIT) by a read-only path; claiming interior-prefix authentication; a production seam to construct a carrier location. **r7:**
+- a `TERMINAL` outside item 5a's window, or from anything but item 13;
+- a `SEAL` above the ceiling, or a literal capacity threshold outside `seal_fits`;
+- a carrier row, a format-row change or a `carrier_capacity_pause` row to open a generation;
+- a successor other than G+1;
+- OPEN before the `TERMINAL` is durable;
+- a floor write under the rollover's `EXCLUSIVE` lease;
+- the analysis operation's `operationRef`, or a derived token, on a `TERMINAL`;
+- charging the rollover to the gate ledger, or opening a ledger for it;
+- a rollover after an uncertain journal outcome;
+- waiting for a lease at the rollover.
 
 ## Not claimed
 
-CLI enablement; the evidence ledger, blob store and commit facade (X3c, X3d); carrier migration (F46 to F51); quarantine continuation on a new grant generation; lifecycle transition journals (M5); leftover temporary-file cleanup; read-only recovery (X6); any qualified boot identity on this BASELINE-ATTESTED host.
+CLI enablement; the evidence ledger, blob store and commit facade (X3c, X3d); carrier migration (F46 to F51); quarantine continuation on a new grant generation; whole-generation `REV` closure (WA-13), which would reuse item 13 under its own law; lifecycle transition journals (M5); leftover temporary-file cleanup; read-only recovery (X6); any qualified boot identity on this BASELINE-ATTESTED host.
