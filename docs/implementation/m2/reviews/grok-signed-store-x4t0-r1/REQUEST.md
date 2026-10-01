@@ -1,6 +1,6 @@
-REVIEWER review: X4T-0, the test-only signed accepted-store generator, with inventory v87. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/REVIEWDIR. If you build, use a CARGO_TARGET_DIR under that directory.
+Grok review: X4T-0, the test-only signed accepted-store generator, with inventory v87. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/grok-signed-store-x4t0-r1. If you build, use a CARGO_TARGET_DIR under that directory.
 
-Law: `docs/implementation/m2/trust-admission-x4t/PROPOSAL.md` r4 (queued for review), items 12 and 13, including the "Test-only record constructor" lead decision.
+Law: `docs/implementation/m2/trust-admission-x4t/PROPOSAL.md` r5 (accepted), items 12 and 13, including the "Test-only record constructor" lead decision.
 
 ## Subject
 
@@ -54,3 +54,5 @@ review.json must contain:
 - "inventoryCandidateAssessment": {verdict, requiredFindings, path, bytes, sha256 of v87, parent (the v84 pin), successorRecord}.
 
 Write REVIEW.md and review.json. Do not commit.
+
+Note: X4T r5, now accepted, also requires X4T-0 to write each role's accepted.by so that it names one of the current descriptor's events, and expects X4T-a's own loads to accept the store. Check that the generator meets this.

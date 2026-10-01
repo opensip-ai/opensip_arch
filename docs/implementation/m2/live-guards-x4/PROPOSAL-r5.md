@@ -1,4 +1,4 @@
-# Live security guards: operation guard, live revocation, stale guards and the observer latch — proposal X4 r6
+# Live security guards: operation guard, live revocation, stale guards and the observer latch — proposal X4 r5
 
 2026-09-30. Claude Opus 5.5, implementation lead. Law for unit X4 of `EXIT-PLAN.md` (DR-G09), under:
 - security-and-lifecycle S4 (trust time and floors), S5, S6 (live revocation), S7 (lock order) and S10 (execution principal `repository-code`), and S12;
@@ -14,7 +14,7 @@ r2 answers Codex X4 r1 RF-1 to RF-5:
 - RF-4: binding to the owned post-fence operation, with a complete mandatory guard set;
 - RF-5: freshness after blocking guard work and immediately before admission.
 
-r1 bytes are preserved in PROPOSAL-r1.md. r3 answers Grok X4 r2 RF-1 (the mixed-read retry runs inside one monitor read) and RF-2 (a dropped lease is the busy row, not a changed file), and aligns with X3b r2 and X4T r1. r2 bytes are preserved in PROPOSAL-r2.md. r4 answers Grok X4 r3 RF-1: X4T's fenced admission, the monitor's first read, runs at the lease-free point, never inside 7a. r3 bytes are preserved in PROPOSAL-r3.md. r4 was ACCEPTED by Grok on 2026-09-30. r5 is an amendment that follows X4T r4, the real trust closure: the retained trust directories, the per-observation ledger, policy drift and role standing. r4 bytes are preserved in PROPOSAL-r4.md. r6 answers Grok r5 RF-1 (the observation uses X4T r5 item 2's loaders, each through its collection's handle) and RF-2 (admitted continuation standings are not the continuation refusal row). r5 bytes are preserved in PROPOSAL-r5.md. Not code. Library only: no command is wired.
+r1 bytes are preserved in PROPOSAL-r1.md. r3 answers Grok X4 r2 RF-1 (the mixed-read retry runs inside one monitor read) and RF-2 (a dropped lease is the busy row, not a changed file), and aligns with X3b r2 and X4T r1. r2 bytes are preserved in PROPOSAL-r2.md. r4 answers Grok X4 r3 RF-1: X4T's fenced admission, the monitor's first read, runs at the lease-free point, never inside 7a. r3 bytes are preserved in PROPOSAL-r3.md. r4 was ACCEPTED by Grok on 2026-09-30. r5 is an amendment that follows X4T r4, the real trust closure: the retained trust directories, the per-observation ledger, policy drift and role standing. r4 bytes are preserved in PROPOSAL-r4.md. Not code. Library only: no command is wired.
 
 ## Problem
 
@@ -73,13 +73,9 @@ M2 exits on a real crash, lock and revocation matrix. Its revocation half needs 
    - **Missing inputs.** Preparatory units that lack an X2 or X3 input expose no production permit. The abstract test lock type exists only under `cfg(test)`, so it is absent from release builds.
    - **Rejected:** refreshing a stale guard in place, and treating global registry or pair captures as live obligations.
 5. **The observer and the mutable current view (RF-3; lead decision).** One observer thread per operation guard. It starts when the guard is moved into `ProjectOperation` and stops when the guard is dropped or stopped. Every 5 s it performs one observation through the shared monitor (item 2).
-   - **The reading path.** At handoff, under the fence, `ProjectOperation` retains no-follow handles to the trust store's `trust/stores/S` directory and all four collection directories, `objects`, `records`, `publications` and `events` (X4T r5 items 1 and 2). Their identity, custody and filesystem are judged at capture. After the fence is released, each observation:
+   - **The reading path.** At handoff, under the fence, `ProjectOperation` retains no-follow handles to the trust store's `trust/stores/S` directory and all four collection directories, `objects`, `records`, `publications` and `events` (X4T r4 items 1 and 2). Each observation captures through X4T's existing binders, in X4T's order. Their identity, custody and filesystem are judged at capture. After the fence is released, each observation:
      1. opens `state.v1` by name through the retained directory handle;
-     2. captures the closure in X4T r5 item 2's order, through X4T r5's loaders, each file opened by name through the retained handle of the collection that loader uses:
-        - the descriptor and the event chain through `capture_p2`, `current_record_bindings::bind` and `bind_trace`, from `publications` and `events`. `clock.record` is inline and is not opened;
-        - the root body and envelope through `bind_retained_head`, from `objects`;
-        - the root admission, the catalog and revocation bodies, envelopes and admissions, `history` and `timeEvidence` through X4T-a's `Budget::load`, signed bodies and envelopes from `objects` and node records from `records`;
-        - then X4T-a's own `accepted.by` check;
+     2. captures it and the records it names, each opened by name through the retained records handle;
      3. runs X4T's admission over them, including authentication and the floor and rollback rejection;
      4. reopens `state.v1` by name. Its identity must equal step 1's.
 
@@ -157,10 +153,7 @@ M2 exits on a real crash, lock and revocation matrix. Its revocation half needs 
 
 **Policy drift and role standing (r5).**
 - **Policy drift.** In M2 the global policy is empty (X4T r4 item 5), so policy drift can only come from a project policy. The drift rules are unchanged.
-- **Role standing.** `ExistingOnly` and `InstallGateRequiredForNewProcess` are admitted standings: `role_machine::continuation` returns Continue for both. They permit continuing existing work and withhold only starting a new process, which needs `EV-INSTALL`.
-  - **M2 writers.** Every M2 writer effect continues work on an installation and project already admitted: journal append, object publication and ledger commit. Both standings therefore allow every M2 effect. The grant consults the standing and allows those effects. It never publishes X4T item 10's continuation row for an admitted standing.
-  - **New processes.** Starting a new process (repository execution, M5) is withheld under both, through the repository-execution grant's existing `GRANT.*` rows (item 8). That is not in M2.
-  - **Refusal at admission.** `Continuation::Refuse` stays X4T's admission refusal at the lease-free point.
+- **Role standing.** The grant consults the admitted view's continuation standing, including `ExistingOnly` and `InstallGateRequiredForNewProcess`, before it allows an effect. A standing that forbids the operation refuses on the continuation row (X4T r4 item 10).
 
 ## Forbidden substitutes
 
