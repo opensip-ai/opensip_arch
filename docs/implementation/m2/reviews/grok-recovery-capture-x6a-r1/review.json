@@ -1,0 +1,39 @@
+{
+  "actualModel": "Grok",
+  "verdict": "REQUIRED-FINDINGS",
+  "requiredFindings": [
+    {
+      "id": "RF-1",
+      "title": "The ordering hazard treats a later-generation floor as F22",
+      "failureScenario": "Owner step 3 reports unknown-quarantine-condition for k > t only when stableH, the two tails agree, and H.lastSeq >= k. Otherwise the standing is unavailable-busy. covers() in recovery_capture.rs is true for every floor in a later generation. Case C uses that predicate for records of a closed generation, which is the right anchor rule. The F43 arm (query.seq > t) uses it too, and decide then reports FloorRegression with offending None. A lawful open-successor floor at (G+1, 0, null) passes floor_against as Unchanged and skips floorOk because seq is 0. A query above the closed generation's tail therefore quarantines a healthy carrier. H.lastSeq is 0, so the owner standing is UnavailableBusy. A same-generation floor above that generation's tail is already FloorRegression at step 14, with the floor digest; the F43 test plants s.seq+1 and takes that path. Keep covers() for case C. In the k > t arm, covers is true only when the floor generation equals the requested generation and floor.seq >= query.seq. Carry offending(h1) on Verdict::Hazard and copy it into UnknownQuarantineCondition.offending. A stable case-1 COMMITTED 0 with floor (G+1, 0, null) and a query sequence above the closed generation's tail expects UnavailableBusy."
+    },
+    {
+      "id": "RF-2",
+      "title": "The closure chain sums TERMINAL rows",
+      "failureScenario": "Call 12 closes a generation when its last row is TERMINAL, the way committed_tail reads the predecessor: the last row below the newest must be TERMINAL in the previous generation. current_view instead requires every generation from g through the newest to exist and SUM(record_type='TERMINAL' AND grantGeneration < newest) == span. The sum counts rows. A generation whose last row is not TERMINAL still adds 1 when an earlier row is TERMINAL, and committed_tail never looks past newest-1. The requested generation's own last row can be TERMINAL, and a joining SEAL in g with an OK witness on the open newest generation confirms. One such carrier is generation 1 closed on its last row, generation 2 holding a TERMINAL followed by a non-terminal row, generation 3 closed on its last row, and generation 4 open at a matching witness and floor: span 3 and the sum 3. gj3_append_laws aborts that insert, and plant() drops the trigger to put rows in the file; the reader classifies the bytes. Count generations in [g, newest) whose maximum-seq row is TERMINAL and require that count to equal newest-g. A missing generation and a generation whose last row is not TERMINAL both fail, and an extra TERMINAL does not close another generation. The intermediate case above expects ProtocolViolation. The missing-generation test stays."
+    }
+  ],
+  "subjectManifestSha256": "68fe96ea82ada0fb28217fd335add322833fd07fde99176a4a7f70e1821df00b",
+  "inventoryCandidateAssessment": {
+    "verdict": "ACCEPT",
+    "requiredFindings": [],
+    "path": "docs/implementation/m2/repository-file-inventory.v124.json",
+    "bytes": 491985,
+    "sha256": "ea302ab3b842b043701526590964feb1e4b7def3b3f48a8634261e603badf476",
+    "parent": {
+      "path": "docs/implementation/m2/repository-file-inventory.v122.json",
+      "bytes": 485705,
+      "sha256": "69cf90db0ade09fc0f9536b3ef293d7de6aff68c7d3ae9a2aabfab4f6c244c7a"
+    },
+    "successorRecord": {
+      "path": "docs/implementation/m2/recovery-capture-x6a-inventory-v124/successor.json",
+      "bytes": 145238,
+      "sha256": "70da80f6e024b405b8cf1da549ab64d2ecdd73995966149f02edf6dbd5f4c9f8"
+    }
+  },
+  "productHead": "933e78be8cd8ebbf1b622b39a84b0b3dd1396117",
+  "productDiffSha256": "8848ba37669838503989f44dbf5f5e964260b2bffca5c87fdcfcfea8c8363d75",
+  "productDiffBytes": 82225,
+  "realOpenSipAbsent": true,
+  "scope": "X6a read-only recovery capture on 933e78b. REQUIRED-FINDINGS: RF-1 the k > t hazard reports FloorRegression for a lawful (G+1, 0, null) floor; RF-2 the closure chain sums TERMINAL rows so an unclosed intermediate generation can confirm. Call 1's succession adaptation is accepted. Inventory v124 is ACCEPT on v122: 918 inherited rows equal by value, two files added, 55 projection rows, D2's four supersessions folded. verify_projection PASS, 278 corruptions refused. verify_scratch 83/74/55 with v124 selected. Targeted replay 23 passed, and 23 passed again with opensip-platform/crash-matrix."
+}
