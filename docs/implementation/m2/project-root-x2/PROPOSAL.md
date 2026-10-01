@@ -226,7 +226,12 @@ Without the premise, no project root can be admitted. Without an admitted root, 
       - the store endpoint and lineage owners.
 
       It is built by moving owners out of the fenced session or gate, never from copied fields.
-   3. **Release the fence.** Only then is the fence released, per owner §8 and S7.
+   3. **Journal steps inside the same fence hold (X3b r2 item 1).** Two X3b steps run in this one fence hold, in this order:
+      - X3b's floor step runs after R is current (R0 for a registered root, R2 after a fresh registration) and before X2d takes the lease;
+      - X3b's carrier start runs here in X2e, after the transfer and before the release.
+
+      X2 owns the ordering and X3b owns the steps (X3b-3 composes them).
+   4. **Release the fence.** Only then is the fence released, per owner §8 and S7.
 
    **After the release.** The mutable registry and pair captures become provenance. An unrelated registration, or a same-schema core selection, cannot invalidate the pinned operation. Same-N move, retirement or store reselection stays excluded by the lease.
 

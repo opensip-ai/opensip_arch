@@ -63,7 +63,7 @@ X4's operation guard, observer and authority checkpoint all need one admitted cu
 
      The writer reuses 467's existing trust publication producers. It never changes a counter, a role state or an accepted document.
    - **Retained evidence advances.** The session and operation retain `state.v1` (468 item 3, X3a item 2). Only this confirmed publication may replace that retained owner, exactly as X2 r3's registry rule: the confirmed new `state.v1` becomes the retained file and its full sample, and every later recheck compares against it. Any other change still fails as `required-files-changed`.
-   - **Rollback.** A capsule whose F, L, root version, revocation version or index snapshot version is lower than the carrier high-water floor (X3b item 2's `I/trust/carrier-floors/N.v1`, which records the trust epoch at the last operation boundary) refuses as a rollback. A lower counter never revokes (S6); it refuses admission.
+   - **Rollback.** A capsule whose F, L, root version, revocation version or index snapshot version is lower than SC-TRUST's own retained floors refuses as a rollback. Those are the floor fields of the trust state itself and its retained predecessor records, never the journal carrier floor. X3b r2 item 7 fixes the carrier floor as a closed journal high-water `{highWaterSchema, projectKeyDigest, grantGeneration, lastSeq, tailSha256}` that records no trust epoch. A lower counter never revokes (S6); it refuses admission.
    - **Report-only.** A read session (458c, doctor) runs the same evaluation and returns the proposed writes without performing them (S4's report-only mode).
    - **Rejected:** admitting a decision at tEval without the write-ahead. It lets a later evaluation run earlier than an earlier one, which S4 forbids.
 
@@ -85,7 +85,7 @@ X4's operation guard, observer and authority checkpoint all need one admitted cu
     - a signature or quorum failure, or a future payload: `PAYLOAD-NOT-ADMISSIBLE`;
     - plausibility: `CLOCK-EXCURSION-FORWARD`;
     - a revoked component at admission: `CONTINUE-CORE-NOT-TRUSTED`, subject the revoked component (during an operation, X4 owns `TRUST.COMPONENT_REVOKED_DURING_OPERATION`);
-    - a rollback below the carrier floor: `CONFIG.CUSTODY_REFUSED`, subject `trust-rollback`;
+    - a rollback below SC-TRUST's own retained floors: `CONFIG.CUSTODY_REFUSED`, subject `trust-rollback`;
     - an unsupported schema: `ROOT.SCHEMA_UNSUPPORTED` or `STATE.SCHEMA_UNSUPPORTED`;
     - I/O, a failed write-ahead confirmation, budget: the host I/O and budget rows.
 
@@ -103,7 +103,7 @@ X4's operation guard, observer and authority checkpoint all need one admitted cu
     - a bad signature, a wrong-threshold quorum, a future payload;
     - a root chain through expired intermediates, and an expired final root;
     - a revoked core closure;
-    - a rollback below the carrier floor;
+    - a rollback below SC-TRUST's own retained floors;
     - time: a floor advance is written ahead and the retained `state.v1` owner advances; a W beyond A + 90 d writes nothing; report-only returns proposed writes and writes nothing;
     - rereads: a pointer change mid-read retries once; a second change stops; a newer pointer with an unrelated revocation is admitted as drift input;
     - budget: the measured cost on the largest store, and the ceiling refusal.
