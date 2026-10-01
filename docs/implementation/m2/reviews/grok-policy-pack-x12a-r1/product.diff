@@ -1,0 +1,1857 @@
+diff --git a/crates/evaluator/src/lib.rs b/crates/evaluator/src/lib.rs
+index edf3da4..103083b 100644
+--- a/crates/evaluator/src/lib.rs
++++ b/crates/evaluator/src/lib.rs
+@@ -106,6 +106,11 @@ pub use execution_inputs::{
+ 
+ pub use policy::{PlanPolicyChecks, compile_plan_policy};
+ 
++pub use policy::{
++    AdmittedPack, PackDefect, PackRefusal, PackSource, PlanPackChecks, SuppliedProvenance,
++    admit_pack, check_plan_pack,
++};
++
+ pub use full_walk::{FirstEvaluationStructureChecks, inspect_first_evaluation_structure};
+ 
+ mod input_reconstruction;
+diff --git a/crates/evaluator/src/pack-registry.json b/crates/evaluator/src/pack-registry.json
+new file mode 100644
+index 0000000..4c40b3b
+--- /dev/null
++++ b/crates/evaluator/src/pack-registry.json
+@@ -0,0 +1,5 @@
++{
++  "schemaVersion": 1,
++  "standing": "Bundled first-party policy packs compiled into the signed core (law X12 r3 items 2 to 4). Admission is by exact packId against these rows only. Zero rows in M2: the DR-131 row opensip.preview.typescript.pack:1 arrives with its content in unit X12c.",
++  "rows": []
++}
+diff --git a/crates/evaluator/src/policy.rs b/crates/evaluator/src/policy.rs
+index d9604ba..3a1d618 100644
+--- a/crates/evaluator/src/policy.rs
++++ b/crates/evaluator/src/policy.rs
+@@ -155,11 +155,12 @@ impl PolicyProgramChecks {
+         self.rules
+     }
+ }
+-struct PolicyReader<'s, 'a> {
+-    inputs: &'s RetainedInputs<'a>,
++// Local traversal meter. The rule/atom laws need no retained inputs, so pack
++// admission runs them over bundled bytes with its own named limits.
++struct Meter {
+     budget: TraversalBudget,
+ }
+-impl PolicyReader<'_, '_> {
++impl Meter {
+     fn step(&mut self) -> Result<(), PolicyAdmissionError> {
+         if self.budget.depth == 0 {
+             return Err(PolicyAdmissionError::Limit);
+@@ -171,11 +172,20 @@ impl PolicyReader<'_, '_> {
+             .ok_or(PolicyAdmissionError::Limit)?;
+         Ok(())
+     }
++}
++struct PolicyReader<'s, 'a> {
++    inputs: &'s RetainedInputs<'a>,
++    meter: Meter,
++}
++impl PolicyReader<'_, '_> {
++    fn step(&mut self) -> Result<(), PolicyAdmissionError> {
++        self.meter.step()
++    }
+     fn object(&mut self, id: &str, domain: IdentityDomain) -> Result<V, PolicyAdmissionError> {
+         self.step()?;
+         Ok(self
+             .inputs
+-            .object(id, domain, self.budget.descriptor_work)
++            .object(id, domain, self.meter.budget.descriptor_work)
+             .map_err(|e| PolicyAdmissionError::Record(GraphError::Input(e)))?
+             .descriptor()
+             .clone())
+@@ -188,7 +198,7 @@ impl PolicyReader<'_, '_> {
+                 sha,
+                 document,
+                 &format!("#/$defs/{kind}"),
+-                self.budget.descriptor_work,
++                self.meter.budget.descriptor_work,
+             )
+             .map_err(PolicyAdmissionError::Record)
+     }
+@@ -220,7 +230,7 @@ fn atom_law(
+     atom: &V,
+     subject_kind: Option<&str>,
+     registry: &V,
+-    reader: &mut PolicyReader<'_, '_>,
++    reader: &mut Meter,
+ ) -> Result<bool, PolicyAdmissionError> {
+     reader.step()?;
+     let rel = text(field(atom, "relation")?)?;
+@@ -322,7 +332,7 @@ fn atom_law(
+ fn rule_law(
+     rule: &V,
+     registry: &V,
+-    reader: &mut PolicyReader<'_, '_>,
++    reader: &mut Meter,
+ ) -> Result<Option<&'static str>, PolicyAdmissionError> {
+     let mut declared = BTreeSet::new();
+     for row in array(field(rule, "evidenceUse")?)? {
+@@ -370,7 +380,10 @@ pub fn inspect_policy_program(
+     run_id: &str,
+     budget: TraversalBudget,
+ ) -> Result<PolicyProgramChecks, PolicyAdmissionError> {
+-    let mut reader = PolicyReader { inputs, budget };
++    let mut reader = PolicyReader {
++        inputs,
++        meter: Meter { budget },
++    };
+     let run = reader.object(run_id, IdentityDomain::Run)?;
+     let plan = reader.object(text(field(&run, "planId")?)?, IdentityDomain::Plan)?;
+     let seal = reader.object(
+@@ -400,13 +413,13 @@ pub fn inspect_policy_program(
+         field(&program, "policyDigest")? == field(&plan, "policyDigest")?,
+         "RULE_PROGRAM_POLICY_JOIN",
+     )?;
+-    let compiled = compile_program(&mut reader, &plan, &policy)?;
++    let compiled = compile_program(&mut reader.meter, field(&plan, "policyDigest")?, &policy)?;
+     let bytes = canonical_bytes(&compiled).map_err(|_| PolicyAdmissionError::RegistryLaw)?;
+     policy_require(
+         digest_hex(&raw_sha256(&bytes)) == text(field(&proof, "ruleProgramDigest")?)?,
+         "RULE_PROGRAM_COMPILATION_JOIN",
+     )?;
+-    check_program_laws(&mut reader, &policy, &program)?;
++    check_program_laws(&mut reader.meter, &policy, &program)?;
+     Ok(PolicyProgramChecks {
+         rules: array(field(&policy, "rules")?)?.len(),
+     })
+@@ -439,7 +452,10 @@ pub fn inspect_evaluator_parameters(
+     plan_id: &str,
+     budget: TraversalBudget,
+ ) -> Result<EvaluatorParameterChecks, PolicyAdmissionError> {
+-    let mut reader = PolicyReader { inputs, budget };
++    let mut reader = PolicyReader {
++        inputs,
++        meter: Meter { budget },
++    };
+     let plan = reader.object(plan_id, IdentityDomain::Plan)?;
+     reader.step()?;
+     let digest = |v: &V| -> Result<[u8; 32], PolicyAdmissionError> {
+@@ -566,8 +582,8 @@ pub fn inspect_evaluator_parameters(
+ }
+ 
+ fn compile_program(
+-    reader: &mut PolicyReader<'_, '_>,
+-    plan: &V,
++    reader: &mut Meter,
++    policy_digest: &V,
+     policy: &V,
+ ) -> Result<V, PolicyAdmissionError> {
+     let mut rules = Vec::new();
+@@ -584,13 +600,13 @@ fn compile_program(
+             "schemaVersion".into(),
+             V::Integer(JsonInteger::new(2).map_err(|_| PolicyAdmissionError::RegistryLaw)?),
+         ),
+-        ("policyDigest".into(), field(plan, "policyDigest")?.clone()),
++        ("policyDigest".into(), policy_digest.clone()),
+         ("rules".into(), V::Array(rules)),
+     ]));
+     Ok(compiled)
+ }
+ fn check_program_laws(
+-    reader: &mut PolicyReader<'_, '_>,
++    reader: &mut Meter,
+     policy: &V,
+     program: &V,
+ ) -> Result<(), PolicyAdmissionError> {
+@@ -654,7 +670,10 @@ pub fn compile_plan_policy(
+     plan_id: &str,
+     budget: TraversalBudget,
+ ) -> Result<PlanPolicyChecks, PolicyAdmissionError> {
+-    let mut reader = PolicyReader { inputs, budget };
++    let mut reader = PolicyReader {
++        inputs,
++        meter: Meter { budget },
++    };
+     let plan = reader.object(plan_id, IdentityDomain::Plan)?;
+     let policy = reader.record(
+         field(&plan, "policyDigest")?,
+@@ -666,7 +685,7 @@ pub fn compile_plan_policy(
+         "workflows/schemas/policy-document.schema.json",
+         "WaiverSetV1",
+     )?;
+-    let program = compile_program(&mut reader, &plan, &policy)?;
++    let program = compile_program(&mut reader.meter, field(&plan, "policyDigest")?, &policy)?;
+     inputs
+         .check_current_value_shape(
+             &program,
+@@ -675,7 +694,7 @@ pub fn compile_plan_policy(
+             budget.descriptor_work,
+         )
+         .map_err(PolicyAdmissionError::Record)?;
+-    check_program_laws(&mut reader, &policy, &program)?;
++    check_program_laws(&mut reader.meter, &policy, &program)?;
+     let bytes = canonical_bytes(&program).map_err(|_| PolicyAdmissionError::RegistryLaw)?;
+     Ok(PlanPolicyChecks {
+         policy,
+@@ -684,3 +703,712 @@ pub fn compile_plan_policy(
+         digest: raw_sha256(&bytes),
+     })
+ }
++
++// Bundled policy-pack admission (law X12 r3 items 2 to 7 and 9; unit X12a).
++// "Bundled" means compiled into the signed core: the registry and every pack
++// document are include_bytes! data. Nothing is read from a project, an
++// installation, an account, the environment, a flag or the network.
++use opensip_identity::{RegisteredSchemas, SchemaAdmissionError, SchemaError};
++
++const POLICY_SCHEMA_ID: &str = "urn:opensip:product-v1:policy-document:2";
++const POLICY_SCHEMA_SELECTOR: &str = "/$defs/PolicyDocumentV2";
++
++/// The release registry: zero rows in M2 (law X12 r3 item 4). Its documents
++/// table is empty, so no release row can name a document.
++const RELEASE_PACKS: PackRegistry<'static> = PackRegistry {
++    rows: include_bytes!("pack-registry.json"),
++    documents: &[],
++};
++
++/// The policy schema closure the imperative classifier reads: the exact
++/// schema sources the host registry pins, each rechecked against
++/// RegisteredSchemas::source_requirements before use.
++const CLASSIFIER_SOURCES: &[&[u8]] = &[
++    include_bytes!(concat!(
++        env!("CARGO_MANIFEST_DIR"),
++        "/../../schemas/sources/policy-v2.schema.json"
++    )),
++    include_bytes!(concat!(
++        env!("CARGO_MANIFEST_DIR"),
++        "/../../schemas/sources/common-v1.schema.json"
++    )),
++    include_bytes!(concat!(
++        env!("CARGO_MANIFEST_DIR"),
++        "/../../schemas/sources/imported-v1.schema.json"
++    )),
++];
++
++/// Rule/atom and contribution traversal steps (items 6.6 and 6.7). Sized to
++/// the DSL's own bounds: per rule at most 5 evidenceUse rows and 65 predicate
++/// nodes, each atom at most 1 + 16 x (1 + 64) steps, in two passes (policy and
++/// compiled program), so 512 rules need under 2^27 steps. A document that
++/// passes the schema never reaches it; reaching it is row 4.
++const PACK_TRAVERSAL_STEPS: usize = 1 << 27;
++/// Closed-schema work for one document (item 6.3). parse_json already bounds a
++/// document to 4 MiB and depth 32; this allows over 250 units per byte.
++const PACK_SCHEMA_WORK: usize = 1 << 30;
++
++/// The inert boundary input (law X12 r3 item 5). It claims nothing. `Supplied`
++/// exists only to be refused: no bytes are ever admitted as a pack.
++#[derive(Debug, Clone, Copy)]
++pub enum PackSource<'a> {
++    /// A pack ID, matched byte for byte against the bundled registry.
++    Named(&'a str),
++    /// A policy document found in a project, named by a flag or offered by a
++    /// component.
++    Supplied {
++        bytes: &'a [u8],
++        provenance: SuppliedProvenance,
++    },
++}
++
++#[derive(Debug, Clone, Copy, PartialEq, Eq)]
++pub enum SuppliedProvenance {
++    User,
++    ThirdParty,
++}
++impl SuppliedProvenance {
++    pub fn name(self) -> &'static str {
++        match self {
++            Self::User => "user",
++            Self::ThirdParty => "third-party",
++        }
++    }
++}
++
++/// An admitted bundled pack. It cannot be constructed, cloned, defaulted or
++/// deserialized outside admit_pack; holding one is the only admission.
++/// ```compile_fail
++/// use opensip_evaluator::AdmittedPack;
++/// let forged = AdmittedPack {
++///     pack_id: String::new(), policy_digest: [0; 32],
++///     program: opensip_identity::JsonValue::Null, program_digest: [0; 32],
++/// };
++/// ```
++#[derive(Debug)]
++pub struct AdmittedPack {
++    pack_id: String,
++    policy_digest: [u8; 32],
++    program: V,
++    program_digest: [u8; 32],
++}
++impl AdmittedPack {
++    /// The registry row's exact packId, `<name>:<version>`.
++    pub fn pack_id(&self) -> &str {
++        &self.pack_id
++    }
++    /// Raw SHA-256 of the bundled document's canonical bytes (plan.policyDigest).
++    pub fn policy_digest(&self) -> [u8; 32] {
++        self.policy_digest
++    }
++    /// The compiled RuleProgramV2.
++    pub fn program(&self) -> &V {
++        &self.program
++    }
++    /// Raw SHA-256 of the compiled program's canonical bytes.
++    pub fn program_digest(&self) -> [u8; 32] {
++        self.program_digest
++    }
++}
++
++/// Why a bundled document, the registry or the classifier's schema closure is
++/// defective. Diagnostic only: every one of these is law X12 r3 row 4.
++#[derive(Debug, Clone, PartialEq, Eq)]
++pub enum PackDefect {
++    /// A self-inconsistent registry, or a classifier or schema-registry fault.
++    Registry,
++    /// Item 6.1 on bundled bytes.
++    Lexical,
++    /// Item 6.2 on bundled bytes, with the member's JSON Pointer.
++    Imperative(String),
++    /// Item 6.3 on bundled bytes.
++    Schema,
++    /// Item 6.5: canonical bytes do not hash to policySha256.
++    Digest,
++    /// Item 6.6: the rule and atom law's cause.
++    RuleLaw(String),
++    /// Item 6.7: a contributionId outside the row's set.
++    Contribution(String),
++    /// A traversal limit.
++    Limit,
++}
++
++/// One refusal of law X12 r3 item 7. The host maps each variant, by an
++/// exhaustive match, into the termination shape (unit X12b).
++#[derive(Debug, Clone, PartialEq, Eq)]
++pub enum PackRefusal {
++    /// Row 1: a Named ID the bundled registry does not hold.
++    NotBundled { pack_id: String },
++    /// Row 2: a Supplied document that passes items 6.1 to 6.3.
++    SuppliedPack {
++        provenance: SuppliedProvenance,
++        sha256: [u8; 32],
++    },
++    /// Row 3: a Supplied document failing item 6.2.
++    ImperativeMember { pointer: String },
++    /// Row 3a: a Supplied document failing item 6.1 or 6.3.
++    SuppliedInvalid {
++        provenance: SuppliedProvenance,
++        sha256: [u8; 32],
++    },
++    /// Row 4: a defect in the signed core, never the caller's input.
++    HostInvariant { subject: String, defect: PackDefect },
++}
++impl PackRefusal {
++    /// The row's subject: the presented ID, the supplied digest, the member's
++    /// pointer, or `pack:<packId>`.
++    pub fn subject(&self) -> String {
++        match self {
++            Self::NotBundled { pack_id } => pack_id.clone(),
++            Self::SuppliedPack { provenance, sha256 }
++            | Self::SuppliedInvalid { provenance, sha256 } => supplied_subject(*provenance, sha256),
++            Self::ImperativeMember { pointer } => pointer.clone(),
++            Self::HostInvariant { subject, .. } => subject.clone(),
++        }
++    }
++}
++fn supplied_subject(provenance: SuppliedProvenance, sha256: &[u8; 32]) -> String {
++    format!(
++        "supplied:{}:sha256:{}",
++        provenance.name(),
++        digest_hex(sha256)
++    )
++}
++
++/// Admit one pack source against the release registry (law X12 r3 items 5 and
++/// 6). Pure: no I/O, lock or ledger. `schemas` is the host's exact pinned
++/// schema registry, used only for closed-schema validation.
++pub fn admit_pack(
++    schemas: &RegisteredSchemas,
++    source: &PackSource<'_>,
++) -> Result<AdmittedPack, PackRefusal> {
++    admit_from(&RELEASE_PACKS, schemas, source, PACK_TRAVERSAL_STEPS)
++}
++
++struct PackRegistry<'a> {
++    rows: &'a [u8],
++    documents: &'a [(&'a str, &'a [u8])],
++}
++struct PackRow<'a> {
++    pack_id: String,
++    document: &'a [u8],
++    policy_sha256: [u8; 32],
++    contributions: BTreeSet<String>,
++}
++fn name_text(s: &str) -> bool {
++    let b = s.as_bytes();
++    !b.is_empty()
++        && b[0].is_ascii_lowercase()
++        && b.iter().all(|c| {
++            c.is_ascii_lowercase() || c.is_ascii_digit() || matches!(c, b'.' | b'_' | b'-')
++        })
++}
++fn lower_hex(s: &str) -> Option<[u8; 32]> {
++    let b = s.as_bytes();
++    if b.len() != 64
++        || !b
++            .iter()
++            .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(c))
++    {
++        return None;
++    }
++    let mut out = [0u8; 32];
++    for (i, pair) in b.chunks(2).enumerate() {
++        let v = |c: u8| {
++            if c.is_ascii_digit() {
++                c - b'0'
++            } else {
++                c - b'a' + 10
++            }
++        };
++        out[i] = (v(pair[0]) << 4) | v(pair[1]);
++    }
++    Some(out)
++}
++impl<'a> PackRegistry<'a> {
++    /// The whole registry's self-consistency. Any failure is row 4.
++    fn rows(&self) -> Result<Vec<PackRow<'a>>, PackDefect> {
++        let bad = PackDefect::Registry;
++        let doc = parse_json(self.rows).map_err(|_| PackDefect::Registry)?;
++        let V::Object(top) = &doc else {
++            return Err(bad);
++        };
++        let keys: Vec<&str> = top.keys().map(String::as_str).collect();
++        if keys != ["rows", "schemaVersion", "standing"]
++            || top["schemaVersion"]
++                != V::Integer(JsonInteger::new(1).map_err(|_| PackDefect::Registry)?)
++            || !matches!(top["standing"], V::String(_))
++        {
++            return Err(bad);
++        }
++        let V::Array(rows) = &top["rows"] else {
++            return Err(bad);
++        };
++        let mut out: Vec<PackRow<'a>> = Vec::new();
++        let mut used = BTreeSet::new();
++        for row in rows {
++            let V::Object(r) = row else {
++                return Err(PackDefect::Registry);
++            };
++            let keys: Vec<&str> = r.keys().map(String::as_str).collect();
++            if keys
++                != [
++                    "contributions",
++                    "name",
++                    "packId",
++                    "policyDocument",
++                    "policySha256",
++                    "version",
++                ]
++            {
++                return Err(PackDefect::Registry);
++            }
++            let (
++                V::String(name),
++                V::Integer(version),
++                V::String(pack_id),
++                V::String(document),
++                V::String(sha),
++                V::Array(contributions),
++            ) = (
++                &r["name"],
++                &r["version"],
++                &r["packId"],
++                &r["policyDocument"],
++                &r["policySha256"],
++                &r["contributions"],
++            )
++            else {
++                return Err(PackDefect::Registry);
++            };
++            // Item 3: `<name>:<version>`, decimal, no sign, no leading zero.
++            if !name_text(name)
++                || !(1..=i128::from(u32::MAX)).contains(&version.get())
++                || *pack_id != format!("{name}:{}", version.get())
++                || out
++                    .last()
++                    .is_some_and(|p| p.pack_id.as_str() >= pack_id.as_str())
++            {
++                return Err(PackDefect::Registry);
++            }
++            let policy_sha256 = lower_hex(sha).ok_or(PackDefect::Registry)?;
++            let mut set = BTreeSet::new();
++            for c in contributions {
++                let V::String(c) = c else {
++                    return Err(PackDefect::Registry);
++                };
++                if !name_text(c) || set.last().is_some_and(|l: &String| l >= c) {
++                    return Err(PackDefect::Registry);
++                }
++                set.insert(c.clone());
++            }
++            let mut found = self.documents.iter().filter(|(n, _)| n == document);
++            let (Some((_, bytes)), None) = (found.next(), found.next()) else {
++                return Err(PackDefect::Registry);
++            };
++            if set.is_empty() || !used.insert(document.as_str()) {
++                return Err(PackDefect::Registry);
++            }
++            out.push(PackRow {
++                pack_id: pack_id.clone(),
++                document: bytes,
++                policy_sha256,
++                contributions: set,
++            });
++        }
++        if used.len() != self.documents.len() {
++            return Err(PackDefect::Registry);
++        }
++        Ok(out)
++    }
++}
++
++/// Items 6.1 to 6.3, in order; the first failure ends admission.
++enum Declarative {
++    Lexical,
++    Imperative(String),
++    Schema,
++    Fault(PackDefect),
++}
++fn declarative(schemas: &RegisteredSchemas, bytes: &[u8]) -> Result<V, Declarative> {
++    let value = parse_json(bytes).map_err(|_| Declarative::Lexical)?;
++    let classifier = Classifier::load(schemas).map_err(Declarative::Fault)?;
++    if let Some(pointer) = classifier
++        .first_imperative(&value)
++        .map_err(Declarative::Fault)?
++    {
++        return Err(Declarative::Imperative(pointer));
++    }
++    let handle = schemas
++        .schema(POLICY_SCHEMA_ID, POLICY_SCHEMA_SELECTOR)
++        .map_err(|_| Declarative::Fault(PackDefect::Registry))?;
++    match handle.admit_json(bytes, PACK_SCHEMA_WORK) {
++        Ok(_) => Ok(value),
++        Err(SchemaAdmissionError::Mismatch) => Err(Declarative::Schema),
++        Err(SchemaAdmissionError::Schema(SchemaError::Limit)) => {
++            Err(Declarative::Fault(PackDefect::Limit))
++        }
++        Err(_) => Err(Declarative::Fault(PackDefect::Registry)),
++    }
++}
++
++fn admit_from(
++    registry: &PackRegistry<'_>,
++    schemas: &RegisteredSchemas,
++    source: &PackSource<'_>,
++    steps: usize,
++) -> Result<AdmittedPack, PackRefusal> {
++    let (id, rows) = match *source {
++        PackSource::Supplied { bytes, provenance } => {
++            let sha256 = raw_sha256(bytes);
++            // Admission is by identity only: whatever these bytes are, they are
++            // refused (item 6, after step 3), including a bundled pack's bytes.
++            return Err(match declarative(schemas, bytes) {
++                Ok(_) => PackRefusal::SuppliedPack { provenance, sha256 },
++                Err(Declarative::Imperative(pointer)) => PackRefusal::ImperativeMember { pointer },
++                Err(Declarative::Lexical | Declarative::Schema) => {
++                    PackRefusal::SuppliedInvalid { provenance, sha256 }
++                }
++                Err(Declarative::Fault(defect)) => PackRefusal::HostInvariant {
++                    subject: supplied_subject(provenance, &sha256),
++                    defect,
++                },
++            });
++        }
++        PackSource::Named(id) => (id, registry.rows()),
++    };
++    let fault = |defect| PackRefusal::HostInvariant {
++        subject: format!("pack:{id}"),
++        defect,
++    };
++    // Item 4: byte-exact match, no normalization.
++    let rows = rows.map_err(fault)?;
++    let Some(row) = rows.iter().find(|r| r.pack_id == id) else {
++        return Err(PackRefusal::NotBundled { pack_id: id.into() });
++    };
++    // Items 6.1 to 6.3 ran on bundled bytes, not caller input: any failure is
++    // a signed-core defect (row 4, never row 3).
++    let policy = declarative(schemas, row.document).map_err(|e| {
++        fault(match e {
++            Declarative::Lexical => PackDefect::Lexical,
++            Declarative::Imperative(p) => PackDefect::Imperative(p),
++            Declarative::Schema => PackDefect::Schema,
++            Declarative::Fault(d) => d,
++        })
++    })?;
++    // Item 6.5.
++    let canonical = canonical_bytes(&policy).map_err(|_| fault(PackDefect::Lexical))?;
++    let policy_digest = raw_sha256(&canonical);
++    if policy_digest != row.policy_sha256 {
++        return Err(fault(PackDefect::Digest));
++    }
++    // Item 6.6, then 6.7.
++    let law = |e: PolicyAdmissionError| {
++        fault(match e {
++            PolicyAdmissionError::Limit => PackDefect::Limit,
++            PolicyAdmissionError::Refused(cause) => PackDefect::RuleLaw(cause),
++            _ => PackDefect::RuleLaw("POLICY_SHAPE".into()),
++        })
++    };
++    let mut meter = Meter {
++        budget: TraversalBudget {
++            steps,
++            depth: 1,
++            descriptor_work: PACK_SCHEMA_WORK,
++        },
++    };
++    let program = compile_program(&mut meter, &V::String(digest_hex(&policy_digest)), &policy)
++        .map_err(law)?;
++    let program_bytes = canonical_bytes(&program).map_err(|_| fault(PackDefect::Registry))?;
++    match schemas
++        .schema(POLICY_SCHEMA_ID, "/$defs/RuleProgramV2")
++        .map_err(|_| fault(PackDefect::Registry))?
++        .admit_json(&program_bytes, PACK_SCHEMA_WORK)
++    {
++        Ok(_) => {}
++        Err(SchemaAdmissionError::Schema(SchemaError::Limit)) => {
++            return Err(fault(PackDefect::Limit));
++        }
++        Err(_) => return Err(fault(PackDefect::RuleLaw("RULE_PROGRAM_SHAPE".into()))),
++    }
++    check_program_laws(&mut meter, &policy, &program).map_err(law)?;
++    for rule in array(field(&policy, "rules").map_err(|_| fault(PackDefect::Schema))?)
++        .map_err(|_| fault(PackDefect::Schema))?
++    {
++        meter.step().map_err(law)?;
++        let contribution = field(rule, "ruleProgramRef")
++            .and_then(|r| field(r, "contributionId"))
++            .and_then(text)
++            .map_err(|_| fault(PackDefect::Schema))?;
++        if !row.contributions.contains(contribution) {
++            return Err(fault(PackDefect::Contribution(contribution.into())));
++        }
++    }
++    Ok(AdmittedPack {
++        pack_id: row.pack_id.clone(),
++        policy_digest,
++        program_digest: raw_sha256(&program_bytes),
++        program,
++    })
++}
++
++/// The imperative classifier of workflows-and-surfaces §5, applied exactly
++/// (law X12 r3 item 6.2): a member that no closed PolicyDocumentV2 alternative
++/// declares at its position, or a string where every closed alternative at its
++/// position is an object. The first such member in canonical order wins.
++struct Classifier {
++    documents: BTreeMap<String, V>,
++}
++const ANNOTATIONS: &[&str] = &["description", "default", "title"];
++fn annotation(key: &str) -> bool {
++    ANNOTATIONS.contains(&key) || key.starts_with("x-")
++}
++impl Classifier {
++    fn load(schemas: &RegisteredSchemas) -> Result<Self, PackDefect> {
++        let mut documents = BTreeMap::new();
++        for raw in CLASSIFIER_SOURCES {
++            let document = parse_json(raw).map_err(|_| PackDefect::Registry)?;
++            let id = match optional(&document, "$id") {
++                Some(V::String(id)) => id.clone(),
++                _ => return Err(PackDefect::Registry),
++            };
++            let pin = RegisteredSchemas::source_requirements()
++                .iter()
++                .find(|p| p.schema_id() == id)
++                .ok_or(PackDefect::Registry)?;
++            if pin.bytes() != raw.len() || pin.sha256() != raw_sha256(raw) {
++                return Err(PackDefect::Registry);
++            }
++            if id == POLICY_SCHEMA_ID
++                && schemas
++                    .schema(POLICY_SCHEMA_ID, POLICY_SCHEMA_SELECTOR)
++                    .map_err(|_| PackDefect::Registry)?
++                    .document_sha256()
++                    != pin.sha256()
++            {
++                return Err(PackDefect::Registry);
++            }
++            if documents.insert(id, document).is_some() {
++                return Err(PackDefect::Registry);
++            }
++        }
++        Ok(Self { documents })
++    }
++    fn resolve<'s>(
++        &'s self,
++        owner: &'s str,
++        reference: &str,
++    ) -> Result<(&'s str, &'s V), PackDefect> {
++        let (doc, pointer) = reference.split_once('#').ok_or(PackDefect::Registry)?;
++        let (id, mut node) = if doc.is_empty() {
++            let (k, v) = self
++                .documents
++                .get_key_value(owner)
++                .ok_or(PackDefect::Registry)?;
++            (k.as_str(), v)
++        } else {
++            let (k, v) = self
++                .documents
++                .get_key_value(doc)
++                .ok_or(PackDefect::Registry)?;
++            (k.as_str(), v)
++        };
++        let path = pointer.strip_prefix('/').ok_or(PackDefect::Registry)?;
++        for part in path.split('/') {
++            let part = part.replace("~1", "/").replace("~0", "~");
++            node = optional(node, &part).ok_or(PackDefect::Registry)?;
++        }
++        Ok((id, node))
++    }
++    /// Expand $ref, oneOf and anyOf into leaf alternatives. A combinator may
++    /// carry only annotations beside it; a leaf object alternative must be
++    /// closed. Anything else is a classifier law fault (row 4).
++    fn expand<'s>(
++        &'s self,
++        owner: &'s str,
++        node: &'s V,
++        depth: usize,
++        out: &mut Vec<(&'s str, &'s V)>,
++    ) -> Result<(), PackDefect> {
++        let V::Object(o) = node else {
++            return Err(PackDefect::Registry);
++        };
++        if depth > 32 {
++            return Err(PackDefect::Registry);
++        }
++        for combinator in ["$ref", "oneOf", "anyOf"] {
++            if let Some(v) = o.get(combinator) {
++                if o.keys().any(|k| k != combinator && !annotation(k)) {
++                    return Err(PackDefect::Registry);
++                }
++                if let V::String(r) = v {
++                    let (id, target) = self.resolve(owner, r)?;
++                    return self.expand(id, target, depth + 1, out);
++                }
++                let V::Array(alternatives) = v else {
++                    return Err(PackDefect::Registry);
++                };
++                for alternative in alternatives {
++                    self.expand(owner, alternative, depth + 1, out)?;
++                }
++                return Ok(());
++            }
++        }
++        if o.contains_key("patternProperties")
++            || o.contains_key("unevaluatedProperties")
++            || o.contains_key("prefixItems")
++            || o.contains_key("$defs")
++        {
++            return Err(PackDefect::Registry);
++        }
++        let object = o.get("type") == Some(&V::String("object".into()));
++        if (object || o.contains_key("properties"))
++            && !(object && o.get("additionalProperties") == Some(&V::Bool(false)))
++        {
++            return Err(PackDefect::Registry);
++        }
++        out.push((owner, node));
++        Ok(())
++    }
++    fn first_imperative(&self, value: &V) -> Result<Option<String>, PackDefect> {
++        let root = self
++            .documents
++            .get(POLICY_SCHEMA_ID)
++            .ok_or(PackDefect::Registry)?;
++        let root = optional(
++            optional(root, "$defs").ok_or(PackDefect::Registry)?,
++            "PolicyDocumentV2",
++        )
++        .ok_or(PackDefect::Registry)?;
++        let mut alternatives = Vec::new();
++        self.expand(POLICY_SCHEMA_ID, root, 0, &mut alternatives)?;
++        let mut pointer = String::new();
++        self.walk(value, &alternatives, &mut pointer)
++    }
++    fn walk(
++        &self,
++        value: &V,
++        alternatives: &[(&str, &V)],
++        pointer: &mut String,
++    ) -> Result<Option<String>, PackDefect> {
++        let typed =
++            |(_, a): &&(&str, &V), t: &str| optional(a, "type") == Some(&V::String(t.into()));
++        match value {
++            V::Object(members) => {
++                let objects: Vec<_> = alternatives.iter().filter(|a| typed(a, "object")).collect();
++                for (key, child) in members {
++                    let mark = pointer.len();
++                    pointer.push('/');
++                    pointer.push_str(&key.replace('~', "~0").replace('/', "~1"));
++                    let mut inner = Vec::new();
++                    let mut declared = false;
++                    for (owner, a) in &objects {
++                        if let Some(p) = optional(a, "properties").and_then(|p| optional(p, key)) {
++                            declared = true;
++                            self.expand(owner, p, 0, &mut inner)?;
++                        }
++                    }
++                    if !declared {
++                        return Ok(Some(pointer.clone()));
++                    }
++                    if let Some(found) = self.walk(child, &inner, pointer)? {
++                        return Ok(Some(found));
++                    }
++                    pointer.truncate(mark);
++                }
++                Ok(None)
++            }
++            V::Array(items) => {
++                let mut inner = Vec::new();
++                for (owner, a) in alternatives.iter().filter(|a| typed(a, "array")) {
++                    if let Some(i) = optional(a, "items") {
++                        self.expand(owner, i, 0, &mut inner)?;
++                    }
++                }
++                for (index, item) in items.iter().enumerate() {
++                    let mark = pointer.len();
++                    pointer.push_str(&format!("/{index}"));
++                    if let Some(found) = self.walk(item, &inner, pointer)? {
++                        return Ok(Some(found));
++                    }
++                    pointer.truncate(mark);
++                }
++                Ok(None)
++            }
++            V::String(_)
++                if !alternatives.is_empty() && alternatives.iter().all(|a| typed(&a, "object")) =>
++            {
++                Ok(Some(pointer.clone()))
++            }
++            _ => Ok(None),
++        }
++    }
++}
++
++/// Retained Plan join diagnostics (law X12 r3 item 9). Inert: not a Run proof.
++pub struct PlanPackChecks {
++    pack_id: String,
++}
++impl PlanPackChecks {
++    pub fn pack_id(&self) -> &str {
++        &self.pack_id
++    }
++}
++
++/// Require the retained analysis-spec to name exactly one bundled packId and
++/// plan.policyDigest to equal that row's policySha256. Provided for the host's
++/// just-built Plan and X12d's Run closure; not wired into replay (item 9).
++pub fn check_plan_pack(
++    inputs: &RetainedInputs<'_>,
++    plan_id: &str,
++    budget: TraversalBudget,
++) -> Result<PlanPackChecks, PolicyAdmissionError> {
++    check_plan_pack_in(&RELEASE_PACKS, inputs, plan_id, budget)
++}
++fn check_plan_pack_in(
++    registry: &PackRegistry<'_>,
++    inputs: &RetainedInputs<'_>,
++    plan_id: &str,
++    budget: TraversalBudget,
++) -> Result<PlanPackChecks, PolicyAdmissionError> {
++    let mut reader = PolicyReader {
++        inputs,
++        meter: Meter { budget },
++    };
++    let plan = reader.object(plan_id, IdentityDomain::Plan)?;
++    reader.step()?;
++    let analysis = inputs
++        .identity_record_shape(
++            sha256_text(&format!(
++                "sha256:{}",
++                text(field(&plan, "analysisSpecDigest")?)?
++            ))?,
++            "analysis-spec",
++            budget.descriptor_work,
++        )
++        .map_err(PolicyAdmissionError::Record)?;
++    let ids = array(field(&analysis, "policyPackIds")?)?;
++    let [V::String(id)] = ids else {
++        return Err(PolicyAdmissionError::Refused(
++            "PLAN_POLICY_PACK_COUNT".into(),
++        ));
++    };
++    let rows = registry
++        .rows()
++        .map_err(|_| PolicyAdmissionError::RegistryLaw)?;
++    let row = rows
++        .iter()
++        .find(|r| &r.pack_id == id)
++        .ok_or_else(|| PolicyAdmissionError::Refused("PLAN_POLICY_PACK_NOT_BUNDLED".into()))?;
++    policy_require(
++        field(&plan, "policyDigest")? == &V::String(digest_hex(&row.policy_sha256)),
++        "PLAN_POLICY_PACK_DIGEST",
++    )?;
++    Ok(PlanPackChecks {
++        pack_id: row.pack_id.clone(),
++    })
++}
++
++#[cfg(test)]
++#[path = "policy_pack_tests.rs"]
++mod pack_tests;
+diff --git a/crates/evaluator/src/policy_pack_tests.rs b/crates/evaluator/src/policy_pack_tests.rs
+new file mode 100644
+index 0000000..00da5de
+--- /dev/null
++++ b/crates/evaluator/src/policy_pack_tests.rs
+@@ -0,0 +1,873 @@
++//! Law X12 r3 item 10, evaluator side (unit X12a). The synthetic test registry
++//! below is compiled only under cfg(test); a source pin shows that no
++//! production path names it.
++extern crate std;
++use super::*;
++use alloc::{string::ToString, vec};
++use opensip_identity::{IdentityCandidate, ObjectInput};
++use std::sync::OnceLock;
++
++const TEST_ID: &str = "opensip.test.fixture.pack:1";
++const TEST_SHA: &str = "24e412654bdec20bb256bc0582a1d6bfa0bbabb57a9857a0a18a08b3dd5af01d";
++// The golden-typescript compiled program digest of plan-policy-fixtures.json,
++// which compiles the same policy blob through compile_plan_policy.
++const TEST_PROGRAM_SHA: &str = "41f496a3b9f4d7ada615e517f9bcfb0a3c439323328f3ba19205a7a8a4fb7048";
++const TEST_DOCUMENT: &[u8] =
++    include_bytes!("../tests/fixtures/policy-pack-test-fixture.policy.json");
++const TEST_PACKS: PackRegistry<'static> = PackRegistry {
++    rows: include_bytes!("../tests/fixtures/policy-pack-test-registry.json"),
++    documents: &[("policy-pack-test-fixture.policy.json", TEST_DOCUMENT)],
++};
++const WORK: usize = 10_000_000;
++
++fn schemas() -> &'static RegisteredSchemas {
++    static SCHEMAS: OnceLock<RegisteredSchemas> = OnceLock::new();
++    SCHEMAS.get_or_init(|| {
++        let root = concat!(env!("CARGO_MANIFEST_DIR"), "/../../");
++        let raw: Vec<Vec<u8>> = RegisteredSchemas::source_requirements()
++            .iter()
++            .map(|p| std::fs::read(format!("{root}{}", p.source_path())).unwrap())
++            .collect();
++        let refs: Vec<&[u8]> = raw.iter().map(Vec::as_slice).collect();
++        RegisteredSchemas::from_sources(&refs).unwrap()
++    })
++}
++fn admit(registry: &PackRegistry<'_>, source: PackSource<'_>) -> Result<AdmittedPack, PackRefusal> {
++    admit_from(registry, schemas(), &source, PACK_TRAVERSAL_STEPS)
++}
++fn named(registry: &PackRegistry<'_>, id: &str) -> Result<AdmittedPack, PackRefusal> {
++    admit(registry, PackSource::Named(id))
++}
++fn supplied(bytes: &[u8], provenance: SuppliedProvenance) -> PackSource<'_> {
++    PackSource::Supplied { bytes, provenance }
++}
++const BOTH: [SuppliedProvenance; 2] = [SuppliedProvenance::User, SuppliedProvenance::ThirdParty];
++fn hex32(s: &str) -> [u8; 32] {
++    lower_hex(s).unwrap()
++}
++fn test_document() -> V {
++    parse_json(TEST_DOCUMENT).unwrap()
++}
++/// Insert `value` at a pointer whose parent exists (`/a/0/b`).
++fn put(doc: &mut V, pointer: &str, value: V) {
++    let parts: Vec<&str> = pointer[1..].split('/').collect();
++    let (last, path) = parts.split_last().unwrap();
++    let mut node = doc;
++    for part in path {
++        node = match node {
++            V::Object(o) => o.get_mut(*part).unwrap(),
++            V::Array(a) => &mut a[part.parse::<usize>().unwrap()],
++            _ => panic!("{pointer}"),
++        };
++    }
++    match node {
++        V::Object(o) => {
++            o.insert((*last).into(), value);
++        }
++        V::Array(a) => a[last.parse::<usize>().unwrap()] = value,
++        _ => panic!("{pointer}"),
++    }
++}
++fn bytes_of(doc: &V) -> Vec<u8> {
++    canonical_bytes(doc).unwrap()
++}
++fn s(v: &str) -> V {
++    V::String(v.into())
++}
++/// (packId, name, version, policyDocument, policySha256, contributions)
++type Row<'a> = (&'a str, &'a str, i128, &'a str, &'a str, &'a [&'a str]);
++type PlanInputs = (
++    String,
++    BTreeMap<String, ObjectInput>,
++    BTreeMap<[u8; 32], Vec<u8>>,
++);
++fn registry_rows(rows: &[Row<'_>]) -> Vec<u8> {
++    let mut out = String::from("{\"schemaVersion\":1,\"standing\":\"test\",\"rows\":[");
++    for (i, (id, name, version, doc, sha, contributions)) in rows.iter().enumerate() {
++        if i > 0 {
++            out.push(',');
++        }
++        let c: Vec<String> = contributions.iter().map(|c| format!("\"{c}\"")).collect();
++        out.push_str(&format!(
++            "{{\"packId\":\"{id}\",\"name\":\"{name}\",\"version\":{version},\"policyDocument\":\"{doc}\",\"policySha256\":\"{sha}\",\"contributions\":[{}]}}",
++            c.join(",")
++        ));
++    }
++    out.push_str("]}");
++    out.into_bytes()
++}
++fn one_row(document: &[u8], sha: &str, contributions: &[&str]) -> (Vec<u8>, Vec<u8>, String) {
++    (
++        registry_rows(&[(
++            TEST_ID,
++            "opensip.test.fixture.pack",
++            1,
++            "pack.json",
++            sha,
++            contributions,
++        )]),
++        document.to_vec(),
++        format!("pack:{TEST_ID}"),
++    )
++}
++fn defect(rows: &[u8], document: &[u8]) -> PackRefusal {
++    let documents = [("pack.json", document)];
++    let registry = PackRegistry {
++        rows,
++        documents: &documents,
++    };
++    named(&registry, TEST_ID).unwrap_err()
++}
++
++#[test]
++fn nt1_wrong_pack_identity_is_not_bundled() {
++    // G24.nt1.wrong-pack-identity: row 1, the presented ID as subject.
++    let wrong = [
++        "opensip.test.other.pack:1",
++        "opensip.test.fixture.pack:2",
++        "opensip.test.fixture.pack",
++        "opensip.test.fixture.pack:01",
++        "opensip.test.fixture.pack:+1",
++        "opensip.test.fixture.pack:",
++        ":1",
++        ":01",
++        "OPENSIP.TEST.FIXTURE.PACK:1",
++        "opensip.test.Fixture.pack:1",
++        "opensip.test.fixture.pack:1\n",
++        " opensip.test.fixture.pack:1",
++        "opensip.test.fixture.pack:1 ",
++        "opensip.test.fixture.pack:1\0",
++        "",
++    ];
++    for id in wrong {
++        let refusal = named(&TEST_PACKS, id).unwrap_err();
++        assert_eq!(
++            refusal,
++            PackRefusal::NotBundled { pack_id: id.into() },
++            "{id:?}"
++        );
++        assert_eq!(refusal.subject(), id);
++    }
++    // The DR-131 identity and its variants: in M2 the release registry holds
++    // no row, so the real pack ID itself is not bundled.
++    for id in [
++        "opensip.preview.typescript.pack:1",
++        "opensip.preview.typescript.pack:2",
++        "opensip.preview.typescript.pack",
++        "opensip.preview.typescript.pack:01",
++        "Opensip.preview.typescript.pack:1",
++        "opensip.preview.typescript.pack:1\n",
++        "opensip.preview.other.pack:1",
++        TEST_ID,
++    ] {
++        let registries: &[&PackRegistry<'_>] = if id == TEST_ID {
++            &[&RELEASE_PACKS]
++        } else {
++            &[&RELEASE_PACKS, &TEST_PACKS]
++        };
++        for registry in registries {
++            assert_eq!(
++                named(registry, id).unwrap_err(),
++                PackRefusal::NotBundled { pack_id: id.into() },
++                "{id:?}"
++            );
++        }
++    }
++}
++
++#[test]
++fn nt1_user_and_third_party_packs_are_refused_by_identity() {
++    // G24.nt1.user-pack and G24.nt1.third-party-pack: row 2, including the
++    // exact bytes of the bundled test document. Admission is by identity only.
++    let reformatted = bytes_of(&test_document());
++    let mut with_newline = TEST_DOCUMENT.to_vec();
++    with_newline.push(b'\n');
++    for bytes in [
++        TEST_DOCUMENT,
++        reformatted.as_slice(),
++        with_newline.as_slice(),
++    ] {
++        for provenance in BOTH {
++            for registry in [&RELEASE_PACKS, &TEST_PACKS] {
++                let refusal = admit(registry, supplied(bytes, provenance)).unwrap_err();
++                let sha256 = raw_sha256(bytes);
++                assert_eq!(refusal, PackRefusal::SuppliedPack { provenance, sha256 });
++                assert_eq!(
++                    refusal.subject(),
++                    format!(
++                        "supplied:{}:sha256:{}",
++                        provenance.name(),
++                        digest_hex(&sha256)
++                    )
++                );
++            }
++        }
++    }
++    assert_eq!(
++        admit(
++            &TEST_PACKS,
++            supplied(TEST_DOCUMENT, SuppliedProvenance::User)
++        )
++        .unwrap_err()
++        .subject(),
++        format!("supplied:user:sha256:{TEST_SHA}")
++    );
++}
++
++#[test]
++fn nt2_imperative_members_and_string_expressions_are_row_3() {
++    // G24.nt2.non-declarative-pack: a document the caller presents.
++    let mut cases = Vec::new();
++    for key in ["script", "hook", "exec", "include"] {
++        cases.push((format!("/{key}"), s("rm -rf /")));
++        cases.push((format!("/rules/0/{key}"), s("curl evil")));
++        cases.push((format!("/rules/0/emitWhen/{key}"), s("x")));
++        cases.push((format!("/rules/0/ruleProgramRef/{key}"), s("x")));
++        // subjectEnumeration declares `include` (its glob list), so only the
++        // other three are undeclared there.
++        if key != "include" {
++            cases.push((format!("/rules/0/subjectEnumeration/{key}"), s("x")));
++        }
++        cases.push((
++            format!("/rules/0/{key}"),
++            V::Object(BTreeMap::from([("run".into(), s("x"))])),
++        ));
++    }
++    for (pointer, value) in cases {
++        let mut doc = test_document();
++        put(&mut doc, &pointer, value);
++        let raw = bytes_of(&doc);
++        for provenance in BOTH {
++            let refusal = admit(&TEST_PACKS, supplied(&raw, provenance)).unwrap_err();
++            assert_eq!(
++                refusal,
++                PackRefusal::ImperativeMember {
++                    pointer: pointer.clone()
++                },
++                "{pointer}"
++            );
++            assert_eq!(refusal.subject(), pointer);
++        }
++    }
++    // The classifier is positional: `include` declared by subjectEnumeration
++    // is the DSL's glob list, so a wrong type there is a shape failure (3a).
++    let mut doc = test_document();
++    put(&mut doc, "/rules/0/subjectEnumeration/include", s("x"));
++    let raw = bytes_of(&doc);
++    assert_eq!(
++        admit(&TEST_PACKS, supplied(&raw, SuppliedProvenance::User)).unwrap_err(),
++        PackRefusal::SuppliedInvalid {
++            provenance: SuppliedProvenance::User,
++            sha256: raw_sha256(&raw)
++        }
++    );
++    // A string expression: a string where every closed alternative is an object.
++    for (pointer, expression) in [
++        ("/rules/0/emitWhen", "count(file) > 0"),
++        ("/rules/0/ruleProgramRef", "fixture/no-consumer"),
++        ("/rules/0/subjectEnumeration", "typescript files"),
++        ("/rules/0", "rule no-consumer"),
++    ] {
++        let mut doc = test_document();
++        put(&mut doc, pointer, s(expression));
++        let refusal = admit(
++            &RELEASE_PACKS,
++            supplied(&bytes_of(&doc), SuppliedProvenance::User),
++        )
++        .unwrap_err();
++        assert_eq!(
++            refusal,
++            PackRefusal::ImperativeMember {
++                pointer: pointer.into()
++            }
++        );
++    }
++    let mut doc = test_document();
++    put(
++        &mut doc,
++        "/rules/0/emitWhen",
++        V::Object(BTreeMap::from([
++            ("op".into(), s("and")),
++            (
++                "operands".into(),
++                V::Array(vec![
++                    parse_json(br#"{"op":"exists","relation":"file","minResolution":"enumerated","filters":[]}"#)
++                        .unwrap(),
++                    s("exists(file)"),
++                ]),
++            ),
++        ])),
++    );
++    assert_eq!(
++        admit(
++            &TEST_PACKS,
++            supplied(&bytes_of(&doc), SuppliedProvenance::ThirdParty)
++        )
++        .unwrap_err(),
++        PackRefusal::ImperativeMember {
++            pointer: "/rules/0/emitWhen/operands/1".into()
++        }
++    );
++    // The first member in canonical order wins.
++    let mut doc = test_document();
++    put(&mut doc, "/zzz", s("x"));
++    put(&mut doc, "/rules/0/emitWhen/zzz", s("x"));
++    put(&mut doc, "/rules/0/hook", s("x"));
++    assert_eq!(
++        admit(
++            &TEST_PACKS,
++            supplied(&bytes_of(&doc), SuppliedProvenance::User)
++        )
++        .unwrap_err(),
++        PackRefusal::ImperativeMember {
++            pointer: "/rules/0/emitWhen/zzz".into()
++        }
++    );
++    // A key that needs JSON Pointer escaping.
++    let mut doc2 = test_document();
++    if let V::Object(o) = &mut doc2 {
++        o.insert("a/b~c".into(), s("x"));
++    }
++    assert_eq!(
++        admit(
++            &TEST_PACKS,
++            supplied(&bytes_of(&doc2), SuppliedProvenance::User)
++        )
++        .unwrap_err(),
++        PackRefusal::ImperativeMember {
++            pointer: "/a~1b~0c".into()
++        }
++    );
++}
++
++#[test]
++fn nt2_non_json_and_non_policy_supplied_bytes_are_row_3a() {
++    let wasm: &[u8] = b"\0asm\x01\0\0\0\x01\x04\x01\x60\0\0";
++    let mut v1 = test_document();
++    put(
++        &mut v1,
++        "/schemaMajor",
++        V::Integer(JsonInteger::new(1).unwrap()),
++    );
++    let mut wrong_type = test_document();
++    put(&mut wrong_type, "/rules/0/severity", s("fatal"));
++    let mut number_expression = test_document();
++    put(
++        &mut number_expression,
++        "/rules/0/emitWhen",
++        V::Integer(JsonInteger::new(7).unwrap()),
++    );
++    let duplicate =
++        br#"{"schemaFamily":"opensip.product.policy","schemaFamily":"opensip.product.policy"}"#;
++    let documents: [(&str, Vec<u8>); 8] = [
++        ("wasm", wasm.to_vec()),
++        ("shell", b"#!/bin/sh\nrm -rf /\n".to_vec()),
++        ("empty", Vec::new()),
++        ("duplicate key", duplicate.to_vec()),
++        ("float", b"{\"schemaMajor\":2.0}".to_vec()),
++        ("policy v1", bytes_of(&v1)),
++        ("severity", bytes_of(&wrong_type)),
++        ("non-string expression", bytes_of(&number_expression)),
++    ];
++    for (name, bytes) in documents {
++        for provenance in BOTH {
++            let refusal = admit(&TEST_PACKS, supplied(&bytes, provenance)).unwrap_err();
++            assert_eq!(
++                refusal,
++                PackRefusal::SuppliedInvalid {
++                    provenance,
++                    sha256: raw_sha256(&bytes)
++                },
++                "{name}"
++            );
++            assert_eq!(
++                refusal.subject(),
++                format!(
++                    "supplied:{}:sha256:{}",
++                    provenance.name(),
++                    digest_hex(&raw_sha256(&bytes))
++                )
++            );
++        }
++    }
++}
++
++#[test]
++fn bundled_test_pack_admits_with_its_digest_and_program() {
++    let admitted = named(&TEST_PACKS, TEST_ID).unwrap();
++    assert_eq!(admitted.pack_id(), TEST_ID);
++    assert_eq!(admitted.policy_digest(), hex32(TEST_SHA));
++    assert_eq!(
++        admitted.policy_digest(),
++        raw_sha256(&bytes_of(&test_document()))
++    );
++    assert_eq!(admitted.program_digest(), hex32(TEST_PROGRAM_SHA));
++    assert_eq!(
++        admitted.program_digest(),
++        raw_sha256(&canonical_bytes(admitted.program()).unwrap())
++    );
++    assert_eq!(
++        field(admitted.program(), "policyDigest").unwrap(),
++        &s(TEST_SHA)
++    );
++    // The same identity again is the same admission: pure and deterministic.
++    let again = named(&TEST_PACKS, TEST_ID).unwrap();
++    assert_eq!(again.program(), admitted.program());
++}
++
++#[test]
++fn bundled_defects_are_row_4_never_row_3() {
++    let subject = format!("pack:{TEST_ID}");
++    let fault = |defect| PackRefusal::HostInvariant {
++        subject: subject.clone(),
++        defect,
++    };
++    // Digest mismatch.
++    let (rows, doc, _) = one_row(TEST_DOCUMENT, &"0".repeat(64), &["fixture"]);
++    assert_eq!(defect(&rows, &doc), fault(PackDefect::Digest));
++    // A contribution outside the row's set.
++    let (rows, doc, _) = one_row(TEST_DOCUMENT, TEST_SHA, &["other"]);
++    assert_eq!(
++        defect(&rows, &doc),
++        fault(PackDefect::Contribution("fixture".into()))
++    );
++    // Rule and atom law: a relation outside the atom registry.
++    let mut bad = test_document();
++    put(
++        &mut bad,
++        "/rules/0/emitWhen/relation",
++        s("no-such-relation"),
++    );
++    let raw = bytes_of(&bad);
++    let (rows, doc, _) = one_row(&raw, &digest_hex(&raw_sha256(&raw)), &["fixture"]);
++    assert_eq!(
++        defect(&rows, &doc),
++        fault(PackDefect::RuleLaw(
++            "POLICY_RULE_NOT_ADMISSIBLE:policy:no-consumer:POLICY.UNKNOWN_RULE".into()
++        ))
++    );
++    // An imperative member in a bundled document (RF-1): row 4, not row 3.
++    for (pointer, value) in [
++        ("/rules/0/exec", s("rm -rf /")),
++        ("/rules/0/emitWhen", s("exists(file)")),
++        ("/script", s("x")),
++    ] {
++        let mut bad = test_document();
++        put(&mut bad, pointer, value);
++        let raw = bytes_of(&bad);
++        let (rows, doc, _) = one_row(&raw, &digest_hex(&raw_sha256(&raw)), &["fixture"]);
++        let refusal = defect(&rows, &doc);
++        assert_eq!(refusal, fault(PackDefect::Imperative(pointer.into())));
++        assert_eq!(refusal.subject(), subject);
++        assert!(!matches!(refusal, PackRefusal::ImperativeMember { .. }));
++    }
++    // Lexical and closed-schema failures of bundled bytes.
++    let (rows, doc, _) = one_row(b"{\"rules\":", TEST_SHA, &["fixture"]);
++    assert_eq!(defect(&rows, &doc), fault(PackDefect::Lexical));
++    let mut v1 = test_document();
++    put(
++        &mut v1,
++        "/schemaMajor",
++        V::Integer(JsonInteger::new(1).unwrap()),
++    );
++    let raw = bytes_of(&v1);
++    let (rows, doc, _) = one_row(&raw, &digest_hex(&raw_sha256(&raw)), &["fixture"]);
++    assert_eq!(defect(&rows, &doc), fault(PackDefect::Schema));
++    // A traversal limit.
++    assert_eq!(
++        admit_from(&TEST_PACKS, schemas(), &PackSource::Named(TEST_ID), 1).unwrap_err(),
++        fault(PackDefect::Limit)
++    );
++}
++
++#[test]
++fn self_inconsistent_registries_are_row_4() {
++    let fault = |id: &str| PackRefusal::HostInvariant {
++        subject: format!("pack:{id}"),
++        defect: PackDefect::Registry,
++    };
++    let row = |id, name, version, sha: &'static str| {
++        (id, name, version, "pack.json", sha, &["fixture"][..])
++    };
++    let bad_rows: Vec<Vec<u8>> = vec![
++        // packId differs from name:version.
++        registry_rows(&[row(TEST_ID, "opensip.test.fixture.pack", 2, TEST_SHA)]),
++        registry_rows(&[row(
++            "opensip.test.fixture.pack:01",
++            "opensip.test.fixture.pack",
++            1,
++            TEST_SHA,
++        )]),
++        registry_rows(&[row(
++            "Opensip.test.fixture.pack:1",
++            "Opensip.test.fixture.pack",
++            1,
++            TEST_SHA,
++        )]),
++        registry_rows(&[row(
++            "opensip.test:fixture:1",
++            "opensip.test:fixture",
++            1,
++            TEST_SHA,
++        )]),
++        registry_rows(&[row(
++            "opensip.test.fixture.pack:0",
++            "opensip.test.fixture.pack",
++            0,
++            TEST_SHA,
++        )]),
++        // Uppercase digest.
++        registry_rows(&[row(
++            TEST_ID,
++            "opensip.test.fixture.pack",
++            1,
++            "24E412654BDEC20BB256BC0582A1D6BFA0BBABB57A9857A0A18A08B3DD5AF01D",
++        )]),
++        // Duplicate rows (and so a document used twice).
++        registry_rows(&[
++            row(TEST_ID, "opensip.test.fixture.pack", 1, TEST_SHA),
++            row(TEST_ID, "opensip.test.fixture.pack", 1, TEST_SHA),
++        ]),
++        // A document the table does not hold.
++        registry_rows(&[(
++            TEST_ID,
++            "opensip.test.fixture.pack",
++            1,
++            "absent.json",
++            TEST_SHA,
++            &["fixture"],
++        )]),
++        // An empty contribution set.
++        registry_rows(&[(
++            TEST_ID,
++            "opensip.test.fixture.pack",
++            1,
++            "pack.json",
++            TEST_SHA,
++            &[],
++        )]),
++        // Unknown or missing keys.
++        b"{\"schemaVersion\":1,\"standing\":\"x\",\"rows\":[],\"extra\":1}".to_vec(),
++        b"{\"schemaVersion\":2,\"standing\":\"x\",\"rows\":[]}".to_vec(),
++        b"{\"schemaVersion\":1,\"rows\":[]}".to_vec(),
++        b"not json".to_vec(),
++    ];
++    for rows in &bad_rows {
++        assert_eq!(
++            defect(rows, TEST_DOCUMENT),
++            fault(TEST_ID),
++            "{}",
++            String::from_utf8_lossy(rows)
++        );
++    }
++    // A document no row names.
++    let empty = registry_rows(&[]);
++    assert_eq!(defect(&empty, TEST_DOCUMENT), fault(TEST_ID));
++    // An empty registry with an empty table is consistent: not bundled.
++    let registry = PackRegistry {
++        rows: &empty,
++        documents: &[],
++    };
++    assert_eq!(
++        named(&registry, TEST_ID).unwrap_err(),
++        PackRefusal::NotBundled {
++            pack_id: TEST_ID.into()
++        }
++    );
++}
++
++#[test]
++fn release_registry_has_zero_rows_and_every_row_passes_item_6() {
++    let rows = RELEASE_PACKS.rows().unwrap();
++    assert_eq!(
++        rows.len(),
++        0,
++        "M2 ships zero release rows (law X12 r3 item 4)"
++    );
++    assert!(RELEASE_PACKS.documents.is_empty());
++    for row in &rows {
++        named(&RELEASE_PACKS, &row.pack_id).unwrap();
++    }
++    // The same self-check on the test registry runs steps 1 to 7.
++    let rows = TEST_PACKS.rows().unwrap();
++    assert_eq!(rows.len(), 1);
++    for row in &rows {
++        assert_eq!(
++            named(&TEST_PACKS, &row.pack_id).unwrap().pack_id(),
++            row.pack_id
++        );
++    }
++}
++
++#[test]
++fn source_pin_release_build_holds_no_test_row_or_runtime_read() {
++    let source = include_str!("policy.rs");
++    let release = include_str!("pack-registry.json");
++    assert!(!release.contains("opensip.test"));
++    assert_eq!(
++        source
++            .matches("include_bytes!(\"pack-registry.json\")")
++            .count(),
++        1
++    );
++    assert!(source.contains(
++        "const RELEASE_PACKS: PackRegistry<'static> = PackRegistry {\n    rows: include_bytes!(\"pack-registry.json\"),\n    documents: &[],\n};"
++    ));
++    // The test registry lives only in this cfg(test) module.
++    for forbidden in [
++        "TEST_PACKS",
++        "tests/fixtures",
++        "opensip.test",
++        "policy-pack-test",
++        "std::",
++        "fs::",
++        "env::",
++        "getenv",
++        "home_dir",
++    ] {
++        assert!(!source.contains(forbidden), "{forbidden}");
++    }
++    assert_eq!(source.matches("policy_pack_tests.rs").count(), 1);
++    assert!(source.contains("#[cfg(test)]\n#[path = \"policy_pack_tests.rs\"]\nmod pack_tests;"));
++    // Both public owners select the release registry and nothing else.
++    assert_eq!(source.matches("&RELEASE_PACKS").count(), 2);
++    assert!(source.contains("admit_from(&RELEASE_PACKS, schemas, source, PACK_TRAVERSAL_STEPS)"));
++    assert!(source.contains("check_plan_pack_in(&RELEASE_PACKS, inputs, plan_id, budget)"));
++    assert_eq!(source.matches("PackRegistry {").count(), 1);
++    // include_bytes! reads only the registry and the pinned schema sources.
++    assert_eq!(source.matches("include_bytes!(").count(), 7);
++    assert_eq!(source.matches("/../../schemas/sources/").count(), 3);
++}
++
++#[test]
++fn classifier_reads_the_pinned_closed_policy_schema() {
++    let classifier = Classifier::load(schemas()).unwrap();
++    assert_eq!(classifier.documents.len(), 3);
++    let root = optional(
++        optional(&classifier.documents[POLICY_SCHEMA_ID], "$defs").unwrap(),
++        "PolicyDocumentV2",
++    )
++    .unwrap();
++    let mut alternatives = Vec::new();
++    classifier
++        .expand(POLICY_SCHEMA_ID, root, 0, &mut alternatives)
++        .unwrap();
++    assert_eq!(alternatives.len(), 1);
++    let members: Vec<&str> = match optional(alternatives[0].1, "properties").unwrap() {
++        V::Object(o) => o.keys().map(String::as_str).collect(),
++        _ => panic!(),
++    };
++    assert_eq!(
++        members,
++        [
++            "gateSeverityAtLeast",
++            "rules",
++            "schemaFamily",
++            "schemaMajor"
++        ]
++    );
++    // The bundled test document has no imperative member.
++    assert_eq!(classifier.first_imperative(&test_document()).unwrap(), None);
++    // Members of objects at positions that are not objects are undeclared.
++    let mut doc = test_document();
++    put(
++        &mut doc,
++        "/rules/0/severity",
++        V::Object(BTreeMap::from([("exec".into(), s("x"))])),
++    );
++    assert_eq!(
++        classifier.first_imperative(&doc).unwrap(),
++        Some("/rules/0/severity/exec".into())
++    );
++    // A non-object JSON root that is a string is a string expression.
++    assert_eq!(
++        classifier.first_imperative(&s("exec rm")).unwrap(),
++        Some(String::new())
++    );
++    assert_eq!(classifier.first_imperative(&V::Null).unwrap(), None);
++}
++
++#[test]
++fn a_document_at_the_dsl_bounds_reaches_no_limit() {
++    // 512 rules, each a 61-node predicate of depth 3 with 56 atoms.
++    let atom = r#"{"filters":[{"cmp":"in","field":"subject","value":["a","b"]}],"minResolution":"enumerated","op":"exists","relation":"file"}"#;
++    let group = format!(
++        "{{\"op\":\"and\",\"operands\":[{}]}}",
++        vec![atom; 14].join(",")
++    );
++    let predicate = format!(
++        "{{\"op\":\"and\",\"operands\":[{}]}}",
++        [group.as_str(); 4].join(",")
++    );
++    let rules: Vec<String> = (0..512)
++        .map(|i| {
++            format!(
++                "{{\"emitWhen\":{predicate},\"enabled\":true,\"evidenceUse\":[],\"gate\":true,\"ruleId\":\"r{i:03}\",\"ruleProgramRef\":{{\"contributionId\":\"fixture\",\"programDigest\":\"{}\",\"ruleStableId\":\"r{i:03}\",\"semanticsMajor\":2}},\"severity\":\"error\",\"subjectEnumeration\":{{\"subjectKind\":\"file\",\"universe\":\"typescript\"}}}}",
++                "0".repeat(64)
++            )
++        })
++        .collect();
++    let raw = format!(
++        "{{\"gateSeverityAtLeast\":\"error\",\"rules\":[{}],\"schemaFamily\":\"opensip.product.policy\",\"schemaMajor\":2}}",
++        rules.join(",")
++    )
++    .into_bytes();
++    assert!(raw.len() < opensip_identity::MAX_BYTES);
++    let canonical = canonical_bytes(&parse_json(&raw).unwrap()).unwrap();
++    let (rows, doc, _) = one_row(&raw, &digest_hex(&raw_sha256(&canonical)), &["fixture"]);
++    let documents = [("pack.json", doc.as_slice())];
++    let registry = PackRegistry {
++        rows: &rows,
++        documents: &documents,
++    };
++    let admitted = named(&registry, TEST_ID).unwrap();
++    assert_eq!(
++        array(field(admitted.program(), "rules").unwrap())
++            .unwrap()
++            .len(),
++        512
++    );
++}
++
++fn plan_inputs(analysis_ids: &[&str], policy_sha: Option<&str>) -> PlanInputs {
++    let fixture = parse_json(include_bytes!(
++        "../tests/fixtures/policy-pack-plan-fixture.json"
++    ))
++    .unwrap();
++    let plan = field(&fixture, "plan").unwrap();
++    let analysis = field(&fixture, "analysisSpec").unwrap();
++    let analysis_raw: Vec<u8> = {
++        let h = text(field(analysis, "hex").unwrap()).unwrap();
++        (0..h.len())
++            .step_by(2)
++            .map(|i| u8::from_str_radix(&h[i..i + 2], 16).unwrap())
++            .collect()
++    };
++    let mut descriptor = field(plan, "descriptor").unwrap().clone();
++    let mut blobs = BTreeMap::new();
++    let id = if analysis_ids == ["fixture.file-observed"] && policy_sha.is_none() {
++        blobs.insert(raw_sha256(&analysis_raw), analysis_raw);
++        text(field(plan, "id").unwrap()).unwrap().to_string()
++    } else {
++        let mut spec = parse_json(&analysis_raw).unwrap();
++        put(
++            &mut spec,
++            "/policyPackIds",
++            V::Array(analysis_ids.iter().map(|i| s(i)).collect()),
++        );
++        let spec_raw = bytes_of(&spec);
++        put(
++            &mut descriptor,
++            "/analysisSpecDigest",
++            s(&digest_hex(&raw_sha256(&spec_raw))),
++        );
++        if let Some(sha) = policy_sha {
++            put(&mut descriptor, "/policyDigest", s(sha));
++        }
++        blobs.insert(raw_sha256(&spec_raw), spec_raw);
++        IdentityCandidate::from_json(
++            schemas(),
++            IdentityDomain::Plan,
++            &bytes_of(&descriptor),
++            WORK,
++        )
++        .unwrap()
++        .identifier()
++        .to_string()
++    };
++    let objects = BTreeMap::from([(
++        id.clone(),
++        ObjectInput {
++            domain: IdentityDomain::Plan,
++            descriptor,
++        },
++    )]);
++    (id, objects, blobs)
++}
++fn plan_check(
++    registry: &PackRegistry<'_>,
++    ids: &[&str],
++    sha: Option<&str>,
++    steps: usize,
++) -> Result<PlanPackChecks, PolicyAdmissionError> {
++    let (id, objects, blobs) = plan_inputs(ids, sha);
++    let inputs = RetainedInputs::new(schemas(), &objects, &blobs);
++    check_plan_pack_in(
++        registry,
++        &inputs,
++        &id,
++        TraversalBudget {
++            steps,
++            depth: 96,
++            descriptor_work: WORK,
++        },
++    )
++}
++
++#[test]
++fn check_plan_pack_joins_analysis_spec_and_policy_digest() {
++    let refused = |cause: &str| Err::<(), _>(PolicyAdmissionError::Refused(cause.into()));
++    // The synthetic corpus Plan names "fixture.file-observed": not bundled.
++    for registry in [&RELEASE_PACKS, &TEST_PACKS] {
++        assert_eq!(
++            plan_check(registry, &["fixture.file-observed"], None, 1000).map(|_| ()),
++            refused("PLAN_POLICY_PACK_NOT_BUNDLED")
++        );
++    }
++    // A test-pack Plan with the matching digest joins.
++    let checks = plan_check(&TEST_PACKS, &[TEST_ID], Some(TEST_SHA), 1000).unwrap();
++    assert_eq!(checks.pack_id(), TEST_ID);
++    // In M2 the release registry bundles nothing, so the same Plan is refused.
++    assert_eq!(
++        plan_check(&RELEASE_PACKS, &[TEST_ID], Some(TEST_SHA), 1000).map(|_| ()),
++        refused("PLAN_POLICY_PACK_NOT_BUNDLED")
++    );
++    // Any other policy digest is refused.
++    for other in [
++        "0".repeat(64),
++        "f710d52e75330cef453dbb4f11e4c59e2bf4d12f5a9e0d0e7eb67235f5a7e3f3".into(),
++    ] {
++        assert_eq!(
++            plan_check(&TEST_PACKS, &[TEST_ID], Some(&other), 1000).map(|_| ()),
++            refused("PLAN_POLICY_PACK_DIGEST")
++        );
++    }
++    // Exactly one pack: zero, two, or an unversioned ID.
++    assert_eq!(
++        plan_check(&TEST_PACKS, &[], Some(TEST_SHA), 1000).map(|_| ()),
++        refused("PLAN_POLICY_PACK_COUNT")
++    );
++    assert_eq!(
++        plan_check(
++            &TEST_PACKS,
++            &[TEST_ID, "opensip.test.other.pack:1"],
++            Some(TEST_SHA),
++            1000
++        )
++        .map(|_| ()),
++        refused("PLAN_POLICY_PACK_COUNT")
++    );
++    assert_eq!(
++        plan_check(
++            &TEST_PACKS,
++            &["opensip.test.fixture.pack"],
++            Some(TEST_SHA),
++            1000
++        )
++        .map(|_| ()),
++        refused("PLAN_POLICY_PACK_NOT_BUNDLED")
++    );
++    assert!(matches!(
++        plan_check(&TEST_PACKS, &[TEST_ID], Some(TEST_SHA), 0),
++        Err(PolicyAdmissionError::Limit)
++    ));
++    // A self-inconsistent registry is the registry law fault.
++    let broken = PackRegistry {
++        rows: b"{}",
++        documents: &[],
++    };
++    assert!(matches!(
++        plan_check(&broken, &[TEST_ID], Some(TEST_SHA), 1000),
++        Err(PolicyAdmissionError::RegistryLaw)
++    ));
++}
+diff --git a/crates/evaluator/tests/fixtures/policy-pack-plan-fixture.json b/crates/evaluator/tests/fixtures/policy-pack-plan-fixture.json
+new file mode 100644
+index 0000000..d2c14e2
+--- /dev/null
++++ b/crates/evaluator/tests/fixtures/policy-pack-plan-fixture.json
+@@ -0,0 +1,36 @@
++{
++  "standing": "SYNTHETIC check_plan_pack inputs (law X12 r3 items 9 and 10). The Plan (objectPool ab4593cbf0662a1b43e830d8b86a2e3445d314eb8faab57818088816fbc1f5cd) and its analysis-spec record (blobPool 8cb115ea6e68da40c0b9e5bb7a48a3710aee6a7563ae0a4d65022017b1a93dbe) are copied unchanged from case budget-one-packet of crates/host/tests/fixtures/evaluator-parameter-fixtures.json; the corpus analysis-spec names policyPackIds [\"fixture.file-observed\"], which no registry bundles. Test-pack Plans are derived from these in the test.",
++  "plan": {
++    "id": "plan2:0fe15a7b2958b5a9d8843ce9b8028303f18edf8b5d148eac7abd6bc06553fd23",
++    "domain": "plan",
++    "descriptor": {
++      "analysisSpecDigest": "b644bdc366ae324ec9bfc3eafc86edfbb3bae388af07c88b46c4a12f2a2308d8",
++      "budget": {
++        "limit": 1,
++        "unit": "work-units"
++      },
++      "capabilityManifestBytesDigest": "50e8e32ad7a4295c7955184ab11f1310850c7b1195796bc144be6ec40d00150a",
++      "capabilityManifestId": "0915fce03db1e24e23ffb2d82b61556134110fd5e33306a980d26f2f077aa31a",
++      "importIds": [],
++      "nativeContextDigests": [
++        "d91e9cb39f65b08f583de5371a8ff18fe928f71e28c7bb00e41469412db99cbb"
++      ],
++      "policyDigest": "035784a3ffa557a5f080a5a49e8e9066ac7a4692d0f1472a921e483d4f6f3d02",
++      "resolvedConfigDigest": "38f906c3bb5faf43e857c72a8516ddff2bbd84363ee50e087636eb708ac57792",
++      "schemaVersion": 2,
++      "scopeDigest": "3c17680c3ba54ddd6a1bc6978f636f6c3f1a7b67f1510c1773f51536a58e3d6b",
++      "semanticClosures": [
++        "closure2:503e1f3ab5e3fe59269dbe774ac50ad0c8a543b4e213371dac3f620c3240f899",
++        "closure2:90cbc2dfb8cee6e861a4eb9e4e66b8cf0becfb0bc8f1c9aaa4bb076468961147",
++        "closure2:9ff3ad37b5fb2567e87ee843e201fa44f0ead92355b8a4dc1d3009c1289cdb59"
++      ],
++      "semanticGrantDigest": "9831c014407b95bb1af92e93c65939939b0e1813c3b9af82cd08ce14913c5eca",
++      "snapshotId": "snapshot2:8d2f4e8682ce2a987325f8d520133864d371d57a0cae78ecdeac00035eaa8b07",
++      "waiverDigest": "a48dcf50d1cc111e0a5f6dafb1f1e5ac97070fc3795d615a653d2501db8be779"
++    }
++  },
++  "analysisSpec": {
++    "digest": "b644bdc366ae324ec9bfc3eafc86edfbb3bae388af07c88b46c4a12f2a2308d8",
++    "hex": "7b22706172616d6574657273223a5b7b227061796c6f6164446967657374223a2238396539663066373839646138346338343939653835323365343732383562353639343137343230363764353835323165656430623461333436396638643331222c22736368656d61446967657374223a2261633961653433386361336531613934653235373230396334363063643762656564353034376530643964306137626634396139346236333764643331393865227d2c7b227061796c6f6164446967657374223a2264356434656165653531613066663831303363613465356365396432666436326661353938303232393162613961363165626337356634393666656564646537222c22736368656d61446967657374223a2231303632376362366132326139666631363734633136633566613438363361353864633836653564663861633761653535633435373437623065363031393763227d5d2c22706f6c6963795061636b496473223a5b22666978747572652e66696c652d6f62736572766564225d2c227265717565737465644361706162696c6974696573223a5b7b226361706162696c6974794964223a22696e76656e746f7279222c226c616e67756167654d6f6465223a2273796e7461782d6f6e6c79222c227265717569726564223a747275652c22776f726b7370616365526f6f74223a222e227d5d2c22736368656d6156657273696f6e223a327d"
++  }
++}
+diff --git a/crates/evaluator/tests/fixtures/policy-pack-test-fixture.policy.json b/crates/evaluator/tests/fixtures/policy-pack-test-fixture.policy.json
+new file mode 100644
+index 0000000..a4bd3b0
+--- /dev/null
++++ b/crates/evaluator/tests/fixtures/policy-pack-test-fixture.policy.json
+@@ -0,0 +1 @@
++{"gateSeverityAtLeast":"error","rules":[{"emitWhen":{"filters":[],"minResolution":"enumerated","op":"exists","relation":"file"},"enabled":true,"evidenceUse":[],"gate":true,"messageCode":"no-consumer","ruleId":"no-consumer","ruleProgramRef":{"contributionId":"fixture","programDigest":"09ec786ec65b58b74a0dff556ce6e5aaf2f3299e0029c8f285d36402d00c8574","ruleStableId":"no-consumer","semanticsMajor":2},"severity":"error","subjectEnumeration":{"subjectKind":"file","universe":"typescript"}}],"schemaFamily":"opensip.product.policy","schemaMajor":2}
+\ No newline at end of file
+diff --git a/crates/evaluator/tests/fixtures/policy-pack-test-registry.json b/crates/evaluator/tests/fixtures/policy-pack-test-registry.json
+new file mode 100644
+index 0000000..e30a541
+--- /dev/null
++++ b/crates/evaluator/tests/fixtures/policy-pack-test-registry.json
+@@ -0,0 +1,16 @@
++{
++  "schemaVersion": 1,
++  "standing": "SYNTHETIC test-only bundled pack registry (law X12 r3 item 4), compiled only under cfg(test). Its one row names the golden-typescript policy blob of crates/host/tests/fixtures/plan-policy-fixtures.json (blob b1). Never a release row, never selectable by a production path.",
++  "rows": [
++    {
++      "packId": "opensip.test.fixture.pack:1",
++      "name": "opensip.test.fixture.pack",
++      "version": 1,
++      "policyDocument": "policy-pack-test-fixture.policy.json",
++      "policySha256": "24e412654bdec20bb256bc0582a1d6bfa0bbabb57a9857a0a18a08b3dd5af01d",
++      "contributions": [
++        "fixture"
++      ]
++    }
++  ]
++}
