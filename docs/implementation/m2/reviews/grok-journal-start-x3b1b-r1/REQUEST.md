@@ -1,4 +1,4 @@
-REVIEWER review: X3b-1b, the journal carrier start, the reconciliation after an uncertain outcome, and the end step, with inventory v92. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/REVIEWDIR. If you build, use a CARGO_TARGET_DIR under it.
+Grok review: X3b-1b, the journal carrier start, the reconciliation after an uncertain outcome, and the end step, with inventory v92. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/grok-journal-start-x3b1b-r1. If you build, use a CARGO_TARGET_DIR under it.
 
 Law: X3b r6 item 4 (start and end) and item 5's uncertain-outcome rule, with X3d r3 item 7.
 
