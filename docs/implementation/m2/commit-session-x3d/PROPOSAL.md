@@ -1,6 +1,13 @@
-# The CommitSession storage facade — proposal X3d r4
+# The CommitSession storage facade — proposal X3d r5
 
 2026-10-01. Claude Opus 5.5, implementation lead. Law for unit X3d of `EXIT-PLAN.md`, under owner.md §5 and §8, the build plan's "Decision: require independently minted prerequisites at the storage boundary", "Security/storage ownership and the final commit gate" and "Publication sequence and lock discipline" (`docs/v2/architecture/implementation-boundaries-and-build-plan.md`, lines 25–190), and the accepted laws X1 r1, X2 r5, X3a r5, X3b r6, X3c r7, X4 r7 and X4T r5. The lead decisions here are made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation. Each names the alternative it rejects. r2 answers Grok X3d r1 RF-1 to RF-5: the capacity threshold, the attempt-admission commit's outcomes, a single end-path REV owner, an end-path reserve taken first, and the exhaustive rows. r1 bytes are preserved in PROPOSAL-r1.md. r3 answers Grok X3d r2 RF-1 (a failed end-path reserve funds no append) and RF-2 (after an uncertain journal outcome, the writer reconciles before any floor copy). r2 bytes are preserved in PROPOSAL-r2.md. r3 ACCEPTED by Grok on 2026-10-01. r4 is an amendment required by X3b r8 item 5a: item 3's capacity threshold is X3b's `seal_fits` predicate (a SEAL needs the proven tail at most 9007199254740987), not the literal 9007199254740990. r3 bytes are preserved in PROPOSAL-r3.md. r4 ACCEPTED by Grok on 2026-10-01. Not code. Library only: no CLI command commits (X11 and M3).
+
+**r5 (2026-10-01) is an amendment required by X3b r9** (item 5's uncertain-outcome rule, which is reviewed together with this revision). r4 bytes are preserved in PROPOSAL-r4.md.
+- **The defect.** r3 and r4 item 7 step 1 had `finish` reopen the carrier and run `reconcile_witness` after an uncertain journal commit or barrier, before releasing the lease. That work is charged to X1's attempt ledger (item 8). The attempt ledger is the platform's failure-latching `WorkLedger`, and the failure after visibility has already closed it. So the reconciliation is refused `Closed` before it reads anything, and could never run. X3d-1 would meet this at its first uncertain-outcome test.
+- **The change (items 4, 7 and 8).** After an uncertain journal outcome, `finish` appends nothing, reconciles nothing and runs no end step. It releases the lease and stops. The next writer's floor step and carrier start reconcile the carrier before its next use (X3b r9 items 3, 4 and 5).
+- **Rows.** No outcome or row changes. `CommitUndetermined { executionId }` stays on item 9's durability row. r4's reconciliation never changed that outcome either; it only decided whether the floor copy ran.
+- **X7.** X7 r3 item 5's parenthetical "(X3d item 7 reconciles under the lease and copies the floor only on OK, REVERT or ADVANCE)" describes r4. X7's next revision corrects it to "finish appends nothing and copies no floor; the next writer reconciles". X7's projection, row and remedy are unchanged, and X7 r3 item 6 already says the rollover's uncertain append is "reconciled by the next writer's start".
+- **Unchanged from r4:** everything else.
 
 ## Problem
 
@@ -77,7 +84,7 @@ It has no `CommitSession`, `PreparedCommit`, `PublishedCommit`, `JournalWriteTxn
      2. release level 4, then each level-3 transaction still open.
 
      `publish` appends nothing. The one `REV`, and any `CLN`, are appended only by `finish` (item 7).
-   - **An uncertain journal commit or barrier** (step 3.4, 3.5 or 3.6 fails after visibility) does not enter that order. X3b r6 item 5's uncertain-outcome rule applies: refuse every further effect, roll back the open ledger transaction, release level 4 exactly once and any open level-3 transaction, and return `CommitUndetermined { executionId }` on item 9's durability row. Neither state is assumed, and nothing is appended. The `StoppedSession` is marked uncertain, and `finish` reconciles before any floor copy (item 7).
+   - **An uncertain journal commit or barrier** (step 3.4, 3.5 or 3.6 fails after visibility) does not enter that order. X3b r6 item 5's uncertain-outcome rule applies: refuse every further effect, roll back the open ledger transaction, release level 4 exactly once and any open level-3 transaction, and return `CommitUndetermined { executionId }` on item 9's durability row. Neither state is assumed, and nothing is appended. The `StoppedSession` is marked uncertain. Its `finish` appends nothing, reconciles nothing and copies no floor; the next writer reconciles (item 7, r5).
    - **A returned evidence `COMMIT`** (step 3.10), whether `Committed` or `CommitUndetermined`, releases level 4 exactly once. That `COMMIT`'s outcome is the caller's outcome.
    - **Lock-order rules.** Level 3 is never acquired or reacquired under level 4, and nothing waits on a fence or lease inside `publish`.
    - **Rejected:** committing in the staging callback; and releasing level 4 before the `COMMIT` on a path that continues to it.
@@ -102,14 +109,16 @@ It has no `CommitSession`, `PreparedCommit`, `PublishedCommit`, `JournalWriteTxn
       - the gate is latched (an observer latch, or a failed checkpoint that fetch-ORed 2);
       - a revocation was observed.
 
-      It appends `CLN` when cleanup residue must be recorded, including F38's SEAL-without-commit pair. Both go through one fresh, lawful level-3-then-level-4 acquisition on the same carrier (build plan line 148; X3b r6 item 6; X4 items 5 and 7), funded by item 3 step 0's reserve. A `REV` blocks any later `RA`, intent, commit or `SEAL`. After an uncertain journal commit or barrier, `finish` appends nothing (RF-2). While the lease is still held, this writer reopens the carrier and runs `reconcile_witness` (X3b r6 items 4 and 5):
-      - only an `OK`, `REVERT` or `ADVANCE` outcome lets step 3's floor copy run, from the reconciled tail;
-      - a `QUARANTINE` outcome leaves the floor untouched;
-      - a reconciliation that itself fails leaves the floor untouched, and the next opener reconciles.
-
-      Lead decision: reconcile before releasing the lease. Rejected: skipping the end step entirely, which would leave a reconcilable floor behind until the next writer.
+      It appends `CLN` when cleanup residue must be recorded, including F38's SEAL-without-commit pair. Both go through one fresh, lawful level-3-then-level-4 acquisition on the same carrier (build plan line 148; X3b r6 item 6; X4 items 5 and 7), funded by item 3 step 0's reserve. A `REV` blocks any later `RA`, intent, commit or `SEAL`. After an uncertain journal commit or barrier, `finish` appends nothing (RF-2).
+      **r5 (lead decision, under X3b r9 item 5): no reconciliation after an uncertain outcome.** `finish` does not reopen the carrier and does not run `reconcile_witness`. It reads nothing, writes no witness and copies no floor.
+      - **Where the carrier is reconciled.** Before its next use, the next writer's floor step and carrier start reconcile it (X3b items 3 and 4). Every state an uncertain journal outcome can leave is a state that process death at the same point leaves, so those steps already handle it. Read-only recovery (X6) reports it without writing.
+      - **Why.** The failure after visibility has closed the attempt ledger (item 8), which is the platform's failure-latching `WorkLedger`. r4's reconciliation would be refused `Closed` before it read anything.
+      - **Rejected:**
+        - r4's reconciliation before releasing the lease: it cannot run on the one attempt ledger;
+        - a post-failure allowance in that ledger, a second ledger, or reporting the failure as a value to keep the ledger open (X3b r9 item 5 gives the reasons).
+      - **Reversed from r3.** r3 rejected "skipping the end step entirely, which would leave a reconcilable floor behind until the next writer". r5 adopts it for the uncertain path only. The floor then lags this operation. That stays inside v8 §5.4's detection bound, because an undetermined boundary is not an observed one.
    2. **Release.** Release the operation lease.
-   3. **End step.** Run X3b item 4's end step: the floor copy under the fence, with no project lock held. After an uncertain journal outcome, the floor copy runs only if step 1's reconciliation returned `OK`, `REVERT` or `ADVANCE`, and copies only the reconciled tail. Otherwise the floor is untouched. No other effect runs after an uncertain outcome.
+   3. **End step.** Run X3b item 4's end step: the floor copy under the fence, with no project lock held. **r5:** after an uncertain journal outcome the end step does not run. No fence is taken, nothing is read, and the floor is untouched (X3b r9 item 4). No other effect runs after an uncertain outcome.
 
    - **What it swaps in.** `finish` replaces X4's test-only abstract lock with the real `JournalAppendLock` everywhere. After X3d, no production path names the abstract lock.
    - **If `finish` never runs.** A panic, `mem::forget` or abort leaves recovery evidence (`attempt_custody` `admitted`, an orphan SEAL), never a claimed cleanup success.
@@ -119,6 +128,7 @@ It has no `CommitSession`, `PreparedCommit`, `PublishedCommit`, `JournalWriteTxn
    - The end-path reserve (one `REV` and one `CLN`) is taken first, at item 3 step 0, and survives every later refusal. `finish` spends it.
    - The publication reserve (objects, confirmations, attempt admission, and `publish`'s fixed SEAL, witness, staging and commit costs) is taken at step 2. If it fails, the operation refuses before the first write.
    - The observer keeps its own per-observation ledger (X4 r7).
+   - **r5.** After an uncertain journal outcome the attempt ledger is closed (the platform latch), and nothing further is charged to it: `finish` performs no reconciliation and no end step (item 7).
    - **Rejected:** charging the end path at end time, or inside the publication reserve. Either could strand a latched operation's or an un-REVed SEAL's `REV`.
 
 9. **Refusal rows (existing details only).** Every row maps through 468c's `InstallationTermination`, every match is exhaustive, and S12 prevails where it fixes a class.
@@ -176,6 +186,7 @@ It has no `CommitSession`, `PreparedCommit`, `PublishedCommit`, `JournalWriteTxn
 - Calling lifecycle from storage.
 - An end path whose `REV` or `CLN` budget was not reserved first.
 - A `REV` appended inside `publish`, or after an uncertain journal commit.
+- (r5) A carrier read, reconciliation, end step or floor copy by `finish` after an uncertain journal commit or barrier.
 - `PublishedCommit` before a successful `COMMIT`.
 - An external adapter or `SealOutcome` accepted by storage.
 - A production seam that supplies a `ProjectOperation` or `ReplayedRun`.
