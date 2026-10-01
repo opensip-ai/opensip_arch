@@ -1,12 +1,12 @@
-Grok review: X3b-2, the grant-journal append protocol, `JournalAppendLock`, record building and the uncertain-outcome reconciliation (law X3b r6 items 5, 6, 8 and 9, with item 11's X3b-2 cases), with inventory v101. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/grok-journal-append-x3b2-r1. If you build or test, use a CARGO_TARGET_DIR under that directory. Run git only read-only, and only against the worktree below.
+Grok review: X3b-2, the grant-journal append protocol, `JournalAppendLock`, record building and the uncertain-outcome reconciliation (law X3b r6 items 5, 6, 8 and 9, with item 11's X3b-2 cases), with inventory v101 (parent v102). Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/grok-journal-append-x3b2-r1. If you build or test, use a CARGO_TARGET_DIR under that directory. Run git only read-only, and only against the worktree below.
 
-Law: `docs/implementation/m2/journal-x3b/PROPOSAL.md` r6 (accepted), item 12's X3b-2. X3b-1a (floor step, creation, file protocol) and X3b-1b (carrier start, `reconcile_after_uncertain`, end step) are integrated. X3d r3 (accepted) is the composition this unit serves: its item 4 fixes the SEAL-path order around these types, and its item 7 the end path. X4 r7 item 3 runs its checkpoint under level 4. Governing documents: `design-corrections/security/carrier-format.v3.md` (§4, §5, §10) and `grant-journal.carrier.v3.sql`, and `security-completion.v8.md` §5.4 to §5.6. Grant-generation rollover (X3b r7) is not written and is not built here.
+Law: `docs/implementation/m2/journal-x3b/PROPOSAL.md` r6 (accepted), item 12's X3b-2. X3b-1a (floor step, creation, file protocol) and X3b-1b (carrier start, `reconcile_after_uncertain`, end step) are integrated, as are X2b-2 (v99) and X3c-2 (v102). X3d r3 (accepted) is the composition this unit serves: its item 4 fixes the SEAL-path order around these types, and its item 7 the end path. X4 r7 item 3 runs its checkpoint under level 4. Governing documents: `design-corrections/security/carrier-format.v3.md` (§4, §5, §10) and `grant-journal.carrier.v3.sql`, and `security-completion.v8.md` §5.4 to §5.6. Grant-generation rollover (X3b r7) is not written and is not built here.
 
 ## Subject
 
 Pins are in hashes.txt.
-- **Product:** the worktree `/Users/sb/code/opensip-ai/opensip-x3b2`, based on 66bdd05 (X2b-2 integrated, inventory v99 selected). Save `git -C <worktree> diff` (the two new files are intent-to-add) as product.diff and report its sha256. Lead's value: 1919112e10586bccbb42bf6213b6a2423c5c70fb18d4a57bbe9e06b3f067bc98, 66658 bytes.
-- **Arch:** v101 (parent v99), `journal-append-x3b2-inventory-v101-subject.json` and `journal-append-x3b2-inventory-v101/`.
+- **Product:** the worktree `/Users/sb/code/opensip-ai/opensip-x3b2`, based on 920941b (X3c-2 integrated, inventory v102 selected). Save `git -C <worktree> diff` (the two new files are intent-to-add) as product.diff and report its sha256. Lead's value: 1919112e10586bccbb42bf6213b6a2423c5c70fb18d4a57bbe9e06b3f067bc98, 66658 bytes.
+- **Arch:** v101 (parent v102: `repository-file-inventory.v102.json`, 347170 bytes, sha256 `153546bd0665364a8be14e876f6653083336ac0469cce6127c190cfc5b511d2e`), `journal-append-x3b2-inventory-v101-subject.json` and `journal-append-x3b2-inventory-v101/`.
 
 ## What it does
 
@@ -81,7 +81,7 @@ The new code is `crates/security/src/journal_store/carrier_append.rs`, carrier_f
       - `Committed`: a `COMMIT` that landed but reported failure.
 14. **No `PreparedJournalSeal` or `JournalSealBinding`.** Binding the SEAL to the `ReplayedRun` and minting `JournalSealBinding` are X3d-1's (X3d r3 item 1). `append_seal` returns the `AppendedRecord` evidence that X3d-1 binds.
 15. **The reserved-slot test.** The slot is unreachable by contiguous append, so the test lifts `gj3_append_laws`, inserts a row at 9007199254740990, and reinstalls the trigger from its own stored SQL (carrier-format.v3 §13's technique). The definitions stay byte-equal, and the start and `begin` admit the carrier.
-16. **Stale description.** carrier_floor.rs's row still says "the carrier start's witness writes, the end step and the append are later units". The row is equal to v99. The v101 README defers it to the same description-only successor named at inventory97 and inventory100.
+16. **Stale description.** carrier_floor.rs's row still says "the carrier start's witness writes, the end step and the append are later units". The row is equal to v102. The v101 README defers it to the same description-only successor named at inventory97 and inventory102.
 
 ## Tests
 
@@ -116,11 +116,11 @@ The new code is `crates/security/src/journal_store/carrier_append.rs`, carrier_f
 ## Checks
 
 - X3b-2 tests 12/12; with X3b-1a and X3b-1b, `carrier_floor` is 42/42.
-- Full workspace, two runs on 66bdd05: 1338 passed, 0 failed, 3 ignored each time.
+- Full workspace, two runs on 66bdd05: 1338 passed, 0 failed, 3 ignored each time; after the rebase onto 920941b, one run: 1353 passed, 0 failed, 3 ignored. The product diff is byte-identical across the rebase.
 - Clippy `--workspace --all-targets -D warnings` and `cargo fmt --check` are clean.
 - `~/Library/Application Support/OpenSIP` is absent.
 - `check_package_edges --lane host` against v101 passes.
-- verify_scratch (v101 appended over the real lock at 66bdd05) passes: 67 inventory successors, 71 contract successors, 16 inheritance rows, v101 selected.
+- verify_scratch (v101 appended over the real lock at 920941b) passes: 68 inventory successors, 71 contract successors, 16 inheritance rows, v101 selected.
 - verify_projection against the real lock: 16 rows, 83 corruptions refused.
 - `build_v101.py` reruns produce the same bytes.
 
@@ -134,15 +134,15 @@ The new code is `crates/security/src/journal_store/carrier_append.rs`, carrier_f
   - the certain and undetermined line, the latch, and reconciliation that never assumes either state;
   - nothing written to trust state, and no quarantine marker stored.
 - Rule on the judgment calls, in particular 3, 4, 6, 9 and 10.
-- Is v101 right on v99?
+- Is v101 right on v102?
 - Is anything else wrong?
 
 review.json must contain:
 - "verdict": `ACCEPT-UNIT` or `REQUIRED-FINDINGS`;
 - "requiredFindings";
 - "subjectManifestSha256": the sha256 of `journal-append-x3b2-inventory-v101-subject.json`;
-- "inventoryCandidateAssessment": {verdict, requiredFindings, path, bytes, sha256 of v101, parent (the v99 pin), successorRecord}.
+- "inventoryCandidateAssessment": {verdict, requiredFindings, path, bytes, sha256 of v101, parent (the v102 pin), successorRecord}.
 
 Write REVIEW.md and review.json. Do not commit.
 
-**Lead note on ordering.** X3c-2's inventory102 is being built on the same parent, v99. If X3c-2 integrates first, `build_v101.py` rebuilds v101 on v102 (it follows the lock's selected inventory), and the rebuilt v101 gets a quick rebase-only recheck. This review judges v101 on v99 as submitted.
+**Lead note on ordering.** v101 was first built on v99 at 66bdd05. X3c-2 then integrated as v102 on v99, so `build_v101.py` (which follows the lock's selected inventory) rebuilt v101 on v102 with the same two rows. The number is lower than its parent's because both were reserved while X2b-2 was in flight. verify_design binds succession by the parent pin, not by number, and verify_scratch accepts v101 as v102's child. This review judges v101 on v102.
