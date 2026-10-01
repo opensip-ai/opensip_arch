@@ -1,4 +1,4 @@
-REVIEWER review: X3a-1, the selected store endpoint, with inventory v83. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/REVIEWDIR.
+Grok review: X3a-1, the selected store endpoint, with inventory v83. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/grok-store-endpoint-x3a1-r1.
 
 Law: `docs/implementation/m2/store-admission-x3a/PROPOSAL.md`. r5 is accepted. It drops the creator as an endpoint producer, and a creator invocation never reaches a store.
 
@@ -60,3 +60,5 @@ review.json must contain:
 - "inventoryCandidateAssessment": {verdict, requiredFindings, path, bytes and sha256 of v83, parent (the v82 pin), successorRecord}.
 
 Write REVIEW.md and review.json. Do not commit.
+
+If you build, use a CARGO_TARGET_DIR under your output directory.
