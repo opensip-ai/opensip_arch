@@ -1,0 +1,2475 @@
+diff --git a/crates/security/src/custody/installation_admission.rs b/crates/security/src/custody/installation_admission.rs
+index 66c1804..2884de8 100644
+--- a/crates/security/src/custody/installation_admission.rs
++++ b/crates/security/src/custody/installation_admission.rs
+@@ -371,7 +371,7 @@ impl RequiredFile {
+     pub(super) fn identity(&self) -> (u64, u64) {
+         (self.metadata.device, self.metadata.inode)
+     }
+-    pub(super) fn metadata(&self) -> &DescriptorMetadata {
++    pub(crate) fn metadata(&self) -> &DescriptorMetadata {
+         &self.metadata
+     }
+     pub(crate) fn relative(&self) -> &str {
+@@ -410,12 +410,24 @@ pub(super) fn lineage_limit(limited: bool) -> GateRefusal {
+ }
+ 
+ /// The trust current record's `C.store` (S, G, K), decoded from the
+-/// session's one read of `state.v1`.
+-#[derive(Debug, Clone, PartialEq, Eq)]
++/// session's one read of `state.v1`, and that read's exact bytes (law X4T
++/// r9 item 7: the trust current owner is this read; no second read is made).
++#[derive(Clone, PartialEq, Eq)]
+ pub(crate) struct CurrentStore {
+     pub(super) store: String,
+     pub(super) generation: i64,
+     pub(super) schema: u8,
++    pub(super) raw: Vec<u8>,
++}
++impl std::fmt::Debug for CurrentStore {
++    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
++        f.debug_struct("CurrentStore")
++            .field("store", &self.store)
++            .field("generation", &self.generation)
++            .field("schema", &self.schema)
++            .field("bytes", &self.raw.len())
++            .finish()
++    }
+ }
+ /// Law X3a item 2: the endpoint values decoded from the session's one read
+ /// of each endpoint file. Validated in memory by the endpoint admission;
+@@ -437,13 +449,14 @@ impl std::fmt::Debug for EndpointValues {
+ }
+ /// `state.v1`'s bytes decoded by the trust current record's own decoder;
+ /// any refusal is one `CurrentStore` finding.
+-pub(super) fn decode_current(raw: &[u8]) -> Result<CurrentStore, IncompleteRefusal> {
++pub(super) fn decode_current(raw: Vec<u8>) -> Result<CurrentStore, IncompleteRefusal> {
+     let (store, generation, schema) =
+-        decode_current_store(raw).map_err(|()| IncompleteRefusal::CurrentStore)?;
++        decode_current_store(&raw).map_err(|()| IncompleteRefusal::CurrentStore)?;
+     Ok(CurrentStore {
+         store,
+         generation,
+         schema,
++        raw,
+     })
+ }
+ /// The C.store join (law X3a item 1): the trust current record names the
+@@ -518,6 +531,56 @@ impl DurableInstallation {
+             _ => false,
+         }
+     }
++    /// Law X4T r9 item 7: the trust current owner's inputs from step 2's one
++    /// read of `state.v1`: I, the actor, the read's exact bytes and its
++    /// `RequiredFile` (path and full sample). Nothing is read here.
++    pub(crate) fn current_trust(&self) -> CurrentTrustRead<'_> {
++        let relative = format!("trust/stores/{}/state.v1", self.endpoint.current.store);
++        CurrentTrustRead {
++            installation: &self.chain.installation,
++            uid: self.account.uid,
++            raw: &self.endpoint.current.raw,
++            file: self.required.iter().find(|f| f.relative == relative),
++        }
++    }
++    /// Law X4T r9 item 7: the only change of the retained `state.v1` owner
++    /// while the fence is held. A confirmed trust publication's post-rename
++    /// sample replaces `state.v1`'s `RequiredFile` sample, only while that
++    /// still equals the predecessor the publication reconfirmed, and its reread
++    /// bytes replace the endpoint's; every later recheck compares against
++    /// them. The new bytes must decode to the same (S, G, K).
++    #[cfg(target_os = "macos")]
++    pub(crate) fn advance_current(
++        &mut self,
++        confirmed: &crate::trust::ConfirmedCurrent,
++    ) -> Result<(), GateRefusal> {
++        let changed = || GateRefusal::Custody(CustodyRefusal::Changed);
++        let relative = format!("trust/stores/{}/state.v1", self.endpoint.current.store);
++        if confirmed.relative() != relative {
++            return Err(changed());
++        }
++        let current = decode_current(confirmed.raw().to_vec()).map_err(GateRefusal::Incomplete)?;
++        if (&current.store, current.generation, current.schema)
++            != (
++                &self.endpoint.current.store,
++                self.endpoint.current.generation,
++                self.endpoint.current.schema,
++            )
++        {
++            return Err(changed());
++        }
++        // As `advance_registry`: only from the predecessor the publication
++        // reconfirmed; the two advance paths touch disjoint required files.
++        let file = self
++            .required
++            .iter_mut()
++            .find(|f| f.relative == relative)
++            .filter(|f| &f.metadata == confirmed.predecessor())
++            .ok_or_else(changed)?;
++        file.metadata = confirmed.metadata().clone();
++        self.endpoint.current = current;
++        Ok(())
++    }
+     /// Unlock the fence, then close every retained handle.
+     pub(crate) fn release(self) -> io::Result<()> {
+         let Self { fence, chain, .. } = self;
+@@ -527,6 +590,27 @@ impl DurableInstallation {
+     }
+ }
+ 
++/// Law X4T r9 item 7: what the gate retained of `state.v1` for the trust
++/// current owner. Borrowed; it grants nothing.
++pub(crate) struct CurrentTrustRead<'a> {
++    pub(crate) installation: &'a RetainedDirectory,
++    pub(crate) uid: u32,
++    pub(crate) raw: &'a [u8],
++    pub(crate) file: Option<&'a RequiredFile>,
++}
++
++/// Law X4T r9 item 7: the trust current owner's no-follow metadata recheck
++/// of one required file under a retained directory, through the same custody
++/// judgment and sample as the gate's required files. No content is read.
++pub(crate) fn observe_private_file(
++    directory: &RetainedDirectory,
++    relative: &str,
++    uid: u32,
++    work: &mut WorkScope<'_>,
++) -> Result<DescriptorMetadata, Failure> {
++    private_file(directory, relative, uid, work).map(|(_, metadata)| metadata)
++}
++
+ /// Test seams: a scripted barrier result (charged the same as the live
+ /// barrier) and a hook run at each step.
+ #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+@@ -1302,7 +1386,7 @@ fn required_files(
+         failure => failure,
+     })?
+     .unwrap_or_default();
+-    let current = decode_current(&current).map_err(incomplete)?;
++    let current = decode_current(current).map_err(incomplete)?;
+     if !current_matches(&current, &pair) {
+         return Err(incomplete(IncompleteRefusal::CurrentStore));
+     }
+diff --git a/crates/security/src/custody/installation_admission_tests.rs b/crates/security/src/custody/installation_admission_tests.rs
+index 03f01af..b710c90 100644
+--- a/crates/security/src/custody/installation_admission_tests.rs
++++ b/crates/security/src/custody/installation_admission_tests.rs
+@@ -673,3 +673,115 @@ fn the_gate_reads_a_chain_of_the_session_limit_once_within_the_owners_caps() {
+     assert!(used.edges < 131_072, "{used:?}");
+     assert!(used.bytes < 256 << 20, "{used:?}");
+ }
++
++// Law X4T r9 item 7 (unit X4T-b): the gate's retained `state.v1` owner
++// advances only through a confirmed trust publication.
++
++/// The gate's own fence, lent to the trust publication protocol: I and the
++/// actor of this admission. The gate still holds the lock.
++struct GateFence<'a> {
++    i: &'a RetainedDirectory,
++    uid: u32,
++    groups: std::collections::BTreeSet<u32>,
++}
++impl crate::custody::installation_fence::HeldFence for GateFence<'_> {
++    fn directory(&self) -> &RetainedDirectory {
++        self.i
++    }
++    fn supplied_actor(&self) -> (u32, &std::collections::BTreeSet<u32>) {
++        (self.uid, &self.groups)
++    }
++    fn recheck(&self) -> Result<(), crate::custody::installation_fence::Error> {
++        Ok(())
++    }
++    fn observe_filesystem(
++        &self,
++    ) -> Result<DescriptorFilesystem, crate::custody::installation_fence::Error> {
++        opensip_platform::observe_filesystem(self.i.as_file())
++            .map_err(crate::custody::installation_fence::Error::Native)
++    }
++}
++
++#[test]
++fn a_confirmed_trust_publication_is_the_only_advance_of_the_state_v1_owner() {
++    use crate::trust::{RetainedCurrentTrust, publish_trust};
++    use opensip_platform::WorkLedger;
++    for advance in [true, false] {
++        let (_scratch, home) = scratch();
++        let (r, s) = published(&format!("x4tb-advance-{advance}"), &home);
++        let mut gate = new_gate(None);
++        let mut admitted = run(&mut gate, &r, &home, &Probe::default(), &live, &nothing).unwrap();
++        let confirmed = {
++            let read = admitted.current_trust();
++            let file = read.file.expect("state.v1 is a required file");
++            assert_eq!(file.relative(), format!("trust/stores/{s}/state.v1"));
++            let raw = read.raw.to_vec();
++            let sample = file.metadata().clone();
++            let opensip_identity::JsonValue::Object(capsule) =
++                opensip_identity::parse_json(&raw).unwrap()
++            else {
++                panic!("capsule")
++            };
++            let fence = GateFence {
++                i: read.installation,
++                uid: read.uid,
++                groups: Default::default(),
++            };
++            WorkLedger::new()
++                .scope(|work| {
++                    let mut owner = RetainedCurrentTrust::bind(
++                        read.installation,
++                        read.uid,
++                        &capsule["store"],
++                        &raw,
++                        &sample,
++                        work,
++                    )
++                    .map_err(|e| WorkFailure::Operation(format!("{e:?}")))?;
++                    // X4B-a's protocol with no dependencies: the same bytes,
++                    // a new confirmed file.
++                    publish_trust(&fence, &mut owner, &[], &raw, work)
++                        .map_err(|e| WorkFailure::Operation(format!("{e:?}")))?;
++                    Ok(owner.confirmed().unwrap().clone())
++                })
++                .unwrap()
++        };
++        assert_ne!(
++            &confirmed.metadata().clone(),
++            admitted.current_trust().file.unwrap().metadata()
++        );
++        assert_eq!(
++            confirmed.predecessor(),
++            admitted.current_trust().file.unwrap().metadata()
++        );
++        let registry = |a: &DurableInstallation| {
++            a.required()
++                .iter()
++                .find(|f| f.relative() == "project-registry.v2")
++                .unwrap()
++                .metadata()
++                .clone()
++        };
++        let registry_before = registry(&admitted);
++        if advance {
++            admitted.advance_current(&confirmed).unwrap();
++            // Only from the reconfirmed predecessor, as `advance_registry`;
++            // the registry's own retained sample is untouched.
++            assert!(matches!(
++                admitted.advance_current(&confirmed),
++                Err(GateRefusal::Custody(CustodyRefusal::Changed))
++            ));
++            assert_eq!(registry(&admitted), registry_before);
++            assert_eq!(admitted.current_trust().file.unwrap().metadata(), confirmed.metadata());
++            assert_eq!(admitted.current_trust().raw, confirmed.raw());
++            gate.recheck(&admitted, &r.platform).unwrap();
++        } else {
++            let refused = gate.recheck(&admitted, &r.platform);
++            assert!(
++                matches!(refused, Err(GateRefusal::Custody(CustodyRefusal::Changed))),
++                "{refused:?}"
++            );
++        }
++        admitted.release().unwrap();
++    }
++}
+diff --git a/crates/security/src/custody/installation_session.rs b/crates/security/src/custody/installation_session.rs
+index 45bccfc..6017760 100644
+--- a/crates/security/src/custody/installation_session.rs
++++ b/crates/security/src/custody/installation_session.rs
+@@ -494,8 +494,9 @@ fn fixed_members_cost() -> Result<WorkCost, Failure> {
+ }
+ const REGISTRY: &str = "project-registry.v2";
+ /// Read attempts for a cap: one per buffer growth to cap+1 (4 KiB, then
+-/// doubling), the EOF probe, and 4 for short reads.
+-fn attempts(cap: usize) -> usize {
++/// doubling), the EOF probe, and 4 for short reads. Law X4T r9 item 11's
++/// exact rereads (X4T-b) use the same bound.
++pub(crate) fn attempts(cap: usize) -> usize {
+     let ceiling = cap + 1;
+     let mut current = 0;
+     let mut growths = 0;
+@@ -676,7 +677,7 @@ fn read_members(
+                 Some(IncompleteRefusal::CurrentStore),
+                 work,
+             )? {
+-                match decode_current(&raw) {
++                match decode_current(raw) {
+                     Ok(current) if current_matches(&current, &pair) => {
+                         reader.members.current = Some(current);
+                     }
+diff --git a/crates/security/src/journal_store.rs b/crates/security/src/journal_store.rs
+index 7a77d4f..2549367 100644
+--- a/crates/security/src/journal_store.rs
++++ b/crates/security/src/journal_store.rs
+@@ -3010,3 +3010,7 @@ pub(crate) mod bound_operational;
+ mod carrier_dispatch;
+ #[cfg(target_os = "macos")]
+ mod carrier_floor;
++// Law X4T r9 item 7: the trust current pointer is replaced through this
++// one private file protocol (judgment call: reuse, not a copy).
++#[cfg(target_os = "macos")]
++pub(crate) use carrier_floor::publish_private_file;
+diff --git a/crates/security/src/trust.rs b/crates/security/src/trust.rs
+index 7d487b9..8e0ca0f 100644
+--- a/crates/security/src/trust.rs
++++ b/crates/security/src/trust.rs
+@@ -21,6 +21,8 @@ mod trust_record_reader;
+ mod trust_record_shapes;
+ use metadata::MAX_DEPTH;
+ use opensip_identity::JsonValue;
++#[cfg(target_os = "macos")]
++pub(crate) use root_payload::ConfirmedCurrent;
+ pub(crate) use root_payload::{CURRENT_STATE_CAP, decode_current_store};
+ pub(crate) use root_payload::{
+     CapturedImage, CapturedOrdinaryInput, ClockProjection, OrdinaryClockInput,
+@@ -29,6 +31,8 @@ pub(crate) use root_payload::{
+     InitialPublicationError, InitialPublicationInputs, TrustFile, build_initial_publication,
+     verify_initial_publication_files,
+ };
++#[cfg(all(test, target_os = "macos"))]
++pub(crate) use root_payload::{RetainedCurrentTrust, publish_trust};
+ 
+ #[cfg(test)]
+ pub(crate) fn clock_fixture_projection(value: &JsonValue) -> Result<ClockProjection, String> {
+diff --git a/crates/security/src/trust/accepted_store_fixture_tests.rs b/crates/security/src/trust/accepted_store_fixture_tests.rs
+index 56d34e9..3b49d95 100644
+--- a/crates/security/src/trust/accepted_store_fixture_tests.rs
++++ b/crates/security/src/trust/accepted_store_fixture_tests.rs
+@@ -293,15 +293,19 @@ fn no_production_source_reaches_the_constructor() {
+             if name.starts_with("accepted_store_fixture") || name == "root_payload.rs" {
+                 continue;
+             }
+-            // X4T r5 item 12: X4T-a's tests use the generator. Their file is
+-            // included only under cfg(test), which is checked here.
+-            if name == "current_trust_admission_tests.rs" {
+-                let owner = std::fs::read_to_string(path.with_file_name("current_trust_admission.rs"))
+-                    .unwrap();
+-                let at = owner.find("include!(\"current_trust_admission_tests.rs\")").unwrap();
++            // X4T r5 item 12 (and r9, X4T-b): X4T-a's and X4T-b's tests use the
++            // generator. Each file is included only under cfg(test), which is
++            // checked here.
++            let tested = [
++                ("current_trust_admission_tests.rs", "current_trust_admission.rs"),
++                ("floor_publication_tests.rs", "floor_publication.rs"),
++            ];
++            if let Some((tests, owner)) = tested.iter().find(|(tests, _)| name == *tests) {
++                let owner = std::fs::read_to_string(path.with_file_name(owner)).unwrap();
++                let at = owner.find(&format!("include!(\"{tests}\")")).unwrap();
+                 assert!(
+                     owner[..at].trim_end().ends_with("#[cfg(test)]\nmod tests {"),
+-                    "X4T-a's tests are included only under cfg(test)"
++                    "{tests} is included only under cfg(test)"
+                 );
+                 continue;
+             }
+diff --git a/crates/security/src/trust/current_trust_admission.rs b/crates/security/src/trust/current_trust_admission.rs
+index 76a18c5..5bca547 100644
+--- a/crates/security/src/trust/current_trust_admission.rs
++++ b/crates/security/src/trust/current_trust_admission.rs
+@@ -69,11 +69,19 @@ pub(crate) enum TrustRow {
+     HostIo,
+     /// `WORK.BUDGET_EXHAUSTED`.
+     Budget,
++    /// `CONFIG.CUSTODY_REFUSED`, subject `trust-rollback` (item 7, r8).
++    Rollback,
++    /// `CONFIG.CUSTODY_REFUSED`, subject `required-files-changed`: the
++    /// retained `state.v1` changed other than by a confirmed publication
++    /// (item 7, r8).
++    RequiredFilesChanged,
+ }
+ impl TrustRow {
+     pub(crate) fn code(&self) -> &'static str {
+         match self {
+-            Self::Incomplete => "CONFIG.CUSTODY_REFUSED",
++            Self::Incomplete | Self::Rollback | Self::RequiredFilesChanged => {
++                "CONFIG.CUSTODY_REFUSED"
++            }
+             Self::NoAdmittedTimeContext => "TRUST.NO_ADMITTED_TIME_CONTEXT",
+             Self::Continuation(_) => "CONTINUE-CORE-NOT-TRUSTED",
+             Self::Root(code, _) => code,
+@@ -87,6 +95,8 @@ impl TrustRow {
+     pub(crate) fn subject(&self) -> Option<String> {
+         match self {
+             Self::Incomplete => Some("installation-incomplete".into()),
++            Self::Rollback => Some("trust-rollback".into()),
++            Self::RequiredFilesChanged => Some("required-files-changed".into()),
+             Self::Continuation(s) | Self::Root(_, s) => Some(s.clone()),
+             Self::PayloadNotAdmissible(s) | Self::ClockExcursion(s) => Some((*s).into()),
+             _ => None,
+@@ -148,8 +158,101 @@ pub(crate) struct AdmittedCurrentTrust {
+     epoch: TrustEpoch,
+     time: Option<TimeAdmission>,
+     revoked_subjects: Vec<(String, String)>,
++    /// Item 7: the admitted capsule's own floors.
++    floors: Floors,
++    /// Item 7 (X4T-b): the S4 proposal a fenced, not report-only read keeps
++    /// for its write-ahead. Never kept on a reread or in report-only mode.
++    pending: Option<PendingWrite>,
++}
++/// The fenced read's S4 proposal, kept only for item 7's write-ahead.
++pub(super) struct PendingWrite(pub(super) crate::trust_time::OrdinaryClockProposal);
++impl std::fmt::Debug for PendingWrite {
++    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
++        f.debug_struct("PendingWrite").finish_non_exhaustive()
++    }
++}
++/// Item 7 (r8/r9): SC-TRUST floors as seconds and counters. A field is
++/// `None` where the clock phase carries no such floor.
++#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
++pub(crate) struct Floors {
++    pub(crate) eval_high_water: Option<i64>,
++    pub(crate) last_accepted: Option<i64>,
++    pub(crate) root_version: Option<i64>,
++    pub(crate) revocation_version: Option<i64>,
++    pub(crate) index_snapshot_version: Option<i64>,
++}
++impl Floors {
++    /// The floors of a clock phase object: all five for `retained`, F and L
++    /// for `evaluated`, none for `unevaluated`.
++    pub(crate) fn of_clock(clock: &V) -> Result<Self, TrustRefusal> {
++        let stamp = |v: &V| match v {
++            V::String(t) => crate::trust_time::timestamp_seconds(t)
++                .map_or_else(|_| refuse(TrustRow::Incomplete, "timestamp"), Ok),
++            _ => refuse(TrustRow::Incomplete, "timestamp"),
++        };
++        match field(clock, "phase")? {
++            V::String(p) if p == "retained" => {
++                let r = field(clock, "record")?;
++                Ok(Self {
++                    eval_high_water: Some(stamp(field(r, "evalHighWater")?)?),
++                    last_accepted: Some(stamp(field(r, "lastAccepted")?)?),
++                    root_version: Some(int(field(r, "rootVersion")?)?),
++                    revocation_version: Some(int(field(r, "revocationVersion")?)?),
++                    index_snapshot_version: Some(int(field(r, "indexSnapshotVersion")?)?),
++                })
++            }
++            V::String(p) if p == "evaluated" => {
++                let r = field(clock, "projection")?;
++                Ok(Self {
++                    eval_high_water: Some(stamp(field(r, "evalHighWater")?)?),
++                    last_accepted: Some(stamp(field(r, "lastAccepted")?)?),
++                    ..Self::default()
++                })
++            }
++            V::String(p) if p == "unevaluated" => Ok(Self::default()),
++            _ => refuse(TrustRow::Incomplete, "clock-phase"),
++        }
++    }
++    /// Whether any floor here is below the same floor of `retained`; a floor
++    /// either side lacks is not compared.
++    pub(crate) fn below(&self, retained: &Self) -> bool {
++        let lower = |a: Option<i64>, b: Option<i64>| matches!((a, b), (Some(a), Some(b)) if a < b);
++        lower(self.eval_high_water, retained.eval_high_water)
++            || lower(self.last_accepted, retained.last_accepted)
++            || lower(self.root_version, retained.root_version)
++            || lower(self.revocation_version, retained.revocation_version)
++            || lower(self.index_snapshot_version, retained.index_snapshot_version)
++    }
++}
++/// Item 7 checks 1 and 2 (r8): against the time evidence the view already
++/// opened. Only an `s4-evaluation` input is compared; an S4.5 epoch input
++/// records the one lawful floor-lowering act.
++fn check_evidence_floors(floors: &Floors, evidence: &V) -> Result<(), TrustRefusal> {
++    if field(evidence, "kind")? != &V::String("s4-evaluation".into()) {
++        return Ok(());
++    }
++    if floors.below(&Floors::of_clock(field(evidence, "beforeClock")?)?) {
++        return refuse(TrustRow::Rollback, "time-evidence-before-clock");
++    }
++    let wall = match field(field(evidence, "observation")?, "wall")? {
++        V::String(t) => crate::trust_time::timestamp_seconds(t)
++            .map_or_else(|_| refuse(TrustRow::Incomplete, "timestamp"), Ok)?,
++        _ => return refuse(TrustRow::Incomplete, "timestamp"),
++    };
++    let observed = Floors {
++        eval_high_water: Some(wall),
++        ..Floors::default()
++    };
++    if floors.below(&observed) {
++        return refuse(TrustRow::Rollback, "time-evidence-observation");
++    }
++    Ok(())
+ }
+ impl AdmittedCurrentTrust {
++    /// Item 7: the admitted capsule's floors.
++    pub(crate) fn floors(&self) -> &Floors {
++        &self.floors
++    }
+     pub(crate) fn standing(&self) -> TrustStanding {
+         self.standing
+     }
+@@ -255,11 +358,38 @@ fn bindings_row(e: &current_record_bindings::Error) -> TrustRow {
+     }
+ }
+ 
+-/// Item 1: each accepted role's `accepted.by` names a loaded event of the
+-/// current descriptor for that role. History is never walked to find it.
+-fn check_accepted_by(capsule: &V, trace: &LocalTrace) -> Result<[(State, bool); 6], TrustRefusal> {
++/// Items 1 and 11 (r8, X4T-a2): at most one `accepted.by` event per role is
++/// opened by reference, so at most six.
++pub(crate) const MAX_ACCEPTED_BY_READS: usize = ROLES.len();
++
++/// Item 1 (r8): each accepted role's `accepted.by` names an accepted role
++/// event of that role. One in the loaded chain is checked there; one outside
++/// it is opened by its reference (one read, never its `previous`) and must be
++/// a `role-event` of that role with outcome `accepted`, in this store, earlier
++/// than the current publication. `history` is never walked.
++fn check_accepted_by(
++    b: &mut super::Budget,
++    capsule: &V,
++    descriptor: &V,
++    trace: &LocalTrace,
++    store: &mut impl super::M::Store,
++) -> Result<[(State, bool); 6], TrustRefusal> {
+     let roles = field(capsule, "roles")?;
++    let sid = field(field(capsule, "store")?, "storeInstanceId")?.clone();
++    // The current publication starts at its first listed event; a descriptor
++    // listing none starts after `eventHead`.
++    let before = match field(descriptor, "events")? {
++        V::Array(events) if !events.is_empty() => {
++            int(field(field(&events[0], "event")?, "sequence")?)?
++        }
++        V::Array(_) => match field(capsule, "eventHead")? {
++            V::Null => 1,
++            head => int(field(head, "sequence")?)?.saturating_add(1),
++        },
++        _ => return refuse(TrustRow::Incomplete, "events"),
++    };
+     let mut out = [(State::Unbootstrapped, false); 6];
++    let mut opened = 0;
+     for (i, name) in ROLES.iter().enumerate() {
+         let role = field(roles, name)?;
+         let state = match field(role, "state")? {
+@@ -269,12 +399,39 @@ fn check_accepted_by(capsule: &V, trace: &LocalTrace) -> Result<[(State, bool);
+         let accepted = field(role, "accepted")?;
+         if *accepted != V::Null {
+             let by = field(accepted, "by")?;
+-            let found = trace.captures().iter().any(|c| {
+-                c.reference() == by
+-                    && object(c.value()).and_then(|e| e.get("role"))
+-                        == Some(&V::String((*name).into()))
+-            });
+-            if !found {
++            let in_chain = trace.captures().iter().find(|c| c.reference() == by);
++            let event = match in_chain {
++                Some(c) => c.value().clone(),
++                None => {
++                    opened += 1;
++                    if opened > MAX_ACCEPTED_BY_READS {
++                        return refuse(TrustRow::Budget, "accepted.by");
++                    }
++                    let raw = b
++                        .load_at(super::M::Collection::Events, by, None, store)
++                        .or_else(|e| refuse(budget_row(&e), e))?;
++                    let event = shapes::admit(Definition::TrustEventV1, &raw)
++                        .or_else(|e| refuse(TrustRow::Incomplete, e))?;
++                    let sequence = int(field(&event, "sequence")?)?;
++                    if field(&event, "store")? != &sid
++                        || field(by, "storeInstanceId")? != &sid
++                        || int(field(by, "sequence")?)? != sequence
++                        || sequence >= before
++                    {
++                        return refuse(TrustRow::Incomplete, ("accepted.by-earlier", name));
++                    }
++                    event
++                }
++            };
++            let e = object(&event).map_or_else(|| refuse(TrustRow::Incomplete, "event"), Ok)?;
++            let text = |k: &str| match e.get(k) {
++                Some(V::String(s)) => Some(s.as_str()),
++                _ => None,
++            };
++            if text("kind") != Some("role-event")
++                || text("role") != Some(name)
++                || text("outcome") != Some("accepted")
++            {
+                 return refuse(TrustRow::Incomplete, ("accepted.by", name));
+             }
+         }
+@@ -435,6 +592,7 @@ fn authenticate(
+ /// Items 1 and 4: the catalog and revocation heads, their admission records,
+ /// `history` and `timeEvidence`, each opened here by `Budget::load`.
+ struct Heads {
++    time_evidence: V,
+     revocation_version: i64,
+     index_snapshot_version: i64,
+     revoked_subjects: Vec<(String, String)>,
+@@ -520,8 +678,10 @@ fn open_heads(
+     }
+     let time = field(field(capsule, "clock")?, "timeEvidence")?;
+     let raw = load(b, Collection::Records, time)?;
+-    shapes::admit(Definition::TimeEvidenceV1, &raw).or_else(|e| refuse(TrustRow::Incomplete, e))?;
++    let time_evidence = shapes::admit(Definition::TimeEvidenceV1, &raw)
++        .or_else(|e| refuse(TrustRow::Incomplete, e))?;
+     Ok(Heads {
++        time_evidence,
+         revocation_version: revocation.version(),
+         index_snapshot_version,
+         revoked_subjects,
+@@ -707,7 +867,7 @@ fn admit_bound(
+     start_bytes: usize,
+     store: &mut impl super::M::Store,
+ ) -> Result<AdmittedCurrentTrust, TrustRefusal> {
+-    let roles = check_accepted_by(capsule, bindings.trace())?;
++    let roles = check_accepted_by(b, capsule, descriptor, bindings.trace(), store)?;
+     // Item 1: the join runs over the bound role states before authentication,
+     // which needs a live ceremony's evidence for a role in Recovery.
+     let standing = standing_of(&roles)?;
+@@ -717,6 +877,10 @@ fn admit_bound(
+     drop(root_admission);
+     let heads = open_heads(b, capsule, &input, &root_admission_ref, store)?;
+     closure_total(b.counters().2 - start_bytes, chain_bytes(&input))?;
++    // Item 7 checks 1 and 2 (r8): on every read; a fenced refusal is the
++    // `trust-rollback` row, a reread's is X4's callback error (item 9).
++    let floors = Floors::of_clock(field(capsule, "clock")?)?;
++    check_evidence_floors(&floors, &heads.time_evidence)?;
+     // Item 4: no component of the admitted closure is revoked.
+     let components = closure_components(&input, &heads, inputs.core_closure)?;
+     let heads = admit_revocation(heads, &components)?;
+@@ -732,6 +896,7 @@ fn admit_bound(
+     )
+     .or_else(|e| refuse(TrustRow::Incomplete, e))?;
+     // Item 6: time on the fenced read only.
++    let mut pending = None;
+     let time = match inputs.mode {
+         ReadMode::Reread => None,
+         ReadMode::Fenced { report } => {
+@@ -743,6 +908,9 @@ fn admit_bound(
+             let proposal = crate::trust_time::evaluate_retained_ordinary(input, observation, report)
+                 .or_else(|e| refuse(TrustRow::Incomplete, e))?;
+             let admission = proposal.admission();
++            if !report {
++                pending = Some(PendingWrite(proposal));
++            }
+             if let Some(refusal) = admission.refusal {
+                 return refuse(
+                     match refusal {
+@@ -770,6 +938,8 @@ fn admit_bound(
+         },
+         time,
+         revoked_subjects: heads.revoked_subjects,
++        floors,
++        pending,
+     })
+ }
+ 
+@@ -891,6 +1061,17 @@ pub(super) fn view_budget() -> super::Budget<'static, 'static> {
+         .expect("ceiling inside the budget's limits")
+ }
+ 
++// Law X4T r9 items 7 and 8 (X4T-b): the fenced first read's write-ahead.
++#[cfg(target_os = "macos")]
++mod floor_publication {
++    include!("floor_publication.rs");
++}
++#[cfg(target_os = "macos")]
++pub(crate) use floor_publication::ConfirmedCurrent;
++// The custody gate's own test of the owner advance (item 7) reaches these.
++#[cfg(all(test, target_os = "macos"))]
++pub(crate) use floor_publication::{RetainedCurrentTrust, publish};
++
+ #[cfg(test)]
+ mod tests {
+     include!("current_trust_admission_tests.rs");
+diff --git a/crates/security/src/trust/current_trust_admission_tests.rs b/crates/security/src/trust/current_trust_admission_tests.rs
+index 92ddcf8..0f9f94c 100644
+--- a/crates/security/src/trust/current_trust_admission_tests.rs
++++ b/crates/security/src/trust/current_trust_admission_tests.rs
+@@ -285,7 +285,10 @@ fn accepted_by_must_name_a_loaded_event_of_that_role() {
+         &mut reader(&store, None),
+     )
+     .unwrap();
+-    check_accepted_by(&store.capsule, bindings.trace()).unwrap();
++    let check = |b: &mut super::super::Budget, capsule: &V| {
++        check_accepted_by(b, capsule, &store.descriptor, bindings.trace(), &mut reader(&store, None))
++    };
++    check(&mut b, &store.capsule).unwrap();
+     let roles = object(&object(&store.capsule).unwrap()["roles"]).unwrap();
+     let core_by = object(&roles["TR-CORE"]).unwrap()["accepted"].clone();
+     let core_by = object(&core_by).unwrap()["by"].clone();
+@@ -298,7 +301,7 @@ fn accepted_by_must_name_a_loaded_event_of_that_role() {
+     index.insert("accepted".into(), V::Object(accepted.clone()));
+     r.insert("TR-INDEX".into(), V::Object(index.clone()));
+     tampered.insert("roles".into(), V::Object(r.clone()));
+-    let refusal = check_accepted_by(&V::Object(tampered.clone()), bindings.trace()).unwrap_err();
++    let refusal = check(&mut b, &V::Object(tampered.clone())).unwrap_err();
+     assert_eq!(refusal.row, TrustRow::Incomplete);
+     // An event that was never loaded refuses too.
+     let mut stranger = object(&core_by).unwrap().clone();
+@@ -307,7 +310,8 @@ fn accepted_by_must_name_a_loaded_event_of_that_role() {
+     index.insert("accepted".into(), V::Object(accepted));
+     r.insert("TR-INDEX".into(), V::Object(index));
+     tampered.insert("roles".into(), V::Object(r));
+-    let refusal = check_accepted_by(&V::Object(tampered), bindings.trace()).unwrap_err();
++    let mut fresh = view_budget();
++    let refusal = check(&mut fresh, &V::Object(tampered)).unwrap_err();
+     assert_eq!(refusal.row, TrustRow::Incomplete);
+ }
+ 
+@@ -426,17 +430,20 @@ fn the_closure_total_excludes_the_chain() {
+     // The generated store records no chain beyond its root head.
+     let store = fixture::generate(&Spec::default());
+     let mut b = view_budget();
++    let bindings = current_record_bindings::bind(
++        &mut b,
++        &store.store,
++        &store.capsule,
++        &store.descriptor,
++        &mut reader(&store, None),
++    )
++    .unwrap();
+     let roles = check_accepted_by(
++        &mut b,
+         &store.capsule,
+-        current_record_bindings::bind(
+-            &mut b,
+-            &store.store,
+-            &store.capsule,
+-            &store.descriptor,
+-            &mut reader(&store, None),
+-        )
+-        .unwrap()
+-        .trace(),
++        &store.descriptor,
++        bindings.trace(),
++        &mut reader(&store, None),
+     )
+     .unwrap();
+     let (input, _) = authenticate(
+diff --git a/crates/security/src/trust/floor_publication.rs b/crates/security/src/trust/floor_publication.rs
+new file mode 100644
+index 0000000..b0e29a2
+--- /dev/null
++++ b/crates/security/src/trust/floor_publication.rs
+@@ -0,0 +1,869 @@
++// Law X4T r9 items 7 and 8 (unit X4T-b): the fenced first read with its S4
++// write-ahead floor publication, the retained `state.v1` owner and its one
++// advance path, and the handoff rollback check against this fence hold's own
++// floors (item 7 check 3; checks 1 and 2 run in every admission). The
++// publication protocol (`publish`) has one owner and is shared with X4B-a:
++// dependencies through 467's private-file producer, each with its file and
++// directory barriers, then the pointer through X3b's private file protocol
++// (exclusive temporary name, F_FULLFSYNC, rename, directory barrier, reopen
++// and confirm), then the confirming reread that advances the owner. Under the
++// installation fence only, never under a lease; the caller holds no project
++// lock. Nothing is retried or deleted. Not wired to a session (X4a, X4B-b).
++use super::super::super::current_record_bindings;
++use super::super::super::native_record_capture::{NativeStore, locator_components};
++use super::super::super::proposed_time_input;
++use super::super::super::retained_metadata_index::{Budget, Collection};
++use super::super::super::successor_record_bindings;
++use super::{
++    AdmittedCurrentTrust, Floors, PendingWrite, ReadMode, TrustRefusal, TrustRow, ViewInputs,
++    admit_current_trust, complete, field, int, refuse,
++};
++use crate::custody::installation_admission::observe_private_file;
++use crate::custody::installation_fence::HeldFence;
++use crate::private_access::{create_private_directory, create_private_regular_file, observe_private_directory};
++use crate::trust::trust_outcomes::reference;
++use crate::trust::trust_record_reader::{Record, RecordKind};
++use crate::trust::trust_record_shapes::{self as shapes, Definition};
++use crate::trust_time::{TimeAdmission, format_timestamp};
++use opensip_identity::{JsonInteger, JsonValue as V, canonical_bytes, digest_hex, raw_sha256};
++use opensip_platform::{
++    DescriptorMetadata, RetainedDirectory, WorkCost, WorkFailure, WorkScope,
++    write_new_regular_accounted,
++};
++use std::collections::BTreeMap;
++use std::ffi::OsStr;
++
++const CURRENT: &str = "state.v1";
++
++fn object(v: &V) -> Result<&BTreeMap<String, V>, TrustRefusal> {
++    match v {
++        V::Object(o) => Ok(o),
++        _ => refuse(TrustRow::Incomplete, "object"),
++    }
++}
++fn integer(n: i64) -> V {
++    V::Integer(JsonInteger::new(i128::from(n)).expect("i64 is a JSON integer"))
++}
++fn s(text: &str) -> V {
++    V::String(text.into())
++}
++fn obj<const N: usize>(pairs: [(&str, V); N]) -> V {
++    V::Object(pairs.into_iter().map(|(k, v)| (k.to_owned(), v)).collect())
++}
++fn hex(raw: &[u8]) -> String {
++    digest_hex(&raw_sha256(raw))
++}
++/// A refusal of the ledger is the budget row; everything else is `row`.
++fn lift<E: std::fmt::Debug>(row: TrustRow) -> impl FnOnce(WorkFailure<E>) -> TrustRefusal {
++    move |failure| match failure {
++        WorkFailure::Budget(b) => TrustRefusal {
++            row: TrustRow::Budget,
++            cause: format!("{b:?}"),
++        },
++        WorkFailure::Operation(e) => TrustRefusal {
++            row,
++            cause: format!("{e:?}"),
++        },
++    }
++}
++fn gate_row(failure: WorkFailure<crate::custody::installation_admission::GateRefusal>) -> TrustRefusal {
++    use crate::custody::installation_admission::{CustodyRefusal, GateRefusal};
++    match failure {
++        WorkFailure::Budget(b) => TrustRefusal {
++            row: TrustRow::Budget,
++            cause: format!("{b:?}"),
++        },
++        WorkFailure::Operation(GateRefusal::Incomplete(r)) => TrustRefusal {
++            row: TrustRow::RequiredFilesChanged,
++            cause: format!("{r:?}"),
++        },
++        WorkFailure::Operation(GateRefusal::Custody(CustodyRefusal::Changed)) => TrustRefusal {
++            row: TrustRow::RequiredFilesChanged,
++            cause: "changed".into(),
++        },
++        WorkFailure::Operation(other) => TrustRefusal {
++            row: TrustRow::HostIo,
++            cause: format!("{other:?}"),
++        },
++    }
++}
++
++/// Item 7 (r8): what a confirmed publication leaves for the gate: the new
++/// `state.v1`'s path under I, its reread bytes and its post-rename full
++/// sample. Only `publish` mints it; it grants nothing by itself.
++#[derive(Clone, Debug, PartialEq, Eq)]
++pub(crate) struct ConfirmedCurrent {
++    relative: String,
++    raw: Vec<u8>,
++    metadata: DescriptorMetadata,
++    predecessor: DescriptorMetadata,
++}
++impl ConfirmedCurrent {
++    pub(crate) fn relative(&self) -> &str {
++        &self.relative
++    }
++    pub(crate) fn raw(&self) -> &[u8] {
++        &self.raw
++    }
++    pub(crate) fn metadata(&self) -> &DescriptorMetadata {
++        &self.metadata
++    }
++    /// The sample of the `state.v1` this publication replaced, which the
++    /// publication reconfirmed before its first effect.
++    pub(crate) fn predecessor(&self) -> &DescriptorMetadata {
++        &self.predecessor
++    }
++}
++
++/// Items 7 and 8 (r8): the retained trust current owner of one fence hold.
++/// It is the session's one read of `state.v1` (its bytes, the capsule decoded
++/// from them and its full sample), with `trust/stores/S` bound to it by a
++/// metadata recheck. Only a confirmed publication advances it. Not Clone.
++pub(crate) struct RetainedCurrentTrust {
++    store_dir: RetainedDirectory,
++    expected_store: V,
++    relative: String,
++    raw: Vec<u8>,
++    capsule: V,
++    sample: DescriptorMetadata,
++    /// Check 3: the floors of each capsule this hold retained before the
++    /// current one, where its clock was evaluated or retained (r9).
++    prior: Vec<Floors>,
++    confirmed: Option<ConfirmedCurrent>,
++}
++impl std::fmt::Debug for RetainedCurrentTrust {
++    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
++        f.debug_struct("RetainedCurrentTrust")
++            .field("relative", &self.relative)
++            .field("bytes", &self.raw.len())
++            .field("prior", &self.prior.len())
++            .finish_non_exhaustive()
++    }
++}
++fn decode(raw: &[u8], expected_store: &V) -> Result<V, TrustRefusal> {
++    if raw.is_empty() || raw.len() > super::super::super::native_current::CURRENT_STATE_CAP {
++        return refuse(TrustRow::Incomplete, "state.v1-cap");
++    }
++    let record = Record::parse(RecordKind::TrustCapsuleV1, raw, 131072)
++        .or_else(|e| refuse(TrustRow::Incomplete, e))?;
++    if field(record.value(), "store")? != expected_store {
++        return refuse(TrustRow::Incomplete, "state.v1-store");
++    }
++    Ok(record.value().clone())
++}
++fn open_private(
++    parent: &RetainedDirectory,
++    name: &str,
++    uid: u32,
++    work: &mut WorkScope<'_>,
++) -> Result<Option<RetainedDirectory>, TrustRefusal> {
++    let Some(dir) = parent
++        .open_child_directory_if_present_accounted(OsStr::new(name), work)
++        .map_err(lift(TrustRow::HostIo))?
++    else {
++        return Ok(None);
++    };
++    observe_private_directory(dir.as_file(), uid, work).map_err(lift(TrustRow::Incomplete))?;
++    Ok(Some(dir))
++}
++impl RetainedCurrentTrust {
++    /// Bind the owner to the session's one read of `state.v1` under I: its
++    /// exact bytes and its full sample, as X3a's write gate retained them
++    /// (`DurableInstallation::current_trust`). `trust/stores/S` is opened
++    /// through I and judged private, and `state.v1` under it must carry the
++    /// sample: a metadata recheck, not a content read.
++    pub(crate) fn bind(
++        i: &RetainedDirectory,
++        uid: u32,
++        expected_store: &V,
++        raw: &[u8],
++        sample: &DescriptorMetadata,
++        work: &mut WorkScope<'_>,
++    ) -> Result<Self, TrustRefusal> {
++        let sid = match field(expected_store, "storeInstanceId")? {
++            V::String(sid) if sid.len() == 32 => sid.clone(),
++            _ => return refuse(TrustRow::Incomplete, "store"),
++        };
++        let capsule = decode(raw, expected_store)?;
++        let mut dir = None;
++        for name in ["trust", "stores", sid.as_str()] {
++            let parent = dir.as_ref().unwrap_or(i);
++            let child = open_private(parent, name, uid, work)?
++                .map_or_else(|| refuse(TrustRow::Incomplete, ("missing", name)), Ok)?;
++            dir = Some(child);
++        }
++        let owner = Self {
++            store_dir: dir.expect("three components"),
++            expected_store: expected_store.clone(),
++            relative: format!("trust/stores/{sid}/{CURRENT}"),
++            raw: raw.to_vec(),
++            capsule,
++            sample: sample.clone(),
++            prior: Vec::new(),
++            confirmed: None,
++        };
++        owner.recheck(uid, work)?;
++        Ok(owner)
++    }
++    /// The full-sample recheck every fenced recheck runs: any change but a
++    /// confirmed publication is `required-files-changed`.
++    pub(crate) fn recheck(&self, uid: u32, work: &mut WorkScope<'_>) -> Result<(), TrustRefusal> {
++        let now = observe_private_file(&self.store_dir, CURRENT, uid, work).map_err(gate_row)?;
++        if now != self.sample {
++            return refuse(TrustRow::RequiredFilesChanged, "state.v1-sample");
++        }
++        Ok(())
++    }
++    pub(crate) fn capsule(&self) -> &V {
++        &self.capsule
++    }
++    pub(crate) fn raw(&self) -> &[u8] {
++        &self.raw
++    }
++    pub(crate) fn sample(&self) -> &DescriptorMetadata {
++        &self.sample
++    }
++    /// The last confirmed publication of this hold, if any.
++    pub(crate) fn confirmed(&self) -> Option<&ConfirmedCurrent> {
++        self.confirmed.as_ref()
++    }
++    /// Check 3's floors: every capsule this hold retained before this one.
++    pub(crate) fn prior_floors(&self) -> &[Floors] {
++        &self.prior
++    }
++}
++
++/// One immutable trust file of a publication, located by its reference.
++pub(crate) struct TrustWrite {
++    collection: Collection,
++    reference: V,
++    initial_store: Option<V>,
++    bytes: Vec<u8>,
++}
++impl TrustWrite {
++    /// A file for the records or objects collection, named by its digest.
++    pub(in crate::trust::root_payload) fn node(collection: Collection, bytes: Vec<u8>) -> Self {
++        Self {
++            collection,
++            reference: reference(&bytes),
++            initial_store: None,
++            bytes,
++        }
++    }
++    /// An event, by its full `EventRef`.
++    pub(crate) fn event(reference: V, bytes: Vec<u8>) -> Self {
++        Self {
++            collection: Collection::Events,
++            reference,
++            initial_store: None,
++            bytes,
++        }
++    }
++    /// A publication descriptor, by its `PublicationRef`.
++    pub(crate) fn publication(reference: V, bytes: Vec<u8>) -> Self {
++        Self {
++            collection: Collection::Publications,
++            reference,
++            initial_store: None,
++            bytes,
++        }
++    }
++    fn path(&self) -> Result<Vec<String>, TrustRefusal> {
++        locator_components(self.collection, &self.reference, self.initial_store.as_ref())
++            .or_else(|e| refuse(TrustRow::Incomplete, e))
++    }
++}
++
++// Item 11: the protocol's reserved work, summed from the platform's
++// published cost functions. Each sum is an upper bound: a dependency's
++// directories are charged as if each were opened, judged and created, and
++// the file as if both the create and the existing-record path ran.
++fn sum(costs: &[WorkCost]) -> WorkCost {
++    costs
++        .iter()
++        .fold(WorkCost::default(), |a, c| a.checked_add(*c).unwrap_or(WorkCost {
++            objects: usize::MAX,
++            edges: usize::MAX,
++            bytes: usize::MAX,
++        }))
++}
++fn times(cost: WorkCost, n: usize) -> WorkCost {
++    sum(&vec![cost; n])
++}
++/// `private_access`'s create of one private file or directory: the create
++/// call, both ACL samples and the owner allow.
++fn private_create(edges: usize) -> WorkCost {
++    let capture = opensip_platform::descriptor_acl_capture_cost();
++    sum(&[
++        WorkCost {
++            objects: 1,
++            edges,
++            bytes: 0,
++        },
++        capture,
++        capture,
++        opensip_platform::append_owner_zero_allow_cost(),
++    ])
++}
++/// One exact-length reread of `len` bytes through `read_bounded_accounted`:
++/// the platform's own `read_bounded_cost` (every requested growth to len+1),
++/// with the read session's attempt bound (one per growth, the EOF read and
++/// four spare). `len` is at least one byte and within the 4 MiB record cap.
++fn exact_read(len: usize) -> Result<WorkCost, TrustRefusal> {
++    opensip_platform::read_bounded_cost(len, crate::custody::installation_session::attempts(len))
++        .or_else(|e| refuse(TrustRow::Incomplete, e))
++}
++/// Custody's `private_file` judgment of one name under a directory.
++fn judged(name: &str) -> WorkCost {
++    sum(&[
++        RetainedDirectory::open_regular_cost(name),
++        opensip_platform::descriptor_acl_capture_cost(),
++    ])
++}
++fn directory_cost(name: &str) -> WorkCost {
++    let barrier = opensip_platform::directory_barrier_cost();
++    sum(&[
++        opensip_platform::open_child_directory_cost(OsStr::new(name)),
++        opensip_platform::descriptor_acl_capture_cost(),
++        private_create(5),
++        barrier,
++        barrier,
++    ])
++}
++fn file_cost(path: &[String], len: usize) -> Result<WorkCost, TrustRefusal> {
++    let (leaf, parents) = path.split_last().expect("a locator has a leaf");
++    let mut costs: Vec<WorkCost> = parents.iter().map(|n| directory_cost(n)).collect();
++    costs.extend([
++        opensip_platform::child_absence_observation_cost(OsStr::new(leaf)),
++        private_create(2),
++        opensip_platform::write_new_regular_cost(len),
++        opensip_platform::directory_barrier_cost(),
++        judged(leaf),
++        RetainedDirectory::open_regular_cost(leaf),
++        exact_read(len)?,
++    ]);
++    Ok(sum(&costs))
++}
++/// The pointer: X3b's protocol (temporary create, write with F_FULLFSYNC,
++/// rename, directory barrier, reopen and confirm).
++fn pointer_cost(len: usize) -> WorkCost {
++    let temporary = format!("{CURRENT}.{}", "0".repeat(32));
++    sum(&[
++        private_create(2),
++        opensip_platform::write_new_regular_cost(len),
++        opensip_platform::rename_replace_cost(&temporary, CURRENT),
++        opensip_platform::directory_barrier_cost(),
++        WorkCost {
++            objects: 2,
++            edges: 4,
++            bytes: len.saturating_add(1),
++        },
++    ])
++}
++/// The post-publication confirmation, reserved before the first effect: the
++/// judged samples of `state.v1` before and after its exact reread (the second
++/// is the owner's closing recheck), the reopen and the reread itself.
++fn confirmation_cost(len: usize) -> Result<WorkCost, TrustRefusal> {
++    Ok(sum(&[
++        times(judged(CURRENT), 2),
++        RetainedDirectory::open_regular_cost(CURRENT),
++        exact_read(len)?,
++    ]))
++}
++fn plus(costs: impl IntoIterator<Item = WorkCost>) -> Result<WorkCost, TrustRefusal> {
++    costs
++        .into_iter()
++        .try_fold(WorkCost::default(), |sum, c| sum.checked_add(c))
++        .map_or_else(|| refuse(TrustRow::Budget, "arithmetic"), Ok)
++}
++
++/// Directories a publication may create: only the publications collection's
++/// `by-predecessor` bucket and its predecessor directory. Every other parent
++/// must exist (an incomplete installation otherwise).
++fn may_create(components: &[String], index: usize) -> bool {
++    index >= 2 && components[1] == "publications" && components[2] == "by-predecessor"
++}
++fn parent_dir<'c>(
++    cache: &'c mut BTreeMap<Vec<String>, RetainedDirectory>,
++    i: &RetainedDirectory,
++    parents: &[String],
++    uid: u32,
++    work: &mut WorkScope<'_>,
++) -> Result<&'c RetainedDirectory, TrustRefusal> {
++    for depth in 1..=parents.len() {
++        let key = parents[..depth].to_vec();
++        if cache.contains_key(&key) {
++            continue;
++        }
++        let parent = if depth == 1 {
++            i
++        } else {
++            &cache[&parents[..depth - 1]]
++        };
++        let name = &parents[depth - 1];
++        let dir = match open_private(parent, name, uid, work)? {
++            Some(dir) => dir,
++            None if may_create(parents, depth - 1) => {
++                let (created, _) = create_private_directory(parent, name, uid, work)
++                    .map_err(lift(TrustRow::HostIo))?;
++                let created = RetainedDirectory::from_retained_handle(created)
++                    .or_else(|e| refuse(TrustRow::HostIo, e))?;
++                created
++                    .confirm_directory_barrier_accounted(work)
++                    .map_err(lift(TrustRow::HostIo))?;
++                parent
++                    .confirm_directory_barrier_accounted(work)
++                    .map_err(lift(TrustRow::HostIo))?;
++                created
++            }
++            None => return refuse(TrustRow::Incomplete, ("missing", name.clone())),
++        };
++        cache.insert(key, dir);
++    }
++    Ok(&cache[parents])
++}
++/// One dependency: a fresh private file written with its file barrier and
++/// then its directory barrier; or, at a content-addressed name already
++/// present, the existing private file admitted only when its bytes are
++/// exactly these (X4B item 6: equal bytes are equal names).
++fn write_dependency(
++    parent: &RetainedDirectory,
++    leaf: &str,
++    bytes: &[u8],
++    uid: u32,
++    work: &mut WorkScope<'_>,
++) -> Result<(), TrustRefusal> {
++    let absent = parent
++        .observe_child_absent_accounted(OsStr::new(leaf), work)
++        .map_err(lift(TrustRow::HostIo))?;
++    if !absent {
++        observe_private_file(parent, leaf, uid, work).map_err(gate_row_incomplete)?;
++        let file = work
++            .run(RetainedDirectory::open_regular_cost(leaf), |_| {
++                parent.open_regular(leaf).map_err(WorkFailure::Operation)
++            })
++            .map_err(lift(TrustRow::HostIo))?;
++        let existing = opensip_platform::read_bounded_accounted(&file, bytes.len(), work)
++            .map_err(lift(TrustRow::Incomplete))?;
++        if existing != bytes {
++            return refuse(TrustRow::Incomplete, ("foreign", leaf.to_owned()));
++        }
++        return Ok(());
++    }
++    let (file, _) =
++        create_private_regular_file(parent, leaf, uid, work).map_err(lift(TrustRow::HostIo))?;
++    write_new_regular_accounted(&file, bytes, work).map_err(lift(TrustRow::HostIo))?;
++    parent
++        .confirm_directory_barrier_accounted(work)
++        .map_err(lift(TrustRow::HostIo))?;
++    Ok(())
++}
++/// An existing record that is not private, or not a regular file, is a
++/// misbound trust record: an incomplete installation.
++fn gate_row_incomplete(
++    failure: WorkFailure<crate::custody::installation_admission::GateRefusal>,
++) -> TrustRefusal {
++    match failure {
++        WorkFailure::Budget(b) => TrustRefusal {
++            row: TrustRow::Budget,
++            cause: format!("{b:?}"),
++        },
++        WorkFailure::Operation(e) => TrustRefusal {
++            row: TrustRow::Incomplete,
++            cause: format!("{e:?}"),
++        },
++    }
++}
++
++/// Item 7's publication protocol (r8: one owner, shared with X4B-a). Under
++/// the held fence: the owner is rechecked; the whole protocol and its
++/// post-publication confirmation are reserved before the first effect; each
++/// dependency is written in order; `state.v1` is replaced last through X3b's
++/// private file protocol; then `state.v1` is sampled, reread through an
++/// exact-length cap and sampled again, the capsule is decoded from that
++/// reread, and the owner advances to it. A failure before the rename leaves
++/// the pointer unchanged (written records are unreferenced and harmless); a
++/// failure from the rename on is durability-undetermined. Both are the host
++/// I/O row; nothing is retried or deleted.
++pub(crate) fn publish(
++    fence: &dyn HeldFence,
++    owner: &mut RetainedCurrentTrust,
++    files: &[TrustWrite],
++    capsule_raw: &[u8],
++    work: &mut WorkScope<'_>,
++) -> Result<(), TrustRefusal> {
++    let uid = fence.supplied_actor().0;
++    let i = fence.directory();
++    fence.recheck().or_else(|e| refuse(TrustRow::HostIo, e))?;
++    owner.recheck(uid, work)?;
++    let new_capsule = decode(capsule_raw, &owner.expected_store)?;
++    let paths = files.iter().map(TrustWrite::path).collect::<Result<Vec<_>, _>>()?;
++    let mut costs = files
++        .iter()
++        .zip(&paths)
++        .map(|(f, path)| file_cost(path, f.bytes.len()))
++        .collect::<Result<Vec<_>, _>>()?;
++    costs.push(pointer_cost(capsule_raw.len()));
++    let writes = plus(costs)?;
++    let confirm = confirmation_cost(capsule_raw.len())?;
++    let reserve = plus([writes, confirm])?;
++    let mut failure = None;
++    let mut fail = |e: TrustRefusal| {
++        failure.get_or_insert(e);
++        WorkFailure::Operation(())
++    };
++    let store_dir = &owner.store_dir;
++    let confirmed = work.effect(WorkCost::default(), reserve, |post| {
++        post.prepaid(writes, |w| {
++            let mut cache = BTreeMap::new();
++            for (file, path) in files.iter().zip(&paths) {
++                let (leaf, parents) = path.split_last().expect("a locator has a leaf");
++                let parent = parent_dir(&mut cache, i, parents, uid, w).map_err(&mut fail)?;
++                write_dependency(parent, leaf, &file.bytes, uid, w).map_err(&mut fail)?;
++            }
++            crate::journal_store::publish_private_file(store_dir, CURRENT, capsule_raw, uid, w)
++                .map_err(lift(TrustRow::HostIo))
++                .map_err(&mut fail)
++        })?;
++        post.prepaid(confirm, |w| {
++            let before = observe_private_file(store_dir, CURRENT, uid, w)
++                .map_err(gate_row)
++                .map_err(&mut fail)?;
++            let file = w
++                .run(RetainedDirectory::open_regular_cost(CURRENT), |_| {
++                    store_dir.open_regular(CURRENT).map_err(WorkFailure::Operation)
++                })
++                .map_err(lift(TrustRow::HostIo))
++                .map_err(&mut fail)?;
++            let reread = opensip_platform::read_bounded_accounted(&file, capsule_raw.len(), w)
++                .map_err(lift(TrustRow::HostIo))
++                .map_err(&mut fail)?;
++            let after = observe_private_file(store_dir, CURRENT, uid, w)
++                .map_err(gate_row)
++                .map_err(&mut fail)?;
++            if before != after || reread != capsule_raw {
++                return Err(fail(TrustRefusal {
++                    row: TrustRow::HostIo,
++                    cause: "write-ahead-confirmation".into(),
++                }));
++            }
++            Ok((reread, after))
++        })
++    });
++    let (reread, metadata) = match confirmed {
++        Ok(confirmed) => confirmed,
++        Err(WorkFailure::Budget(b)) => {
++            return Err(failure.unwrap_or(TrustRefusal {
++                row: TrustRow::Budget,
++                cause: format!("{b:?}"),
++            }));
++        }
++        Err(WorkFailure::Operation(())) => {
++            return Err(failure.unwrap_or(TrustRefusal {
++                row: TrustRow::HostIo,
++                cause: "publication".into(),
++            }));
++        }
++    };
++    let capsule = decode(&reread, &owner.expected_store)?;
++    debug_assert_eq!(capsule, new_capsule);
++    let previous = Floors::of_clock(field(&owner.capsule, "clock")?)?;
++    if previous != Floors::default() {
++        owner.prior.push(previous);
++    }
++    owner.confirmed = Some(ConfirmedCurrent {
++        relative: owner.relative.clone(),
++        raw: reread.clone(),
++        metadata: metadata.clone(),
++        predecessor: owner.sample.clone(),
++    });
++    owner.raw = reread;
++    owner.capsule = capsule;
++    owner.sample = metadata;
++    // The owner's closing recheck is the confirmation's second sample, taken
++    // inside the reservation, so no charge follows the first effect.
++    fence.recheck().or_else(|e| refuse(TrustRow::HostIo, e))
++}
++/// Item 7: the floor publication of one fenced admission, built in memory
++/// and checked by the existing verifiers before any effect.
++pub(crate) struct FloorPublication {
++    files: Vec<TrustWrite>,
++    capsule_raw: Vec<u8>,
++}
++impl FloorPublication {
++    pub(crate) fn capsule_raw(&self) -> &[u8] {
++        &self.capsule_raw
++    }
++}
++fn encode(definition: Definition, value: &V) -> Result<Vec<u8>, TrustRefusal> {
++    let raw = canonical_bytes(value).or_else(|_| refuse(TrustRow::Incomplete, "canonical"))?;
++    shapes::admit(definition, &raw).or_else(|e| refuse(TrustRow::Incomplete, (definition, e)))?;
++    Ok(raw)
++}
++fn stamp(seconds: i64) -> Result<V, TrustRefusal> {
++    format_timestamp(seconds)
++        .map(V::String)
++        .or_else(|e| refuse(TrustRow::Incomplete, e))
++}
++/// Whether S4 proposes a write that changes the stored record: F rises, L
++/// advances, or the anchor is rewritten to a different value (item 7). A
++/// confirming admission on the same clock sample finds none (X4B item 1).
++pub(crate) fn needs_write(capsule: &V, time: &TimeAdmission, observation: &V) -> Result<bool, TrustRefusal> {
++    if time.report_only || time.refusal.is_some() {
++        return Ok(false);
++    }
++    let Some(evaluation) = time.floor_write else {
++        return Ok(false);
++    };
++    let record = field(field(capsule, "clock")?, "record")?;
++    let floor = Floors::of_clock(field(capsule, "clock")?)?.eval_high_water;
++    Ok(floor.is_none_or(|f| evaluation > f)
++        || time.last_write.is_some()
++        || (time.anchor_write && field(record, "anchor")? != observation))
++}
++/// Build item 7's floor publication over the owner's capsule: the before
++/// image record, the S4EvaluationInputV2 from the existing assembler, the
++/// `host-trust-admission` operation and its `continue` input for the running
++/// core, the clock-write event, the descriptor and the successor capsule with
++/// F := tEval, L and the anchor written as S4 proposed and every other field
++/// unchanged. Verified by `successor_record_bindings::bind` (against the
++/// actual before) and `current_record_bindings::bind` (which runs
++/// `bind_trace`) over exactly these bytes before it is returned.
++pub(crate) fn build_floor_publication(
++    owner: &RetainedCurrentTrust,
++    pending: &PendingWrite,
++    time: &TimeAdmission,
++    invocation: &V,
++    core_closure: &str,
++    work: &mut WorkScope<'_>,
++) -> Result<FloorPublication, TrustRefusal> {
++    let before = &owner.capsule;
++    let b4 = object(before)?;
++    let before_ref = reference(&owner.raw);
++    let previous = hex(&owner.raw);
++    let (evaluation, evaluation_ref) =
++        proposed_time_input::assemble(&pending.0, before, &before_ref, invocation)
++            .or_else(|e| refuse(TrustRow::Incomplete, e))?;
++    let input = encode(
++        Definition::TrustAdmissionInputV1,
++        &obj([
++            ("closure", s(core_closure)),
++            ("inputSchema", integer(1)),
++            ("kind", s("trust-admission-input")),
++            ("purpose", s("continue")),
++            ("surface", s("installed-component")),
++        ]),
++    )?;
++    let operation = encode(
++        Definition::OperationInputV1,
++        &obj([
++            ("action", s("host-trust-admission")),
++            (
++                "input",
++                obj([("kind", s("trust-admission-input")), ("ref", reference(&input))]),
++            ),
++            ("invocation", invocation.clone()),
++            ("operationSchema", integer(1)),
++            ("store", b4["store"].clone()),
++        ]),
++    )?;
++    let operation_ref = reference(&operation);
++    let sid = field(&b4["store"], "storeInstanceId")?.clone();
++    let head = b4["eventHead"].clone();
++    let sequence = int(field(&head, "sequence")?)?
++        .checked_add(1)
++        .map_or_else(|| refuse(TrustRow::Incomplete, "sequence"), Ok)?;
++    let evaluation_at = time
++        .floor_write
++        .map_or_else(|| refuse(TrustRow::Incomplete, "floor_write"), Ok)?;
++    let mut writes = Vec::new();
++    if time.anchor_write {
++        writes.push(s("anchor"));
++    }
++    writes.push(s("evalHighWater"));
++    if time.last_write.is_some() {
++        writes.push(s("lastAccepted"));
++    }
++    let time_evidence = if time.last_write.is_some() {
++        obj([("kind", s("new")), ("proof", evaluation_ref.clone())])
++    } else {
++        obj([("kind", s("kept"))])
++    };
++    let event = encode(
++        Definition::TrustEventV1,
++        &obj([
++            ("eventSchema", integer(1)),
++            ("store", sid.clone()),
++            ("sequence", integer(sequence)),
++            ("previous", head),
++            ("operation", operation_ref.clone()),
++            ("kind", s("clock-write")),
++            ("source", s("s4")),
++            ("evaluation", evaluation_ref.clone()),
++            ("writes", V::Array(writes)),
++            ("phaseBefore", s("retained")),
++            ("phaseAfter", s("retained")),
++            ("timeEvidence", time_evidence),
++        ]),
++    )?;
++    let mut event_ref = object(&reference(&event))?.clone();
++    event_ref.insert("storeInstanceId".into(), sid);
++    event_ref.insert("sequence".into(), integer(sequence));
++    let event_ref = V::Object(event_ref);
++
++    // The successor projection: only F, L, the anchor and the time evidence
++    // change in the clock, then the revision, predecessor and event head.
++    let mut projection = b4.clone();
++    projection.remove("publication");
++    let mut clock = object(&projection["clock"])?.clone();
++    let mut record = object(&clock["record"])?.clone();
++    record.insert("evalHighWater".into(), stamp(evaluation_at)?);
++    if let Some(last) = time.last_write {
++        record.insert("lastAccepted".into(), stamp(last)?);
++        clock.insert("timeEvidence".into(), evaluation_ref.clone());
++    }
++    if time.anchor_write {
++        record.insert(
++            "anchor".into(),
++            pending.0.observation().document().clone(),
++        );
++    }
++    clock.insert("record".into(), V::Object(record));
++    projection.insert("clock".into(), V::Object(clock));
++    let revision = int(&b4["revision"])?
++        .checked_add(1)
++        .map_or_else(|| refuse(TrustRow::Incomplete, "revision"), Ok)?;
++    projection.insert("revision".into(), integer(revision));
++    projection.insert("previous".into(), s(&previous));
++    projection.insert("eventHead".into(), event_ref.clone());
++    let projection = V::Object(projection);
++    let descriptor = encode(
++        Definition::PublicationDescriptorV1,
++        &obj([
++            ("afterProjection", projection.clone()),
++            (
++                "events",
++                V::Array(vec![obj([("event", event_ref.clone()), ("roleChange", V::Null)])]),
++            ),
++            (
++                "nativeBefore",
++                obj([("revision", b4["revision"].clone()), ("sha256", s(&previous))]),
++            ),
++            ("operation", operation_ref),
++            ("previousCapsule", s(&previous)),
++            ("publicationSchema", integer(1)),
++            ("revision", integer(revision)),
++            ("store", b4["store"].clone()),
++        ]),
++    )?;
++    let descriptor_ref = object(&reference(&descriptor))?.clone();
++    let publication = obj([
++        ("previousCapsule", s(&previous)),
++        ("sha256", descriptor_ref["sha256"].clone()),
++        ("bytes", descriptor_ref["bytes"].clone()),
++    ]);
++    let mut capsule = object(&projection)?.clone();
++    capsule.insert("publication".into(), publication.clone());
++    let capsule = V::Object(capsule);
++    let capsule_raw = encode(Definition::TrustCapsuleV1, &capsule)?;
++    let files = vec![
++        TrustWrite::node(Collection::Records, owner.raw.clone()),
++        TrustWrite::node(Collection::Records, evaluation.raw().to_vec()),
++        TrustWrite::node(Collection::Records, input),
++        TrustWrite::node(Collection::Records, operation),
++        TrustWrite::event(event_ref, event),
++        TrustWrite::publication(publication.clone(), descriptor.clone()),
++    ];
++    // The existing verifiers, over exactly these bytes.
++    let held: BTreeMap<(Collection, [u8; 32]), Vec<u8>> = files
++        .iter()
++        .map(|f| ((f.collection, raw_sha256(&f.bytes)), f.bytes.clone()))
++        .collect();
++    let mut store = |c: Collection, h: [u8; 32], cap: usize| -> Result<Vec<u8>, ()> {
++        let raw = held.get(&(c, h)).ok_or(())?;
++        if raw.len() > cap {
++            return Err(());
++        }
++        Ok(raw.clone())
++    };
++    let mut b = Budget::borrowed(work);
++    successor_record_bindings::bind(&mut b, before, &publication, &mut store)
++        .or_else(|e| refuse(TrustRow::Incomplete, ("successor", e)))?;
++    let descriptor_value = opensip_identity::parse_json(&descriptor)
++        .or_else(|_| refuse(TrustRow::Incomplete, "descriptor"))?;
++    current_record_bindings::bind(
++        &mut b,
++        &owner.expected_store,
++        &capsule,
++        &descriptor_value,
++        &mut store,
++    )
++    .or_else(|e| refuse(TrustRow::Incomplete, ("current", e)))?;
++    Ok(FloorPublication { files, capsule_raw })
++}
++
++/// Items 7 to 9: the fenced first read. Under the installation fence with no
++/// project lock held and before any lease, it admits the retained owner's
++/// capsule (items 2 to 6, with checks 1 and 2 of the rollback rule), applies
++/// check 3 against this hold's own floors, and, unless report-only, performs
++/// item 7's write-ahead before the view is returned: the floor publication is
++/// built, verified and published, and the owner advances to the confirmed
++/// `state.v1`. A confirming admission on the same clock sample writes nothing.
++pub(crate) fn fenced_first_read(
++    work: &mut WorkScope<'_>,
++    fence: &dyn HeldFence,
++    owner: &mut RetainedCurrentTrust,
++    inputs: &ViewInputs<'_>,
++    invocation: &V,
++) -> Result<AdmittedCurrentTrust, TrustRefusal> {
++    if !matches!(inputs.mode, ReadMode::Fenced { .. }) {
++        return refuse(TrustRow::HostIo, "fenced-read-mode");
++    }
++    let uid = fence.supplied_actor().0;
++    fence.recheck().or_else(|e| refuse(TrustRow::HostIo, e))?;
++    owner.recheck(uid, work)?;
++    let mut view = {
++        let mut b = Budget::borrowed(work);
++        let mut store = NativeStore::new(fence);
++        let result = admit_current_trust(
++            &mut b,
++            &owner.expected_store,
++            &owner.capsule,
++            inputs,
++            &mut store,
++        );
++        complete(&mut store, result)?
++    };
++    // Check 3 (r9): this hold's own retained floors.
++    if owner.prior.iter().any(|prior| view.floors().below(prior)) {
++        return refuse(TrustRow::Rollback, "fence-hold-floors");
++    }
++    if let Some(pending) = view.pending.take() {
++        let time = view
++            .time()
++            .cloned()
++            .map_or_else(|| refuse(TrustRow::HostIo, "time"), Ok)?;
++        if needs_write(&owner.capsule, &time, pending.0.observation().document())? {
++            let publication = build_floor_publication(
++                owner,
++                &pending,
++                &time,
++                invocation,
++                inputs.core_closure,
++                work,
++            )?;
++            // `publish` ends on its reserved confirmation, which is the
++            // owner's recheck; nothing is charged after its first effect.
++            publish(fence, owner, &publication.files, &publication.capsule_raw, work)?;
++            return Ok(view);
++        }
++    }
++    fence.recheck().or_else(|e| refuse(TrustRow::HostIo, e))?;
++    owner.recheck(uid, work)?;
++    Ok(view)
++}
++
++#[cfg(test)]
++mod tests {
++    include!("floor_publication_tests.rs");
++}
+diff --git a/crates/security/src/trust/floor_publication_tests.rs b/crates/security/src/trust/floor_publication_tests.rs
+new file mode 100644
+index 0000000..843ed3b
+--- /dev/null
++++ b/crates/security/src/trust/floor_publication_tests.rs
+@@ -0,0 +1,707 @@
++// Law X4T r9 items 7, 8 and 12 (X4T-a2 and X4T-b), on scratch installations
++// under the ACL test scratch with X4T-0's signed accepted store. Nothing here
++// opens the real account's I.
++use super::super::super::super::accepted_store_fixture::{self as fixture, Spec};
++use super::super::{TrustStanding, admit_native, check_accepted_by, check_evidence_floors, view_budget};
++use super::*;
++use crate::custody::installation_fence::SuppliedInstallationFence;
++use opensip_platform::{RetainedDirectoryPath, WorkLedger};
++use std::fs::{self, Permissions};
++use std::os::unix::fs::{MetadataExt, PermissionsExt};
++use std::path::{Path, PathBuf};
++use std::sync::Arc;
++
++struct Site {
++    root: PathBuf,
++    store: fixture::AcceptedStore,
++    fence: SuppliedInstallationFence,
++    uid: u32,
++}
++impl Drop for Site {
++    fn drop(&mut self) {
++        let _ = fs::remove_dir_all(&self.root);
++    }
++}
++fn site(spec: &Spec) -> Site {
++    let id = digest_hex(&raw_sha256(&opensip_platform::request_entropy().unwrap()));
++    let root = crate::test_scratch::acl_scratch().join(format!("opensip-x4tb-{id}"));
++    fs::create_dir(&root).unwrap();
++    fs::set_permissions(&root, Permissions::from_mode(0o700)).unwrap();
++    let root = fs::canonicalize(root).unwrap();
++    let uid = fs::metadata(&root).unwrap().uid();
++    fs::write(root.join("lifecycle.fence"), b"").unwrap();
++    fs::set_permissions(root.join("lifecycle.fence"), Permissions::from_mode(0o600)).unwrap();
++    let store = fixture::generate(spec);
++    store.write(&root);
++    let path = Arc::new(RetainedDirectoryPath::open(&root, 128).unwrap());
++    let fence =
++        SuppliedInstallationFence::try_acquire(path, uid, &std::collections::BTreeSet::new())
++            .unwrap()
++            .unwrap();
++    Site {
++        root,
++        store,
++        fence,
++        uid,
++    }
++}
++fn current_path(site: &Site) -> PathBuf {
++    site.root
++        .join(format!("trust/stores/{}/state.v1", fixture::STORE))
++}
++/// The session's one read of `state.v1`, as X3a's gate retains it: its
++/// bytes and the custody sample of the same judgment.
++fn owner(site: &Site, work: &mut WorkScope<'_>) -> Result<RetainedCurrentTrust, TrustRefusal> {
++    let relative = format!("trust/stores/{}/state.v1", fixture::STORE);
++    let sample = observe_private_file(site.fence.directory(), &relative, site.uid, work).unwrap();
++    let raw = fs::read(current_path(site)).unwrap();
++    RetainedCurrentTrust::bind(
++        site.fence.directory(),
++        site.uid,
++        &site.store.store,
++        &raw,
++        &sample,
++        work,
++    )
++}
++fn observation(boot: &str, mono: i64, wall: &str) -> V {
++    opensip_identity::parse_json(
++        format!(r#"{{"bootId":"{boot}","mono":{mono},"wall":"{wall}"}}"#).as_bytes(),
++    )
++    .unwrap()
++}
++fn fenced(report: bool, obs: &V) -> ViewInputs<'_> {
++    ViewInputs {
++        mode: ReadMode::Fenced { report },
++        observation: Some(obs),
++        project_policy: None,
++        core_closure: fixture::CORE_CLOSURE,
++    }
++}
++fn invocation() -> V {
++    obj([
++        ("executionId", s("exec1_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee")),
++        ("requestId", s("req1_ffffffffffffffffffffffffffffffff")),
++        ("stepId", integer(0)),
++    ])
++}
++fn read(
++    site: &Site,
++    owner: &mut RetainedCurrentTrust,
++    inputs: &ViewInputs<'_>,
++) -> Result<AdmittedCurrentTrust, TrustRefusal> {
++    let mut ledger = WorkLedger::new();
++    ledger
++        .scope(|work| {
++            fenced_first_read(work, &site.fence, owner, inputs, &invocation())
++                .map_err(WorkFailure::Operation)
++        })
++        .map_err(|e| match e {
++            WorkFailure::Operation(refusal) => refusal,
++            WorkFailure::Budget(b) => panic!("ledger {b:?}"),
++        })
++}
++fn bound(site: &Site) -> RetainedCurrentTrust {
++    WorkLedger::new()
++        .scope(|work| owner(site, work).map_err(WorkFailure::<TrustRefusal>::Operation))
++        .unwrap()
++}
++fn text<'v>(v: &'v V, key: &str) -> &'v V {
++    &object(v).unwrap()[key]
++}
++/// Every trust file under `root`, by collection and digest, as an in-memory
++/// store for the read-only owners.
++fn files(root: &Path) -> BTreeMap<(Collection, [u8; 32]), Vec<u8>> {
++    let mut out = BTreeMap::new();
++    let mut stack = vec![root.join("trust")];
++    while let Some(dir) = stack.pop() {
++        for entry in fs::read_dir(&dir).unwrap() {
++            let path = entry.unwrap().path();
++            if path.is_dir() {
++                stack.push(path);
++                continue;
++            }
++            let rel = path.strip_prefix(root).unwrap().to_string_lossy().into_owned();
++            let collection = if rel.starts_with("trust/records/") {
++                Collection::Records
++            } else if rel.starts_with("trust/objects/") {
++                Collection::Objects
++            } else if rel.starts_with("trust/publications/") {
++                Collection::Publications
++            } else if rel.contains("/events/") {
++                Collection::Events
++            } else {
++                continue;
++            };
++            let bytes = fs::read(&path).unwrap();
++            out.insert((collection, raw_sha256(&bytes)), bytes);
++        }
++    }
++    out
++}
++
++#[test]
++fn a_floor_advance_is_written_ahead_and_the_retained_owner_advances() {
++    crate::test_scratch::settled(|| {
++        let site = site(&Spec::default());
++        let before = fs::read(current_path(&site)).unwrap();
++        let mut owner = bound(&site);
++        let obs = observation("boot-1", 3607, "2026-10-02T01:00:00Z");
++        let view = read(&site, &mut owner, &fenced(false, &obs)).unwrap();
++        assert_eq!(view.standing(), TrustStanding::InstallGateRequiredForNewProcess);
++        let time = view.time().unwrap();
++        assert_eq!(time.last_write, None);
++        assert!(time.anchor_write);
++        // The pointer was replaced last and the owner is the confirmed file.
++        let confirmed = owner.confirmed().unwrap().clone();
++        let now = fs::read(current_path(&site)).unwrap();
++        assert_eq!(confirmed.raw(), now.as_slice());
++        assert_eq!(owner.raw(), now.as_slice());
++        assert_eq!(
++            confirmed.relative(),
++            format!("trust/stores/{}/state.v1", fixture::STORE)
++        );
++        assert_eq!(owner.sample(), confirmed.metadata());
++        // F := tEval, the anchor rewritten, L and every other field unchanged.
++        let old = opensip_identity::parse_json(&before).unwrap();
++        let new = owner.capsule().clone();
++        let record = text(text(&new, "clock"), "record");
++        assert_eq!(text(record, "evalHighWater"), &s("2026-10-02T01:00:00Z"));
++        assert_eq!(text(record, "anchor"), &obs);
++        let old_record = text(text(&old, "clock"), "record");
++        for key in [
++            "lastAccepted",
++            "rootVersion",
++            "indexSnapshotVersion",
++            "revocationVersion",
++            "revocationIssuedAt",
++            "catalogExpiresAt",
++            "rootExpiresAt",
++        ] {
++            assert_eq!(text(record, key), text(old_record, key), "{key}");
++        }
++        for key in ["roles", "heads", "history", "store", "staged", "batch", "sourceFence"] {
++            assert_eq!(text(&new, key), text(&old, key), "{key}");
++        }
++        assert_eq!(
++            text(text(&new, "clock"), "timeEvidence"),
++            text(text(&old, "clock"), "timeEvidence"),
++            "L did not advance: the time evidence is kept"
++        );
++        assert_eq!(text(&new, "revision"), &integer(3));
++        assert_eq!(text(&new, "previous"), &s(&hex(&before)));
++        // The descriptor sits in the predecessor's bucket; the before image,
++        // the evaluation, the operation input and the event are records.
++        let bucket = site
++            .root
++            .join(format!("trust/publications/by-predecessor/{}", hex(&before)));
++        assert_eq!(fs::read_dir(&bucket).unwrap().count(), 1);
++        assert!(
++            site.root
++                .join(format!("trust/records/{}", hex(&before)))
++                .exists()
++        );
++        let head = text(&new, "eventHead");
++        assert_eq!(text(head, "sequence"), &integer(int(text(text(&old, "eventHead"), "sequence")).unwrap() + 1));
++        // The pre-acceptance-free predecessor's floors are this hold's own.
++        assert_eq!(owner.prior_floors().len(), 1);
++        // Every fenced recheck now compares against the confirmed owner.
++        WorkLedger::new()
++            .scope(|w| owner.recheck(site.uid, w).map_err(WorkFailure::Operation))
++            .unwrap();
++    })
++}
++
++#[test]
++fn the_next_admission_reaches_accepted_by_outside_the_current_chain() {
++    crate::test_scratch::settled(|| {
++        let site = site(&Spec::default());
++        let mut owner = bound(&site);
++        let obs = observation("boot-1", 3607, "2026-10-02T01:00:00Z");
++        read(&site, &mut owner, &fenced(false, &obs)).unwrap();
++        drop(owner);
++        // A later invocation: its own one read, then the fenced first read.
++        let mut next = bound(&site);
++        let later = observation("boot-1", 7207, "2026-10-02T02:00:00Z");
++        let view = read(&site, &mut next, &fenced(false, &later)).unwrap();
++        assert_eq!(view.standing(), TrustStanding::InstallGateRequiredForNewProcess);
++        assert!(next.confirmed().is_some());
++        // The unfenced reread admits the same store natively, with each
++        // accepted role's acceptance event opened by reference.
++        let mut b = view_budget();
++        admit_native(&mut b, &site.fence, &site.store.store, &super::super::ViewInputs {
++            mode: ReadMode::Reread,
++            observation: None,
++            project_policy: None,
++            core_closure: fixture::CORE_CLOSURE,
++        })
++        .unwrap();
++        // Item 11 (r8): the measured native reread after a floor publication.
++        // The chain is now the one clock-write, and the four accepted roles'
++        // events are opened by reference: the same five events as before.
++        assert_eq!(b.counters(), NATIVE_AFTER_FLOOR);
++        let (objects, edges, bytes) = super::super::TRUST_VIEW_COST;
++        assert!(b.counters().0 <= objects && b.counters().1 <= edges && b.counters().2 <= bytes);
++    })
++}
++/// Item 11 (r8): the default store's native reread after one floor
++/// publication, measured.
++const NATIVE_AFTER_FLOOR: (usize, usize, usize) = (31, 253, 32_103);
++
++#[test]
++fn accepted_by_outside_the_chain_must_be_an_earlier_accepted_event_of_that_role() {
++    crate::test_scratch::settled(|| {
++        let site = site(&Spec::default());
++        let mut owner = bound(&site);
++        let obs = observation("boot-1", 3607, "2026-10-02T01:00:00Z");
++        read(&site, &mut owner, &fenced(false, &obs)).unwrap();
++        let held = files(&site.root);
++        let reader = || {
++            |c: Collection, h: [u8; 32], cap: usize| -> Result<Vec<u8>, ()> {
++                let raw = held.get(&(c, h)).ok_or(())?;
++                if raw.len() > cap {
++                    return Err(());
++                }
++                Ok(raw.clone())
++            }
++        };
++        let capsule = owner.capsule().clone();
++        let publication = text(&capsule, "publication");
++        let descriptor = held
++            .iter()
++            .find(|((c, h), _)| {
++                *c == Collection::Publications && s(&digest_hex(h)) == *text(publication, "sha256")
++            })
++            .map(|(_, raw)| opensip_identity::parse_json(raw).unwrap())
++            .unwrap();
++        let mut b = view_budget();
++        let bindings = current_record_bindings::bind(
++            &mut b,
++            &site.store.store,
++            &capsule,
++            &descriptor,
++            &mut reader(),
++        )
++        .unwrap();
++        // The four accepted roles' events are all outside the chain: four reads.
++        let start = b.counters();
++        check_accepted_by(&mut b, &capsule, &descriptor, bindings.trace(), &mut reader()).unwrap();
++        assert_eq!(b.counters().0 - start.0, 4);
++        let roles = text(&capsule, "roles");
++        let by = |role: &str| text(text(text(roles, role), "accepted"), "by").clone();
++        let with_by = |role: &str, value: V| {
++            let mut c = object(&capsule).unwrap().clone();
++            let mut r = object(&c["roles"]).unwrap().clone();
++            let mut one = object(&r[role]).unwrap().clone();
++            let mut accepted = object(&one["accepted"]).unwrap().clone();
++            accepted.insert("by".into(), value);
++            one.insert("accepted".into(), V::Object(accepted));
++            r.insert(role.into(), V::Object(one));
++            c.insert("roles".into(), V::Object(r));
++            V::Object(c)
++        };
++        let edit = |value: &V, key: &str, to: V| {
++            let mut o = object(value).unwrap().clone();
++            o.insert(key.into(), to);
++            V::Object(o)
++        };
++        let head = text(&capsule, "eventHead").clone();
++        let p0_creation = {
++            // The P0 creation event (sequence 1): earlier, but not a role event.
++            let mut found = None;
++            for ((c, h), raw) in &held {
++                if *c == Collection::Events {
++                    let v = opensip_identity::parse_json(raw).unwrap();
++                    if text(&v, "kind") == &s("creation") {
++                        let mut r = object(&reference(raw)).unwrap().clone();
++                        r.insert("storeInstanceId".into(), s(fixture::STORE));
++                        r.insert("sequence".into(), integer(1));
++                        assert_eq!(digest_hex(h), *match &r["sha256"] { V::String(t) => t, _ => panic!() });
++                        found = Some(V::Object(r));
++                    }
++                }
++            }
++            found.unwrap()
++        };
++        for (label, value) in [
++            ("another role's earlier event", by("TR-CORE")),
++            ("a missing event", edit(&by("TR-INDEX"), "sha256", s(&"ab".repeat(32)))),
++            (
++                "another store's reference",
++                edit(&by("TR-INDEX"), "storeInstanceId", s(&"2".repeat(32))),
++            ),
++            ("an earlier event that is not a role event", p0_creation.clone()),
++            ("the current chain's clock-write", head.clone()),
++        ] {
++            let tampered = with_by("TR-INDEX", value);
++            let mut b = view_budget();
++            let refusal =
++                check_accepted_by(&mut b, &tampered, &descriptor, bindings.trace(), &mut reader())
++                    .unwrap_err();
++            assert_eq!(refusal.row, TrustRow::Incomplete, "{label}: {}", refusal.cause);
++        }
++    })
++}
++
++#[test]
++fn a_confirming_admission_on_the_same_sample_writes_nothing() {
++    crate::test_scratch::settled(|| {
++        let site = site(&Spec::default());
++        let mut owner = bound(&site);
++        let obs = observation("boot-1", 3607, "2026-10-02T01:00:00Z");
++        read(&site, &mut owner, &fenced(false, &obs)).unwrap();
++        let first = owner.confirmed().unwrap().clone();
++        // Same clock sample, same hold: tEval = F and the anchor is equal.
++        let view = read(&site, &mut owner, &fenced(false, &obs)).unwrap();
++        assert_eq!(
++            view.time().unwrap().floor_write,
++            Some(crate::trust_time::timestamp_seconds("2026-10-02T01:00:00Z").unwrap())
++        );
++        assert_eq!(owner.confirmed(), Some(&first));
++        assert_eq!(owner.prior_floors().len(), 1);
++        assert_eq!(fs::read(current_path(&site)).unwrap(), first.raw());
++    })
++}
++
++#[test]
++fn report_only_and_refused_reads_write_nothing() {
++    crate::test_scratch::settled(|| {
++        let site = site(&Spec::default());
++        let before = fs::read(current_path(&site)).unwrap();
++        let sample = fs::metadata(current_path(&site)).unwrap().ino();
++        let count = files(&site.root).len();
++        let mut owner = bound(&site);
++        let obs = observation("boot-1", 3607, "2026-10-02T01:00:00Z");
++        let view = read(&site, &mut owner, &fenced(true, &obs)).unwrap();
++        assert!(view.time().unwrap().report_only);
++        // W beyond A + 90 d on another boot: refused, nothing written.
++        let far = observation("boot-2", 9, "2027-02-01T00:00:00Z");
++        let refusal = read(&site, &mut owner, &fenced(false, &far)).unwrap_err();
++        assert_eq!(refusal.row, TrustRow::ClockExcursion("beyond-horizon"));
++        assert!(owner.confirmed().is_none());
++        assert_eq!(fs::read(current_path(&site)).unwrap(), before);
++        assert_eq!(fs::metadata(current_path(&site)).unwrap().ino(), sample);
++        assert_eq!(files(&site.root).len(), count);
++    })
++}
++
++#[test]
++fn a_state_v1_changed_outside_a_confirmed_publication_is_required_files_changed() {
++    crate::test_scratch::settled(|| {
++        let site = site(&Spec::default());
++        let mut owner = bound(&site);
++        // Same bytes, rewritten in place: only the full sample differs.
++        std::thread::sleep(std::time::Duration::from_millis(5));
++        let path = current_path(&site);
++        let raw = fs::read(&path).unwrap();
++        fs::write(&path, &raw).unwrap();
++        let obs = observation("boot-1", 3607, "2026-10-02T01:00:00Z");
++        let refusal = read(&site, &mut owner, &fenced(false, &obs)).unwrap_err();
++        assert_eq!(refusal.row, TrustRow::RequiredFilesChanged, "{}", refusal.cause);
++        assert_eq!(refusal.row.code(), "CONFIG.CUSTODY_REFUSED");
++        assert_eq!(refusal.row.subject().as_deref(), Some("required-files-changed"));
++        assert!(owner.confirmed().is_none());
++    })
++}
++
++#[test]
++fn check_three_compares_this_holds_evaluated_or_retained_floors() {
++    crate::test_scratch::settled(|| {
++        let site = site(&Spec::default());
++        let mut owner = bound(&site);
++        // A capsule this hold retained before, whose F is ahead of the current.
++        owner.prior.push(Floors {
++            eval_high_water: Some(i64::MAX / 4),
++            ..Floors::default()
++        });
++        let obs = observation("boot-1", 3607, "2026-10-02T01:00:00Z");
++        let refusal = read(&site, &mut owner, &fenced(false, &obs)).unwrap_err();
++        assert_eq!(refusal.row, TrustRow::Rollback);
++        assert_eq!(refusal.row.code(), "CONFIG.CUSTODY_REFUSED");
++        assert_eq!(refusal.row.subject().as_deref(), Some("trust-rollback"));
++        assert!(owner.confirmed().is_none());
++        // r9: an unevaluated predecessor has no floors and is never retained
++        // for comparison, so X4B's acceptance over P0 passes check 3.
++        let p0 = Floors::of_clock(text(&site.store.p0_capsule, "clock")).unwrap();
++        assert_eq!(p0, Floors::default());
++        assert!(!Floors {
++            eval_high_water: Some(1),
++            ..Floors::default()
++        }
++        .below(&p0));
++    })
++}
++
++#[test]
++fn checks_one_and_two_compare_the_time_evidence_already_read() {
++    let retained = |f: &str, l: &str, root: i64| {
++        obj([
++            ("phase", s("retained")),
++            (
++                "record",
++                obj([
++                    ("evalHighWater", s(f)),
++                    ("lastAccepted", s(l)),
++                    ("rootVersion", integer(root)),
++                    ("revocationVersion", integer(1)),
++                    ("indexSnapshotVersion", integer(1)),
++                ]),
++            ),
++        ])
++    };
++    let floors = Floors::of_clock(&retained("2026-10-02T00:00:00Z", "2026-10-02T00:00:00Z", 2)).unwrap();
++    let evidence = |kind: &str, before: V, wall: &str| {
++        obj([
++            ("kind", s(kind)),
++            ("beforeClock", before),
++            ("observation", obj([("bootId", s("b")), ("mono", integer(1)), ("wall", s(wall))])),
++        ])
++    };
++    let ok = "2026-10-01T00:00:00Z";
++    // Check 1: retained (five floors), evaluated (F and L), unevaluated (none).
++    for (before, row) in [
++        (retained(ok, ok, 2), None),
++        (retained("2026-10-03T00:00:00Z", ok, 2), Some(TrustRow::Rollback)),
++        (retained(ok, "2026-10-03T00:00:00Z", 2), Some(TrustRow::Rollback)),
++        (retained(ok, ok, 3), Some(TrustRow::Rollback)),
++        (
++            obj([
++                ("phase", s("evaluated")),
++                (
++                    "projection",
++                    obj([("evalHighWater", s("2026-10-03T00:00:00Z")), ("lastAccepted", s(ok))]),
++                ),
++            ]),
++            Some(TrustRow::Rollback),
++        ),
++        (obj([("phase", s("unevaluated"))]), None),
++    ] {
++        let got = check_evidence_floors(&floors, &evidence("s4-evaluation", before.clone(), ok));
++        assert_eq!(got.err().map(|r| r.row), row, "{before:?}");
++    }
++    // Check 2: F at least the evaluation's wall.
++    let got = check_evidence_floors(
++        &floors,
++        &evidence("s4-evaluation", obj([("phase", s("unevaluated"))]), "2026-10-02T00:00:01Z"),
++    );
++    assert_eq!(got.unwrap_err().row, TrustRow::Rollback);
++    // An S4.5 epoch input records the one lawful lowering: not compared.
++    check_evidence_floors(
++        &floors,
++        &evidence("s4.5-epoch", retained("2027-01-01T00:00:00Z", ok, 9), "2027-01-01T00:00:00Z"),
++    )
++    .unwrap();
++}
++
++#[test]
++fn a_whole_file_restore_of_an_older_self_consistent_store_is_the_stated_limit() {
++    crate::test_scratch::settled(|| {
++        let site = site(&Spec::default());
++        let older = fs::read(current_path(&site)).unwrap();
++        let mut owner = bound(&site);
++        let obs = observation("boot-1", 3607, "2026-10-02T01:00:00Z");
++        read(&site, &mut owner, &fenced(false, &obs)).unwrap();
++        drop(owner);
++        // The older state.v1 restored (its closure never left): admitted.
++        fs::write(current_path(&site), &older).unwrap();
++        let mut restored = bound(&site);
++        assert_eq!(restored.raw(), older.as_slice());
++        let later = observation("boot-1", 7207, "2026-10-02T02:00:00Z");
++        read(&site, &mut restored, &fenced(false, &later)).unwrap();
++        // Its successor is a second descriptor in the same bucket.
++        let bucket = site
++            .root
++            .join(format!("trust/publications/by-predecessor/{}", hex(&older)));
++        assert_eq!(fs::read_dir(&bucket).unwrap().count(), 2);
++    })
++}
++
++#[test]
++fn the_protocol_admits_an_equal_record_and_refuses_a_foreign_one() {
++    crate::test_scratch::settled(|| {
++        let site = site(&Spec::default());
++        let raw = fs::read(current_path(&site)).unwrap();
++        let ino = fs::metadata(current_path(&site)).unwrap().ino();
++        let record = b"{\"x4tb\":1}".to_vec();
++        let path = site.root.join(format!("trust/records/{}", hex(&record)));
++        // A foreign file at the record's content-addressed name refuses
++        // before the pointer, which stays the same file.
++        fs::write(&path, b"{\"x4tb\":2}").unwrap();
++        fs::set_permissions(&path, Permissions::from_mode(0o600)).unwrap();
++        let mut owner = bound(&site);
++        let refused = WorkLedger::new().scope(|w| {
++            publish(
++                &site.fence,
++                &mut owner,
++                &[TrustWrite::node(Collection::Records, record.clone())],
++                &raw,
++                w,
++            )
++            .map_err(WorkFailure::Operation)
++        });
++        let Err(WorkFailure::Operation(refusal)) = refused else {
++            panic!("{refused:?}")
++        };
++        assert_eq!(refusal.row, TrustRow::Incomplete, "{}", refusal.cause);
++        assert_eq!(fs::metadata(current_path(&site)).unwrap().ino(), ino);
++        assert!(owner.confirmed().is_none());
++        // Equal bytes are equal names: admitted, then the pointer replaced.
++        fs::remove_file(&path).unwrap();
++        fs::write(&path, &record).unwrap();
++        fs::set_permissions(&path, Permissions::from_mode(0o600)).unwrap();
++        let mut owner = bound(&site);
++        WorkLedger::new()
++            .scope(|w| {
++                publish(
++                    &site.fence,
++                    &mut owner,
++                    &[TrustWrite::node(Collection::Records, record.clone())],
++                    &raw,
++                    w,
++                )
++                .map_err(WorkFailure::Operation)
++            })
++            .unwrap();
++        assert_ne!(fs::metadata(current_path(&site)).unwrap().ino(), ino);
++        assert_eq!(owner.confirmed().unwrap().raw(), raw.as_slice());
++    })
++}
++
++#[test]
++fn the_write_ahead_reserves_its_confirmation_and_a_short_ledger_writes_nothing() {
++    crate::test_scratch::settled(|| {
++        let site = site(&Spec::default());
++        let before = fs::read(current_path(&site)).unwrap();
++        let count = files(&site.root).len();
++        let mut owner = bound(&site);
++        let obs = observation("boot-1", 3607, "2026-10-02T01:00:00Z");
++        // Enough for the admission, not for the reserved publication.
++        let mut ledger = WorkLedger::with_limits(WorkCost {
++            objects: 256,
++            edges: 4096,
++            bytes: 200 * 1024,
++        })
++        .unwrap();
++        let result = ledger.scope(|work| {
++            fenced_first_read(work, &site.fence, &mut owner, &fenced(false, &obs), &invocation())
++                .map_err(WorkFailure::Operation)
++        });
++        assert!(result.is_err());
++        assert!(ledger.is_failed());
++        assert_eq!(fs::read(current_path(&site)).unwrap(), before);
++        assert_eq!(files(&site.root).len(), count, "nothing written before the reservation");
++        assert!(owner.confirmed().is_none());
++    })
++}
++
++#[test]
++fn a_reread_mode_is_not_a_fenced_first_read() {
++    crate::test_scratch::settled(|| {
++        let site = site(&Spec::default());
++        let mut owner = bound(&site);
++        let inputs = ViewInputs {
++            mode: ReadMode::Reread,
++            observation: None,
++            project_policy: None,
++            core_closure: fixture::CORE_CLOSURE,
++        };
++        assert_eq!(read(&site, &mut owner, &inputs).unwrap_err().row, TrustRow::HostIo);
++    })
++}
++
++/// A capsule of exactly `len` canonical bytes: the owner's capsule with one
++/// more namespace on TR-CORE's acceptance, padded to length. Only `publish`'s
++/// decode and closed shape see it; it is never admitted as trust.
++fn padded(raw: &[u8], len: usize) -> Vec<u8> {
++    let capsule = opensip_identity::parse_json(raw).unwrap();
++    let with = |n: usize| {
++        let mut c = object(&capsule).unwrap().clone();
++        let mut roles = object(&c["roles"]).unwrap().clone();
++        let mut core = object(&roles["TR-CORE"]).unwrap().clone();
++        let mut accepted = object(&core["accepted"]).unwrap().clone();
++        let V::Array(mut names) = accepted["namespaces"].clone() else {
++            panic!("namespaces")
++        };
++        names.push(s(&format!("z{}", "a".repeat(n))));
++        accepted.insert("namespaces".into(), V::Array(names));
++        core.insert("accepted".into(), V::Object(accepted));
++        roles.insert("TR-CORE".into(), V::Object(core));
++        c.insert("roles".into(), V::Object(roles));
++        canonical_bytes(&V::Object(c)).unwrap()
++    };
++    let base = with(0).len();
++    let out = with(len - base);
++    assert_eq!(out.len(), len);
++    out
++}
++/// One `publish` of a `len`-byte capsule beside an already present, equal
++/// `len`-byte record, on `ledger`: both exact rereads at that length.
++fn publish_at(len: usize, ledger: &mut WorkLedger) -> (Site, Result<(), TrustRefusal>, Vec<u8>) {
++    let site = site(&Spec::default());
++    let mut owner = bound(&site);
++    let capsule = padded(owner.raw(), len);
++    let record = vec![b'r'; len];
++    let path = site.root.join(format!("trust/records/{}", hex(&record)));
++    fs::write(&path, &record).unwrap();
++    fs::set_permissions(&path, Permissions::from_mode(0o600)).unwrap();
++    let result = ledger
++        .scope(|w| {
++            publish(
++                &site.fence,
++                &mut owner,
++                &[TrustWrite::node(Collection::Records, record.clone())],
++                &capsule,
++                w,
++            )
++            .map_err(WorkFailure::Operation)
++        })
++        .map_err(|e| match e {
++            WorkFailure::Operation(refusal) => refusal,
++            WorkFailure::Budget(b) => TrustRefusal {
++                row: TrustRow::Budget,
++                cause: format!("{b:?}"),
++            },
++        });
++    if result.is_ok() {
++        assert_eq!(owner.confirmed().unwrap().raw(), capsule.as_slice());
++    }
++    (site, result, capsule)
++}
++
++#[test]
++fn the_reservation_covers_both_exact_rereads_at_every_growth_boundary() {
++    crate::test_scratch::settled(|| {
++        // RF-1's lengths: each growth boundary of the reread up to the trust
++        // record parser's 131072-byte cap.
++        for len in [16384, 20480, 32768, 53248, 65536, 118784, 131072] {
++            let mut measuring = WorkLedger::new();
++            let (_, measured, _) = publish_at(len, &mut measuring);
++            measured.unwrap_or_else(|e| panic!("{len}: {e:?}"));
++            let used = measuring.used();
++            // An exactly sufficient ledger completes: the pointer moved and
++            // the owner advanced from the reread.
++            let mut exact = WorkLedger::with_limits(used).unwrap();
++            let (site, done, capsule) = publish_at(len, &mut exact);
++            done.unwrap_or_else(|e| panic!("{len} exact: {e:?}"));
++            assert_eq!(fs::read(current_path(&site)).unwrap(), capsule);
++            // One byte less refuses before any effect: the same file, and no
++            // temporary name beside it.
++            let mut short = WorkLedger::with_limits(WorkCost {
++                bytes: used.bytes - 1,
++                ..used
++            })
++            .unwrap();
++            let (site, refused, _) = publish_at(len, &mut short);
++            let before = site.store.files.iter().find(|f| f.path.ends_with("/state.v1")).unwrap();
++            assert_eq!(refused.unwrap_err().row, TrustRow::Budget, "{len}");
++            assert_eq!(fs::read(current_path(&site)).unwrap(), before.bytes);
++            let dir = current_path(&site).parent().unwrap().to_owned();
++            let names: Vec<_> = fs::read_dir(&dir)
++                .unwrap()
++                .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
++                .filter(|n| n.starts_with("state.v1"))
++                .collect();
++            assert_eq!(names, ["state.v1"], "{len}");
++        }
++    })
++}
+diff --git a/crates/security/src/trust/ordinary_targets.rs b/crates/security/src/trust/ordinary_targets.rs
+index bbed10d..713e7cf 100644
+--- a/crates/security/src/trust/ordinary_targets.rs
++++ b/crates/security/src/trust/ordinary_targets.rs
+@@ -760,6 +760,10 @@ fn prepare_captured_clock_input(
+ mod current_trust_admission {
+     include!("current_trust_admission.rs");
+ }
++#[cfg(target_os = "macos")]
++pub(crate) use current_trust_admission::ConfirmedCurrent;
++#[cfg(all(test, target_os = "macos"))]
++pub(crate) use current_trust_admission::{RetainedCurrentTrust, publish};
+ 
+ #[cfg(test)]
+ mod tests {
+diff --git a/crates/security/src/trust/proposed_time_input.rs b/crates/security/src/trust/proposed_time_input.rs
+index f16ff9b..2d93cfc 100644
+--- a/crates/security/src/trust/proposed_time_input.rs
++++ b/crates/security/src/trust/proposed_time_input.rs
+@@ -68,6 +68,58 @@ fn node(raw: &[u8]) -> V {
+         .into(),
+     )
+ }
++/// The successor S4EvaluationInputV2 for `proposal`, evaluated on the
++/// capsule `capsule` whose image is `before`, under `invocation`: its
++/// canonical record and reference. Shared by `prepare` and by law X4T r9
++/// item 7's floor publication, so one producer assembles every write's input.
++pub(super) fn assemble(
++    proposal: &crate::trust_time::OrdinaryClockProposal,
++    capsule: &V,
++    before: &V,
++    invocation: &V,
++) -> Result<(Record, V), Error> {
++    let capsule = object(capsule);
++    let input = V::Object(
++        [
++            (
++                "inputSchema".into(),
++                V::Integer(JsonInteger::new(2).unwrap()),
++            ),
++            ("kind".into(), V::String("s4-evaluation".into())),
++            (
++                "authority".into(),
++                object(&object(&capsule["heads"])["root"])["admission"].clone(),
++            ),
++            ("invocation".into(), invocation.clone()),
++            ("store".into(), capsule["store"].clone()),
++            ("beforeImage".into(), before.clone()),
++            ("beforeClock".into(), capsule["clock"].clone()),
++            (
++                "observation".into(),
++                proposal.observation().document().clone(),
++            ),
++            (
++                "source".into(),
++                V::Object(
++                    [
++                        ("kind".into(), V::String("ordinary".into())),
++                        ("closure".into(), node(proposal.inputs().closure_raw())),
++                    ]
++                    .into(),
++                ),
++            ),
++        ]
++        .into(),
++    );
++    let raw = canonical_bytes(&input).map_err(|_| Error {
++        cause: Cause::Encoding,
++    })?;
++    let record = Record::parse(RecordKind::S4EvaluationInputV2, &raw, 131072).map_err(|e| Error {
++        cause: Cause::Record(e),
++    })?;
++    let reference = node(record.raw());
++    Ok((record, reference))
++}
+ // NoWrite does not inspect an unused invocation. Every write constructs a fresh
+ // evaluation record, requiring a valid binding even when it keeps the old T.
+ pub(super) fn prepare<'a>(
+@@ -82,52 +134,12 @@ pub(super) fn prepare<'a>(
+                 _ => None,
+             };
+             let source = owner.source();
+-            let capsule = object(source.capsule());
+-            let input = V::Object(
+-                [
+-                    (
+-                        "inputSchema".into(),
+-                        V::Integer(JsonInteger::new(2).unwrap()),
+-                    ),
+-                    ("kind".into(), V::String("s4-evaluation".into())),
+-                    (
+-                        "authority".into(),
+-                        object(&object(&capsule["heads"])["root"])["admission"].clone(),
+-                    ),
+-                    ("invocation".into(), invocation.clone()),
+-                    ("store".into(), capsule["store"].clone()),
+-                    ("beforeImage".into(), source.reference().clone()),
+-                    ("beforeClock".into(), capsule["clock"].clone()),
+-                    (
+-                        "observation".into(),
+-                        owner.proposal().observation().document().clone(),
+-                    ),
+-                    (
+-                        "source".into(),
+-                        V::Object(
+-                            [
+-                                ("kind".into(), V::String("ordinary".into())),
+-                                (
+-                                    "closure".into(),
+-                                    node(owner.proposal().inputs().closure_raw()),
+-                                ),
+-                            ]
+-                            .into(),
+-                        ),
+-                    ),
+-                ]
+-                .into(),
+-            );
+-            let raw = canonical_bytes(&input).map_err(|_| Error {
+-                cause: Cause::Encoding,
+-            })?;
+-            let record =
+-                Record::parse(RecordKind::S4EvaluationInputV2, &raw, 131072).map_err(|e| {
+-                    Error {
+-                        cause: Cause::Record(e),
+-                    }
+-                })?;
+-            let reference = node(record.raw());
++            let (record, reference) = assemble(
++                owner.proposal(),
++                source.capsule(),
++                source.reference(),
++                invocation,
++            )?;
+             Ok(Plan::Write(WriteInput {
+                 evaluation: ProposedInput {
+                     owner,
+diff --git a/crates/security/src/trust/root_payload.rs b/crates/security/src/trust/root_payload.rs
+index 9ea61dd..392c9c9 100644
+--- a/crates/security/src/trust/root_payload.rs
++++ b/crates/security/src/trust/root_payload.rs
+@@ -489,6 +489,10 @@ mod ordinary_roots {
+ }
+ pub(crate) use captured_capsule_clock::CapturedImage;
+ pub(crate) use ordinary_targets::{CapturedOrdinaryInput, OrdinaryClockInput};
++#[cfg(target_os = "macos")]
++pub(crate) use ordinary_targets::ConfirmedCurrent;
++#[cfg(all(test, target_os = "macos"))]
++pub(crate) use ordinary_targets::{RetainedCurrentTrust, publish as publish_trust};
+ mod ordinary_targets {
+     use super::super::role_machine::State;
+     include!("ordinary_targets.rs");
