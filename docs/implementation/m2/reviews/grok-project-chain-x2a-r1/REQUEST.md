@@ -1,4 +1,4 @@
-REVIEWER review: X2a, the project-root chain walk, custody and birth sample, with inventory v84. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/REVIEWDIR. If you build, use a CARGO_TARGET_DIR under that directory.
+Grok review: X2a, the project-root chain walk, custody and birth sample, with inventory v84. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/grok-project-chain-x2a-r1. If you build, use a CARGO_TARGET_DIR under that directory.
 
 Law: `docs/implementation/m2/project-root-x2/PROPOSAL.md` r5 (accepted), X2a's scope per its unit list.
 
