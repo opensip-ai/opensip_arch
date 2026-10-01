@@ -1,4 +1,4 @@
-REVIEWER re-review: X3b-1a r2 (journal carrier) after Grok's r1 findings. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/REVIEWDIR. If you build, use a CARGO_TARGET_DIR under it.
+Grok re-review: X3b-1a r2 (journal carrier) after Grok's r1 findings. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/grok-journal-carrier-x3b1a-r2. If you build, use a CARGO_TARGET_DIR under it.
 
 Subject: the worktree `/Users/sb/code/opensip-ai/opensip-x3b1`, rebased onto 5b5f04c (X4T-0 integrated, inventory v87 selected). Pins are in hashes.txt. Save `git -C <worktree> diff` (new files are intent-to-add) as product.diff and report its sha256. The r1 review is `reviews/grok-journal-carrier-x3b1a-r1/`.
 
