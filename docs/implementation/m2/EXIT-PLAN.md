@@ -137,3 +137,8 @@ X1b, which refreshes `read_premise.rs` to mention the Write receipt, is therefor
 VD1 is a reviewed change to `tools/verify_design.py`. It would accept a direct override on the final inventory whose `before` equals the inherited projection's `after`, recorded as superseding that projected row. It is batched with any other stale inherited rows, and lands before the X9 exit.
 
 Rejected: changing the trust-anchor tool now for one sentence.
+
+## Pending cross-law corrections (tracked 2026-09-30)
+
+- **X2:** record X3b r2's two steps inside the single fence hold: the floor step between R0/R2 and X2d's lease, and the carrier start inside X2e before the fence is released.
+- **X4T:** item 7 must not say the carrier floor records the trust epoch. It compares against SC-TRUST's own floors (X3b r2 item 7).
