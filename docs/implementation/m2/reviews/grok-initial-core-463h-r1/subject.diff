@@ -1,0 +1,831 @@
+diff --git a/crates/security/src/trust/core_authentication.rs b/crates/security/src/trust/core_authentication.rs
+index 218828a..ffb2010 100644
+--- a/crates/security/src/trust/core_authentication.rs
++++ b/crates/security/src/trust/core_authentication.rs
+@@ -545,7 +545,21 @@ pub(super) mod tests {
+         pub(crate) profile_pin: Option<[u8; 32]>,
+         /// More `file` rows of the platform's tree, by path under the tree root.
+         pub(crate) tree_files: &'a [(&'a str, &'a [u8])],
+-    }
++        /// Law 463 r9: one listed catalog envelope per (role, seed indices);
++        /// empty lists none, as an r8 release.
++        pub(crate) catalog_signers: &'a [Signer<'a>],
++        /// One component manifest each, with its envelope's (role, seed
++        /// indices), or listed without an envelope when None.
++        pub(crate) component_signers: &'a [Option<Signer<'a>>],
++    }
++    /// An envelope's header role and the quorum62 seed indices that sign it.
++    pub(crate) type Signer<'a> = (&'a str, &'a [usize]);
++    /// The public test-only TR-INDEX and TR-COMPONENT signers (quorum62 seeds).
++    pub(crate) const INDEX_SIGNER: Signer<'static> = ("TR-INDEX", &[11, 12]);
++    pub(crate) const COMPONENT_SIGNER: Signer<'static> = ("TR-COMPONENT", &[14, 15]);
++    /// manifest268-semantic's `POS/empty-capabilities` body; the builder
++    /// varies its version per component.
++    const COMPONENT_MANIFEST: &str = r#"{"manifestSchemaVersion":1,"kind":"component","stableId":"6f1c2c3e-0b6a-4a1c-9c2d-1f0e2a3b4c5d","name":"typescript-analyzer","version":"1.0.0","role":"analyzer","commands":[{"name":"typescript-analyzer","description":"mounted root command of the TypeScript analyzer"}],"capabilities":[],"platforms":[{"os":"macos","arch":"arm64","tree":{"entries":[{"path":"bin","type":"dir","mode":"0755"},{"path":"bin/entry","type":"file","mode":"0755","length":91,"sha256":"dc854be9643a241b32c74ddd9545db6d25250f2c2cef3cb0879593fb42e381a7"},{"path":"lib","type":"dir","mode":"0755"},{"path":"lib/provider.js","type":"file","mode":"0644","length":30,"sha256":"b2c3576b7dcca113508cd56860bb2a88df4ea720c8579b75a3bd0a934016e6c0"},{"path":"runtime","type":"dir","mode":"0755"},{"path":"runtime/node","type":"file","mode":"0755","length":33,"sha256":"d2189c7fce3766cf320a8d6490afae9dd4c52218b5f751e00292cd9f9903ef5d"}]},"entrypoint":"bin/entry"}],"dependencies":[],"declarations":{"licenses":{"path":"declarations/licenses.json","sha256":"7d04ba339da1a52d73801c402049983db204aba87cf52047fc6b488b38894835"},"sbom":{"path":"declarations/sbom.json","sha256":"2f25499e7ad0bdcd26b5413a398c42ca0cf161ae8c7e2d5b2fc89768d90ee59f"},"attestation":{"path":"declarations/attestation.json","sha256":"34cdb3c6d0c1c1f39cda15e33f77879774526c298616b9cc182a5f273ae5b2b4"},"platformQualification":{"path":"declarations/platformQualification.json","sha256":"7cfad80cdd728bcd5ec49b1b17085510aa19c941315d9a11668b999681a60f34"},"capabilityParityEvidence":{"path":"declarations/capabilityParityEvidence.json","sha256":"4f134a79a5a81a364a622168ea98b748ba463664a8a256a4414a56e68bf2876f"},"performanceBaseline":{"path":"declarations/performanceBaseline.json","sha256":"f070f1cb480a4aef23c2d2a404ec7bf43a427e05e6e3b8c4c3e8069cb88d6d93"}},"permissions":[],"provenance":{"publisher":"opensip","sourceClass":"first-party"},"stateMigration":{"reserved":true,"ridesOn":["DR-124","DR-106","DR-109","DR-113"]},"updateData":{"reserved":true,"ridesOn":["DR-110","DR-112"]},"compatibility":{"manifest":1,"hostCore":{"min":"0.1.0","max":"0.2.0","includeMin":true,"includeMax":false},"control":1,"providerProtocol":1,"componentState":1}}"#;
+     impl Default for Spec<'static> {
+         fn default() -> Self {
+             Self {
+@@ -563,6 +577,8 @@ pub(super) mod tests {
+                 root_schema: 1,
+                 profile_pin: None,
+                 tree_files: &[],
++                catalog_signers: &[INDEX_SIGNER],
++                component_signers: &[Some(COMPONENT_SIGNER)],
+             }
+         }
+     }
+@@ -637,7 +653,26 @@ pub(super) mod tests {
+         );
+         files.insert("revocation.json".into(), revocation.clone());
+         files.insert("revocation.sig.json".into(), revocation_env);
+-        files.insert("catalog.json".into(), b"catalog-placeholder".to_vec());
++        // Law 463 r9: a catalog signed under TR-INDEX and component manifests
++        // signed under TR-COMPONENT, each listed with its envelopes.
++        let catalog = canonical(&format!(
++            r#"{{"catalogSchema":1,"expiresAt":"2027-04-01T00:00:00Z","issuedAt":"2026-10-01T00:00:00Z","releases":[],"reservedRootCommands":[],"revocationVersionRequired":1,"rootVersionRequired":{},"snapshotVersion":1}}"#,
++            if link { 2 } else { 1 }
++        ));
++        for (i, (role, by)) in spec.catalog_signers.iter().enumerate() {
++            let env = sign(&catalog, "catalog", "opensip.metadata.catalog.1", role, &root0, by);
++            let name = if i == 0 { "catalog.sig.json".into() } else { format!("catalog-{i}.sig.json") };
++            files.insert(name, env);
++        }
++        files.insert("catalog.json".into(), catalog);
++        for (i, signer) in spec.component_signers.iter().enumerate() {
++            let body = canonical(&COMPONENT_MANIFEST.replace("\"1.0.0\"", &format!("\"1.0.{i}\"")));
++            if let Some((role, by)) = signer {
++                let env = sign(&body, "manifest", "opensip.metadata.manifest.1", role, &root0, by);
++                files.insert(format!("component-{i}.sig.json"), env);
++            }
++            files.insert(format!("component-{i}.json"), body);
++        }
+         let member = |p: &str| {
+             format!(
+                 r#"{{"path":"{p}","sha256":"{}"}}"#,
+@@ -653,9 +688,10 @@ pub(super) mod tests {
+                 .join(",")
+         };
+         let manifest = canonical(&format!(
+-            r#"{{"issuedAt":"2026-10-01T00:00:00Z","members":{{"artifacts":[],"catalog":{},"envelopes":[{}],"manifests":[],"permissionPolicies":[],"repairMaterial":{{"ridesOn":"DR-110","standing":"absent-by-typed-absence"}},"revocation":{},"rootChain":[{}]}},"payloadKind":"ordinary","payloadSchema":1}}"#,
++            r#"{{"issuedAt":"2026-10-01T00:00:00Z","members":{{"artifacts":[],"catalog":{},"envelopes":[{}],"manifests":[{}],"permissionPolicies":[],"repairMaterial":{{"ridesOn":"DR-110","standing":"absent-by-typed-absence"}},"revocation":{},"rootChain":[{}]}},"payloadKind":"ordinary","payloadSchema":1}}"#,
+             member("catalog.json"),
+             listed(|p| p.ends_with(".sig.json")),
++            listed(|p| p.starts_with("component-") && !p.ends_with(".sig.json")),
+             member("revocation.json"),
+             listed(|p| p.starts_with("root-") && !p.ends_with(".sig.json"))
+         ));
+diff --git a/crates/security/src/trust/initial_core.rs b/crates/security/src/trust/initial_core.rs
+index 8599af1..3fe9452 100644
+--- a/crates/security/src/trust/initial_core.rs
++++ b/crates/security/src/trust/initial_core.rs
+@@ -1,4 +1,4 @@
+-// Law 463 (r3 and amendment items 1-12): the executing core's identity for
++// Law 463 (r3, amendment items 1-12 and r9): the executing core's identity for
+ // the initial creator, owner §1a step 3. The kernel-validated running image is
+ // joined to the entrypoint row of a release authenticated from the root
+ // embedded in that image. No argv, PATH, current_exe, listing or record from I.
+@@ -216,6 +216,7 @@ pub(crate) struct InitialCore {
+     platform: &'static str,
+     state_writer: StateWriter,
+     flags: u32,
++    bootstrap: BootstrapDocuments,
+ }
+ impl std::fmt::Debug for InitialCore {
+     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+@@ -239,6 +240,12 @@ impl InitialCore {
+     pub(crate) fn cdhash(&self) -> [u8; 20] {
+         self.image.cdhash()
+     }
++    /// Law 463 r9 item 2: the retained catalog pair and component-manifest
++    /// pairs, for first trust acceptance (X4B r5 item 2). Raw bytes with
++    /// their references; nothing here was verified, and nothing is granted.
++    pub(crate) fn bootstrap_documents(&self) -> &BootstrapDocuments {
++        &self.bootstrap
++    }
+     /// Re-sample the image, every judged directory and every opened file on
+     /// the attempt's ledger. A sample, not exclusion. Any refusal latches.
+     pub(crate) fn recheck(&self, attempt: &mut InitialInstallationAttempt) -> Result<(), Failure> {
+@@ -385,6 +392,58 @@ impl ReleaseFile {
+     }
+ }
+ 
++/// One listed bootstrap body and the listed envelope whose carrier stored
++/// digest equals it (law 463 r9 item 9). Unverified: InitialCore judges
++/// neither its signatures, its quorum nor its role.
++pub(crate) struct BootstrapPair {
++    body: DocumentBytes,
++    envelope: DocumentBytes,
++}
++impl BootstrapPair {
++    pub(crate) fn body(&self) -> &DocumentBytes {
++        &self.body
++    }
++    pub(crate) fn envelope(&self) -> &DocumentBytes {
++        &self.envelope
++    }
++}
++/// A retained member's manifest path (under the bootstrap directory), its raw
++/// bytes and its reference: `bytes` is the length, `sha256` the raw digest,
++/// which equals the manifest row's listed digest.
++pub(crate) struct DocumentBytes {
++    path: String,
++    raw: Arc<[u8]>,
++    sha256: [u8; 32],
++}
++impl DocumentBytes {
++    pub(crate) fn path(&self) -> &str {
++        &self.path
++    }
++    pub(crate) fn raw(&self) -> &[u8] {
++        &self.raw
++    }
++    pub(crate) fn bytes(&self) -> usize {
++        self.raw.len()
++    }
++    pub(crate) fn sha256(&self) -> [u8; 32] {
++        self.sha256
++    }
++}
++/// The catalog pair, present only when item 9 admitted its envelope, and the
++/// component-manifest pairs in `members.manifests` order.
++pub(crate) struct BootstrapDocuments {
++    catalog: Option<BootstrapPair>,
++    manifests: Vec<BootstrapPair>,
++}
++impl BootstrapDocuments {
++    pub(crate) fn catalog(&self) -> Option<&BootstrapPair> {
++        self.catalog.as_ref()
++    }
++    pub(crate) fn manifests(&self) -> &[BootstrapPair] {
++        &self.manifests
++    }
++}
++
+ /// Reopen each held directory and file by name under its retained parent,
+ /// require the same object, its exact name and its custody.
+ fn recheck_held(
+@@ -591,8 +650,9 @@ fn parse_cost(bytes: usize) -> WorkCost {
+ }
+ 
+ /// Law 463 item 2: exactly the anchor record, the inventory, payload and
+-/// index-0 root pairs, the later root-chain members, and the revocation member
+-/// with its envelope. Any other key is Missing.
++/// index-0 root pairs, the later root-chain members, the revocation member
++/// with its envelope, and (r9) the admitted catalog pair and every
++/// component-manifest pair. Any other key is Missing.
+ struct MemoryStore(BTreeMap<(Collection, [u8; 32]), Arc<[u8]>>);
+ impl M::Store for MemoryStore {
+     fn read(&mut self, _: &mut Budget, request: ReadRequest<'_>) -> Result<Arc<[u8]>, M::Error> {
+@@ -602,6 +662,77 @@ impl M::Store for MemoryStore {
+             .ok_or(M::Error::Missing)
+     }
+ }
++/// F8's rows, each a manifest path and its listed sha256.
++struct Located {
++    chain: Vec<(String, [u8; 32])>,
++    revocation: (String, [u8; 32]),
++    catalog: (String, [u8; 32]),
++    manifests: Vec<(String, [u8; 32])>,
++    envelopes: Vec<(String, [u8; 32])>,
++}
++/// F9's opens below the bootstrap directory: each subdirectory judged once,
++/// every member within `MAX_MEMBER_BYTES` together.
++struct MemberOpener {
++    bootstrap: usize,
++    memo: BTreeMap<String, usize>,
++    remaining: usize,
++    members: BTreeMap<String, Vec<u8>>,
++}
++impl MemberOpener {
++    fn open(
++        &mut self,
++        path: &str,
++        tree_root: &RetainedDirectory,
++        directories: &mut Vec<HeldDirectory>,
++        files: &mut Vec<HeldFile>,
++        work: &mut WorkScope<'_>,
++    ) -> Result<(), Failure> {
++        if self.members.contains_key(path) {
++            return Ok(());
++        }
++        let mut parent = self.bootstrap;
++        let components: Vec<&str> = work.run(PATH_COST, |_| Ok(path.split('/').collect()))?;
++        let (leaf, walk) = components
++            .split_last()
++            .expect("admitted path has a component");
++        for (depth, component) in walk.iter().enumerate() {
++            let prefix = work.run(PATH_COST, |_| Ok(walk[..=depth].join("/")))?;
++            parent = match self.memo.get(&prefix) {
++                Some(&index) => index,
++                None => {
++                    let index = judge_directory(
++                        Some(parent),
++                        directories,
++                        tree_root,
++                        component,
++                        CoreMember::Bootstrap,
++                        work,
++                    )?;
++                    self.memo.insert(prefix, index);
++                    index
++                }
++            };
++        }
++        let (file, metadata, bytes) = judge_file(
++            &directories[parent].directory,
++            leaf,
++            CoreMember::Member,
++            self.remaining,
++            work,
++        )?;
++        self.remaining -= bytes.len();
++        files.push(HeldFile {
++            parent: Some(parent),
++            name: (*leaf).into(),
++            file,
++            metadata,
++            member: CoreMember::Member,
++        });
++        self.members.insert(path.to_owned(), bytes);
++        Ok(())
++    }
++}
++
+ /// One map node per stored key: the key, the shared pointer and tree links.
+ const STORE_ENTRY: WorkCost = WorkCost {
+     objects: 1,
+@@ -783,8 +914,9 @@ fn produce_in(
+     }
+     let [inventory, inventory_env, payload, payload_env]: [Vec<u8>; 4] =
+         raw.try_into().expect("four fixed files");
+-    // F8: the locator. Nothing here is authenticated yet.
+-    let (chain, revocation, envelopes) = work.run(parse_cost(payload.len()), |_| {
++    // F8: the locator. Nothing here is authenticated yet. (r9) It also takes
++    // `members.catalog` and `members.manifests`.
++    let located = work.run(parse_cost(payload.len()), |_| {
+         let manifest = super::super::metadata::parse(&payload)
+             .map_err(|_| WorkFailure::Operation(R::BootstrapLocator))?;
+         Paths::admit(&manifest).map_err(|_| WorkFailure::Operation(R::BootstrapLocator))?;
+@@ -797,96 +929,111 @@ fn produce_in(
+                 decode_hex32(string(&row["sha256"]).expect("admitted")).expect("admitted"),
+             )
+         };
+-        let chain: Vec<_> = array(&m["rootChain"])
+-            .expect("admitted")
+-            .iter()
+-            .map(row)
+-            .collect();
+-        let envelopes: Vec<_> = array(&m["envelopes"])
+-            .expect("admitted")
+-            .iter()
+-            .map(row)
+-            .collect();
++        let rows = |key: &str| -> Vec<_> {
++            array(&m[key])
++                .expect("admitted")
++                .iter()
++                .map(row)
++                .collect()
++        };
++        let chain = rows("rootChain");
++        let envelopes = rows("envelopes");
++        let manifests = rows("manifests");
+         operation(
+-            chain.len() + 1 + envelopes.len() <= MAX_MEMBERS,
+-            (chain, row(&m["revocation"]), envelopes),
++            chain.len() + 1 + manifests.len() + envelopes.len() <= MAX_MEMBERS,
++            Located {
++                chain,
++                revocation: row(&m["revocation"]),
++                catalog: row(&m["catalog"]),
++                manifests,
++                envelopes,
++            },
+             R::BootstrapLocator,
+         )
+     })?;
++    let Located {
++        chain,
++        revocation,
++        catalog,
++        manifests,
++        envelopes,
++    } = located;
+     // F9: each member by no-follow opens under the bootstrap directory; its
+-    // subdirectories are judged once each.
+-    let mut memo: BTreeMap<String, usize> = BTreeMap::new();
+-    let mut remaining = MAX_MEMBER_BYTES;
+-    let mut members: BTreeMap<String, Vec<u8>> = BTreeMap::new();
++    // subdirectories are judged once each. The listed envelopes are all
++    // loaded before any selection (item 9).
++    let mut opener = MemberOpener {
++        bootstrap,
++        memo: BTreeMap::new(),
++        remaining: MAX_MEMBER_BYTES,
++        members: BTreeMap::new(),
++    };
+     for (path, _) in chain.iter().chain([&revocation]).chain(&envelopes) {
+-        if members.contains_key(path) {
+-            continue;
+-        }
+-        let mut parent = bootstrap;
+-        let components: Vec<&str> = work.run(PATH_COST, |_| Ok(path.split('/').collect()))?;
+-        let (leaf, walk) = components
+-            .split_last()
+-            .expect("admitted path has a component");
+-        for (depth, component) in walk.iter().enumerate() {
+-            let prefix = work.run(PATH_COST, |_| Ok(walk[..=depth].join("/")))?;
+-            parent = match memo.get(&prefix) {
+-                Some(&index) => index,
+-                None => {
+-                    let index = judge_directory(
+-                        Some(parent),
+-                        &mut directories,
+-                        &tree_root,
+-                        component,
+-                        CoreMember::Bootstrap,
+-                        work,
+-                    )?;
+-                    memo.insert(prefix, index);
+-                    index
+-                }
+-            };
+-        }
+-        let (file, metadata, bytes) = judge_file(
+-            &directories[parent].directory,
+-            leaf,
+-            CoreMember::Member,
+-            remaining,
+-            work,
+-        )?;
+-        remaining -= bytes.len();
+-        files.push(HeldFile {
+-            parent: Some(parent),
+-            name: (*leaf).into(),
+-            file,
+-            metadata,
+-            member: CoreMember::Member,
+-        });
+-        members.insert(path.clone(), bytes);
++        opener.open(path, &tree_root, &mut directories, &mut files, work)?;
+     }
+-    // Item 9: the listed envelopes pair one-to-one, by carrier stored digest,
+-    // with the root-chain bodies and the revocation body.
+-    let mut bodies: BTreeSet<[u8; 32]> = chain.iter().map(|(_, d)| *d).collect();
+-    bodies.insert(revocation.1);
+-    operation(
+-        bodies.len() == chain.len() + 1 && envelopes.len() == bodies.len(),
+-        (),
+-        R::BootstrapEnvelopeSet,
+-    )?;
+-    let mut index_zero = None;
++    // Item 9 (r9): the listed envelopes pair one-to-one, by carrier stored
++    // digest, with the root-chain bodies, the revocation body, every
++    // component-manifest body, and the catalog body only when one listed
++    // envelope's stored digest equals it. Which role signed is not judged.
++    let mut stored = Vec::new();
+     for (path, _) in &envelopes {
+-        let raw = &members[path];
+-        let stored = work.run(parse_cost(raw.len()), |_| {
++        let raw = &opener.members[path];
++        stored.push(work.run(parse_cost(raw.len()), |_| {
+             let value = super::super::metadata::parse(raw)
+                 .map_err(|_| WorkFailure::Operation(R::BootstrapEnvelopeSet))?;
+             verified_envelopes::parse_carrier(&value)
+                 .map(|carrier| carrier.stored_digest())
+                 .map_err(|_| WorkFailure::Operation(R::BootstrapEnvelopeSet))
+-        })?;
+-        operation(bodies.remove(&stored), (), R::BootstrapEnvelopeSet)?;
+-        if stored == chain[0].1 {
+-            index_zero = Some(path);
+-        }
++        })?);
++    }
++    let catalog_admitted = stored.contains(&catalog.1);
++    let mut bodies: BTreeSet<[u8; 32]> = chain.iter().map(|(_, d)| *d).collect();
++    bodies.insert(revocation.1);
++    bodies.extend(manifests.iter().map(|(_, d)| *d));
++    if catalog_admitted {
++        bodies.insert(catalog.1);
++    }
++    let listed = chain.len() + 1 + manifests.len() + usize::from(catalog_admitted);
++    operation(
++        bodies.len() == listed && envelopes.len() == bodies.len(),
++        (),
++        R::BootstrapEnvelopeSet,
++    )?;
++    // Each body digest's envelope, by index into `envelopes`.
++    let mut paired: BTreeMap<[u8; 32], usize> = BTreeMap::new();
++    for (index, digest) in stored.iter().enumerate() {
++        operation(bodies.remove(digest), (), R::BootstrapEnvelopeSet)?;
++        paired.insert(*digest, index);
++    }
++    // The admitted catalog body counts toward the same member bound. Under the
++    // bijection F8's bound already implies it; it is stated here.
++    operation(
++        listed + envelopes.len() <= MAX_MEMBERS,
++        (),
++        R::BootstrapLocator,
++    )?;
++    // F9 (r9): the component-manifest bodies, then the admitted catalog body,
++    // by the same opens, custody judgment and byte bound. An unadmitted
++    // catalog is never opened.
++    let catalog = catalog_admitted.then_some(catalog);
++    for (path, _) in manifests.iter().chain(&catalog) {
++        opener.open(path, &tree_root, &mut directories, &mut files, work)?;
+     }
+-    let index_zero = &members[index_zero.expect("one-to-one pairing covers index 0")];
++    let MemberOpener { mut members, .. } = opener;
++    // A retained pair is keyed as the store keys it: each body and its
++    // envelope hash to their listed digests.
++    for (path, digest) in manifests.iter().chain(&catalog).chain(
++        manifests
++            .iter()
++            .chain(&catalog)
++            .map(|(_, body)| &envelopes[paired[body]]),
++    ) {
++        operation(
++            raw_sha256(&members[path]) == *digest,
++            (),
++            R::BootstrapEnvelopeSet,
++        )?;
++    }
++    let index_zero = &members[&envelopes[paired[&chain[0].1]].0];
+     let root_body = &members[&chain[0].0];
+     // F11: the anchor record from the retained raw pairs (items 2 and 3).
+     let closure = work.run(parse_cost(inventory.len()), |_| {
+@@ -930,32 +1077,73 @@ fn produce_in(
+         Ok((reference(&record), record))
+     })?;
+     let (anchor_ref, record) = record;
+-    // F10: the in-memory store, item 2 exactly.
+-    let mut entries = vec![(Collection::Records, record)];
+-    for raw in [inventory, inventory_env, payload, payload_env] {
+-        entries.push((Collection::Objects, raw));
+-    }
+-    for (path, _) in chain.iter().chain([&revocation]).chain(&envelopes) {
+-        if let Some(raw) = members.remove(path) {
+-            entries.push((Collection::Objects, raw));
+-        }
+-    }
++    // F10: the in-memory store, item 2 exactly. The r9 pairs share their
++    // stored bytes with the retained documents.
+     let mut store = MemoryStore(BTreeMap::new());
+-    for (collection, raw) in entries {
+-        let bytes = raw.len();
++    let mut insert = |collection: Collection, raw: Vec<u8>, work: &mut WorkScope<'_>| {
+         work.run(
+             WorkCost {
+-                bytes: STORE_ENTRY.bytes + bytes,
++                bytes: STORE_ENTRY.bytes + raw.len(),
+                 ..STORE_ENTRY
+             },
+             |_| {
+-                store
+-                    .0
+-                    .insert((collection, raw_sha256(&raw)), Arc::from(raw));
+-                Ok(())
++                let raw: Arc<[u8]> = Arc::from(raw);
++                store.0.insert((collection, raw_sha256(&raw)), raw.clone());
++                Ok(raw)
+             },
+-        )?;
++        )
++    };
++    insert(Collection::Records, record, work)?;
++    for raw in [inventory, inventory_env, payload, payload_env] {
++        insert(Collection::Objects, raw, work)?;
+     }
++    let mut retained: BTreeMap<String, Arc<[u8]>> = BTreeMap::new();
++    let r9_paths = manifests.iter().chain(&catalog).map(|(path, body)| {
++        (path, &envelopes[paired[body]].0)
++    });
++    let r9: BTreeSet<&String> = r9_paths.clone().flat_map(|(b, e)| [b, e]).collect();
++    for (path, _) in chain
++        .iter()
++        .chain([&revocation])
++        .chain(&envelopes)
++        .chain(&manifests)
++        .chain(&catalog)
++    {
++        if let Some(raw) = members.remove(path) {
++            let raw = insert(Collection::Objects, raw, work)?;
++            if r9.contains(path) {
++                retained.insert(path.clone(), raw);
++            }
++        }
++    }
++    // The retained pairs: one vector, and two path copies per pair.
++    let pairs = manifests.len() + usize::from(catalog.is_some());
++    let documents = work.run(
++        WorkCost {
++            objects: 1 + 2 * pairs,
++            edges: 0,
++            bytes: pairs * (std::mem::size_of::<BootstrapPair>() + 2 * PATH_COST.bytes),
++        },
++        |_| {
++            let document = |path: &String| DocumentBytes {
++                path: path.clone(),
++                sha256: raw_sha256(&retained[path]),
++                raw: retained[path].clone(),
++            };
++            let mut pairs: Vec<BootstrapPair> = r9_paths
++                .map(|(body, envelope)| BootstrapPair {
++                    body: document(body),
++                    envelope: document(envelope),
++                })
++                .collect();
++            let catalog = catalog.is_some().then(|| pairs.pop().expect("chained last"));
++            Ok(BootstrapDocuments {
++                catalog,
++                manifests: pairs,
++            })
++        },
++    )?;
++    drop(retained);
+     // F12: TR-CORE, TR-BUNDLE and the embedded revocation (items 4, 5).
+     let release = {
+         let mut budget = Budget::borrowed(work);
+@@ -1035,6 +1223,7 @@ fn produce_in(
+         platform,
+         state_writer,
+         flags,
++        bootstrap: documents,
+     };
+     core.recheck_in(work)?;
+     Ok(core)
+diff --git a/crates/security/src/trust/initial_core_tests.rs b/crates/security/src/trust/initial_core_tests.rs
+index d32dc16..76b8975 100644
+--- a/crates/security/src/trust/initial_core_tests.rs
++++ b/crates/security/src/trust/initial_core_tests.rs
+@@ -1,6 +1,8 @@
+ use super::super::core_anchor::BindingError;
+ use super::super::core_authentication::AuthenticationError;
+-use super::super::core_authentication::tests::{Signed, Spec, signed_release};
++use super::super::core_authentication::tests::{
++    COMPONENT_SIGNER, INDEX_SIGNER, Signed, Signer, Spec, signed_release,
++};
+ use super::super::core_release_embedding::EmbeddedRootBinding;
+ use super::*;
+ use opensip_platform::WorkLedger;
+@@ -273,10 +275,12 @@ fn a_signed_tree_yields_the_closure_k_and_a_rechecked_receipt() {
+         assert_eq!((core.platform(), core.cdhash()), (platform(), [0; 20]));
+         assert_eq!(core.flags, 0x0001_0301);
+         // core and bin; trust and trust/bootstrap; the inventory and payload
+-        // pairs and six members (two roots, revocation, three envelopes).
++        // pairs and ten members (two roots, revocation, component manifest,
++        // catalog, five envelopes).
+         assert_eq!(core.tree.len(), 2);
+         assert_eq!(core.directories.len(), 2);
+-        assert_eq!(core.files.len(), 2 + 2 + 6);
++        assert_eq!(core.files.len(), 2 + 2 + 10);
++        assert_retained(&core, &tree, Some("catalog.sig.json"), 1);
+         assert!(format!("{core:?}").starts_with("InitialCore"));
+         let produced = attempt.used();
+         core.recheck(&mut attempt).unwrap();
+@@ -466,21 +470,237 @@ fn custody_refuses_an_omitted_acl_group_write_links_and_symlinks() {
+     ));
+ }
+ 
++/// Law 463 r9 item 2: the retained pairs are the tree's bytes with their
++/// references; the catalog pair names `catalog` when admitted, and the
++/// component-manifest pairs follow `members.manifests` order.
++fn assert_retained(
++    core: &InitialCore,
++    tree: &Tree,
++    catalog: Option<&str>,
++    components: usize,
++) {
++    let documents = core.bootstrap_documents();
++    let check = |document: &DocumentBytes, name: &str| {
++        let raw = &tree.signed.bootstrap[name];
++        assert_eq!(document.path(), name);
++        assert_eq!(document.raw(), raw.as_slice());
++        assert_eq!(document.bytes(), raw.len());
++        assert_eq!(document.sha256(), raw_sha256(raw));
++    };
++    match (documents.catalog(), catalog) {
++        (Some(pair), Some(envelope)) => {
++            check(pair.body(), "catalog.json");
++            check(pair.envelope(), envelope);
++        }
++        (None, None) => {}
++        (got, want) => panic!("catalog {:?} want {want:?}", got.map(|p| p.body().path())),
++    }
++    assert_eq!(documents.manifests().len(), components);
++    for (i, pair) in documents.manifests().iter().enumerate() {
++        check(pair.body(), &format!("component-{i}.json"));
++        check(pair.envelope(), &format!("component-{i}.sig.json"));
++    }
++}
++fn produced(tree: &Tree) -> InitialCore {
++    let release = tree.release(STANDARD.0, STANDARD.1);
++    let (core, mut attempt) = produce(&release, &tree.exe(), 1);
++    let core = core.unwrap();
++    core.recheck(&mut attempt).unwrap();
++    core
++}
++
+ #[test]
+-fn the_listed_envelopes_are_exactly_the_chain_and_revocation_envelopes() {
++fn the_bootstrap_may_carry_a_catalog_and_component_manifests_or_neither() {
++    let two = [Some(COMPONENT_SIGNER), Some(COMPONENT_SIGNER)];
++    let case = |catalog_signers: &'static [Signer<'static>], component_signers| Spec {
++        catalog_signers,
++        component_signers,
++        ..spec()
++    };
++    // Each release and the bootstrap members InitialCore opens.
++    let cases = [
++        // Both, with two component manifests.
++        (case(&[INDEX_SIGNER], &two), 12),
++        // Neither: the r8 shape. The catalog body is never opened.
++        (case(&[], &[]), 6),
++        // A catalog and no component manifest.
++        (case(&[INDEX_SIGNER], &[]), 8),
++        // Component manifests and no catalog envelope.
++        (case(&[], &two), 10),
++    ];
++    for (i, (release, members)) in cases.iter().enumerate() {
++        let (catalog_signers, component_signers) =
++            (release.catalog_signers, release.component_signers);
++        let tree = Tree::new(&format!("r9-{i}"), release, None);
++        let core = produced(&tree);
++        assert_eq!(core.files.len(), 2 + 2 + members, "case {i}");
++        let catalog = (!catalog_signers.is_empty()).then_some("catalog.sig.json");
++        assert_retained(&core, &tree, catalog, component_signers.len());
++    }
++    // An unadmitted catalog is not opened: removing it changes nothing
++    // InitialCore reads.
+     let tree = Tree::new(
+-        "envelopes",
++        "r9-unopened",
+         &Spec {
+-            extra_envelope: true,
++            catalog_signers: &[],
++            component_signers: &[],
+             ..spec()
+         },
+         None,
+     );
+-    let release = tree.release(STANDARD.0, STANDARD.1);
+-    assert!(matches!(
+-        refused(&tree, &release, 1),
+-        R::BootstrapEnvelopeSet
+-    ));
++    fs::remove_file(tree.core.join("trust/bootstrap/catalog.json")).unwrap();
++    assert!(produced(&tree).bootstrap_documents().catalog().is_none());
++}
++
++#[test]
++fn which_keys_signed_a_catalog_or_component_envelope_are_not_judged() {
++    // Pairing is by stored digest only (item 9); X4B judges signatures,
++    // quorums and roles. Each header names its routed role, signed here by
++    // the other role's keys.
++    let tree = Tree::new(
++        "r9-roles",
++        &Spec {
++            catalog_signers: &[("TR-INDEX", &[14, 15])],
++            component_signers: &[Some(("TR-COMPONENT", &[11, 12]))],
++            ..spec()
++        },
++        None,
++    );
++    assert_retained(&produced(&tree), &tree, Some("catalog.sig.json"), 1);
++    // A header whose role is not its kind's route is a malformed carrier,
++    // which the existing manifest index refuses for every listed envelope.
++    let tree = Tree::new(
++        "r9-route",
++        &Spec {
++            catalog_signers: &[COMPONENT_SIGNER],
++            ..spec()
++        },
++        None,
++    );
++    let refusal = refused(&tree, &tree.release(STANDARD.0, STANDARD.1), 1);
++    assert!(
++        matches!(
++            refusal,
++            R::Release(ReleaseError::Authentication(AuthenticationError::Core(
++                BindingError::Budget(M::Error::Route)
++            )))
++        ),
++        "{refusal:?}"
++    );
++}
++
++#[test]
++fn the_listed_envelopes_pair_one_to_one_with_the_r9_body_set() {
++    let refuses = |tag: &str, spec: Spec<'_>| {
++        let tree = Tree::new(tag, &spec, None);
++        let refusal = refused(&tree, &tree.release(STANDARD.0, STANDARD.1), 1);
++        assert!(matches!(refusal, R::BootstrapEnvelopeSet), "{tag}: {refusal:?}");
++    };
++    // A second envelope over the index-0 root body.
++    refuses(
++        "envelopes",
++        Spec {
++            extra_envelope: true,
++            ..spec()
++        },
++    );
++    // A second catalog envelope.
++    refuses(
++        "envelopes-catalog",
++        Spec {
++            catalog_signers: &[INDEX_SIGNER, ("TR-INDEX", &[12, 13])],
++            ..spec()
++        },
++    );
++    // A component manifest without its envelope, alone or beside a paired one.
++    refuses(
++        "envelopes-component",
++        Spec {
++            component_signers: &[None],
++            ..spec()
++        },
++    );
++    refuses(
++        "envelopes-component-2",
++        Spec {
++            component_signers: &[Some(COMPONENT_SIGNER), None],
++            ..spec()
++        },
++    );
++    // A retained body or envelope that is not the listed bytes.
++    for name in [
++        "component-0.json",
++        "component-0.sig.json",
++        "catalog.json",
++        "catalog.sig.json",
++    ] {
++        let tree = Tree::new("envelopes-bytes", &spec(), None);
++        let path = tree.core.join("trust/bootstrap").join(name);
++        let mut raw = fs::read(&path).unwrap();
++        raw.push(b'\n');
++        fs::write(&path, raw).unwrap();
++        let refusal = refused(&tree, &tree.release(STANDARD.0, STANDARD.1), 1);
++        assert!(matches!(refusal, R::BootstrapEnvelopeSet), "{name}: {refusal:?}");
++    }
++}
++
++#[test]
++fn the_r9_members_stay_within_the_member_bound() {
++    // Two roots, the revocation, 62 component manifests and their 65
++    // envelopes are 130 members; one more component manifest refuses.
++    for (count, admitted) in [(62, true), (63, false)] {
++        let signers = vec![Some(COMPONENT_SIGNER); count];
++        let tree = Tree::new(
++            "r9-bound",
++            &Spec {
++                catalog_signers: &[],
++                component_signers: &signers,
++                ..spec()
++            },
++            None,
++        );
++        let release = tree.release(STANDARD.0, STANDARD.1);
++        let (core, _attempt) = produce(&release, &tree.exe(), 1);
++        match core {
++            Ok(core) => {
++                assert!(admitted);
++                assert_eq!(core.files.len(), 2 + 2 + MAX_MEMBERS);
++                assert_eq!(core.bootstrap_documents().manifests().len(), count);
++            }
++            Err(WorkFailure::Operation(R::BootstrapLocator)) => assert!(!admitted),
++            Err(other) => panic!("{count}: {other:?}"),
++        }
++    }
++}
++
++#[test]
++fn the_recheck_reaches_the_r9_members() {
++    for name in ["component-0.sig.json", "catalog.json"] {
++        let tree = Tree::new("r9-recheck", &spec(), None);
++        let release = tree.release(STANDARD.0, STANDARD.1);
++        let (core, mut attempt) = produce(&release, &tree.exe(), 1);
++        let core = core.unwrap();
++        let path = tree.core.join("trust/bootstrap").join(name);
++        fs::set_permissions(&path, fs::Permissions::from_mode(0o664)).unwrap();
++        assert!(matches!(
++            core.recheck(&mut attempt),
++            Err(WorkFailure::Operation(R::Custody(
++                CoreMember::Member,
++                Refusal::GroupWrite
++            )))
++        ));
++    }
++    // An r9 member is judged by the core-tree custody predicate when opened.
++    let tree = Tree::new(
++        "r9-acl",
++        &spec(),
++        Some("trust/bootstrap/component-0.json"),
++    );
++    let refusal = refused(&tree, &tree.release(STANDARD.0, STANDARD.1), 1);
++    assert!(
++        matches!(refusal, R::Custody(CoreMember::Member, Refusal::AclUnreadable)),
++        "{refusal:?}"
++    );
+ }
+ 
+ #[test]
