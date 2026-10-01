@@ -1,6 +1,6 @@
-# Project-root custody, project admission and first registration — proposal X2 r4
+# Project-root custody, project admission and first registration — proposal X2 r3
 
-2026-09-30. Claude Opus 5.5, implementation lead. Law for unit X2 of EXIT-PLAN.md, under owner.md §1b, §5, §7 and §8; the selected project registry owner (`project-registry-owner-selection-v2/owner.md`); the security contract S3 (discovery and custody), S7 (locks and leases) and S12; identity-and-evidence §2 and §5; and laws 458 (§3 and §5), 458b, 462, 465 item 4, 468 r5, 458c r6, 461 r3 (item 9, which requires this law) and X1. Every choice here is a lead decision, made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation; each is dated and names the alternative it rejects. r2 answers Codex X2 r1 RF-1 to RF-7 against product f7acb6d (X1a integrated). r1 bytes are preserved in PROPOSAL-r1.md. r3 answers Codex X2 r2 RF-1 to RF-4, and r2 bytes are preserved in PROPOSAL-r2.md. r4 answers Grok X2 r3 RF-1 to RF-3, and r3 bytes are preserved in PROPOSAL-r3.md. Not code. Library only: CLI enablement is X11.
+2026-09-30. Claude Opus 5.5, implementation lead. Law for unit X2 of EXIT-PLAN.md, under owner.md §1b, §5, §7 and §8; the selected project registry owner (`project-registry-owner-selection-v2/owner.md`); the security contract S3 (discovery and custody), S7 (locks and leases) and S12; identity-and-evidence §2 and §5; and laws 458 (§3 and §5), 458b, 462, 465 item 4, 468 r5, 458c r6, 461 r3 (item 9, which requires this law) and X1. Every choice here is a lead decision, made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation; each is dated and names the alternative it rejects. r2 answers Codex X2 r1 RF-1 to RF-7 against product f7acb6d (X1a integrated). r1 bytes are preserved in PROPOSAL-r1.md. r3 answers Codex X2 r2 RF-1 to RF-4, and r2 bytes are preserved in PROPOSAL-r2.md. Not code. Library only: CLI enablement is X11.
 
 ## Problem
 
@@ -26,10 +26,7 @@ Without the premise, no project root can be admitted. Without an admitted root, 
      - the directories S3's walk examines from the launch directory up to the selected root;
      - `.opensip/` when it exists, as a project directory;
      - the project's custody-checked files: the S3 config file and, when unit discovery lands, the workspace marker files;
-     - the Git tracking evidence of item 6a, and nothing else under `.git`: each enclosing repository's `.git` directory, its `config` file and its `index` file;
-     - item 6a's fixed global Git configuration files under H, `H/.gitconfig` and `H/.config/git/config`, with the directories `H/.config` and `H/.config/git`. Each must be owned by the invoking user, with no group or other write, and one link for files.
-       - Lead decision: these usually omit the ACL. Refusing on omission would break every user who has a global Git config, while the premise's fact (no ACL stored) is the same on H's volume.
-     - item 6a's fixed system Git configuration files, with every directory from `/` to them, but only when each object is on H's volume (`is_home_filesystem`). Each must be owned by root, with no group or other write, and one link for files. An object not on H's volume must carry a readable ACL, or it refuses.
+     - the Git tracking evidence of item 6a, and nothing else under `.git`: each enclosing repository's `.git` directory, its `config` file and its `index` file.
        - Each is admitted only through its own retained no-follow descriptor, under the same premise and H-volume constraints.
        - Only a `.git` strictly below H counts, so the H-exclusive rule above still holds.
        - The lookups item 6a makes for names that must be absent (`commondir`, `config.worktree`) are custody-free negative lookups. Those names are never admitted as objects.
@@ -99,7 +96,7 @@ Without the premise, no project root can be admitted. Without an admitted root, 
    - **The old name.** X2 requires positive no-follow absence of `project-registry.v1` under the retained I, and retains that observation.
    - **Rechecks.** Both the registry's full metadata sample and the v1 absence join item 3's recheck set, so an in-place rewrite of the registry fails the recheck.
    - **Unavailable, never empty.** A missing, unreadable, oversized or malformed registry, or a present or unreadable v1, is unavailable on the host I/O row or the incomplete row, never an empty registry.
-   - **One read per admission.** Later consumers in the same admission never read the registry again. They use the current registry owner R of item 6: R0, this capture, for classification and for an Eligible root; R1 and then R2 after a first registration (item 6, item 7 and the item 7a handoff).
+   - **One read per admission.** Later consumers in the same admission (classification, item 6, item 7 and the item 7a handoff) use this capture and never read the registry again.
    - **Owner.** X2b owns this producer and its budget.
 
 6. **First registration** follows the registry owner's ordinary first-use sequence exactly, under X1's `OrdinaryWriteAdmission` (f7acb6d), or under the creator's `AdmittedInstallation` from 468c, inside the same held fence. It needs a FirstUseCandidate (item 4) with item 6a's untracked observation.
@@ -115,7 +112,7 @@ Without the premise, no project root can be admitted. Without an admitted root, 
    Each effect reserves its own post-effect confirmation work before it runs (467 item 6). Any failed or uncertain step latches, with no later registration step, no retry and no deletion.
 
    **The registry replacement primitive.** It is used for both RESERVED and ACTIVE, and is not a no-replace publication:
-   1. Reconfirm the current registry owner R (item 6's rule: R0 before RESERVED, R1 before ACTIVE) by its retained descriptor and full metadata sample, together with its parent I. The original capture R0 is never reconfirmed after RESERVED is confirmed.
+   1. Reconfirm the exact predecessor registry file (item 5's full sample) and its parent I.
    2. Construct the complete canonical replacement document, and validate it with the same decoder.
    3. Write it to a fresh same-directory temporary name, created exclusively. Barrier that file (`F_FULLFSYNC`, the receipt's policy), and confirm it by identity and exact bytes.
    4. Atomically replace `project-registry.v2` with the temporary file (`rename`, replacing the predecessor).
@@ -166,48 +163,26 @@ Without the premise, no project root can be admitted. Without an admitted root, 
      - a `.git` at or above H, or off H's volume (outside item 1's scope).
    - **Every enclosing repository.** Every enclosing `.git` directory is examined, not just the nearest. An inner repository does not prove that an outer index is clear.
    - **The admitted layout, for each repository.** The worktree root must be the `.git` directory's parent. That is proved, not inferred from the spelling, by all of the following:
-     - **Effective configuration (lead decision).** M2 reads exactly Git's fixed configuration sources that can change the worktree root, bareness or path interpretation, and refuses anything it cannot bound. It does not model Git's configuration semantics.
-       - **Sources, all read:**
-         - **system:** `/etc/gitconfig`, `/Library/Developer/CommandLineTools/usr/share/git-core/gitconfig`, `/Applications/Xcode.app/Contents/Developer/usr/share/git-core/gitconfig`, `/opt/homebrew/etc/gitconfig` and `/usr/local/etc/gitconfig`. These are the documented default system paths of the Apple and Homebrew Git builds;
-         - **global:** `H/.config/git/config` and `H/.gitconfig`, where H is the account database's home and never `$HOME`;
-         - **repository:** the repository's own `config`.
-       - **How they're read.** Each is opened no-follow, through a charged retained walk under item 1's custody, and capped at 64 KiB. Each is either positively absent (except the repository `config`, whose absence refuses) or admitted and parsed. The union of all present sources is checked.
-       - **The closed parse.** Sections, subsections, `key = value` lines, comments, and quoted values without line continuations. Section and key names are compared ASCII case-insensitively, as Git does; subsection names are compared exactly. Anything outside the subset refuses.
-       - **Refusals (`vcs-unsupported`).** In any source:
-         - an `include` or `includeIf` section, in any case;
-         - any `core.worktree`;
-         - `core.bare` set to anything but false;
-         - any `extensions.*` key;
-         - `core.repositoryformatversion` other than `0`;
-         - `core.precomposeunicode` set to false;
-         - any value the parse cannot bound.
-
-         Version 0 means SHA-1 object names, so SHA-256 field widths never arise.
-     - **The process environment.** Git honours environment variables that relocate or redirect the repository, worktree, index or configuration. If OpenSIP's own process environment holds any variable whose name starts with `GIT_`, or `XDG_CONFIG_HOME`, or a `HOME` different from H's spelling, the observation refuses as `vcs-unsupported`.
-       - **Not an override.** The environment is read only to refuse, never to select a path, a root or a configuration source. So this is not an override of I or H under owner §1a, whose prohibition is on selecting from the environment.
+     - **The `config` file.** It is read no-follow, under custody (item 1), charged, and capped at 64 KiB. It must parse completely under a closed subset of the Git config syntax: sections, subsections, `key = value` lines, comments, and quoted values without line continuations. Anything the parser cannot bound refuses.
+       - `core.repositoryformatversion` must be absent or `0`. A version-0 repository uses SHA-1 object names, and Git ignores `extensions.*` there. Version 1, or any `extensions.objectFormat`, refuses, so SHA-256 field widths never arise.
+       - `core.bare` must be absent or false.
+       - `core.worktree` must be absent.
+       - There may be no `[include]` or `[includeIf …]` section.
      - **Linked worktrees.** `commondir` and `config.worktree` must be positively absent from the `.git` directory, which excludes linked worktrees and per-worktree config.
-     - **Known limit (disclosed).** A Git build that uses another system configuration path is outside this fixed list. M2 claims tracking evidence only relative to the listed standard installations.
+     - **A missing config** refuses.
    - **The index, for each repository.**
-     - **Read.** Read `index` no-follow, under custody (item 1), charged, at most 4 MiB.
-     - **Integrity.** The trailing 20-byte SHA-1 over the preceding bytes must match.
-     - **Header.** The signature must be `DIRC`, and the version 2, 3 or 4. The entry count gives exactly the entries that follow, with every byte consumed. Each entry hash is 20 bytes (SHA-1, as version 0 requires).
-     - **Entries, exactly as Git's index-format documentation specifies.** Each entry has the 62-byte fixed part (ctime, mtime, dev, ino, mode, uid, gid, size, 20-byte object name, 16-bit flags), followed by:
-       - **version 3, with the extended flag (0x4000) set:** a 16-bit extended-flags field before the path. Version 2 with that flag set refuses;
-       - **versions 2 and 3:** the NUL-terminated path, then 1 to 8 NUL bytes of padding, so that the entry length is a multiple of 8. The flags' 12-bit name length must equal the path length, or be 0xFFF when the path is 0xFFF bytes or longer;
-       - **version 4:** a variable-width integer N, the number of bytes to remove from the end of the previous entry's path, using Git's offset encoding (`value = b & 0x7f`, then, while `b & 0x80`: `value = ((value + 1) << 7) | (next & 0x7f)`). Then the NUL-terminated suffix, with no padding. N greater than the previous path's length refuses, and the first entry's previous path is empty.
-     - **Extensions.** Each extension (4-byte signature, 32-bit size) is skipped by its size. A `link` (split index) or `sdir` (sparse directory) extension refuses. So does any unknown extension whose signature starts with a lowercase letter, since Git calls those required.
+     - **Format.** Read `index` no-follow, under custody (item 1), charged, at most 4 MiB. It must be index version 2, 3 or 4, with 20-byte SHA-1 entry hashes (the version-0 format above), and no split-index (`link`) or sparse-directory extension. Otherwise it refuses.
      - **No index.** A positively absent `index` means no tracked paths in that repository.
-     - **The path.** The marker's path relative to that repository's worktree root is `<root relative to the .git parent>/.opensip/project-id.v1`. The relative root part must be ASCII; a non-ASCII part refuses, which avoids Unicode-normalization aliasing. It is compared ASCII case-insensitively, because APFS is case-insensitive here.
-     - **Tracked.** The path is tracked if any decoded entry path matches it, whether or not the worktree file exists.
+     - **The path.** The marker's path relative to that repository's worktree root is `<root relative to the .git parent>/.opensip/project-id.v1`. The relative root part must be ASCII; a non-ASCII part refuses, which avoids Unicode-normalization aliasing. It is compared ASCII case-insensitively, because APFS is case-insensitive here (`core.ignorecase`).
+     - **Tracked.** The path is tracked if any index entry matches it, whether or not the worktree file exists.
      - **Gitlinks.** An outer index's gitlink entry for an inner repository (mode 160000) is not a match, and it does not clear the outer index. Only an actual entry at the marker's path counts.
    - **No repository.** If no VCS marker is found up to `/`, the observation is "no repository". That is untracked only because every directory on the chain was looked up positively. A missing local `.git` alone is not evidence.
-   - **Unreadable evidence.** Unreadable, oversized or malformed VCS, config or index evidence refuses, as does a checksum mismatch. None of it is ever treated as untracked.
-   - **Rechecks.** For every repository consulted, the `.git` directory, `config` and `index` (by full metadata sample), the `commondir` and `config.worktree` absences, and every negative VCS lookup join the recheck set, on the same ledger. So do every global and system configuration source (by full sample, or by positive absence) and the configuration walks.
+   - **Unreadable evidence.** Unreadable, oversized or malformed VCS, config or index evidence refuses; it is never treated as untracked.
+   - **Rechecks.** For every repository consulted, the `.git` directory, `config` and `index` (by full metadata sample), the `commondir` and `config.worktree` absences, and every negative VCS lookup join the recheck set, on the same ledger.
    - **When it runs.** It runs for Eligible before any lease is taken, and for FirstUseCandidate before RESERVED. A registered marker that has since become tracked therefore refuses on the next admission, and takes no lease.
-   - **Alternative rejected:** modelling Git's full configuration semantics, and relocated worktrees, linked worktrees, bare repositories, includes and SHA-256 repositories. Each adds unbounded or format-dependent evidence, and none is needed for an ordinary clone.
-   - **Alternative rejected:** refusing index version 4. Its prefix compression is fully specified and simple to decode exactly, and refusing it would break repositories with `index.version = 4` or `feature.manyFiles`.
+   - **Alternative rejected:** modeling relocated worktrees, linked worktrees, bare repositories, includes and SHA-256 repositories. Each adds unbounded or format-dependent evidence, and none is needed for an ordinary clone.
 
-7. **Namespace admission and leases.** For `Eligible(N)`, or for a root this admission has just registered (R2), with N taken only from the ACTIVE row of the current registry owner R (R0 for an Eligible root; R2 after this admission's own first registration) and never from a caller, under the same held fence:
+7. **Namespace admission and leases.** For `Eligible(N)`, with N taken only from the ACTIVE row in item 5's capture and never from a caller, under the same held fence:
    - Confirm the namespace directory and both lease files under custody.
    - Take the S7 lease without blocking, starting from the existing `lifecycle::leases` two-lock implementation:
      - **SHARED-READ:** `readers.lease` LOCK_SH|LOCK_NB only.
@@ -282,9 +257,6 @@ Without the premise, no project root can be admitted. Without an admitted root, 
 - treating a missing local `.git` as untracked;
 - stopping the tracking check at the nearest repository;
 - interpreting an index path without the admitted layout;
-- reading index paths without the exact per-version decoding;
-- selecting any path or configuration source from the environment;
-- reconfirming R0 after RESERVED is confirmed;
 - extending the premise to any `.git` object other than the directory, `config` and `index`;
 - changing the retained registry owner except through a confirmed publication;
 - a no-replace publication of the existing registry name, or a registry replacement published before its file barrier;
