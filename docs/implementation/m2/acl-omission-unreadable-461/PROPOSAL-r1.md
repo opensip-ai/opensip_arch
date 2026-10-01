@@ -1,6 +1,6 @@
-# Omitted ACL is unreadable at the single custody choke point — proposal 461 r2
+# Omitted ACL is unreadable at the single custody choke point — proposal 461 r1
 
-2026-09-30. Claude Opus 5.5, implementation lead. Law for unit 461, under owner.md §1b and §5 to §7 and laws 458 (§5), 458b, 462, 465 item 4, 468 r5 item 2 and 458c r6 items 3, 8 and 9. Item 9 is a lead decision made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation. r2 answers Grok 461 r1 RF-1 (refusal order), RF-2 (subject spelling) and RF-3 (the pin's scope). r1 bytes are preserved in PROPOSAL-r1.md. Not code. Library only: CLI enablement is a separate unit (464 item 7).
+2026-09-30. Claude Opus 5.5, implementation lead. Law for unit 461, under owner.md §1b and §5 to §7 and laws 458 (§5), 458b, 462, 465 item 4, 468 r5 item 2 and 458c r6 items 3, 8 and 9. Item 9 is a lead decision made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation. Not code. Library only: CLI enablement is a separate unit (464 item 7).
 
 ## Problem
 
@@ -26,8 +26,8 @@ Law 458 §5 says omission is not evidence of absence (source findings 445, route
    - `DescriptorAcl::Omitted` to `AclWrite::Unreadable`;
    - `DescriptorAcl::Present(writers)` to `AclWrite::Known(writers)`.
 
-   The pure `check` already returns `Refusal::AclUnreadable` for `AclWrite::Unreadable` in every scope, whatever `waive_owner` is. Its arm stays exactly where it is: after the kind, owner, mode and group arms. So a directory that omits its ACL and is also the wrong kind, foreign-owned or other-writable keeps the earlier refusal (`NotDirectory`, `ForeignOwner`, `OthersWrite` and so on), and `AclUnreadable` is returned only when those arms pass. No predicate or refusal order changes, and the 18851-case custody fixture keeps its codes. This is the only place in production that turns a platform observation into a custody judgment, and every consumer in item 4 goes through it: `check_retained_descriptor`, `inspect_operational_file`, `check_operational_chain_observations`, `directory_policy::inspect` and `inspect_directory_path`.
-3. **The public row.** `Refusal::AclUnreadable` from the choke point is the 468 item 6 custody row: request-rejected, exit 2, `CONFIG.INVALID`, `CONFIG.CUSTODY_REFUSED`, subject `acl-unreadable`, in 468c's hyphenated spelling. 461a adds that one arm to 468c's custody-subject mapping; it is not derived from `Refusal::code` (`ACL_UNREADABLE`). There is no new public code, and no change to 468c's existing subjects (`ancestor-acl-omitted`, `acl-not-returned`, and the others). Where a consumer's refusal already reaches 468c through its own family, it keeps that family's row; this item fixes only the subject of the choke-point refusal.
+   The pure `check` already returns `Refusal::AclUnreadable` for `AclWrite::Unreadable` in every scope, before owner, mode or group checks, and whatever `waive_owner` is. No predicate changes. This is the only place in production that turns a platform observation into a custody judgment, and every consumer in item 4 goes through it: `check_retained_descriptor`, `inspect_operational_file`, `check_operational_chain_observations`, `directory_policy::inspect` and `inspect_directory_path`.
+3. **The public row.** `Refusal::AclUnreadable` from the choke point is the 468 item 6 custody row: request-rejected, exit 2, `CONFIG.INVALID`, `CONFIG.CUSTODY_REFUSED`, subject `acl-unreadable`. The subject is `Refusal::code` in lower case, following 468c's sub-detail spellings. There is no new public code, and no change to 468c's existing subjects (`ancestor-acl-omitted`, `acl-not-returned`, and the others). Where a consumer's refusal already reaches 468c through its own family, it keeps that family's row; this item fixes only the subject of the choke-point refusal.
 4. **The consumers.** All production consumers of the platform observation, at product d4239a5:
 
    | Consumer | What it judges | ACL on a stock Mac | Outcome under 461 |
@@ -46,9 +46,7 @@ Law 458 §5 says omission is not evidence of absence (source findings 445, route
 6. **The legacy writer list is removed.** After item 1 no code can obtain omission as an empty writer list.
    - A platform test pins that `observe_descriptor` on a fresh file after `chmod -N` returns `Omitted`, a file with one added entry returns `Present` with that writer, and a file with its last entry removed returns `Present(vec![])` (458 item 6's fixture set, on the descriptor observer).
    - A security test pins that `check_descriptor_observation` refuses `Omitted` in every `Scope` and with `waive_owner`.
-   - A source check in the security crate forbids constructing `AclWrite::Known` from a platform observation except through `DescriptorAcl::Present` in `check_descriptor_observation`. It names one allowed exception: the `AclWrite::Known(Vec::new())` placeholder in `check_external_ancestor`.
-     - That placeholder carries no ACL judgment. It only keeps `check`'s order (ACL after mode). The ancestor's ACL is judged afterwards from its capture by `external_ancestor_acl`, under the premise rules of 465 item 4.
-     - It stays unchanged. Making it `Unreadable` would refuse every present ancestor ACL before `external_ancestor_acl` runs.
+   - A source check in the security crate forbids constructing `AclWrite::Known` from anything but `DescriptorAcl::Present`.
 7. **Budget.** No work changes: the same `fstatx_np`, `filesec_query_property` and ACL walk run. `descriptor_observation_cost` is unchanged, and charged consumers keep their charges. A refusal is a custody refusal, never a budget or I/O failure.
 8. **Units after the law.**
    - **461a:** `DescriptorAcl` in platform; the macOS reader; every field user (item 4) moved to the typed state; the choke-point mapping; the pins of item 6; the supplied-root and `observe_bound_operational_file_with_policy` tests updated to scratch chains that carry ACLs, or to assert the new refusal; inventory successor.
