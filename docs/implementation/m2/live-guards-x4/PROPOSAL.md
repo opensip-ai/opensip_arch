@@ -14,7 +14,7 @@ r2 answers Codex X4 r1 RF-1 to RF-5:
 - RF-4: binding to the owned post-fence operation, with a complete mandatory guard set;
 - RF-5: freshness after blocking guard work and immediately before admission.
 
-r1 bytes are preserved in PROPOSAL-r1.md. r3 answers Grok X4 r2 RF-1 (the mixed-read retry runs inside one monitor read) and RF-2 (a dropped lease is the busy row, not a changed file), and aligns with X3b r2 and X4T r1. r2 bytes are preserved in PROPOSAL-r2.md. r4 answers Grok X4 r3 RF-1: X4T's fenced admission, the monitor's first read, runs at the lease-free point, never inside 7a. r3 bytes are preserved in PROPOSAL-r3.md. Not code. Library only: no command is wired.
+r1 bytes are preserved in PROPOSAL-r1.md. r3 answers Grok X4 r2 RF-1 (the mixed-read retry runs inside one monitor read) and RF-2 (a dropped lease is the busy row, not a changed file), and aligns with X3b r2 and X4T r1. r2 bytes are preserved in PROPOSAL-r2.md. r4 answers Grok X4 r3 RF-1: X4T's fenced admission, the monitor's first read, runs at the lease-free point, never inside 7a. r3 bytes are preserved in PROPOSAL-r3.md. r4 ACCEPTED by Grok on 2026-09-30. Not code. Library only: no command is wired.
 
 ## Problem
 
