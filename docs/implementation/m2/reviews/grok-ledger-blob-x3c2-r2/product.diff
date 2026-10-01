@@ -1,0 +1,1853 @@
+diff --git a/crates/storage/src/blob_store.rs b/crates/storage/src/blob_store.rs
+index 6754b87..8568d82 100644
+--- a/crates/storage/src/blob_store.rs
++++ b/crates/storage/src/blob_store.rs
+@@ -11,7 +11,7 @@ use std::{
+     io::{self, Read},
+ };
+ #[derive(Debug)]
+-enum BlobError {
++pub(crate) enum BlobError {
+     Length,
+     Digest,
+     Limit,
+@@ -19,12 +19,16 @@ enum BlobError {
+     Io(io::Error),
+     Publication(PublicationFailure),
+ }
+-struct VerifiedBlob {
++pub(crate) struct VerifiedBlob {
+     digest: [u8; 32],
+     bytes: Vec<u8>,
+ }
+ impl VerifiedBlob {
+-    fn from_owned(digest: [u8; 32], length: u64, bytes: Vec<u8>) -> Result<Self, BlobError> {
++    pub(crate) fn from_owned(
++        digest: [u8; 32],
++        length: u64,
++        bytes: Vec<u8>,
++    ) -> Result<Self, BlobError> {
+         if u64::try_from(bytes.len()).ok() != Some(length) {
+             return Err(BlobError::Length);
+         }
+@@ -33,27 +37,31 @@ impl VerifiedBlob {
+         }
+         Ok(Self { digest, bytes })
+     }
++    #[cfg(test)]
++    pub(crate) fn bytes_for_tests(&self) -> &[u8] {
++        &self.bytes
++    }
+ }
+-#[derive(Debug, PartialEq, Eq)]
+-enum BlobDisposition {
++#[derive(Debug, Clone, Copy, PartialEq, Eq)]
++pub(crate) enum BlobDisposition {
+     PublishedNew,
+     ConfirmedExisting,
+ }
+ #[derive(Debug)]
+-struct StoredBlob {
+-    digest: [u8; 32],
+-    length: usize,
+-    disposition: BlobDisposition,
+-    barrier: DirectoryBarrier,
++pub(crate) struct StoredBlob {
++    pub(crate) digest: [u8; 32],
++    pub(crate) length: usize,
++    pub(crate) disposition: BlobDisposition,
++    pub(crate) barrier: DirectoryBarrier,
+ }
+-struct SuppliedDigestDirectory(RetainedDirectory);
++pub(crate) struct SuppliedDigestDirectory(RetainedDirectory);
+ impl SuppliedDigestDirectory {
+-    fn new(directory: File) -> Result<Self, BlobError> {
++    pub(crate) fn new(directory: File) -> Result<Self, BlobError> {
+         RetainedDirectory::from_retained_handle(directory)
+             .map(Self)
+             .map_err(BlobError::Io)
+     }
+-    fn publish(&self, blob: &VerifiedBlob) -> Result<StoredBlob, BlobError> {
++    pub(crate) fn publish(&self, blob: &VerifiedBlob) -> Result<StoredBlob, BlobError> {
+         self.publish_with(blob, RetainedDirectory::publish_new_regular)
+     }
+     // Private mechanism injection: tests supply real platform failures and use
+diff --git a/crates/storage/src/ledger_store/project_commit.rs b/crates/storage/src/ledger_store/project_commit.rs
+new file mode 100644
+index 0000000..175a44b
+--- /dev/null
++++ b/crates/storage/src/ledger_store/project_commit.rs
+@@ -0,0 +1,584 @@
++//! Law X3c r7 unit X3c-2: object publication over `blob_store` (item 4), the
++//! non-waiting level-3 `PreparedLedger` (item 5), staging (item 6), the owned
++//! prepared-commit adapter and the durability classification of its `COMMIT`
++//! (item 7), each charged (item 9) and mapped to item 10's rows.
++//!
++//! Everything here runs under the namespace writer lease the caller holds.
++//! X3d composes it: X3d holds X3b's journal transaction before calling
++//! [`begin_prepared_ledger`], stages only after the durable `SEAL` and
++//! `COMMITTED` witness, and calls [`PreparedLedgerCommit::commit`] only through
++//! X4's single-use `AdmissionPermit` while level 4 is held. This module cannot
++//! name those security types; its types make the storage half of the order
++//! structural instead: an object needs a committed attempt row, the ledger
++//! transaction needs every object's barriers, staging consumes the transaction
++//! and the adapter's one consuming method performs only `COMMIT`.
++//!
++//! Nothing here deletes, renames or reuses an object after a failure, settles
++//! `attempt_custody`, reads an outcome back or retries a `COMMIT` (item 11).
++use super::super::{
++    ExistingWriter, LedgerError, WriteTransaction, pin_transactions, recovery_pins,
++};
++use super::{
++    AdmittedAttempt, AdmittedLedger, ObjectDirectory, ProjectLedgerRefusal, Refused, classify_open,
++    open_verified, refuse, same_file,
++};
++use crate::{
++    availability::AvailabilityRecord,
++    blob_store::{BlobDisposition, BlobError, SuppliedDigestDirectory, VerifiedBlob},
++    pin_inventory::Inventory,
++    recovery::{AssociationCandidate, ReceiptCandidate, SuppliedBinding},
++};
++use opensip_identity::{RegisteredSchemas, digest_hex};
++use opensip_platform::{
++    DirectoryBarrier, PublicationStage, RetainedDirectory, WorkBudgetError, WorkCost, WorkFailure,
++    WorkScope,
++};
++use std::{collections::BTreeSet, io};
++
++/// Item 9, per object: the object and its edges for the private temporary
++/// file, its write and read-back, the file barrier, the exclusive link and the
++/// directory barrier, plus a confirmation's open, full read, both barriers and
++/// reopen. Its byte length is charged on top.
++const OBJECT_COST: WorkCost = WorkCost {
++    objects: 1,
++    edges: 12,
++    bytes: 512,
++};
++/// The level-3 `BEGIN IMMEDIATE` on the verified connection.
++const BEGIN_COST: WorkCost = WorkCost {
++    objects: 1,
++    edges: 4,
++    bytes: 1 << 12,
++};
++/// Staging's fixed statements (schema checks, joins and inserts for the pair,
++/// the Run material, availability and pins) and the one `COMMIT` they precede,
++/// reserved before the first insert. The staged bodies are charged on top.
++const STAGE_COST: WorkCost = WorkCost {
++    objects: 16,
++    edges: 128,
++    bytes: 1 << 16,
++};
++const COMMIT_COST: WorkCost = WorkCost {
++    objects: 1,
++    edges: 4,
++    bytes: 1 << 12,
++};
++/// macOS `ELOOP`: `O_NOFOLLOW` met a symbolic link at the object name.
++const ELOOP: i32 = 62;
++
++/// One object the Run declares: its SHA-256 and length, and the bytes.
++pub(crate) struct DeclaredObject {
++    digest: [u8; 32],
++    length: u64,
++    bytes: Vec<u8>,
++}
++impl DeclaredObject {
++    pub(crate) fn new(digest: [u8; 32], length: u64, bytes: Vec<u8>) -> Self {
++        Self {
++            digest,
++            length,
++            bytes,
++        }
++    }
++}
++
++#[derive(Debug, Clone, Copy, PartialEq, Eq)]
++pub(crate) enum ObjectDisposition {
++    /// Written by this attempt: file barrier, exclusive link, directory barrier.
++    PublishedNew,
++    /// An existing name whose every byte matched, after this attempt's own
++    /// file and directory barriers.
++    ConfirmedExisting,
++}
++#[derive(Debug)]
++pub(crate) struct PublishedObject {
++    digest: String,
++    length: u64,
++    disposition: ObjectDisposition,
++    barrier: DirectoryBarrier,
++}
++impl PublishedObject {
++    pub(crate) fn digest(&self) -> &str {
++        &self.digest
++    }
++    pub(crate) fn length(&self) -> u64 {
++        self.length
++    }
++    pub(crate) fn disposition(&self) -> ObjectDisposition {
++        self.disposition
++    }
++    pub(crate) fn barrier(&self) -> DirectoryBarrier {
++        self.barrier
++    }
++}
++/// Every object of one commit, each with both barriers complete, for one
++/// admitted attempt (item 4). Only [`publish_objects`] makes one, and
++/// [`begin_prepared_ledger`] consumes it: level 3 follows every barrier.
++pub(crate) struct PublishedObjects {
++    execution: String,
++    objects: Vec<PublishedObject>,
++}
++impl PublishedObjects {
++    pub(crate) fn objects(&self) -> &[PublishedObject] {
++        &self.objects
++    }
++    fn digests(&self) -> BTreeSet<&str> {
++        self.objects.iter().map(|o| o.digest.as_str()).collect()
++    }
++}
++
++/// Crate-private crash points inside one object's publication (item 12a).
++/// Each leaves the on-disk state a process death at that step leaves, then
++/// stops the attempt with no cleanup, as the dead process would.
++#[cfg(test)]
++#[derive(Debug, Clone, Copy, PartialEq, Eq)]
++pub(crate) enum ObjectStep {
++    /// Part of the bytes are in the private temporary file.
++    TemporaryWrite,
++    /// All bytes are in the temporary file; its file barrier has not run.
++    BeforeFileBarrier,
++    /// The file barrier and the exclusive link ran; the name is visible.
++    AfterLink,
++    /// As `AfterLink`, but the power loss before the directory barrier lost
++    /// the link: the name is absent and the barriered temporary file remains.
++    BeforeDirectoryBarrier,
++}
++
++/// Item 4 (step 3) and item 9: publish every declared object into
++/// `objects/sha256/` for the admitted attempt. Every object's length and
++/// SHA-256 are checked, and every byte is reserved on the operation ledger,
++/// before the first write; a commit that cannot be reserved refuses on the
++/// budget row and is never truncated. Each object is then published new, or
++/// an exclusive-publication collision with unchanged visibility is confirmed
++/// byte for byte. A failure stops publication; already-published objects stay.
++pub(crate) fn publish_objects(
++    attempt: &AdmittedAttempt,
++    directory: &ObjectDirectory,
++    declared: Vec<DeclaredObject>,
++    work: &mut WorkScope<'_>,
++) -> Refused<PublishedObjects> {
++    publish_objects_inner(
++        attempt,
++        directory,
++        declared,
++        work,
++        #[cfg(test)]
++        None,
++    )
++}
++
++fn publication_cost(declared: &[DeclaredObject]) -> Option<WorkCost> {
++    declared.iter().try_fold(WorkCost::default(), |total, o| {
++        let bytes = usize::try_from(o.length).ok()?;
++        total.checked_add(OBJECT_COST)?.checked_add(WorkCost {
++            bytes,
++            ..WorkCost::default()
++        })
++    })
++}
++
++fn publish_objects_inner(
++    attempt: &AdmittedAttempt,
++    directory: &ObjectDirectory,
++    declared: Vec<DeclaredObject>,
++    work: &mut WorkScope<'_>,
++    #[cfg(test)] crash: Option<(usize, ObjectStep)>,
++) -> Refused<PublishedObjects> {
++    let total =
++        publication_cost(&declared).ok_or(WorkFailure::Budget(WorkBudgetError::Arithmetic))?;
++    work.run(total, |_| {
++        // Every check precedes every write (item 4).
++        let mut seen = BTreeSet::new();
++        let mut blobs = Vec::with_capacity(declared.len());
++        for object in declared {
++            if !seen.insert(object.digest) {
++                return refuse(ProjectLedgerRefusal::ObjectDeclaration);
++            }
++            let blob = VerifiedBlob::from_owned(object.digest, object.length, object.bytes)
++                .map_err(|_| WorkFailure::Operation(ProjectLedgerRefusal::ObjectDeclaration))?;
++            blobs.push((object.digest, object.length, blob));
++        }
++        let retained = directory.retained();
++        let store = retained
++            .as_file()
++            .try_clone()
++            .map_err(BlobError::Io)
++            .and_then(SuppliedDigestDirectory::new)
++            .map_err(|e| WorkFailure::Operation(host_io(e)))?;
++        let mut objects = Vec::with_capacity(blobs.len());
++        for (index, (digest, length, blob)) in blobs.into_iter().enumerate() {
++            #[cfg(not(test))]
++            let _ = index;
++            #[cfg(test)]
++            if let Some((at, step)) = crash
++                && at == index
++            {
++                return Err(simulate_crash(retained, &digest, &blob, step));
++            }
++            let stored = store
++                .publish(&blob)
++                .map_err(|e| WorkFailure::Operation(object_failure(retained, e)))?;
++            objects.push(PublishedObject {
++                digest: digest_hex(&digest),
++                length,
++                disposition: match stored.disposition {
++                    BlobDisposition::PublishedNew => ObjectDisposition::PublishedNew,
++                    BlobDisposition::ConfirmedExisting => ObjectDisposition::ConfirmedExisting,
++                },
++                barrier: stored.barrier,
++            });
++        }
++        Ok(PublishedObjects {
++            execution: attempt.execution.clone(),
++            objects,
++        })
++    })
++}
++
++fn host_io(error: BlobError) -> ProjectLedgerRefusal {
++    ProjectLedgerRefusal::Io(match error {
++        BlobError::Io(e) => e,
++        other => io::Error::other(format!("{other:?}")),
++    })
++}
++
++/// Item 10: an occupied name that is not a regular file, or a regular file
++/// whose bytes, length, links or write permissions do not match, is
++/// `LEDGER.CORRUPT` and is never overwritten (F04). Any other failure before
++/// a `COMMIT` is host I/O, including an indeterminate link or barrier.
++fn object_failure(directory: &RetainedDirectory, error: BlobError) -> ProjectLedgerRefusal {
++    match error {
++        // Prepare's own refusal of a non-regular entry at the digest name: an
++        // OS error would carry its errno; this one is the primitive's check.
++        BlobError::Publication(e)
++            if e.stage() == PublicationStage::Prepare
++                && e.source_error().kind() == io::ErrorKind::InvalidInput
++                && e.source_error().raw_os_error().is_none() =>
++        {
++            ProjectLedgerRefusal::Corrupt
++        }
++        BlobError::Publication(e) => {
++            ProjectLedgerRefusal::Io(io::Error::other(format!("object publication: {e}")))
++        }
++        // Confirmation of an existing name.
++        BlobError::Io(e) => match directory.is_reachable() {
++            Ok(false) => {
++                ProjectLedgerRefusal::Custody(opensip_security::StoreCustodyRefusal::NameChanged)
++            }
++            Err(e) => ProjectLedgerRefusal::Io(e),
++            Ok(true)
++                if e.kind() == io::ErrorKind::InvalidData
++                    || e.kind() == io::ErrorKind::InvalidInput
++                    || e.raw_os_error() == Some(ELOOP) =>
++            {
++                ProjectLedgerRefusal::Corrupt
++            }
++            Ok(true) => ProjectLedgerRefusal::Io(e),
++        },
++        other => host_io(other),
++    }
++}
++
++#[cfg(test)]
++fn simulate_crash(
++    directory: &RetainedDirectory,
++    digest: &[u8; 32],
++    blob: &VerifiedBlob,
++    step: ObjectStep,
++) -> WorkFailure<ProjectLedgerRefusal> {
++    use std::io::Write;
++    let bytes = blob.bytes_for_tests();
++    let staging = || {
++        let tag: String = opensip_platform::request_entropy()
++            .unwrap()
++            .iter()
++            .map(|b| format!("{b:02x}"))
++            .collect();
++        directory
++            .create_exclusive_regular(&format!(".opensip-stage-{tag}"))
++            .unwrap()
++    };
++    match step {
++        ObjectStep::TemporaryWrite => staging().write_all(&bytes[..bytes.len() / 2]).unwrap(),
++        ObjectStep::BeforeFileBarrier | ObjectStep::BeforeDirectoryBarrier => {
++            staging().write_all(bytes).unwrap()
++        }
++        ObjectStep::AfterLink => {
++            let mut f = directory
++                .create_exclusive_regular(&digest_hex(digest))
++                .unwrap();
++            f.write_all(bytes).unwrap();
++            f.sync_all().unwrap();
++        }
++    }
++    WorkFailure::Operation(ProjectLedgerRefusal::Io(io::Error::other(
++        "simulated crash",
++    )))
++}
++
++/// Item 5: the evidence ledger's level-3 write transaction. Owned, single
++/// use, not Clone, with no SQL surface; dropping it only rolls back locally.
++pub(crate) struct PreparedLedger {
++    transaction: WriteTransaction,
++    store: String,
++    namespace: String,
++    execution: String,
++    operation: String,
++    objects: PublishedObjects,
++}
++
++/// Item 5 (step 4): `BEGIN IMMEDIATE` on the admitted ledger with
++/// `busy_timeout = 0`, after every object's barriers (it consumes the
++/// published set). X3d calls it only while it holds X3b's journal
++/// transaction and never under level 4. Busy or any failure returns the
++/// refusal holding no ledger transaction, for X3d's consuming journal abort.
++pub(crate) fn begin_prepared_ledger(
++    ledger: &AdmittedLedger,
++    attempt: &AdmittedAttempt,
++    objects: PublishedObjects,
++    work: &mut WorkScope<'_>,
++) -> Refused<PreparedLedger> {
++    if objects.execution != attempt.execution {
++        return refuse(ProjectLedgerRefusal::StagingMismatch);
++    }
++    if !same_file(&ledger.file, &ledger.path)
++        .map_err(|e| WorkFailure::Operation(ProjectLedgerRefusal::Io(e)))?
++    {
++        return refuse(ProjectLedgerRefusal::IdentityChanged);
++    }
++    let connection = open_verified(&ledger.path, work)?;
++    work.run(BEGIN_COST, |_| {
++        let transaction = ExistingWriter(connection)
++            .begin()
++            .map_err(|e| WorkFailure::Operation(classify_open(e)))?;
++        Ok(PreparedLedger {
++            transaction,
++            store: attempt.store.clone(),
++            namespace: attempt.namespace.clone(),
++            execution: attempt.execution.clone(),
++            operation: attempt.operation.clone(),
++            objects,
++        })
++    })
++}
++
++/// Item 6: the joined values X3d's staging callback hands over after the
++/// durable `SEAL` and `COMMITTED` witness. The receipt and association are
++/// the exact bytes; `carrier` is the journal carrier digest they bind.
++pub(crate) struct CommitRows<'a> {
++    pub(crate) carrier: &'a str,
++    pub(crate) receipt: &'a ReceiptCandidate,
++    pub(crate) association: &'a AssociationCandidate,
++    pub(crate) manifest: Vec<u8>,
++    pub(crate) inventory: Vec<u8>,
++    pub(crate) availability: AvailabilityRecord,
++    pub(crate) pins: &'a Inventory,
++}
++/// Supplied parse and read bounds for staging; not a default policy.
++#[derive(Clone, Copy)]
++pub(crate) struct StagingLimits {
++    pub(crate) per_record_work: usize,
++    pub(crate) pin_rows: usize,
++    pub(crate) pin_text_bytes: usize,
++}
++
++impl PreparedLedger {
++    /// Item 6 (step 6): stage, in this open transaction with nothing
++    /// committed, the receipt and association (`stage_recovery_pair`), the
++    /// Run material whose blob digests must equal the published objects
++    /// exactly, the initial availability record and the Run's pins as a first
++    /// publication under the attempt's operationRef. The staged bodies and the
++    /// `COMMIT` are charged before the first insert. Any failure drops the
++    /// transaction, which rolls back: all rows or none (F11).
++    pub(crate) fn stage(
++        mut self,
++        schemas: &RegisteredSchemas,
++        rows: CommitRows<'_>,
++        limits: StagingLimits,
++        work: &mut WorkScope<'_>,
++    ) -> Refused<PreparedLedgerCommit> {
++        let body = [
++            rows.receipt.raw.len(),
++            rows.association.raw.len(),
++            rows.manifest.len(),
++            rows.inventory.len(),
++            rows.availability.raw().len(),
++            usize::try_from(rows.pins.disclosure_bytes()).unwrap_or(usize::MAX),
++        ]
++        .into_iter()
++        .try_fold(0usize, usize::checked_add)
++        .ok_or(WorkFailure::Budget(WorkBudgetError::Arithmetic))?;
++        let cost = STAGE_COST
++            .checked_add(COMMIT_COST)
++            .and_then(|c| {
++                c.checked_add(WorkCost {
++                    bytes: body,
++                    ..WorkCost::default()
++                })
++            })
++            .ok_or(WorkFailure::Budget(WorkBudgetError::Arithmetic))?;
++        work.run(cost, |_| {
++            let staging = |e: LedgerError| WorkFailure::Operation(classify_staging(e));
++            let binding = SuppliedBinding {
++                store: &self.store,
++                namespace: &self.namespace,
++                carrier: rows.carrier,
++                execution: &self.execution,
++            };
++            if rows.association.operation != self.operation
++                || rows.receipt.run != rows.association.run
++            {
++                return refuse(ProjectLedgerRefusal::StagingMismatch);
++            }
++            self.transaction
++                .stage_recovery_pair(&binding, rows.receipt, rows.association)
++                .map_err(staging)?;
++            let blobs = self
++                .transaction
++                .stage_run_material(
++                    schemas,
++                    &binding,
++                    &rows.receipt.inventory,
++                    rows.manifest,
++                    rows.inventory,
++                    limits.per_record_work,
++                )
++                .map_err(staging)?;
++            let declared: BTreeSet<&str> = blobs.iter().map(String::as_str).collect();
++            if declared.len() != blobs.len() || declared != self.objects.digests() {
++                return refuse(ProjectLedgerRefusal::StagingMismatch);
++            }
++            self.transaction
++                .stage_availability(
++                    schemas,
++                    &binding,
++                    None,
++                    rows.availability,
++                    limits.per_record_work,
++                )
++                .map_err(staging)?;
++            let none = Inventory::from_rows(rows.receipt.run.clone(), Vec::new())
++                .map_err(|e| staging(LedgerError::PinInventory(e)))?;
++            self.transaction
++                .stage_pin_change(
++                    &binding,
++                    pin_transactions::PinChange {
++                        expected: &none,
++                        desired: rows.pins,
++                        operation: &self.operation,
++                        first_publication: true,
++                        read_limits: recovery_pins::PinReadLimits {
++                            rows: limits.pin_rows,
++                            text_bytes: limits.pin_text_bytes,
++                        },
++                    },
++                )
++                .map_err(staging)?;
++            if self.transaction.poisoned {
++                return refuse(ProjectLedgerRefusal::StagingMismatch);
++            }
++            Ok(PreparedLedgerCommit {
++                transaction: self.transaction,
++                execution: self.execution,
++                #[cfg(test)]
++                before_commit: None,
++            })
++        })
++    }
++}
++
++/// Item 10 for a staging failure inside the held transaction. A stored schema
++/// that is not the selected DDL is `LEDGER.CORRUPT`; SQLite and I/O failures
++/// are host I/O; values that do not join, or that a retained key already
++/// holds, are the invariant row (a broken composition, never a retry).
++fn classify_staging(error: LedgerError) -> ProjectLedgerRefusal {
++    match error {
++        LedgerError::Configuration(name) if name.ends_with("_schema") => {
++            ProjectLedgerRefusal::Corrupt
++        }
++        LedgerError::Attempt(_) => ProjectLedgerRefusal::Corrupt,
++        LedgerError::Sql(e) if retained_key(&e) => ProjectLedgerRefusal::StagingMismatch,
++        LedgerError::Sql(e) | LedgerError::RollbackFailed(e) => ProjectLedgerRefusal::Sql(e),
++        LedgerError::Io(e) => ProjectLedgerRefusal::Io(e),
++        LedgerError::Configuration(_)
++        | LedgerError::Recovery(_)
++        | LedgerError::RunMaterial(_)
++        | LedgerError::Availability(_)
++        | LedgerError::PinMutation(_)
++        | LedgerError::PinInventory(_) => ProjectLedgerRefusal::StagingMismatch,
++        other => classify_open(other),
++    }
++}
++fn retained_key(error: &rusqlite::Error) -> bool {
++    matches!(error, rusqlite::Error::SqliteFailure(_, Some(message))
++        if message == "retained key cannot be replaced")
++}
++
++/// Item 6's owned prepared-commit adapter. Its one consuming method performs
++/// only `COMMIT`; X3d calls it only inside X4's `AdmissionPermit::consume`.
++/// Not Clone; dropping it rolls back locally and commits nothing.
++pub(crate) struct PreparedLedgerCommit {
++    transaction: WriteTransaction,
++    execution: String,
++    #[cfg(test)]
++    before_commit: Option<fn(&rusqlite::Connection)>,
++}
++
++/// Item 7: the durability classification of the evidence `COMMIT`.
++#[derive(Debug, PartialEq, Eq)]
++pub(crate) enum LedgerCommitOutcome {
++    /// `COMMIT` returned success under `synchronous=FULL`, `fullfsync` and
++    /// WAL: the commit is durable. Only now may X3d build `PublishedCommit`.
++    Committed { execution: String },
++    /// `COMMIT` returned an error or the connection was lost. Neither state is
++    /// inferred; the attempt row stays `admitted` for X6; nothing retries.
++    Undetermined { execution: String },
++}
++impl LedgerCommitOutcome {
++    /// Item 10's row: none for a durable commit; `DURABILITY.COMMIT_FAILED`
++    /// with the ExecutionId retained for an undetermined one.
++    pub(crate) fn refusal(&self) -> Option<ProjectLedgerRefusal> {
++        match self {
++            Self::Committed { .. } => None,
++            Self::Undetermined { .. } => Some(ProjectLedgerRefusal::CommitUndetermined),
++        }
++    }
++}
++
++impl PreparedLedgerCommit {
++    pub(crate) fn commit(self) -> LedgerCommitOutcome {
++        #[cfg(test)]
++        if let Some(hook) = self.before_commit {
++            hook(&self.transaction.connection);
++        }
++        let execution = self.execution;
++        // Staging returned this adapter only unpoisoned, and it has no other
++        // method, so the only failure left is the COMMIT itself.
++        match self.transaction.commit() {
++            Ok(_) => LedgerCommitOutcome::Committed { execution },
++            Err(_) => LedgerCommitOutcome::Undetermined { execution },
++        }
++    }
++    /// Crate-private fault injection (item 11): run `hook` on the open
++    /// connection immediately before `COMMIT`.
++    #[cfg(test)]
++    pub(crate) fn with_commit_hook(mut self, hook: fn(&rusqlite::Connection)) -> Self {
++        self.before_commit = Some(hook);
++        self
++    }
++}
++
++#[cfg(test)]
++pub(crate) fn publish_objects_crashing(
++    attempt: &AdmittedAttempt,
++    directory: &ObjectDirectory,
++    declared: Vec<DeclaredObject>,
++    work: &mut WorkScope<'_>,
++    crash: (usize, ObjectStep),
++) -> Refused<PublishedObjects> {
++    publish_objects_inner(attempt, directory, declared, work, Some(crash))
++}
++
++#[cfg(test)]
++#[path = "project_commit_tests.rs"]
++mod tests;
+diff --git a/crates/storage/src/ledger_store/project_commit_tests.rs b/crates/storage/src/ledger_store/project_commit_tests.rs
+new file mode 100644
+index 0000000..85fd48a
+--- /dev/null
++++ b/crates/storage/src/ledger_store/project_commit_tests.rs
+@@ -0,0 +1,860 @@
++// Law X3c r7 item 12a, X3c-2 part, on X3c-1's crate-private scratch location
++// (a held test writer lease, no production seam): object publication new,
++// confirmed and colliding; a crash at each object step; budget refusal before
++// the first object; the non-waiting level-3 transaction; staging all-or-none;
++// the durable commit; an undetermined commit; and no path deleting an object.
++use super::super::super::{LedgerStanding, ReadSnapshot, tests::availability_registry};
++use super::super::tests::{EXEC, N, Scratch, admitted, operation, record, row};
++use super::super::{
++    AdmittedAttempt, AdmittedLedger, NamespaceDirectory, ObjectDirectory, ProjectLedgerRow,
++    admit_attempt, admit_namespace_directory, admit_object_directory,
++};
++use super::*;
++use opensip_identity::{
++    JsonValue as V, canonical_bytes, hash_canonical_value, parse_json, raw_sha256,
++};
++use opensip_platform::WorkLedger;
++use std::{
++    collections::BTreeSet,
++    fs,
++    os::unix::fs::{MetadataExt, PermissionsExt},
++    path::PathBuf,
++    time::{Duration, Instant},
++};
++
++const EXEC2: &str = "exec1_fedcba9876543210fedcba9876543210";
++const CARRIER: &str = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
++
++struct Setup {
++    s: Scratch,
++    work: WorkLedger,
++    ledger: AdmittedLedger,
++    _namespace: NamespaceDirectory,
++    objects: ObjectDirectory,
++}
++impl Setup {
++    fn new() -> Self {
++        let s = Scratch::new();
++        let mut work = WorkLedger::new();
++        let ledger = admitted(&s, &mut work);
++        let location = s.location();
++        let namespace = operation(&mut work, |w| admit_namespace_directory(&location, w)).unwrap();
++        let objects = operation(&mut work, |w| {
++            admit_object_directory(&location, &namespace, w)
++        })
++        .unwrap();
++        drop(location);
++        Self {
++            s,
++            work,
++            ledger,
++            _namespace: namespace,
++            objects,
++        }
++    }
++    fn attempt(&mut self, execution: &str) -> AdmittedAttempt {
++        let location = self.s.location();
++        let ledger = &self.ledger;
++        operation(&mut self.work, |w| {
++            admit_attempt(&location, ledger, &record(execution), w)
++        })
++        .unwrap()
++    }
++    fn objects_path(&self) -> PathBuf {
++        self.s.namespace_path().join("objects/sha256")
++    }
++    fn ledger_path(&self) -> PathBuf {
++        self.s.namespace_path().join("ledger.sqlite")
++    }
++    fn entries(&self) -> BTreeSet<String> {
++        fs::read_dir(self.objects_path())
++            .unwrap()
++            .map(|e| e.unwrap().file_name().into_string().unwrap())
++            .collect()
++    }
++    fn publish(
++        &mut self,
++        attempt: &AdmittedAttempt,
++        declared: Vec<DeclaredObject>,
++    ) -> Refused<PublishedObjects> {
++        let objects = &self.objects;
++        operation(&mut self.work, |w| {
++            publish_objects(attempt, objects, declared, w)
++        })
++    }
++    fn begin(
++        &mut self,
++        attempt: &AdmittedAttempt,
++        published: PublishedObjects,
++    ) -> Refused<PreparedLedger> {
++        let ledger = &self.ledger;
++        operation(&mut self.work, |w| {
++            begin_prepared_ledger(ledger, attempt, published, w)
++        })
++    }
++    fn count(&self, table: &str) -> i64 {
++        ReadSnapshot::open(&self.ledger_path())
++            .unwrap()
++            .0
++            .query_row(&format!("SELECT count(*) FROM {table}"), [], |r| r.get(0))
++            .unwrap()
++    }
++    fn attempt_phase(&self, execution: &str) -> String {
++        ReadSnapshot::open(&self.ledger_path())
++            .unwrap()
++            .0
++            .query_row(
++                "SELECT phase FROM attempt_custody WHERE execution_id=?1",
++                [execution],
++                |r| r.get(0),
++            )
++            .unwrap()
++    }
++}
++
++fn declared(bytes: &[u8]) -> DeclaredObject {
++    DeclaredObject::new(raw_sha256(bytes), bytes.len() as u64, bytes.to_vec())
++}
++fn hex(bytes: &[u8]) -> String {
++    digest_hex(&raw_sha256(bytes))
++}
++const A: &[u8] = b"first evidence object";
++const B: &[u8] = b"second evidence object, a little longer";
++
++fn canonical(value: V) -> Vec<u8> {
++    canonical_bytes(&value).unwrap()
++}
++fn object(pairs: Vec<(&str, V)>) -> V {
++    V::Object(pairs.into_iter().map(|(k, v)| (k.to_owned(), v)).collect())
++}
++fn s(text: &str) -> V {
++    V::String(text.into())
++}
++fn int(n: i128) -> V {
++    V::Integer(opensip_identity::JsonInteger::new(n).unwrap())
++}
++
++/// Every joined value of one commit for `execution`, binding `blobs`.
++struct Material {
++    receipt: ReceiptCandidate,
++    association: AssociationCandidate,
++    manifest: Vec<u8>,
++    inventory: Vec<u8>,
++    run: String,
++}
++fn material(execution: &str, sequence: u64, journal_seq: u64, blobs: &[&[u8]]) -> Material {
++    let manifest = canonical(object(vec![
++        ("schemaVersion", int(3)),
++        ("projectId", s(&format!("prj1-{}", "a".repeat(64)))),
++        // Each execution's Run is distinct.
++        (
++            "snapshotId",
++            s(&format!("snapshot2:{0}{0}", &execution[6..])),
++        ),
++        ("planId", s(&format!("plan2:{}", "c".repeat(64)))),
++        ("evidenceId", s(&format!("evidence3:{}", "d".repeat(64)))),
++        ("evaluationSealId", s(&format!("seal3:{}", "e".repeat(64)))),
++        ("capabilityManifestId", s(&"f".repeat(64))),
++    ]));
++    let run = format!(
++        "run3:{}",
++        digest_hex(&hash_canonical_value("run", &parse_json(&manifest).unwrap()).unwrap())
++    );
++    let mut digests: Vec<String> = blobs.iter().map(|b| hex(b)).collect();
++    digests.sort();
++    let inventory = canonical(object(vec![
++        ("schemaVersion", int(2)),
++        ("runId", s(&run)),
++        ("objects", V::Array(Vec::new())),
++        (
++            "blobDigests",
++            V::Array(digests.iter().map(|d| s(d)).collect()),
++        ),
++    ]));
++    let inventory_digest = hex(&inventory);
++    let receipt = ReceiptCandidate::parse(&canonical(object(vec![
++        ("schemaVersion", int(2)),
++        ("runId", s(&run)),
++        ("executionId", s(execution)),
++        ("namespaceId", s(N)),
++        ("commitSequence", int(sequence.into())),
++        ("inventoryDigest", s(&inventory_digest)),
++        ("sealedAssurance", s("replayable")),
++        ("signerKeyId", s("signer")),
++    ])))
++    .unwrap();
++    let association = AssociationCandidate::parse(&canonical(object(vec![
++        ("recordSchema", int(1)),
++        ("storeGenerationDigest", s(&"ab".repeat(32))),
++        ("namespaceId", s(N)),
++        ("executionId", s(execution)),
++        ("runId", s(&run)),
++        ("inventoryDigest", s(&inventory_digest)),
++        ("commitSequence", s(&sequence.to_string())),
++        ("receiptBytesSha256", s(&hex(&receipt.raw))),
++        ("journalCarrierDigest", s(CARRIER)),
++        ("grantGeneration", int(1)),
++        ("journalSeq", int(journal_seq.into())),
++        ("journalBodySha256", s(&"1".repeat(64))),
++        ("operationRef", s(&format!("op-{}", "cd".repeat(16)))),
++    ])))
++    .unwrap();
++    Material {
++        receipt,
++        association,
++        manifest,
++        inventory,
++        run,
++    }
++}
++fn availability(schemas: &RegisteredSchemas, run: &str, generation: u64) -> AvailabilityRecord {
++    AvailabilityRecord::parse(
++        schemas,
++        &canonical(object(vec![
++            ("schemaVersion", int(2)),
++            ("runId", s(run)),
++            ("generation", int(generation.into())),
++            ("state", s("retained")),
++            ("missingRefs", V::Array(Vec::new())),
++            ("reason", s("observed")),
++        ])),
++        2_000_000,
++    )
++    .unwrap()
++}
++fn pins(run: &str) -> Inventory {
++    Inventory::from_rows(run.into(), vec![("baseline-1".into(), "baseline".into())]).unwrap()
++}
++const LIMITS: StagingLimits = StagingLimits {
++    per_record_work: 2_000_000,
++    pin_rows: 10_000,
++    pin_text_bytes: 1 << 20,
++};
++fn rows<'a>(
++    m: &'a Material,
++    availability: AvailabilityRecord,
++    pins: &'a Inventory,
++) -> CommitRows<'a> {
++    CommitRows {
++        carrier: CARRIER,
++        receipt: &m.receipt,
++        association: &m.association,
++        manifest: m.manifest.clone(),
++        inventory: m.inventory.clone(),
++        availability,
++        pins,
++    }
++}
++fn stage(
++    setup: &mut Setup,
++    prepared: PreparedLedger,
++    schemas: &RegisteredSchemas,
++    rows: CommitRows<'_>,
++) -> Refused<PreparedLedgerCommit> {
++    operation(&mut setup.work, |w| {
++        prepared.stage(schemas, rows, LIMITS, w)
++    })
++}
++
++#[test]
++fn objects_are_published_new_then_confirmed_and_never_overwritten() {
++    let mut setup = Setup::new();
++    let attempt = setup.attempt(EXEC);
++    let published = setup
++        .publish(&attempt, vec![declared(A), declared(B), declared(b"")])
++        .unwrap();
++    assert_eq!(published.objects().len(), 3);
++    for (object, bytes) in published.objects().iter().zip([A, B, b""]) {
++        assert_eq!(object.disposition(), ObjectDisposition::PublishedNew);
++        assert_eq!(object.digest(), hex(bytes));
++        assert_eq!(object.length(), bytes.len() as u64);
++        assert!(matches!(
++            object.barrier(),
++            DirectoryBarrier::FullFlush | DirectoryBarrier::Fsync
++        ));
++        let path = setup.objects_path().join(object.digest());
++        assert_eq!(fs::read(&path).unwrap(), bytes);
++        let m = fs::symlink_metadata(&path).unwrap();
++        assert!(m.is_file());
++        assert_eq!(m.mode() & 0o7777, 0o600);
++        assert_eq!(m.nlink(), 1);
++    }
++    // No temporary file is left behind by a completed publication.
++    assert_eq!(
++        setup.entries(),
++        [hex(A), hex(B), hex(b"")].into_iter().collect()
++    );
++    // A second attempt in the same namespace confirms every existing name
++    // byte for byte and completes its own barriers; nothing is rewritten.
++    let inode = fs::metadata(setup.objects_path().join(hex(A)))
++        .unwrap()
++        .ino();
++    let second = setup.attempt(EXEC2);
++    let again = setup
++        .publish(&second, vec![declared(A), declared(B)])
++        .unwrap();
++    assert!(
++        again
++            .objects()
++            .iter()
++            .all(|o| o.disposition() == ObjectDisposition::ConfirmedExisting)
++    );
++    assert_eq!(
++        fs::metadata(setup.objects_path().join(hex(A)))
++            .unwrap()
++            .ino(),
++        inode
++    );
++    assert!(!setup.work.is_failed());
++}
++
++#[test]
++fn a_declared_object_that_does_not_match_is_refused_before_any_write() {
++    for declared_set in [
++        // Wrong length.
++        vec![
++            declared(A),
++            DeclaredObject::new(raw_sha256(B), B.len() as u64 + 1, B.to_vec()),
++        ],
++        // Wrong digest.
++        vec![
++            declared(A),
++            DeclaredObject::new(raw_sha256(A), B.len() as u64, B.to_vec()),
++        ],
++        // The same digest twice.
++        vec![declared(A), declared(B), declared(A)],
++    ] {
++        let mut setup = Setup::new();
++        let attempt = setup.attempt(EXEC);
++        assert_eq!(
++            row(setup.publish(&attempt, declared_set)),
++            ProjectLedgerRow::Invariant
++        );
++        assert!(setup.entries().is_empty(), "nothing is written");
++    }
++}
++
++#[test]
++fn an_unequal_or_foreign_entry_at_an_object_name_is_ledger_corrupt_and_kept() {
++    type Make = fn(&std::path::Path);
++    let cases: [(&str, Make); 7] = [
++        ("unequal bytes", |p| {
++            fs::write(p, b"first evidence objecX").unwrap()
++        }),
++        ("short", |p| fs::write(p, b"first").unwrap()),
++        ("long", |p| {
++            fs::write(p, b"first evidence object!!").unwrap()
++        }),
++        ("directory", |p| fs::create_dir(p).unwrap()),
++        ("symlink", |p| {
++            std::os::unix::fs::symlink("/dev/null", p).unwrap()
++        }),
++        ("shared write", |p| {
++            fs::write(p, A).unwrap();
++            fs::set_permissions(p, fs::Permissions::from_mode(0o666)).unwrap();
++        }),
++        ("second link", |p| {
++            fs::write(p, A).unwrap();
++            fs::hard_link(p, p.with_file_name("other")).unwrap();
++        }),
++    ];
++    for (name, make) in cases {
++        let mut setup = Setup::new();
++        let attempt = setup.attempt(EXEC);
++        let path = setup.objects_path().join(hex(A));
++        make(&path);
++        let before = setup.entries();
++        let observed = fs::symlink_metadata(&path).unwrap();
++        // B is published first and stays: a failure never removes an object.
++        assert_eq!(
++            row(setup.publish(&attempt, vec![declared(B), declared(A)])),
++            ProjectLedgerRow::LedgerCorrupt,
++            "{name}"
++        );
++        let after = fs::symlink_metadata(&path).unwrap();
++        assert_eq!(
++            (after.ino(), after.mode(), after.len()),
++            (observed.ino(), observed.mode(), observed.len()),
++            "{name}: never overwritten"
++        );
++        let mut expected = before;
++        expected.insert(hex(B));
++        assert_eq!(setup.entries(), expected, "{name}");
++    }
++}
++
++#[test]
++fn publication_short_of_budget_refuses_before_the_first_object() {
++    let mut setup = Setup::new();
++    let attempt = setup.attempt(EXEC);
++    let objects = &setup.objects;
++    let big = vec![7u8; 1 << 20];
++    let used = setup.work.used();
++    // Room for the first object but not the second: the whole commit refuses.
++    let mut short = WorkLedger::with_limits(WorkCost {
++        objects: used.objects + 100,
++        edges: used.edges + 1000,
++        bytes: (1 << 20) + 4096,
++    })
++    .unwrap();
++    let result = short.scope(|w| {
++        publish_objects(
++            &attempt,
++            objects,
++            vec![declared(&big), declared(&big[1..])],
++            w,
++        )
++    });
++    assert!(matches!(result, Err(WorkFailure::Budget(_))));
++    assert!(setup.entries().is_empty());
++}
++
++#[test]
++fn a_crash_at_each_object_step_keeps_earlier_objects_and_the_next_attempt_completes() {
++    for step in [
++        ObjectStep::TemporaryWrite,
++        ObjectStep::BeforeFileBarrier,
++        ObjectStep::AfterLink,
++        ObjectStep::BeforeDirectoryBarrier,
++    ] {
++        let mut setup = Setup::new();
++        let attempt = setup.attempt(EXEC);
++        let objects = &setup.objects;
++        let crashed = operation(&mut setup.work, |w| {
++            publish_objects_crashing(
++                &attempt,
++                objects,
++                vec![declared(A), declared(B)],
++                w,
++                (1, step),
++            )
++        });
++        assert!(crashed.is_err(), "{step:?}");
++        let residue = setup.entries();
++        assert!(residue.contains(&hex(A)), "{step:?}: earlier object stays");
++        let staging: Vec<_> = residue
++            .iter()
++            .filter(|n| n.starts_with(".opensip-stage-"))
++            .cloned()
++            .collect();
++        match step {
++            ObjectStep::AfterLink => {
++                assert!(staging.is_empty());
++                assert_eq!(fs::read(setup.objects_path().join(hex(B))).unwrap(), B);
++            }
++            _ => {
++                assert_eq!(staging.len(), 1, "{step:?}");
++                assert!(!residue.contains(&hex(B)));
++            }
++        }
++        // The crashed attempt's row stays admitted; no ledger row was staged.
++        assert_eq!(setup.attempt_phase(EXEC), "admitted");
++        assert_eq!(setup.count("commit_receipts"), 0);
++        // A fresh process (fresh ledger, new ExecutionId) completes.
++        let mut fresh = WorkLedger::new();
++        std::mem::swap(&mut setup.work, &mut fresh);
++        let next = setup.attempt(EXEC2);
++        let published = setup
++            .publish(&next, vec![declared(A), declared(B)])
++            .unwrap();
++        let dispositions: Vec<_> = published
++            .objects()
++            .iter()
++            .map(PublishedObject::disposition)
++            .collect();
++        let b = if step == ObjectStep::AfterLink {
++            ObjectDisposition::ConfirmedExisting
++        } else {
++            ObjectDisposition::PublishedNew
++        };
++        assert_eq!(dispositions, [ObjectDisposition::ConfirmedExisting, b]);
++        // The residue is never deleted by an attempt (only X6's GC removes it).
++        let after = setup.entries();
++        assert!(after.is_superset(&residue), "{step:?}");
++        assert_eq!(fs::read(setup.objects_path().join(hex(B))).unwrap(), B);
++    }
++}
++
++#[test]
++fn the_ledger_transaction_never_waits_and_holds_nothing_when_busy() {
++    let mut setup = Setup::new();
++    let attempt = setup.attempt(EXEC);
++    let other = rusqlite::Connection::open(setup.ledger_path()).unwrap();
++    other.busy_timeout(Duration::ZERO).unwrap();
++    other.execute_batch("BEGIN IMMEDIATE").unwrap();
++    let published = setup.publish(&attempt, vec![declared(A)]).unwrap();
++    let started = Instant::now();
++    assert_eq!(
++        row(setup.begin(&attempt, published)),
++        ProjectLedgerRow::Busy
++    );
++    assert!(started.elapsed() < Duration::from_secs(1), "never waits");
++    other.execute_batch("ROLLBACK").unwrap();
++    // The refused call holds no transaction: another writer proceeds at once.
++    other.execute_batch("BEGIN IMMEDIATE; ROLLBACK").unwrap();
++    // A held prepared ledger is itself the level-3 writer others see busy.
++    // (The refused operation's ledger is closed; a new operation continues.)
++    let mut fresh = WorkLedger::new();
++    std::mem::swap(&mut setup.work, &mut fresh);
++    let published = setup.publish(&attempt, vec![declared(A)]).unwrap();
++    let prepared = setup.begin(&attempt, published).unwrap();
++    assert!(other.execute_batch("BEGIN IMMEDIATE").is_err());
++    drop(prepared);
++    other.execute_batch("BEGIN IMMEDIATE; ROLLBACK").unwrap();
++}
++
++#[test]
++fn objects_of_another_attempt_cannot_open_the_ledger_transaction() {
++    let mut setup = Setup::new();
++    let first = setup.attempt(EXEC);
++    let second = setup.attempt(EXEC2);
++    let published = setup.publish(&first, vec![declared(A)]).unwrap();
++    assert_eq!(
++        row(setup.begin(&second, published)),
++        ProjectLedgerRow::Invariant
++    );
++}
++
++#[test]
++fn a_staged_commit_writes_every_row_only_at_commit_and_commits_durably() {
++    let schemas = availability_registry();
++    let mut setup = Setup::new();
++    let attempt = setup.attempt(EXEC);
++    let m = material(EXEC, 1, 7, &[A, B]);
++    let p = pins(&m.run);
++    let published = setup
++        .publish(&attempt, vec![declared(A), declared(B)])
++        .unwrap();
++    let prepared = setup.begin(&attempt, published).unwrap();
++    let adapter = stage(
++        &mut setup,
++        prepared,
++        &schemas,
++        rows(&m, availability(&schemas, &m.run, 0), &p),
++    )
++    .unwrap();
++    // Staged, not committed: a reader sees none of it.
++    for table in [
++        "commit_receipts",
++        "commit_associations",
++        "commit_run_material",
++        "evidence_availability",
++        "active_run_pins",
++        "pin_change_facts",
++    ] {
++        assert_eq!(setup.count(table), 0, "{table}");
++    }
++    assert_eq!(
++        adapter.commit(),
++        LedgerCommitOutcome::Committed {
++            execution: EXEC.into()
++        }
++    );
++    for table in [
++        "commit_receipts",
++        "commit_associations",
++        "commit_run_material",
++        "evidence_availability",
++        "active_run_pins",
++        "pin_change_facts",
++    ] {
++        assert_eq!(setup.count(table), 1, "{table}");
++    }
++    // The commit joins as recovery reads it; the attempt is never settled here.
++    let binding = SuppliedBinding {
++        store: &"ab".repeat(32),
++        namespace: N,
++        carrier: CARRIER,
++        execution: EXEC,
++    };
++    let snapshot = ReadSnapshot::open(&setup.ledger_path()).unwrap();
++    assert_eq!(
++        snapshot.recovery_ledger(&binding).unwrap().standing(),
++        &LedgerStanding::ContinueCarrier {
++            pending_settlement: true,
++            legacy_custody_unknown: false
++        }
++    );
++    let (manifest, inventory): (Vec<u8>, Vec<u8>) = snapshot
++        .0
++        .query_row(
++            "SELECT manifest,inventory FROM commit_run_material",
++            [],
++            |r| Ok((r.get(0)?, r.get(1)?)),
++        )
++        .unwrap();
++    assert_eq!(
++        (manifest, inventory),
++        (m.manifest.clone(), m.inventory.clone())
++    );
++    assert_eq!(setup.attempt_phase(EXEC), "admitted");
++    assert!(!setup.work.is_failed());
++}
++
++#[test]
++fn a_staging_failure_at_any_row_commits_nothing() {
++    let schemas = availability_registry();
++    // A prior durable commit owns commit sequence 1 and journal sequence 7.
++    let mut setup = Setup::new();
++    let first = setup.attempt(EXEC);
++    let m = material(EXEC, 1, 7, &[A]);
++    let p = pins(&m.run);
++    let published = setup.publish(&first, vec![declared(A)]).unwrap();
++    let prepared = setup.begin(&first, published).unwrap();
++    let adapter = stage(
++        &mut setup,
++        prepared,
++        &schemas,
++        rows(&m, availability(&schemas, &m.run, 0), &p),
++    )
++    .unwrap();
++    assert!(matches!(
++        adapter.commit(),
++        LedgerCommitOutcome::Committed { .. }
++    ));
++    let second = setup.attempt(EXEC2);
++    type Case = fn(&RegisteredSchemas) -> (Material, Option<AvailabilityRecord>, Option<Inventory>);
++    let cases: [(&str, Case); 6] = [
++        // The receipt pair collides with the prior commit's sequence (the pair
++        // is the first insert: nothing else is reached).
++        ("pair sequence", |_| {
++            (material(EXEC2, 1, 8, &[A, B]), None, None)
++        }),
++        // Run material whose blobs differ from the published objects.
++        ("blob set", |_| (material(EXEC2, 2, 8, &[A]), None, None)),
++        // Availability for another Run, after the pair and material.
++        ("availability run", |schemas| {
++            let m = material(EXEC2, 2, 8, &[A, B]);
++            (
++                m,
++                Some(availability(
++                    schemas,
++                    &format!("run3:{}", "9".repeat(64)),
++                    0,
++                )),
++                None,
++            )
++        }),
++        // A non-initial availability generation.
++        ("availability generation", |schemas| {
++            let m = material(EXEC2, 2, 8, &[A, B]);
++            let a = availability(schemas, &m.run, 1);
++            (m, Some(a), None)
++        }),
++        // Pins for another Run, the last stager.
++        ("pins run", |_| {
++            let m = material(EXEC2, 2, 8, &[A, B]);
++            (m, None, Some(pins(&format!("run3:{}", "9".repeat(64)))))
++        }),
++        // The prior commit's pin facts already hold this operationRef.
++        ("pin operation reused", |_| {
++            (material(EXEC2, 2, 8, &[A, B]), None, None)
++        }),
++    ];
++    for (name, case) in cases {
++        let (m, a, p) = case(&schemas);
++        let a = a.unwrap_or_else(|| availability(&schemas, &m.run, 0));
++        let p = p.unwrap_or_else(|| pins(&m.run));
++        let published = setup
++            .publish(&second, vec![declared(A), declared(B)])
++            .unwrap();
++        let prepared = setup.begin(&second, published).unwrap();
++        let result = stage(&mut setup, prepared, &schemas, rows(&m, a, &p));
++        assert_eq!(row(result), ProjectLedgerRow::Invariant, "{name}");
++        // The failed attempt's ledger is closed; a new one continues.
++        let mut fresh = WorkLedger::new();
++        std::mem::swap(&mut setup.work, &mut fresh);
++        for table in [
++            "commit_receipts",
++            "commit_associations",
++            "commit_run_material",
++            "evidence_availability",
++            "active_run_pins",
++            "pin_change_facts",
++        ] {
++            assert_eq!(setup.count(table), 1, "{name}: {table}");
++        }
++        assert!(setup.entries().contains(&hex(B)), "{name}: objects stay");
++        assert_eq!(setup.attempt_phase(EXEC2), "admitted");
++    }
++}
++
++#[test]
++fn an_operation_mismatch_is_refused_before_any_insert() {
++    let schemas = availability_registry();
++    let mut setup = Setup::new();
++    let attempt = setup.attempt(EXEC);
++    let mut m = material(EXEC, 1, 7, &[A]);
++    m.association.operation = format!("op-{}", "ee".repeat(16));
++    let p = pins(&m.run);
++    let published = setup.publish(&attempt, vec![declared(A)]).unwrap();
++    let prepared = setup.begin(&attempt, published).unwrap();
++    assert_eq!(
++        row(stage(
++            &mut setup,
++            prepared,
++            &schemas,
++            rows(&m, availability(&schemas, &m.run, 0), &p)
++        )),
++        ProjectLedgerRow::Invariant
++    );
++    assert_eq!(setup.count("commit_receipts"), 0);
++}
++
++#[test]
++fn dropping_the_prepared_ledger_or_the_adapter_commits_nothing() {
++    let schemas = availability_registry();
++    let mut setup = Setup::new();
++    let attempt = setup.attempt(EXEC);
++    let m = material(EXEC, 1, 7, &[A]);
++    let p = pins(&m.run);
++    let published = setup.publish(&attempt, vec![declared(A)]).unwrap();
++    drop(setup.begin(&attempt, published).unwrap());
++    let published = setup.publish(&attempt, vec![declared(A)]).unwrap();
++    let prepared = setup.begin(&attempt, published).unwrap();
++    let adapter = stage(
++        &mut setup,
++        prepared,
++        &schemas,
++        rows(&m, availability(&schemas, &m.run, 0), &p),
++    )
++    .unwrap();
++    drop(adapter);
++    assert_eq!(setup.count("commit_receipts"), 0);
++    assert_eq!(setup.count("commit_run_material"), 0);
++    assert_eq!(setup.attempt_phase(EXEC), "admitted");
++    // The rolled-back transaction released level 3.
++    let other = rusqlite::Connection::open(setup.ledger_path()).unwrap();
++    other.execute_batch("BEGIN IMMEDIATE; ROLLBACK").unwrap();
++}
++
++/// A deferred foreign-key violation in the connection's own temp schema makes
++/// the real `COMMIT` statement fail inside the held transaction.
++fn break_commit(c: &rusqlite::Connection) {
++    c.execute_batch(
++        "CREATE TEMP TABLE parent(k INTEGER PRIMARY KEY);
++         CREATE TEMP TABLE child(k INTEGER REFERENCES parent(k) DEFERRABLE INITIALLY DEFERRED);
++         INSERT INTO child VALUES(1);",
++    )
++    .unwrap();
++}
++
++#[test]
++fn an_error_from_commit_is_undetermined_and_nothing_is_retried_or_read_back() {
++    let schemas = availability_registry();
++    let mut setup = Setup::new();
++    let attempt = setup.attempt(EXEC);
++    let m = material(EXEC, 1, 7, &[A]);
++    let p = pins(&m.run);
++    let published = setup.publish(&attempt, vec![declared(A)]).unwrap();
++    let prepared = setup.begin(&attempt, published).unwrap();
++    let adapter = stage(
++        &mut setup,
++        prepared,
++        &schemas,
++        rows(&m, availability(&schemas, &m.run, 0), &p),
++    )
++    .unwrap()
++    .with_commit_hook(break_commit);
++    let outcome = adapter.commit();
++    assert_eq!(
++        outcome,
++        LedgerCommitOutcome::Undetermined {
++            execution: EXEC.into()
++        }
++    );
++    assert_eq!(
++        outcome.refusal().map(|r| r.row()),
++        Some(ProjectLedgerRow::DurabilityCommitFailed)
++    );
++    // This injected failure rolled back; the classification did not infer it.
++    // The attempt row stays admitted for X6, and the objects stay.
++    assert_eq!(setup.count("commit_receipts"), 0);
++    assert_eq!(setup.attempt_phase(EXEC), "admitted");
++    assert!(setup.entries().contains(&hex(A)));
++}
++
++#[test]
++fn staging_short_of_budget_refuses_before_any_insert() {
++    let schemas = availability_registry();
++    let mut setup = Setup::new();
++    let attempt = setup.attempt(EXEC);
++    let m = material(EXEC, 1, 7, &[A]);
++    let p = pins(&m.run);
++    let published = setup.publish(&attempt, vec![declared(A)]).unwrap();
++    let prepared = setup.begin(&attempt, published).unwrap();
++    let mut short = WorkLedger::with_limits(WorkCost {
++        objects: 4,
++        edges: 16,
++        bytes: 1024,
++    })
++    .unwrap();
++    let result = short.scope(|w| {
++        prepared.stage(
++            &schemas,
++            rows(&m, availability(&schemas, &m.run, 0), &p),
++            LIMITS,
++            w,
++        )
++    });
++    assert!(matches!(result, Err(WorkFailure::Budget(_))));
++    assert_eq!(setup.count("commit_receipts"), 0);
++}
++
++#[test]
++fn the_new_refusals_follow_item_10() {
++    assert_eq!(
++        ProjectLedgerRefusal::ObjectDeclaration.row(),
++        ProjectLedgerRow::Invariant
++    );
++    assert_eq!(
++        ProjectLedgerRefusal::StagingMismatch.row(),
++        ProjectLedgerRow::Invariant
++    );
++    assert_eq!(
++        ProjectLedgerRefusal::CommitUndetermined.row(),
++        ProjectLedgerRow::DurabilityCommitFailed
++    );
++    assert_eq!(
++        LedgerCommitOutcome::Committed {
++            execution: EXEC.into()
++        }
++        .refusal()
++        .map(|r| r.row()),
++        None
++    );
++    assert_eq!(
++        classify_staging(LedgerError::Configuration("pin_schema")).row(),
++        ProjectLedgerRow::LedgerCorrupt
++    );
++    assert_eq!(
++        classify_staging(LedgerError::Configuration("pair_join")).row(),
++        ProjectLedgerRow::Invariant
++    );
++    assert_eq!(
++        classify_staging(LedgerError::Io(io::Error::other("x"))).row(),
++        ProjectLedgerRow::HostIo
++    );
++}
++
++#[test]
++fn no_x3c2_path_deletes_settles_waits_or_reads_back() {
++    let source = include_str!("project_commit.rs");
++    for forbidden in [
++        "remove_file",
++        "remove_dir",
++        "fs::rename",
++        "renameat",
++        "unlink",
++        "DELETE FROM",
++        "OR REPLACE",
++        "UPDATE attempt_custody",
++        "ReadSnapshot",
++        "Duration",
++        "busy_timeout(",
++    ] {
++        assert!(!source.contains(forbidden), "{forbidden}");
++    }
++    // The adapter's one consuming method performs only COMMIT, once.
++    assert_eq!(source.matches(".commit()").count(), 1);
++}
+diff --git a/crates/storage/src/ledger_store/project_ledger.rs b/crates/storage/src/ledger_store/project_ledger.rs
+index 596be38..1a67aeb 100644
+--- a/crates/storage/src/ledger_store/project_ledger.rs
++++ b/crates/storage/src/ledger_store/project_ledger.rs
+@@ -2,10 +2,10 @@
+ //! their directories' create-or-admit, ledger creation and open, and durable
+ //! attempt admission before any evidence object. Writes happen only under the
+ //! namespace writer lease the caller holds; this module does not take it.
+-//! Nothing here publishes an object, stages a receipt, commits a Run, settles
+-//! an attempt or reads an outcome back (X3c-2, X3d, X6). No production
+-//! constructor of a location exists yet: X3d supplies it from X2e's
+-//! `ProjectOperation` and X3a's endpoint.
++//! Object publication, the prepared ledger transaction, staging and the commit
++//! are its child module `commit` (X3c-2). Nothing here settles an attempt or
++//! reads an outcome back (X6). No production constructor of a location exists
++//! yet: X3d supplies it from X2e's `ProjectOperation` and X3a's endpoint.
+ use super::{
+     ATTEMPT_DDL, AVAILABILITY_DDL, AttemptPhase, AttemptRecord, Connection, ExistingWriter,
+     LedgerError, PAIR_DDL, configure_engine, open_existing, pin_transactions, recovery_material,
+@@ -196,6 +196,15 @@ pub(crate) enum ProjectLedgerRefusal {
+     ReusedExecution,
+     /// The attempt record is not for this namespace, or not `admitted`.
+     AttemptMismatch,
++    /// X3c-2: a declared object whose bytes do not match its digest or length,
++    /// or a repeated digest. Refused before any write; a broken caller.
++    ObjectDeclaration,
++    /// X3c-2: staged values that do not join the attempt, its published
++    /// objects or each other, or that a retained key already holds.
++    StagingMismatch,
++    /// X3c-2: the evidence `COMMIT` returned an error or the connection was
++    /// lost. Durability is unknown; nothing retries and nothing reads back.
++    CommitUndetermined,
+     Io(std::io::Error),
+     Sql(rusqlite::Error),
+ }
+@@ -222,8 +231,13 @@ impl ProjectLedgerRefusal {
+         match self {
+             Self::Busy => ProjectLedgerRow::Busy,
+             Self::Corrupt => ProjectLedgerRow::LedgerCorrupt,
+-            Self::AttemptUndetermined => ProjectLedgerRow::DurabilityCommitFailed,
+-            Self::ReusedExecution | Self::AttemptMismatch => ProjectLedgerRow::Invariant,
++            Self::AttemptUndetermined | Self::CommitUndetermined => {
++                ProjectLedgerRow::DurabilityCommitFailed
++            }
++            Self::ReusedExecution
++            | Self::AttemptMismatch
++            | Self::ObjectDeclaration
++            | Self::StagingMismatch => ProjectLedgerRow::Invariant,
+             Self::Custody(StoreCustodyRefusal::Name) => ProjectLedgerRow::Invariant,
+             Self::Custody(StoreCustodyRefusal::NotPrivate) => ProjectLedgerRow::Custody("private"),
+             Self::Custody(StoreCustodyRefusal::NotFresh) => ProjectLedgerRow::Custody("not-fresh"),
+@@ -522,6 +536,20 @@ pub(crate) fn create_or_open_ledger(
+     })
+ }
+ 
++/// The durably admitted attempt (item 3). Object publication (X3c-2) takes
++/// it, so no object is written before the attempt row is committed. Not Clone.
++pub(crate) struct AdmittedAttempt {
++    store: String,
++    namespace: String,
++    execution: String,
++    operation: String,
++}
++impl AdmittedAttempt {
++    pub(crate) fn execution(&self) -> &str {
++        &self.execution
++    }
++}
++
+ /// Item 3: the attempt's `attempt_custody` row in its own transaction,
+ /// committed durably before the first object. The record must be `admitted`
+ /// and name this namespace.
+@@ -530,7 +558,7 @@ pub(crate) fn admit_attempt(
+     ledger: &AdmittedLedger,
+     record: &AttemptRecord,
+     work: &mut WorkScope<'_>,
+-) -> Refused<()> {
++) -> Refused<AdmittedAttempt> {
+     if record.phase != AttemptPhase::Admitted
+         || record.key.namespace != location.names.namespace.as_str()
+     {
+@@ -554,11 +582,17 @@ pub(crate) fn admit_attempt(
+                 other => classify_open(other),
+             }));
+         }
+-        transaction.commit().map(|_| ()).map_err(|error| {
++        transaction.commit().map_err(|error| {
+             WorkFailure::Operation(match error {
+                 LedgerError::CommitUndetermined(_) => ProjectLedgerRefusal::AttemptUndetermined,
+                 other => classify_open(other),
+             })
++        })?;
++        Ok(AdmittedAttempt {
++            store: record.key.store.clone(),
++            namespace: record.key.namespace.clone(),
++            execution: record.key.execution.clone(),
++            operation: record.operation.clone(),
+         })
+     })
+ }
+@@ -569,6 +603,9 @@ fn reused_execution(error: &rusqlite::Error) -> bool {
+         if message == "retained key cannot be replaced")
+ }
+ 
++#[path = "project_commit.rs"]
++mod commit;
++
+ #[cfg(test)]
+ #[path = "project_ledger_tests.rs"]
+ mod tests;
+diff --git a/crates/storage/src/ledger_store/project_ledger_tests.rs b/crates/storage/src/ledger_store/project_ledger_tests.rs
+index 57f1a7f..2ff6abf 100644
+--- a/crates/storage/src/ledger_store/project_ledger_tests.rs
++++ b/crates/storage/src/ledger_store/project_ledger_tests.rs
+@@ -1,6 +1,7 @@
+ // Law X3c r6 item 12a, X3c-1 part: a crate-private scratch location (no
+ // production seam). The test holds a real `writer.lease` flock for N, as the
+-// writer would; X3c-1 never takes it itself.
++// writer would; X3c-1 never takes it itself. The fixture is shared with the
++// X3c-2 child module's tests and lives under the per-process scratch parent.
+ use super::super::{
+     ATTEMPT_DDL, AttemptKey, AttemptPhase, AttemptRecord, Connection, PAIR_DDL, ReadSnapshot,
+ };
+@@ -8,24 +9,24 @@ use super::*;
+ use opensip_platform::{FileLock, LockMode, WorkLedger};
+ use std::{fs, os::unix::fs::PermissionsExt};
+ 
+-const STORE: &str = "0123456789abcdef0123456789abcdef";
+-const N: &str = "6f1c2a4e-3b5d-4c7e-9f10-1a2b3c4d5e6f";
++pub(super) const STORE: &str = "0123456789abcdef0123456789abcdef";
++pub(super) const N: &str = "6f1c2a4e-3b5d-4c7e-9f10-1a2b3c4d5e6f";
+ 
+-struct Scratch {
++pub(super) struct Scratch {
+     root: PathBuf,
+-    store_path: PathBuf,
++    pub(super) store_path: PathBuf,
+     store: RetainedDirectory,
+     uid: u32,
+     _lease: FileLock,
+ }
+ impl Scratch {
+-    fn new() -> Self {
++    pub(super) fn new() -> Self {
+         let tag: String = opensip_platform::request_entropy()
+             .unwrap()
+             .iter()
+             .map(|b| format!("{b:02x}"))
+             .collect();
+-        let p = std::env::temp_dir().join(format!("opensip-x3c1-{tag}"));
++        let p = crate::test_scratch::temp_dir().join(format!("opensip-x3c1-{tag}"));
+         fs::create_dir(&p).unwrap();
+         let root = fs::canonicalize(&p).unwrap();
+         let store_path = root.join("stores").join(STORE);
+@@ -54,7 +55,7 @@ impl Scratch {
+             _lease: lease,
+         }
+     }
+-    fn location(&self) -> ProjectStoreLocation<'_> {
++    pub(super) fn location(&self) -> ProjectStoreLocation<'_> {
+         ProjectStoreLocation::for_tests(
+             &self.store,
+             self.store_path.clone(),
+@@ -62,7 +63,7 @@ impl Scratch {
+             self.uid,
+         )
+     }
+-    fn namespace_path(&self) -> PathBuf {
++    pub(super) fn namespace_path(&self) -> PathBuf {
+         self.store_path.join("projects").join(N)
+     }
+ }
+@@ -72,20 +73,20 @@ impl Drop for Scratch {
+     }
+ }
+ 
+-fn operation<T>(
++pub(super) fn operation<T>(
+     work: &mut WorkLedger,
+     action: impl FnOnce(&mut WorkScope<'_>) -> Refused<T>,
+ ) -> Refused<T> {
+     work.scope(action)
+ }
+-fn row<T>(result: Refused<T>) -> ProjectLedgerRow {
++pub(super) fn row<T>(result: Refused<T>) -> ProjectLedgerRow {
+     match result {
+         Err(WorkFailure::Operation(refusal)) => refusal.row(),
+         Err(WorkFailure::Budget(b)) => panic!("expected a refusal, got budget {b:?}"),
+         Ok(_) => panic!("expected a refusal, got success"),
+     }
+ }
+-fn record(execution: &str) -> AttemptRecord {
++pub(super) fn record(execution: &str) -> AttemptRecord {
+     AttemptRecord {
+         key: AttemptKey {
+             store: "ab".repeat(32),
+@@ -96,7 +97,7 @@ fn record(execution: &str) -> AttemptRecord {
+         phase: AttemptPhase::Admitted,
+     }
+ }
+-const EXEC: &str = "exec1_0123456789abcdef0123456789abcdef";
++pub(super) const EXEC: &str = "exec1_0123456789abcdef0123456789abcdef";
+ 
+ #[test]
+ fn names_are_owner201_spellings_and_reject_other_components() {
+@@ -357,7 +358,7 @@ fn a_foreign_file_mode_at_the_ledger_name_refuses_on_custody() {
+     assert_eq!(fs::metadata(&path).unwrap().len(), 0);
+ }
+ 
+-fn admitted(s: &Scratch, work: &mut WorkLedger) -> AdmittedLedger {
++pub(super) fn admitted(s: &Scratch, work: &mut WorkLedger) -> AdmittedLedger {
+     let location = s.location();
+     let namespace = operation(work, |w| admit_namespace_directory(&location, w)).unwrap();
+     operation(work, |w| create_or_open_ledger(&location, &namespace, w)).unwrap()
+diff --git a/crates/storage/src/ledger_store/recovery_material.rs b/crates/storage/src/ledger_store/recovery_material.rs
+index 23462db..5cbaf09 100644
+--- a/crates/storage/src/ledger_store/recovery_material.rs
++++ b/crates/storage/src/ledger_store/recovery_material.rs
+@@ -3,7 +3,7 @@
+ //! separate owners. This private immutable DDL is a proposed mechanism only.
+ use super::{
+     Connection, LedgerError, ReadSnapshot, RecoveryReadLimits, RegisteredSchemas, SuppliedBinding,
+-    recovery_availability::CapturedRecoveryAvailability,
++    WriteTransaction, paired_run, recovery_availability::CapturedRecoveryAvailability,
+ };
+ use opensip_identity::{
+     CandidateError, CanonicalError, IdentityCandidate, IdentityDomain, JsonValue as V,
+@@ -286,6 +286,55 @@ fn capture_with_hook(
+     })
+ }
+ 
++impl WriteTransaction {
++    /// Law X3c r7 item 6: stage the Run's manifest and commit inventory in the
++    /// open transaction, after the receipt pair. The stored schema must be the
++    /// selected DDL, the receipt staged in this transaction must name `run`,
++    /// and both bodies are admitted exactly as recovery reads them (manifest
++    /// identity, canonical bytes, inventory Run and the receipt's inventory
++    /// digest). Returns the inventory's blob digests for the caller's exact
++    /// comparison with its published objects. A failed INSERT poisons this
++    /// transaction. Nothing is committed here.
++    pub(super) fn stage_run_material(
++        &mut self,
++        schemas: &RegisteredSchemas,
++        binding: &SuppliedBinding<'_>,
++        inventory_digest: &str,
++        manifest: Vec<u8>,
++        inventory: Vec<u8>,
++        work: usize,
++    ) -> Result<Vec<String>, LedgerError> {
++        if self.poisoned {
++            return Err(LedgerError::Configuration("transaction_poisoned"));
++        }
++        let expected = Connection::open_in_memory()?;
++        expected.execute_batch(DDL)?;
++        if definitions(&self.connection)? != definitions(&expected)? {
++            return Err(LedgerError::Configuration("run_material_schema"));
++        }
++        let run = paired_run(&self.connection, binding)?;
++        let material = parse_material(schemas, &run, inventory_digest, manifest, inventory, work)
++            .map_err(LedgerError::RunMaterial)?;
++        self.poisoned = true;
++        let changed = self.connection.execute(
++            "INSERT INTO commit_run_material VALUES(?1,?2,?3,?4,?5,?6)",
++            rusqlite::params![
++                binding.store,
++                binding.namespace,
++                binding.execution,
++                run,
++                material.manifest,
++                material.inventory
++            ],
++        )?;
++        if changed != 1 {
++            return Err(LedgerError::Configuration("run_material_insert_count"));
++        }
++        self.poisoned = false;
++        Ok(material.blobs)
++    }
++}
++
+ #[cfg(test)]
+ mod tests {
+     use super::super::{
+diff --git a/crates/storage/src/lib.rs b/crates/storage/src/lib.rs
+index 4f9bca0..529a8c0 100644
+--- a/crates/storage/src/lib.rs
++++ b/crates/storage/src/lib.rs
+@@ -17,3 +17,35 @@ mod store_root;
+ 
+ #[cfg(target_os = "macos")]
+ pub use store_root::native_marker::{Error as StoreMarkerObservationError, ProvisionalStoreMarker};
++
++/// F3's per-process scratch parent for storage fixtures that need a real
++/// directory tree: `<temp>/opensip-test/<pid>-<nanos>`, created once with mode
++/// 0700. Fixtures below it never add or remove entries in the shared system
++/// temporary directory, so other processes' walkers see no churn from them.
++#[cfg(test)]
++mod test_scratch {
++    static PRIVATE: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLock::new();
++    pub(crate) fn temp_dir() -> std::path::PathBuf {
++        PRIVATE
++            .get_or_init(|| {
++                use std::os::unix::fs::DirBuilderExt;
++                let shared = std::env::temp_dir().join("opensip-test");
++                match std::fs::DirBuilder::new().mode(0o700).create(&shared) {
++                    Ok(()) => {}
++                    Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
++                    Err(e) => panic!("opensip-test scratch parent: {e}"),
++                }
++                let nanos = std::time::SystemTime::now()
++                    .duration_since(std::time::UNIX_EPOCH)
++                    .unwrap()
++                    .as_nanos();
++                let private = shared.join(format!("{}-{nanos}", std::process::id()));
++                std::fs::DirBuilder::new()
++                    .mode(0o700)
++                    .create(&private)
++                    .unwrap_or_else(|e| panic!("private scratch parent: {e}"));
++                private
++            })
++            .clone()
++    }
++}
