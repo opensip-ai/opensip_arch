@@ -12,7 +12,7 @@
 - **RF-2: B6 and B7 publish through X9 item 6's fenced helper, in a process that does not hold the operation lease (item 5a).** X4 item 2 forbids trust writes under a lease. r1's `publish_revocation` on the lease-holding test thread is withdrawn. The test thread waits for the helper process to exit, then calls `prepare_commit` and `publish`, with no sleep. B3 and B5 stay on the test thread.
 - **Unchanged from r1:** everything else, including items 1 to 3, B0 to B5 and B8, and item 6.
 
-**r3 (2026-10-02) answers Grok X8 r2 RF-1: the helper process exited 0 without publishing.** r2 bytes are preserved in PROPOSAL-r2.md. r3 ACCEPTED by Grok on 2026-10-02.
+**r3 (2026-10-02) answers Grok X8 r2 RF-1: the helper process exited 0 without publishing.** r2 bytes are preserved in PROPOSAL-r2.md.
 - **The defect.** r2 item 5a re-executed the test binary with `--exact` on an `#[ignore]`d test and no `--ignored` or `--include-ignored`. On rustc 1.95.0 the harness then prints "ignored" and exits 0, so the waited success was a process that published nothing. Separately, the entry could not reach the publisher: X9 item 6 places its helper in `crash_matrix_support`, which exists only under `crash-matrix`, and r2 named no `scenario` function to replace the withdrawn `publish_revocation`.
 - **The change (items 4b, 4c and 5a, and the forbidden substitutes).**
   - The entry is an ordinary `#[test]` in X9 item 3's shape. It returns at once unless its helper environment variable is set, and it publishes only when it is.
