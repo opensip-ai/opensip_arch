@@ -1,0 +1,40 @@
+{
+  "actualModel": "Grok",
+  "verdict": "REQUIRED-FINDINGS",
+  "requiredFindings": [
+    {
+      "id": "RF-1",
+      "title": "F32 fires one sequence too late",
+      "failureScenario": "Item 3 step 3 returns CarrierCapacityExhausted when the carrier tail is at or past the reserved terminal slot. The build plan reserves slot 9007199254740991, and X3b r6 item 5 makes the append TERMINAL when the tail is already 9007199254740990, so the next sequence is that reserved slot and an ordinary SEAL has no slot. The ledger association check admits journal_seq through 9007199254740990, so a tail of that value is still an ordinary record and is not at 9007199254740991. prepare_commit continues into attempt admission and object publication. Required: return CarrierCapacityExhausted {grantGeneration, provenTailSeq} before any write when the proven tail is greater than or equal to 9007199254740990. Storage still does not call lifecycle. X7 still completes cleanup, releases the lease, and routes rollover under the fence."
+    },
+    {
+      "id": "RF-2",
+      "title": "The attempt-admission commit is classified as a preflight refusal",
+      "failureScenario": "Item 3 calls prepare_commit a preflight before any level-3 lock, and a failure of any of its six steps returns StoppedSession with no acknowledged Run. Step 4 is X3c r7 item 3's own ledger transaction before the first object. A failed or lost commit of that transaction is durability-undetermined: DURABILITY.COMMIT_FAILED, durability-commit, operational-failed, exit 4, ExecutionId retained, runId omitted, no retry, and no objects. Item 6 places CommitUndetermined only on publish. The ac_no_replace trigger is the other branch of that insert: it aborts before a successful commit and returns ExistingAttempt, which until X6 exists terminates on the invariant row. Required: binding equality, the budget reserve, and the capacity check stay before any level-3 lock. A trigger refusal returns ExistingAttempt. A COMMIT of the attempt transaction that errors or loses the connection returns CommitUndetermined on item 9's durability row and stops before any object."
+    },
+    {
+      "id": "RF-3",
+      "title": "The stop order appends REV across a range item 7 does not, including an uncertain journal commit",
+      "failureScenario": "Item 4 applies one stop order to every stop after level 4 is taken and before the evidence COMMIT, and its third step says the end path appends REV. That range includes the journal COMMIT at step 3.5. X3b r6 item 5 classifies a failed commit, rename, or barrier as durability-undetermined: reconcile by reopening, assume neither state, and refuse every further effect, so no REV and no evidence commit. Item 7 appends REV again from finish, and only when a SEAL exists without a commit, the observer latched, or a revocation was observed. publish returns StoppedSession for the caller to finish, so both sentences append on the paths where they match, and item 4 appends where item 7 would skip. A checkpoint failure latches the same gate X4 item 3 fetch-ORs to 2; item 7 names only the observer. Required: inside publish, roll back the open ledger transaction, release level 4, then each level-3 transaction still open, and append nothing. finish appends one REV through one fresh level-3-then-level-4 acquisition while the lease is held, when a durable SEAL has no evidence commit, the gate is latched, or a revocation was observed, and appends CLN when cleanup residue must be recorded, including F38's pair. An uncertain journal COMMIT or barrier does not enter that order. A returned evidence COMMIT, including CommitUndetermined, releases level 4 once and leaves that COMMIT's outcome as the caller outcome."
+    },
+    {
+      "id": "RF-4",
+      "title": "The end-path REV reserve is taken where a refusal can already owe the REV",
+      "failureScenario": "Item 8 reserves the REV and CLN appends inside prepare_commit and rejects charging them at finish, so a budget refusal cannot strand an un-REVed SEAL. Item 3 can return StoppedSession from the binding check, or from a failed combined reserve, before that reserve is held. The observer is already running on the ProjectOperation, and item 7 appends REV when the gate is latched or a revocation was observed with no SEAL. X4 item 5 puts REV(observer-fail-stop) on the end path. A combined reserve that fails leaves that append unfunded. Required: reserve the REV and CLN appends before prepare_commit can return a StoppedSession that owes them, and keep that reserve when the object and publication reserve fails. The SEAL path still refuses before the first write when the publication reserve fails. finish spends the end-path reserve."
+    },
+    {
+      "id": "RF-5",
+      "title": "The exhaustive rows drop host I/O and widen MIGRATION.CORRUPT",
+      "failureScenario": "Item 9 says every match is exhaustive. Item 4 returns the busy or I/O row when the ledger acquisition fails, and S12 maps an I/O failure to operational-failed, exit 4, HOST.IO_FAILURE. The list has no host-io row. The quarantine bullet names MIGRATION.CORRUPT beside LEDGER.CORRUPT. S12 and X3b r6 item 8 use MIGRATION.CORRUPT as the domainDetail on LEDGER.CORRUPT for a carrierFormat 3 footprint that is not a lawful durable prefix at a writer or maintenance open. X3c r7 item 10 keeps domainDetail omitted for a ledger schema mismatch, a partial creation footprint, and an unequal object. The invariant bullet drops the HOST.INVARIANT_VIOLATED detail X3c item 10 puts on a reused ExecutionId. Required: add HOST.IO_FAILURE, host-io, operational-failed, exit 4, for object, directory, journal, or ledger I/O before any COMMIT. Keep MIGRATION.CORRUPT as that format-3 domainDetail only. Ledger and unequal-object quarantine stay LEDGER.CORRUPT, ledger-corrupt, domainDetail omitted. The binding-mismatch and pre-X6 ExistingAttempt row is operational-failed, exit 4, SYSTEM.OUTCOME.ILLEGAL_STATE, host-invariant, detail HOST.INVARIANT_VIOLATED."
+    }
+  ],
+  "subjectSha256": "78ede338085d59e50b6bd2a3c519b1b8d8f882320e001ed8061431f4b8d1099a",
+  "subject": {
+    "path": "docs/implementation/m2/commit-session-x3d/PROPOSAL.md",
+    "bytes": 17916,
+    "sha256": "78ede338085d59e50b6bd2a3c519b1b8d8f882320e001ed8061431f4b8d1099a"
+  },
+  "productHead": "5b5f04cf3132d4aa91ced618d4b40544f2aaf2f5",
+  "realOpenSipAbsent": true,
+  "scope": "Law X3d r1. Five required findings: F32 tail predicate, attempt-admission durability, REV stop order, end-path budget, refusal rows. No product cargo."
+}

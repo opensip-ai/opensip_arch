@@ -1,4 +1,4 @@
-REVIEWER review: the X3c-1 ledger creation code with inventory v89. The law X3c r7 is accepted. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/REVIEWDIR. If you build, use a CARGO_TARGET_DIR under it.
+Grok review: the X3c-1 ledger creation code with inventory v89. The law X3c r7 is accepted. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/grok-ledger-creation-x3c1-r1. If you build, use a CARGO_TARGET_DIR under it.
 
 ## Subject: X3c-1 code
 
