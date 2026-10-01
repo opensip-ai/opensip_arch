@@ -1,4 +1,4 @@
-REVIEWER re-review: law X3b r3 after Grok's r2 findings. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/REVIEWDIR. Law review; no product cargo.
+Grok re-review: law X3b r3 after Grok's r2 findings. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/grok-journal-x3b-r3. Law review; no product cargo.
 
 Subject: docs/implementation/m2/journal-x3b/PROPOSAL.md r3 (pin in hashes.txt). `diff` it against PROPOSAL-r2.md. Earlier findings are in `reviews/grok-journal-x3b-r1/` and `-r2/`.
 
