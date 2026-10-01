@@ -1,4 +1,4 @@
-REVIEWER re-review, two subjects: the law X4T r6 amendment, and the X4T-a r2 code. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/REVIEWDIR. If you build, use a CARGO_TARGET_DIR under it.
+Grok re-review, two subjects: the law X4T r6 amendment, and the X4T-a r2 code. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/grok-current-trust-x4ta-r2. If you build, use a CARGO_TARGET_DIR under it.
 
 ## Subject 1: X4T r6
 
