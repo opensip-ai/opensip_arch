@@ -1,6 +1,6 @@
-# The replay-to-commit join — proposal X5 r2
+# The replay-to-commit join — proposal X5 r1
 
-2026-10-01. Claude Opus 5.5, implementation lead. Law for unit X5 of `EXIT-PLAN.md`, under the build plan's opaque-prerequisite decision (lines 25–70: `RunCandidate`, `ReplayedRun`, `CommitSession`, `PreparedCommit`), its M2 row (line 886: "Evaluator replay; … host fact_admission/finalization") and failure case F01, and under the accepted laws X3d r3 (items 1, 3 step 1 and 10), X3c r7, X4 r7 and X2 r5. Items 1 to 6 contain lead decisions made under the owner's standing direction to proceed on the lead's recommendation; each names the alternative it rejects. r2 answers Grok X5 r1 RF-1: a missing retained object or blob is unavailable evidence, not an input refusal. r1 bytes are preserved in PROPOSAL-r1.md. Not code. Library only: no CLI command is wired.
+2026-10-01. Claude Opus 5.5, implementation lead. Law for unit X5 of `EXIT-PLAN.md`, under the build plan's opaque-prerequisite decision (lines 25–70: `RunCandidate`, `ReplayedRun`, `CommitSession`, `PreparedCommit`), its M2 row (line 886: "Evaluator replay; … host fact_admission/finalization") and failure case F01, and under the accepted laws X3d r3 (items 1, 3 step 1 and 10), X3c r7, X4 r7 and X2 r5. Items 1 to 6 contain lead decisions made under the owner's standing direction to proceed on the lead's recommendation; each names the alternative it rejects. Not code. Library only: no CLI command is wired.
 
 ## Problem
 
@@ -33,12 +33,11 @@ F01 requires that a replay refusal, or a substituted target or inventory, publis
 
 4. **Budget (lead decision).** Replay is bounded by `ReplayLimits` (the evaluator's local resource bounds: retained-walk limits, capture entries, retained bytes), which the evaluator documents as separate from operational work budgets. X5 fixes `REPLAY_LIMITS` as named constants with a test that a corpus at each bound replays and one above refuses. Replay is not charged to X1's attempt ledger, because it runs before that ledger's operation begins and performs no native observation. **Rejected:** charging replay to the attempt ledger, which would let pure semantic work exhaust the owner caps meant for native custody work.
 
-5. **Refusal rows (existing details only).** `ReplayError` maps one-to-one, by an exhaustive match with no wildcard arm, including over every `RetainedInputError` variant inside `Input`:
+5. **Refusal rows (existing details only).** `ReplayError` maps one-to-one, by an exhaustive match with no wildcard arm:
 
    | `ReplayError` | Termination |
    |---|---|
-   | `Input(MissingObject(key))`, `Input(MissingBlob(digest))` | The promised-bytes-lost retention route (evaluator-fault-contract v3, `promised-bytes-lost:evidence-store`; identity's `EvidenceUnavailable` carrier): operational-failed, exit 4, `HOST.IO_FAILURE`, `host-io`, detail `evidence.missing`, carrying the missing object key or blob digest as the reference |
-   | `Structure`, `Capture`, `Law`, and every other `Input` variant (schema, identity, digest or decode failures) | The structural evaluator input failure: `EVALUATION.INPUT_REFUSED`, with the exact diagnostic retained separately (evaluator-fault-contract v3) |
+   | `Structure`, `Input`, `Capture`, `Law` | The structural evaluator input failure: `EVALUATION.INPUT_REFUSED`, with the exact diagnostic retained separately (evaluator-fault-contract v3) |
    | `Mismatch { key, target }` | The retained-regeneration route: `HOST.IO_FAILURE`, `host-io`, `evidence.regeneration-mismatch`, carrying the affected Run reference (identity's `RegenerationMismatch`; evaluator-fault-contract v3) |
    | `Evaluation(e)` | The evaluator's own fault mapping for `e`, which the evaluator-fault-contract already fixes (for example `EVALUATION.WORK_BUDGET_EXHAUSTED`) |
 
@@ -55,9 +54,7 @@ F01 requires that a replay refusal, or a substituted target or inventory, publis
 8. **Tests.** The tests live in host and need no scratch installation, since replay is pure:
    - the evaluator's existing replay corpus replays, and the result's `run_id()` equals the claim;
    - each `ReplayError` variant maps to its item 5 row;
-   - a tampered output (one byte of a claimed output) is `evidence.regeneration-mismatch`;
-   - a missing retained object, and a missing retained blob, are each `HOST.IO_FAILURE` / `host-io` / `evidence.missing` with the missing reference;
-   - a schema or identity failure inside `Input` is `EVALUATION.INPUT_REFUSED`;
+   - a tampered output (one byte of a claimed output) is `evidence.regeneration-mismatch`, and a missing object is `EVALUATION.INPUT_REFUSED`;
    - the limits test of item 4;
    - a source pin shows that `fact_admission.rs` calls `replay_run` exactly once and constructs no `ReplayedRun`, `RunId` or verdict itself.
 

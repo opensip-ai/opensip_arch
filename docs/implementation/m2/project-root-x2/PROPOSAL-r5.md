@@ -1,6 +1,6 @@
-# Project-root custody, project admission and first registration — proposal X2 r6
+# Project-root custody, project admission and first registration — proposal X2 r5
 
-2026-09-30. Claude Opus 5.5, implementation lead. Law for unit X2 of EXIT-PLAN.md, under owner.md §1b, §5, §7 and §8; the selected project registry owner (`project-registry-owner-selection-v2/owner.md`); the security contract S3 (discovery and custody), S7 (locks and leases) and S12; identity-and-evidence §2 and §5; and laws 458 (§3 and §5), 458b, 462, 465 item 4, 468 r5, 458c r6, 461 r3 (item 9, which requires this law) and X1. Every choice here is a lead decision, made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation; each is dated and names the alternative it rejects. r2 answers Codex X2 r1 RF-1 to RF-7 against product f7acb6d (X1a integrated). r1 bytes are preserved in PROPOSAL-r1.md. r3 answers Codex X2 r2 RF-1 to RF-4, and r2 bytes are preserved in PROPOSAL-r2.md. r4 answers Grok X2 r3 RF-1 to RF-3, and r3 bytes are preserved in PROPOSAL-r3.md. r5 answers Grok X2 r4 RF-1 (step 6 rechecks the current owners) and RF-2 (the floor step is ordered before item 7's lease, outside 7a). r4 bytes are preserved in PROPOSAL-r4.md. r5 was ACCEPTED by Grok on 2026-09-30. r6 is an amendment required by Grok X6 r1 RF-1: one narrow exception to item 7's fence rule for the read-only recovery selector. r5 bytes are preserved in PROPOSAL-r5.md. Not code. Library only: CLI enablement is X11.
+2026-09-30. Claude Opus 5.5, implementation lead. Law for unit X2 of EXIT-PLAN.md, under owner.md §1b, §5, §7 and §8; the selected project registry owner (`project-registry-owner-selection-v2/owner.md`); the security contract S3 (discovery and custody), S7 (locks and leases) and S12; identity-and-evidence §2 and §5; and laws 458 (§3 and §5), 458b, 462, 465 item 4, 468 r5, 458c r6, 461 r3 (item 9, which requires this law) and X1. Every choice here is a lead decision, made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation; each is dated and names the alternative it rejects. r2 answers Codex X2 r1 RF-1 to RF-7 against product f7acb6d (X1a integrated). r1 bytes are preserved in PROPOSAL-r1.md. r3 answers Codex X2 r2 RF-1 to RF-4, and r2 bytes are preserved in PROPOSAL-r2.md. r4 answers Grok X2 r3 RF-1 to RF-3, and r3 bytes are preserved in PROPOSAL-r3.md. r5 answers Grok X2 r4 RF-1 (step 6 rechecks the current owners) and RF-2 (the floor step is ordered before item 7's lease, outside 7a). r4 bytes are preserved in PROPOSAL-r4.md. Not code. Library only: CLI enablement is X11.
 
 ## Problem
 
@@ -215,10 +215,6 @@ Without the premise, no project root can be admitted. Without an admitted root, 
      - **EXCLUSIVE:** `writer.lease` LOCK_EX|LOCK_NB, then `readers.lease` LOCK_EX|LOCK_NB, both while the fence is held.
    - **Partial failure.** If any lock fails, release every project lock already taken, in reverse order, before the fence is released. A retry happens outside the fence under S7's existing backoff.
    - **Rules.** There is no lease without the fence, no waiting for a lease, and no upgrade. A busy lease is the busy row.
-   - **The one exception (r6, lead decision): the read-only recovery selector.** `recover(ExecutionId)` takes SHARED-READ, which is `readers.lease` `LOCK_SH|LOCK_NB`, without the installation fence and without waiting. The fence stays prohibited on that path. This is identity-and-evidence §5's read-only recovery selector ("no fence acquisition and no wait on a writer") and owner §5's separately owned internal recovery selector, which is excluded from the fenced binding path. Its admission, binding reads and recheck are X6 r2 item 3's.
-     - It is the only fence-free lease. Every other lease, including the settlement sweep's EXCLUSIVE leases (X6 item 7), stays under the fence.
-     - It takes no `writer.lease`, writes nothing, and its lease can never be upgraded or promoted into a writer or into this item's `FencedNamespace`.
-     - **Rejected:** taking the fence for recovery, which the selector's owners forbid; and a general fence-free SHARED-READ for every reader, which would bypass 458c's fenced observation path.
 
    The result is a private `FencedNamespace`: the held lease, the row snapshot, and the root admission. It still borrows the held fence. **X2d does not release the fence.** Item 7a decides when the fence is released.
 
@@ -280,7 +276,7 @@ Without the premise, no project root can be admitted. Without an admitted root, 
 - an mtime or ctime birth substitute, or a device, fsid or marker fallback for volume identity;
 - a partial or early-match registry scan;
 - registration under a read receipt;
-- a lease without the fence, other than item 7's read-only recovery exception (non-blocking SHARED-READ only, never under or into a writer); a waiting lease; or a lease upgrade;
+- a lease without the fence, a waiting lease, or a lease upgrade;
 - EXCLUSIVE without both project locks;
 - releasing the fence before the item 7a handoff;
 - an operation context built from copied fields or a released session;

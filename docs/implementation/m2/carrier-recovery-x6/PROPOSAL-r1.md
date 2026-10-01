@@ -1,13 +1,13 @@
-# Read-only carrier recovery and the settlement sweep — proposal X6 r2
+# Read-only carrier recovery and the settlement sweep — proposal X6 r1
 
 2026-10-01. Claude Opus 5.5, implementation lead. Law for unit X6 of `EXIT-PLAN.md`. It is written under:
 - `architecture/commit-recovery-readonly.v3.md`, the bounded algorithm owner: steps 0–4, §1 vocabulary, §3 anchor bound, §4 sweep;
 - identity-and-evidence's "Read-only recovery selectors" (`recover(ExecutionId)`: `SHARED-READ`, one snapshot, no fence acquisition, no wait on a writer);
 - owner.md §5's internal recovery selector paragraph;
 - the build plan's `RecoveredCommit` row (line 54) and failure cases F14, F15, F20–F29, F33–F37, F43–F53;
-- the accepted laws X3d r3 (items 3, 6, 9 and 10), X3b r6, X3c r7, X3a r5, X2 (r6, item 7's read-only recovery exception), X1 r1 and 458c r6.
+- the accepted laws X3d r3 (items 3, 6, 9 and 10), X3b r6, X3c r7, X3a r5, X2 r5, X1 r1 and 458c r6.
 
-Items 1 to 9 contain lead decisions made under the owner's standing direction to proceed on the lead's recommendation; each names the alternative it rejects. r2 answers Grok X6 r1 RF-1 (the fence-free lease is now X2 r6's exception) and RF-2 (both projections of the degraded standing). r1 bytes are preserved in PROPOSAL-r1.md. Not code. Library only: no CLI command is wired; the `repair recover` CLI surface is not this selector.
+Items 1 to 9 contain lead decisions made under the owner's standing direction to proceed on the lead's recommendation; each names the alternative it rejects. Not code. Library only: no CLI command is wired; the `repair recover` CLI surface is not this selector.
 
 ## Problem
 
@@ -60,7 +60,7 @@ X6 decides ownership, API, locks and units. It does not redesign the algorithm.
    1. **Receipt.** Produce the read receipt (458c-a, X1 `<Read>`). On this BASELINE-ATTESTED host it refuses at `/` without a synthetic test profile, which is the same accepted consequence as 458c.
    2. **Walk.** Run 458c's charged retained walk from `/` to I (step 0). Its fence attempt, 458c step 1, is **not** taken.
    3. **Binding reads.** Through those retained handles, read the registry (X2b's single bounded capture) and X3a's endpoint files (pair, marker, the node chain, `state.v1`), with full metadata samples. Take N from the registry's ACTIVE row and (S, G, K) from the endpoint, never from request fields.
-   4. **Lease.** Take `readers.lease` `LOCK_SH|LOCK_NB` for N, without the fence. This is X2 r6 item 7's one exception to "no lease without the fence"; it never takes `writer.lease` and is never upgraded. Busy, meaning an EXCLUSIVE holder such as the sweep, returns `UnavailableBusy`.
+   4. **Lease.** Take `readers.lease` `LOCK_SH|LOCK_NB` for N. Busy, meaning an EXCLUSIVE holder such as the sweep, returns `UnavailableBusy`.
    5. **Recheck.** Recheck the registry and endpoint samples once after the lease. Any change is `UnavailableBusy`, never a conclusion.
 
    The binding is used only to compare against the association and the carrier; it allocates nothing. **Rejected:** admitting through 458c's `ReadSession`, which takes the fence and waits up to 5 s for it, both of which the selector forbids.
@@ -104,7 +104,7 @@ X6 decides ownership, API, locks and units. It does not redesign the algorithm.
    | Standing | Projection |
    |---|---|
    | `committed-historically` | success |
-   | `committed-availability-degraded` | Two projections, exactly as §1: for history, success; when a selected operation requires an object that is unavailable, operational-failed / `HOST.IO_FAILURE` / `host-io` with detail `evidence.missing`, `evidence.corrupt`, `evidence.purged` or `evidence.expired` for that object. `recover` reports the standing with the per-object availability; the selected operation's owner applies the second projection. A required unavailable object is never reported as success. |
+   | `committed-availability-degraded` | success for history, with the matching `evidence.*` detail |
    | `terminal-not-committed` | success |
    | `unknown-attempt-open` and `unavailable-busy` | `LEDGER.BUSY_TIMEOUT` / `ledger-busy` / `PROJECT.BUSY` |
    | `unknown-attempt-unobserved`, `unknown-custody` and `unknown-carrier-incompatible` | `HOST.IO_FAILURE` / `host-io` |
@@ -150,7 +150,7 @@ X6 decides ownership, API, locks and units. It does not redesign the algorithm.
 
 12. **Units.**
     - **X6a (security).** `journal_store::recovery_capture`: the bracket, shape validation, anchor table, step 4 rule and the carrier precedence observations, all read-only. It depends on X3b-1b.
-    - **X6b (storage and host).** `RecoveryAdmission` (item 3, which depends on X2 r6's exception), `recover` and `RecoveredCommit`, and host routing for `ExistingAttempt` (item 6). It depends on X6a, X3c-1, X2b and X3a-1, and on X3d-2 for the association writer's exact shape.
+    - **X6b (storage and host).** `RecoveryAdmission` (item 3), `recover` and `RecoveredCommit`, and host routing for `ExistingAttempt` (item 6). It depends on X6a, X3c-1, X2b and X3a-1, and on X3d-2 for the association writer's exact shape.
     - **X6c (storage and host).** The sweep's settle write in `ledger_store` and the `store-gc` per-namespace step. It depends on X6b, X1 and X2d's EXCLUSIVE lease primitive.
 
 ## Forbidden substitutes
