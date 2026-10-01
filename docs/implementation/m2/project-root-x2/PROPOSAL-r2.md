@@ -1,6 +1,6 @@
-# Project-root custody, project admission and first registration — proposal X2 r3
+# Project-root custody, project admission and first registration — proposal X2 r2
 
-2026-09-30. Claude Opus 5.5, implementation lead. Law for unit X2 of EXIT-PLAN.md, under owner.md §1b, §5, §7 and §8; the selected project registry owner (`project-registry-owner-selection-v2/owner.md`); the security contract S3 (discovery and custody), S7 (locks and leases) and S12; identity-and-evidence §2 and §5; and laws 458 (§3 and §5), 458b, 462, 465 item 4, 468 r5, 458c r6, 461 r3 (item 9, which requires this law) and X1. Every choice here is a lead decision, made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation; each is dated and names the alternative it rejects. r2 answers Codex X2 r1 RF-1 to RF-7 against product f7acb6d (X1a integrated). r1 bytes are preserved in PROPOSAL-r1.md. r3 answers Codex X2 r2 RF-1 to RF-4, and r2 bytes are preserved in PROPOSAL-r2.md. Not code. Library only: CLI enablement is X11.
+2026-09-30. Claude Opus 5.5, implementation lead. Law for unit X2 of EXIT-PLAN.md, under owner.md §1b, §5, §7 and §8; the selected project registry owner (`project-registry-owner-selection-v2/owner.md`); the security contract S3 (discovery and custody), S7 (locks and leases) and S12; identity-and-evidence §2 and §5; and laws 458 (§3 and §5), 458b, 462, 465 item 4, 468 r5, 458c r6, 461 r3 (item 9, which requires this law) and X1. Every choice here is a lead decision, made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation; each is dated and names the alternative it rejects. r2 answers Codex X2 r1 RF-1 to RF-7 against product f7acb6d (X1a integrated). r1 bytes are preserved in PROPOSAL-r1.md. Not code. Library only: CLI enablement is X11.
 
 ## Problem
 
@@ -25,19 +25,11 @@ Without the premise, no project root can be admitted. Without an admitted root, 
      - the project root;
      - the directories S3's walk examines from the launch directory up to the selected root;
      - `.opensip/` when it exists, as a project directory;
-     - the project's custody-checked files: the S3 config file and, when unit discovery lands, the workspace marker files;
-     - the Git tracking evidence of item 6a, and nothing else under `.git`: each enclosing repository's `.git` directory, its `config` file and its `index` file.
-       - Each is admitted only through its own retained no-follow descriptor, under the same premise and H-volume constraints.
-       - Only a `.git` strictly below H counts, so the H-exclusive rule above still holds.
-       - The lookups item 6a makes for names that must be absent (`commondir`, `config.worktree`) are custody-free negative lookups. Those names are never admitted as objects.
-       - On this Mac, `.git` directories omit the ACL, so this scope is what lets ordinary repositories work.
-       - Alternative rejected: refusing omitted-ACL tracking evidence. It would refuse every ordinary repository on a stock Mac.
+     - the project's custody-checked files: the S3 config file and, when unit discovery lands, the workspace marker files.
    - **Objects it never covers:**
      - OpenSIP's own operational files in the project, such as `.opensip/project-id.v1`;
      - the installation and its private descendants;
      - files read only as data, such as source and manifests read after custody;
-     - any other object under `.git`: objects, refs, hooks, logs and the rest;
-     - Git evidence above H, or off H's volume (item 6a refuses it);
      - anything off H's volume.
    - **Without a premise,** on a BASELINE-ATTESTED host, a V1 profile or a row without the member, every omitted ACL in scope refuses, as today.
    - **Alternative rejected:** a separate project-only profile member. The fact is per filesystem, and 458 item 6 already qualifies it per row; a second member would duplicate the qualification without adding evidence.
@@ -118,19 +110,6 @@ Without the premise, no project root can be admitted. Without an admitted root, 
    4. Atomically replace `project-registry.v2` with the temporary file (`rename`, replacing the predecessor).
    5. Confirm I's directory barrier, then recheck that the name holds the new file by identity.
 
-   **Retained evidence advances with each authorized publication (a lead decision).** The admission keeps one current registry owner, R:
-   - **R0.** R starts as item 5's capture.
-   - **R1.** After a RESERVED replacement is confirmed (step 5 above), R becomes R1: the published file's retained descriptor (the temporary file's own descriptor, carried across the rename), the validated document built in step 2, and its post-publication metadata and name binding. R1 is the predecessor that ACTIVE's replacement reconfirms.
-   - **R2.** After the ACTIVE replacement is confirmed, R becomes R2, and R2's exact ACTIVE row and document are the only source of Eligible and of the item 7a handoff.
-   - **Provenance.** Each replaced capture becomes predecessor provenance. Its later disappearance is expected, not a recheck failure.
-   - **What may change.** Only this transition may change R. Any other change to the registry name, its file or its metadata still fails the recheck.
-   - **Positive absences.** These move to their new owners only through the writer step that publishes them:
-     - the namespace path's absence becomes the published namespace's owner, at step 3;
-     - `.opensip`'s absence, if it was absent, becomes its owner, at step 4;
-     - the marker's absence becomes the marker's owner, at step 5.
-   - **No second read.** No registry content is read again: the single initial capture plus the retained temporary-file owners and their validated bytes are the whole evidence. ACTIVE is never constructed from the candidate IDs alone, and no recheck is disabled.
-   - **Alternative rejected:** a fresh admission between RESERVED and ACTIVE. It would add a second registry read, and R0 could still not serve as ACTIVE's predecessor.
-
    No-replace stays only for names that are genuinely new: the namespace directory and the marker. "Exclusive" in r1 meant only that the fence is held; r2 drops the word. Uncertainty at any step before step 5 completes stops before the next registration step.
 
    **The steps:**
@@ -147,40 +126,25 @@ Without the premise, no project root can be admitted. Without an admitted root, 
    5. **Marker.** Create the 92-byte marker no-replace under the retained `.opensip`, with the zero-rights owner allow. Barrier the file, then `.opensip`'s directory barrier.
    6. **ACTIVE.** Recheck every original root, `.opensip`, marker, namespace, registry, chain and tracking observation, then replace RESERVED with ACTIVE through the replacement primitive.
 
-   **Durable prefixes.** These are for X2c's tests. Until a publication is confirmed, its predecessor is the last guaranteed authoritative state. An unconfirmed write is not guaranteed absent from durable storage.
-   - **Before RESERVED is confirmed:** R0 is the guaranteed state. RESERVED may also be durable; the act stops.
-   - **After RESERVED is confirmed (R1):** R1 is guaranteed. The namespace, `.opensip` and marker are each guaranteed only once their own confirmation completes, and any of them may be partially present before that.
-   - **Before ACTIVE is confirmed:** R1 (RESERVED) is guaranteed, and ACTIVE may also be durable.
-   - **After ACTIVE is confirmed (R2):** R2 is guaranteed.
+   **Durable prefixes.** These are for X2c's tests.
+   - Before step 2's file barrier: nothing is durable.
+   - After step 2's step 4 (the replace) but before step 5 (I's barrier): RESERVED may or may not survive, and the act stops.
+   - After RESERVED: the namespace, `.opensip` and marker may be partially present.
+   - Before ACTIVE's confirmation: RESERVED or ACTIVE may survive.
 
    Each leftover is the registry owner's explicit-recovery case, which X2 does not implement. Plain read admission never takes any of these barriers.
 
-6a. **Tracking observation (both first use and eligible reuse).** This is a bounded, charged, custody-checked observation that does not depend on where S3's selection walk stopped. Lead decision: M2 supports one closed, conventional Git layout, and refuses every other layout on `vcs-unsupported` rather than modeling it.
-   - **Finding repositories.** Walk the retained chain from the selected root upward to `/`. At each directory, look up `.git`, `.hg`, `.svn` and `.jj` no-follow.
-   - **Refusals at any level:**
-     - any `.hg`, `.svn` or `.jj`;
-     - a `.git` that is not a directory (an indirection or worktree file);
-     - a `.git` at or above H, or off H's volume (outside item 1's scope).
-   - **Every enclosing repository.** Every enclosing `.git` directory is examined, not just the nearest. An inner repository does not prove that an outer index is clear.
-   - **The admitted layout, for each repository.** The worktree root must be the `.git` directory's parent. That is proved, not inferred from the spelling, by all of the following:
-     - **The `config` file.** It is read no-follow, under custody (item 1), charged, and capped at 64 KiB. It must parse completely under a closed subset of the Git config syntax: sections, subsections, `key = value` lines, comments, and quoted values without line continuations. Anything the parser cannot bound refuses.
-       - `core.repositoryformatversion` must be absent or `0`. A version-0 repository uses SHA-1 object names, and Git ignores `extensions.*` there. Version 1, or any `extensions.objectFormat`, refuses, so SHA-256 field widths never arise.
-       - `core.bare` must be absent or false.
-       - `core.worktree` must be absent.
-       - There may be no `[include]` or `[includeIf …]` section.
-     - **Linked worktrees.** `commondir` and `config.worktree` must be positively absent from the `.git` directory, which excludes linked worktrees and per-worktree config.
-     - **A missing config** refuses.
-   - **The index, for each repository.**
-     - **Format.** Read `index` no-follow, under custody (item 1), charged, at most 4 MiB. It must be index version 2, 3 or 4, with 20-byte SHA-1 entry hashes (the version-0 format above), and no split-index (`link`) or sparse-directory extension. Otherwise it refuses.
-     - **No index.** A positively absent `index` means no tracked paths in that repository.
-     - **The path.** The marker's path relative to that repository's worktree root is `<root relative to the .git parent>/.opensip/project-id.v1`. The relative root part must be ASCII; a non-ASCII part refuses, which avoids Unicode-normalization aliasing. It is compared ASCII case-insensitively, because APFS is case-insensitive here (`core.ignorecase`).
-     - **Tracked.** The path is tracked if any index entry matches it, whether or not the worktree file exists.
-     - **Gitlinks.** An outer index's gitlink entry for an inner repository (mode 160000) is not a match, and it does not clear the outer index. Only an actual entry at the marker's path counts.
+6a. **Tracking observation (both first use and eligible reuse).** This is a bounded, charged, custody-checked observation that does not depend on where S3's selection walk stopped:
+   - **Finding the repository.** Walk the retained chain from the selected root upward to `/`. At each directory, look up `.git`, `.hg`, `.svn` and `.jj` no-follow.
+   - **Refusals.** Any `.hg`, `.svn` or `.jj` at any level refuses, as does a `.git` that is not a directory (indirection or a worktree file). Each refuses on the `vcs-unsupported` subject: those implementations could track the path, and M2 does not read them.
+   - **The nearest repository.** The nearest `.git` directory is the repository: Git does not track paths inside a nested repository.
+     - **The index.** Read its `index` no-follow, under custody, charged, at most 4 MiB. It must be index version 2, 3 or 4, with no split-index (`link`) or sparse-directory extension. Otherwise it refuses as `vcs-unsupported`.
+     - **No index.** A positively absent `index` in a `.git` directory means no tracked paths.
+     - **The check.** Look up the marker's exact repository-relative path (`<root relative to the repository>/.opensip/project-id.v1`). The path is tracked if the index has that entry, whether or not the worktree file exists.
    - **No repository.** If no VCS marker is found up to `/`, the observation is "no repository". That is untracked only because every directory on the chain was looked up positively. A missing local `.git` alone is not evidence.
-   - **Unreadable evidence.** Unreadable, oversized or malformed VCS, config or index evidence refuses; it is never treated as untracked.
-   - **Rechecks.** For every repository consulted, the `.git` directory, `config` and `index` (by full metadata sample), the `commondir` and `config.worktree` absences, and every negative VCS lookup join the recheck set, on the same ledger.
+   - **Unreadable evidence.** Unreadable, oversized or malformed VCS or index evidence refuses; it is never treated as untracked.
+   - **Rechecks.** The repository directory, the `index` file's full metadata sample, and every negative lookup join the recheck set.
    - **When it runs.** It runs for Eligible before any lease is taken, and for FirstUseCandidate before RESERVED. A registered marker that has since become tracked therefore refuses on the next admission, and takes no lease.
-   - **Alternative rejected:** modeling relocated worktrees, linked worktrees, bare repositories, includes and SHA-256 repositories. Each adds unbounded or format-dependent evidence, and none is needed for an ordinary clone.
 
 7. **Namespace admission and leases.** For `Eligible(N)`, with N taken only from the ACTIVE row in item 5's capture and never from a caller, under the same held fence:
    - Confirm the namespace directory and both lease files under custody.
@@ -233,7 +197,7 @@ Without the premise, no project root can be admitted. Without an admitted root, 
 
    Where S12 fixes a class for a detail, S12 prevails.
 
-9. **Budget.** Everything is charged before it runs, to one authoritative ledger for the operation (the session's or the gate's), at the owner's caps. That includes every walk, sample, the registry capture and validation, replacement serialization, the VCS lookups and index read, original-owner rechecks, and reserved post-effect work. The selection walk is at most 256 levels. The registry and each Git index are each bounded by the 4 MiB per-record ceiling, and each Git config by 64 KiB. A larger registry is unavailable, and a larger index or config refuses as `vcs-unsupported`. The number of enclosing repositories is bounded by the chain length.
+9. **Budget.** Everything is charged before it runs, to one authoritative ledger for the operation (the session's or the gate's), at the owner's caps. That includes every walk, sample, the registry capture and validation, replacement serialization, the VCS lookups and index read, original-owner rechecks, and reserved post-effect work. The selection walk is at most 256 levels. The registry and the git index are each bounded by the 4 MiB per-record ceiling. A larger registry is unavailable, and a larger index refuses as `vcs-unsupported`.
 
 10. **Units after the law.** Each unit is reviewed with an inventory successor.
     - **X2a:** the scoped premise application (a `ProjectChainPolicy` over the shared walk code), the charged use of the existing birth sampler, and the project chain walk.
@@ -255,10 +219,6 @@ Without the premise, no project root can be admitted. Without an admitted root, 
 - releasing the fence before the item 7a handoff;
 - an operation context built from copied fields or a released session;
 - treating a missing local `.git` as untracked;
-- stopping the tracking check at the nearest repository;
-- interpreting an index path without the admitted layout;
-- extending the premise to any `.git` object other than the directory, `config` and `index`;
-- changing the retained registry owner except through a confirmed publication;
 - a no-replace publication of the existing registry name, or a registry replacement published before its file barrier;
 - first registration over a tracked or unreadable marker;
 - deleting or adopting a leftover reservation, namespace or marker;
