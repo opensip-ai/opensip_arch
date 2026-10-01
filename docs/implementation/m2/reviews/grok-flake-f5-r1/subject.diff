@@ -1,0 +1,283 @@
+diff --git a/crates/security/src/custody/installation_read_fixture.rs b/crates/security/src/custody/installation_read_fixture.rs
+index fb2a65c..4f27a1e 100644
+--- a/crates/security/src/custody/installation_read_fixture.rs
++++ b/crates/security/src/custody/installation_read_fixture.rs
+@@ -263,17 +263,47 @@ impl ReadFixture {
+ /// touches them. F3's per-process parent keeps every fixture below them but
+ /// cannot take them out of a walk that starts at `/`.
+ pub(crate) fn shared_churn(refusal: &ParentRefusal) -> bool {
+-    let parent = fs::canonicalize(crate::test_scratch::temp_dir()).unwrap();
+-    // Component 0 is `/`, so the private parent is component `count - 1`.
+-    let private = parent.components().count() - 1;
+     matches!(
+         refusal,
+         ParentRefusal::Capture {
+             component,
+             error: DescriptorAclCaptureError::Changed,
+-        } if *component < private
++        } if *component < private_component()
+     )
+ }
++/// The walk index of this process's private scratch parent. Component 0 is
++/// `/`, so it is the canonical parent's component count less one.
++fn private_component() -> usize {
++    let parent = fs::canonicalize(crate::test_scratch::temp_dir()).unwrap();
++    parent.components().count() - 1
++}
++/// F5: run a whole test again, on fresh fixtures, only when it panicked in
++/// an attempt during which this thread's ancestor walks refused one or more
++/// descriptor captures as `Changed` (`installation_root::CHANGED_CAPTURES`),
++/// every one of them above the private parent: `/` through `opensip-test`,
++/// which other processes change and no fixture or mutation under test
++/// touches (`shared_churn`). Such a refusal reaches a test as many rows, some
++/// without the component (`ancestor-acl`, `acl-unreadable`, a guard's stop
++/// cause), so the witness is the walk's own record, not the panic text. At
++/// most eight attempts with F3's backoff; every assertion stays strict, any
++/// other failure is final, and the last attempt's failure is reported.
++pub(crate) fn churned(test: impl Fn() + std::panic::RefUnwindSafe) {
++    use super::installation_root::CHANGED_CAPTURES;
++    const ATTEMPTS: u32 = 8;
++    for attempt in 1..=ATTEMPTS {
++        CHANGED_CAPTURES.take();
++        let Err(panic) = std::panic::catch_unwind(&test) else {
++            return;
++        };
++        let changed = CHANGED_CAPTURES.take();
++        let private = private_component();
++        let churn = !changed.is_empty() && changed.iter().all(|&component| component < private);
++        if attempt == ATTEMPTS || !churn {
++            std::panic::resume_unwind(panic);
++        }
++        std::thread::sleep(std::time::Duration::from_millis(25 * u64::from(attempt)));
++    }
++}
+ /// `shared_churn` for a session's refusal (the walk's I/O row).
+ pub(crate) fn session_churn(refusal: &SessionRefusal, attempt: u32) -> bool {
+     match refusal {
+diff --git a/crates/security/src/custody/installation_root.rs b/crates/security/src/custody/installation_root.rs
+index 8533645..c639421 100644
+--- a/crates/security/src/custody/installation_root.rs
++++ b/crates/security/src/custody/installation_root.rs
+@@ -450,6 +450,17 @@ pub(super) fn require_name(
+     }
+ }
+ 
++#[cfg(test)]
++thread_local! {
++    /// F5, test builds only: the walk component of every capture that
++    /// `judge_ancestor` refused on this thread because the directory changed
++    /// while it was sampled (`DescriptorAclCaptureError::Changed`). The rows
++    /// that refusal reaches drop the component; the test classifier
++    /// `installation_read_fixture::churned` drains this. Nothing else reads it.
++    pub(crate) static CHANGED_CAPTURES: std::cell::RefCell<Vec<usize>> =
++        const { std::cell::RefCell::new(Vec::new()) };
++}
++
+ /// Capture once and judge with `check_external_ancestor`. An omitted ACL is
+ /// judged as a present empty ACL only when the premise admits this descriptor.
+ pub(super) fn judge_ancestor(
+@@ -460,7 +471,13 @@ pub(super) fn judge_ancestor(
+     work: &mut opensip_platform::WorkScope<'_>,
+ ) -> Result<(), WorkFailure<ParentRefusal>> {
+     let sample = opensip_platform::capture_descriptor_acl_accounted(directory, work)
+-        .map_err(lift(|error| ParentRefusal::Capture { component, error }))?;
++        .map_err(lift(|error| {
++            #[cfg(test)]
++            if matches!(error, opensip_platform::DescriptorAclCaptureError::Changed) {
++                CHANGED_CAPTURES.with_borrow_mut(|changed| changed.push(component));
++            }
++            ParentRefusal::Capture { component, error }
++        }))?;
+     judge_captured_ancestor(component, &sample, uid, premise.is_some(), || {
+         premise.map_or(Ok(false), |premise| premise.admits(directory, work))
+     })
+diff --git a/crates/security/src/custody/installation_routing_tests.rs b/crates/security/src/custody/installation_routing_tests.rs
+index 49da7ac..820870e 100644
+--- a/crates/security/src/custody/installation_routing_tests.rs
++++ b/crates/security/src/custody/installation_routing_tests.rs
+@@ -6,6 +6,7 @@
+ // at InitialCore F0 before any installation path is touched.
+ use super::super::installation_admission::{GateSeam, HomeSource};
+ use super::super::installation_publication::create_at;
++use super::super::installation_read_fixture::churned;
+ use super::super::installation_stage::{Owners, Point, Seam};
+ use super::*;
+ use crate::initial_installation::BackupChoiceRequired;
+@@ -132,36 +133,39 @@ fn not_pristine_enters_the_gate_and_admits_the_existing_installation() {
+ 
+ #[test]
+ fn a_lost_race_enters_the_gate_and_admits_the_winner() {
+-    let (_scratch, home) = scratch();
+-    let loser = receipts_at("route-loser", true, Some(&home), None);
+-    // The winner publishes a complete I just before the loser's rename.
+-    let winner = RefCell::new(Some(receipts_at("route-winner", true, Some(&home), None)));
+-    let hook = |point: Point| {
+-        if point != Point::Rename {
+-            return;
+-        }
+-        let Some(mut w) = winner.borrow_mut().take() else {
+-            return;
++    // F5: a run refused only by shared-ancestor churn starts over (`churned`).
++    churned(|| {
++        let (_scratch, home) = scratch();
++        let loser = receipts_at("route-loser", true, Some(&home), None);
++        // The winner publishes a complete I just before the loser's rename.
++        let winner = RefCell::new(Some(receipts_at("route-winner", true, Some(&home), None)));
++        let hook = |point: Point| {
++            if point != Point::Rename {
++                return;
++            }
++            let Some(mut w) = winner.borrow_mut().take() else {
++                return;
++            };
++            let intent = w
++                .attempt
++                .mint_intent(&w.actor, CreatorCommand::Analyze, false, &mut Vec::new())
++                .unwrap();
++            let owners = Owners {
++                actor: &w.actor,
++                core: &w.core,
++                platform: &w.platform,
++            };
++            let outcome = create_at(&mut w.attempt, &owners, intent, &home, &Seam::live());
++            assert!(matches!(outcome, Ok(Outcome::Published(_))), "{outcome:?}");
+         };
+-        let intent = w
+-            .attempt
+-            .mint_intent(&w.actor, CreatorCommand::Analyze, false, &mut Vec::new())
+-            .unwrap();
+-        let owners = Owners {
+-            actor: &w.actor,
+-            core: &w.core,
+-            platform: &w.platform,
+-        };
+-        let outcome = create_at(&mut w.attempt, &owners, intent, &home, &Seam::live());
+-        assert!(matches!(outcome, Ok(Outcome::Published(_))), "{outcome:?}");
+-    };
+-    let mut seam = Seam::live();
+-    seam.at = Some(&hook);
+-    let (result, _loser) = route_at(loser, &home, &seam, None);
+-    let admitted = result.unwrap();
+-    assert!(matches!(admitted.entered, Entered::LostRace), "{admitted:?}");
+-    assert!(winner.borrow().is_none());
+-    admitted.installation.release().unwrap();
++        let mut seam = Seam::live();
++        seam.at = Some(&hook);
++        let (result, _loser) = route_at(loser, &home, &seam, None);
++        let admitted = result.unwrap();
++        assert!(matches!(admitted.entered, Entered::LostRace), "{admitted:?}");
++        assert!(winner.borrow().is_none());
++        admitted.installation.release().unwrap();
++    });
+ }
+ 
+ #[test]
+diff --git a/crates/security/src/custody/namespace_lease_tests.rs b/crates/security/src/custody/namespace_lease_tests.rs
+index c3c2b16..41b79c8 100644
+--- a/crates/security/src/custody/namespace_lease_tests.rs
++++ b/crates/security/src/custody/namespace_lease_tests.rs
+@@ -12,7 +12,7 @@ use super::super::first_registration::{
+ };
+ use super::super::installation_admission::{DurableWriteGate, GateSeam, HomeSource};
+ use super::super::installation_read::{NamespaceSessionRefusal, ReadSession};
+-use super::super::installation_read_fixture::{ReadFixture, private};
++use super::super::installation_read_fixture::{ReadFixture, churned, private};
+ use super::super::ordinary_writer::{OrdinaryWriteAdmission, admit_with};
+ use super::super::project_admission::{MARKER_DIRECTORY, REGISTRY};
+ use super::super::read_premise::{Write, WritePlatformReceipt, produce_for};
+@@ -510,28 +510,31 @@ fn a_change_after_admission_refuses_the_lease_with_no_lock_held() {
+ 
+ #[test]
+ fn the_target_holds_no_project_lock_for_the_floor_step() {
+-    // X3b's floor step runs between the target and the lease, under the
+-    // fence: its probe takes `writer.lease` LOCK_EX|LOCK_NB through the
+-    // retained namespace and releases it at once.
+-    let (fixture, project, n) = eligible("x2d-floor-seam");
+-    let (mut writer, _trees) = writer(&fixture, "x2d-floor-seam");
+-    let subject = admitted(&mut writer, &project);
+-    let target = writer.admit_namespace(subject, &inputs()).unwrap();
+-    let probe = target
+-        .namespace_directory()
+-        .open_regular(WRITER_LEASE)
+-        .unwrap();
+-    let probe = FileLock::try_acquire(probe, LockMode::Exclusive)
+-        .unwrap()
+-        .expect("no project lock is held before the lease");
+-    probe.release().unwrap();
+-    assert!(!fence_free(&fixture));
+-    let fenced = target
+-        .lease_writer(WriterLease::AppendWrite, &inputs())
+-        .unwrap();
+-    assert_eq!(fenced.row().namespace_id(), n);
+-    drop(fenced);
+-    writer.release().unwrap();
++    // F5: a run refused only by shared-ancestor churn starts over (`churned`).
++    churned(|| {
++        // X3b's floor step runs between the target and the lease, under the
++        // fence: its probe takes `writer.lease` LOCK_EX|LOCK_NB through the
++        // retained namespace and releases it at once.
++        let (fixture, project, n) = eligible("x2d-floor-seam");
++        let (mut writer, _trees) = writer(&fixture, "x2d-floor-seam");
++        let subject = admitted(&mut writer, &project);
++        let target = writer.admit_namespace(subject, &inputs()).unwrap();
++        let probe = target
++            .namespace_directory()
++            .open_regular(WRITER_LEASE)
++            .unwrap();
++        let probe = FileLock::try_acquire(probe, LockMode::Exclusive)
++            .unwrap()
++            .expect("no project lock is held before the lease");
++        probe.release().unwrap();
++        assert!(!fence_free(&fixture));
++        let fenced = target
++            .lease_writer(WriterLease::AppendWrite, &inputs())
++            .unwrap();
++        assert_eq!(fenced.row().namespace_id(), n);
++        drop(fenced);
++        writer.release().unwrap();
++    });
+ }
+ 
+ #[test]
+diff --git a/crates/security/src/custody/operation_live_tests.rs b/crates/security/src/custody/operation_live_tests.rs
+index a43d564..3a33c17 100644
+--- a/crates/security/src/custody/operation_live_tests.rs
++++ b/crates/security/src/custody/operation_live_tests.rs
+@@ -4,6 +4,7 @@
+ // handoff with a scripted monitor clock and observer ticks on request.
+ // Nothing sleeps; nothing here qualifies native scheduling. Nothing opens
+ // the real account's I.
++use super::super::super::installation_read_fixture::churned;
+ use super::super::super::operation_guard::{GuardRefusal, StopCause};
+ use crate::commit_authority::AttemptState;
+ use crate::journal_store::{AppendError, RecordDraft};
+@@ -388,16 +389,19 @@ fn a_revoking_update_latches_through_the_observer_and_refuses_the_checkpoint() {
+ 
+ #[test]
+ fn a_revoking_update_is_seen_by_the_checkpoints_own_final_observation() {
+-    let (fixture, _project, _n, mut live) = eligible_live("x4a-revoke-cp");
+-    let closure = live.operation.selected_core().0.to_owned();
+-    fixture.swap_trust(vec![("release", closure)], 2);
+-    let cause = stopped(checkpoint(&mut live.operation, true));
+-    assert_eq!(
+-        cause,
+-        StopCause::Revoked {
+-            subject: "trust-revoked"
+-        }
+-    );
++    // F5: a run refused only by shared-ancestor churn starts over (`churned`).
++    churned(|| {
++        let (fixture, _project, _n, mut live) = eligible_live("x4a-revoke-cp");
++        let closure = live.operation.selected_core().0.to_owned();
++        fixture.swap_trust(vec![("release", closure)], 2);
++        let cause = stopped(checkpoint(&mut live.operation, true));
++        assert_eq!(
++            cause,
++            StopCause::Revoked {
++                subject: "trust-revoked"
++            }
++        );
++    });
+ }
+ 
+ #[test]
