@@ -1,20 +1,24 @@
-"""Build inventory88 from inventory84 (unit X2a, selected at product 8bfc78a)
+"""Build inventory88 from inventory87 (unit X4T-0, selected at product 5b5f04c)
 by adding exactly the two X2b-1 rows, and write its successor record. It
-projects the sixteen rows inherited through inventory84. Run with
+projects the sixteen rows inherited through inventory87. Run with
 python3 -I -B from any directory. Deterministic: rerunning reproduces the
-same bytes. It refuses to write over any path git already tracks.
-
-Numbering: v85 (X3b-1a) and v87 (X4T-0) are committed in arch on parent v84
-but not selected, and v86 is reserved. This unit is numbered v88 and built on
-v84; it is rebuilt and renumbered on the real predecessor at integration."""
+same bytes. It refuses to write over any path git already tracks, except this
+unit's own r1 bytes (built on inventory84 and committed for review), which r2
+replaces."""
 import hashlib, json, subprocess
 from pathlib import Path
 A = Path(__file__).resolve().parents[5]
 M = 'docs/implementation/m2/'
 OUT = M + 'repository-file-inventory.v88.json'
 RECORD = M + 'project-admission-inventory-v88/successor.json'
-tracked = subprocess.run(['git', '-C', str(A), 'ls-files', OUT, RECORD], capture_output=True, text=True)
-assert not tracked.stdout.strip(), f'refusing to overwrite tracked paths: {tracked.stdout}'
+# This unit's own r1 bytes, which r2 may replace; any other tracked content refuses.
+OWN_R1 = {OUT: '658a4dfdb17af2971e27f18a4b510fd2f9f5f9f84e12df3a816749b9d8edbe4a',
+          RECORD: '8e528243ea34975dcace10ae4c949d4ae170f2e413b2c80bf20d438190f0ed7c'}
+for path in (OUT, RECORD):
+    tracked = subprocess.run(['git', '-C', str(A), 'ls-files', path], capture_output=True, text=True).stdout.strip()
+    if tracked:
+        blob = subprocess.run(['git', '-C', str(A), 'show', f'HEAD:{path}'], capture_output=True).stdout
+        assert hashlib.sha256(blob).hexdigest() == OWN_R1[path], f'refusing to overwrite tracked path: {path}'
 def pin(p):
     b = (A / p).read_bytes(); return {'path': p, 'bytes': len(b), 'sha256': hashlib.sha256(b).hexdigest()}
 def row(path, package, role, description):
@@ -25,7 +29,7 @@ ADDED = [
     row('crates/security/src/custody/project_admission_tests.rs', 'opensip-security', 'test',
         "Check project root admission on scratch homes: S3 selection (no candidate selects the launch at the home boundary; every VCS marker kind, including a .git file, selects the repository root; a nested opensip.json wins over an enclosing repository; a config failing custody, a directory or a symlink in its place refuses; launch custody refuses while ancestor custody is a boundary; an explicit path is examined once; selection is charged and refuses on a short ledger), the registry owner's classification table, and admissions through a real read session on a published scratch installation: a first-use candidate on the empty registry, an eligible registered project, one-sided and contradictory rows, a malformed or non-private marker, an unavailable registry (v1 present, malformed), a registry rewritten after the session read, an outside-home root refused before any registry read, and a recheck that sees a marker created afterwards."),
 ]
-parent = pin(M + 'repository-file-inventory.v84.json')
+parent = pin(M + 'repository-file-inventory.v87.json')
 v84 = json.loads((A / parent['path']).read_bytes())
 v88 = dict(v84)
 v88['standing'] = 'PROPOSED additive project root admission layout (law X2 r5); no release, custody, profile, boot or creator qualification'
@@ -38,8 +42,8 @@ old = {r['path']: r for r in v84['files']}
 assert all(old[r['path']] == r for r in files if r['path'] in old)
 assert {k: v for k, v in v88.items() if k not in ('files', 'standing')} == {k: v for k, v in v84.items() if k not in ('files', 'standing')}
 index = {r['path']: i for i, r in enumerate(files)}
-prior = json.loads((A / M / 'project-chain-inventory-v84/successor.json').read_bytes())
-assert prior['candidate'] == parent, 'inventory84 is not the selected X2a candidate'
+prior = json.loads((A / M / 'signed-store-inventory-v87/successor.json').read_bytes())
+assert prior['candidate'] == parent, 'inventory87 is not the selected X4T-0 candidate'
 projection = []
 for p in prior['descriptionOverrideProjection']:
     projection.append({'filePath': p['filePath'], 'parentSelector': p['candidateSelector'],
@@ -59,7 +63,7 @@ record = {
     'addedFiles': [r['path'] for r in ADDED],
     'carriedUnresolvedObligations': prior['carriedUnresolvedObligations'],
     'descriptionOverrideProjection': projection,
-    'projectionRule': 'Resolve all sixteen effective descriptions by stable file path from the rows bound to inventory84, which carries them unchanged from inventory83. Preserve exact before/effective text and projected selector; never drop inherited meaning.',
+    'projectionRule': 'Resolve all sixteen effective descriptions by stable file path from the rows bound to inventory87, which carries them unchanged from inventory84. Preserve exact before/effective text and projected selector; never drop inherited meaning.',
 }
 (A / RECORD).write_text(json.dumps(record, indent=2) + '\n')
 print(json.dumps({'files': len(files), 'added': len(ADDED), 'projectionRows': len(projection)}))

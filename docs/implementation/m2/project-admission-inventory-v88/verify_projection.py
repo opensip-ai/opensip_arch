@@ -1,8 +1,8 @@
 from pathlib import Path
 import argparse,copy,hashlib,json
 
-# The sixteen rows bound to inventory84, carried unchanged from inventory83
-# inventory82 and inventory81:
+# The sixteen rows bound to inventory87, carried unchanged from inventory84,
+# inventory83, inventory82 and inventory81:
 # eight inherited through inventory80 and 461b's eight overrides on
 # inventory80.
 ROWS=16
