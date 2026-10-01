@@ -1,4 +1,4 @@
-REVIEWER review: law X2 r1, project-root custody, project admission, first registration and namespace leases. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/REVIEWDIR. Law review; no product cargo. Product HEAD is fdbedf4 or later; you may read it.
+Codex review: law X2 r1, project-root custody, project admission, first registration and namespace leases. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/codex-project-root-x2-r1. Law review; no product cargo. Product HEAD is fdbedf4 or later; you may read it.
 
 Subject: docs/implementation/m2/project-root-x2/PROPOSAL.md r1 (pin in hashes.txt). Context:
 - EXIT-PLAN.md rows X2 and X3a, and X3a r1 (its namespace dependency);
