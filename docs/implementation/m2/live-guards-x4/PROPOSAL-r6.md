@@ -1,4 +1,4 @@
-# Live security guards: operation guard, live revocation, stale guards and the observer latch — proposal X4 r7
+# Live security guards: operation guard, live revocation, stale guards and the observer latch — proposal X4 r6
 
 2026-09-30. Claude Opus 5.5, implementation lead. Law for unit X4 of `EXIT-PLAN.md` (DR-G09), under:
 - security-and-lifecycle S4 (trust time and floors), S5, S6 (live revocation), S7 (lock order) and S10 (execution principal `repository-code`), and S12;
@@ -14,7 +14,7 @@ r2 answers Codex X4 r1 RF-1 to RF-5:
 - RF-4: binding to the owned post-fence operation, with a complete mandatory guard set;
 - RF-5: freshness after blocking guard work and immediately before admission.
 
-r1 bytes are preserved in PROPOSAL-r1.md. r3 answers Grok X4 r2 RF-1 (the mixed-read retry runs inside one monitor read) and RF-2 (a dropped lease is the busy row, not a changed file), and aligns with X3b r2 and X4T r1. r2 bytes are preserved in PROPOSAL-r2.md. r4 answers Grok X4 r3 RF-1: X4T's fenced admission, the monitor's first read, runs at the lease-free point, never inside 7a. r3 bytes are preserved in PROPOSAL-r3.md. r4 was ACCEPTED by Grok on 2026-09-30. r5 is an amendment that follows X4T r4, the real trust closure: the retained trust directories, the per-observation ledger, policy drift and role standing. r4 bytes are preserved in PROPOSAL-r4.md. r6 answers Grok r5 RF-1 (the observation uses X4T r5 item 2's loaders, each through its collection's handle) and RF-2 (admitted continuation standings are not the continuation refusal row). r5 bytes are preserved in PROPOSAL-r5.md. r7 answers Grok r6 RF-1: the two admitted standings have different new-process rules. r6 bytes are preserved in PROPOSAL-r6.md. Not code. Library only: no command is wired.
+r1 bytes are preserved in PROPOSAL-r1.md. r3 answers Grok X4 r2 RF-1 (the mixed-read retry runs inside one monitor read) and RF-2 (a dropped lease is the busy row, not a changed file), and aligns with X3b r2 and X4T r1. r2 bytes are preserved in PROPOSAL-r2.md. r4 answers Grok X4 r3 RF-1: X4T's fenced admission, the monitor's first read, runs at the lease-free point, never inside 7a. r3 bytes are preserved in PROPOSAL-r3.md. r4 was ACCEPTED by Grok on 2026-09-30. r5 is an amendment that follows X4T r4, the real trust closure: the retained trust directories, the per-observation ledger, policy drift and role standing. r4 bytes are preserved in PROPOSAL-r4.md. r6 answers Grok r5 RF-1 (the observation uses X4T r5 item 2's loaders, each through its collection's handle) and RF-2 (admitted continuation standings are not the continuation refusal row). r5 bytes are preserved in PROPOSAL-r5.md. Not code. Library only: no command is wired.
 
 ## Problem
 
@@ -157,11 +157,9 @@ M2 exits on a real crash, lock and revocation matrix. Its revocation half needs 
 
 **Policy drift and role standing (r5).**
 - **Policy drift.** In M2 the global policy is empty (X4T r4 item 5), so policy drift can only come from a project policy. The drift rules are unchanged.
-- **Role standing.** `ExistingOnly` and `InstallGateRequiredForNewProcess` are admitted standings: `role_machine::continuation` returns Continue for both. Their new-process rules differ:
-  - **`ExistingOnly`** (core and component Trusted, index Expired or StaleRevocation): existing verified work continues. The repository-execution grant never admits a new process from this view, and refuses on an existing `GRANT.*` detail.
-  - **`InstallGateRequiredForNewProcess`**: continuing is permitted. A new process is withheld, on an existing `GRANT.*` detail, until `EV-INSTALL` is admitted, and is granted once it is. The standing value itself does not change when `EV-INSTALL` is admitted.
-  - **M2 writers.** Every M2 writer effect continues admitted work (journal append, object publication, ledger commit), so both standings allow every M2 effect. Neither standing ever publishes X4T item 10's continuation row.
-  - **The new-process grant** is the repository-execution grant's (M5, item 8), not M2's.
+- **Role standing.** `ExistingOnly` and `InstallGateRequiredForNewProcess` are admitted standings: `role_machine::continuation` returns Continue for both. They permit continuing existing work and withhold only starting a new process, which needs `EV-INSTALL`.
+  - **M2 writers.** Every M2 writer effect continues work on an installation and project already admitted: journal append, object publication and ledger commit. Both standings therefore allow every M2 effect. The grant consults the standing and allows those effects. It never publishes X4T item 10's continuation row for an admitted standing.
+  - **New processes.** Starting a new process (repository execution, M5) is withheld under both, through the repository-execution grant's existing `GRANT.*` rows (item 8). That is not in M2.
   - **Refusal at admission.** `Continuation::Refuse` stays X4T's admission refusal at the lease-free point.
 
 ## Forbidden substitutes

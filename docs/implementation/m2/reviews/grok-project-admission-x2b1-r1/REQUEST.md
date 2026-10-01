@@ -1,4 +1,4 @@
-REVIEWER review: X2b-1, project root selection, the R0 registry capture, ProjectRootAdmission and classification, with inventory v88. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/REVIEWDIR. If you build, use a CARGO_TARGET_DIR under that directory.
+Grok review: X2b-1, project root selection, the R0 registry capture, ProjectRootAdmission and classification, with inventory v88. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/grok-project-admission-x2b1-r1. If you build, use a CARGO_TARGET_DIR under that directory.
 
 Law: `docs/implementation/m2/project-root-x2/PROPOSAL.md` r5 (accepted). The X2b split: X2b-1 here; X2b-2 is the Git tracking check (item 6a), still to come.
 
