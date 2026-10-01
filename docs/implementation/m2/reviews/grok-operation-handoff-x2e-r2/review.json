@@ -1,0 +1,34 @@
+{
+  "actualModel": "Grok",
+  "verdict": "REQUIRED-FINDINGS",
+  "requiredFindings": [
+    {
+      "id": "RF-1",
+      "title": "A latched attempt ledger inside the end charge drops the rollover outcome",
+      "failureScenario": "ProjectOperation::end_with builds Ok(RolledOver) after operation_end_after_exhaustion and then returns it from the closure passed to WritePlatformReceipt::charge. That charge is InitialInstallationAttempt::run, which is WorkLedger::scope. Scope returns Ok only while the ledger is open; Ok when closed() is Err(Budget(Closed)), and end_with maps every Err to OperationEnd::Failed. Nested work.run, work.effect, and work.scope set the permanent failed flag before the outer closure resumes. X3b-4 still returns the RolloverOutcome in that case (end_after yields ExhaustedEnd { rollover, end: Ok(NotCopied) } when work.is_failed()). The outer scope discards it. A lease or observe I/O refusal, a failed reservation (journal-x3b r10 item 9), a durability-undetermined rollover (item 13, which must be disclosed as DURABILITY.COMMIT_FAILED), and a copy failure after Rolled { closed, opened } all arrive as Failed(Budget(Closed)), the same row as a budget failure before the rollover ran. Item 4 step 3 and item 13 require the skip or failure to be disclosed on the rollover's own row (X7 r3 item 6). The fence is released and the rollover's lease is dropped; only the value is lost, so a generation that already opened is reported as a closed budget. Required: once operation_end_after_exhaustion has returned, end returns RolledOver carrying that RolloverOutcome, with a copy or unlock failure kept in end and a rollover refusal keeping its own row. A walk, fence, or rebind failure before the call stays Failed and runs no rollover. NotEntered stays the result when the ledger is already closed, or the owner reports Uncertain, before the charge."
+    }
+  ],
+  "subjectManifestSha256": "5f61aaa10129454dd6fd705eeef4cbfd443f2d7cca1e70fc5ced44384349c498",
+  "inventoryCandidateAssessment": {
+    "verdict": "ACCEPT",
+    "requiredFindings": [],
+    "path": "docs/implementation/m2/repository-file-inventory.v111.json",
+    "bytes": 384070,
+    "sha256": "10b4ab108cdd205eefb6a456f24639079c51c54cbf3c90a446367b945cbbef61",
+    "parent": {
+      "path": "docs/implementation/m2/repository-file-inventory.v108.json",
+      "bytes": 376570,
+      "sha256": "9c6953f28572f6882bbdc71ae945104e4a4e65e5d7b87cae9cf91318d9eb1f44"
+    },
+    "successorRecord": {
+      "path": "docs/implementation/m2/operation-handoff-x2e-inventory-v111/successor.json",
+      "bytes": 20376,
+      "sha256": "579735f5564b75a7fba5506b7e9f55ed8bef0fb8b41fd52edd63d02286b0fefd"
+    }
+  },
+  "productHead": "97f630a5d0a39cb65f36e55dbb044d99ae792a61",
+  "productDiffSha256": "0633ba9ee43d0d6d2b838c046da6d001c99c031fba310b47bbe98ad7489532fd",
+  "productDiffBytes": 103468,
+  "realOpenSipAbsent": true,
+  "scope": "X2e with X3b-3 r2, rebase onto 97f630a (v108), RF-1 from r1 fixed, rollover joined through X3b-4. Inventory v111 is ACCEPT on v108: 793 inherited rows, 0 differing, four files added, standings and descriptions name law X3b r10, builder literals match, verify_projection 16 rows and 83 corruptions refused, verify_scratch 76/72/16 with v111 selected on the appended lock. REQUIRED-FINDINGS on the code: WorkLedger::scope inside receipt.charge replaces Ok(RolledOver) with Budget(Closed) after a nested latch, so the rollover outcome is not returned for disclosure. Calls 14, 16 and 17 accepted; call 15 is the finding. Calls 1-13 stay as accepted in r1. Replay of the diff, hunks, inventory, projection verifier, and scratch verifier. Workspace suite, clippy, fmt, rustfmt deltas, check_package_edges, and build_v111.py were not replayed. No product cargo."
+}
