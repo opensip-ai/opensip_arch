@@ -1,6 +1,6 @@
 # The ordinary platform owner for writers that are not creators — proposal X1 r1
 
-2026-09-30. Claude Opus 5.5, implementation lead. Law for unit X1 of EXIT-PLAN.md, under owner.md §5 ("Durable/write binding") and §6, and laws 462, 463, 468 r5, 458c r6 and 461 r3. Items 1, 2 and 5 contain lead decisions, made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation and record it. Not code. Library only: no command is wired (464 item 7; X10 and X11 own CLI enablement).
+2026-09-30. Claude Opus 5.5, implementation lead. Law for unit X1 of EXIT-PLAN.md, under owner.md §5 ("Durable/write binding") and §6, and laws 462, 463, 468 r5, 458c r6 and 461 r3. Items 1, 2 and 5 contain lead decisions, made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation and record it. Not code. Library only: no command is wired (464 item 7; X10 and X11 own CLI enablement). ACCEPTED by Grok X1 r1 on 2026-09-30.
 
 ## Problem
 
