@@ -1,4 +1,4 @@
-# The durable grant-journal append, its witness, the carrier high-water and grant-generation rollover — proposal X3b r9
+# The durable grant-journal append, its witness, the carrier high-water and grant-generation rollover — proposal X3b r10
  r4 was ACCEPTED by Grok on 2026-09-30. r5 is an amendment found by Grok's X3c r1 review: on the SEAL path, level 4 is held through the evidence COMMIT, so no REV can slip between SEAL and commit. r4 bytes are preserved in PROPOSAL-r4.md. r6 answers Grok r5 RF-1 (the SEAL-path hold had no release when COMMIT is never called) and RF-2 (the r4 snapshot now equals the accepted bytes). r5 bytes are preserved in PROPOSAL-r5.md. r6 ACCEPTED by Grok on 2026-09-30; r6 bytes are preserved in PROPOSAL-r6.md.
 
 **r7 (2026-10-01) is an amendment required by the accepted X7 r3** (item 6 and its dependency note). It defines grant-generation rollover inside item 4's end step, under the fence that step already holds. It covers the `EXCLUSIVE` closure, the `TERMINAL` append and its `op-` token, the opening of generation g+1 with its crash states, the floor write for g+1, skip-if-busy, and the charge to the attempt ledger. It also reconciles X3d r3 item 3's capacity threshold with what the carrier admits.
@@ -16,6 +16,16 @@
 - **A floor at the open successor (item 4a's floor-regression bullet; items 3 and 13 cite it).** When the witness names the open successor (case 1, OK or REVERT), a floor exactly at (G+1, 0, null) is unchanged, not regression. Read literally, item 3 compared it with the copy tail L, which on case 1's REVERT is the closing `TERMINAL` in G, and quarantined a lawful state for good. Every other floor is compared as before.
 - **No reconciliation in the same operation after an uncertain outcome (items 4, 4a, 5, 9, 11, 12 and 13, and the forbidden substitutes).** The attempt ledger is the platform's failure-latching `WorkLedger`. The failure after visibility closes it, so r8's in-operation reconciliation ("reconcile once" in item 13, X3b-2's reconciliation in item 5) was refused before it read anything and could never run. r9 withdraws it. The operation reports durability-undetermined, copies no floor, and the next writer's floor step and start reconcile, as they already do after a crash at the same point. Item 5 records the decision and the rejected alternatives. No platform change is made.
 - **Unchanged from r8:** everything else, including item 9's reserved cost (r9 only clarifies what its reconciliation line covers), every crash table and every refusal row.
+
+**r10 (2026-10-01) is an amendment required by X3d r6**, which is reviewed together with this revision. r9 bytes are preserved in PROPOSAL-r9.md.
+- **What X3d r6 decides.** The end path's `REV` and `CLN` after a certain refusal that closed the attempt ledger are funded by a settlement reserve in `WorkLedger`, from platform unit X3d-0.
+  - It is taken once, before the first attempt effect, in the same attempt ledger, at the exact cost of those two appends.
+  - It is spendable after the latch, but only by X3d's `finish`, for those two appends.
+  - It is never refilled, and it is forfeited at any uncertain outcome (X3d r6 item 8).
+- **Item 5.** r9's rejection of a post-failure allowance for the reconciliation stands. Its reasons are restated so that they do not contradict X3d r6. The reconciliation buys nothing the next writer does not already do, while F19 requires this invocation to record the `REV`, and no later writer can. The settlement reserve cannot fund a reconciliation. Step 7's F19 sentence names the funding.
+- **Item 4.** The end step also ends at step 1 when the attempt ledger is closed when the operation ends. Its first step is charged, so it would be refused `Closed` before any effect.
+- **Items 9, 10, 11 and 12, and the forbidden substitutes,** record the same: the funding, the tests, X3b-3's share, and the bars on spending the reserve for anything else.
+- **Unchanged from r9:** everything else, every crash table and every refusal row.
 
 2026-09-30. Claude Opus 5.5, implementation lead. Law for unit X3b of `EXIT-PLAN.md` (DR-G19, COV-03), under owner.md §8, security-and-lifecycle S6 (linearization, commit-admission gate), S7 (lock order and modes) and S12, `security-completion.v8.md` §5.4 to §5.6 (the grant-journal carrier, lock handoff, witness, durability primitives), the selected physical carrier `design-corrections/security/grant-journal.carrier.v3.sql` (carrierFormat 3, S1 row 84), `host-foundation-completion.v2.md` (project namespace layout), the build plan's failure cases F06 to F11 and F19, and laws X1 r1, X3a r3, X2 r4 (items 5 to 7a: R0, R1, R2, X2d's lease, X2e's handoff), X4 r2 (`OperationGuard` inside X2e; the checkpoint under `JournalAppendLock`) and X4T r1; r7 is also written under X3d r3 (items 3, 7 and 8), X7 r3 (items 6, 6a and 7), X1 r1 item 5, `carrier-format.v3.md` §5, §7 and §8, and v8 §5.4's WA-13. r2 answers Grok X3b r1 RF-1 (no floor write under a lease), RF-2 (the digest's preimage), RF-3 (no writer quarantine marker; the F46 row) and RF-4 (floor before witness). r1 bytes are preserved in PROPOSAL-r1.md. r3 answers Grok X3b r2 RF-1 (format dispatch before the floor table) and RF-2 (the floor table implements the crash list and reconciliation; a whole INIT floor). r2 bytes are preserved in PROPOSAL-r2.md. r4 answers Grok X3b r3 RF-1 (a present non-INIT floor with no carrier is `uncertainTailLoss`). r3 bytes are preserved in PROPOSAL-r3.md. r4 ACCEPTED by Grok on 2026-09-30. It keeps X2 r5 item 7's ordering (the floor step runs under the fence before any lease) and X4T r2's fenced admission at the same point. Items 1, 2, 3, 4, 4a, 5, 5a, 7, 9 and 13 contain lead decisions made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation; each names the alternative it rejects. Not code. Library only: no command is wired.
 
@@ -105,6 +115,12 @@ M2's commit path appends a `SEAL` to the project's grant journal under the level
 
      In both cases nothing is read and the floor is untouched. The next writer's floor step copies it.
 
+     **r10: the end step on a closed attempt ledger.** If the attempt ledger is closed when the operation ends, the end step ends at step 1 as well. A certain refusal may have closed it, or X3d's end-path settlement may have failed (X3d r6 items 7 and 8).
+     - **Why.** Step 2's fence walk is the end step's first charge. It would be refused `Closed` before any effect, so the step is not attempted. X3d's `finish` makes that decision.
+     - **What it leaves.** The floor stays where the floor step put it, the state that process death after step 1 leaves. The next writer's floor step copies it forward.
+     - **No disclosure.** A step not attempted is not an end failure, and nothing is disclosed for it.
+     - **Not funded by the settlement.** X3d's settlement reserve never funds the end step, the rollover or a floor copy.
+
 4a. **Generation succession: the closed generation and the opened successor (r7; lead decision).**
    - **What a generation is.** Physically, a grant generation is exactly the `grant_journal_v3` rows carrying its `grantGeneration`. The `carrier_format` row is immutable, and `first_generation` stays 1 on the fresh path. Generation g+1 has no row until its first record. That record is at `seq` 1, and its `prev_sha256` is the genesis value for (N, g+1): `genesis_prev` with N as the key text, per item 2. So **opening g+1 writes no carrier row.** Opening is two things:
      - the witness `COMMITTED {grantGeneration: g+1, seq: 0, bodySha256: null}`, written in the namespace under a writer lease;
@@ -157,7 +173,7 @@ M2's commit path appends a `SEAL` to the project's grant journal under the level
    4. Witness `PENDING seq bodySha256`, durably.
    5. `INSERT` and `COMMIT` (durable by `synchronous=FULL` and `fullfsync`).
    6. Witness `COMMITTED seq bodySha256`, durably.
-   7. Release level 4; the journal transaction is already closed. **Exception (r5):** on a `SEAL` append, step 7's release waits. Level 4 stays held while staging, X4's repeated checkpoint and `AdmissionPermit`, and the evidence-ledger `COMMIT` (X3c) all run, until that `COMMIT` returns `Committed` or `CommitUndetermined`. Then level 4 is released. Level 3 is never acquired or reacquired under level 4. **If the path stops before the evidence `COMMIT`** (a staging failure, a failed repeated checkpoint, no `AdmissionPermit`, an observer latch, or any error after `SEAL`), the order is fixed. Roll back the open ledger transaction, which writes nothing. Release level 4, then each level-3 transaction. Then follow F19: append `REV` through a fresh, lawful level-3-then-level-4 acquisition (item 6). Level 3 is never reacquired under level 4. Every exit from the `SEAL` path releases level 4 exactly once: `Committed`, `CommitUndetermined`, or this failure path. The X3c ledger transaction is acquired before level 4 (item 5, step 1).
+   7. Release level 4; the journal transaction is already closed. **Exception (r5):** on a `SEAL` append, step 7's release waits. Level 4 stays held while staging, X4's repeated checkpoint and `AdmissionPermit`, and the evidence-ledger `COMMIT` (X3c) all run, until that `COMMIT` returns `Committed` or `CommitUndetermined`. Then level 4 is released. Level 3 is never acquired or reacquired under level 4. **If the path stops before the evidence `COMMIT`** (a staging failure, a failed repeated checkpoint, no `AdmissionPermit`, an observer latch, or any error after `SEAL`), the order is fixed. Roll back the open ledger transaction, which writes nothing. Release level 4, then each level-3 transaction. Then follow F19: append `REV` through a fresh, lawful level-3-then-level-4 acquisition (item 6). (r10: X3d's `finish` does this, funded by its settlement reserve, which survives the attempt ledger's latch; X3d r6 item 8.) Level 3 is never reacquired under level 4. Every exit from the `SEAL` path releases level 4 exactly once: `Committed`, `CommitUndetermined`, or this failure path. The X3c ledger transaction is acquired before level 4 (item 5, step 1).
 
    **Witness file protocol:** write a fresh temporary file `grant-journal.witness.json.<32 hex>` created exclusively in the namespace directory, write the bytes, `F_FULLFSYNC`, rename over the witness name, then the namespace directory's barrier, then reopen by name and confirm the bytes and identity. The same protocol writes the floor in `trust/carrier-floors/`. A leftover temporary file is never adopted or read; it is ignored by name grammar and removed only by a later cleanup owner. **Rejected:** a fixed temporary name (a stale one from a crashed writer would be overwritten or adopted).
    - **Uncertain outcomes (§5.6):** a failure before visibility leaves the previous durable state; a failure after visibility (a failed commit, rename or barrier) is durability-undetermined: the writer refuses every further effect and never assumes either state (F09). No evidence commit proceeds on an uncertain journal barrier.
@@ -177,7 +193,11 @@ M2's commit path appends a `SEAL` to the project's grant journal under the level
        The next writer's floor step and start already reconcile each of these, and read-only recovery (X6) already reports each as `would-REVERT`, `would-ADVANCE` or `would-OPEN` without writing. Until then the floor lags this operation. That stays inside §5.4's detection bound, because the floor covers the last *observed* operation boundary, and an undetermined boundary is not observed. r8 already accepted the same lag after a failed reconciliation.
      - **Precedent.** X7 r3 item 5 already declines to recover an undetermined commit in the same invocation: recovery must judge the carrier fresh rather than confirm the caller's hope, and it would spend more work on an already-failed path. The same reasoning applies here.
      - **Rejected:**
-       - **A post-failure allowance** reserved up front in the same ledger, spendable after the latch only by the reconciliation path through a typed capability. It would weaken the platform latch, the no-retry property reviewed since 416 and relied on by 468's gate. In return it buys only a witness write and a floor copy that the next writer performs anyway. A reconciliation straight after a failed sync on the same volume is also the one most likely to fail again. It would need a platform unit, an inventory successor and its own law, for no safety gain.
+       - **A post-failure allowance** reserved up front in the same ledger, spendable after the latch only by the reconciliation path through a typed capability. Any such allowance is an exception to the platform latch: the no-retry property reviewed since 416 and relied on by 468's gate. In return it would buy only a witness write and a floor copy that the next writer performs anyway. A reconciliation straight after a failed sync on the same volume is also the one most likely to fail again. That is an exception for no safety gain.
+         **r10.** X3d r6 makes the one exception that has a safety gain. A settlement reserve (platform unit X3d-0) funds only the end path's `REV` and `CLN` after a *certain* refusal.
+         - **Why it is justified there.** F19 requires this invocation to record that `REV`, and no later writer can.
+         - **Why it cannot fund a reconciliation.** It is forfeited at any uncertain outcome, and its only spender is X3d's `finish`, for those two appends.
+         - **What stands.** This rejection, and r9's forbidden substitute against an allowance for a reconciliation, are unchanged.
        - **A second ledger, or the gate ledger,** for the reconciliation (item 9, X1 item 5, X7 r3 item 7).
        - **Reporting a failure after visibility as a value,** so that the ledger stays open. That routes a native failure around the latch that exists to stop it.
        - **Keeping the reconciliation as a step that is always refused.** Law that names a step which cannot run misleads every later unit.
@@ -251,9 +271,13 @@ M2's commit path appends a `SEAL` to the project's grant journal under the level
      - **Spending.** Only those steps spend the reservation.
      - **Failure.** If the reservation fails, the rollover is not attempted. The budget row is disclosed as a rollover failure, and the end step continues to its own charged floor copy.
      - **Rejected:** charging step by step, which could exhaust the ledger after the `TERMINAL` and before OPEN. Item 4a would recover that state, but it is avoidable. **Rejected:** the gate ledger (X1 item 5).
+   - **The end path's `REV` and `CLN` (r10).** X3d r6 item 8's settlement reserve funds them, on this same attempt ledger. It is not a second ledger.
+     - **The appends.** Each is an item 5 append, unchanged, and reserves its confirmations before its first effect inside the settlement, as any append does.
+     - **Nothing else draws on it.** The floor step, the start, other appends, the end step and the rollover do not.
+     - **Forfeit.** After an uncertain outcome it is forfeited, and nothing is charged (item 5, r9).
 
 10. **Failure cases.**
-    - **Covered by X3b:** F06 (journal half), F07, F08, F09, F10, and the journal half of F19 (after a failed post-SEAL checkpoint: abort the open journal transaction if any, release level 4 then level 3, and append `REV` through a fresh lawful level-3 then level-4 call; never reacquire level 3 under level 4).
+    - **Covered by X3b:** F06 (journal half), F07, F08, F09, F10, and the journal half of F19 (after a failed post-SEAL checkpoint: abort the open journal transaction if any, release level 4 then level 3, and append `REV` through a fresh lawful level-3 then level-4 call; never reacquire level 3 under level 4). r10: that `REV` is funded by X3d's settlement reserve even when the failure closed the attempt ledger (X3d r6 item 8).
     - **Covered by X3b r7:** F32's journal half: the capacity window, the closure, OPEN and the g+1 floor (items 4a, 5a and 13).
     - **Prepared, finished elsewhere:** F06's evidence half and F11 (X3c), F19's evidence abort (X3d), F38 to F41 (X4 and X3d), and F32's route and projection (X7).
     - **Not in scope:** F46 to F51 (no carrierFormat 1 or 2 carrier can exist under an X2 namespace).
@@ -294,11 +318,14 @@ M2's commit path appends a `SEAL` to the project's grant journal under the level
     - **Uncertain outcomes, append.** At each of the append's four post-visibility steps, the lock latches. No read, witness write or floor copy follows in the operation, and the end step copies nothing. The next writer's floor step and start then reconcile to the stated outcome.
     - **Uncertain outcomes, rollover.** The same holds at each of the rollover's post-visibility effects.
     - **A source pin.** No reconciliation is reachable from an uncertain outcome.
+    **r10 tests (X3b-3, with X3d-1).**
+    - On a closed attempt ledger the end step takes no fence, reads nothing and copies no floor, and the next writer's floor step copies it forward.
+    - An end-path `REV` appended inside X3d's settlement after the attempt ledger closed is an ordinary item 5 append. Its witness, chain and S6 latch are as any `REV`'s.
 
 12. **Units after the law.**
     - **X3b-1:** the floor step, carrier creation, open, `reconcile_witness`, and the carrier start and end steps, with the item 11 tests. Inventory successor.
     - **X3b-2:** the append protocol, the witness file protocol, `JournalAppendLock`, record building for `SEAL`, `REV`, `CLN`, `RA`, `TERMINAL`, and the uncertain-outcome reconciliation (withdrawn by r9; X3b-4 removes it). Inventory successor.
-    - **X3b-3, with X2e:** composing the floor step before X2d's lease and the carrier start inside X2e's handoff, and the end step into the operation's end path. **r7:** X3b-3 also threads the exhaustion from X3d's `finish` into the end step's step 3.
+    - **X3b-3, with X2e:** composing the floor step before X2d's lease and the carrier start inside X2e's handoff, and the end step into the operation's end path. **r7:** X3b-3 also threads the exhaustion from X3d's `finish` into the end step's step 3. **r10:** the end step is not entered on a closed attempt ledger (item 4), and X3d-1's `finish` decides that.
     - **X3b-4 (r7): grant-generation rollover.** In `opensip-security`'s `journal_store`, X3b-4 adds:
       - item 4a: the successor rule in the floor step's decision, the start, the uncertain reconciliation (withdrawn by r9) and the end step; OPEN; and the predecessor check in every writer open;
       - item 5a: `SealCeiling`, the `TERMINAL` window replacing X3b-2's single-slot rule, `GenerationFull`, and the exported `seal_fits` predicate;
@@ -394,6 +421,10 @@ Deriving N or (S, G, K) outside X2e; any floor write while this process holds a 
 - any carrier read, witness write, floor copy or other reconciliation in the same operation after an uncertain outcome;
 - a ledger allowance that survives the attempt ledger's latch, a second ledger, or a failure reported as a value, used to make such a reconciliation run;
 - quarantining a floor at (G+1, 0, null) as regression while the witness names the open successor G+1.
+
+**r10:**
+- drawing on X3d's settlement reserve for anything but the end path's `REV` and `CLN` appends: no reconciliation, no witness write outside those appends, no floor copy, no end step and no rollover;
+- an end step entered on a closed attempt ledger.
 
 ## Not claimed
 
