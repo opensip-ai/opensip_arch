@@ -1,0 +1,1088 @@
+diff --git a/crates/security/src/custody/installation_admission_tests.rs b/crates/security/src/custody/installation_admission_tests.rs
+index b710c90..04667e6 100644
+--- a/crates/security/src/custody/installation_admission_tests.rs
++++ b/crates/security/src/custody/installation_admission_tests.rs
+@@ -785,3 +785,70 @@ fn a_confirmed_trust_publication_is_the_only_advance_of_the_state_v1_owner() {
+         admitted.release().unwrap();
+     }
+ }
++
++#[test]
++fn the_gate_follows_two_confirmed_publications_of_one_hold_in_order() {
++    // X4T-b judgment call 9 with X4B-b: a fence hold whose first read
++    // confirmed the acceptance and then a floor write advances the gate after
++    // each, in order; the second before the first is a changed file.
++    use crate::trust::{RetainedCurrentTrust, publish_trust};
++    use opensip_platform::WorkLedger;
++    for in_order in [true, false] {
++        let (_scratch, home) = scratch();
++        let (r, _s) = published(&format!("x4bb-advance-{in_order}"), &home);
++        let mut gate = new_gate(None);
++        let mut admitted = run(&mut gate, &r, &home, &Probe::default(), &live, &nothing).unwrap();
++        let confirmations = {
++            let read = admitted.current_trust();
++            let file = read.file.expect("state.v1 is a required file");
++            let raw = read.raw.to_vec();
++            let sample = file.metadata().clone();
++            let opensip_identity::JsonValue::Object(capsule) =
++                opensip_identity::parse_json(&raw).unwrap()
++            else {
++                panic!("capsule")
++            };
++            let fence = GateFence {
++                i: read.installation,
++                uid: read.uid,
++                groups: Default::default(),
++            };
++            WorkLedger::new()
++                .scope(|work| {
++                    let mut owner = RetainedCurrentTrust::bind(
++                        read.installation,
++                        read.uid,
++                        &capsule["store"],
++                        &raw,
++                        &sample,
++                        work,
++                    )
++                    .map_err(|e| WorkFailure::Operation(format!("{e:?}")))?;
++                    for _ in 0..2 {
++                        publish_trust(&fence, &mut owner, &[], &raw, work)
++                            .map_err(|e| WorkFailure::Operation(format!("{e:?}")))?;
++                    }
++                    Ok(owner.confirmations().to_vec())
++                })
++                .unwrap()
++        };
++        assert_eq!(confirmations.len(), 2);
++        assert_eq!(confirmations[1].predecessor(), confirmations[0].metadata());
++        if in_order {
++            for confirmed in &confirmations {
++                admitted.advance_current(confirmed).unwrap();
++            }
++            assert_eq!(
++                admitted.current_trust().file.unwrap().metadata(),
++                confirmations[1].metadata()
++            );
++            gate.recheck(&admitted, &r.platform).unwrap();
++        } else {
++            assert!(matches!(
++                admitted.advance_current(&confirmations[1]),
++                Err(GateRefusal::Custody(CustodyRefusal::Changed))
++            ));
++        }
++        admitted.release().unwrap();
++    }
++}
+diff --git a/crates/security/src/custody/operation_guard.rs b/crates/security/src/custody/operation_guard.rs
+index a1829af..75f241f 100644
+--- a/crates/security/src/custody/operation_guard.rs
++++ b/crates/security/src/custody/operation_guard.rs
+@@ -657,6 +657,7 @@ pub(crate) fn trust_termination(row: &TrustRow) -> T {
+         TrustRow::RequiredFilesChanged => T::Custody {
+             subject: "required-files-changed",
+         },
++        TrustRow::Invariant => T::Invariant,
+     }
+ }
+ 
+diff --git a/crates/security/src/custody/operation_guard_tests.rs b/crates/security/src/custody/operation_guard_tests.rs
+index 3c5b504..553a3f1 100644
+--- a/crates/security/src/custody/operation_guard_tests.rs
++++ b/crates/security/src/custody/operation_guard_tests.rs
+@@ -69,6 +69,8 @@ fn every_fenced_admission_row_takes_its_x4t_item_10_termination() {
+                 subject: "required-files-changed",
+             },
+         ),
++        // X4B r5 item 1 step 2.3 (unit X4B-b): a second F absent.
++        (TrustRow::Invariant, T::Invariant),
+     ];
+     for (row, termination) in cases {
+         assert_eq!(trust_termination(&row), termination, "{row:?}");
+diff --git a/crates/security/src/custody/operation_handoff.rs b/crates/security/src/custody/operation_handoff.rs
+index 4a55120..480194c 100644
+--- a/crates/security/src/custody/operation_handoff.rs
++++ b/crates/security/src/custody/operation_handoff.rs
+@@ -9,8 +9,8 @@
+ //   operation's carrier place is confirmed (`I/trust` and the spelling SQLite
+ //   opens, which must name the retained N) and X3b's floor step runs, charged
+ //   to the write receipt's attempt ledger (X3b r10 item 9's operation
+-//   ledger). X4a's fenced trust admission joins this point later (X4 r7 item
+-//   2, X4T r9 item 9); it is not built here;
++//   ledger). X4a's fenced trust admission runs first at this point (X4 r7
++//   item 2, X4T r11 item 9), with X4B-b's bootstrap inside it on F absent;
+ // - the lease is taken (X2d), APPEND-WRITE or EXCLUSIVE;
+ // - item 7a step 1, the join: the subject, the namespace, the locked
+ //   carriers and the gate are rechecked, and owner §8's five-field binding
+@@ -741,19 +741,18 @@ enum TrustStep {
+     Monitor(crate::revocation::StopReason),
+     Gate(GateRefusal),
+ }
+-/// Law X4 r7 item 2 with X4T r9 items 7 to 9 and X4B r5 item 1 (unit
+-/// X4a), first at the lease-free point and before anything is read: the
+-/// operation's one `FinalGate` and `FreshnessMonitor` are created; the
+-/// monitor's first `read` runs X4T's fenced admission over the gate's one
+-/// read of `state.v1`, with the S4 observation projected from that read's
+-/// own opening sample; a confirmed floor publication advances the gate's
+-/// retained `state.v1` owner; then the trust store's handles are retained and
+-/// judged. All on the gate's ledger with the fence held and no project lock,
+-/// then the gate's and the receipt's rechecks.
+-///
+-/// X4B-b seam: the trust bootstrap of an installation whose capsule is the
+-/// P0 shape joins inside this one first read, on F absent only (X4B r5 item
+-/// 1 step 2); it is not built here, so F absent refuses on its row.
++/// Law X4 r7 item 2 with X4T r11 items 7 to 9 and X4B r5 item 1 (units
++/// X4a and X4B-b), first at the lease-free point and before anything is
++/// read: the operation's one `FinalGate` and `FreshnessMonitor` are
++/// created; the monitor's first `read` runs X4T's fenced admission over the
++/// gate's one read of `state.v1`, with the S4 observation projected from
++/// that read's own opening sample. On F absent only, the same read accepts
++/// the write receipt's embedded bootstrap payload on that observation and
++/// runs the one confirming admission (X4B r5 item 1 step 2). Each confirmed
++/// publication (the acceptance, then any floor write) advances the gate's
++/// retained `state.v1` owner, in order; then the trust store's handles are
++/// retained and judged. All on the gate's ledger with the fence held and no
++/// project lock, then the gate's and the receipt's rechecks.
+ fn trust_start(
+     holder: &mut OrdinaryWriteAdmission,
+     invocation: &TrustInvocation,
+@@ -762,7 +761,7 @@ fn trust_start(
+     let mut lease_free = LeaseFree::create(clock);
+     let core = holder.selected_closure();
+     let refused = |step: TrustStep| WorkFailure::Operation(step);
+-    let stepped = holder.gate_step(|installation, qualification, work| {
++    let stepped = holder.gate_step(|installation, qualification, bootstrap, work| {
+         let (raw, sample) = {
+             let read = installation.current_trust();
+             let Some(file) = read.file else {
+@@ -784,7 +783,16 @@ fn trust_start(
+                     row: crate::trust::TrustRow::HostIo,
+                     cause: cause.into(),
+                 })?;
+-                fenced_operation_read(work, &fence, &raw, &sample, &observation, &core, invocation)
++                fenced_operation_read(
++                    work,
++                    &fence,
++                    &raw,
++                    &sample,
++                    &observation,
++                    &core,
++                    invocation,
++                    bootstrap,
++                )
+             })
+         };
+         let (view, confirmed) = read.map_err(|failure| {
+@@ -793,9 +801,10 @@ fn trust_start(
+                 super::operation_guard::FirstRead::Monitor(reason) => TrustStep::Monitor(reason),
+             })
+         })?;
+-        if let Some(confirmed) = confirmed {
++        // X4T-b judgment call 9: after each confirmed publication, in order.
++        for confirmed in &confirmed {
+             installation
+-                .advance_current(&confirmed)
++                .advance_current(confirmed)
+                 .map_err(|refusal| refused(TrustStep::Gate(refusal)))?;
+         }
+         let store = opensip_identity::parse_json(installation.current_trust().raw)
+diff --git a/crates/security/src/custody/operation_live_tests.rs b/crates/security/src/custody/operation_live_tests.rs
+index a43d564..2812e5c 100644
+--- a/crates/security/src/custody/operation_live_tests.rs
++++ b/crates/security/src/custody/operation_live_tests.rs
+@@ -158,26 +158,142 @@ fn the_first_read_admits_the_start_view_before_any_lease_and_the_guard_carries_i
+     assert!(fence_free(&fixture) && unlocked(&fixture, &n));
+ }
+ 
++/// What the probe saw at each monitor clock sample of the handoff.
++#[derive(Clone, Debug)]
++struct Probed {
++    sample: crate::revocation::Sample,
++    state: Vec<u8>,
++    fence_held: bool,
++    leases_free: bool,
++}
+ #[test]
+-fn a_p0_installation_refuses_no_admitted_time_context_before_any_lease() {
+-    // No accepted store: the P0 capsule is F absent (X4T item 1). The X4B-b
+-    // bootstrap is a seam here, so the row is X4T item 10's.
+-    let fixture = ReadFixture::new("x4a-p0");
++fn a_p0_installation_is_accepted_inside_the_first_read_before_any_lease() {
++    // Law X4B r5 item 1 (unit X4B-b): the P0 capsule is F absent (X4T item
++    // 1). The monitor's one first read accepts the write receipt's embedded
++    // bootstrap payload on its own opening sample and returns the one
++    // confirming admission's view; the gate follows the confirmed `state.v1`.
++    use super::super::super::operation_guard::{Cadence, GuardSeam};
++    let fixture = ReadFixture::new("x4bb-p0");
+     let project = fixture_project(&fixture);
+-    let (mut writer, _trees) = new_writer(&fixture, "x4a-p0-register");
++    let (mut writer, _trees) = new_writer(&fixture, "x4bb-p0-register");
+     let registered = register(&mut writer, &project);
+     let n = registered.namespace_id().to_owned();
+     drop(registered);
+     writer.release().unwrap();
+-    let result = begin_live(&fixture, &project, "x4a-p0", false, ObservationHook::live());
+-    let row = refusal_row(result.map(|live| live.operation));
++    let p0 = fs::read(current_path(&fixture)).unwrap();
++    // A scripted clock that records, at every sample, the pointer and the
++    // locks: the first read's bracket is samples 1 and 2.
++    let clock = scripted::Clock::new();
++    let probed = Arc::new(std::sync::Mutex::new(Vec::<Probed>::new()));
++    let seam = {
++        let (clock, probed) = (clock.clone(), Arc::clone(&probed));
++        let (path, fence, namespace) = (
++            current_path(&fixture),
++            fence_path(&fixture),
++            namespace_path(&fixture, &n),
++        );
++        GuardSeam {
++            clock: Box::new(move || {
++                let sample = clock.sample()?;
++                let lock_free = |path: &Path, mode| {
++                    FileLock::try_acquire(File::open(path).unwrap(), mode)
++                        .unwrap()
++                        .is_some()
++                };
++                probed.lock().unwrap().push(Probed {
++                    sample: sample.clone(),
++                    state: fs::read(&path).unwrap(),
++                    fence_held: !lock_free(&fence, LockMode::Exclusive),
++                    leases_free: lock_free(&namespace.join(WRITER_LEASE), LockMode::Exclusive)
++                        && lock_free(&namespace.join(READERS_LEASE), LockMode::Exclusive),
++                });
++                Ok(sample)
++            }),
++            cadence: Cadence::Manual,
++            hook: ObservationHook::live(),
++        }
++    };
++    let (mut writer, _trees) = new_writer(&fixture, "x4bb-p0");
++    let subject = admitted(&mut writer, &project);
++    let operation = writer
++        .begin_operation_with(
++            subject,
++            WriterLease::AppendWrite,
++            &inputs(),
++            &scripted::invocation(),
++            seam,
++        )
++        .unwrap();
++    let probed = probed.lock().unwrap().clone();
++    let (opening, closing) = (&probed[0], &probed[1]);
++    // The bracket opened on P0, under the fence and before any lease, and
++    // closed on the accepted state.v1, still before any lease: the F-absent
++    // admission, the acceptance and the confirming admission all ran inside
++    // the monitor's one first read.
++    assert_eq!(opening.state, p0);
++    assert!(opening.fence_held && opening.leases_free);
++    let accepted = fs::read(current_path(&fixture)).unwrap();
++    assert_ne!(accepted, p0);
++    assert_eq!(closing.state, accepted);
++    assert!(closing.fence_held && closing.leases_free);
++    // Item 3: the anchor is the opening sample's projection, and F is
++    // max(W, A) on that sample's wall clock (W is past A here).
++    let capsule = opensip_identity::parse_json(&accepted).unwrap();
++    let field = |v: &V, k: &str| match v {
++        V::Object(o) => o[k].clone(),
++        _ => panic!("{k}"),
++    };
++    let record = field(&field(&capsule, "clock"), "record");
++    let observation = crate::clock_observation::project_monitor_sample(
++        opening.sample.wall_seconds,
++        opening.sample.wall_nanos,
++        opening.sample.before,
++        opening.sample.after,
++        &opening.sample.boot,
++    )
++    .unwrap();
++    assert_eq!(field(&record, "anchor"), observation);
++    assert_eq!(
++        field(&record, "evalHighWater"),
++        V::String(crate::trust_time::format_timestamp(opening.sample.wall_seconds).unwrap())
++    );
++    // The returned view is the confirming admission's: the carried roles
++    // are trusted, and the confirming admission wrote nothing (revision 2).
++    let guard = operation.guard();
++    assert_eq!(
++        format!("{:?}", guard.start_view().standing()),
++        "InstallGateRequiredForNewProcess"
++    );
+     assert_eq!(
+-        row,
+-        OperationRow::Installation(T::TrustNoAdmittedTimeContext)
++        field(&capsule, "revision"),
++        V::Integer(opensip_identity::JsonInteger::new(2).unwrap())
+     );
+-    // Nothing after the first read ran: no floor, no carrier, no lock.
+-    assert!(!fixture.installation.join("trust/carrier-floors").exists());
++    for name in ["TR-BUNDLE", "TR-COMPONENT", "TR-CORE", "TR-INDEX"] {
++        let role = field(&field(&capsule, "roles"), name);
++        assert_eq!(
++            field(&role, "state"),
++            V::String("ST-TRUSTED".into()),
++            "{name}"
++        );
++    }
++    // The handoff completed, so the gate's recheck set followed the
++    // confirmed publication; one observer tick reads the same store.
++    assert!(guard.tick());
++    assert_eq!(guard.state(), AttemptState::Preparing);
++    drop(operation);
+     assert!(fence_free(&fixture) && unlocked(&fixture, &n));
++    // The next operation finds F present and accepts nothing again: on the
++    // same sample, nothing is written.
++    let live = begin_live(
++        &fixture,
++        &project,
++        "x4bb-p0-next",
++        false,
++        ObservationHook::live(),
++    )
++    .unwrap();
++    assert_eq!(fs::read(current_path(&fixture)).unwrap(), accepted);
++    drop(live);
+ }
+ 
+ // ------------------------------------------------------- the checkpoint
+diff --git a/crates/security/src/custody/ordinary_writer.rs b/crates/security/src/custody/ordinary_writer.rs
+index 877b1e8..86fe1ac 100644
+--- a/crates/security/src/custody/ordinary_writer.rs
++++ b/crates/security/src/custody/ordinary_writer.rs
+@@ -308,12 +308,15 @@ impl OrdinaryWriteAdmission {
+     /// installation is lent mutably so that a confirmed trust publication can
+     /// advance its retained `state.v1` owner; then the gate's full recheck
+     /// and the receipt's run, still under the fence. Any refusal spends the
+-    /// gate; a step refusal is returned as the step's own.
++    /// gate; a step refusal is returned as the step's own. X4B r5 item 2
++    /// (unit X4B-b): the receipt's bootstrap source is lent beside the
++    /// qualification, for the fenced first read's F-absent branch only.
+     pub(super) fn gate_step<R, E>(
+         &mut self,
+         action: impl FnOnce(
+             &mut DurableInstallation,
+             &dyn super::installation_admission::DurableBarrierQualification,
++            &crate::trust::BootstrapSource<'_>,
+             &mut WorkScope<'_>,
+         ) -> Result<R, WorkFailure<E>>,
+     ) -> Result<R, GateStep<E>> {
+@@ -326,7 +329,8 @@ impl OrdinaryWriteAdmission {
+             gate,
+         } = self;
+         let qualification = receipt.qualification();
+-        let value = match gate.scope(|work| action(installation, qualification, work)) {
++        let bootstrap = receipt.bootstrap_source();
++        let value = match gate.scope(|work| action(installation, qualification, &bootstrap, work)) {
+             Ok(value) => value,
+             Err(failure) => {
+                 gate.spend();
+diff --git a/crates/security/src/custody/read_premise.rs b/crates/security/src/custody/read_premise.rs
+index 36725c3..c7215cc 100644
+--- a/crates/security/src/custody/read_premise.rs
++++ b/crates/security/src/custody/read_premise.rs
+@@ -161,6 +161,13 @@ where
+     pub(crate) fn qualification(&self) -> &impl DurableBarrierQualification {
+         &self.platform
+     }
++    /// Law X4B r5 item 2 (unit X4B-b): the first trust acceptance's only
++    /// payload source, the running core's embedded bootstrap through this
++    /// receipt's `InitialCore`. Lent to the fenced first read alone; a read
++    /// receipt has no such lending, so a read-only command never bootstraps.
++    pub(crate) fn bootstrap_source(&self) -> crate::trust::BootstrapSource<'_> {
++        crate::trust::BootstrapSource::running_core(&self.core)
++    }
+     /// Law X3b r10 item 9 (unit X2e with X3b-3): one charged step on this
+     /// receipt's attempt ledger, the operation ledger of X3b, X3d and X4,
+     /// with the same lending as `qualification` beside it. Refused `Closed`
+diff --git a/crates/security/src/trust.rs b/crates/security/src/trust.rs
+index a0c91ed..f6a8710 100644
+--- a/crates/security/src/trust.rs
++++ b/crates/security/src/trust.rs
+@@ -29,8 +29,8 @@ pub(crate) use root_payload::ObservationPoint;
+ pub(crate) use root_payload::write_accepted_trust;
+ #[cfg(target_os = "macos")]
+ pub(crate) use root_payload::{
+-    AdmittedCurrentTrust, LiveObservation, ObservationHook, Observed, RetainedTrustHandles,
+-    TrustInvocation, TrustRefusal, TrustRow, fenced_operation_read,
++    AdmittedCurrentTrust, BootstrapSource, LiveObservation, ObservationHook, Observed,
++    RetainedTrustHandles, TrustInvocation, TrustRefusal, TrustRow, fenced_operation_read,
+ };
+ pub(crate) use root_payload::{CURRENT_STATE_CAP, decode_current_store};
+ pub(crate) use root_payload::{
+diff --git a/crates/security/src/trust/current_trust_admission.rs b/crates/security/src/trust/current_trust_admission.rs
+index 589ad09..0ab18cd 100644
+--- a/crates/security/src/trust/current_trust_admission.rs
++++ b/crates/security/src/trust/current_trust_admission.rs
+@@ -75,6 +75,11 @@ pub(crate) enum TrustRow {
+     /// retained `state.v1` changed other than by a confirmed publication
+     /// (item 7, r8).
+     RequiredFilesChanged,
++    /// The existing host invariant row: operational-failed, exit 4,
++    /// `SYSTEM.OUTCOME.ILLEGAL_STATE`, `host-invariant`, detail
++    /// `HOST.INVARIANT_VIOLATED` (X4B r5 item 1 step 2.3: a second F absent
++    /// after a confirmed acceptance, as X3d item 9 uses the row).
++    Invariant,
+ }
+ impl TrustRow {
+     pub(crate) fn code(&self) -> &'static str {
+@@ -90,6 +95,7 @@ impl TrustRow {
+             Self::StateSchemaUnsupported => "STATE.SCHEMA_UNSUPPORTED",
+             Self::HostIo => "HOST.IO_FAILURE",
+             Self::Budget => "WORK.BUDGET_EXHAUSTED",
++            Self::Invariant => "HOST.INVARIANT_VIOLATED",
+         }
+     }
+     pub(crate) fn subject(&self) -> Option<String> {
+@@ -1131,11 +1137,15 @@ pub(crate) use live_observation::{
+     fenced_operation_read,
+ };
+ 
+-// Law X4B r5 items 2 to 6 (X4B-a): the first trust acceptance producer.
++// Law X4B r5 items 2 to 6 (X4B-a): the first trust acceptance producer;
++// item 1 (X4B-b): its F-absent branch inside the fenced first read, whose
++// only payload source is the write receipt's running core.
+ #[cfg(target_os = "macos")]
+ mod trust_bootstrap {
+     include!("trust_bootstrap.rs");
+ }
++#[cfg(target_os = "macos")]
++pub(crate) use trust_bootstrap::BootstrapSource;
+ 
+ #[cfg(test)]
+ mod tests {
+diff --git a/crates/security/src/trust/floor_publication.rs b/crates/security/src/trust/floor_publication.rs
+index b674e48..2ede3fd 100644
+--- a/crates/security/src/trust/floor_publication.rs
++++ b/crates/security/src/trust/floor_publication.rs
+@@ -9,7 +9,8 @@
+ // and confirm), then the confirming reread that advances the owner. Under the
+ // installation fence only, never under a lease; the caller holds no project
+ // lock. Nothing is retried or deleted. X4a's lease-free point runs it as
+-// the operation monitor's first read; X4B-b's bootstrap joins it later.
++// the operation monitor's first read; on F absent, X4B-b's bootstrap
++// (`trust_bootstrap::bootstrapping_first_read`) runs inside that same read.
+ use super::super::super::current_record_bindings;
+ use super::super::super::native_record_capture::{NativeStore, locator_components};
+ use super::super::super::proposed_time_input;
+@@ -130,7 +131,9 @@ pub(crate) struct RetainedCurrentTrust {
+     /// Check 3: the floors of each capsule this hold retained before the
+     /// current one, where its clock was evaluated or retained (r9).
+     prior: Vec<Floors>,
+-    confirmed: Option<ConfirmedCurrent>,
++    /// Every confirmed publication of this hold, in order (X4B-b: the
++    /// acceptance, then any floor write of the confirming admission).
++    confirmed: Vec<ConfirmedCurrent>,
+ }
+ impl std::fmt::Debug for RetainedCurrentTrust {
+     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+@@ -201,7 +204,7 @@ impl RetainedCurrentTrust {
+             capsule,
+             sample: sample.clone(),
+             prior: Vec::new(),
+-            confirmed: None,
++            confirmed: Vec::new(),
+         };
+         owner.recheck(uid, work)?;
+         Ok(owner)
+@@ -226,7 +229,13 @@ impl RetainedCurrentTrust {
+     }
+     /// The last confirmed publication of this hold, if any.
+     pub(crate) fn confirmed(&self) -> Option<&ConfirmedCurrent> {
+-        self.confirmed.as_ref()
++        self.confirmed.last()
++    }
++    /// Every confirmed publication of this hold, in the order the owner
++    /// advanced through them; the gate's own owner follows each in turn
++    /// (X4T-b judgment call 9).
++    pub(crate) fn confirmations(&self) -> &[ConfirmedCurrent] {
++        &self.confirmed
+     }
+     /// Check 3's floors: every capsule this hold retained before this one.
+     pub(crate) fn prior_floors(&self) -> &[Floors] {
+@@ -590,7 +599,7 @@ pub(crate) fn publish(
+     if previous != Floors::default() {
+         owner.prior.push(previous);
+     }
+-    owner.confirmed = Some(ConfirmedCurrent {
++    owner.confirmed.push(ConfirmedCurrent {
+         relative: owner.relative.clone(),
+         raw: reread.clone(),
+         metadata: metadata.clone(),
+diff --git a/crates/security/src/trust/live_observation.rs b/crates/security/src/trust/live_observation.rs
+index 68d275a..fa61fc3 100644
+--- a/crates/security/src/trust/live_observation.rs
++++ b/crates/security/src/trust/live_observation.rs
+@@ -3,7 +3,9 @@
+ // - `fenced_operation_read`: the fenced first read at the lease-free point,
+ //   X4T-b's `fenced_first_read` over the retained `state.v1` owner bound to
+ //   the write gate's one read, with the S4 observation the caller projects
+-//   from the monitor's own opening sample. It is the monitor's first `read`.
++//   from the monitor's own opening sample, and on F absent X4B-b's
++//   acceptance and one confirming admission (`bootstrapping_first_read`).
++//   It is the monitor's first `read`.
+ // - `RetainedTrustHandles`: `trust/stores/S`, its `events`, and `objects`,
+ //   `records` and `publications`, opened no-follow through the fence's I and
+ //   judged (identity, custody, filesystem) under the fence at the handoff.
+@@ -17,7 +19,8 @@
+ use super::super::super::directory_record_capture as files;
+ use super::super::super::native_record_capture::{locator_components, reference_parts};
+ use super::super::super::retained_metadata_index::{self as M, Budget, Collection};
+-use super::floor_publication::{RetainedCurrentTrust, fenced_first_read};
++use super::floor_publication::RetainedCurrentTrust;
++use super::trust_bootstrap::{BootstrapSource, bootstrapping_first_read};
+ use super::{
+     AdmittedCurrentTrust, ReadMode, TrustRefusal, TrustRow, ViewInputs, admit_current_trust,
+ };
+@@ -93,12 +96,15 @@ impl TrustInvocation {
+ 
+ // ------------------------------------------------------ the fenced read
+ 
+-/// Law X4T r9 items 7 to 9 at the lease-free point, as the operation
+-/// monitor's first `read` call runs it: the retained `state.v1` owner is
+-/// bound to the gate's one read (its bytes and sample, no new content
+-/// read), X4T-b's fenced first read runs with its write-ahead, and the view
+-/// is returned with the confirmed publication, if one advanced the owner,
+-/// for the gate's own owner to follow (`DurableInstallation::advance_current`).
++/// Law X4T r11 items 7 to 9 and X4B r5 item 1 at the lease-free point, as
++/// the operation monitor's first `read` call runs it: the retained
++/// `state.v1` owner is bound to the gate's one read (its bytes and sample,
++/// no new content read), X4T-b's fenced first read runs with its
++/// write-ahead, and on F absent only X4B-b's acceptance from `bootstrap` and
++/// the one confirming admission run, on the same observation. The view is
++/// returned with every confirmed publication that advanced the owner, in
++/// order, for the gate's own owner to follow, one by one
++/// (`DurableInstallation::advance_current`).
+ #[allow(clippy::too_many_arguments)]
+ pub(crate) fn fenced_operation_read(
+     work: &mut WorkScope<'_>,
+@@ -108,7 +114,8 @@ pub(crate) fn fenced_operation_read(
+     observation: &V,
+     core_closure: &str,
+     invocation: &TrustInvocation,
+-) -> Result<(AdmittedCurrentTrust, Option<super::ConfirmedCurrent>), TrustRefusal> {
++    bootstrap: &BootstrapSource<'_>,
++) -> Result<(AdmittedCurrentTrust, Vec<super::ConfirmedCurrent>), TrustRefusal> {
+     let uid = fence.supplied_actor().0;
+     let capsule = opensip_identity::parse_json(raw).map_err(|_| TrustRefusal {
+         row: TrustRow::Incomplete,
+@@ -122,8 +129,15 @@ pub(crate) fn fenced_operation_read(
+         project_policy: None,
+         core_closure,
+     };
+-    let view = fenced_first_read(work, fence, &mut owner, &inputs, &invocation.value())?;
+-    Ok((view, owner.confirmed().cloned()))
++    let view = bootstrapping_first_read(
++        work,
++        fence,
++        &mut owner,
++        &inputs,
++        &invocation.value(),
++        bootstrap,
++    )?;
++    Ok((view, owner.confirmations().to_vec()))
+ }
+ 
+ // ---------------------------------------------------- retained handles
+@@ -427,7 +441,8 @@ fn classify(refusal: TrustRefusal) -> Result<Observed, ObservationFailure> {
+         | TrustRow::NoAdmittedTimeContext
+         | TrustRow::StateSchemaUnsupported
+         | TrustRow::HostIo
+-        | TrustRow::RequiredFilesChanged => Err(ObservationFailure::Unreadable(cause)),
++        | TrustRow::RequiredFilesChanged
++        | TrustRow::Invariant => Err(ObservationFailure::Unreadable(cause)),
+     }
+ }
+ fn ledger_failure(budget: opensip_platform::WorkBudgetError) -> ObservationFailure {
+diff --git a/crates/security/src/trust/live_observation_tests.rs b/crates/security/src/trust/live_observation_tests.rs
+index d57a8d3..1be5c40 100644
+--- a/crates/security/src/trust/live_observation_tests.rs
++++ b/crates/security/src/trust/live_observation_tests.rs
+@@ -89,9 +89,10 @@ fn first_read(site: &Site) -> AdmittedCurrentTrust {
+                 &observation(),
+                 CORE,
+                 &invocation(),
++                &BootstrapSource::unreached(),
+             )
+             .map_err(WorkFailure::Operation)?;
+-            assert!(confirmed.is_some(), "the floor advance is written ahead");
++            assert_eq!(confirmed.len(), 1, "the floor advance is written ahead");
+             Ok(view)
+         })
+         .unwrap_or_else(|e: WorkFailure<TrustRefusal>| panic!("{e:?}"))
+diff --git a/crates/security/src/trust/ordinary_targets.rs b/crates/security/src/trust/ordinary_targets.rs
+index 961fa39..384b9b8 100644
+--- a/crates/security/src/trust/ordinary_targets.rs
++++ b/crates/security/src/trust/ordinary_targets.rs
+@@ -769,8 +769,8 @@ pub(crate) use current_trust_admission::{RetainedCurrentTrust, publish};
+ pub(crate) use current_trust_admission::ObservationPoint;
+ #[cfg(target_os = "macos")]
+ pub(crate) use current_trust_admission::{
+-    AdmittedCurrentTrust, LiveObservation, ObservationHook, Observed, RetainedTrustHandles,
+-    TrustInvocation, TrustRefusal, TrustRow, fenced_operation_read,
++    AdmittedCurrentTrust, BootstrapSource, LiveObservation, ObservationHook, Observed,
++    RetainedTrustHandles, TrustInvocation, TrustRefusal, TrustRow, fenced_operation_read,
+ };
+ 
+ #[cfg(test)]
+diff --git a/crates/security/src/trust/root_payload.rs b/crates/security/src/trust/root_payload.rs
+index 216226f..4182655 100644
+--- a/crates/security/src/trust/root_payload.rs
++++ b/crates/security/src/trust/root_payload.rs
+@@ -499,8 +499,8 @@ pub(crate) use ordinary_targets::{RetainedCurrentTrust, publish as publish_trust
+ pub(crate) use ordinary_targets::ObservationPoint;
+ #[cfg(target_os = "macos")]
+ pub(crate) use ordinary_targets::{
+-    AdmittedCurrentTrust, LiveObservation, ObservationHook, Observed, RetainedTrustHandles,
+-    TrustInvocation, TrustRefusal, TrustRow, fenced_operation_read,
++    AdmittedCurrentTrust, BootstrapSource, LiveObservation, ObservationHook, Observed,
++    RetainedTrustHandles, TrustInvocation, TrustRefusal, TrustRow, fenced_operation_read,
+ };
+ mod ordinary_targets {
+     use super::super::role_machine::State;
+diff --git a/crates/security/src/trust/trust_bootstrap.rs b/crates/security/src/trust/trust_bootstrap.rs
+index c3cc1bb..d58573e 100644
+--- a/crates/security/src/trust/trust_bootstrap.rs
++++ b/crates/security/src/trust/trust_bootstrap.rs
+@@ -6,8 +6,17 @@
+ // acceptance sequence through `role_machine::decide` (item 4), builds every
+ // record canonically and admits it by its closed shape (item 5), and
+ // publishes them through X4T item 7's shared protocol, `state.v1` last
+-// (items 5 and 6). It is not wired to the fenced first read (X4B-b) and
+-// grants nothing: the confirming admission is X4T's own.
++// (items 5 and 6). It grants nothing: the confirming admission is X4T's own.
++//
++// Law X4B r5 item 1 (unit X4B-b): `bootstrapping_first_read` is the body of
++// the operation monitor's single first `read` at the lease-free point. It
++// runs X4T's fenced admission on the retained owner; only on F absent
++// (`TRUST.NO_ADMITTED_TIME_CONTEXT`) does it accept the payload of the
++// write receipt's running core (`BootstrapSource`) on that read's own clock
++// sample, under the same fence hold; then it runs the one confirming
++// admission on the confirmed retained `state.v1` and returns its view. A
++// second F absent is the host invariant row. A report-only read never
++// bootstraps.
+ use super::super::super::admitted_revocations::verify_revocation;
+ use super::super::super::current_record_bindings;
+ use super::super::super::publication_events;
+@@ -20,8 +29,11 @@ use super::super::super::{
+     ValidatedRootPayload, WireRootLink, admit, chain_root_number, filter_envelope_revoked,
+     verify_envelope,
+ };
+-use super::floor_publication::{RetainedCurrentTrust, TrustWrite, publish};
+-use super::{TrustRefusal, TrustRow, chain_row, field, int, is_p0, refuse};
++use super::floor_publication::{RetainedCurrentTrust, TrustWrite, fenced_first_read, publish};
++use super::{
++    AdmittedCurrentTrust, ReadMode, TrustRefusal, TrustRow, ViewInputs, chain_row, field, int,
++    is_p0, refuse,
++};
+ use crate::custody::installation_fence::HeldFence;
+ use crate::trust::role_machine::{BootstrapEntry, BootstrapEvent, State, bootstrap_sequence};
+ use crate::trust::trust_outcomes::reference;
+@@ -1124,6 +1136,100 @@ pub(crate) fn accept_bootstrap(
+     Ok(acceptance.time)
+ }
+ 
++// ------------------------------------------------------------------ X4B-b
++
++/// Item 2: the F-absent branch's one payload source, the running core's
++/// `InitialCore` that X1's write receipt retains. Only the write receipt
++/// lends one (`WritePlatformReceipt::bootstrap_source`), so no read session
++/// can bootstrap. The payload is copied, and charged, only on F absent.
++pub(crate) struct BootstrapSource<'a> {
++    core: Option<&'a super::super::super::InitialCore>,
++}
++impl std::fmt::Debug for BootstrapSource<'_> {
++    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
++        f.debug_struct("BootstrapSource").finish_non_exhaustive()
++    }
++}
++impl<'a> BootstrapSource<'a> {
++    /// The running core's embedded bootstrap payload (item 2).
++    pub(crate) fn running_core(core: &'a super::super::super::InitialCore) -> Self {
++        Self { core: Some(core) }
++    }
++    /// A test of a store that is never F absent (X4T-0's accepted stores):
++    /// reaching the branch is the host invariant row.
++    #[cfg(test)]
++    pub(crate) fn unreached() -> Self {
++        Self { core: None }
++    }
++    fn payload(&self, work: &mut WorkScope<'_>) -> Result<BootstrapPayload, TrustRefusal> {
++        match self.core {
++            Some(core) => BootstrapPayload::from_initial_core(core, work),
++            None => refuse(TrustRow::Invariant, "bootstrap-source"),
++        }
++    }
++}
++
++/// Item 1 step 2's order, over any admission and acceptance: one
++/// admission; on F absent only, the acceptance and then the one confirming
++/// admission, whose F absent is the host invariant row. Any other first
++/// result, a view or another refusal, is returned as is and nothing else
++/// runs. No third admission runs.
++fn first_read_sequence<S, R>(
++    state: &mut S,
++    mut admit: impl FnMut(&mut S) -> Result<R, TrustRefusal>,
++    accept: impl FnOnce(&mut S) -> Result<(), TrustRefusal>,
++) -> Result<R, TrustRefusal> {
++    match admit(state) {
++        Err(refusal) if refusal.row == TrustRow::NoAdmittedTimeContext => {}
++        other => return other,
++    }
++    accept(state)?;
++    match admit(state) {
++        Err(refusal) if refusal.row == TrustRow::NoAdmittedTimeContext => {
++            refuse(TrustRow::Invariant, ("second-f-absent", refusal.cause))
++        }
++        other => other,
++    }
++}
++
++/// Item 1 step 2 (unit X4B-b): the body of the operation monitor's single
++/// first `read`, under the held fence with no project lock and before any
++/// lease, all on the caller's ledger (item 8):
++/// 1. X4T's fenced admission (with its write-ahead) on the retained owner;
++/// 2. on F absent only, and only for a fenced read that is not report-only,
++///    items 2 to 6 on `inputs.observation`, the read's own clock sample:
++///    the payload of `source`, then `accept_bootstrap`, whose confirmed
++///    `state.v1` replaces the retained owner;
++/// 3. the one confirming admission on that owner, same sample, returned.
++///
++/// Every confirmed publication stays on the owner, in order
++/// (`RetainedCurrentTrust::confirmations`), for the gate to follow.
++pub(crate) fn bootstrapping_first_read(
++    work: &mut WorkScope<'_>,
++    fence: &dyn HeldFence,
++    owner: &mut RetainedCurrentTrust,
++    inputs: &ViewInputs<'_>,
++    invocation: &V,
++    source: &BootstrapSource<'_>,
++) -> Result<AdmittedCurrentTrust, TrustRefusal> {
++    if !matches!(inputs.mode, ReadMode::Fenced { report: false }) {
++        // Report-only (458c's mode): F absent is reported, never accepted.
++        return fenced_first_read(work, fence, owner, inputs, invocation);
++    }
++    let mut state = (work, owner);
++    first_read_sequence(
++        &mut state,
++        |(work, owner)| fenced_first_read(work, fence, owner, inputs, invocation),
++        |(work, owner)| {
++            let observation = inputs
++                .observation
++                .map_or_else(|| refuse(TrustRow::HostIo, "observation"), Ok)?;
++            let payload = source.payload(work)?;
++            accept_bootstrap(work, fence, owner, &payload, observation, invocation).map(|_| ())
++        },
++    )
++}
++
+ #[cfg(test)]
+ mod tests {
+     include!("trust_bootstrap_tests.rs");
+diff --git a/crates/security/src/trust/trust_bootstrap_tests.rs b/crates/security/src/trust/trust_bootstrap_tests.rs
+index d8276b1..87b0941 100644
+--- a/crates/security/src/trust/trust_bootstrap_tests.rs
++++ b/crates/security/src/trust/trust_bootstrap_tests.rs
+@@ -960,3 +960,305 @@ fn a_multi_link_root_chain_is_authenticated_and_recorded_in_full() {
+         assert_eq!(view.floors().root_version, Some(2));
+     });
+ }
++
++// ------------------------------------------- X4B-b: item 1 step 2, the read
++
++/// A signed release produced into an `InitialCore`, kept whole: the write
++/// receipt's running core, the F-absent branch's only payload source.
++fn core_of(tag: &str, spec: &ReleaseSpec<'_>) -> (super::super::super::super::InitialCore, String) {
++    let tree = Tree::new(tag, spec, None);
++    let (core, mut attempt) = produce(&tree.release(STANDARD.0, STANDARD.1), &tree.exe(), 1);
++    let core = core.unwrap();
++    core.recheck(&mut attempt).unwrap();
++    let closure = core.closure().to_owned();
++    (core, closure)
++}
++/// The operation monitor's first read body, on this site's fence.
++fn first_read(
++    site: &Site,
++    owner: &mut RetainedCurrentTrust,
++    obs: &V,
++    closure: &str,
++    mode: ReadMode,
++    source: &BootstrapSource<'_>,
++) -> Result<AdmittedCurrentTrust, TrustRefusal> {
++    let inputs = ViewInputs {
++        mode,
++        observation: Some(obs),
++        project_policy: None,
++        core_closure: closure,
++    };
++    run(None, |work| {
++        bootstrapping_first_read(work, &site.fence, owner, &inputs, &invocation(), source)
++    })
++}
++const LIVE: ReadMode = ReadMode::Fenced { report: false };
++fn f_absent(cause: &str) -> TrustRefusal {
++    TrustRefusal {
++        row: TrustRow::NoAdmittedTimeContext,
++        cause: cause.into(),
++    }
++}
++
++#[test]
++fn f_absent_is_accepted_inside_the_first_read_and_the_confirming_view_is_returned() {
++    crate::test_scratch::settled(|| {
++        // The default release rotates root 1 to root 2 (X4T r11 item 3).
++        let (core, closure) = core_of("x4bb-accept", &release());
++        let site = p0_site(&closure);
++        let p0 = fs::read(current_path(&site)).unwrap();
++        let mut owner = bound(&site);
++        let p0_sample = owner.sample().clone();
++        let obs = observation("2026-10-02T00:00:00Z");
++        let source = BootstrapSource::running_core(&core);
++        let view = first_read(&site, &mut owner, &obs, &closure, LIVE, &source).unwrap();
++        // The returned view is the confirming admission's, over the
++        // confirmed retained state.v1: the accepted roles, root 2's epoch.
++        assert_eq!(
++            view.standing(),
++            TrustStanding::InstallGateRequiredForNewProcess
++        );
++        assert_eq!(view.epoch().root_version, 2);
++        assert_eq!(
++            view.role_states(),
++            [
++                ("TR-BUNDLE", "trusted"),
++                ("TR-COMPONENT", "trusted"),
++                ("TR-CORE", "trusted"),
++                ("TR-INDEX", "trusted"),
++                ("TR-PROFILE", "unbootstrapped"),
++                ("TR-REPAIR", "unbootstrapped"),
++            ]
++        );
++        // Exactly one confirmed publication, the acceptance, on P0: the
++        // confirming admission (tEval = max(F, W, A) = F) wrote nothing.
++        let now = fs::read(current_path(&site)).unwrap();
++        assert_ne!(now, p0);
++        assert_eq!(owner.confirmations().len(), 1);
++        let accepted = &owner.confirmations()[0];
++        assert_eq!(accepted.predecessor(), &p0_sample);
++        assert_eq!(accepted.raw(), now.as_slice());
++        assert_eq!(owner.raw(), now.as_slice());
++        // Item 3: tEval, F, L and the anchor come from this read's sample.
++        let record = map(&map(&map(owner.capsule()).unwrap()["clock"]).unwrap()["record"]).unwrap();
++        assert_eq!(record["evalHighWater"], s("2026-10-02T00:00:00Z"));
++        assert_eq!(record["lastAccepted"], s("2026-10-01T00:00:00Z"));
++        assert_eq!(record["anchor"], obs);
++        assert_eq!(
++            view.time().unwrap().evaluation,
++            Some(timestamp_seconds("2026-10-02T00:00:00Z").unwrap())
++        );
++        // A later first read finds F present: the branch is never entered
++        // (an unreached source would refuse), and nothing is written.
++        let again = first_read(
++            &site,
++            &mut owner,
++            &obs,
++            &closure,
++            LIVE,
++            &BootstrapSource::unreached(),
++        )
++        .unwrap();
++        assert_eq!(again.epoch(), view.epoch());
++        assert_eq!(owner.confirmations().len(), 1);
++        assert_eq!(fs::read(current_path(&site)).unwrap(), now);
++    });
++}
++
++#[test]
++fn a_report_only_or_unfenced_read_never_bootstraps() {
++    crate::test_scratch::settled(|| {
++        let (core, closure) = core_of("x4bb-report", &release());
++        let source = BootstrapSource::running_core(&core);
++        let obs = observation("2026-10-02T00:00:00Z");
++        let site = p0_site(&closure);
++        let before = tree_files(&site);
++        let p0 = fs::read(current_path(&site)).unwrap();
++        let mut owner = bound(&site);
++        // Report-only (458c's mode): F absent is reported as is.
++        let err = first_read(
++            &site,
++            &mut owner,
++            &obs,
++            &closure,
++            ReadMode::Fenced { report: true },
++            &source,
++        )
++        .unwrap_err();
++        assert_eq!(err.row, TrustRow::NoAdmittedTimeContext);
++        // An unfenced reread is not a first read at all.
++        let err =
++            first_read(&site, &mut owner, &obs, &closure, ReadMode::Reread, &source).unwrap_err();
++        assert_eq!(err.row, TrustRow::HostIo);
++        assert_eq!(err.cause, "\"fenced-read-mode\"");
++        assert_eq!(tree_files(&site), before);
++        assert_eq!(fs::read(current_path(&site)).unwrap(), p0);
++        assert!(owner.confirmations().is_empty());
++    });
++}
++
++#[test]
++fn an_acceptance_refusal_ends_the_read_with_no_confirming_admission() {
++    crate::test_scratch::settled(|| {
++        // No catalog: item 2's refusal, before any write.
++        const NONE: &[Signer<'static>] = &[];
++        let (core, closure) = core_of(
++            "x4bb-no-catalog",
++            &ReleaseSpec {
++                link: false,
++                catalog_signers: NONE,
++                ..release()
++            },
++        );
++        let source = BootstrapSource::running_core(&core);
++        let site = p0_site(&closure);
++        let before = tree_files(&site);
++        let p0 = fs::read(current_path(&site)).unwrap();
++        let mut owner = bound(&site);
++        let obs = observation("2026-10-02T00:00:00Z");
++        let err = first_read(&site, &mut owner, &obs, &closure, LIVE, &source).unwrap_err();
++        assert_eq!(err.row, TrustRow::PayloadNotAdmissible("catalog"));
++        assert_eq!(tree_files(&site), before);
++        assert_eq!(fs::read(current_path(&site)).unwrap(), p0);
++        assert!(owner.confirmations().is_empty());
++        // Item 3 on the read's own sample: W beyond A + 90 d.
++        let (core, closure) = core_of("x4bb-horizon", &release());
++        let source = BootstrapSource::running_core(&core);
++        let site = p0_site(&closure);
++        let before = tree_files(&site);
++        let mut owner = bound(&site);
++        let far = observation("2027-01-01T00:00:00Z");
++        let err = first_read(&site, &mut owner, &far, &closure, LIVE, &source).unwrap_err();
++        assert_eq!(err.row, TrustRow::ClockExcursion("beyond-horizon"));
++        assert_eq!(tree_files(&site), before);
++        assert!(owner.confirmations().is_empty());
++        // No component manifest: the acceptance is recorded, and the one
++        // confirming admission refuses on its continuation row.
++        let (core, closure) = core_of(
++            "x4bb-no-component",
++            &ReleaseSpec {
++                link: false,
++                component_signers: &[],
++                ..release()
++            },
++        );
++        let source = BootstrapSource::running_core(&core);
++        let site = p0_site(&closure);
++        let mut owner = bound(&site);
++        let err = first_read(&site, &mut owner, &obs, &closure, LIVE, &source).unwrap_err();
++        assert_eq!(
++            err.row,
++            TrustRow::Continuation("component:unbootstrapped".into())
++        );
++        assert_eq!(owner.confirmations().len(), 1);
++    });
++}
++
++#[test]
++fn a_first_refusal_other_than_f_absent_runs_no_acceptance() {
++    crate::test_scratch::settled(|| {
++        let (core, closure) = core_of("x4bb-changed", &release());
++        let source = BootstrapSource::running_core(&core);
++        let site = p0_site(&closure);
++        let mut owner = bound(&site);
++        let before = tree_files(&site);
++        // Rewrite state.v1 with its own bytes: a new file, a new sample.
++        let path = current_path(&site);
++        let raw = fs::read(&path).unwrap();
++        fs::remove_file(&path).unwrap();
++        fs::write(&path, &raw).unwrap();
++        fs::set_permissions(&path, Permissions::from_mode(0o600)).unwrap();
++        let obs = observation("2026-10-02T00:00:00Z");
++        let err = first_read(&site, &mut owner, &obs, &closure, LIVE, &source).unwrap_err();
++        assert_eq!(err.row, TrustRow::RequiredFilesChanged);
++        assert_eq!(tree_files(&site), before);
++        assert!(owner.confirmations().is_empty());
++    });
++}
++
++#[test]
++fn the_sequence_accepts_once_and_confirms_once_and_a_second_f_absent_is_the_invariant() {
++    // (admissions run, acceptances run) for each scripted outcome.
++    type Script = (Vec<Result<u8, TrustRefusal>>, Result<(), TrustRefusal>);
++    let play = |(mut admissions, accepted): Script| {
++        admissions.reverse();
++        let mut counts = (0, 0);
++        let mut accepted = Some(accepted);
++        let result = first_read_sequence(
++            &mut counts,
++            |counts| {
++                counts.0 += 1;
++                admissions.pop().expect("no third admission")
++            },
++            |counts| {
++                counts.1 += 1;
++                accepted.take().unwrap()
++            },
++        );
++        (result, counts)
++    };
++    let incomplete = || TrustRefusal {
++        row: TrustRow::Incomplete,
++        cause: "x".into(),
++    };
++    // A view: nothing else runs.
++    assert_eq!(play((vec![Ok(1)], Ok(()))), (Ok(1), (1, 0)));
++    // Any refusal but F absent: returned as is, nothing else runs.
++    assert_eq!(
++        play((vec![Err(incomplete())], Ok(()))),
++        (Err(incomplete()), (1, 0))
++    );
++    // F absent, then an acceptance refusal: no confirming admission.
++    assert_eq!(
++        play((vec![Err(f_absent("p0"))], Err(incomplete()))),
++        (Err(incomplete()), (1, 1))
++    );
++    // F absent, accepted, then the one confirming admission's result.
++    assert_eq!(
++        play((vec![Err(f_absent("p0")), Ok(2)], Ok(()))),
++        (Ok(2), (2, 1))
++    );
++    assert_eq!(
++        play((vec![Err(f_absent("p0")), Err(incomplete())], Ok(()))),
++        (Err(incomplete()), (2, 1))
++    );
++    // A second F absent is the host invariant row; no third admission.
++    let (result, counts) = play((vec![Err(f_absent("p0")), Err(f_absent("again"))], Ok(())));
++    assert_eq!(counts, (2, 1));
++    let refusal = result.unwrap_err();
++    assert_eq!(refusal.row, TrustRow::Invariant);
++    assert!(
++        refusal.cause.contains("second-f-absent"),
++        "{}",
++        refusal.cause
++    );
++    assert_eq!(TrustRow::Invariant.code(), "HOST.INVARIANT_VIOLATED");
++    assert_eq!(TrustRow::Invariant.subject(), None);
++}
++
++#[test]
++fn only_the_write_receipt_lends_a_source_and_only_the_lease_free_read_uses_it() {
++    // Source pins: the read side has no bootstrap lending, and the branch is
++    // reached only through the lease-free point's first read.
++    let premise = include_str!("../custody/read_premise.rs");
++    let write = premise.find("impl PlatformReceipt<Write>").unwrap();
++    let lend = premise.find("pub(crate) fn bootstrap_source").unwrap();
++    assert_eq!(premise.matches("fn bootstrap_source").count(), 1);
++    assert!(lend > write);
++    assert!(premise[write..lend].find("\nimpl ").is_none());
++    let live = include_str!("live_observation.rs");
++    assert_eq!(live.matches("bootstrapping_first_read(").count(), 1);
++    let handoff = include_str!("../custody/operation_handoff.rs");
++    assert_eq!(handoff.matches("fenced_operation_read(").count(), 1);
++    let this = include_str!("trust_bootstrap.rs");
++    assert_eq!(this.matches("accept_bootstrap(work").count(), 1);
++    // The test-only source exists in no non-test build.
++    assert!(this.contains("#[cfg(test)]\n    pub(crate) fn unreached()"));
++    for reader in [
++        include_str!("../custody/installation_session.rs"),
++        include_str!("../custody/read_premise.rs"),
++    ] {
++        assert!(!reader.contains("fenced_operation_read"));
++        assert!(!reader.contains("bootstrapping_first_read"));
++    }
++}
