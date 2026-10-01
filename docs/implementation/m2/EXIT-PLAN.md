@@ -122,3 +122,16 @@ The gate routing table is in `implementation-boundaries-and-build-plan.md` lines
 | DR-G27 PREVIEW-ANALYZE-NOT-SEALED-RUN | M2 | No silent promotion to a sealed Run | X7 |
 
 The other 26 gates are routed to M1 (G03, G15, G16, G31), M3 (G10, G13, G14, G21, G23, G25, G29), M4 (G17, G26), M5 (G08, G12, G18, G20, G28, G32) and M6 (G01, G02, G04, G05, G06, G22, G30). This plan does not touch them.
+
+## Deferred tooling follow-up (lead decision, 2026-09-30)
+
+**VD1: superseding override of an inherited description.** `verify_design` refuses every form of replacing a description whose meaning is already inherited by projection:
+- a direct override on the final inventory;
+- an override on the parent;
+- an inventory successor that rewrites the row.
+
+X1b, which refreshes `read_premise.rs` to mention the Write receipt, is therefore deferred. The proposed text and the probe are in `stale-descriptions-x1b/`.
+
+VD1 is a reviewed change to `tools/verify_design.py`. It would accept a direct override on the final inventory whose `before` equals the inherited projection's `after`, recorded as superseding that projected row. It is batched with any other stale inherited rows, and lands before the X9 exit.
+
+Rejected: changing the trust-anchor tool now for one sentence.

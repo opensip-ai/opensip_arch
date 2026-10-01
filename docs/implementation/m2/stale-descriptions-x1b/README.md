@@ -1,0 +1,7 @@
+# X1b: deferred
+
+This would refresh `crates/security/src/custody/read_premise.rs`'s inventory description, which still says the receipt lends only the read premise. It also lends the Write purpose (law X1 r1). It is deferred to tooling follow-up VD1 in EXIT-PLAN.md, because `verify_design` refuses every form of overriding a description that is already inherited by projection (see probe.py).
+
+Proposed description, checked against product f7acb6d:
+
+"Produce the platform receipt, typed by purpose (law 458c r5 items 1 to 4; law X1 r1 items 1 and 2): the process's one attempt, the actor, InitialCore and InitialPlatform, exactly the creator's producers, with no intent, storage choice, disclosure, effect or fence. One composition makes PlatformReceipt<Read> (ReadPremiseReceipt), whose only lending is the sealed ReadPremiseQualification that InitialPlatform alone implements (the check that a filesystem is H's and the omission premise with 465 item 4's scope, no barrier policy), or PlatformReceipt<Write> (WritePlatformReceipt), whose only lending is the durable write gate's sealed DurableBarrierQualification. Read and Write are sealed purposes; neither receipt converts into the other, both are private and not Clone and hold their own attempt, and only the recheck is common to both. The read session, doctor's installation check and the ordinary writer's admission consume them. Every refusal ends in its law 468 item 6 row through 468c's maps. Library only: no CLI command is wired."
