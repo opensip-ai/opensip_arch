@@ -1,0 +1,1725 @@
+diff --git a/crates/security/src/journal_store/carrier_append.rs b/crates/security/src/journal_store/carrier_append.rs
+new file mode 100644
+index 0000000..7f29cba
+--- /dev/null
++++ b/crates/security/src/journal_store/carrier_append.rs
+@@ -0,0 +1,907 @@
++//! The append protocol of law X3b r6 items 5 and 6 (unit X3b-2): the level-3
++//! journal transaction, `JournalAppendLock` (level 4), record building for
++//! `SEAL`, `REV`, `CLN`, `RA` and `TERMINAL`, the witness file protocol around
++//! the commit, and the uncertain-outcome classification and reconciliation.
++//! Everything runs under the operation lease the caller holds; nothing here
++//! takes the fence or a lease, and nothing writes trust state. Composition
++//! (X3d-1's `JournalWriteTxn`, `JournalSealBinding` and SEAL path, X4's
++//! checkpoint) and grant-generation rollover (X3b r7) are not here.
++use super::start::{CarrierStart, UncertainReconciliation, reconcile_after_uncertain};
++use super::{
++    CARRIER_NAME, CarrierLocation, CarrierRefusal, CarrierRow, CommittedTail, CreationStep,
++    Quarantine, Refused, WITNESS_NAME, canonical_namespace_id, carrier_creation_cost,
++    classify_read_error, committed_tail, configure_writer, observe_witness, publish_private_file,
++    quarantine_kind, reconcile_witness, refuse, same_file, witness_bytes,
++};
++use crate::journal_store::{
++    CARRIER_CAP, CurrentCarrierSnapshot, JournalError, JournalRecord, WitnessProposal,
++    carrier_dispatch, following_previous, genesis_previous, physical_operation, terminal_body,
++};
++use opensip_identity::{JsonInteger, JsonValue};
++use opensip_platform::{WorkCost, WorkFailure, WorkScope};
++use std::collections::BTreeMap;
++use std::io;
++use std::sync::{Mutex, MutexGuard, TryLockError};
++
++/// The highest sequence an ordinary record may take: the slot after it is
++/// reserved for `TERMINAL` (carrier-format.v3 §5).
++const LAST_ORDINARY_SEQ: i64 = CARRIER_CAP - 1;
++
++/// An append-protocol refusal (items 5, 6 and 8). The invariant rows are a
++/// broken composition, never a retry.
++#[derive(Debug)]
++pub(crate) enum AppendRefusal {
++    /// The lock belongs to another carrier.
++    WrongCarrier,
++    /// Level 3 was requested while level 4 is held, level 4 was found held,
++    /// or a second record was offered under one level-4 hold.
++    LockOrder,
++    /// An earlier append on this carrier ended durability-undetermined, or
++    /// panicked under level 4: every further effect is refused (§5.6).
++    Undetermined,
++    /// Reconciliation was asked for with no undetermined outcome.
++    NoUncertainOutcome,
++    /// A `SEAL` or `RA` after a `REV` under this lock (S6).
++    AfterRevocation,
++    /// An ordinary record at the reserved terminal slot, or any record after
++    /// it (F32; X3d checks capacity before any write).
++    Capacity,
++    /// `TERMINAL` anywhere but the reserved slot.
++    TerminalSlot,
++    /// The record could not be built as a closed body.
++    Record(RecordRefusal),
++    /// The writer open, its pragmas or `BEGIN IMMEDIATE` failed.
++    Open(CreationStep),
++    /// The `INSERT` failed inside the open transaction (nothing visible).
++    Insert(rusqlite::Error),
++    /// The `COMMIT` failed or its outcome was lost.
++    Commit(Option<rusqlite::Error>),
++    /// A test-only crash point stopped the append (never in production).
++    #[cfg(test)]
++    Crashed(AppendStep),
++}
++impl AppendRefusal {
++    pub(crate) fn row(&self) -> CarrierRow {
++        match self {
++            Self::WrongCarrier
++            | Self::LockOrder
++            | Self::NoUncertainOutcome
++            | Self::AfterRevocation
++            | Self::Capacity
++            | Self::TerminalSlot
++            | Self::Record(_) => CarrierRow::Invariant,
++            Self::Undetermined | Self::Open(_) | Self::Insert(_) | Self::Commit(_) => {
++                CarrierRow::HostIo
++            }
++            #[cfg(test)]
++            Self::Crashed(_) => CarrierRow::HostIo,
++        }
++    }
++}
++
++/// Why a record could not be built (item 5 step 3).
++#[derive(Debug, Clone, Copy, PartialEq, Eq)]
++pub(crate) enum RecordRefusal {
++    /// `operationRef` is not `op-` plus 32 lowercase hex (the physical grammar).
++    OperationRef,
++    /// The closed schema-3 parser refused the body.
++    Schema(JournalError),
++    /// The frozen recordSchema-1 `TERMINAL` body was refused.
++    Terminal,
++    /// The value could not be canonically encoded.
++    Encode,
++    /// The previous tail named no body hash.
++    Chain,
++}
++
++/// The records X3b-2 builds besides `SEAL`, which only `append_seal` takes.
++#[derive(Debug, Clone, PartialEq, Eq)]
++pub(crate) enum RecordDraft {
++    /// Request accepted (schema 3).
++    Ra { request_ref: String },
++    /// Revocation (schema 3). `trust_epoch_observed` must be an object.
++    Rev {
++        reason: String,
++        trust_epoch_observed: Option<JsonValue>,
++    },
++    /// Cleanup residue (schema 3).
++    Cln { residuals: Vec<String> },
++    /// The frozen recordSchema-1 `TERMINAL`, cause `grantGenerationClosure`,
++    /// only at the reserved slot. `wall_clock_data` is the frozen lexical
++    /// data field, never a trusted time input.
++    Terminal { wall_clock_data: String },
++}
++enum Body<'r> {
++    Seal(&'r str),
++    Draft(&'r RecordDraft),
++}
++impl Body<'_> {
++    fn kind(&self) -> &'static str {
++        match self {
++            Self::Seal(_) => "SEAL",
++            Self::Draft(RecordDraft::Ra { .. }) => "RA",
++            Self::Draft(RecordDraft::Rev { .. }) => "REV",
++            Self::Draft(RecordDraft::Cln { .. }) => "CLN",
++            Self::Draft(RecordDraft::Terminal { .. }) => "TERMINAL",
++        }
++    }
++    /// S6: after a `REV` no `RA`, intent, commit or `SEAL` is appended.
++    fn blocked_after_revocation(&self) -> bool {
++        matches!(self, Self::Seal(_) | Self::Draft(RecordDraft::Ra { .. }))
++    }
++}
++
++/// One built row: the canonical body, its domain-framed hash and the chain.
++#[derive(Debug, PartialEq, Eq)]
++pub(super) struct BuiltRecord {
++    pub(super) schema: i64,
++    pub(super) kind: &'static str,
++    pub(super) seq: i64,
++    pub(super) operation_ref: String,
++    pub(super) request_ref: Option<String>,
++    pub(super) run_id: Option<String>,
++    pub(super) body: String,
++    pub(super) body_sha256: String,
++    pub(super) prev_sha256: String,
++}
++
++fn integer(n: i64) -> Result<JsonValue, RecordRefusal> {
++    JsonInteger::new(i128::from(n))
++        .map(JsonValue::Integer)
++        .map_err(|_| RecordRefusal::Encode)
++}
++fn digest32(hex: &str) -> Option<[u8; 32]> {
++    if hex.len() != 64 {
++        return None;
++    }
++    let mut out = [0u8; 32];
++    for (i, byte) in out.iter_mut().enumerate() {
++        *byte = u8::from_str_radix(hex.get(2 * i..2 * i + 2)?, 16).ok()?;
++    }
++    Some(out)
++}
++
++/// Item 5 step 3: the record at `tail + 1`, its closed body validated by the
++/// existing parser (schema 3) or the frozen `TERMINAL` admission (schema 1),
++/// `body_sha256` domain-framed and `prev_sha256` by `chain_law` 1.
++fn build_record(
++    namespace_id: &str,
++    tail: &CommittedTail,
++    operation_ref: &str,
++    body: &Body<'_>,
++) -> Result<BuiltRecord, RecordRefusal> {
++    if !physical_operation(operation_ref) {
++        return Err(RecordRefusal::OperationRef);
++    }
++    let seq = tail.seq + 1;
++    let mut q = BTreeMap::new();
++    q.insert(
++        "recordType".to_string(),
++        JsonValue::String(body.kind().into()),
++    );
++    q.insert("grantGeneration".to_string(), integer(tail.generation)?);
++    q.insert("seq".to_string(), integer(seq)?);
++    q.insert(
++        "operationRef".to_string(),
++        JsonValue::String(operation_ref.into()),
++    );
++    let (mut request_ref, mut run_id) = (None, None);
++    let schema = match body {
++        Body::Draft(RecordDraft::Terminal { wall_clock_data }) => {
++            q.insert(
++                "wallClockData".to_string(),
++                JsonValue::String(wall_clock_data.clone()),
++            );
++            q.insert(
++                "cause".to_string(),
++                JsonValue::String("grantGenerationClosure".into()),
++            );
++            1
++        }
++        Body::Seal(run) => {
++            run_id = Some(run.to_string());
++            q.insert("runId".to_string(), JsonValue::String(run.to_string()));
++            3
++        }
++        Body::Draft(RecordDraft::Ra { request_ref: r }) => {
++            request_ref = Some(r.clone());
++            q.insert("requestRef".to_string(), JsonValue::String(r.clone()));
++            3
++        }
++        Body::Draft(RecordDraft::Rev {
++            reason,
++            trust_epoch_observed,
++        }) => {
++            q.insert("reason".to_string(), JsonValue::String(reason.clone()));
++            if let Some(epoch) = trust_epoch_observed {
++                q.insert("trustEpochObserved".to_string(), epoch.clone());
++            }
++            3
++        }
++        Body::Draft(RecordDraft::Cln { residuals }) => {
++            q.insert(
++                "residuals".to_string(),
++                JsonValue::Array(residuals.iter().cloned().map(JsonValue::String).collect()),
++            );
++            3
++        }
++    };
++    q.insert("recordSchema".to_string(), integer(schema)?);
++    let raw =
++        crate::trust::metadata::encode(&JsonValue::Object(q)).map_err(|_| RecordRefusal::Encode)?;
++    let digest = if schema == 1 {
++        let (_, canonical, digest) = terminal_body(&raw).map_err(|_| RecordRefusal::Terminal)?;
++        if canonical != raw {
++            return Err(RecordRefusal::Terminal);
++        }
++        digest
++    } else {
++        let record = JournalRecord::parse(&raw).map_err(RecordRefusal::Schema)?;
++        if record.canonical() != raw.as_slice() {
++            return Err(RecordRefusal::Encode);
++        }
++        if let Body::Seal(run) = body
++            && record.seal_run_id().map_err(RecordRefusal::Schema)? != *run
++        {
++            return Err(RecordRefusal::Schema(JournalError::RunMismatch));
++        }
++        record.body_sha256()
++    };
++    let previous = if seq == 1 {
++        genesis_previous(namespace_id, tail.generation)
++    } else {
++        let body = tail
++            .body
++            .as_deref()
++            .and_then(digest32)
++            .ok_or(RecordRefusal::Chain)?;
++        following_previous(&body, tail.seq)
++    };
++    Ok(BuiltRecord {
++        schema,
++        kind: body.kind(),
++        seq,
++        operation_ref: operation_ref.to_string(),
++        request_ref,
++        run_id,
++        body: String::from_utf8(raw).map_err(|_| RecordRefusal::Encode)?,
++        body_sha256: opensip_identity::digest_hex(&digest),
++        prev_sha256: opensip_identity::digest_hex(&previous),
++    })
++}
++
++/// Test seam: the protocol's step points (item 11), as 458c-b1's recorder.
++#[cfg(test)]
++#[derive(Debug, Clone, Copy, PartialEq, Eq)]
++pub(crate) enum AppendStep {
++    /// The record is built and validated; nothing is written yet.
++    Built,
++    /// Step 4's `PENDING` witness is published.
++    PendingPublished,
++    /// Before step 5's `INSERT`.
++    BeforeInsert,
++    /// After the `INSERT`, before the `COMMIT`.
++    Inserted,
++    /// After the `COMMIT` returned success.
++    Committed,
++    /// Step 6's `COMMITTED` witness is published.
++    CommittedPublished,
++    /// Level 4 was released.
++    ReleasedLevelFour,
++    /// The level-3 transaction was released (rolled back if still open).
++    ReleasedLevelThree,
++}
++/// What a test hook does at a step. `Fail` at each step is the failure that
++/// step can suffer: before `Built`'s witness, a write before visibility;
++/// after `PendingPublished` or `CommittedPublished`, a failed barrier after
++/// the rename; at `BeforeInsert`, a refused `INSERT`; at `Inserted`, a
++/// `COMMIT` that fails without landing; at `Committed`, a `COMMIT` that
++/// landed but reported failure.
++#[cfg(test)]
++#[derive(Debug, Clone, Copy, PartialEq, Eq)]
++pub(crate) enum Fault {
++    Crash,
++    Fail,
++}
++#[cfg(test)]
++type Hook = Box<dyn Fn(AppendStep) -> Option<Fault> + Send + Sync>;
++
++/// Level 4's guarded state: the committed tail this lock's appends follow,
++/// and the S6 and §5.6 latches. Never reset.
++struct AppendState {
++    tail: CommittedTail,
++    revoked: bool,
++    undetermined: bool,
++}
++
++/// Item 6: one per carrier per process, owned by the operation's
++/// `ProjectOperation` beside `OperationGuard` (X3b-3, X4). It is made only
++/// from a `CarrierStart`, which only the start under the lease returns, so
++/// one start makes one lock. Level 4 is an in-process mutex, acquired only
++/// from an open level-3 journal transaction and never waited on; holding it
++/// (`JournalAppendHeld`) is the borrow X4's checkpoint receives. Observers
++/// never take it.
++pub(crate) struct JournalAppendLock {
++    namespace_id: String,
++    level_four: Mutex<AppendState>,
++    #[cfg(test)]
++    hook: Option<Hook>,
++}
++impl JournalAppendLock {
++    /// The lock for the carrier the start just confirmed, at its start tail.
++    pub(crate) fn after_start(
++        location: &CarrierLocation<'_>,
++        start: CarrierStart,
++    ) -> Refused<Self> {
++        if !canonical_namespace_id(location.namespace_id) {
++            return refuse(CarrierRefusal::NamespaceId);
++        }
++        let (generation, seq, body) = start.tail();
++        Ok(Self {
++            namespace_id: location.namespace_id.to_string(),
++            level_four: Mutex::new(AppendState {
++                tail: CommittedTail {
++                    generation,
++                    seq,
++                    body: body.map(str::to_string),
++                },
++                revoked: false,
++                undetermined: false,
++            }),
++            #[cfg(test)]
++            hook: None,
++        })
++    }
++    #[cfg(test)]
++    pub(crate) fn with_hook(
++        mut self,
++        hook: impl Fn(AppendStep) -> Option<Fault> + Send + Sync + 'static,
++    ) -> Self {
++        self.hook = Some(Box::new(hook));
++        self
++    }
++    #[cfg(test)]
++    fn at(&self, step: AppendStep) -> Option<Fault> {
++        self.hook.as_ref().and_then(|hook| hook(step))
++    }
++    fn bound(&self, location: &CarrierLocation<'_>) -> Refused<()> {
++        if location.namespace_id != self.namespace_id {
++            return refuse(CarrierRefusal::Append(AppendRefusal::WrongCarrier));
++        }
++        Ok(())
++    }
++
++    /// Item 5 step 1, level 3: open the carrier read-write through the
++    /// retained namespace, `BEGIN IMMEDIATE` with `busy_timeout` 0 (busy is
++    /// refused at once and holds nothing, F06), re-admit the exact definitions,
++    /// the format row and the `SHA-256(N)` binding in that transaction, and
++    /// confirm the committed tail is this lock's and the witness names it
++    /// (`COMMITTED` at the tail, or a `PENDING` beyond it that a certain
++    /// failure left). Refused while level 4 is held, and after any
++    /// undetermined outcome.
++    pub(crate) fn begin<'l, 'a>(
++        &'l self,
++        location: &'l CarrierLocation<'a>,
++        work: &mut WorkScope<'_>,
++    ) -> Refused<JournalTransaction<'l, 'a>> {
++        self.bound(location)?;
++        let expected = match self.level_four.try_lock() {
++            Ok(state) if state.undetermined => {
++                return refuse(CarrierRefusal::Append(AppendRefusal::Undetermined));
++            }
++            Ok(state) => state.tail.clone(),
++            Err(TryLockError::WouldBlock) => {
++                return refuse(CarrierRefusal::Append(AppendRefusal::LockOrder));
++            }
++            Err(TryLockError::Poisoned(_)) => {
++                return refuse(CarrierRefusal::Append(AppendRefusal::Undetermined));
++            }
++        };
++        let (snapshot, tail) = open_writer(location, work)?;
++        if tail != expected {
++            return refuse(CarrierRefusal::TailChanged);
++        }
++        let witness = observe_witness(location, work)?;
++        match reconcile_witness(location.namespace_id, &tail, &witness) {
++            WitnessProposal::Consistent | WitnessProposal::Revert => {}
++            WitnessProposal::Quarantine => {
++                return refuse(CarrierRefusal::Quarantine(quarantine_kind(&witness)));
++            }
++            WitnessProposal::Initialize | WitnessProposal::Advance => {
++                return refuse(CarrierRefusal::Quarantine(Quarantine::ProtocolViolation));
++            }
++            WitnessProposal::Unavailable => return refuse(CarrierRefusal::Unreadable),
++        }
++        Ok(JournalTransaction {
++            lock: self,
++            location,
++            snapshot,
++            tail,
++        })
++    }
++
++    /// After an undetermined append (§5.6, item 5), still under the lease and
++    /// with neither level 3 nor level 4 held: X3b-1b's reconciliation, which
++    /// reopens the carrier and writes only the witness on REVERT, ADVANCE or
++    /// INIT. The lock stays latched: no further effect follows on this
++    /// carrier in this operation (X3d r3 item 7).
++    pub(crate) fn reconcile_undetermined(
++        &self,
++        location: &CarrierLocation<'_>,
++        work: &mut WorkScope<'_>,
++    ) -> Refused<UncertainReconciliation> {
++        self.bound(location)?;
++        let latched = match self.level_four.try_lock() {
++            Ok(state) => state.undetermined,
++            Err(TryLockError::Poisoned(_)) => true,
++            Err(TryLockError::WouldBlock) => {
++                return refuse(CarrierRefusal::Append(AppendRefusal::LockOrder));
++            }
++        };
++        if !latched {
++            return refuse(CarrierRefusal::Append(AppendRefusal::NoUncertainOutcome));
++        }
++        reconcile_after_uncertain(location, work)
++    }
++}
++
++/// The writer's open: the retained file and the path SQLite opens name the
++/// same file before and after, `BEGIN IMMEDIATE`, then definitions and format
++/// row admission and the committed tail, all in that one transaction.
++fn open_writer(
++    location: &CarrierLocation<'_>,
++    work: &mut WorkScope<'_>,
++) -> Refused<(CurrentCarrierSnapshot, CommittedTail)> {
++    let path = location.namespace_path.join(CARRIER_NAME);
++    let file = match location.namespace.open_regular(CARRIER_NAME) {
++        Ok(file) => file,
++        Err(error) if error.kind() == io::ErrorKind::NotFound => {
++            return refuse(CarrierRefusal::TailChanged);
++        }
++        Err(error) => return refuse(CarrierRefusal::Io(error)),
++    };
++    let open = |s| WorkFailure::Operation(CarrierRefusal::Append(AppendRefusal::Open(s)));
++    work.run(carrier_creation_cost(), |_| {
++        let connection = rusqlite::Connection::open_with_flags(
++            &path,
++            rusqlite::OpenFlags::SQLITE_OPEN_READ_WRITE
++                | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX
++                | rusqlite::OpenFlags::SQLITE_OPEN_PRIVATE_CACHE
++                | rusqlite::OpenFlags::SQLITE_OPEN_NOFOLLOW,
++        )
++        .map_err(|e| open(CreationStep::Open(e)))?;
++        same_file(&file, &path).map_err(open)?;
++        configure_writer(&connection).map_err(open)?;
++        match connection.execute_batch("BEGIN IMMEDIATE") {
++            Ok(()) => {}
++            Err(rusqlite::Error::SqliteFailure(error, _))
++                if matches!(
++                    error.code,
++                    rusqlite::ErrorCode::DatabaseBusy | rusqlite::ErrorCode::DatabaseLocked
++                ) =>
++            {
++                return refuse(CarrierRefusal::Busy);
++            }
++            Err(error) => return Err(open(CreationStep::Transaction(error))),
++        }
++        let admitted = carrier_dispatch::admit_connection(connection)
++            .map_err(|e| WorkFailure::Operation(classify_read_error(e)))?;
++        let snapshot =
++            CurrentCarrierSnapshot::from_admitted_connection(admitted, location.namespace_id)
++                .map_err(|e| WorkFailure::Operation(classify_read_error(e)))?;
++        if snapshot.inherited_format.is_some() {
++            return refuse(CarrierRefusal::Inherited);
++        }
++        same_file(&file, &path).map_err(open)?;
++        let tail = committed_tail(&snapshot.connection, snapshot.first_generation)
++            .map_err(|_| WorkFailure::Operation(CarrierRefusal::Unreadable))?;
++        Ok((snapshot, tail))
++    })
++}
++
++/// Level 3: the open `BEGIN IMMEDIATE` journal transaction. It has no SQL,
++/// write or checkpoint surface; dropping it rolls back. The evidence-ledger
++/// transaction is taken after it and before level 4 (X3c, X3d).
++pub(crate) struct JournalTransaction<'l, 'a> {
++    lock: &'l JournalAppendLock,
++    location: &'l CarrierLocation<'a>,
++    snapshot: CurrentCarrierSnapshot,
++    tail: CommittedTail,
++}
++impl<'l, 'a> JournalTransaction<'l, 'a> {
++    /// Item 5 step 2: take level 4, never waiting. A refusal drops this
++    /// transaction, so it holds nothing.
++    pub(crate) fn acquire(self) -> Refused<JournalAppendHeld<'l, 'a>> {
++        let guard = match self.lock.level_four.try_lock() {
++            Ok(guard) => guard,
++            Err(TryLockError::WouldBlock) => {
++                return refuse(CarrierRefusal::Append(AppendRefusal::LockOrder));
++            }
++            Err(TryLockError::Poisoned(_)) => {
++                return refuse(CarrierRefusal::Append(AppendRefusal::Undetermined));
++            }
++        };
++        if guard.undetermined {
++            return refuse(CarrierRefusal::Append(AppendRefusal::Undetermined));
++        }
++        if guard.tail != self.tail {
++            return refuse(CarrierRefusal::TailChanged);
++        }
++        let Self {
++            lock,
++            location,
++            snapshot,
++            tail,
++        } = self;
++        Ok(JournalAppendHeld {
++            level_four: Some(guard),
++            transaction: Some(snapshot),
++            tail,
++            lock,
++            location,
++        })
++    }
++}
++
++/// One appended record's evidence: it grants nothing.
++#[derive(Debug, Clone, PartialEq, Eq)]
++pub(crate) struct AppendedRecord {
++    generation: i64,
++    seq: i64,
++    record_type: &'static str,
++    operation_ref: String,
++    run_id: Option<String>,
++    body_sha256: String,
++}
++impl AppendedRecord {
++    pub(crate) fn generation(&self) -> i64 {
++        self.generation
++    }
++    pub(crate) fn seq(&self) -> i64 {
++        self.seq
++    }
++    pub(crate) fn record_type(&self) -> &'static str {
++        self.record_type
++    }
++    pub(crate) fn operation_ref(&self) -> &str {
++        &self.operation_ref
++    }
++    pub(crate) fn run_id(&self) -> Option<&str> {
++        self.run_id.as_deref()
++    }
++    pub(crate) fn body_sha256(&self) -> &str {
++        &self.body_sha256
++    }
++}
++
++/// An append that did not complete. `Refused` is certain: the record was not
++/// committed (a `PENDING` witness may name it, which the next reconciliation
++/// reverts). `Undetermined` follows a failure after visibility: the lock is
++/// latched, every further effect is refused, and the writer reconciles
++/// (`reconcile_undetermined`) without assuming either state; no evidence
++/// commit proceeds (§5.6).
++#[derive(Debug)]
++pub(crate) enum AppendError {
++    Refused(WorkFailure<CarrierRefusal>),
++    Undetermined(WorkFailure<CarrierRefusal>),
++}
++impl AppendError {
++    pub(crate) fn is_undetermined(&self) -> bool {
++        matches!(self, Self::Undetermined(_))
++    }
++}
++enum Step {
++    Certain(CarrierRefusal),
++    Undetermined(CarrierRefusal),
++}
++
++/// Levels 3 and 4 held. Dropping it releases level 4 first, then rolls back
++/// level 3 if it is still open, whatever path stops (item 5 step 7).
++pub(crate) struct JournalAppendHeld<'l, 'a> {
++    level_four: Option<MutexGuard<'l, AppendState>>,
++    transaction: Option<CurrentCarrierSnapshot>,
++    tail: CommittedTail,
++    lock: &'l JournalAppendLock,
++    location: &'l CarrierLocation<'a>,
++}
++impl Drop for JournalAppendHeld<'_, '_> {
++    fn drop(&mut self) {
++        drop(self.level_four.take());
++        #[cfg(test)]
++        let _ = self.lock.at(AppendStep::ReleasedLevelFour);
++        drop(self.transaction.take());
++        #[cfg(test)]
++        let _ = self.lock.at(AppendStep::ReleasedLevelThree);
++    }
++}
++impl JournalAppendHeld<'_, '_> {
++    /// Steps 3 to 7 for `RA`, `REV`, `CLN` or `TERMINAL`; level 4 is released
++    /// when this returns, whatever the outcome.
++    pub(crate) fn append(
++        mut self,
++        operation_ref: &str,
++        draft: &RecordDraft,
++        work: &mut WorkScope<'_>,
++    ) -> Result<AppendedRecord, AppendError> {
++        self.protocol(operation_ref, &Body::Draft(draft), work)
++    }
++    /// Steps 3 to 6 for a `SEAL` naming `run_id`. Level 4 stays held until
++    /// this value is dropped or released (r5's exception): the caller holds it
++    /// through staging, X4's repeated checkpoint, the `AdmissionPermit` and the
++    /// evidence `COMMIT`, or, on any stop, rolls back the ledger first and
++    /// then drops this, which releases level 4 and then the journal's level 3.
++    pub(crate) fn append_seal(
++        &mut self,
++        operation_ref: &str,
++        run_id: &str,
++        work: &mut WorkScope<'_>,
++    ) -> Result<AppendedRecord, AppendError> {
++        self.protocol(operation_ref, &Body::Seal(run_id), work)
++    }
++    /// Release level 4, then any open level 3, exactly once.
++    pub(crate) fn release(self) {}
++
++    fn protocol(
++        &mut self,
++        operation_ref: &str,
++        body: &Body<'_>,
++        work: &mut WorkScope<'_>,
++    ) -> Result<AppendedRecord, AppendError> {
++        let certain = |r| Err(AppendError::Refused(WorkFailure::Operation(r)));
++        if self.transaction.is_none() {
++            // Level 3 is never reacquired under level 4.
++            return certain(CarrierRefusal::Append(AppendRefusal::LockOrder));
++        }
++        let state = self.level_four.as_ref().expect("held until drop");
++        if state.revoked && body.blocked_after_revocation() {
++            return certain(CarrierRefusal::Append(AppendRefusal::AfterRevocation));
++        }
++        let terminal = matches!(body, Body::Draft(RecordDraft::Terminal { .. }));
++        if terminal && self.tail.seq != LAST_ORDINARY_SEQ {
++            return certain(CarrierRefusal::Append(
++                if self.tail.seq < LAST_ORDINARY_SEQ {
++                    AppendRefusal::TerminalSlot
++                } else {
++                    AppendRefusal::Capacity
++                },
++            ));
++        }
++        if !terminal && self.tail.seq >= LAST_ORDINARY_SEQ {
++            return certain(CarrierRefusal::Append(AppendRefusal::Capacity));
++        }
++        let record = match build_record(&self.lock.namespace_id, &self.tail, operation_ref, body) {
++            Ok(record) => record,
++            Err(e) => return certain(CarrierRefusal::Append(AppendRefusal::Record(e))),
++        };
++        let generation = self.tail.generation;
++        let pending = witness_bytes(
++            &self.lock.namespace_id,
++            generation,
++            record.seq,
++            Some(&record.body_sha256),
++            false,
++        );
++        let committed = witness_bytes(
++            &self.lock.namespace_id,
++            generation,
++            record.seq,
++            Some(&record.body_sha256),
++            true,
++        );
++        let (Some(pending), Some(committed)) = (pending, committed) else {
++            return certain(CarrierRefusal::Unreadable);
++        };
++        let total = append_cost(record.body.len(), pending.len().max(committed.len()));
++        // Set once the first effect may have become visible.
++        let mut visible = false;
++        let result = work.effect(WorkCost::default(), total, |post| {
++            post.prepaid(total, |w| {
++                self.effects(&record, &pending, &committed, &mut visible, w)
++            })
++        });
++        let failure = match result {
++            Ok(()) => {
++                return Ok(AppendedRecord {
++                    generation,
++                    seq: record.seq,
++                    record_type: record.kind,
++                    operation_ref: record.operation_ref,
++                    run_id: record.run_id,
++                    body_sha256: record.body_sha256,
++                });
++            }
++            Err(WorkFailure::Operation(Step::Certain(r))) => {
++                AppendError::Refused(WorkFailure::Operation(r))
++            }
++            Err(WorkFailure::Operation(Step::Undetermined(r))) => {
++                AppendError::Undetermined(WorkFailure::Operation(r))
++            }
++            Err(WorkFailure::Budget(b)) if visible => {
++                AppendError::Undetermined(WorkFailure::Budget(b))
++            }
++            Err(WorkFailure::Budget(b)) => AppendError::Refused(WorkFailure::Budget(b)),
++        };
++        if failure.is_undetermined()
++            && let Some(state) = self.level_four.as_mut()
++        {
++            state.undetermined = true;
++        }
++        Err(failure)
++    }
++
++    /// Steps 4 to 6, charged to the append's reservation.
++    fn effects(
++        &mut self,
++        record: &BuiltRecord,
++        pending: &[u8],
++        committed: &[u8],
++        visible: &mut bool,
++        work: &mut WorkScope<'_>,
++    ) -> Result<(), WorkFailure<Step>> {
++        let certain = |r| Err(WorkFailure::Operation(Step::Certain(r)));
++        let undetermined = |r| Err(WorkFailure::Operation(Step::Undetermined(r)));
++        #[cfg(test)]
++        match self.lock.at(AppendStep::Built) {
++            Some(Fault::Crash) => return certain(crashed(AppendStep::Built)),
++            Some(Fault::Fail) => {
++                return certain(CarrierRefusal::File(super::FileProtocolError::Entropy));
++            }
++            None => {}
++        }
++        // Step 4: PENDING, durably.
++        *visible = true;
++        let location = self.location;
++        match publish_private_file(
++            location.namespace,
++            WITNESS_NAME,
++            pending,
++            location.uid,
++            work,
++        ) {
++            Ok(()) => {}
++            Err(WorkFailure::Budget(b)) => return Err(WorkFailure::Budget(b)),
++            Err(WorkFailure::Operation(e)) if e.visibility_undetermined() => {
++                return undetermined(CarrierRefusal::File(e));
++            }
++            Err(WorkFailure::Operation(e)) => return certain(CarrierRefusal::File(e)),
++        }
++        #[cfg(test)]
++        match self.lock.at(AppendStep::PendingPublished) {
++            Some(Fault::Crash) => return certain(crashed(AppendStep::PendingPublished)),
++            Some(Fault::Fail) => return undetermined(injected_barrier()),
++            None => {}
++        }
++        // Step 5: INSERT and COMMIT.
++        #[cfg(test)]
++        match self.lock.at(AppendStep::BeforeInsert) {
++            Some(Fault::Crash) => return certain(crashed(AppendStep::BeforeInsert)),
++            Some(Fault::Fail) => {
++                return certain(CarrierRefusal::Append(AppendRefusal::Insert(
++                    rusqlite::Error::InvalidQuery,
++                )));
++            }
++            None => {}
++        }
++        let transaction = self.transaction.as_ref().expect("checked open");
++        work.run(insert_cost(record.body.len()), |_| {
++            transaction
++                .connection
++                .execute(
++                    "INSERT INTO grant_journal_v3(grantGeneration,seq,record_schema,record_type,operation_ref,request_ref,run_id,body,body_sha256,prev_sha256) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
++                    rusqlite::params![
++                        self.tail.generation,
++                        record.seq,
++                        record.schema,
++                        record.kind,
++                        record.operation_ref,
++                        record.request_ref,
++                        record.run_id,
++                        record.body,
++                        record.body_sha256,
++                        record.prev_sha256,
++                    ],
++                )
++                .map(|_| ())
++                .map_err(|e| {
++                    WorkFailure::Operation(Step::Certain(CarrierRefusal::Append(
++                        AppendRefusal::Insert(e),
++                    )))
++                })
++        })?;
++        #[cfg(test)]
++        match self.lock.at(AppendStep::Inserted) {
++            Some(Fault::Crash) => return certain(crashed(AppendStep::Inserted)),
++            Some(Fault::Fail) => {
++                return undetermined(CarrierRefusal::Append(AppendRefusal::Commit(None)));
++            }
++            None => {}
++        }
++        if let Err(e) = transaction.connection.execute_batch("COMMIT") {
++            return undetermined(CarrierRefusal::Append(AppendRefusal::Commit(Some(e))));
++        }
++        // The journal transaction is closed; level 4 stays held.
++        self.transaction = None;
++        self.tail = CommittedTail {
++            generation: self.tail.generation,
++            seq: record.seq,
++            body: Some(record.body_sha256.clone()),
++        };
++        if let Some(state) = self.level_four.as_mut() {
++            state.tail = self.tail.clone();
++            state.revoked |= record.kind == "REV";
++        }
++        #[cfg(test)]
++        match self.lock.at(AppendStep::Committed) {
++            Some(Fault::Crash) => return certain(crashed(AppendStep::Committed)),
++            Some(Fault::Fail) => {
++                return undetermined(CarrierRefusal::Append(AppendRefusal::Commit(None)));
++            }
++            None => {}
++        }
++        // Step 6: COMMITTED, durably. The record is already visible, so any
++        // failure here leaves its witness undetermined.
++        match publish_private_file(
++            location.namespace,
++            WITNESS_NAME,
++            committed,
++            location.uid,
++            work,
++        ) {
++            Ok(()) => {}
++            Err(WorkFailure::Budget(b)) => return Err(WorkFailure::Budget(b)),
++            Err(WorkFailure::Operation(e)) => return undetermined(CarrierRefusal::File(e)),
++        }
++        #[cfg(test)]
++        match self.lock.at(AppendStep::CommittedPublished) {
++            Some(Fault::Crash) => return certain(crashed(AppendStep::CommittedPublished)),
++            Some(Fault::Fail) => return undetermined(injected_barrier()),
++            None => {}
++        }
++        Ok(())
++    }
++}
++#[cfg(test)]
++fn crashed(step: AppendStep) -> CarrierRefusal {
++    CarrierRefusal::Append(AppendRefusal::Crashed(step))
++}
++#[cfg(test)]
++fn injected_barrier() -> CarrierRefusal {
++    CarrierRefusal::File(super::FileProtocolError::Barrier(io::Error::other(
++        "injected barrier failure",
++    )))
++}
++
++/// One witness publication by the file protocol: the private temporary file
++/// (its creation and ACL preparation), the write and `F_FULLFSYNC`, the
++/// rename, the directory barrier and the reopen confirmation, for `len`
++/// bytes. `witness_publication_fits` pins it against the measured charge.
++fn witness_publication_cost(len: usize) -> WorkCost {
++    WorkCost {
++        objects: 10,
++        edges: 300,
++        bytes: 88 * 1024 + 4 * len,
++    }
++}
++/// The `INSERT` and `COMMIT`: the row, its index entry and the WAL frames.
++fn insert_cost(body: usize) -> WorkCost {
++    WorkCost {
++        objects: 2,
++        edges: 8,
++        bytes: 4096 + 2 * body,
++    }
++}
++/// Item 9: each append reserves, before its first effect, both witness
++/// publications with their confirmations and the commit.
++fn append_cost(body: usize, witness: usize) -> WorkCost {
++    let publication = witness_publication_cost(witness);
++    let insert = insert_cost(body);
++    WorkCost {
++        objects: 2 * publication.objects + insert.objects,
++        edges: 2 * publication.edges + insert.edges,
++        bytes: 2 * publication.bytes + insert.bytes,
++    }
++}
++
++#[cfg(test)]
++#[path = "carrier_append_tests.rs"]
++mod tests;
+diff --git a/crates/security/src/journal_store/carrier_append_tests.rs b/crates/security/src/journal_store/carrier_append_tests.rs
+new file mode 100644
+index 0000000..888c7b1
+--- /dev/null
++++ b/crates/security/src/journal_store/carrier_append_tests.rs
+@@ -0,0 +1,764 @@
++//! Law X3b r6 item 11's tests for X3b-2, on scratch installations only:
++//! record building for SEAL, REV, CLN, RA and TERMINAL against the reader's
++//! own prefix admission, each protocol step in order, the SEAL-path level-4
++//! hold and the stop order, busy at level 3, the S6 block after REV, a crash
++//! at each step reconciling OK, REVERT, ADVANCE or OK, each step's failure
++//! classified certain or undetermined, the latch and the reconciliation after
++//! an undetermined outcome, the reserved terminal slot, and the reservation.
++use super::super::start::{
++    EndInput, EndOutcome, StartReconciliation, UncertainReconciliation, carrier_start, end_step,
++};
++use super::super::tests::{Fixture, N, h, quarantine, refusal};
++use super::*;
++use crate::journal_store::{CarrierFloor, Witness, WitnessState};
++use opensip_platform::{WorkBudgetError, WorkLedger};
++use std::fs;
++use std::sync::{Arc, Mutex as StdMutex};
++use std::time::{Duration, Instant};
++
++const OP: &str = "op-0123456789abcdef0123456789abcdef";
++fn run_id() -> String {
++    format!("run3:{}", "5".repeat(64))
++}
++fn ra() -> RecordDraft {
++    RecordDraft::Ra {
++        request_ref: "request-1".into(),
++    }
++}
++fn rev() -> RecordDraft {
++    let epoch = crate::trust::metadata::parse(br#"{"revocationVersion":7}"#).unwrap();
++    RecordDraft::Rev {
++        reason: "observer-fail-stop".into(),
++        trust_epoch_observed: Some(epoch),
++    }
++}
++fn cln() -> RecordDraft {
++    RecordDraft::Cln {
++        residuals: vec!["seal-without-commit".into()],
++    }
++}
++fn terminal() -> RecordDraft {
++    RecordDraft::Terminal {
++        wall_clock_data: "2026-10-01T00:00:00Z".into(),
++    }
++}
++
++impl Fixture {
++    /// A created carrier, started at INIT, and its lock.
++    fn started(&self) -> JournalAppendLock {
++        self.created();
++        self.lock_at(&CommittedTail::init())
++    }
++    fn lock_at(&self, expected: &CommittedTail) -> JournalAppendLock {
++        let location = self.location();
++        let start = WorkLedger::new()
++            .scope(|w| carrier_start(&location, expected, w))
++            .unwrap();
++        JournalAppendLock::after_start(&location, start).unwrap()
++    }
++    fn witness_now(&self) -> (i64, i64, Option<String>, WitnessState) {
++        let w = Witness::from_file_bytes(&fs::read(self.witness()).unwrap())
++            .unwrap()
++            .record;
++        (w.generation, w.seq, w.body, w.state)
++    }
++    fn rows(&self) -> Vec<(i64, i64, String, String)> {
++        let c = rusqlite::Connection::open(self.carrier()).unwrap();
++        let mut s = c
++            .prepare("SELECT grantGeneration,seq,record_type,body_sha256 FROM grant_journal_v3 ORDER BY grantGeneration,seq")
++            .unwrap();
++        s.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))
++            .unwrap()
++            .collect::<rusqlite::Result<_>>()
++            .unwrap()
++    }
++    /// The next operation's view: the floor step, then the carrier start.
++    fn next_start(&self) -> StartReconciliation {
++        let location = self.location();
++        let (_, expected) = WorkLedger::new()
++            .scope(|w| super::super::floor_step_observed(&location, w))
++            .unwrap();
++        WorkLedger::new()
++            .scope(|w| carrier_start(&location, &expected.unwrap(), w))
++            .unwrap()
++            .reconciliation()
++    }
++}
++
++/// One whole append on one ledger: level 3, level 4, then the record.
++fn append_on(
++    lock: &JournalAppendLock,
++    location: &CarrierLocation<'_>,
++    draft: &RecordDraft,
++    ledger: &mut WorkLedger,
++) -> Result<AppendedRecord, AppendError> {
++    let held = match ledger.scope(|w| lock.begin(location, w)?.acquire()) {
++        Ok(held) => held,
++        Err(e) => return Err(AppendError::Refused(e)),
++    };
++    let mut out = None;
++    let _ = ledger.scope(|w| {
++        out = Some(held.append(OP, draft, w));
++        Ok::<(), WorkFailure<()>>(())
++    });
++    out.unwrap()
++}
++fn append(
++    lock: &JournalAppendLock,
++    location: &CarrierLocation<'_>,
++    draft: &RecordDraft,
++) -> Result<AppendedRecord, AppendError> {
++    append_on(lock, location, draft, &mut WorkLedger::new())
++}
++fn refused(result: Result<AppendedRecord, AppendError>) -> CarrierRefusal {
++    match result {
++        Err(AppendError::Refused(WorkFailure::Operation(r))) => r,
++        other => panic!("expected a certain refusal, got {other:?}"),
++    }
++}
++fn undetermined(result: Result<AppendedRecord, AppendError>) -> CarrierRefusal {
++    match result {
++        Err(AppendError::Undetermined(WorkFailure::Operation(r))) => r,
++        other => panic!("expected an undetermined outcome, got {other:?}"),
++    }
++}
++fn recorder() -> (
++    Arc<StdMutex<Vec<AppendStep>>>,
++    impl Fn(AppendStep) -> Option<Fault>,
++) {
++    let steps = Arc::new(StdMutex::new(Vec::new()));
++    let seen = steps.clone();
++    (steps, move |step| {
++        seen.lock().unwrap().push(step);
++        None
++    })
++}
++fn at(target: AppendStep, fault: Fault) -> impl Fn(AppendStep) -> Option<Fault> {
++    move |step| (step == target).then_some(fault)
++}
++
++#[test]
++fn each_record_builds_as_its_closed_body_with_the_selected_chain() {
++    let init = CommittedTail::init();
++    let seal_id = run_id();
++    let seal = build_record(N, &init, OP, &Body::Seal(&seal_id)).unwrap();
++    assert_eq!((seal.schema, seal.kind, seal.seq), (3, "SEAL", 1));
++    assert_eq!(seal.run_id.as_deref(), Some(seal_id.as_str()));
++    // The domain-framed body hash and the genesis previous value.
++    let mut framed = b"opensip.metadata.journal.1\0".to_vec();
++    framed.extend_from_slice(seal.body.as_bytes());
++    assert_eq!(
++        seal.body_sha256,
++        opensip_identity::digest_hex(&opensip_identity::raw_sha256(&framed))
++    );
++    let mut genesis = b"opensip.journal.genesis.1\0".to_vec();
++    genesis.extend_from_slice(N.as_bytes());
++    genesis.extend_from_slice(b"\x001");
++    assert_eq!(
++        seal.prev_sha256,
++        opensip_identity::digest_hex(&opensip_identity::raw_sha256(&genesis))
++    );
++    // chain_law 1: SHA-256(ascii_hex(body_sha256[k-1]) || ascii_decimal(k-1)).
++    let tail = CommittedTail {
++        generation: 1,
++        seq: 1,
++        body: Some(seal.body_sha256.clone()),
++    };
++    let next = build_record(N, &tail, OP, &Body::Draft(&rev())).unwrap();
++    assert_eq!(
++        next.prev_sha256,
++        opensip_identity::digest_hex(&opensip_identity::raw_sha256(
++            format!("{}1", seal.body_sha256).as_bytes()
++        ))
++    );
++    assert!(
++        next.body
++            .contains(r#""trustEpochObserved":{"revocationVersion":7}"#)
++    );
++    for (draft, kind) in [(ra(), "RA"), (rev(), "REV"), (cln(), "CLN")] {
++        let r = build_record(N, &init, OP, &Body::Draft(&draft)).unwrap();
++        assert_eq!((r.schema, r.kind), (3, kind));
++        assert_eq!(
++            JournalRecord::parse(r.body.as_bytes()).unwrap().canonical(),
++            r.body.as_bytes()
++        );
++    }
++    let accepted = build_record(N, &init, OP, &Body::Draft(&ra())).unwrap();
++    assert_eq!(accepted.request_ref.as_deref(), Some("request-1"));
++    // TERMINAL is the frozen recordSchema-1 body.
++    let slot = CommittedTail {
++        generation: 1,
++        seq: LAST_ORDINARY_SEQ,
++        body: Some(h('a')),
++    };
++    let t = build_record(N, &slot, OP, &Body::Draft(&terminal())).unwrap();
++    assert_eq!((t.schema, t.kind, t.seq), (1, "TERMINAL", CARRIER_CAP));
++    assert!(t.body.contains(r#""cause":"grantGenerationClosure""#));
++    assert_eq!(t.request_ref, None);
++    assert_eq!(t.run_id, None);
++    // Refusals: the physical operation grammar, the fixture Run, a non-run3
++    // id, a non-object epoch, an overlong reason, a malformed wall clock.
++    for bad in ["op-0123", "OP-0123456789abcdef0123456789abcdef", "x"] {
++        assert_eq!(
++            build_record(N, &init, bad, &Body::Draft(&ra())),
++            Err(RecordRefusal::OperationRef)
++        );
++    }
++    let fixture = format!("run3:{}", "0".repeat(64));
++    assert_eq!(
++        build_record(N, &init, OP, &Body::Seal(&fixture)),
++        Err(RecordRefusal::Schema(JournalError::FixtureRun))
++    );
++    let run2 = format!("run2:{}", "5".repeat(64));
++    assert!(matches!(
++        build_record(N, &init, OP, &Body::Seal(&run2)),
++        Err(RecordRefusal::Schema(_))
++    ));
++    let not_object = RecordDraft::Rev {
++        reason: "policy".into(),
++        trust_epoch_observed: Some(JsonValue::String("x".into())),
++    };
++    assert!(matches!(
++        build_record(N, &init, OP, &Body::Draft(&not_object)),
++        Err(RecordRefusal::Schema(_))
++    ));
++    let long = RecordDraft::Rev {
++        reason: "r".repeat(257),
++        trust_epoch_observed: None,
++    };
++    assert!(matches!(
++        build_record(N, &init, OP, &Body::Draft(&long)),
++        Err(RecordRefusal::Schema(_))
++    ));
++    let clock = RecordDraft::Terminal {
++        wall_clock_data: "2026-10-01 00:00:00".into(),
++    };
++    assert_eq!(
++        build_record(N, &slot, OP, &Body::Draft(&clock)),
++        Err(RecordRefusal::Terminal)
++    );
++    let broken = CommittedTail {
++        generation: 1,
++        seq: 3,
++        body: None,
++    };
++    assert_eq!(
++        build_record(N, &broken, OP, &Body::Draft(&ra())),
++        Err(RecordRefusal::Chain)
++    );
++}
++
++#[test]
++fn appends_follow_the_protocol_and_the_reader_admits_the_prefix() {
++    let f = Fixture::new();
++    let (steps, hook) = recorder();
++    let lock = f.started().with_hook(hook);
++    let location = f.location();
++    let floor = fs::read(f.floor_path()).unwrap();
++    let first = append(&lock, &location, &ra()).unwrap();
++    assert_eq!(
++        (first.generation(), first.seq(), first.record_type()),
++        (1, 1, "RA")
++    );
++    assert_eq!(first.operation_ref(), OP);
++    assert_eq!(
++        *steps.lock().unwrap(),
++        [
++            AppendStep::Built,
++            AppendStep::PendingPublished,
++            AppendStep::BeforeInsert,
++            AppendStep::Inserted,
++            AppendStep::Committed,
++            AppendStep::CommittedPublished,
++            AppendStep::ReleasedLevelFour,
++            AppendStep::ReleasedLevelThree,
++        ]
++    );
++    assert_eq!(
++        f.witness_now(),
++        (
++            1,
++            1,
++            Some(first.body_sha256().to_string()),
++            WitnessState::Committed
++        )
++    );
++    // SEAL, then the end path's REV and CLN.
++    let mut ledger = WorkLedger::new();
++    let mut held = ledger
++        .scope(|w| lock.begin(&location, w)?.acquire())
++        .unwrap();
++    let mut sealed = None;
++    let _ = ledger.scope(|w| {
++        sealed = Some(held.append_seal(OP, &run_id(), w));
++        Ok::<(), WorkFailure<()>>(())
++    });
++    let sealed = sealed.unwrap().unwrap();
++    assert_eq!((sealed.seq(), sealed.record_type()), (2, "SEAL"));
++    assert_eq!(sealed.run_id(), Some(run_id().as_str()));
++    held.release();
++    let revoked = append(&lock, &location, &rev()).unwrap();
++    let cleaned = append(&lock, &location, &cln()).unwrap();
++    assert_eq!((revoked.seq(), cleaned.seq()), (3, 4));
++    let rows = f.rows();
++    assert_eq!(
++        rows.iter().map(|r| r.2.as_str()).collect::<Vec<_>>(),
++        ["RA", "SEAL", "REV", "CLN"]
++    );
++    assert_eq!(rows[3].3, cleaned.body_sha256());
++    assert_eq!(
++        f.witness_now(),
++        (
++            1,
++            4,
++            Some(cleaned.body_sha256().to_string()),
++            WitnessState::Committed
++        )
++    );
++    // The reader's own prefix admission accepts every appended row: body
++    // bytes, digests, chain, physical mirrors and the SEAL's Run.
++    let snapshot = CurrentCarrierSnapshot::open(&f.carrier(), N).unwrap();
++    let prefix = snapshot.capture(1, 16, 1 << 20).unwrap();
++    assert_eq!(prefix.records.len(), 4);
++    drop(snapshot);
++    // The append writes no trust state, and leaves no temporary witness.
++    assert_eq!(fs::read(f.floor_path()).unwrap(), floor);
++    let names: Vec<_> = fs::read_dir(&f.namespace_path)
++        .unwrap()
++        .map(|e| e.unwrap().file_name().into_string().unwrap())
++        .filter(|n| n.starts_with("grant-journal.witness.json."))
++        .collect();
++    assert!(names.is_empty(), "{names:?}");
++    // The next operation starts consistent and copies the floor forward.
++    assert_eq!(f.next_start(), StartReconciliation::Consistent);
++}
++
++#[test]
++fn a_seal_holds_level_four_until_released_and_level_three_is_never_retaken() {
++    let f = Fixture::new();
++    let (steps, hook) = recorder();
++    let lock = f.started().with_hook(hook);
++    let location = f.location();
++    let mut ledger = WorkLedger::new();
++    let mut held = ledger
++        .scope(|w| lock.begin(&location, w)?.acquire())
++        .unwrap();
++    let mut out = Vec::new();
++    let _ = ledger.scope(|w| {
++        out.push(held.append_seal(OP, &run_id(), w));
++        // A second record under one level-4 hold: level 3 is closed.
++        out.push(held.append_seal(OP, &run_id(), w));
++        Ok::<(), WorkFailure<()>>(())
++    });
++    let second = out.pop().unwrap();
++    out.pop().unwrap().unwrap();
++    assert!(matches!(
++        refused(second),
++        CarrierRefusal::Append(AppendRefusal::LockOrder)
++    ));
++    // Level 4 is still held after the SEAL committed: no level 3 under it.
++    let r = refusal(WorkLedger::new().scope(|w| lock.begin(&location, w).map(|_| ())));
++    assert!(matches!(
++        r,
++        CarrierRefusal::Append(AppendRefusal::LockOrder)
++    ));
++    assert_eq!(r.row(), CarrierRow::Invariant);
++    assert!(
++        !steps
++            .lock()
++            .unwrap()
++            .contains(&AppendStep::ReleasedLevelFour)
++    );
++    held.release();
++    let released: Vec<_> = steps
++        .lock()
++        .unwrap()
++        .iter()
++        .copied()
++        .filter(|s| {
++            matches!(
++                s,
++                AppendStep::ReleasedLevelFour | AppendStep::ReleasedLevelThree
++            )
++        })
++        .collect();
++    assert_eq!(
++        released,
++        [
++            AppendStep::ReleasedLevelFour,
++            AppendStep::ReleasedLevelThree
++        ]
++    );
++    assert_eq!(append(&lock, &location, &cln()).unwrap().seq(), 2);
++}
++
++#[test]
++fn a_stop_before_the_record_releases_level_four_then_rolls_back_level_three() {
++    let f = Fixture::new();
++    let (steps, hook) = recorder();
++    let lock = f.started().with_hook(hook);
++    let location = f.location();
++    let witness = fs::read(f.witness()).unwrap();
++    let held = WorkLedger::new()
++        .scope(|w| lock.begin(&location, w)?.acquire())
++        .unwrap();
++    // The journal's write lock is held while level 3 is open.
++    let other = rusqlite::Connection::open(f.carrier()).unwrap();
++    assert!(other.execute_batch("BEGIN IMMEDIATE").is_err());
++    drop(held);
++    assert_eq!(
++        *steps.lock().unwrap(),
++        [
++            AppendStep::ReleasedLevelFour,
++            AppendStep::ReleasedLevelThree
++        ]
++    );
++    other.execute_batch("BEGIN IMMEDIATE; ROLLBACK").unwrap();
++    assert_eq!(fs::read(f.witness()).unwrap(), witness);
++    assert!(f.rows().is_empty());
++}
++
++#[test]
++fn a_busy_journal_transaction_refuses_at_once_and_holds_nothing() {
++    let f = Fixture::new();
++    let lock = f.started();
++    let location = f.location();
++    let other = rusqlite::Connection::open(f.carrier()).unwrap();
++    other.execute_batch("BEGIN IMMEDIATE").unwrap();
++    let began = Instant::now();
++    let r = refused(append(&lock, &location, &ra()));
++    assert!(began.elapsed() < Duration::from_secs(1));
++    assert!(matches!(r, CarrierRefusal::Busy), "{r:?}");
++    assert_eq!(r.row(), CarrierRow::Busy);
++    other.execute_batch("ROLLBACK").unwrap();
++    // Nothing was held: level 4 is free and the next append succeeds.
++    assert_eq!(append(&lock, &location, &ra()).unwrap().seq(), 1);
++    // A second level 3 while one is open is busy too, never waited on.
++    let first = WorkLedger::new()
++        .scope(|w| lock.begin(&location, w))
++        .unwrap();
++    let r = refusal(WorkLedger::new().scope(|w| lock.begin(&location, w).map(|_| ())));
++    assert!(matches!(r, CarrierRefusal::Busy), "{r:?}");
++    drop(first);
++}
++
++#[test]
++fn after_a_rev_no_seal_or_ra_is_appended() {
++    let f = Fixture::new();
++    let lock = f.started();
++    let location = f.location();
++    append(&lock, &location, &rev()).unwrap();
++    let witness = fs::read(f.witness()).unwrap();
++    let r = refused(append(&lock, &location, &ra()));
++    assert!(matches!(
++        r,
++        CarrierRefusal::Append(AppendRefusal::AfterRevocation)
++    ));
++    assert_eq!(r.row(), CarrierRow::Invariant);
++    let mut ledger = WorkLedger::new();
++    let mut held = ledger
++        .scope(|w| lock.begin(&location, w)?.acquire())
++        .unwrap();
++    let mut out = None;
++    let _ = ledger.scope(|w| {
++        out = Some(held.append_seal(OP, &run_id(), w));
++        Ok::<(), WorkFailure<()>>(())
++    });
++    drop(held);
++    assert!(matches!(
++        refused(out.unwrap()),
++        CarrierRefusal::Append(AppendRefusal::AfterRevocation)
++    ));
++    assert_eq!(fs::read(f.witness()).unwrap(), witness);
++    assert_eq!(f.rows().len(), 1);
++    // The end path's CLN, and a second REV, still follow.
++    assert_eq!(append(&lock, &location, &cln()).unwrap().seq(), 2);
++    assert_eq!(append(&lock, &location, &rev()).unwrap().seq(), 3);
++}
++
++#[test]
++fn a_crash_after_each_step_reconciles_ok_revert_advance_or_ok() {
++    use AppendStep::*;
++    for (step, rows, expected) in [
++        (Built, 0, StartReconciliation::Consistent),
++        (PendingPublished, 0, StartReconciliation::Reverted),
++        (BeforeInsert, 0, StartReconciliation::Reverted),
++        (Inserted, 0, StartReconciliation::Reverted),
++        (Committed, 1, StartReconciliation::Advanced),
++        (CommittedPublished, 1, StartReconciliation::Consistent),
++    ] {
++        let f = Fixture::new();
++        let lock = f.started().with_hook(at(step, Fault::Crash));
++        let location = f.location();
++        let r = refused(append(&lock, &location, &ra()));
++        assert!(
++            matches!(r, CarrierRefusal::Append(AppendRefusal::Crashed(s)) if s == step),
++            "{step:?}: {r:?}"
++        );
++        drop(lock);
++        assert_eq!(f.rows().len(), rows, "{step:?}");
++        // The next operation's floor step and start reconcile.
++        assert_eq!(f.next_start(), expected, "{step:?}");
++        assert_eq!(f.witness_now().3, WitnessState::Committed, "{step:?}");
++        assert_eq!(f.witness_now().1, rows as i64, "{step:?}");
++    }
++}
++
++#[test]
++fn each_step_failure_is_certain_before_visibility_and_undetermined_after() {
++    use AppendStep::*;
++    // Certain: nothing committed, the lock is not latched, and the next
++    // append on the same lock completes over whatever PENDING was left.
++    for (step, pending_left) in [(Built, false), (BeforeInsert, true)] {
++        let f = Fixture::new();
++        let lock = f.started().with_hook(at(step, Fault::Fail));
++        let location = f.location();
++        let r = refused(append(&lock, &location, &ra()));
++        assert_eq!(r.row(), CarrierRow::HostIo, "{step:?}");
++        assert!(f.rows().is_empty());
++        assert_eq!(f.witness_now().3 == WitnessState::Pending, pending_left);
++        let lock = JournalAppendLock { hook: None, ..lock };
++        assert_eq!(
++            append(&lock, &location, &ra()).unwrap().seq(),
++            1,
++            "{step:?}"
++        );
++        assert_eq!(f.witness_now().3, WitnessState::Committed);
++    }
++    // Undetermined: the lock latches, refuses every further effect, and
++    // reconciles to the stated outcome; the end step copies that tail only.
++    for (step, rows, floor_seq) in [
++        (PendingPublished, 0, None),
++        (Inserted, 0, None),
++        (Committed, 1, Some(1)),
++        (CommittedPublished, 1, Some(1)),
++    ] {
++        let f = Fixture::new();
++        let lock = f.started().with_hook(at(step, Fault::Fail));
++        let location = f.location();
++        let r = undetermined(append(&lock, &location, &ra()));
++        assert_eq!(r.row(), CarrierRow::HostIo, "{step:?}");
++        assert_eq!(f.rows().len(), rows, "{step:?}");
++        let r = refused(append(&lock, &location, &cln()));
++        assert!(matches!(
++            r,
++            CarrierRefusal::Append(AppendRefusal::Undetermined)
++        ));
++        let reconciled = WorkLedger::new()
++            .scope(|w| lock.reconcile_undetermined(&location, w))
++            .unwrap();
++        let tail = match reconciled {
++            UncertainReconciliation::Copyable(tail) => tail,
++            other => panic!("{step:?}: {other:?}"),
++        };
++        assert_eq!(
++            (f.witness_now().1, f.witness_now().3),
++            (rows as i64, WitnessState::Committed),
++            "{step:?}"
++        );
++        // Still latched after reconciliation.
++        assert!(matches!(
++            refused(append(&lock, &location, &cln())),
++            CarrierRefusal::Append(AppendRefusal::Undetermined)
++        ));
++        let outcome = WorkLedger::new()
++            .scope(|w| end_step(&location, EndInput::Uncertain(Some(tail)), w))
++            .unwrap();
++        let floor: CarrierFloor = f.floor();
++        match floor_seq {
++            Some(seq) => {
++                assert_eq!(outcome, EndOutcome::CopiedForward);
++                assert_eq!(floor.seq, seq);
++            }
++            None => {
++                assert_eq!(outcome, EndOutcome::Unchanged);
++                assert_eq!(floor.seq, 0);
++            }
++        }
++    }
++    // Reconciliation is only for an undetermined outcome.
++    let f = Fixture::new();
++    let lock = f.started();
++    let location = f.location();
++    let r = refusal(WorkLedger::new().scope(|w| lock.reconcile_undetermined(&location, w)));
++    assert!(matches!(
++        r,
++        CarrierRefusal::Append(AppendRefusal::NoUncertainOutcome)
++    ));
++}
++
++/// A carrier whose tail is the last ordinary slot. The slot is unreachable by
++/// contiguous append, so the append trigger is lifted and reinstalled
++/// verbatim (carrier-format.v3 §13), leaving the definitions byte-equal.
++fn at_the_last_ordinary_slot(f: &Fixture) -> CommittedTail {
++    f.created();
++    let c = rusqlite::Connection::open(f.carrier()).unwrap();
++    let trigger: String = c
++        .query_row(
++            "SELECT sql FROM sqlite_schema WHERE name='gj3_append_laws'",
++            [],
++            |r| r.get(0),
++        )
++        .unwrap();
++    c.execute_batch("DROP TRIGGER gj3_append_laws").unwrap();
++    c.execute(
++        "INSERT INTO grant_journal_v3(grantGeneration,seq,record_schema,record_type,operation_ref,body,body_sha256,prev_sha256) VALUES(1,?1,3,'RA',?2,'{}',?3,?4)",
++        rusqlite::params![LAST_ORDINARY_SEQ, OP, h('a'), h('b')],
++    )
++    .unwrap();
++    c.execute_batch(&trigger).unwrap();
++    drop(c);
++    f.plant_witness(1, LAST_ORDINARY_SEQ, Some(&h('a')), true);
++    CommittedTail {
++        generation: 1,
++        seq: LAST_ORDINARY_SEQ,
++        body: Some(h('a')),
++    }
++}
++
++#[test]
++fn terminal_takes_only_the_reserved_slot_and_closes_the_generation() {
++    let f = Fixture::new();
++    let lock = f.started();
++    let location = f.location();
++    let r = refused(append(&lock, &location, &terminal()));
++    assert!(matches!(
++        r,
++        CarrierRefusal::Append(AppendRefusal::TerminalSlot)
++    ));
++    assert_eq!(r.row(), CarrierRow::Invariant);
++    assert!(f.rows().is_empty());
++
++    let g = Fixture::new();
++    let tail = at_the_last_ordinary_slot(&g);
++    let lock = g.lock_at(&tail);
++    let location = g.location();
++    let witness = fs::read(g.witness()).unwrap();
++    let r = refused(append(&lock, &location, &ra()));
++    assert!(matches!(r, CarrierRefusal::Append(AppendRefusal::Capacity)));
++    assert_eq!(fs::read(g.witness()).unwrap(), witness);
++    let closed = append(&lock, &location, &terminal()).unwrap();
++    assert_eq!(
++        (closed.seq(), closed.record_type()),
++        (CARRIER_CAP, "TERMINAL")
++    );
++    let c = rusqlite::Connection::open(g.carrier()).unwrap();
++    let (schema, run, request): (i64, Option<String>, Option<String>) = c
++        .query_row(
++            "SELECT record_schema,run_id,request_ref FROM grant_journal_v3 WHERE seq=?1",
++            [CARRIER_CAP],
++            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
++        )
++        .unwrap();
++    assert_eq!((schema, run, request), (1, None, None));
++    assert_eq!(
++        g.witness_now(),
++        (
++            1,
++            CARRIER_CAP,
++            Some(closed.body_sha256().to_string()),
++            WitnessState::Committed
++        )
++    );
++    // Nothing follows a TERMINAL in its generation; rollover is not here.
++    for draft in [cln(), terminal()] {
++        assert!(matches!(
++            refused(append(&lock, &location, &draft)),
++            CarrierRefusal::Append(AppendRefusal::Capacity)
++        ));
++    }
++}
++
++#[test]
++fn a_moved_tail_a_foreign_witness_or_another_carrier_refuses_before_any_write() {
++    let f = Fixture::new();
++    let lock = f.started();
++    let location = f.location();
++    // A witness naming another state.
++    f.plant_witness(1, 3, Some(&h('e')), true);
++    let before = fs::read(f.witness()).unwrap();
++    assert_eq!(
++        quarantine(WorkLedger::new().scope(|w| lock.begin(&location, w).map(|_| ()))),
++        Quarantine::ProtocolViolation
++    );
++    assert_eq!(fs::read(f.witness()).unwrap(), before);
++    // A row this lock did not append.
++    f.plant_witness(1, 0, None, true);
++    f.append_raw(1, &h('d'));
++    let r = refusal(WorkLedger::new().scope(|w| lock.begin(&location, w).map(|_| ())));
++    assert!(matches!(r, CarrierRefusal::TailChanged), "{r:?}");
++    // Another carrier's location.
++    let other = f.location_for("7c9e6679-7425-40de-944b-e07fc1f90ae7");
++    let r = refusal(WorkLedger::new().scope(|w| lock.begin(&other, w).map(|_| ())));
++    assert!(matches!(
++        r,
++        CarrierRefusal::Append(AppendRefusal::WrongCarrier)
++    ));
++    assert_eq!(r.row(), CarrierRow::Invariant);
++}
++
++#[test]
++fn the_append_reserves_its_confirmations_before_the_first_effect() {
++    let f = Fixture::new();
++    let lock = f.started();
++    let location = f.location();
++    let mut probe = WorkLedger::new();
++    let held = probe
++        .scope(|w| lock.begin(&location, w)?.acquire())
++        .unwrap();
++    let opened = probe.used();
++    drop(held);
++    let mut short = WorkLedger::with_limits(WorkCost {
++        objects: opened.objects + 64,
++        edges: opened.edges + 1024,
++        bytes: opened.bytes + 1024,
++    })
++    .unwrap();
++    let witness = fs::read(f.witness()).unwrap();
++    assert!(matches!(
++        append_on(&lock, &location, &ra(), &mut short),
++        Err(AppendError::Refused(WorkFailure::Budget(
++            WorkBudgetError::Bytes
++        )))
++    ));
++    assert_eq!(fs::read(f.witness()).unwrap(), witness);
++    assert!(f.rows().is_empty());
++    // The reservation covers what one witness publication actually charges.
++    let bytes = witness_bytes(N, 1, 1, Some(&h('d')), false).unwrap();
++    let mut measured = WorkLedger::new();
++    measured
++        .scope(|w| publish_private_file(location.namespace, "probe.json", &bytes, location.uid, w))
++        .unwrap();
++    let used = measured.used();
++    let reserved = witness_publication_cost(bytes.len());
++    assert!(
++        used.objects <= reserved.objects
++            && used.edges <= reserved.edges
++            && used.bytes <= reserved.bytes,
++        "{used:?} > {reserved:?}"
++    );
++}
++
++#[test]
++fn the_append_never_waits_and_never_writes_trust_state() {
++    let source = include_str!("carrier_append.rs");
++    let code = &source[..source.find("#[cfg(test)]\n#[path").unwrap()];
++    // Level 4 is only ever tried, never waited on; nothing sleeps or retries.
++    assert!(!code.contains(".lock()"));
++    assert_eq!(code.matches(".try_lock()").count(), 3);
++    for forbidden in [
++        "busy_timeout(",
++        "Duration",
++        "sleep",
++        "write_floor",
++        "FLOORS_NAME",
++        "carrier-floors",
++        "carrier_quarantine",
++        "OR REPLACE",
++    ] {
++        assert!(!code.contains(forbidden), "{forbidden}");
++    }
++    // One INSERT and one COMMIT per append.
++    assert_eq!(code.matches("INSERT INTO grant_journal_v3").count(), 1);
++    assert_eq!(code.matches(r#"execute_batch("COMMIT")"#).count(), 1);
++}
+diff --git a/crates/security/src/journal_store/carrier_floor.rs b/crates/security/src/journal_store/carrier_floor.rs
+index b52f812..66f3f25 100644
+--- a/crates/security/src/journal_store/carrier_floor.rs
++++ b/crates/security/src/journal_store/carrier_floor.rs
+@@ -152,6 +152,9 @@ pub(crate) enum CarrierRow {
+     InheritedCarrier,
+     /// `HOST.IO_FAILURE`, `host-io`, including durability-undetermined.
+     HostIo,
++    /// `SYSTEM.OUTCOME.ILLEGAL_STATE`, `host-invariant`, detail
++    /// `HOST.INVARIANT_VIOLATED`: a broken append composition (X3d r3 item 9).
++    Invariant,
+ }
+ 
+ /// The quarantine conditions of item 8. The writer stores none of them.
+@@ -198,6 +201,8 @@ pub(crate) enum CarrierRefusal {
+     /// The carrier start found no carrier, or a committed tail other than the
+     /// floor step observed, though the fence was held throughout (item 4).
+     TailChanged,
++    /// An append-protocol refusal (items 5 and 6; X3b-2).
++    Append(append::AppendRefusal),
+ }
+ impl CarrierRefusal {
+     pub(crate) fn row(&self) -> CarrierRow {
+@@ -213,6 +218,7 @@ impl CarrierRefusal {
+             Self::Io(_) | Self::Unreadable | Self::File(_) | Self::Private(_) | Self::Create(_) => {
+                 CarrierRow::HostIo
+             }
++            Self::Append(refusal) => refusal.row(),
+         }
+     }
+ }
+@@ -952,6 +958,10 @@ fn configure_writer(c: &rusqlite::Connection) -> Result<(), CreationStep> {
+ #[path = "carrier_start.rs"]
+ mod start;
+ 
++#[cfg(target_os = "macos")]
++#[path = "carrier_append.rs"]
++mod append;
++
+ #[cfg(test)]
+ #[path = "carrier_floor_tests.rs"]
+ mod tests;
