@@ -1,0 +1,44 @@
+{
+  "actualModel": "Grok",
+  "verdict": "REQUIRED-FINDINGS",
+  "requiredFindings": [
+    {
+      "id": "RF-1",
+      "title": "The floor publication runs inside the handoff that already holds the lease",
+      "failureScenario": "X2d has taken the project lease. Item 7a then runs the fenced admission and publishes a new capsule and state.v1 while that lease is held. S7 forbids writing trust state under a lease. Skipping the write returns a view at a tEval whose floor was not written ahead, which S4 forbids."
+    },
+    {
+      "id": "RF-2",
+      "title": "A later recheck rejects a lawful newer state.v1",
+      "failureScenario": "After the fence is released, another writer publishes a higher revocation. The observer opens the new state.v1. Item 7 fails the recheck as required-files-changed. The S6 predicate never sees the new epoch, so a revoking update and an unrelated update stop the operation the same way."
+    },
+    {
+      "id": "RF-3",
+      "title": "The unfenced retry is nested, and a second mixed view has two rows",
+      "failureScenario": "One atomic replacement lands during the first attempt. X4T retries internally and X4 repeats the admission, charging four views to a two-view ledger, or the outer repeat is a second FreshnessMonitor::read and the monitor latches on the first error. The tick stops a lawful publication. Item 10 terminates that second mixed view as installation-incomplete, exit 2, while X4 terminates it as OBSERVER.FAIL_STOP, exit 4."
+    },
+    {
+      "id": "RF-4",
+      "title": "Unbootstrapped and Expired use the wrong rows",
+      "failureScenario": "The core is Trusted and F is present. TR-INDEX is Unbootstrapped, and the row is TRUST.NO_ADMITTED_TIME_CONTEXT, whose remedy asks for time evidence the installation already has. When the chain succeeds and the index is Expired because the catalog time is at or before tEval, the row is ROOT.EXPIRED_NO_CHAIN or ROOT.FINAL_EXPIRED, and the remedy asks for a successor root while the root is current."
+    },
+    {
+      "id": "RF-5",
+      "title": "The view ceiling does not cover the closure that sets it",
+      "failureScenario": "The head, the descriptor, the six role records, and the accepted root, revocation, and policy are each just under 4 MiB, and the chain adds one link. Every file is inside its owner cap. The charged bytes exceed the 32 MiB ceiling, admission refuses WORK.BUDGET_EXHAUSTED, and no operation can start."
+    },
+    {
+      "id": "RF-6",
+      "title": "The epoch's policy digest is not identified",
+      "failureScenario": "The handoff stores the raw SHA-256 of the canonical effective policy. The reread stores Effective::digest, the domain-separated hash over those same bytes. The policy is unchanged and the two epoch fields differ, so the S6 predicate treats it as a policy change and revokes the operation."
+    }
+  ],
+  "subjectSha256": "131c59273fd48670c7174f4e33c8e43d8dc6d949fab92f3453c249dcf60baf91",
+  "subject": {
+    "path": "docs/implementation/m2/trust-admission-x4t/PROPOSAL.md",
+    "bytes": 17029,
+    "sha256": "131c59273fd48670c7174f4e33c8e43d8dc6d949fab92f3453c249dcf60baf91"
+  },
+  "productHead": "f7acb6d7f8acadcbc0bf81d141f39077d817f043",
+  "scope": "Law X4T r1. The read set, embedded-root split, fenced time admission, X3a reuse, carrier-floor split, and X4B are sound. The floor write sits under the lease, later rechecks reject a lawful newer state.v1, the reread retry is nested, Unbootstrapped and Expired use the wrong rows, TRUST_VIEW_COST is below the closure, and the policy digest bytes are unnamed. No product cargo."
+}
