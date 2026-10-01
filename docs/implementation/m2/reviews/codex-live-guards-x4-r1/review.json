@@ -1,0 +1,310 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "requiredFindings": [
+    {
+      "id": "RF-1",
+      "priority": "P1",
+      "title": "Specify the missing authenticated current-trust and revocation reader",
+      "location": {
+        "path": "docs/implementation/m2/live-guards-x4/PROPOSAL.md",
+        "startLine": 30,
+        "endLine": 35
+      },
+      "problem": "Item 2 assumes the writer's session already read the trust current record and an admitted revocation record; item 8 therefore charges only in-memory work. That producer does not exist in the reviewed path. At f7acb6d the gate merely judges state.v1 with cap=None. X3a r3 adds a structural capture and C.store join, but explicitly grants no trust admission and does not read/admit a revocation document. InitialCore's embedded revocation is release-authentication evidence, explicitly not the installation's current revocation view. The proposed live read of a counter and policy digest also cannot supply observe_revocation's verified RevocationEvidence, matching entries and effective permission set by itself. FreshnessMonitor authenticates none of its callback's data.",
+      "requiredChange": "Assign a unit the first native current-trust admission and the subsequent live-observation producer, with exact source owners and dependencies. Reuse already captured bytes only where they actually exist. Admit the current view, authenticated revocation body/envelope and root/key context, policy/effective grants and applicable time/floor/counter checks before supplying the S6 predicate. Explicitly refuse unbootstrapped or unavailable current authority; a creator P0 capsule or embedded release list is not a substitute. A lower revocation counter must be rejected by the current/floor owner before the observation predicate can return its non-revoking lower-counter result. Charge the real captures, authentication, validation and rechecks. The claimed two-file tick bound needs a demonstrated admitted source for all dependencies, or an explicitly bounded larger closure; it cannot assume those proofs into existence.",
+      "validation": "Require valid native current evidence, missing revocation evidence, invalid signatures/root binding, unavailable policy or time, lower-counter/floor rollback, and P0 without admitted current authority. None of the failing cases may mint an operation grant or effect permit. Pin source-read counts and budgets against the actual producer, including a newly published trust view.",
+      "references": [
+        {
+          "repository": "product",
+          "path": "crates/security/src/custody/installation_admission.rs",
+          "line": 1032
+        },
+        {
+          "repository": "architecture",
+          "path": "docs/implementation/m2/store-admission-x3a/PROPOSAL.md",
+          "line": 25
+        },
+        {
+          "repository": "architecture",
+          "path": "docs/implementation/m2/store-admission-x3a/PROPOSAL.md",
+          "line": 30
+        },
+        {
+          "repository": "architecture",
+          "path": "docs/implementation/m2/initial-core-launch-463/PROPOSAL.md",
+          "line": 76
+        },
+        {
+          "repository": "product",
+          "path": "crates/security/src/trust/admitted_revocations.rs",
+          "line": 18
+        },
+        {
+          "repository": "product",
+          "path": "crates/security/src/trust/root_payload.rs",
+          "line": 1575
+        },
+        {
+          "repository": "product",
+          "path": "crates/security/src/revocation.rs",
+          "line": 1
+        }
+      ]
+    },
+    {
+      "id": "RF-2",
+      "priority": "P1",
+      "title": "Make the original epoch capture the monitor's actual first timed read",
+      "location": {
+        "path": "docs/implementation/m2/live-guards-x4/PROPOSAL.md",
+        "startLine": 30,
+        "endLine": 33
+      },
+      "problem": "The grant and its FreshnessMonitor are created after writer admission, but the epoch is taken from a read the session already performed. Declaring that cached revocationVersion is 'also the first counter read' does not account for the interval since the original read. FreshnessMonitor::new starts with last=None; wrapping retrieval of cached bytes in its first callback only times that retrieval. For example, a capture at t=0 followed by a blocked admission until t=20 can be seeded at t=20 and appear fresh despite an unobserved gap exceeding 10 seconds. This is exactly the case the EpochAtStart source comment forbids.",
+      "requiredChange": "Create the same operation monitor/gate early enough to bracket the actual fenced epoch acquisition, and carry its first successful timing state into the operation, or explicitly perform a fresh admitted monitored read before authority is created. If retaining a one-read design, change the producer/handoff so the original capture already belongs to that monitor; do not manufacture a fresh timestamp for old bytes. Keep one persistent freshness history shared coherently by ticks and checkpoints, including boot identity and the earliest previous-read time. A per-tick work ledger must not reset this history or the latch.",
+      "validation": "Pause between the original capture and grant construction beyond the bound and require fail-stop before any effect. Cover a long initial read, exact 10 seconds versus 10 seconds plus one nanosecond, boot change, and concurrent tick/checkpoint use of one monitor history. These can use scripted clocks; they do not qualify native scheduling.",
+      "references": [
+        {
+          "repository": "product",
+          "path": "crates/security/src/trust/root_payload.rs",
+          "line": 1554
+        },
+        {
+          "repository": "product",
+          "path": "crates/security/src/revocation.rs",
+          "line": 47
+        },
+        {
+          "repository": "product",
+          "path": "crates/security/src/revocation.rs",
+          "line": 75
+        },
+        {
+          "repository": "architecture",
+          "path": "docs/v2/contracts/product-v1/security-and-lifecycle.md",
+          "line": 467
+        }
+      ]
+    },
+    {
+      "id": "RF-3",
+      "priority": "P1",
+      "title": "Allow authenticated mutable trust updates and preserve S6 drift",
+      "location": {
+        "path": "docs/implementation/m2/live-guards-x4/PROPOSAL.md",
+        "startLine": 43,
+        "endLine": 55
+      },
+      "problem": "Item 4 rechecks the epoch and latches on any difference. S6 instead continues on an unrelated higher revocation counter or a policy change that removes no required grant; with X4's empty M2 required set, policy-only changes are explicitly non-revoking. Item 5 compounds this by retaining the original current/revocation file samples while rereading the current pointer. A lawful atomic replacement changes the current name's inode and can change the old inode's link metadata; an in-place update changes its full sample. The existing native_current::Head recheck rejects either change and itself requires the fence. Reusing that frozen-head rule either stops every ordinary trust publication or leaves the observer reading the old revocation document forever. Neither implements live S6 observation.",
+      "requiredChange": "Separate immutable operation inputs from the mutable current-trust observation. Give the live reader a retained trusted parent through which it can capture the newly named current view and its authenticated dependencies without taking the installation fence. Bracket and join each bounded observation so a mixed, unreadable or unauthenticated view fail-stops; after successful admission evaluate the existing S6 predicate and record unrelated drift without replacing the immutable start epoch. Old current captures are provenance, not a requirement that the global pointer remain unchanged. This is an authorized observation of mutable state, not refresh of an immutable grant or automatic promotion of the existing fenced provisional Head. Define the supported pointer-change protocol explicitly, including concurrent publication and rollback rejection.",
+      "validation": "Require continued operation after an authenticated unrelated revocation update and after a policy change with no lost required grants. Require trust-revoked/policy outcomes for actual matches/removals, fail-stop for unavailable or incoherent evidence, and correct handling of atomic current replacement without a backwards fence acquisition. A newly named revocation record must actually be observed.",
+      "references": [
+        {
+          "repository": "architecture",
+          "path": "docs/v2/contracts/product-v1/security-and-lifecycle.md",
+          "line": 479
+        },
+        {
+          "repository": "product",
+          "path": "crates/security/src/trust/root_payload.rs",
+          "line": 1591
+        },
+        {
+          "repository": "product",
+          "path": "crates/security/src/trust/root_payload.rs",
+          "line": 1621
+        },
+        {
+          "repository": "product",
+          "path": "crates/security/src/trust/native_current.rs",
+          "line": 118
+        },
+        {
+          "repository": "product",
+          "path": "crates/security/src/trust/native_read_session.rs",
+          "line": 46
+        },
+        {
+          "repository": "architecture",
+          "path": "docs/coop/design-corrections/security/security_lifecycle_model_v1.py",
+          "line": 1398
+        }
+      ]
+    },
+    {
+      "id": "RF-4",
+      "priority": "P1",
+      "title": "Bind X4 to the owned post-fence operation and a complete mandatory guard set",
+      "location": {
+        "path": "docs/implementation/m2/live-guards-x4/PROPOSAL.md",
+        "startLine": 18,
+        "endLine": 24
+      },
+      "problem": "OperationGrant borrows OrdinaryWriteAdmission and X3a's held-session endpoint, but it must remain live after S7 releases the fence. The current release consumes OrdinaryWriteAdmission, drops its receipt, and closes the installation handles; X3a's endpoint is explicitly borrowed from the held session. X4 does not define its participation in the checked operation handoff. Its checkpoint list then reuses X3a's full session sample, which includes mutable selection/current captures, despite owner section 8 allowing unrelated registry and same-schema core-selection replacement while the operation pins its original generation. Conversely, a lease inode check alone does not recheck the original project/root/marker/namespace owners. Item 10 also makes the endpoint optional without a distinct non-authoritative preparation state, while claiming OperationGrant in full.",
+      "requiredChange": "Integrate grant construction with the X2/X3 checked post-fence operation handoff. Transfer or borrow from a surviving operation owner the receipt and its budget state, registered row and closure subjects, original project/root/marker/namespace owners, held lease, pinned store/lineage owners, and the monitor/gate. Define the relevant recheck set for that stage: mutable global pair/registry captures are provenance, while original contributing owners and the admitted operation joins remain live obligations. Preserve X1's receipt-attempt versus gate-ledger ownership rather than silently resetting either under a new operation ledger. Require namespace, endpoint and the real operation/lock ownership for any effect-admitting grant; preparatory units with missing X2/X3 inputs and abstract test locks must expose no production permit. State the dependency and handoff owner explicitly.",
+      "validation": "Reject a substituted root/marker/namespace, released lease, foreign endpoint or operation join, and missing endpoint/namespace before effect admission. Verify that owners and one gate survive fence release, that an unrelated registration or same-schema core update does not invalidate the pinned operation, and that no frozen fenced-reader API or level-0 reacquisition is used at level 4. Preserve the build plan's altered input/inventory/execution/generation handoff tests.",
+      "references": [
+        {
+          "repository": "architecture",
+          "path": "docs/implementation/m2/live-guards-x4/PROPOSAL.md",
+          "line": 43
+        },
+        {
+          "repository": "architecture",
+          "path": "docs/implementation/m2/live-guards-x4/PROPOSAL.md",
+          "line": 97
+        },
+        {
+          "repository": "product",
+          "path": "crates/security/src/custody/ordinary_writer.rs",
+          "line": 21
+        },
+        {
+          "repository": "product",
+          "path": "crates/security/src/custody/ordinary_writer.rs",
+          "line": 43
+        },
+        {
+          "repository": "architecture",
+          "path": "docs/implementation/m2/store-admission-x3a/PROPOSAL.md",
+          "line": 17
+        },
+        {
+          "repository": "architecture",
+          "path": "docs/implementation/m2/initial-root-binding-owner-selection-v1/owner.md",
+          "line": 142
+        },
+        {
+          "repository": "architecture",
+          "path": "docs/implementation/m2/ordinary-platform-x1/PROPOSAL.md",
+          "line": 42
+        },
+        {
+          "repository": "architecture",
+          "path": "docs/v2/architecture/implementation-boundaries-and-build-plan.md",
+          "line": 600
+        }
+      ]
+    },
+    {
+      "id": "RF-5",
+      "priority": "P1",
+      "title": "Check freshness after potentially blocking guard work and immediately before admission",
+      "location": {
+        "path": "docs/implementation/m2/live-guards-x4/PROPOSAL.md",
+        "startLine": 34,
+        "endLine": 40
+      },
+      "problem": "The listed checkpoint performs its timed counter read first, observes Preparing, and only then rechecks every bound guard before the admission CAS. Receipt and endpoint rechecks perform native work and can block. A counter read completed at t=0 followed by a guard recheck returning at t=20 can still reach CAS 0 -> 1 if the observer has not completed its own stalled read or has not been scheduled to latch. The atomic gate orders admission against a latch that actually occurred; it does not make an old freshness observation current. FreshnessMonitor currently checks elapsed time only inside read(), so the listed order leaves the post-read interval unchecked.",
+      "requiredChange": "Make the freshness/stop decision cover all blocking work that precedes the actual effect or final permit. For example, perform guard work before the final monitored current observation and add an immediate monotonic/freshness and latch check at the admission boundary, or explicitly revalidate the monitor after guard work. Account for delayed callbacks, mutex waits and descheduling; do not rely solely on the background tick. Keep the final gate and prepared value single-use. Specify the repeated checkpoint after blocking SEAL/witness work for X3b/X3d so F19 and F38 use the same rule and preserve any already durable SEAL.",
+      "validation": "With deterministic synchronization, finish the first counter read, block a guard beyond 10 seconds, prevent the observer from finishing a new successful observation, and require no effect/commit permit on resume. Also pause after a freshness check and before admission, and exercise F19 after blocking journal/witness work. A late latch after a lawful admission must still preserve the actual executor outcome.",
+      "references": [
+        {
+          "repository": "product",
+          "path": "crates/security/src/revocation.rs",
+          "line": 94
+        },
+        {
+          "repository": "product",
+          "path": "crates/security/src/custody/read_premise.rs",
+          "line": 168
+        },
+        {
+          "repository": "architecture",
+          "path": "docs/v2/contracts/product-v1/security-and-lifecycle.md",
+          "line": 470
+        },
+        {
+          "repository": "architecture",
+          "path": "docs/v2/contracts/product-v1/security-and-lifecycle.md",
+          "line": 518
+        },
+        {
+          "repository": "architecture",
+          "path": "docs/v2/architecture/implementation-boundaries-and-build-plan.md",
+          "line": 553
+        },
+        {
+          "repository": "architecture",
+          "path": "docs/v2/architecture/implementation-boundaries-and-build-plan.md",
+          "line": 572
+        }
+      ]
+    }
+  ],
+  "subjectSha256": "18ac96d3960a16031e760be62b28a88fbbc0fc68e51eded2b4cb4b7e8029ed3e",
+  "subject": "docs/implementation/m2/live-guards-x4/PROPOSAL.md",
+  "subjectBytes": 13732,
+  "reviewer": "Codex",
+  "reviewDate": "2026-09-30",
+  "productHead": "f7acb6d7f8acadcbc0bf81d141f39077d817f043",
+  "reviewType": "law",
+  "decisions": [
+    {
+      "items": "1",
+      "decision": "Grant-kind split accepted; operational construction needs RF-1/RF-4.",
+      "reason": "S10's generated grant plus the pure admission predicate can be implemented independently of the M5 spawn owner. It must still receive the complete S10 invocation/sealed-context inputs; generated-type shape alone is not authorization. Deferring host execution does not silently approve it or complete DR-G09 qualification. Empty required permissions is a bounded M2 choice for operations with no required brokered permission pairs; it is not a general rule for future execution/effect owners."
+    },
+    {
+      "items": "2",
+      "decision": "Not sound as written: RF-1 and RF-2.",
+      "reason": "Fenced capture and avoiding redundant reads are appropriate, but neither missing authenticated evidence nor a missing timing interval can be supplied by relabeling an older read."
+    },
+    {
+      "items": "3",
+      "decision": "Atomic gate and lock placement accepted; require RF-4/RF-5.",
+      "reason": "An actual level-4 append lock, acquired only after the two level-3 transactions in the selected order, is the correct checkpoint location. CAS 0 -> 1 / fetch-OR 2 and an exact owned single-use prepared permit preserve F41. The observer appends nothing, and the final check must cover the blocking work before admission."
+    },
+    {
+      "items": "4",
+      "decision": "No refresh of immutable guards accepted; any difference is too broad.",
+      "reason": "Current relevant custody or immutable-owner failure latches and cannot be repaired in place. S6 drift and replacement of global captures that have become provenance are different cases; RF-3/RF-4 define the required distinction."
+    },
+    {
+      "items": "5",
+      "decision": "5-second ticks, >10-second bound and no fence acquisition accepted; reader needs RF-1/RF-3.",
+      "reason": "A retained trusted directory can support a fresh current-name capture, but the existing frozen Head cannot follow publication. The observer must retain its original monitoring history while admitting new observations. Per-tick caps may be independent because successful ticks grant no operation/effect authority; failures still irreversibly latch."
+    },
+    {
+      "items": "6",
+      "decision": "Selected gate outcomes accepted, with phase-sensitive projection.",
+      "reason": "A latch before the final gate prevents a new permit. A latch after admission does not revoke the prepared attempt; a confirmed commit remains committed. Preserve failed-before-effect and durability-undetermined executor results as well: state 3 alone is not proof of a committed Run. DELIVERY.REQUIRED_FAILED is the selected consequence for required delivery of a confirmed latched commit, not a replacement for uncertainty. Cleanup and settlement remain with their separate owners."
+    },
+    {
+      "items": "7",
+      "decision": "The stated existing detail/class mappings are correct.",
+      "reason": "TRUST.COMPONENT_REVOKED_DURING_OPERATION -> request-rejected/2/EXTENSION.ADMISSION_REJECTED; OBSERVER.FAIL_STOP -> operational-failed/4/HOST.IO_FAILURE with host-io; the exact registered GRANT details use request-rejected/2/REQUEST.PRECONDITION_FAILED. Receipt/custody rows remain their owners' rows. Emit only the closed selected GRANT set, not an arbitrary prefix member. A checkpoint counter failure can share observer fail-stop. Phase-specific confirmed/uncertain outcomes still prevail over an unconditional pre-admission refusal mapping."
+    },
+    {
+      "items": "8",
+      "decision": "A separate bounded observer budget is sound; producer and checkpoint costs need correction.",
+      "reason": "Each scheduled tick may have a fresh fixed work allowance, but it may not reset the persistent monitor, latch, admitted start epoch, or operation/receipt budgets, retry a failed tick into success, or supply operation authority. Actual current-trust reads and authentication must be charged (RF-1), and X1's existing ledger owners must survive handoff (RF-4). All work inside one observation shares that observation's cap."
+    },
+    {
+      "items": "9-10",
+      "decision": "Failure-case split broadly sound after the required producer/handoff dependencies are made explicit.",
+      "reason": "X4 may own gate/latch unit evidence; F19 and full F38/F39 durability and end-path behavior still require X3b/X3d. F26 preserves history and current read custody. F53 remains X6. Add the start-gap, current-update/drift, post-fence owner and late-checkpoint cases from this review. Optional endpoint/abstract-lock tests are not acceptance of an effect-capable production grant."
+    }
+  ],
+  "nonBlockingObservations": [
+    {
+      "id": "OBS-1",
+      "title": "Call the clock sleep-inclusive, not awake",
+      "location": {
+        "path": "docs/implementation/m2/live-guards-x4/PROPOSAL.md",
+        "startLine": 53,
+        "endLine": 53
+      },
+      "text": "The selected existing platform clock is already sleep-inclusive: observe_clock brackets with macOS mach_continuous_time (and Linux CLOCK_BOOTTIME). The test name 'actual_awake_native_clock' describes the limited test circumstances, not the clock's semantics. Correct the proposal's 'native awake clock' wording and retain S6's resume/stall rule. No clock replacement is needed merely to fix that wording; suspend/scheduling and cancellation qualification remain unclaimed."
+    }
+  ],
+  "verification": [
+    "Verified the pinned subject SHA-256 and 13,732-byte length immediately before writing the review.",
+    "Read the requested X4 proposal, EXIT-PLAN/build-plan dependencies and F cases, S6/S7/S10/S12, and the relevant 463/X1/X3a and retained-owner context. X3a was r3 when read; it explicitly excludes trust admission.",
+    "Inspected product commit_authority.rs, revocation.rs, the authenticated revocation and observation predicate, native current readers, platform clock, X1 receipt/gate ownership and the existing termination vocabulary at f7acb6d7f8acadcbc0bf81d141f39077d817f043. Product status at the final check was clean.",
+    "Checked the selected public detail registry and D9 reference mappings. The registry contains the proposed TRUST/OBSERVER details and 34 exact GRANT detail codes.",
+    "Executed only the existing pure revocation_observe function extracted via Python AST, in memory, on five supplied cases: unrelated counter, unrelated policy with empty required set, matching release, removed required permission, and lower counter. Results were respectively CONTINUE/drift, CONTINUE/drift, REVOKE/trust-revoked, REVOKE/policy, and CONTINUE/lower-counter-detected-elsewhere. This is conditional model evidence, not native trust or freshness qualification.",
+    "Analyzed initial-capture and blocked-checkpoint timelines statically. No native timing/crash/atomic test was run and no Cargo invocation was made.",
+    "No repository edits, commits, pushes or delegation. Only REVIEW.md and review.json were written under the requested output directory."
+  ]
+}

@@ -1,4 +1,4 @@
-REVIEWER review: X10a (the `opensip doctor` command) with inventory v82, and X10b (golden text overrides). Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/REVIEWDIR.
+Codex review: X10a (the `opensip doctor` command) with inventory v82, and X10b (golden text overrides). Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/codex-read-cli-x10a-r1.
 
 Law: `docs/implementation/m2/read-cli-x10/PROPOSAL.md` r3 (accepted by Codex).
 
@@ -53,12 +53,12 @@ Law: `docs/implementation/m2/read-cli-x10/PROPOSAL.md` r3 (accepted by Codex).
 
 ## Write two verdict files
 
-- `REVIEWDIR/x10a/review.json`, with:
+- `/tmp/opensip-implementation/reviews/codex-read-cli-x10a-r1/x10a/review.json`, with:
   - "verdict": `ACCEPT-UNIT` or `REQUIRED-FINDINGS`;
   - "requiredFindings";
   - "subjectManifestSha256" (the sha256 of read-cli-inventory-v82-subject.json);
   - "inventoryCandidateAssessment": {verdict, requiredFindings, path, bytes, sha256 of v82, parent (the v81 pin), successorRecord}.
-- `REVIEWDIR/x10b/review.json`, with:
+- `/tmp/opensip-implementation/reviews/codex-read-cli-x10a-r1/x10b/review.json`, with:
   - "verdict": `ACCEPT-DESIGN-UNIT` or `REQUIRED-FINDINGS`;
   - "requiredFindings";
   - "subjectManifestSha256" (the sha256 of read-cli-x10b-subject.json).
