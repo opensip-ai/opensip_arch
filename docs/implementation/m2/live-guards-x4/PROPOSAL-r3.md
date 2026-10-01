@@ -1,4 +1,4 @@
-# Live security guards: operation guard, live revocation, stale guards and the observer latch — proposal X4 r4
+# Live security guards: operation guard, live revocation, stale guards and the observer latch — proposal X4 r3
 
 2026-09-30. Claude Opus 5.5, implementation lead. Law for unit X4 of `EXIT-PLAN.md` (DR-G09), under:
 - security-and-lifecycle S4 (trust time and floors), S5, S6 (live revocation), S7 (lock order) and S10 (execution principal `repository-code`), and S12;
@@ -14,7 +14,7 @@ r2 answers Codex X4 r1 RF-1 to RF-5:
 - RF-4: binding to the owned post-fence operation, with a complete mandatory guard set;
 - RF-5: freshness after blocking guard work and immediately before admission.
 
-r1 bytes are preserved in PROPOSAL-r1.md. r3 answers Grok X4 r2 RF-1 (the mixed-read retry runs inside one monitor read) and RF-2 (a dropped lease is the busy row, not a changed file), and aligns with X3b r2 and X4T r1. r2 bytes are preserved in PROPOSAL-r2.md. r4 answers Grok X4 r3 RF-1: X4T's fenced admission, the monitor's first read, runs at the lease-free point, never inside 7a. r3 bytes are preserved in PROPOSAL-r3.md. Not code. Library only: no command is wired.
+r1 bytes are preserved in PROPOSAL-r1.md. r3 answers Grok X4 r2 RF-1 (the mixed-read retry runs inside one monitor read) and RF-2 (a dropped lease is the busy row, not a changed file), and aligns with X3b r2 and X4T r1. r2 bytes are preserved in PROPOSAL-r2.md. Not code. Library only: no command is wired.
 
 ## Problem
 
@@ -41,7 +41,7 @@ M2 exits on a real crash, lock and revocation matrix. Its revocation half needs 
      - **Sources:** X4T's law names its exact source owners and dependencies (466/467's trust records, 463's revocation, the ordinary trust modules), and its measured per-view read set and bound.
      - **Dependency:** X4 depends on X4T. Without an `AdmittedCurrentTrust`, no operation guard can be built and no effect permit can exist.
      - **Rejected:** folding X4T into X4. It is the trust owner's admission (roots, quorums, floors and time), and too large and distinct to review as one guard law.
-2. **The epoch capture is the monitor's first timed read (RF-2; lead decision).** The operation's single `FreshnessMonitor` and `FinalGate` are created first, under X2's single fence hold, at X2 r5 item 7's lease-free ordering point: after R is current and before any lease, the same point as X3b r2's floor step and X4T r2's fenced admission. Trust state is never written under a lease (S7). At that same lease-free point, X4T's fenced admission runs as the monitor's first `read` call. It includes X4T's write-ahead floor publication, which S7 allows only there, under the fence with no lease. X2e's handoff (item 7a) later only moves the already-run monitor, the admitted view and the gate into `ProjectOperation`, and publishes no trust state. In that first `read` call the counter callback is X4T's capture, authentication and floor check of the current view, and the monitor brackets it with the clock.
+2. **The epoch capture is the monitor's first timed read (RF-2; lead decision).** The operation's single `FreshnessMonitor` and `FinalGate` are created first, under X2's single fence hold, at X2 r5 item 7's lease-free ordering point: after R is current and before any lease, the same point as X3b r2's floor step and X4T r2's fenced admission. Trust state is never written under a lease (S7). X2e's handoff (item 7a) only moves them into `ProjectOperation`. The handoff's fenced X4T admission then runs as the monitor's first `read` call: the counter callback is X4T's capture, authentication and floor check of the current view, and the monitor brackets it with the clock.
    - The start epoch `{rootVersion, indexSnapshotVersion, revocationVersion, permissionPolicyDigest}` and the closure subjects are taken from the admitted view that read returned, and nowhere else.
    - The monitor's timing history (the earliest instant of the last successful read, and the boot id) is carried, with the gate, into the operation guard and then into `ProjectOperation`.
    - There is one persistent monitor history per operation. Ticks and checkpoints share it behind one private mutex, so their reads serialize, and a read waiting on the mutex counts that wait inside its own bracket. No ledger, tick or checkpoint resets the history or the latch.
@@ -98,7 +98,7 @@ M2 exits on a real crash, lock and revocation matrix. Its revocation half needs 
    - **Budget.** Each observation is charged to a fixed per-observation ledger of 2 × X4T r2's `TRUST_VIEW_COST`: at most 128 objects, 2048 edges and 240 MiB (2 × X4T r2's ceiling of 64 objects, 1024 edges and 120 MiB, which covers every file at its cap). That covers both attempts of one read. The operation's ledgers are not charged per tick, otherwise a long operation would exhaust its cap through observation alone. The per-observation ledger never resets the shared monitor history or the latch.
    - **What the observer may not do.** It appends nothing. `REV(observer-fail-stop)` and cancellation are written on the operation's end path through a fresh lawful level-3 then level-4 append (S6, F19; X3b). X4 supplies the stop reason and the latched state.
    - **Rejected:** no thread, observing only at checkpoints (S6 requires the 5 s tick); an observer that takes the fence (this breaks S7); and requiring the global pointer to stay unchanged (this forbids lawful trust updates).
-6. **The operation guard and its owner (RF-4; lead decision).** `OperationGuard` is private, not Clone and not serializable. It is built inside X2e's handoff, under the held fence, from the monitor, admitted view and gate already created at the lease-free point (item 2). It runs no X4T admission and writes no trust state there, and it is moved into `ProjectOperation` with X2e's other owners. It never exists outside a `ProjectOperation`. It holds:
+6. **The operation guard and its owner (RF-4; lead decision).** `OperationGuard` is private, not Clone and not serializable. It is built inside X2e's handoff, under the held fence (item 2), and moved into `ProjectOperation` with X2e's other owners. It never exists outside a `ProjectOperation`. It holds:
    - the `FreshnessMonitor` history, the `FinalGate` and its `StopObserver`;
    - the immutable start epoch, the closure subjects (release and signing key from the receipt's admitted core; namespace N; catalog snapshot) and the required permission pairs (empty for every M2 writer);
    - the retained trust directory handles (item 5);
@@ -115,7 +115,7 @@ M2 exits on a real crash, lock and revocation matrix. Its revocation half needs 
 8. **Refusal rows.** These use existing details only, as new variants of 468c's closed `InstallationTermination` vocabulary. Every match stays exhaustive, and no new code is added.
    - **A revoking observation:** S12's revoked-during-operation row, request-rejected, 2, `EXTENSION.ADMISSION_REJECTED`, detail `TRUST.COMPONENT_REVOKED_DURING_OPERATION`. The subject is `trust-revoked` or `policy`.
    - **Observer or monitor fail-stop:** an unreadable, mixed, unauthenticated or rolled-back view; a stall; a boot change; a regression; a per-observation budget overrun; or the admission-boundary check. This is S12's row: operational-failed, 4, `HOST.IO_FAILURE`, fault cause `host-io`, detail `OBSERVER.FAIL_STOP`, subject the stop reason.
-   - **No admitted current trust** (X4T refuses at the lease-free point, item 2): X4T's own rows (`TRUST.NO_ADMITTED_TIME_CONTEXT`, `PAYLOAD-NOT-ADMISSIBLE` details, and so on), as its law fixes.
+   - **No admitted current trust** (X4T refuses at handoff): X4T's own rows (`TRUST.NO_ADMITTED_TIME_CONTEXT`, `PAYLOAD-NOT-ADMISSIBLE` details, and so on), as its law fixes.
    - **A stale guard (RF-2):** the failing guard's existing row, unchanged:
      - a receipt failure gives its 468c row;
      - a replaced lease file, root, `.opensip`, marker, namespace or endpoint file (identity or full sample changed) gives the custody row, `CONFIG.CUSTODY_REFUSED`, subject `required-files-changed`;
@@ -124,7 +124,7 @@ M2 exits on a real crash, lock and revocation matrix. Its revocation half needs 
 
    Where S12 already fixes a class for a detail, S12 prevails.
 9. **Budget (lead decision).**
-   - The X4T admission at the lease-free point (item 2), before any lease, is charged to the gate ledger while the fence is held, as X4T r2 says. Nothing is charged for it inside 7a.
+   - The X4T admission at handoff is charged to the gate ledger while the fence is held, as X4T r1 item 11 says.
    - Checkpoints are charged to the receipt's attempt ledger (item 6), before they run.
    - Observations use their per-observation ledger (item 5).
 
@@ -138,7 +138,7 @@ M2 exits on a real crash, lock and revocation matrix. Its revocation half needs 
     - **Prepared here, completed with X3b and X3d:** F19, and the delivery halves of F38 and F39.
     - **Out of scope:** F53, the settlement sweep (X6).
     - **Required tests:**
-      - **RF-2:** a pause between the lease-free capture and the first checkpoint beyond the bound fail-stops before any effect; a long initial read; exactly 10 s against 10 s plus 1 ns; a boot change; and concurrent tick and checkpoint use of one monitor history.
+      - **RF-2:** a pause between the handoff capture and the first checkpoint beyond the bound fail-stops before any effect; a long initial read; exactly 10 s against 10 s plus 1 ns; a boot change; and concurrent tick and checkpoint use of one monitor history.
       - **RF-3:** continuing after an authenticated unrelated revocation update, and after a policy change that keeps every required grant; trust-revoked and policy outcomes on real matches; fail-stop on an unavailable, mixed or unauthenticated view; correct handling of atomic replacement of `state.v1` without reacquiring the fence: a rename during the first attempt is absorbed by the second attempt inside the same monitor read, with no latch, while a view that is still mixed on the second attempt latches; and a newly named revocation record actually observed.
       - **RF-4:** rejection of a substituted root, marker or namespace, a released lease, a foreign endpoint or operation join, and a missing endpoint or namespace, all before effect admission; the owners and the one gate surviving the fence release; a replaced lease file giving the custody row, and a lost lock on the unchanged lease descriptor giving the busy row (Grok r2 RF-2); and an unrelated registration or same-schema core update not invalidating the operation.
       - **RF-5:** finishing a read, then blocking a guard beyond 10 s with the observer held back, gives no permit on resume; a pause after the freshness check and before admission; and F19 after blocking journal work.
@@ -147,7 +147,7 @@ M2 exits on a real crash, lock and revocation matrix. Its revocation half needs 
       Every test uses scripted clocks and counters. None of them qualifies native scheduling.
 11. **Units after the law.**
     - **X4T (law, then code):** native current-trust admission (item 1). Dependencies: the trust owners, 463, and 466/467's trust records. X4a depends on it.
-    - **X4a (security):** the monitor's creation and first read at the lease-free point, `OperationGuard`'s creation inside X2e's handoff, the shared monitor history, the observer thread and per-observation ledger, the checkpoint over a `JournalAppendLock` borrow, `FinalGate` admission, and the termination mapping. Dependencies: X4T, X2e and X3a; X3b for the real lock type. Before X3b lands, only `cfg(test)` abstract locks exist.
+    - **X4a (security):** `OperationGuard`, its creation inside X2e's handoff, the shared monitor history, the observer thread and per-observation ledger, the checkpoint over a `JournalAppendLock` borrow, `FinalGate` admission, and the termination mapping. Dependencies: X4T, X2e and X3a; X3b for the real lock type. Before X3b lands, only `cfg(test)` abstract locks exist.
     - **X4b (security):** `grants.rs` `admit_repo_execution_grant` per S10. No M2 dependency.
     - **X4c (inside X3d):** the end path's `REV`/`CLN` appends, and the repeated checkpoints after blocking SEAL and witness work, completing F19, F38 and F39.
 
