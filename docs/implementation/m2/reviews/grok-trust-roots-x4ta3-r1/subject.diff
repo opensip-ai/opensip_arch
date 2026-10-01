@@ -1,0 +1,900 @@
+diff --git a/crates/security/src/trust/accepted_store_fixture.rs b/crates/security/src/trust/accepted_store_fixture.rs
+index 1cdf55c..0094001 100644
+--- a/crates/security/src/trust/accepted_store_fixture.rs
++++ b/crates/security/src/trust/accepted_store_fixture.rs
+@@ -9,7 +9,8 @@
+ // closed shape here; every signed document (root, catalog, revocation, payload
+ // manifest) is signed with the public test-only quorum seeds. The store sits
+ // on a real P0 publication from `initial_publication`. This module is compiled
+-// only under `cfg(test)`; no production path can reach it.
++// only under `cfg(test)`; no production path can reach it. X4T-a3 (law X4T
++// r10 item 13) adds a recorded rotation of n roots, the head at the last.
+ use super::core_authentication::tests::{quorum_root, sign};
+ use super::retained_metadata_index::Collection;
+ use crate::trust::trust_outcomes::reference;
+@@ -55,6 +56,31 @@ impl RoleTarget {
+     }
+ }
+ 
++/// X4T-a3 (law X4T r10 item 13): the public test-only ROOT key sets a
++/// recorded rotation cycles through. Root 1 holds the first (quorum root 1's
++/// own `rootKeys`); root k+1 moves ROOT to the next set. The roles' keys never
++/// change.
++const ROOT_KEY_SETS: [[usize; 3]; 3] = [[0, 1, 2], [20, 21, 22], [23, 24, 25]];
++fn root_keys(k: usize) -> &'static [usize] {
++    &ROOT_KEY_SETS[k % ROOT_KEY_SETS.len()]
++}
++
++/// X4T-a3 (test-only): what the payload metadata closure's `rootChain`
++/// records. Only `Head` is a lawful store.
++#[derive(Clone, Copy, Debug, PartialEq, Eq)]
++pub(crate) enum ChainEnd {
++    /// The whole recorded chain, ending on `heads.root.document`.
++    Head,
++    /// The chain ends on the head's body with another stored envelope of it:
++    /// a value-only match.
++    OtherEnvelope,
++    /// The chain without its last root (needs two roots or more).
++    Short,
++    /// No root at all. The closed shape refuses it, so this one record is
++    /// written past the shape check.
++    Empty,
++}
++
+ /// Caller choices. `roles` is indexed like `ROLES`; at least one role must
+ /// leave `Unbootstrapped` (a retained capsule has accepted role history).
+ /// `revocations` are the signed list's (subjectKind, subject) entries, in
+@@ -67,6 +93,20 @@ pub(crate) struct Spec {
+     pub(crate) revocations: Vec<(&'static str, String)>,
+     pub(crate) store: Option<String>,
+     pub(crate) revocation_version: i128,
++    /// X4T-a3: the recorded root chain's length n (at least 1). Root k+1
++    /// (version k+1) rotates ROOT to the next key set and its envelope is
++    /// signed by the previous and the new set. `heads.root` is root n, every
++    /// document is signed under it, and the closure's `rootChain` lists roots
++    /// 1 to n.
++    pub(crate) roots: usize,
++    /// X4T-a3 (test-only): the seeds that sign root k's envelope (k from 0)
++    /// in place of its defaults.
++    pub(crate) root_signers: Vec<(usize, &'static [usize])>,
++    /// X4T-a3 (test-only): the seeds that sign the revocation list in place
++    /// of two of the signing root's ROOT keys.
++    pub(crate) revocation_signers: Option<&'static [usize]>,
++    /// X4T-a3 (test-only): what the closure's `rootChain` records.
++    pub(crate) chain_end: ChainEnd,
+ }
+ impl Default for Spec {
+     fn default() -> Self {
+@@ -82,6 +122,10 @@ impl Default for Spec {
+             revocations: Vec::new(),
+             store: None,
+             revocation_version: 1,
++            roots: 1,
++            root_signers: Vec::new(),
++            revocation_signers: None,
++            chain_end: ChainEnd::Head,
+         }
+     }
+ }
+@@ -199,6 +243,18 @@ impl Builder {
+         });
+         r
+     }
++    /// X4T-a3: a record written WITHOUT its closed-shape check, only for
++    /// `ChainEnd::Empty`, whose refusal is the shape's.
++    fn unshaped_record(&mut self, value: &V) -> V {
++        let raw = canonical_bytes(value).unwrap();
++        let r = node(&raw);
++        self.files.push(File {
++            path: format!("trust/records/{}", digest_hex(&raw_sha256(&raw))),
++            collection: Some(Collection::Records),
++            bytes: raw,
++        });
++        r
++    }
+     fn object(&mut self, raw: Vec<u8>) {
+         self.files.push(File {
+             path: format!("trust/objects/{}", digest_hex(&raw_sha256(&raw))),
+@@ -230,6 +286,11 @@ pub(crate) fn generate(spec: &Spec) -> AcceptedStore {
+         spec.roles.iter().any(|r| *r != RoleTarget::Unbootstrapped),
+         "a retained capsule needs accepted role history"
+     );
++    assert!(spec.roots >= 1, "a recorded chain has a root");
++    assert!(
++        spec.chain_end != ChainEnd::Short || spec.roots >= 2,
++        "a short chain needs two roots"
++    );
+     let sid = spec.store.clone().unwrap_or_else(|| STORE.to_owned());
+     let mut b = Builder {
+         files: Vec::new(),
+@@ -291,16 +352,48 @@ pub(crate) fn generate(spec: &Spec) -> AcceptedStore {
+     let previous = digest_hex(&raw_sha256(&p0_capsule_raw));
+ 
+     // Signed documents, public test-only seeds (quorum-roots.json schema 1).
+-    let root = quorum_root(1);
+-    let root_body = canonical_bytes(&root).unwrap();
+-    let root_env = sign(
+-        &root_body,
+-        "root",
+-        "opensip.metadata.root.1",
+-        "ROOT",
+-        &root,
+-        &[0, 1, 2],
+-    );
++    // X4T-a3: root 1 is quorum root 1; each later root rotates ROOT to the
++    // next key set, signed by both. The last root is the signing root M.
++    let first = quorum_root(1);
++    let key_id = |i: usize| match &o(&first)["keys"] {
++        V::Array(keys) => o(&keys[i])["keyId"].clone(),
++        _ => panic!("keys"),
++    };
++    let n = spec.roots;
++    let chain: Vec<V> = (0..n)
++        .map(|k| {
++            if k == 0 {
++                return first.clone();
++            }
++            let mut r = o(&first).clone();
++            r.insert("rootVersion".into(), int(k as i128 + 1));
++            r.insert("previousRootVersion".into(), int(k as i128));
++            r.insert(
++                "rootKeys".into(),
++                V::Array(root_keys(k).iter().map(|&i| key_id(i)).collect()),
++            );
++            V::Object(r)
++        })
++        .collect();
++    let mut chain_pairs = Vec::new();
++    for (k, root_k) in chain.iter().enumerate() {
++        let body = canonical_bytes(root_k).unwrap();
++        let default: Vec<usize> = if k == 0 {
++            root_keys(0).to_vec()
++        } else {
++            [root_keys(k - 1), root_keys(k)].concat()
++        };
++        let by = spec
++            .root_signers
++            .iter()
++            .find(|(i, _)| *i == k)
++            .map_or(default, |(_, by)| by.to_vec());
++        let envelope = sign(&body, "root", "opensip.metadata.root.1", "ROOT", &first, &by);
++        chain_pairs.push((body, envelope));
++    }
++    let root = chain[n - 1].clone();
++    let (root_body, root_env) = chain_pairs[n - 1].clone();
++    let root_version = n as i128;
+     let entries: Vec<String> = spec
+         .revocations
+         .iter()
+@@ -311,21 +404,23 @@ pub(crate) fn generate(spec: &Spec) -> AcceptedStore {
+         })
+         .collect();
+     let revocation = canonical_text(&format!(
+-        r#"{{"entries":[{}],"issuedAt":"2026-10-01T00:00:00Z","revocationSchema":1,"revocationVersion":{},"rootVersion":1}}"#,
++        r#"{{"entries":[{}],"issuedAt":"2026-10-01T00:00:00Z","revocationSchema":1,"revocationVersion":{},"rootVersion":{root_version}}}"#,
+         entries.join(","),
+         spec.revocation_version
+     ));
++    // Law X4T r11 item 4: the list is signed under the signing root M.
+     let revocation_env = sign(
+         &revocation,
+         "revocation",
+         "opensip.metadata.revocation.1",
+         "ROOT",
+         &root,
+-        &[0, 1],
+-    );
+-    let catalog = canonical_text(
+-        r#"{"catalogSchema":1,"expiresAt":"2027-04-01T00:00:00Z","issuedAt":"2026-10-01T00:00:00Z","releases":[],"reservedRootCommands":[],"revocationVersionRequired":1,"rootVersionRequired":1,"snapshotVersion":1}"#,
++        spec.revocation_signers
++            .unwrap_or(&root_keys(n - 1)[..2]),
+     );
++    let catalog = canonical_text(&format!(
++        r#"{{"catalogSchema":1,"expiresAt":"2027-04-01T00:00:00Z","issuedAt":"2026-10-01T00:00:00Z","releases":[],"reservedRootCommands":[],"revocationVersionRequired":1,"rootVersionRequired":{root_version},"snapshotVersion":1}}"#,
++    ));
+     let catalog_env = sign(
+         &catalog,
+         "catalog",
+@@ -340,14 +435,22 @@ pub(crate) fn generate(spec: &Spec) -> AcceptedStore {
+             digest_hex(&raw_sha256(raw))
+         )
+     };
+-    let manifest = canonical_text(&format!(
+-        r#"{{"issuedAt":"2026-10-01T00:00:00Z","members":{{"artifacts":[],"catalog":{},"envelopes":[{},{},{}],"manifests":[],"permissionPolicies":[],"repairMaterial":{{"ridesOn":"DR-110","standing":"absent-by-typed-absence"}},"revocation":{},"rootChain":[{}]}},"payloadKind":"ordinary","payloadSchema":1}}"#,
+-        member("catalog.json", &catalog),
++    // Envelopes sorted by path; the root chain in chain order.
++    let mut envelopes = vec![
+         member("catalog.sig.json", &catalog_env),
+         member("revocation.sig.json", &revocation_env),
+-        member("root-0.sig.json", &root_env),
++    ];
++    let mut root_members = Vec::new();
++    for (k, (body, envelope)) in chain_pairs.iter().enumerate() {
++        envelopes.push(member(&format!("root-{k}.sig.json"), envelope));
++        root_members.push(member(&format!("root-{k}.json"), body));
++    }
++    let manifest = canonical_text(&format!(
++        r#"{{"issuedAt":"2026-10-01T00:00:00Z","members":{{"artifacts":[],"catalog":{},"envelopes":[{}],"manifests":[],"permissionPolicies":[],"repairMaterial":{{"ridesOn":"DR-110","standing":"absent-by-typed-absence"}},"revocation":{},"rootChain":[{}]}},"payloadKind":"ordinary","payloadSchema":1}}"#,
++        member("catalog.json", &catalog),
++        envelopes.join(","),
+         member("revocation.json", &revocation),
+-        member("root-0.json", &root_body),
++        root_members.join(","),
+     ));
+     let manifest_env = sign(
+         &manifest,
+@@ -361,6 +464,34 @@ pub(crate) fn generate(spec: &Spec) -> AcceptedStore {
+     let revocation_doc = doc_ref(&revocation, &revocation_env);
+     let catalog_doc = doc_ref(&catalog, &catalog_env);
+     let manifest_doc = doc_ref(&manifest, &manifest_env);
++    let mut root_chain: Vec<V> = chain_pairs
++        .iter()
++        .map(|(body, envelope)| doc_ref(body, envelope))
++        .collect();
++    match spec.chain_end {
++        ChainEnd::Head => {}
++        ChainEnd::OtherEnvelope => {
++            let other = sign(
++                &root_body,
++                "root",
++                "opensip.metadata.root.1",
++                "ROOT",
++                &root,
++                &root_keys(n - 1)[..2],
++            );
++            assert_ne!(other, root_env);
++            *root_chain.last_mut().unwrap() = doc_ref(&root_body, &other);
++            b.object(other);
++        }
++        ChainEnd::Short => {
++            root_chain.pop();
++        }
++        ChainEnd::Empty => root_chain.clear(),
++    }
++    for (body, envelope) in &chain_pairs[..n - 1] {
++        b.object(body.clone());
++        b.object(envelope.clone());
++    }
+     for raw in [
+         &root_body,
+         &root_env,
+@@ -376,18 +507,16 @@ pub(crate) fn generate(spec: &Spec) -> AcceptedStore {
+     let validated = super::admit(&root, [true, true]).unwrap();
+     let binding = obj([
+         ("rootSchema", int(1)),
+-        ("rootVersion", int(1)),
++        ("rootVersion", int(root_version)),
+         ("rootDigest", s(&digest_hex(&validated.digest()))),
+     ]);
+ 
+     // The payload metadata closure, the operation, the time evidence.
+-    let closure = b.record(
+-        Definition::PayloadMetadataClosureV1,
+-        &obj([
++    let closure_value = obj([
+             ("closureSchema", int(1)),
+             ("scope", s("ordinary-inert")),
+             ("manifest", manifest_doc),
+-            ("rootChain", V::Array(vec![root_doc.clone()])),
++            ("rootChain", V::Array(root_chain)),
+             ("catalog", catalog_doc.clone()),
+             ("revocation", revocation_doc.clone()),
+             // X4T-a: the retained inventory binds each manifest envelope
+@@ -396,13 +525,18 @@ pub(crate) fn generate(spec: &Spec) -> AcceptedStore {
+                 "members",
+                 V::Array(
+                     [
+-                        ("catalog.sig.json", &catalog_env),
+-                        ("revocation.sig.json", &revocation_env),
+-                        ("root-0.sig.json", &root_env),
++                        ("catalog.sig.json".to_owned(), &catalog_env),
++                        ("revocation.sig.json".to_owned(), &revocation_env),
+                     ]
+                     .into_iter()
++                    .chain(
++                        chain_pairs
++                            .iter()
++                            .enumerate()
++                            .map(|(k, (_, envelope))| (format!("root-{k}.sig.json"), envelope)),
++                    )
+                     .map(|(path, raw)| {
+-                        obj([("slot", s("envelopes")), ("path", s(path)), ("blob", node(raw))])
++                        obj([("slot", s("envelopes")), ("path", s(&path)), ("blob", node(raw))])
+                     })
+                     .collect(),
+                 ),
+@@ -415,8 +549,12 @@ pub(crate) fn generate(spec: &Spec) -> AcceptedStore {
+                     ("ridesOn", s("DR-110")),
+                 ]),
+             ),
+-        ]),
+-    );
++        ]);
++    let closure = if spec.chain_end == ChainEnd::Empty {
++        b.unshaped_record(&closure_value)
++    } else {
++        b.record(Definition::PayloadMetadataClosureV1, &closure_value)
++    };
+     let invocation = obj([
+         ("requestId", s("req1_cccccccccccccccccccccccccccccccc")),
+         ("stepId", int(0)),
+@@ -664,7 +802,7 @@ pub(crate) fn generate(spec: &Spec) -> AcceptedStore {
+                         ("evalHighWater", s("2026-10-02T00:00:00Z")),
+                         ("lastAccepted", s("2026-10-02T00:00:00Z")),
+                         ("anchor", anchor),
+-                        ("rootVersion", int(1)),
++                        ("rootVersion", int(root_version)),
+                         ("indexSnapshotVersion", int(1)),
+                         ("revocationVersion", int(spec.revocation_version)),
+                         ("recoveryEpochSerial", int(0)),
+diff --git a/crates/security/src/trust/accepted_store_fixture_tests.rs b/crates/security/src/trust/accepted_store_fixture_tests.rs
+index 3b49d95..59a597c 100644
+--- a/crates/security/src/trust/accepted_store_fixture_tests.rs
++++ b/crates/security/src/trust/accepted_store_fixture_tests.rs
+@@ -178,6 +178,81 @@ fn the_reference_binders_accept_the_generated_store() {
+     }
+ }
+ 
++/// X4T-a3: an n-root recorded chain. The closure lists roots 1 to n, the
++/// head is root n with its counters, every link carries both key sets, and
++/// the reference binders accept the store.
++#[test]
++fn a_recorded_rotation_lists_the_chain_with_the_head_last() {
++    for n in [2, 3] {
++        let store = generate(&Spec {
++            roots: n,
++            ..Spec::default()
++        });
++        let capsule = o(&store.capsule);
++        let head = o(&o(&capsule["heads"])["root"]);
++        let version = V::Integer(JsonInteger::new(n as i128).unwrap());
++        assert_eq!(o(&head["binding"])["rootVersion"], version);
++        assert_eq!(o(&o(&capsule["clock"])["record"])["rootVersion"], version);
++        assert_eq!(o(&store.root)["rootVersion"], version);
++        let lookup = |collection, r: &V| {
++            let V::String(h) = &o(r)["sha256"] else { panic!() };
++            store
++                .lookup(collection, super::super::decode_hex32(h).unwrap())
++                .unwrap()
++        };
++        let admission =
++            opensip_identity::parse_json(&lookup(Collection::Records, &head["admission"])).unwrap();
++        assert_eq!(o(&admission)["root"], head["document"]);
++        let closure =
++            opensip_identity::parse_json(&lookup(Collection::Records, &o(&admission)["parent"]))
++                .unwrap();
++        let V::Array(chain) = &o(&closure)["rootChain"] else { panic!() };
++        assert_eq!(chain.len(), n);
++        assert_eq!(chain.last(), Some(&head["document"]));
++        for (k, doc) in chain.iter().enumerate() {
++            let body = opensip_identity::parse_json(&lookup(Collection::Objects, &o(doc)["body"]))
++                .unwrap();
++            assert_eq!(o(&body)["rootVersion"], V::Integer(JsonInteger::new(k as i128 + 1).unwrap()));
++            let envelope =
++                opensip_identity::parse_json(&lookup(Collection::Objects, &o(doc)["envelope"]))
++                    .unwrap();
++            let V::Array(signatures) = &o(&envelope)["signatures"] else { panic!() };
++            assert_eq!(signatures.len(), if k == 0 { 3 } else { 6 }, "root {k}");
++        }
++        // The list is signed under root n.
++        let revocation = o(&o(&capsule["heads"])["revocation"]);
++        let list = opensip_identity::parse_json(&lookup(
++            Collection::Objects,
++            &o(&revocation["document"])["body"],
++        ))
++        .unwrap();
++        assert_eq!(o(&list)["rootVersion"], version);
++        let mut b = budget();
++        let bound = super::super::current_record_bindings::bind(
++            &mut b,
++            &store.store,
++            &store.capsule,
++            &store.descriptor,
++            &mut map_store(&store),
++        )
++        .unwrap();
++        assert_eq!(bound.projection().capsule(), &store.capsule);
++        let mut b = budget();
++        let clock = super::super::admitted_trust_records::capsule_clock(
++            &mut b,
++            &store.capsule,
++            &store.descriptor,
++            None,
++        )
++        .unwrap();
++        let head =
++            super::super::ordinary_roots::bind_retained_head(&mut b, clock, &mut map_store(&store))
++                .unwrap();
++        assert_eq!(head.root().value(), &store.root);
++        assert_eq!(head.body(), store.root_body.as_slice());
++    }
++}
++
+ #[test]
+ fn chosen_role_states_are_published_with_their_evidence() {
+     let store = generate(&Spec {
+diff --git a/crates/security/src/trust/current_trust_admission.rs b/crates/security/src/trust/current_trust_admission.rs
+index ee94885..589ad09 100644
+--- a/crates/security/src/trust/current_trust_admission.rs
++++ b/crates/security/src/trust/current_trust_admission.rs
+@@ -535,6 +535,8 @@ fn roots_row(e: &ordinary_roots::Error) -> TrustRow {
+         E::Chain(c) => chain_row(c),
+         E::Envelope | E::FirstQuorum => TrustRow::PayloadNotAdmissible("root"),
+         E::Shared(q) => quorum_row(q, "shared"),
++        // Item 10 (r10): a closure chain that is empty or does not end on
++        // `heads.root.document` (`EmptyChain`, `FinalIdentity`) is incomplete.
+         _ => TrustRow::Incomplete,
+     }
+ }
+@@ -558,8 +560,10 @@ fn clock_input_row(e: &ClockInputError) -> TrustRow {
+ }
+ 
+ /// Items 1 and 3: bind the root head, open its admission record, and
+-/// authenticate the accepted state from the admitted root through the
+-/// existing retained-head composition, at the view's chain budget.
++/// authenticate the accepted state through the existing retained-head
++/// composition, at the view's chain budget: from the accepted root N, the
++/// closure's first `rootChain` document, to the signing root M, `heads.root`
++/// (r10, X4T-a3).
+ fn authenticate(
+     b: &mut super::Budget,
+     capsule: &V,
+@@ -585,6 +589,11 @@ fn authenticate(
+         return refuse(TrustRow::Incomplete, "root-admission-root");
+     }
+     let closure_ref = field(&admission, "parent")?.clone();
++    // Item 3 (r10, X4T-a3): `heads.root` is the signing root M. The accepted
++    // root N is the closure's first `rootChain` document, and the chain must
++    // end on exactly `heads.root.document`, or the installation is incomplete.
++    let anchor = ordinary_roots::bind_chain_anchor(b, &closure_ref, &head, store)
++        .or_else(|e| refuse(roots_row(&e), e))?;
+     let signing_root_ref = head.document().clone();
+     let retained = roles.map(|(state, established)| RetainedRole {
+         state,
+@@ -605,7 +614,7 @@ fn authenticate(
+                     old_hits: [false; 6],
+                     recovery: [None; 6],
+                 },
+-                roots: head.authentication_context(VIEW_CHAIN),
++                roots: anchor.authentication_context(VIEW_CHAIN),
+             },
+             store,
+         )
+diff --git a/crates/security/src/trust/current_trust_admission_tests.rs b/crates/security/src/trust/current_trust_admission_tests.rs
+index 0f9f94c..6a9bbff 100644
+--- a/crates/security/src/trust/current_trust_admission_tests.rs
++++ b/crates/security/src/trust/current_trust_admission_tests.rs
+@@ -378,11 +378,16 @@ fn the_view_cost_is_measured_and_within_the_ceiling() {
+     // Pinned: the measured cost of this six-role store.
+     assert_eq!((objects, edges, bytes), MEASURED);
+ }
+-/// Item 11: one six-role view of the generated store, measured.
+-const MEASURED: (usize, usize, usize) = (23, 44, 35_371);
++/// Item 11: one six-role view of the generated store, measured. X4T-a3 adds
++/// two edges: the chain anchor's closure and first root body, both already
++/// retained, so no object or byte.
++const MEASURED: (usize, usize, usize) = (23, 46, 35_371);
+ /// Item 11: the default store's view through the native fence, measured.
++/// X4T-a3 adds the same two loads. A native load always revisits its
++/// location, so each charges six edges (the load, two for each of `trust/`
++/// and its collection, and the file) and still no object or byte.
+ #[cfg(target_os = "macos")]
+-const NATIVE_MEASURED: (usize, usize, usize) = (31, 253, 36_008);
++const NATIVE_MEASURED: (usize, usize, usize) = (31, 265, 36_008);
+ #[cfg(target_os = "macos")]
+ const _: () = assert!(
+     NATIVE_MEASURED.0 <= TRUST_VIEW_COST.0
+@@ -514,6 +519,259 @@ fn nested_causes_take_their_typed_rows() {
+     );
+ }
+ 
++// Law X4T r10 item 12 (X4T-a3): recorded rotations.
++fn rotated(roots: usize) -> Spec {
++    Spec {
++        roots,
++        ..Spec::default()
++    }
++}
++fn closure_of(store: &fixture::AcceptedStore) -> V {
++    let heads = &object(&store.capsule).unwrap()["heads"];
++    let admission = &object(&object(heads).unwrap()["root"]).unwrap()["admission"];
++    let raw = store.lookup(Collection::Records, hash_of(admission)).unwrap();
++    let admission = opensip_identity::parse_json(&raw).unwrap();
++    let raw = store
++        .lookup(Collection::Records, hash_of(&object(&admission).unwrap()["parent"]))
++        .unwrap();
++    opensip_identity::parse_json(&raw).unwrap()
++}
++fn authenticated(
++    store: &fixture::AcceptedStore,
++) -> Result<OrdinaryClockInput, TrustRefusal> {
++    let mut b = view_budget();
++    let bindings = current_record_bindings::bind(
++        &mut b,
++        &store.store,
++        &store.capsule,
++        &store.descriptor,
++        &mut reader(store, None),
++    )
++    .unwrap();
++    let roles = check_accepted_by(
++        &mut b,
++        &store.capsule,
++        &store.descriptor,
++        bindings.trace(),
++        &mut reader(store, None),
++    )
++    .unwrap();
++    authenticate(&mut b, &store.capsule, &store.descriptor, &roles, &mut reader(store, None))
++        .map(|(input, _)| input)
++}
++
++#[test]
++fn a_recorded_rotation_is_admitted_from_its_first_root_at_the_final_roots_epoch() {
++    let obs = hour_later();
++    for n in [1, 2, 3] {
++        let store = fixture::generate(&rotated(n));
++        let closure = closure_of(&store);
++        let V::Array(chain) = &object(&closure).unwrap()["rootChain"] else {
++            panic!("rootChain")
++        };
++        let heads = &object(&store.capsule).unwrap()["heads"];
++        let head_document = &object(&object(heads).unwrap()["root"]).unwrap()["document"];
++        assert_eq!(chain.len(), n);
++        assert_eq!(chain.last(), Some(head_document), "{n}: the chain ends on the head");
++        // Root 1 is the accepted root; heads.root is the signing root; the
++        // links after the first are evaluated from it.
++        let input = authenticated(&store).unwrap();
++        let roots = &input.times.proof.roots;
++        assert_eq!(roots.original_accepted_ref(), &chain[0], "{n}: accepted root");
++        assert_eq!(input.head.document(), head_document, "{n}: signing root");
++        assert_eq!(object(input.head.root().value()).unwrap()["rootVersion"], store_version(n));
++        assert_eq!(roots.chain().links().len(), n - 1, "{n}: links");
++        assert_eq!(roots.chain().accepted_version(), n as i64, "{n}: chain end");
++        assert_eq!(roots.presented_first().state(), &QuorumState::Met);
++        // Item 11: N..M-1's bodies and envelopes are the chain's bytes; the
++        // head's are the closure's.
++        let chain_raw: usize = chain[..n - 1]
++            .iter()
++            .flat_map(|doc| ["body", "envelope"].map(|k| object(doc).unwrap()[k].clone()))
++            .map(|r| store.lookup(Collection::Objects, hash_of(&r)).unwrap().len())
++            .sum();
++        assert_eq!(chain_bytes(&input), chain_raw, "{n}: chain bytes");
++        // The epoch's rootVersion and the rootVersion floor are the final
++        // root's, on the fenced read and on a reread; a one-root store is r9's.
++        for inputs in [fenced(false, &obs), fenced(true, &obs), reread()] {
++            let view = admit_store(&store, &inputs).unwrap();
++            assert_eq!(view.epoch().root_version, n as i64, "{n}: epoch");
++            assert_eq!(view.floors().root_version, Some(n as i64), "{n}: floor");
++            assert_eq!(view.standing(), TrustStanding::InstallGateRequiredForNewProcess);
++        }
++    }
++}
++fn store_version(n: usize) -> V {
++    V::Integer(opensip_identity::JsonInteger::new(n as i128).unwrap())
++}
++
++#[test]
++fn a_closure_chain_not_ending_on_the_head_is_incomplete() {
++    use fixture::ChainEnd::*;
++    let obs = hour_later();
++    for (roots, end, cause) in [
++        (1, OtherEnvelope, "FinalIdentity"),
++        (2, OtherEnvelope, "FinalIdentity"),
++        (2, Short, "FinalIdentity"),
++        (3, Short, "FinalIdentity"),
++        // The closed shape refuses an empty rootChain before the join.
++        (1, Empty, "Shape"),
++        (3, Empty, "Shape"),
++    ] {
++        let store = fixture::generate(&Spec {
++            roots,
++            chain_end: end,
++            ..Spec::default()
++        });
++        for inputs in [fenced(false, &obs), reread()] {
++            let refusal = admit_store(&store, &inputs).unwrap_err();
++            assert_eq!(refusal.row, TrustRow::Incomplete, "{roots} {end:?}: {}", refusal.cause);
++            assert_eq!(refusal.cause, cause, "{roots} {end:?}");
++            assert_eq!(refusal.row.code(), "CONFIG.CUSTODY_REFUSED");
++            assert_eq!(refusal.row.subject().as_deref(), Some("installation-incomplete"));
++        }
++    }
++    // Every closure-join refusal of the root owner is the incomplete row.
++    for e in [
++        ordinary_roots::Error::EmptyChain,
++        ordinary_roots::Error::FinalIdentity,
++        ordinary_roots::Error::FirstIdentity,
++        ordinary_roots::Error::Shape,
++    ] {
++        assert_eq!(roots_row(&e), TrustRow::Incomplete, "{e:?}");
++    }
++}
++
++#[test]
++fn a_first_root_below_its_own_threshold_refuses() {
++    let obs = hour_later();
++    let signer = |i| key_id(&fixture::generate(&Spec::default()), i);
++    for (label, spec) in [
++        // Root 1's own envelope carries one of its two required signatures.
++        (
++            "one signature",
++            Spec {
++                roots: 2,
++                root_signers: vec![(0, &[0])],
++                ..Spec::default()
++            },
++        ),
++        // Root 1 is signed by keys 0, 1 and 2; the list (signed under root 2)
++        // revokes 1 and 2, which are excluded before its threshold is judged.
++        (
++            "revoked keys excluded",
++            Spec {
++                roots: 2,
++                revocations: vec![("keyId", signer(1)), ("keyId", signer(2))],
++                ..Spec::default()
++            },
++        ),
++    ] {
++        let refusal = admit(&spec, &fenced(false, &obs)).unwrap_err();
++        assert_eq!(refusal.row, TrustRow::PayloadNotAdmissible("root"), "{label}: {}", refusal.cause);
++        assert_eq!(refusal.cause, "Times(Rooted(Roots(FirstQuorum)))", "{label}");
++        assert_eq!(refusal.row.code(), "PAYLOAD-NOT-ADMISSIBLE");
++    }
++}
++
++#[test]
++fn a_link_failure_takes_its_s5_row_naming_the_link() {
++    let obs = hour_later();
++    let signer = |i| key_id(&fixture::generate(&Spec::default()), i);
++    for (label, spec, code, subject) in [
++        // Root 2 signed only by its own keys: no continuity from root 1.
++        (
++            "continuity",
++            Spec {
++                roots: 2,
++                root_signers: vec![(1, &[20, 21, 22])],
++                ..Spec::default()
++            },
++            "ROOT.CHAIN_OLD_THRESHOLD",
++            "link:0",
++        ),
++        // Root 2 signed only by root 1's keys: no possession.
++        (
++            "possession",
++            Spec {
++                roots: 2,
++                root_signers: vec![(1, &[0, 1, 2])],
++                ..Spec::default()
++            },
++            "ROOT.CHAIN_NEW_THRESHOLD",
++            "link:0",
++        ),
++        // Root 3 carries one of root 2's keys: the second link fails.
++        (
++            "second link continuity",
++            Spec {
++                roots: 3,
++                root_signers: vec![(2, &[20, 23, 24, 25])],
++                ..Spec::default()
++            },
++            "ROOT.CHAIN_OLD_THRESHOLD",
++            "link:1",
++        ),
++        // Revoked keys are excluded: root 2's keys 20 and 21 are revoked by
++        // the list root 3 signs, so root 2's possession misses its threshold.
++        (
++            "revoked possession",
++            Spec {
++                roots: 3,
++                revocations: vec![("keyId", signer(20)), ("keyId", signer(21))],
++                ..Spec::default()
++            },
++            "ROOT.CHAIN_NEW_THRESHOLD",
++            "link:0",
++        ),
++    ] {
++        let refusal = admit(&spec, &fenced(false, &obs)).unwrap_err();
++        assert_eq!(
++            refusal.row,
++            TrustRow::Root(code, subject.into()),
++            "{label}: {}",
++            refusal.cause
++        );
++        assert_eq!(refusal.row.code(), code);
++        assert_eq!(refusal.row.subject().as_deref(), Some(subject));
++    }
++}
++
++#[test]
++fn the_revocation_list_is_verified_under_the_signing_root() {
++    let obs = hour_later();
++    // Law X4T r11 item 4: a list signed by root 2 (M) on a 1-to-2 store is
++    // admitted, with its entries carried.
++    let unused = key_id(&fixture::generate(&Spec::default()), 26);
++    let view = admit(
++        &Spec {
++            roots: 2,
++            revocations: vec![("keyId", unused.clone())],
++            ..Spec::default()
++        },
++        &fenced(false, &obs),
++    )
++    .unwrap();
++    assert_eq!(view.revoked_subjects(), [("keyId".to_owned(), unused)].as_slice());
++    assert_eq!(view.epoch().revocation_version, 1);
++    // A list signed by root 1's keys only does not meet root 2's quorum.
++    let refusal = admit(
++        &Spec {
++            roots: 2,
++            revocation_signers: Some(&[0, 1]),
++            ..Spec::default()
++        },
++        &fenced(false, &obs),
++    )
++    .unwrap_err();
++    assert!(
++        matches!(refusal.row, TrustRow::PayloadNotAdmissible(_)),
++        "{:?}: {}",
++        refusal.row,
++        refusal.cause
++    );
++}
++
+ fn key_id(store: &fixture::AcceptedStore, i: usize) -> String {
+     let keys = &object(&store.root).unwrap()["keys"];
+     let V::Array(keys) = keys else { panic!("keys") };
+diff --git a/crates/security/src/trust/floor_publication_tests.rs b/crates/security/src/trust/floor_publication_tests.rs
+index 843ed3b..339799e 100644
+--- a/crates/security/src/trust/floor_publication_tests.rs
++++ b/crates/security/src/trust/floor_publication_tests.rs
+@@ -245,8 +245,51 @@ fn the_next_admission_reaches_accepted_by_outside_the_current_chain() {
+     })
+ }
+ /// Item 11 (r8): the default store's native reread after one floor
+-/// publication, measured.
+-const NATIVE_AFTER_FLOOR: (usize, usize, usize) = (31, 253, 32_103);
++/// publication, measured. X4T-a3's chain anchor adds twelve edges, as in
++/// NATIVE_MEASURED.
++const NATIVE_AFTER_FLOOR: (usize, usize, usize) = (31, 265, 32_103);
++
++/// Law X4T r10 item 12 (X4T-a3): a floor publication on a store whose
++/// recorded chain rotates root 1 to root 2 is followed by an admitted read.
++/// The floor publication keeps the heads and the closure; the epoch and the
++/// rootVersion floor stay the final root's.
++#[test]
++fn a_floor_publication_on_a_rotated_store_is_followed_by_an_admitted_read() {
++    crate::test_scratch::settled(|| {
++        let site = site(&Spec {
++            roots: 2,
++            ..Spec::default()
++        });
++        let before = fs::read(current_path(&site)).unwrap();
++        let mut owner = bound(&site);
++        let obs = observation("boot-1", 3607, "2026-10-02T01:00:00Z");
++        let view = read(&site, &mut owner, &fenced(false, &obs)).unwrap();
++        assert_eq!(view.epoch().root_version, 2);
++        assert_eq!(view.floors().root_version, Some(2));
++        let published = owner.confirmed().unwrap().raw().to_vec();
++        assert_ne!(published, before, "the floor was written ahead");
++        let old = opensip_identity::parse_json(&before).unwrap();
++        assert_eq!(text(owner.capsule(), "heads"), text(&old, "heads"));
++        drop(owner);
++        // A later invocation: its own one read, then the fenced first read.
++        let mut next = bound(&site);
++        let later = observation("boot-1", 7207, "2026-10-02T02:00:00Z");
++        let view = read(&site, &mut next, &fenced(false, &later)).unwrap();
++        assert_eq!(view.standing(), TrustStanding::InstallGateRequiredForNewProcess);
++        assert_eq!(view.epoch().root_version, 2);
++        assert_eq!(view.floors().root_version, Some(2));
++        // And the unfenced reread through the native readers.
++        let mut b = view_budget();
++        let view = admit_native(&mut b, &site.fence, &site.store.store, &super::super::ViewInputs {
++            mode: ReadMode::Reread,
++            observation: None,
++            project_policy: None,
++            core_closure: fixture::CORE_CLOSURE,
++        })
++        .unwrap();
++        assert_eq!(view.epoch().root_version, 2);
++    })
++}
+ 
+ #[test]
+ fn accepted_by_outside_the_chain_must_be_an_earlier_accepted_event_of_that_role() {
+diff --git a/crates/security/src/trust/trust_bootstrap_tests.rs b/crates/security/src/trust/trust_bootstrap_tests.rs
+index 525f68a..d8276b1 100644
+--- a/crates/security/src/trust/trust_bootstrap_tests.rs
++++ b/crates/security/src/trust/trust_bootstrap_tests.rs
+@@ -950,13 +950,13 @@ fn a_multi_link_root_chain_is_authenticated_and_recorded_in_full() {
+                 .len(),
+             2
+         );
+-        // Stated gap (judgment call 12): X4T-a's reader authenticates the
+-        // retained closure with the head root as both the accepted and the
+-        // signing root, so a chain of more than one root is refused at
+-        // `FirstIdentity` by the confirming admission. The acceptance itself
+-        // is complete and durable; the reader is the owner of the fix.
+-        let err = confirm(&site, &mut owner, &obs, &closure).unwrap_err();
+-        assert_eq!(err.row, TrustRow::Incomplete);
+-        assert!(err.cause.contains("FirstIdentity"), "{err:?}");
++        // Law X4T r10 item 3 (X4T-a3, closing judgment call 12): the reader
++        // takes root 1, the closure's first `rootChain` document, as the
++        // accepted root and `heads.root` (root 2) as the signing root, so the
++        // confirming admission admits the rotated store at the final root's
++        // epoch and floor.
++        let view = confirm(&site, &mut owner, &obs, &closure).unwrap();
++        assert_eq!(view.epoch().root_version, 2);
++        assert_eq!(view.floors().root_version, Some(2));
+     });
+ }
+diff --git a/crates/security/src/trust_ordinary_roots.rs b/crates/security/src/trust_ordinary_roots.rs
+index 0e0dc54..e7d0bac 100644
+--- a/crates/security/src/trust_ordinary_roots.rs
++++ b/crates/security/src/trust_ordinary_roots.rs
+@@ -20,6 +20,7 @@ pub(super) enum Error {
+     HeadRoot,
+     HeadBinding,
+     HeadExpiry,
++    EmptyChain,
+ }
+ impl From<M::Error> for Error {
+     fn from(e: M::Error) -> Self {
+@@ -383,6 +384,57 @@ pub(super) fn bind_retained_head(
+     })
+ }
+ 
++// Law X4T r10 item 3 (X4T-a3): the accepted root N of a retained head's
++// recorded chain. The head is the signing root M; N is the first `rootChain`
++// document of the payload metadata closure the head's root admission names.
++pub(super) struct ChainAnchor {
++    document: V,
++    root: ValidatedRootPayload,
++}
++impl ChainAnchor {
++    pub(super) fn authentication_context(
++        &self,
++        chain_budget: ChainBudget,
++    ) -> AuthenticationContext<'_> {
++        AuthenticationContext {
++            accepted_ref: &self.document,
++            accepted_root: &self.root,
++            chain_budget,
++        }
++    }
++}
++// The closure join: the chain must end on exactly the head's document, both
++// body and envelope references; a value-only match is not enough. N is the
++// first document's body, admitted as a root. Its own threshold, first identity
++// and the links N+1..M stay `verify_captured_core`'s.
++pub(super) fn bind_chain_anchor(
++    budget: &mut Budget,
++    closure_ref: &V,
++    head: &RetainedHead,
++    store: &mut impl crate::trust::root_payload::retained_metadata_index::Store,
++) -> Result<ChainAnchor, Error> {
++    budget.scope(|b| {
++        let raw = b.load(Collection::Records, closure_ref, store)?;
++        let closure =
++            S::admit(Definition::PayloadMetadataClosureV1, &raw).map_err(|_| Error::Shape)?;
++        let chain = array(&object(&closure).unwrap()["rootChain"]).unwrap();
++        // The closed shape already requires one to 64 documents.
++        let (Some(first), Some(last)) = (chain.first(), chain.last()) else {
++            return Err(Error::EmptyChain);
++        };
++        if last != head.document() {
++            return Err(Error::FinalIdentity);
++        }
++        let body = b.load(Collection::Objects, &object(first).unwrap()["body"], store)?;
++        let value = super::super::metadata::parse(&body).map_err(|_| Error::FirstIdentity)?;
++        let root = super::admit(&value, [true, true]).map_err(|_| Error::FirstIdentity)?;
++        Ok(ChainAnchor {
++            document: first.clone(),
++            root,
++        })
++    })
++}
++
+ #[cfg(test)]
+ mod tests {
+     use super::*;
