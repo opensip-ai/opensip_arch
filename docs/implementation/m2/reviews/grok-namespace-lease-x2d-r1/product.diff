@@ -1,0 +1,1850 @@
+diff --git a/crates/security/src/custody.rs b/crates/security/src/custody.rs
+index dba7ed6..b8032f7 100644
+--- a/crates/security/src/custody.rs
++++ b/crates/security/src/custody.rs
+@@ -1818,6 +1818,10 @@ pub(crate) mod git_tracking {
+ pub(crate) mod first_registration {
+     include!("custody/first_registration.rs");
+ }
++#[cfg(target_os = "macos")]
++pub(crate) mod namespace_lease {
++    include!("custody/namespace_lease.rs");
++}
+ #[cfg(all(test, target_os = "macos"))]
+ pub(crate) mod installation_read_fixture {
+     include!("custody/installation_read_fixture.rs");
+diff --git a/crates/security/src/custody/first_registration.rs b/crates/security/src/custody/first_registration.rs
+index c265dab..a39a555 100644
+--- a/crates/security/src/custody/first_registration.rs
++++ b/crates/security/src/custody/first_registration.rs
+@@ -21,8 +21,9 @@
+ // which is not implemented here. The write-gate entries for project
+ // admission and tracking (X2b's, read side only until now) are here too.
+ // Every refusal names its item 8 row; the public projection is the
+-// composition owner's. Namespace leases (X2d) and the operation handoff
+-// (X2e) are later units. Library only.
++// composition owner's. Namespace admission and leases are X2d's
++// (`namespace_lease`, which reuses this unit's owner checks and rows); the
++// operation handoff (X2e) is a later unit. Library only.
+ use super::git_tracking::{
+     Failure as TrackingFailure, TrackingInputs, TrackingObservation, TrackingRefusal, TrackingRow,
+     observe_tracking, recheck_tracking,
+@@ -69,10 +70,10 @@ use std::path::{Path, PathBuf};
+ 
+ /// The installation's project parents (item 6 step 3) and the namespace's
+ /// two lease carriers (the registry owner's initial namespace profile).
+-const HOST: &str = "host";
+-const PROJECTS: &str = "projects";
+-const WRITER_LEASE: &str = "writer.lease";
+-const READERS_LEASE: &str = "readers.lease";
++pub(super) const HOST: &str = "host";
++pub(super) const PROJECTS: &str = "projects";
++pub(super) const WRITER_LEASE: &str = "writer.lease";
++pub(super) const READERS_LEASE: &str = "readers.lease";
+ /// The installation's transition directory and the one entry P0 gives it.
+ const TRANSITIONS: &str = "transitions";
+ const LINEAGE: &[u8] = b"lineage";
+@@ -85,7 +86,7 @@ const MARKER_PREFIX: &[u8] = b"opensip-project-id-v1\n";
+ const SCAN_ENTRIES: usize = 5;
+ const SCAN_NAME_BYTES: usize = 4 * 256;
+ /// One status read with a buffer no smaller than the native `stat`.
+-const STATUS: WorkCost = WorkCost {
++pub(super) const STATUS: WorkCost = WorkCost {
+     objects: 0,
+     edges: 1,
+     bytes: 512,
+@@ -126,6 +127,8 @@ pub(crate) enum Step {
+     Marker,
+     Active,
+     Confirmed,
++    /// Law X2 item 7 (unit X2d): namespace admission and its lease.
++    Lease,
+ }
+ /// The owner a refusal concerns.
+ #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+@@ -197,6 +200,9 @@ pub(crate) enum RegistrationRow {
+     HostIo,
+     /// The host invariant row: a broken composition.
+     Invariant,
++    /// The busy row (`LEDGER.BUSY_TIMEOUT` / `PROJECT.BUSY`): a project
++    /// lease is held elsewhere (item 7, unit X2d).
++    Busy,
+ }
+ impl RegistrationRefusal {
+     pub(crate) fn row(&self) -> RegistrationRow {
+@@ -246,10 +252,10 @@ fn lift<E>(wrap: impl FnOnce(E) -> RegistrationRefusal) -> impl FnOnce(WorkFailu
+ fn io_at(step: Step, owner: Owner) -> impl FnOnce(WorkFailure<io::Error>) -> Failure {
+     lift(move |error| RegistrationRefusal::Io(step, owner, error))
+ }
+-fn admission(failure: AdmissionFailure) -> Failure {
++pub(super) fn admission(failure: AdmissionFailure) -> Failure {
+     lift(RegistrationRefusal::Admission)(failure)
+ }
+-fn tracking(failure: TrackingFailure) -> Failure {
++pub(super) fn tracking(failure: TrackingFailure) -> Failure {
+     lift(RegistrationRefusal::Tracking)(failure)
+ }
+ fn chain(failure: WorkFailure<ProjectChainRefusal>) -> Failure {
+@@ -257,7 +263,10 @@ fn chain(failure: WorkFailure<ProjectChainRefusal>) -> Failure {
+ }
+ /// A private-access failure: capture I/O and append I/O are the host I/O
+ /// row; an unreadable capture or a refused predicate is custody.
+-fn private(step: Step, owner: Owner) -> impl FnOnce(WorkFailure<PreparePrivateError>) -> Failure {
++pub(super) fn private(
++    step: Step,
++    owner: Owner,
++) -> impl FnOnce(WorkFailure<PreparePrivateError>) -> Failure {
+     use RegistrationRefusal as R;
+     move |failure| {
+         let error = match failure {
+@@ -326,7 +335,7 @@ fn write(step: Step, owner: Owner) -> impl FnOnce(WorkFailure<NewRegularWriteErr
+     })
+ }
+ /// macOS `ELOOP` and `ENOTDIR`: a link or a non-directory at a name.
+-const ELOOP: i32 = 62;
++pub(super) const ELOOP: i32 = 62;
+ const ENOTDIR: i32 = 20;
+ fn kind_or_io(step: Step, owner: Owner) -> impl FnOnce(WorkFailure<io::Error>) -> Failure {
+     lift(move |error: io::Error| match error.raw_os_error() {
+@@ -433,7 +442,7 @@ pub(crate) struct ProjectInputs<'a> {
+ 
+ // ------------------------------------------------------------- the costs
+ 
+-fn capture_cost() -> WorkCost {
++pub(super) fn capture_cost() -> WorkCost {
+     opensip_platform::descriptor_acl_capture_cost()
+ }
+ /// `prepare_fresh_private_sample`: a sample, the append and a sample.
+@@ -450,7 +459,7 @@ fn filesystem_cost() -> WorkCost {
+ fn barrier_cost() -> WorkCost {
+     opensip_platform::directory_barrier_cost()
+ }
+-fn name_cost() -> WorkCost {
++pub(super) fn name_cost() -> WorkCost {
+     opensip_platform::descriptor_name_observation_cost()
+ }
+ /// One reopened file's confirmation: the open, both samples and the read.
+@@ -572,7 +581,7 @@ fn capture(
+     }))
+ }
+ /// A private regular file's full metadata sample, judged private.
+-fn private_file(
++pub(super) fn private_file(
+     file: &File,
+     step: Step,
+     owner: Owner,
+@@ -590,7 +599,7 @@ fn judge_private(sample: &DescriptorAclCapture, owner: Owner, uid: u32) -> Resul
+ /// A retained file still carries `expected` as its full sample (any
+ /// difference, an unlinked or replaced file included, is a change), and is
+ /// still private.
+-fn same_private(
++pub(super) fn same_private(
+     file: &File,
+     expected: &DescriptorMetadata,
+     step: Step,
+@@ -709,7 +718,7 @@ fn named(
+         refuse(RegistrationRefusal::Changed(owner))
+     }
+ }
+-fn identity(
++pub(super) fn identity(
+     file: &File,
+     step: Step,
+     owner: Owner,
+@@ -723,7 +732,7 @@ fn identity(
+ }
+ /// The retained `child` is still the directory a no-follow reopen of `name`
+ /// under `parent` finds, and still has its exact name.
+-fn rebind(
++pub(super) fn rebind(
+     parent: &RetainedDirectory,
+     name: &str,
+     child: &RetainedDirectory,
+@@ -746,7 +755,7 @@ fn rebind(
+ }
+ /// An installation-private child directory if present: opened no-follow,
+ /// judged private (0700, owned, an ACL with no foreign grant) and named.
+-fn private_child(
++pub(super) fn private_child(
+     parent: &RetainedDirectory,
+     name: &str,
+     uid: u32,
+@@ -1987,6 +1996,8 @@ pub(crate) enum ProjectWriteRefusal {
+     Project(AdmissionFailure),
+     Tracking(TrackingFailure),
+     Registration(Failure),
++    /// Item 7's namespace admission or lease (unit X2d).
++    Namespace(super::namespace_lease::Failure),
+ }
+ /// The row a write-gate project refusal names, for the composition owner.
+ #[derive(Debug, Clone, PartialEq, Eq)]
+@@ -2020,6 +2031,9 @@ impl ProjectWriteRefusal {
+                 TrackingRow::HostIo => RegistrationRow::HostIo,
+             }),
+             Self::Registration(failure) => work(failure, RegistrationRefusal::row),
++            Self::Namespace(failure) => {
++                work(failure, super::namespace_lease::NamespaceRefusal::row)
++            }
+         }
+     }
+ }
+@@ -2323,7 +2337,7 @@ pub(super) fn register_on_gate(
+ 
+ /// The registered project's recheck set (item 3's, with the owners item 6
+ /// published), on the given ledger.
+-fn recheck_registered(
++pub(super) fn recheck_registered(
+     registered: &RegisteredProject,
+     installation: &DurableInstallation,
+     policy: &ProjectChainPolicy<'_>,
+diff --git a/crates/security/src/custody/installation_read.rs b/crates/security/src/custody/installation_read.rs
+index e74cd78..e35885c 100644
+--- a/crates/security/src/custody/installation_read.rs
++++ b/crates/security/src/custody/installation_read.rs
+@@ -89,6 +89,14 @@ pub(crate) enum TrackingSessionRefusal {
+     Tracking(super::git_tracking::Failure),
+ }
+ 
++/// A namespace admission's or lease's refusal on the read session: the
++/// session's own, or item 7's (law X2 item 8).
++#[derive(Debug)]
++pub(crate) enum NamespaceSessionRefusal {
++    Session(SessionRefusal),
++    Namespace(super::namespace_lease::Failure),
++}
++
+ /// A project admission's refusal on the read session: the session's own
+ /// (receipt, latch or recheck), or the project admission's (law X2 item 8).
+ #[derive(Debug)]
+@@ -287,6 +295,27 @@ impl ReadSession {
+         Ok(observation)
+     }
+ 
++    /// Law X2 item 7 (unit X2d): admit the namespace of an Eligible root,
++    /// with its tracking observation, under this session's held fence and
++    /// on its ledger. N is R0's ACTIVE row's. No lock is taken: the target
++    /// borrows this session, and `NamespaceTarget::lease_shared` takes
++    /// SHARED-READ. Any refusal latches the session; the fence stays held.
++    pub(crate) fn admit_namespace(
++        &self,
++        admission: super::project_admission::ProjectRootAdmission,
++        tracking: super::git_tracking::TrackingObservation,
++        inputs: &super::first_registration::ProjectInputs<'_>,
++    ) -> Result<super::namespace_lease::NamespaceTarget<&Self>, NamespaceSessionRefusal> {
++        super::namespace_lease::admit(
++            self,
++            super::namespace_lease::NamespaceSubject::Eligible {
++                admission,
++                tracking,
++            },
++            inputs,
++        )
++    }
++
+     /// One charged step on the retained I. Every refusal, and every budget
+     /// failure, latches the session.
+     pub(super) fn step<R>(
+@@ -844,6 +873,70 @@ fn read_capture(
+     }))
+ }
+ 
++/// Law X2 item 7 (unit X2d): the read session holds the fence for its
++/// namespace steps. Each step runs on the session ledger with the read
++/// receipt's premise, then one full session recheck, while the fence is
++/// held. Any refusal latches the session and drops what the step returned,
++/// so no project lock outlives it.
++impl super::namespace_lease::FenceHolder for &ReadSession {
++    type Refusal = NamespaceSessionRefusal;
++    fn fenced<R>(
++        &mut self,
++        inputs: &super::first_registration::ProjectInputs<'_>,
++        action: impl FnOnce(
++            &super::namespace_lease::Held<'_, '_>,
++            &mut WorkScope<'_>,
++        ) -> Result<R, super::namespace_lease::Failure>,
++    ) -> Result<R, NamespaceSessionRefusal> {
++        use super::project_admission::judged_registry;
++        use super::project_chain::ProjectChainPolicy;
++        let session: &ReadSession = self;
++        let judged = judged_registry(session.observation.required()).ok_or(
++            NamespaceSessionRefusal::Session(SessionRefusal::Gate(GateRefusal::Latched)),
++        )?;
++        let value = {
++            let mut state = session.state.borrow_mut();
++            let State {
++                ledger,
++                latched,
++                receipt,
++                ..
++            } = &mut *state;
++            if *latched || ledger.is_failed() {
++                return Err(NamespaceSessionRefusal::Session(SessionRefusal::Gate(
++                    GateRefusal::Latched,
++                )));
++            }
++            let qualification = receipt.qualification();
++            let home_filesystem =
++                |sample: &DescriptorFilesystem| qualification.is_home_filesystem(sample);
++            let policy = ProjectChainPolicy::new(
++                qualification.omission_premise(),
++                &home_filesystem,
++                inputs.trust_groups,
++            );
++            let held = super::namespace_lease::Held {
++                installation: session.installation(),
++                uid: session.uid(),
++                home: session.observation.chain().home_spelling(),
++                judged,
++                policy: &policy,
++                inputs,
++                durable: None,
++            };
++            let result = ledger.scope(|work| action(&held, work));
++            if result.is_err() {
++                *latched = true;
++            }
++            result.map_err(NamespaceSessionRefusal::Namespace)?
++        };
++        session
++            .recheck()
++            .map_err(NamespaceSessionRefusal::Session)?;
++        Ok(value)
++    }
++}
++
+ #[cfg(test)]
+ mod tests {
+     include!("installation_read_tests.rs");
+diff --git a/crates/security/src/custody/namespace_lease.rs b/crates/security/src/custody/namespace_lease.rs
+new file mode 100644
+index 0000000..0217070
+--- /dev/null
++++ b/crates/security/src/custody/namespace_lease.rs
+@@ -0,0 +1,799 @@
++// Law X2 r8 item 7 (unit X2d): namespace admission and leases. For an
++// Eligible root (N from R0's ACTIVE row) or a root this admission has just
++// registered (N from R2's ACTIVE row), never from a caller, under the held
++// installation fence and on the holder's one ledger:
++// - `admit`: the root admission's own recheck (chain, incarnation, marker,
++//   registry owner, v1 absence) with item 6a's tracking observation, or the
++//   registered project's recheck; then `I/host`, `I/host/projects`, N and
++//   both lease files confirmed under installation-private custody and
++//   retained. No project lock is taken. The result, `NamespaceTarget`, is
++//   the seam where X3b's floor step runs (X3b r8 items 1 and 3, composed by
++//   X3b-3): under the fence, with R current and no project lock held.
++// - `lease`: the same rechecks again, then S7's lease without blocking on
++//   the retained carriers (SHARED-READ: `readers.lease` LOCK_SH|LOCK_NB;
++//   APPEND-WRITE: `writer.lease` LOCK_EX|LOCK_NB; EXCLUSIVE: `writer.lease`
++//   then `readers.lease`, both LOCK_EX|LOCK_NB), the locked carriers' name
++//   bindings and the namespace's rechecked, and the holder's full recheck.
++//   A busy or failed lock, or any later refusal, releases every project
++//   lock already taken, in reverse order, while the fence is still held.
++// The result is `FencedNamespace`: the held lease, the ACTIVE row snapshot
++// and the root admission. It borrows the fence's holder, so the fence
++// cannot be released while it lives. This unit never releases the fence:
++// item 7a (unit X2e) decides when; until then a `FencedNamespace` can only
++// be dropped, which releases its lease, and the fence goes with its holder
++// afterwards. No lease is taken without the fence: the read-only recovery
++// selector's fence-free SHARED-READ (item 7's r6 exception) is X6's and is
++// not here. Library only.
++use super::first_registration::{
++    HOST, Owner, PROJECTS, ProjectInputs, READERS_LEASE, RegisteredProject, RegistrationRefusal,
++    RegistrationRow, STATUS, Step, WRITER_LEASE, admission, capture_cost, identity, name_cost,
++    private, private_child, private_file, rebind, recheck_registered, same_private, tracking,
++};
++use super::git_tracking::{TrackingInputs, TrackingObservation, recheck_tracking};
++use super::installation_admission::{DurableInstallation, RequiredFile, plus, times};
++use super::project_admission::{Classification, ProjectRootAdmission};
++use super::project_chain::ProjectChainPolicy;
++use crate::private_access::observe_private_directory;
++use opensip_identity::{ProjectRegistryEntry, ProjectRegistryStatus};
++use opensip_platform::{
++    DescriptorMetadata, FileLock, LockMode, RetainedDirectory, WorkCost, WorkFailure, WorkScope,
++};
++use std::ffi::OsStr;
++use std::fs::File;
++use std::io;
++use std::path::Path;
++
++/// One nonblocking lock attempt: the carrier's kind check (a status read),
++/// its close-on-exec check and the `flock` itself.
++const LOCK: WorkCost = WorkCost {
++    objects: 0,
++    edges: 3,
++    bytes: 512,
++};
++
++// ------------------------------------------------------------- refusals
++
++/// S7's three lease modes (law X2 item 7).
++#[derive(Debug, Clone, Copy, PartialEq, Eq)]
++pub(crate) enum LeaseMode {
++    /// `readers.lease` LOCK_SH|LOCK_NB only.
++    SharedRead,
++    /// `writer.lease` LOCK_EX|LOCK_NB only.
++    AppendWrite,
++    /// `writer.lease` LOCK_EX|LOCK_NB, then `readers.lease` LOCK_EX|LOCK_NB.
++    Exclusive,
++}
++/// The modes a writer's gate may take. A read session takes SHARED-READ
++/// only; there is no upgrade from one mode to another.
++#[derive(Debug, Clone, Copy, PartialEq, Eq)]
++pub(crate) enum WriterLease {
++    AppendWrite,
++    Exclusive,
++}
++impl WriterLease {
++    fn mode(self) -> LeaseMode {
++        match self {
++            Self::AppendWrite => LeaseMode::AppendWrite,
++            Self::Exclusive => LeaseMode::Exclusive,
++        }
++    }
++}
++
++/// Why namespace admission or its lease refused. Each variant has one item
++/// 8 row (`row`).
++#[derive(Debug)]
++pub(crate) enum NamespaceRefusal {
++    /// Item 4: only Eligible grants namespace admission.
++    NotEligible(Classification),
++    /// A recheck, custody, binding or I/O refusal on an owner, with X2c's
++    /// rows unchanged.
++    Owner(RegistrationRefusal),
++    /// `host`, `projects`, N or a lease file is positively absent although
++    /// R's ACTIVE row names N: the installation is incomplete.
++    Missing(Owner, &'static str),
++    /// A project lock is held elsewhere: this carrier refused LOCK_NB.
++    Busy(&'static str),
++    /// A composition that cannot arise from the admitted inputs.
++    Invariant(&'static str),
++}
++impl NamespaceRefusal {
++    pub(crate) fn row(&self) -> RegistrationRow {
++        use RegistrationRow as Row;
++        match self {
++            Self::NotEligible(Classification::RecoveryNeeded { .. } | Classification::OneSided) => {
++                Row::RootCustody("identity-recovery-required")
++            }
++            Self::NotEligible(Classification::Contradiction) => {
++                Row::RootCustody("identity-contradiction")
++            }
++            // A FirstUseCandidate registers first, on the write gate; asking
++            // for its namespace is a broken composition.
++            Self::NotEligible(
++                Classification::FirstUseCandidate | Classification::Eligible { .. },
++            ) => Row::Invariant,
++            Self::Owner(refusal) => refusal.row(),
++            Self::Missing(..) => Row::Incomplete,
++            Self::Busy(_) => Row::Busy,
++            Self::Invariant(_) => Row::Invariant,
++        }
++    }
++}
++pub(crate) type Failure = WorkFailure<NamespaceRefusal>;
++fn refuse<T>(refusal: NamespaceRefusal) -> Result<T, Failure> {
++    Err(WorkFailure::Operation(refusal))
++}
++/// An owner's refusal, with X2c's row.
++fn registration(failure: WorkFailure<RegistrationRefusal>) -> Failure {
++    match failure {
++        WorkFailure::Budget(budget) => WorkFailure::Budget(budget),
++        WorkFailure::Operation(refusal) => WorkFailure::Operation(NamespaceRefusal::Owner(refusal)),
++    }
++}
++
++// ------------------------------------------------------- the fence holder
++
++/// What a step sees on the held fence: the retained I, the invoking user,
++/// H's spelling, the registry as the holder retains it, the chain policy
++/// with the holder's premise, and the inputs item 6a reads only to refuse.
++/// The write gate also lends its `DurableInstallation`, which a registered
++/// project's recheck needs.
++pub(crate) struct Held<'a, 'p> {
++    pub(super) installation: &'a RetainedDirectory,
++    pub(super) uid: u32,
++    pub(super) home: &'a Path,
++    pub(super) judged: &'a RequiredFile,
++    pub(super) policy: &'a ProjectChainPolicy<'p>,
++    pub(super) inputs: &'a ProjectInputs<'a>,
++    pub(super) durable: Option<&'a DurableInstallation>,
++}
++/// The owner of the held installation fence: the ordinary writer's gate or
++/// the read session. Implemented beside each, where their private state is.
++pub(crate) trait FenceHolder {
++    type Refusal: std::fmt::Debug;
++    /// One charged step under the held fence on the holder's one ledger,
++    /// then the holder's full recheck while the fence is still held. Any
++    /// refusal spends the gate or latches the session; a value the step
++    /// returned is dropped before the refusal returns.
++    fn fenced<R>(
++        &mut self,
++        inputs: &ProjectInputs<'_>,
++        action: impl FnOnce(&Held<'_, '_>, &mut WorkScope<'_>) -> Result<R, Failure>,
++    ) -> Result<R, Self::Refusal>;
++}
++
++// ------------------------------------------------------------ the subject
++
++/// The root admission item 7 leases for: an Eligible root with its tracking
++/// observation (R0), or a project this admission has just registered (R2).
++pub(crate) enum NamespaceSubject {
++    Eligible {
++        admission: ProjectRootAdmission,
++        tracking: TrackingObservation,
++    },
++    Registered(RegisteredProject),
++}
++impl std::fmt::Debug for NamespaceSubject {
++    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
++        match self {
++            Self::Eligible { admission, .. } => f.debug_tuple("Eligible").field(admission).finish(),
++            Self::Registered(registered) => f.debug_tuple("Registered").field(registered).finish(),
++        }
++    }
++}
++/// The ACTIVE row of the current registry owner R that names N: R0's for an
++/// Eligible root (exactly one live row at N, the classification's), or R2's
++/// for a fresh registration (which must still classify Eligible). Charged
++/// as one scan of R's rows.
++fn active_row(
++    subject: &NamespaceSubject,
++    work: &mut WorkScope<'_>,
++) -> Result<ProjectRegistryEntry, Failure> {
++    let (document, expected) = match subject {
++        NamespaceSubject::Eligible { admission, .. } => {
++            let Classification::Eligible { namespace, project } = admission.classification() else {
++                return refuse(NamespaceRefusal::NotEligible(
++                    admission.classification().clone(),
++                ));
++            };
++            (
++                admission.registry().document(),
++                (namespace.clone(), project.clone()),
++            )
++        }
++        NamespaceSubject::Registered(registered) => (
++            registered.registry().document(),
++            (
++                registered.namespace_id().to_owned(),
++                registered.project_id().to_owned(),
++            ),
++        ),
++    };
++    let scan = WorkCost {
++        objects: 1,
++        edges: document.entries().len().max(1),
++        bytes: document.raw().len(),
++    };
++    work.run(scan, |_| {
++        if let NamespaceSubject::Registered(registered) = subject {
++            let eligible = Classification::Eligible {
++                namespace: expected.0.clone(),
++                project: expected.1.clone(),
++            };
++            if registered.classification() != eligible {
++                return refuse(NamespaceRefusal::Invariant("not-eligible"));
++            }
++        }
++        let mut rows = document
++            .entries()
++            .iter()
++            .filter(|entry| entry.namespace_id() == expected.0);
++        match (rows.next(), rows.next()) {
++            (Some(row), None)
++                if row.status() == ProjectRegistryStatus::Active
++                    && row.project_id() == expected.1 =>
++            {
++                Ok(row.clone())
++            }
++            _ => refuse(NamespaceRefusal::Invariant("active-row")),
++        }
++    })
++}
++/// The subject's own recheck under the held fence: the root admission's
++/// (chain, incarnation, marker, R0 and v1 absence) and item 6a's tracking
++/// observation against this admission's chain, or the registered project's
++/// (every owner item 6 published, R2 and the tracking observation).
++fn recheck_subject(
++    subject: &NamespaceSubject,
++    held: &Held<'_, '_>,
++    work: &mut WorkScope<'_>,
++) -> Result<(), Failure> {
++    match subject {
++        NamespaceSubject::Eligible {
++            admission: root,
++            tracking: observed,
++        } => {
++            root.recheck(held.uid, held.installation, held.judged, held.policy, work)
++                .map_err(|failure| registration(admission(failure)))?;
++            let inputs = TrackingInputs {
++                chain: root.chain(),
++                uid: held.uid,
++                policy: held.policy,
++                home: held.home,
++                environment: held.inputs.environment,
++                system_sources: held.inputs.system_sources,
++            };
++            recheck_tracking(observed, &inputs, work)
++                .map_err(|failure| registration(tracking(failure)))
++        }
++        NamespaceSubject::Registered(registered) => {
++            let Some(durable) = held.durable else {
++                return refuse(NamespaceRefusal::Invariant("registered-without-gate"));
++            };
++            recheck_registered(
++                registered,
++                durable,
++                held.policy,
++                held.inputs,
++                Step::Lease,
++                work,
++            )
++            .map_err(registration)
++        }
++    }
++}
++
++// ---------------------------------------------------------- the namespace
++
++/// One lease carrier: its retained no-follow descriptor and the full sample
++/// it was judged private with.
++struct Carrier {
++    name: &'static str,
++    file: File,
++    metadata: DescriptorMetadata,
++}
++/// `I/host`, `I/host/projects` and N, retained and judged private.
++struct Namespace {
++    id: String,
++    host: RetainedDirectory,
++    projects: RetainedDirectory,
++    directory: RetainedDirectory,
++}
++/// An installation-private directory that R's ACTIVE row requires: present
++/// (absence is the incomplete row), private, exactly named, and on its
++/// parent's device.
++fn required_directory(
++    parent: &RetainedDirectory,
++    name: &str,
++    owner: Owner,
++    uid: u32,
++    work: &mut WorkScope<'_>,
++) -> Result<RetainedDirectory, Failure> {
++    let Some(child) =
++        private_child(parent, name, uid, Step::Lease, owner, work).map_err(registration)?
++    else {
++        return refuse(NamespaceRefusal::Missing(owner, "absent"));
++    };
++    if identity(child.as_file(), Step::Lease, owner, work)
++        .map_err(registration)?
++        .0
++        != identity(parent.as_file(), Step::Lease, owner, work)
++            .map_err(registration)?
++            .0
++    {
++        return refuse(NamespaceRefusal::Owner(RegistrationRefusal::Custody(
++            owner,
++            "volume-unsupported",
++        )));
++    }
++    Ok(child)
++}
++/// One lease carrier opened no-follow under N and judged private (owned by
++/// the invoking user, 0600, one link, no foreign ACL grant). Absence is the
++/// incomplete row; a link or another kind is custody.
++fn open_carrier(
++    directory: &RetainedDirectory,
++    name: &'static str,
++    uid: u32,
++    work: &mut WorkScope<'_>,
++) -> Result<Carrier, Failure> {
++    let file = work.run(RetainedDirectory::open_regular_cost(name), |_| {
++        directory
++            .open_regular(name)
++            .map_err(|error| WorkFailure::Operation(carrier_open_refusal(name, error)))
++    })?;
++    let metadata =
++        private_file(&file, Step::Lease, Owner::Namespace, uid, work).map_err(registration)?;
++    Ok(Carrier {
++        name,
++        file,
++        metadata,
++    })
++}
++fn carrier_open_refusal(name: &'static str, error: io::Error) -> NamespaceRefusal {
++    use RegistrationRefusal as R;
++    if error.kind() == io::ErrorKind::NotFound {
++        NamespaceRefusal::Missing(Owner::Namespace, name)
++    } else if error.raw_os_error() == Some(super::first_registration::ELOOP) {
++        NamespaceRefusal::Owner(R::Custody(Owner::Namespace, "symlink"))
++    } else if error.kind() == io::ErrorKind::InvalidInput {
++        NamespaceRefusal::Owner(R::Custody(Owner::Namespace, "not-a-regular-file"))
++    } else {
++        NamespaceRefusal::Owner(R::Io(Step::Lease, Owner::Namespace, error))
++    }
++}
++/// Item 7's first bullet: the namespace directory and both lease files
++/// under custody, through the retained I. For a registered project the
++/// confirmed N must be the very directory item 6 published.
++fn confirm_namespace(
++    subject: &NamespaceSubject,
++    id: &str,
++    held: &Held<'_, '_>,
++    work: &mut WorkScope<'_>,
++) -> Result<(Namespace, [Carrier; 2]), Failure> {
++    let host = required_directory(held.installation, HOST, Owner::Host, held.uid, work)?;
++    let projects = required_directory(&host, PROJECTS, Owner::Projects, held.uid, work)?;
++    let directory = required_directory(&projects, id, Owner::Namespace, held.uid, work)?;
++    if let NamespaceSubject::Registered(registered) = subject
++        && identity(directory.as_file(), Step::Lease, Owner::Namespace, work)
++            .map_err(registration)?
++            != identity(
++                registered.namespace().as_file(),
++                Step::Lease,
++                Owner::Namespace,
++                work,
++            )
++            .map_err(registration)?
++    {
++        return refuse(NamespaceRefusal::Owner(RegistrationRefusal::Changed(
++            Owner::Namespace,
++        )));
++    }
++    let writer = open_carrier(&directory, WRITER_LEASE, held.uid, work)?;
++    let readers = open_carrier(&directory, READERS_LEASE, held.uid, work)?;
++    Ok((
++        Namespace {
++            id: id.to_owned(),
++            host,
++            projects,
++            directory,
++        },
++        [writer, readers],
++    ))
++}
++/// The cost of `recheck_directories`.
++fn directories_cost(id: &str) -> WorkCost {
++    let one = |name: &str| {
++        plus(&[
++            opensip_platform::open_child_directory_cost(OsStr::new(name)),
++            times(STATUS, 2),
++            name_cost(),
++            capture_cost(),
++        ])
++    };
++    plus(&[one(HOST), one(PROJECTS), one(id)])
++}
++/// Each retained directory is still the one its name binds under its
++/// retained parent, still exactly named, and still private.
++fn recheck_directories(
++    namespace: &Namespace,
++    held: &Held<'_, '_>,
++    work: &mut WorkScope<'_>,
++) -> Result<(), Failure> {
++    let links = [
++        (held.installation, HOST, &namespace.host, Owner::Host),
++        (
++            &namespace.host,
++            PROJECTS,
++            &namespace.projects,
++            Owner::Projects,
++        ),
++        (
++            &namespace.projects,
++            namespace.id.as_str(),
++            &namespace.directory,
++            Owner::Namespace,
++        ),
++    ];
++    for (parent, name, child, owner) in links {
++        rebind(parent, name, child, Step::Lease, owner, work).map_err(registration)?;
++        observe_private_directory(child.as_file(), held.uid, work)
++            .map_err(|failure| registration(private(Step::Lease, owner)(failure)))?;
++    }
++    Ok(())
++}
++/// The cost of `recheck_binding`.
++fn binding_cost(name: &str) -> WorkCost {
++    plus(&[RetainedDirectory::open_regular_cost(name), capture_cost()])
++}
++/// The carrier's name under N still binds a private file with exactly the
++/// carrier's judged sample: the same file (device and inode), unchanged.
++/// A missing, linked or replaced name is a change.
++fn recheck_binding(
++    directory: &RetainedDirectory,
++    name: &'static str,
++    metadata: &DescriptorMetadata,
++    uid: u32,
++    work: &mut WorkScope<'_>,
++) -> Result<(), Failure> {
++    let named = work.run(RetainedDirectory::open_regular_cost(name), |_| {
++        directory.open_regular(name).map_err(|error| {
++            WorkFailure::Operation(
++                if error.kind() == io::ErrorKind::NotFound
++                    || error.kind() == io::ErrorKind::InvalidInput
++                    || error.raw_os_error() == Some(super::first_registration::ELOOP)
++                {
++                    NamespaceRefusal::Owner(RegistrationRefusal::Changed(Owner::Namespace))
++                } else {
++                    NamespaceRefusal::Owner(RegistrationRefusal::Io(
++                        Step::Lease,
++                        Owner::Namespace,
++                        error,
++                    ))
++                },
++            )
++        })
++    })?;
++    same_private(&named, metadata, Step::Lease, Owner::Namespace, uid, work).map_err(registration)
++}
++
++// ---------------------------------------------------------------- the lease
++
++/// The project locks held, in acquisition order: `writer.lease` (level 1)
++/// before `readers.lease` (level 2). Dropping releases them in reverse
++/// order. Each keeps the sample its carrier was judged with.
++struct HeldLease {
++    writer: Option<(FileLock, DescriptorMetadata)>,
++    readers: Option<(FileLock, DescriptorMetadata)>,
++}
++impl Drop for HeldLease {
++    fn drop(&mut self) {
++        drop(self.readers.take());
++        drop(self.writer.take());
++    }
++}
++impl HeldLease {
++    fn carriers(&self) -> impl Iterator<Item = (&'static str, &DescriptorMetadata)> {
++        [
++            self.writer.as_ref().map(|(_, m)| (WRITER_LEASE, m)),
++            self.readers.as_ref().map(|(_, m)| (READERS_LEASE, m)),
++        ]
++        .into_iter()
++        .flatten()
++    }
++}
++/// One nonblocking lock on a retained carrier. Busy is the busy row; any
++/// other failure is host I/O. Nothing waits.
++fn lock(
++    carrier: Carrier,
++    mode: LockMode,
++    work: &mut WorkScope<'_>,
++) -> Result<(FileLock, DescriptorMetadata), Failure> {
++    let Carrier {
++        name,
++        file,
++        metadata,
++    } = carrier;
++    work.run(LOCK, |_| match FileLock::try_acquire(file, mode) {
++        Ok(Some(lock)) => Ok((lock, metadata)),
++        Ok(None) => refuse(NamespaceRefusal::Busy(name)),
++        Err(error) => refuse(NamespaceRefusal::Owner(RegistrationRefusal::Io(
++            Step::Lease,
++            Owner::Namespace,
++            error,
++        ))),
++    })
++}
++/// Item 7's second bullet, as one effect whose whole work is reserved
++/// before the first lock: the locks in S7's order, then each locked
++/// carrier's name binding and the namespace's directories rechecked. A
++/// busy or failed lock, or a failed recheck, drops `held`, which releases
++/// every lock already taken in reverse order; the fence is never touched.
++fn take_lease(
++    namespace: &Namespace,
++    carriers: [Carrier; 2],
++    mode: LeaseMode,
++    uid: u32,
++    held_fence: &Held<'_, '_>,
++    work: &mut WorkScope<'_>,
++) -> Result<HeldLease, Failure> {
++    let [writer, readers] = carriers;
++    let writer = (mode != LeaseMode::SharedRead).then_some(writer);
++    let readers = (mode != LeaseMode::AppendWrite).then_some(readers);
++    let locks = usize::from(writer.is_some()) + usize::from(readers.is_some());
++    let bindings: Vec<WorkCost> = [writer.as_ref(), readers.as_ref()]
++        .into_iter()
++        .flatten()
++        .map(|carrier| binding_cost(carrier.name))
++        .collect();
++    let reserve = plus(&[
++        times(LOCK, locks),
++        plus(&bindings),
++        directories_cost(&namespace.id),
++    ]);
++    effect_lease(work, reserve, |work| {
++        let mut held = HeldLease {
++            writer: None,
++            readers: None,
++        };
++        if let Some(writer) = writer {
++            held.writer = Some(lock(writer, LockMode::Exclusive, work)?);
++        }
++        if let Some(readers) = readers {
++            let selector = if mode == LeaseMode::Exclusive {
++                LockMode::Exclusive
++            } else {
++                LockMode::Shared
++            };
++            held.readers = Some(lock(readers, selector, work)?);
++        }
++        for (name, metadata) in held.carriers() {
++            recheck_binding(&namespace.directory, name, metadata, uid, work)?;
++        }
++        recheck_directories(namespace, held_fence, work)?;
++        Ok(held)
++    })
++}
++/// One effect whose whole work is reserved before it starts (467 item 6),
++/// as X2c's `effect`: the body spends only from the reserve, and a
++/// shortfall fails closed before the work it would cover.
++fn effect_lease<R>(
++    work: &mut WorkScope<'_>,
++    reserve: WorkCost,
++    action: impl FnOnce(&mut WorkScope<'_>) -> Result<R, Failure>,
++) -> Result<R, Failure> {
++    work.effect(WorkCost::default(), reserve, |post| {
++        post.prepaid(reserve, action)
++    })
++}
++
++// ------------------------------------------------- the target and the lease
++
++/// Item 7's namespace, admitted and confirmed under the held fence, with no
++/// project lock taken. Private, not Clone. It borrows the fence's holder.
++///
++/// This is the seam where X3b's floor step runs (X3b r8 item 3; composed
++/// by X3b-3 with X2e): under the held fence, with R current, before any
++/// lease and with no project lock held. `namespace_directory` and `row` are
++/// what that step reads. `lease` rechecks everything again before the
++/// first lock, so whatever ran in between is seen.
++pub(crate) struct NamespaceTarget<H: FenceHolder> {
++    holder: H,
++    subject: NamespaceSubject,
++    row: ProjectRegistryEntry,
++    namespace: Namespace,
++    carriers: [Carrier; 2],
++}
++impl<H: FenceHolder> std::fmt::Debug for NamespaceTarget<H> {
++    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
++        f.debug_struct("NamespaceTarget")
++            .field("namespace", &self.namespace.id)
++            .finish_non_exhaustive()
++    }
++}
++/// Item 7: admit the subject's namespace under `holder`'s held fence. N is
++/// R's ACTIVE row's, never a caller's. The subject is rechecked, the
++/// namespace and both carriers are confirmed and retained, and the
++/// holder's full recheck runs. No lock is taken.
++pub(super) fn admit<H: FenceHolder>(
++    mut holder: H,
++    subject: NamespaceSubject,
++    inputs: &ProjectInputs<'_>,
++) -> Result<NamespaceTarget<H>, H::Refusal> {
++    let (row, namespace, carriers) = holder.fenced(inputs, |held, work| {
++        let row = active_row(&subject, work)?;
++        recheck_subject(&subject, held, work)?;
++        let (namespace, carriers) = confirm_namespace(&subject, row.namespace_id(), held, work)?;
++        Ok((row, namespace, carriers))
++    })?;
++    Ok(NamespaceTarget {
++        holder,
++        subject,
++        row,
++        namespace,
++        carriers,
++    })
++}
++impl<H: FenceHolder> NamespaceTarget<H> {
++    /// N, from R's ACTIVE row.
++    pub(crate) fn namespace_id(&self) -> &str {
++        self.row.namespace_id()
++    }
++    /// The ACTIVE row snapshot of the current registry owner R.
++    pub(crate) fn row(&self) -> &ProjectRegistryEntry {
++        &self.row
++    }
++    /// The retained, confirmed `I/host/projects/N`, for X3b's floor step
++    /// (its probe and its read-only observation). No authority beyond the
++    /// held fence.
++    pub(crate) fn namespace_directory(&self) -> &RetainedDirectory {
++        &self.namespace.directory
++    }
++    pub(crate) fn subject(&self) -> &NamespaceSubject {
++        &self.subject
++    }
++    /// Item 7's lease in `mode`, without blocking: the subject, the
++    /// namespace and both retained carriers are rechecked; then the locks,
++    /// each locked carrier's binding and the directories; then the
++    /// holder's full recheck. Every refusal leaves no project lock held and
++    /// the fence still held.
++    fn lease(
++        self,
++        mode: LeaseMode,
++        inputs: &ProjectInputs<'_>,
++    ) -> Result<FencedNamespace<H>, H::Refusal> {
++        let Self {
++            mut holder,
++            subject,
++            row,
++            namespace,
++            carriers,
++        } = self;
++        let lease = holder.fenced(inputs, |held, work| {
++            recheck_subject(&subject, held, work)?;
++            recheck_directories(&namespace, held, work)?;
++            for carrier in &carriers {
++                same_private(
++                    &carrier.file,
++                    &carrier.metadata,
++                    Step::Lease,
++                    Owner::Namespace,
++                    held.uid,
++                    work,
++                )
++                .map_err(registration)?;
++                recheck_binding(
++                    &namespace.directory,
++                    carrier.name,
++                    &carrier.metadata,
++                    held.uid,
++                    work,
++                )?;
++            }
++            take_lease(&namespace, carriers, mode, held.uid, held, work)
++        })?;
++        Ok(FencedNamespace {
++            lease,
++            mode,
++            holder,
++            subject,
++            row,
++            namespace,
++        })
++    }
++}
++impl<'w> NamespaceTarget<&'w mut super::ordinary_writer::OrdinaryWriteAdmission> {
++    /// APPEND-WRITE or EXCLUSIVE on the writer's gate.
++    pub(crate) fn lease_writer(
++        self,
++        mode: WriterLease,
++        inputs: &ProjectInputs<'_>,
++    ) -> Result<
++        FencedNamespace<&'w mut super::ordinary_writer::OrdinaryWriteAdmission>,
++        super::first_registration::ProjectWriteRefusal,
++    > {
++        self.lease(mode.mode(), inputs)
++    }
++}
++impl<'s> NamespaceTarget<&'s super::installation_read::ReadSession> {
++    /// SHARED-READ on the read session.
++    pub(crate) fn lease_shared(
++        self,
++        inputs: &ProjectInputs<'_>,
++    ) -> Result<
++        FencedNamespace<&'s super::installation_read::ReadSession>,
++        super::installation_read::NamespaceSessionRefusal,
++    > {
++        self.lease(LeaseMode::SharedRead, inputs)
++    }
++}
++
++/// Item 7's result: the held lease, the ACTIVE row snapshot and the root
++/// admission, with the fence's holder borrowed, so the fence is still held.
++/// Private, not Clone, with no serialized form, no upgrade and no release
++/// of the fence. Until item 7a's handoff (unit X2e) it can only be
++/// rechecked or dropped; dropping releases the lease (`readers.lease`
++/// before `writer.lease`), and the fence goes later with its holder.
++pub(crate) struct FencedNamespace<H: FenceHolder> {
++    lease: HeldLease,
++    mode: LeaseMode,
++    holder: H,
++    subject: NamespaceSubject,
++    row: ProjectRegistryEntry,
++    namespace: Namespace,
++}
++impl<H: FenceHolder> std::fmt::Debug for FencedNamespace<H> {
++    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
++        f.debug_struct("FencedNamespace")
++            .field("namespace", &self.namespace.id)
++            .field("mode", &self.mode)
++            .finish_non_exhaustive()
++    }
++}
++impl<H: FenceHolder> FencedNamespace<H> {
++    pub(crate) fn mode(&self) -> LeaseMode {
++        self.mode
++    }
++    /// N, from R's ACTIVE row.
++    pub(crate) fn namespace_id(&self) -> &str {
++        self.row.namespace_id()
++    }
++    /// The ACTIVE row snapshot of the current registry owner R.
++    pub(crate) fn row(&self) -> &ProjectRegistryEntry {
++        &self.row
++    }
++    /// The root admission: an Eligible root with its tracking observation,
++    /// or the registered project.
++    pub(crate) fn subject(&self) -> &NamespaceSubject {
++        &self.subject
++    }
++    /// The retained, leased `I/host/projects/N`.
++    pub(crate) fn namespace_directory(&self) -> &RetainedDirectory {
++        &self.namespace.directory
++    }
++    /// The whole recheck set under the held fence and the lease: the
++    /// subject, the namespace's directories, each locked carrier's name
++    /// binding, then the holder's full recheck. A refusal spends the gate or
++    /// latches the session; the lease stays held until this is dropped.
++    pub(crate) fn recheck(&mut self, inputs: &ProjectInputs<'_>) -> Result<(), H::Refusal> {
++        let Self {
++            lease,
++            holder,
++            subject,
++            namespace,
++            ..
++        } = self;
++        holder.fenced(inputs, |held, work| {
++            recheck_subject(subject, held, work)?;
++            recheck_directories(namespace, held, work)?;
++            for (name, metadata) in lease.carriers() {
++                recheck_binding(&namespace.directory, name, metadata, held.uid, work)?;
++            }
++            Ok(())
++        })
++    }
++}
++
++#[cfg(test)]
++mod tests {
++    include!("namespace_lease_tests.rs");
++}
+diff --git a/crates/security/src/custody/namespace_lease_tests.rs b/crates/security/src/custody/namespace_lease_tests.rs
+new file mode 100644
+index 0000000..c3c2b16
+--- /dev/null
++++ b/crates/security/src/custody/namespace_lease_tests.rs
+@@ -0,0 +1,609 @@
++// Law X2 r8 item 7 (unit X2d), on scratch homes only. Each test publishes a
++// real P0 under a scratch H (`installation_read_fixture`), registers a
++// scratch project under that H with an ordinary writer over 462's signed
++// test trees (unit X2c), and then admits its namespace and takes a lease on
++// a writer's gate or a read session. Other holders are simulated by
++// nonblocking `flock`s on separate descriptors of the same carriers, which
++// conflict exactly as another process's would. Tracking reads an empty
++// environment and no system sources. Nothing here opens the real account's
++// I or runs Git.
++use super::super::first_registration::{
++    ProjectWriteRefusal, ProjectWriteRow, RegisteredProject, Seam,
++};
++use super::super::installation_admission::{DurableWriteGate, GateSeam, HomeSource};
++use super::super::installation_read::{NamespaceSessionRefusal, ReadSession};
++use super::super::installation_read_fixture::{ReadFixture, private};
++use super::super::ordinary_writer::{OrdinaryWriteAdmission, admit_with};
++use super::super::project_admission::{MARKER_DIRECTORY, REGISTRY};
++use super::super::read_premise::{Write, WritePlatformReceipt, produce_for};
++use super::*;
++use crate::initial_installation::InitialInstallationAttempt;
++use crate::trust::{ReadProducers, read_producers};
++use std::collections::BTreeSet;
++use std::fs;
++use std::os::unix::fs::PermissionsExt;
++use std::path::PathBuf;
++use std::sync::atomic::AtomicBool;
++
++// ---------------------------------------------------------------- helpers
++
++fn directory(path: &Path, mode: u32) {
++    fs::create_dir(path).unwrap();
++    fs::set_permissions(path, fs::Permissions::from_mode(mode)).unwrap();
++}
++/// A project under the fixture's H, 0755 with no ACL, as on a stock Mac.
++fn fixture_project(fixture: &ReadFixture) -> PathBuf {
++    let code = fixture.home.join("code");
++    directory(&code, 0o755);
++    let project = code.join("project");
++    directory(&project, 0o755);
++    project
++}
++/// An ordinary writer on the fixture's I, and the signed trees it needs.
++fn writer(fixture: &ReadFixture, tag: &str) -> (OrdinaryWriteAdmission, ReadProducers) {
++    let producers = read_producers(&format!("{tag}-write"), true, Some(&fixture.home));
++    let receipt = produce_for::<Write>(
++        InitialInstallationAttempt::for_tests(&AtomicBool::new(false), None),
++        InitialInstallationAttempt::observe_actor,
++        |attempt| producers.core(attempt),
++        |attempt, actor, core| producers.platform(attempt, actor, core),
++    )
++    .unwrap();
++    let admission = admit_with(
++        receipt,
++        WritePlatformReceipt::recheck,
++        || DurableWriteGate::for_tests(&AtomicBool::new(false), None),
++        |gate, receipt| {
++            gate.admit_with(
++                receipt.qualification(),
++                HomeSource::Fixture(&fixture.home),
++                &GateSeam::live(),
++            )
++        },
++    )
++    .unwrap();
++    (admission, producers)
++}
++const NO_GROUPS: &BTreeSet<u32> = &BTreeSet::new();
++fn inputs() -> ProjectInputs<'static> {
++    ProjectInputs {
++        trust_groups: NO_GROUPS,
++        environment: &[],
++        system_sources: &[],
++    }
++}
++/// The root admission and its tracking observation on the writer's gate.
++fn admitted(writer: &mut OrdinaryWriteAdmission, project: &Path) -> NamespaceSubject {
++    let admission = writer.admit_project_root(project, None, NO_GROUPS).unwrap();
++    let tracking = writer
++        .observe_project_tracking_with(&admission, &inputs())
++        .unwrap();
++    NamespaceSubject::Eligible {
++        admission,
++        tracking,
++    }
++}
++/// A first registration of `project` on the writer's gate (unit X2c).
++fn register(writer: &mut OrdinaryWriteAdmission, project: &Path) -> RegisteredProject {
++    let NamespaceSubject::Eligible {
++        admission,
++        tracking,
++    } = admitted(writer, project)
++    else {
++        unreachable!()
++    };
++    writer
++        .register_first_use_with(admission, tracking, &inputs(), &Seam::live())
++        .unwrap()
++}
++/// A fixture whose project is registered (ACTIVE, marker, namespace) by a
++/// writer that has since released its fence: the project is Eligible.
++fn eligible(tag: &str) -> (ReadFixture, PathBuf, String) {
++    let fixture = ReadFixture::new(tag);
++    let project = fixture_project(&fixture);
++    let (mut writer, _trees) = writer(&fixture, &format!("{tag}-register"));
++    let registered = register(&mut writer, &project);
++    let n = registered.namespace_id().to_owned();
++    drop(registered);
++    writer.release().unwrap();
++    (fixture, project, n)
++}
++/// The Eligible root's admission and tracking on a read session.
++fn session_subject(
++    session: &ReadSession,
++    project: &Path,
++) -> (ProjectRootAdmission, TrackingObservation) {
++    let admission = session
++        .admit_project_root(project, None, NO_GROUPS)
++        .unwrap();
++    let tracking = session
++        .observe_project_tracking_with(&admission, NO_GROUPS, &[], &[])
++        .unwrap();
++    (admission, tracking)
++}
++fn namespace_path(fixture: &ReadFixture, n: &str) -> PathBuf {
++    fixture.installation.join(HOST).join(PROJECTS).join(n)
++}
++/// Whether another holder could take `mode` on the carrier at `path` now:
++/// one nonblocking `flock` on a fresh descriptor, released at once.
++fn free(path: &Path, mode: LockMode) -> bool {
++    FileLock::try_acquire(File::open(path).unwrap(), mode)
++        .unwrap()
++        .is_some()
++}
++/// Another holder's lock on the carrier at `path`.
++fn hold(path: &Path, mode: LockMode) -> FileLock {
++    FileLock::try_acquire(File::open(path).unwrap(), mode)
++        .unwrap()
++        .unwrap()
++}
++/// Whether the installation fence is free (no holder in any process).
++fn fence_free(fixture: &ReadFixture) -> bool {
++    free(
++        &fixture.installation.join("lifecycle.fence"),
++        LockMode::Exclusive,
++    )
++}
++/// Neither carrier of N is locked by anyone.
++fn unlocked(fixture: &ReadFixture, n: &str) -> bool {
++    let namespace = namespace_path(fixture, n);
++    free(&namespace.join(WRITER_LEASE), LockMode::Exclusive)
++        && free(&namespace.join(READERS_LEASE), LockMode::Exclusive)
++}
++fn writer_row<T: std::fmt::Debug>(result: Result<T, ProjectWriteRefusal>) -> ProjectWriteRow {
++    match result {
++        Err(refusal) => refusal.row(),
++        Ok(value) => panic!("expected a refusal, got {value:?}"),
++    }
++}
++fn session_row<T: std::fmt::Debug>(result: Result<T, NamespaceSessionRefusal>) -> RegistrationRow {
++    match result {
++        Err(NamespaceSessionRefusal::Namespace(WorkFailure::Operation(refusal))) => refusal.row(),
++        other => panic!("expected a namespace refusal, got {other:?}"),
++    }
++}
++/// A private 0600 file with the zero-rights owner allow, as X2c makes the
++/// carriers.
++fn private_file_at(path: &Path) {
++    fs::write(path, b"").unwrap();
++    fs::set_permissions(path, fs::Permissions::from_mode(0o600)).unwrap();
++    private(path);
++}
++
++// ------------------------------------------------------------- pure parts
++
++#[test]
++fn every_refusal_names_its_item_8_row() {
++    use RegistrationRow as Row;
++    assert_eq!(
++        NamespaceRefusal::NotEligible(Classification::OneSided).row(),
++        Row::RootCustody("identity-recovery-required")
++    );
++    assert_eq!(
++        NamespaceRefusal::NotEligible(Classification::RecoveryNeeded {
++            namespace: "n".into(),
++            project: "p".into()
++        })
++        .row(),
++        Row::RootCustody("identity-recovery-required")
++    );
++    assert_eq!(
++        NamespaceRefusal::NotEligible(Classification::Contradiction).row(),
++        Row::RootCustody("identity-contradiction")
++    );
++    assert_eq!(
++        NamespaceRefusal::NotEligible(Classification::FirstUseCandidate).row(),
++        Row::Invariant
++    );
++    assert_eq!(NamespaceRefusal::Busy(WRITER_LEASE).row(), Row::Busy);
++    assert_eq!(
++        NamespaceRefusal::Missing(Owner::Namespace, READERS_LEASE).row(),
++        Row::Incomplete
++    );
++    assert_eq!(
++        NamespaceRefusal::Owner(RegistrationRefusal::Custody(Owner::Namespace, "private")).row(),
++        Row::InstallationCustody("private")
++    );
++    assert_eq!(
++        NamespaceRefusal::Owner(RegistrationRefusal::Changed(Owner::Namespace)).row(),
++        Row::Admission(super::super::project_admission::ProjectAdmissionRow::RequiredFilesChanged)
++    );
++    assert_eq!(
++        NamespaceRefusal::Invariant("active-row").row(),
++        Row::Invariant
++    );
++    assert_eq!(WriterLease::AppendWrite.mode(), LeaseMode::AppendWrite);
++    assert_eq!(WriterLease::Exclusive.mode(), LeaseMode::Exclusive);
++}
++
++// ----------------------------------------------------------- the leases
++
++#[test]
++fn a_fresh_registration_leases_append_write_under_the_fence() {
++    let fixture = ReadFixture::new("x2d-fresh");
++    let project = fixture_project(&fixture);
++    let (mut writer, _trees) = writer(&fixture, "x2d-fresh");
++    let registered = register(&mut writer, &project);
++    let n = registered.namespace_id().to_owned();
++    let namespace = namespace_path(&fixture, &n);
++    let target = writer
++        .admit_namespace(NamespaceSubject::Registered(registered), &inputs())
++        .unwrap();
++    // N is R2's ACTIVE row's; the target takes no project lock.
++    assert_eq!(target.namespace_id(), n);
++    assert_eq!(target.row().status(), ProjectRegistryStatus::Active);
++    assert!(matches!(target.subject(), NamespaceSubject::Registered(_)));
++    assert!(unlocked(&fixture, &n));
++    let mut fenced = target
++        .lease_writer(WriterLease::AppendWrite, &inputs())
++        .unwrap();
++    assert_eq!(fenced.mode(), LeaseMode::AppendWrite);
++    assert_eq!(fenced.namespace_id(), n);
++    // APPEND-WRITE: `writer.lease` exclusively, `readers.lease` untouched,
++    // so readers never wait on the writer.
++    assert!(!free(&namespace.join(WRITER_LEASE), LockMode::Exclusive));
++    assert!(!free(&namespace.join(WRITER_LEASE), LockMode::Shared));
++    assert!(free(&namespace.join(READERS_LEASE), LockMode::Shared));
++    assert!(free(&namespace.join(READERS_LEASE), LockMode::Exclusive));
++    // The fence is still held: X2d never releases it.
++    assert!(!fence_free(&fixture));
++    fenced.recheck(&inputs()).unwrap();
++    // Dropping releases the lease; the fence goes only with the writer.
++    drop(fenced);
++    assert!(unlocked(&fixture, &n));
++    assert!(!fence_free(&fixture));
++    writer.release().unwrap();
++    assert!(fence_free(&fixture));
++}
++
++#[test]
++fn an_eligible_root_leases_exclusive_with_both_locks() {
++    let (fixture, project, n) = eligible("x2d-exclusive");
++    let namespace = namespace_path(&fixture, &n);
++    let (mut writer, _trees) = writer(&fixture, "x2d-exclusive");
++    let subject = admitted(&mut writer, &project);
++    let target = writer.admit_namespace(subject, &inputs()).unwrap();
++    // N is R0's ACTIVE row's, the one the classification named.
++    assert_eq!(target.namespace_id(), n);
++    let NamespaceSubject::Eligible { admission, .. } = target.subject() else {
++        panic!("an Eligible subject");
++    };
++    assert_eq!(
++        admission.classification(),
++        &Classification::Eligible {
++            namespace: n.clone(),
++            project: target.row().project_id().to_owned()
++        }
++    );
++    let fenced = target
++        .lease_writer(WriterLease::Exclusive, &inputs())
++        .unwrap();
++    for lease in [WRITER_LEASE, READERS_LEASE] {
++        assert!(!free(&namespace.join(lease), LockMode::Shared), "{lease}");
++    }
++    assert!(!fence_free(&fixture));
++    drop(fenced);
++    assert!(unlocked(&fixture, &n));
++    writer.release().unwrap();
++}
++
++#[test]
++fn a_read_session_leases_shared_read_only() {
++    let (fixture, project, n) = eligible("x2d-shared");
++    let namespace = namespace_path(&fixture, &n);
++    let session = fixture.session(None).unwrap();
++    let (admission, tracking) = session_subject(&session, &project);
++    let target = session
++        .admit_namespace(admission, tracking, &inputs())
++        .unwrap();
++    assert!(unlocked(&fixture, &n));
++    let mut fenced = target.lease_shared(&inputs()).unwrap();
++    assert_eq!(fenced.mode(), LeaseMode::SharedRead);
++    // Any number of readers; no EXCLUSIVE; and the writer's carrier is
++    // untouched, so a reader never blocks a writer.
++    assert!(free(&namespace.join(READERS_LEASE), LockMode::Shared));
++    assert!(!free(&namespace.join(READERS_LEASE), LockMode::Exclusive));
++    assert!(free(&namespace.join(WRITER_LEASE), LockMode::Exclusive));
++    assert!(!fence_free(&fixture));
++    fenced.recheck(&inputs()).unwrap();
++    // The session is still usable while the lease is held.
++    session.recheck().unwrap();
++    drop(fenced);
++    assert!(unlocked(&fixture, &n));
++    assert!(!fence_free(&fixture));
++    drop(session);
++    assert!(fence_free(&fixture));
++}
++
++// ------------------------------------------------------------ busy leases
++
++#[test]
++fn a_busy_carrier_is_the_busy_row_and_no_lock_outlives_it() {
++    let (fixture, project, n) = eligible("x2d-busy");
++    let namespace = namespace_path(&fixture, &n);
++
++    // EXCLUSIVE with a reader present: `writer.lease` is taken, then
++    // `readers.lease` refuses; the writer lock is released before return,
++    // while the fence is still held.
++    let reader = hold(&namespace.join(READERS_LEASE), LockMode::Shared);
++    let (mut writer, _trees) = self::writer(&fixture, "x2d-busy-exclusive");
++    let subject = admitted(&mut writer, &project);
++    let target = writer.admit_namespace(subject, &inputs()).unwrap();
++    assert_eq!(
++        writer_row(target.lease_writer(WriterLease::Exclusive, &inputs())),
++        ProjectWriteRow::Project(RegistrationRow::Busy)
++    );
++    assert!(free(&namespace.join(WRITER_LEASE), LockMode::Exclusive));
++    assert!(!fence_free(&fixture));
++    // The refusal spent the gate: no retry under this fence.
++    assert!(matches!(
++        writer.admit_project_root(&project, None, NO_GROUPS),
++        Err(ProjectWriteRefusal::Latched)
++    ));
++    writer.release().unwrap();
++    drop(reader);
++
++    // APPEND-WRITE with another writer present.
++    let other = hold(&namespace.join(WRITER_LEASE), LockMode::Exclusive);
++    let (mut writer, _trees) = self::writer(&fixture, "x2d-busy-append");
++    let subject = admitted(&mut writer, &project);
++    let target = writer.admit_namespace(subject, &inputs()).unwrap();
++    assert_eq!(
++        writer_row(target.lease_writer(WriterLease::AppendWrite, &inputs())),
++        ProjectWriteRow::Project(RegistrationRow::Busy)
++    );
++    assert!(free(&namespace.join(READERS_LEASE), LockMode::Exclusive));
++    assert!(!fence_free(&fixture));
++    writer.release().unwrap();
++    drop(other);
++
++    // SHARED-READ with an EXCLUSIVE holder present; the session latches.
++    let exclusive = hold(&namespace.join(READERS_LEASE), LockMode::Exclusive);
++    let session = fixture.session(None).unwrap();
++    let (admission, tracking) = session_subject(&session, &project);
++    let target = session
++        .admit_namespace(admission, tracking, &inputs())
++        .unwrap();
++    assert_eq!(
++        session_row(target.lease_shared(&inputs())),
++        RegistrationRow::Busy
++    );
++    assert!(session.is_latched());
++    assert!(free(&namespace.join(WRITER_LEASE), LockMode::Exclusive));
++    drop(session);
++    drop(exclusive);
++    assert!(unlocked(&fixture, &n));
++}
++
++// ------------------------------------------------- refusals before a lock
++
++#[test]
++fn only_an_eligible_root_is_admitted_to_a_namespace() {
++    // A FirstUseCandidate registers first: asking for its namespace is a
++    // broken composition, refused before any namespace object is opened.
++    let fixture = ReadFixture::new("x2d-first-use");
++    let project = fixture_project(&fixture);
++    let (mut writer, _trees) = writer(&fixture, "x2d-first-use");
++    let subject = admitted(&mut writer, &project);
++    assert_eq!(
++        writer_row(writer.admit_namespace(subject, &inputs())),
++        ProjectWriteRow::Project(RegistrationRow::Invariant)
++    );
++    assert!(!fixture.installation.join(HOST).exists());
++    writer.release().unwrap();
++
++    // A root whose marker was removed after registration is one-sided.
++    let (fixture, project, n) = eligible("x2d-one-sided");
++    fs::remove_file(project.join(MARKER_DIRECTORY).join("project-id.v1")).unwrap();
++    let session = fixture.session(None).unwrap();
++    let (admission, tracking) = session_subject(&session, &project);
++    assert_eq!(admission.classification(), &Classification::OneSided);
++    assert_eq!(
++        session_row(session.admit_namespace(admission, tracking, &inputs())),
++        RegistrationRow::RootCustody("identity-recovery-required")
++    );
++    assert!(unlocked(&fixture, &n));
++}
++
++#[test]
++fn a_missing_or_foreign_namespace_refuses_before_any_lock() {
++    fn refused(fixture: &ReadFixture, project: &Path) -> RegistrationRow {
++        let session = fixture.session(None).unwrap();
++        let (admission, tracking) = session_subject(&session, project);
++        session_row(session.admit_namespace(admission, tracking, &inputs()))
++    }
++    // A carrier positively absent: the installation is incomplete.
++    let (fixture, project, n) = eligible("x2d-no-readers");
++    fs::remove_file(namespace_path(&fixture, &n).join(READERS_LEASE)).unwrap();
++    assert_eq!(refused(&fixture, &project), RegistrationRow::Incomplete);
++
++    // N itself absent (moved aside).
++    let (fixture, project, n) = eligible("x2d-no-namespace");
++    let namespace = namespace_path(&fixture, &n);
++    fs::rename(&namespace, namespace.with_file_name("moved")).unwrap();
++    assert_eq!(refused(&fixture, &project), RegistrationRow::Incomplete);
++
++    // N readable by others: not installation-private.
++    let (fixture, project, n) = eligible("x2d-mode");
++    fs::set_permissions(
++        namespace_path(&fixture, &n),
++        fs::Permissions::from_mode(0o755),
++    )
++    .unwrap();
++    assert_eq!(
++        refused(&fixture, &project),
++        RegistrationRow::InstallationCustody("private")
++    );
++
++    // A carrier replaced by a symbolic link.
++    let (fixture, project, n) = eligible("x2d-link");
++    let namespace = namespace_path(&fixture, &n);
++    fs::remove_file(namespace.join(WRITER_LEASE)).unwrap();
++    std::os::unix::fs::symlink(READERS_LEASE, namespace.join(WRITER_LEASE)).unwrap();
++    assert_eq!(
++        refused(&fixture, &project),
++        RegistrationRow::InstallationCustody("symlink")
++    );
++
++    // A carrier that is not private (0644).
++    let (fixture, project, n) = eligible("x2d-carrier-mode");
++    fs::set_permissions(
++        namespace_path(&fixture, &n).join(READERS_LEASE),
++        fs::Permissions::from_mode(0o644),
++    )
++    .unwrap();
++    assert_eq!(
++        refused(&fixture, &project),
++        RegistrationRow::InstallationCustody("private")
++    );
++}
++
++#[test]
++fn a_change_after_admission_refuses_the_lease_with_no_lock_held() {
++    // A carrier replaced between the target and the lease.
++    let (fixture, project, n) = eligible("x2d-replaced");
++    let namespace = namespace_path(&fixture, &n);
++    let (mut writer, _trees) = writer(&fixture, "x2d-replaced");
++    let subject = admitted(&mut writer, &project);
++    let target = writer.admit_namespace(subject, &inputs()).unwrap();
++    fs::remove_file(namespace.join(READERS_LEASE)).unwrap();
++    private_file_at(&namespace.join(READERS_LEASE));
++    assert_eq!(
++        writer_row(target.lease_writer(WriterLease::Exclusive, &inputs())),
++        ProjectWriteRow::Project(RegistrationRow::Admission(
++            super::super::project_admission::ProjectAdmissionRow::RequiredFilesChanged
++        ))
++    );
++    assert!(unlocked(&fixture, &n));
++    assert!(!fence_free(&fixture));
++    writer.release().unwrap();
++
++    // The root becoming tracked by an unsupported VCS (item 6a runs again
++    // before any lease).
++    let (fixture, project, n) = eligible("x2d-tracked");
++    let session = fixture.session(None).unwrap();
++    let (admission, tracking) = session_subject(&session, &project);
++    let target = session
++        .admit_namespace(admission, tracking, &inputs())
++        .unwrap();
++    directory(&project.join(".hg"), 0o755);
++    assert_eq!(
++        session_row(target.lease_shared(&inputs())),
++        RegistrationRow::RootCustody("vcs-unsupported")
++    );
++    assert!(unlocked(&fixture, &n));
++
++    // The registry rewritten in place under the fence.
++    let (fixture, project, n) = eligible("x2d-registry");
++    let (mut writer, _trees) = self::writer(&fixture, "x2d-registry");
++    let subject = admitted(&mut writer, &project);
++    let target = writer.admit_namespace(subject, &inputs()).unwrap();
++    let bytes = fs::read(fixture.installation.join(REGISTRY)).unwrap();
++    fs::write(fixture.installation.join(REGISTRY), &bytes).unwrap();
++    assert!(matches!(
++        writer_row(target.lease_writer(WriterLease::AppendWrite, &inputs())),
++        ProjectWriteRow::Project(RegistrationRow::Admission(_))
++    ));
++    assert!(unlocked(&fixture, &n));
++    writer.release().unwrap();
++}
++
++#[test]
++fn the_target_holds_no_project_lock_for_the_floor_step() {
++    // X3b's floor step runs between the target and the lease, under the
++    // fence: its probe takes `writer.lease` LOCK_EX|LOCK_NB through the
++    // retained namespace and releases it at once.
++    let (fixture, project, n) = eligible("x2d-floor-seam");
++    let (mut writer, _trees) = writer(&fixture, "x2d-floor-seam");
++    let subject = admitted(&mut writer, &project);
++    let target = writer.admit_namespace(subject, &inputs()).unwrap();
++    let probe = target
++        .namespace_directory()
++        .open_regular(WRITER_LEASE)
++        .unwrap();
++    let probe = FileLock::try_acquire(probe, LockMode::Exclusive)
++        .unwrap()
++        .expect("no project lock is held before the lease");
++    probe.release().unwrap();
++    assert!(!fence_free(&fixture));
++    let fenced = target
++        .lease_writer(WriterLease::AppendWrite, &inputs())
++        .unwrap();
++    assert_eq!(fenced.row().namespace_id(), n);
++    drop(fenced);
++    writer.release().unwrap();
++}
++
++#[test]
++fn the_lease_recheck_sees_a_replaced_carrier() {
++    let (fixture, project, n) = eligible("x2d-recheck");
++    let namespace = namespace_path(&fixture, &n);
++    let session = fixture.session(None).unwrap();
++    let (admission, tracking) = session_subject(&session, &project);
++    let mut fenced = session
++        .admit_namespace(admission, tracking, &inputs())
++        .unwrap()
++        .lease_shared(&inputs())
++        .unwrap();
++    fenced.recheck(&inputs()).unwrap();
++    // The locked descriptor is unlinked: its name binds another file.
++    fs::remove_file(namespace.join(READERS_LEASE)).unwrap();
++    private_file_at(&namespace.join(READERS_LEASE));
++    assert_eq!(
++        session_row(fenced.recheck(&inputs())),
++        RegistrationRow::Admission(
++            super::super::project_admission::ProjectAdmissionRow::RequiredFilesChanged
++        )
++    );
++    assert!(session.is_latched());
++    drop(fenced);
++    assert!(unlocked(&fixture, &n));
++}
++
++#[test]
++fn a_budget_shortfall_at_the_lease_leaves_no_lock() {
++    let (fixture, project, n) = eligible("x2d-budget");
++    // Measure the whole act on a session with the owner's caps.
++    let measured = {
++        let session = fixture.session(None).unwrap();
++        let (admission, tracking) = session_subject(&session, &project);
++        let target = session
++            .admit_namespace(admission, tracking, &inputs())
++            .unwrap();
++        let before = session.used();
++        let fenced = target.lease_shared(&inputs()).unwrap();
++        let after = session.used();
++        drop(fenced);
++        (before, after)
++    };
++    let (before, after) = measured;
++    assert!(after.edges > before.edges);
++    // A ledger that runs out anywhere inside the lease step refuses on the
++    // budget row with no project lock held and the fence still held.
++    for k in 0..4usize {
++        let cut = |a: usize, b: usize| a + (b - a) * k / 4;
++        let limits = WorkCost {
++            objects: cut(before.objects, after.objects).max(before.objects),
++            edges: cut(before.edges, after.edges),
++            bytes: cut(before.bytes, after.bytes),
++        };
++        let session = fixture.session(Some(limits)).unwrap();
++        let (admission, tracking) = session_subject(&session, &project);
++        let target = session
++            .admit_namespace(admission, tracking, &inputs())
++            .unwrap();
++        assert_eq!(session.used(), before, "deterministic up to the lease");
++        let result = target.lease_shared(&inputs());
++        assert!(
++            matches!(
++                result,
++                Err(NamespaceSessionRefusal::Namespace(WorkFailure::Budget(_)))
++                    | Err(NamespaceSessionRefusal::Session(_))
++            ),
++            "{result:?}"
++        );
++        drop(result);
++        assert!(unlocked(&fixture, &n));
++        assert!(!fence_free(&fixture));
++    }
++}
+diff --git a/crates/security/src/custody/ordinary_writer.rs b/crates/security/src/custody/ordinary_writer.rs
+index b72b480..cd1f9c0 100644
+--- a/crates/security/src/custody/ordinary_writer.rs
++++ b/crates/security/src/custody/ordinary_writer.rs
+@@ -15,12 +15,21 @@ use super::first_registration::{
+     self, ProjectInputs, ProjectWriteRefusal, RegisteredProject, Seam,
+ };
+ use super::git_tracking::TrackingObservation;
+-use super::installation_admission::{DurableInstallation, DurableWriteGate, GateRefusal};
++use super::installation_admission::{
++    DurableBarrierQualification, DurableInstallation, DurableWriteGate, GateRefusal,
++};
+ use super::project_admission::ProjectRootAdmission;
+ use super::installation_routing::gate_refusal;
+ use super::read_premise::{WritePlatformReceipt, produce_write_platform};
+ use super::store_endpoint::{SelectedStoreEndpoint, validate_endpoint};
++use super::namespace_lease::{
++    self, Failure as NamespaceFailure, FenceHolder, Held, NamespaceRefusal, NamespaceSubject,
++    NamespaceTarget,
++};
++use super::project_admission::judged_registry;
++use super::project_chain::ProjectChainPolicy;
+ use crate::InstallationTermination as T;
++use opensip_platform::{DescriptorFilesystem, WorkFailure, WorkScope};
+ 
+ /// Item 4: an admitted ordinary writer. Private, not Clone, no serialized
+ /// form, and no conversion into a read session. Dropped with the invocation.
+@@ -182,6 +191,20 @@ impl OrdinaryWriteAdmission {
+         self.settle(result)
+     }
+ 
++    /// Law X2 item 7 (unit X2d): admit the namespace of an Eligible root
++    /// (with its tracking observation) or of a project this writer has just
++    /// registered, under this writer's held fence and on its gate's ledger.
++    /// N is R's ACTIVE row's. No lock is taken: the target borrows this
++    /// writer, and `NamespaceTarget::lease_writer` takes APPEND-WRITE or
++    /// EXCLUSIVE. Any refusal spends the gate; the fence stays held.
++    pub(crate) fn admit_namespace(
++        &mut self,
++        subject: NamespaceSubject,
++        inputs: &ProjectInputs<'_>,
++    ) -> Result<NamespaceTarget<&mut Self>, ProjectWriteRefusal> {
++        namespace_lease::admit(self, subject, inputs)
++    }
++
+     /// Law X3a r3 items 1 and 2: admit the selected store endpoint from the
+     /// gate's one read. The retained values are validated in memory on the
+     /// gate's own ledger against the write receipt's selected core, then the
+@@ -217,6 +240,64 @@ impl OrdinaryWriteAdmission {
+     }
+ }
+ 
++/// Law X2 item 7 (unit X2d): the writer's gate holds the fence for its
++/// namespace steps. Each step runs on the gate's one ledger with the write
++/// receipt's premise, then the gate's full recheck, then the receipt's
++/// recheck (`settle`), all while the fence is held. Any refusal spends the
++/// gate and drops what the step returned, so no project lock outlives it.
++impl FenceHolder for &mut OrdinaryWriteAdmission {
++    type Refusal = ProjectWriteRefusal;
++    fn fenced<R>(
++        &mut self,
++        inputs: &ProjectInputs<'_>,
++        action: impl FnOnce(&Held<'_, '_>, &mut WorkScope<'_>) -> Result<R, NamespaceFailure>,
++    ) -> Result<R, ProjectWriteRefusal> {
++        let writer: &mut OrdinaryWriteAdmission = self;
++        if writer.gate.is_spent() {
++            return Err(ProjectWriteRefusal::Latched);
++        }
++        let result = {
++            let OrdinaryWriteAdmission {
++                installation,
++                receipt,
++                gate,
++            } = &mut *writer;
++            let qualification = receipt.qualification();
++            let home_filesystem =
++                |sample: &DescriptorFilesystem| qualification.is_home_filesystem(sample);
++            let policy = ProjectChainPolicy::new(
++                qualification.omission_premise(),
++                &home_filesystem,
++                inputs.trust_groups,
++            );
++            match judged_registry(installation.required()) {
++                None => Err(ProjectWriteRefusal::Namespace(WorkFailure::Operation(
++                    NamespaceRefusal::Invariant("no-registry"),
++                ))),
++                Some(judged) => {
++                    let held = Held {
++                        installation: installation.installation_directory(),
++                        uid: installation.uid(),
++                        home: installation.home_spelling(),
++                        judged,
++                        policy: &policy,
++                        inputs,
++                        durable: Some(installation),
++                    };
++                    gate.scope(|work| action(&held, work))
++                        .map_err(ProjectWriteRefusal::Namespace)
++                        .and_then(|value| {
++                            gate.recheck(installation, qualification)
++                                .map_err(ProjectWriteRefusal::Gate)?;
++                            Ok(value)
++                        })
++                }
++            }
++        };
++        writer.settle(result)
++    }
++}
++
+ /// An ordinary writer whose selected store endpoint is admitted (law X3a
+ /// item 1). Private, not Clone. It grants only the endpoint: no namespace,
+ /// lease, journal, ledger, blob or commit authority.
