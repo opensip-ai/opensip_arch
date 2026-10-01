@@ -1,0 +1,206 @@
+diff --git a/crates/security/src/custody/installation_read_fixture.rs b/crates/security/src/custody/installation_read_fixture.rs
+index 4cddfb8..bc16ac2 100644
+--- a/crates/security/src/custody/installation_read_fixture.rs
++++ b/crates/security/src/custody/installation_read_fixture.rs
+@@ -4,16 +4,18 @@
+ // (458c-a) over 462's signed test trees for the same H, with the premise,
+ // and runs the observation session on it (458c-b1) with the real account's
+ // credentials and the scratch H. Nothing here opens the real account's I.
+-use super::installation_admission::HomeSource;
++use super::installation_admission::{GateRefusal, HomeSource, IoFailure};
++use super::installation_parent::ParentPreparationRefusal;
+ use super::installation_publication::{Outcome, create_at};
+ use super::installation_read::ReadSession;
+ use super::installation_session::{ObservationSession, OsClock, SessionRefusal, SessionSeam};
+-use super::installation_stage::{Owners, Seam};
++use super::installation_root::ParentRefusal;
++use super::installation_stage::{CreationRefusal, Failure, Owners, Seam};
+ use super::read_premise::produce_on;
+ use crate::initial_installation::{CreatorCommand, InitialInstallationAttempt};
+ use crate::installation_observation::InstallationReadFence;
+ use crate::trust::{ReadProducers, read_producers, receipts_at};
+-use opensip_platform::WorkCost;
++use opensip_platform::{DescriptorAclCaptureError, WorkCost};
+ use std::fs;
+ use std::os::unix::fs::PermissionsExt;
+ use std::path::{Path, PathBuf};
+@@ -52,6 +54,20 @@ pub(crate) struct ReadFixture {
+ }
+ impl ReadFixture {
+     pub(crate) fn new(tag: &str) -> Self {
++        // F4: a creation that refused only for churn in a shared ancestor
++        // starts over in a fresh scratch root (see `shared_churn`).
++        for attempt in 1.. {
++            match Self::create(tag) {
++                Ok(fixture) => return fixture,
++                Err(Failure::Operation(CreationRefusal::Parent(ParentPreparationRefusal::Parent(
++                    refusal,
++                )))) if settle(&refusal, attempt) => {}
++                Err(other) => panic!("{other:?}"),
++            }
++        }
++        unreachable!()
++    }
++    fn create(tag: &str) -> Result<Self, Failure> {
+         let nonce: String = opensip_platform::request_entropy()
+             .unwrap()
+             .iter()
+@@ -76,19 +92,19 @@ impl ReadFixture {
+             core: &r.core,
+             platform: &r.platform,
+         };
+-        let store = match create_at(&mut r.attempt, &owners, intent, &home, &Seam::live()) {
+-            Ok(Outcome::Published(published)) => published.store().to_owned(),
++        let store = match create_at(&mut r.attempt, &owners, intent, &home, &Seam::live())? {
++            Outcome::Published(published) => published.store().to_owned(),
+             other => panic!("{other:?}"),
+         };
+         let installation = SUFFIX.iter().fold(home.clone(), |path, name| path.join(name));
+-        Self {
++        Ok(Self {
+             home,
+             installation,
+             store,
+             tag,
+             producers: std::cell::RefCell::new(Vec::new()),
+             _scratch: scratch,
+-        }
++        })
+     }
+     /// A read session on this I, on its own test attempt and session flag,
+     /// with the owner's caps unless `limits` is given.
+@@ -99,9 +115,16 @@ impl ReadFixture {
+         producers.push(kept);
+         session
+     }
+-    /// A read fence on this I at the owner's caps.
++    /// A read fence on this I at the owner's caps. A session that refused only for churn in a shared ancestor is
++    /// opened again (F4, see `shared_churn`).
+     pub(crate) fn fence(&self) -> InstallationReadFence {
+-        InstallationReadFence::from_session(self.session(None).unwrap())
++        for attempt in 1.. {
++            match self.session(None) {
++                Err(refusal) if session_churn(&refusal, attempt) => {}
++                session => return InstallationReadFence::from_session(session.unwrap()),
++            }
++        }
++        unreachable!()
+     }
+     /// Write a file below I as its readers expect: every missing directory
+     /// 0700 and the file 0600, each given the zero-rights owner allow of a
+@@ -126,6 +149,45 @@ impl ReadFixture {
+         path
+     }
+ }
++/// F4: whether a walk from `/` refused only because the descriptor capture
++/// of `component` saw that directory change while it was sampled, where
++/// `component` is above this process's private scratch parent: `/` through
++/// the shared system temp directory and `opensip-test`. Other processes
++/// change those directories (any entry another process creates or removes in
++/// the temp directory changes it), and no fixture or mutation under test
++/// touches them. F3's per-process parent keeps every fixture below them but
++/// cannot take them out of a walk that starts at `/`.
++pub(crate) fn shared_churn(refusal: &ParentRefusal) -> bool {
++    let parent = fs::canonicalize(crate::test_scratch::temp_dir()).unwrap();
++    // Component 0 is `/`, so the private parent is component `count - 1`.
++    let private = parent.components().count() - 1;
++    matches!(
++        refusal,
++        ParentRefusal::Capture {
++            component,
++            error: DescriptorAclCaptureError::Changed,
++        } if *component < private
++    )
++}
++/// `shared_churn` for a session's refusal (the walk's I/O row).
++pub(crate) fn session_churn(refusal: &SessionRefusal, attempt: u32) -> bool {
++    match refusal {
++        SessionRefusal::Gate(GateRefusal::Io(IoFailure::Chain(refusal))) => settle(refusal, attempt),
++        _ => false,
++    }
++}
++/// Whether to start over after `refusal` on `attempt`: only for shared
++/// churn, at most eight attempts, with F3's backoff. Churn that never
++/// settles fails the test.
++fn settle(refusal: &ParentRefusal, attempt: u32) -> bool {
++    const ATTEMPTS: u32 = 8;
++    if !shared_churn(refusal) {
++        return false;
++    }
++    assert!(attempt < ATTEMPTS, "a shared ancestor kept changing: {refusal:?}");
++    std::thread::sleep(std::time::Duration::from_millis(25 * u64::from(attempt)));
++    true
++}
+ /// A read session on the I under `home`: the read receipt over a signed
+ /// test tree with the premise, on its own test attempt, and the observation
+ /// session on its own flag. The tree must outlive the session's use.
+diff --git a/crates/security/src/installation_observation_tests.rs b/crates/security/src/installation_observation_tests.rs
+index 484fbb0..987033b 100644
+--- a/crates/security/src/installation_observation_tests.rs
++++ b/crates/security/src/installation_observation_tests.rs
+@@ -3,7 +3,7 @@
+ // observation session's; nothing opens the real account's I.
+ use super::*;
+ use crate::custody::installation_read::Phase;
+-use crate::custody::installation_read_fixture::{ReadFixture, private};
++use crate::custody::installation_read_fixture::{ReadFixture, private, session_churn};
+ use opensip_platform::{FileLock, LockMode, WorkCost};
+ use std::{
+     fs::{self, File, Permissions},
+@@ -192,27 +192,37 @@ fn every_capture_phase_refuses_actual_mutations() {
+             "root",
+             "fence",
+         ] {
+-            let f = Fixture::new();
+-            let fence = f.fence();
+-            let result = fence.session().capture_with(&[], "selection.pair", 4096, &|phase| {
+-                if phase == at {
+-                    f.mutate(change);
++            // F4: a capture refused only for churn in a shared ancestor
++            // (`shared_churn`) never counts as the mutation's refusal; the
++            // case runs again on a fresh fixture, at most eight times.
++            for attempt in 1.. {
++                let f = Fixture::new();
++                let fence = f.fence();
++                let result = fence.session().capture_with(&[], "selection.pair", 4096, &|phase| {
++                    if phase == at {
++                        f.mutate(change);
++                    }
++                });
++                if let Err(refusal) = &result
++                    && session_churn(refusal, attempt)
++                {
++                    continue;
++                }
++                // Law X3a item 2: `selection.pair` is a required file the
++                // observation read once and retained by its full sample, so
++                // even an in-place rewrite completed before the capture's
++                // first body observation is a change at the full recheck.
++                if at == Phase::AfterOpen && change == "in-place" {
++                    use crate::custody::installation_admission::{CustodyRefusal, GateRefusal};
++                    assert!(matches!(
++                        result,
++                        Err(SessionRefusal::Gate(GateRefusal::Custody(CustodyRefusal::Changed)))
++                    ));
+                 }
+-            });
+-            // Law X3a item 2: `selection.pair` is a required file the
+-            // observation read once and retained by its full sample, so even
+-            // an in-place rewrite completed before the capture's first body
+-            // observation is a change at the full recheck.
+-            if at == Phase::AfterOpen && change == "in-place" {
+-                use crate::custody::installation_admission::{CustodyRefusal, GateRefusal};
+-                use crate::custody::installation_session::SessionRefusal;
+-                assert!(matches!(
+-                    result,
+-                    Err(SessionRefusal::Gate(GateRefusal::Custody(CustodyRefusal::Changed)))
+-                ));
++                assert!(result.is_err(), "{at:?} {change}");
++                assert!(fence.session().is_latched(), "{at:?} {change}");
++                break;
+             }
+-            assert!(result.is_err(), "{at:?} {change}");
+-            assert!(fence.session().is_latched(), "{at:?} {change}");
+         }
+     }
+ }
