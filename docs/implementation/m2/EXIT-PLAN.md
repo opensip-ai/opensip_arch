@@ -143,3 +143,4 @@ Rejected: changing the trust-anchor tool now for one sentence.
 
 - **X2 (APPLIED to r4 before review):** record X3b r2's two steps inside the single fence hold: the floor step between R0/R2 and X2d's lease, and the carrier start inside X2e before the fence is released.
 - **X4T (APPLIED to r1 before review):** item 7 must not say the carrier floor records the trust epoch. It compares against SC-TRUST's own floors (X3b r2 item 7).
+- **F3 (flake):** the native census tests in `trust/native_census.rs` (for example `native_profile_census_later_file_fence_and_missing_bucket_changes_refuse`, around line 888) fail intermittently at a setup `capture(...).unwrap()` under the parallel workspace. Isolate them as F1 did.
