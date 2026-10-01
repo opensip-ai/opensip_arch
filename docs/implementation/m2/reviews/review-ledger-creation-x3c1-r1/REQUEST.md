@@ -46,6 +46,6 @@ Arch: v89 (parent v87, the selected inventory), `ledger-creation-inventory-v89-s
 ## Verdict files
 
 Write REVIEW.md and one verdict file:
-- `review.json`: "verdict" (ACCEPT-UNIT or REQUIRED-FINDINGS), "requiredFindings", "subjectManifestSha256" (the sha256 of ledger-creation-inventory-v89-subject.json) and "inventoryCandidateAssessment" {verdict, requiredFindings, path, bytes, sha256 of v89, parent (the v84 pin), successorRecord}.
+- `review.json`: "verdict" (ACCEPT-UNIT or REQUIRED-FINDINGS), "requiredFindings", "subjectManifestSha256" (the sha256 of ledger-creation-inventory-v89-subject.json) and "inventoryCandidateAssessment" {verdict, requiredFindings, path, bytes, sha256 of v89, parent (the v87 pin), successorRecord}.
 
 Do not commit.
