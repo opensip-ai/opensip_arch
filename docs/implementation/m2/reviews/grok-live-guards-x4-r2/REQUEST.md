@@ -1,4 +1,4 @@
-REVIEWER re-review: law X4 r2 after Codex's r1 findings. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/REVIEWDIR. Law review; no product cargo. Product HEAD is f7acb6d.
+Grok re-review: law X4 r2 after Codex's r1 findings. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/grok-live-guards-x4-r2. Law review; no product cargo. Product HEAD is f7acb6d.
 
 Subject: docs/implementation/m2/live-guards-x4/PROPOSAL.md r2 (pin in hashes.txt). `diff` it against PROPOSAL-r1.md. The r1 findings are in `docs/implementation/m2/reviews/codex-live-guards-x4-r1/`.
 

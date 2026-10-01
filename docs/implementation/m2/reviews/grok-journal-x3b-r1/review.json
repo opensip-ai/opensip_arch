@@ -1,0 +1,34 @@
+{
+  "actualModel": "Grok",
+  "verdict": "REQUIRED-FINDINGS",
+  "requiredFindings": [
+    {
+      "id": "RF-1",
+      "title": "The floor write is held under the lease",
+      "failureScenario": "S7 writes trust state only under the fence and never under a lease, and S1 records v8 §5.4's handoff as refined by that sentence. Item 2 states the rule. Item 3 writes the floor while the fence and the EXCLUSIVE or APPEND-WRITE lease are both held. Item 4's start copies the floor inside X2e's handoff after the lease is taken. Item 4's end re-acquires the lease and copies the floor before releasing both. An implementer who follows items 3 and 4 publishes the high-water while the lease is held. An implementer who follows item 2 cannot complete the stated end sequence. The lease may be probed under the fence to learn whether another writer holds it, and it is released before the floor write. The fence stays held across that write. If another writer holds the lease, the copy is skipped and the fence is released."
+    },
+    {
+      "id": "RF-2",
+      "title": "The carrier digest has no registry preimage",
+      "failureScenario": "Registry owner v2 selects no historical opaque projectKey. A v2 row has projectId, namespaceId, root, status, and allocationKind. Item 2 says projectKeyDigest is SHA-256 of the registry row's projectKey as that owner defines it, taken from ProjectOperation's row snapshot, and the carrier_format row stores that digest. Product journal_store.rs still compares carrier_format.project_key_digest with SHA-256 of a project_key string. There is no such field on the row the handoff moves. An implementer invents a key the registry does not have, or hashes another field and still calls it the registry owner's projectKey. The law names the exact bytes that are hashed. It does not point at X2's registry owner for a field that owner removed."
+    },
+    {
+      "id": "RF-3",
+      "title": "The writer stores a quarantine marker and classifies a non-format-3 file as a migration footprint",
+      "failureScenario": "S12 and carrier-format.v3 §8.1 say a writer or maintenance refusal appends nothing, publishes nothing, and writes no quarantine marker, and every open re-detects from the bytes it reads. Item 8 records a quarantine by inserting the existing carrier_quarantine row. A later open can trust that row instead of the bytes. The same item classifies any non-format-3 object as MIGRATION.CORRUPT. S12 limits that detail at a writer open to a carrierFormat 3 migration footprint that is not a lawful durable prefix, or a violated generation boundary. A complete format-1 file is the F46 class HOST.IO_FAILURE with domainDetail omitted. A planted format-1 database under the namespace is reported as the migration-footprint detail. A partial format-3 object set stays MIGRATION.CORRUPT. The public quarantine projection for uncertainTailLoss, witnesslessRestore, witnessMalformed, protocol violation, floor regression, and the binding mismatch stays LEDGER.CORRUPT, ledger-corrupt, domainDetail omitted."
+    },
+    {
+      "id": "RF-4",
+      "title": "A witness without a floor is neither INIT nor a comparison",
+      "failureScenario": "Creation writes the COMMITTED 0 witness and then the floor. A crash between those two steps leaves a complete carrier and a valid witness, with the floor absent. Item 3's creation predicate requires the carrier absent, so it does not resume. Item 4 compares the tail with a floor that is not there. Treating absence as no high-water and copying the current tail hides a floor that was published and later deleted. Quarantining the window makes the legitimate crash unrecoverable. The law distinguishes finish-INIT, where the carrier and the witness agree and the floor is positively absent with no prior floor identity, from a floor that was published and is now gone."
+    }
+  ],
+  "subjectSha256": "3e85290e52025f4d2f2c46d489c3cde522b8c866af0ed773d9ba4fa283ab38cb",
+  "subject": {
+    "path": "docs/implementation/m2/journal-x3b/PROPOSAL.md",
+    "bytes": 14951,
+    "sha256": "3e85290e52025f4d2f2c46d489c3cde522b8c866af0ed773d9ba4fa283ab38cb"
+  },
+  "productHead": "f7acb6d7f8acadcbc0bf81d141f39077d817f043",
+  "scope": "Law X3b r1. The N-bound binding belongs in X2e's handoff, the selected-I layout and the format-3-only scope hold, and the end-path fence retake is consistent with owner §5. The floor is written under the lease, the digest names a registry projectKey that v2 removed, the writer stores a quarantine marker and classifies a non-format-3 file as MIGRATION.CORRUPT, and a COMMITTED 0 witness with no floor is neither INIT nor a comparison. X2 r3 must record the carrier start before fence release; that is X3b's requirement, not an X3b defect. No product cargo."
+}
