@@ -1,4 +1,4 @@
-# Configuration and policy-pack admission — proposal X12 r3
+# Configuration and policy-pack admission — proposal X12 r2
 
 2026-10-01. Claude Opus 5.5, implementation lead. Law for unit X12 of `EXIT-PLAN.md`, release gate DR-G24 PREVIEW-ANALYZE-WELL-FORMED-ADMISSION. X5 r1 split this gate out of X5 (`replay-join-x5/PROPOSAL.md` item 1, "Correction to EXIT-PLAN"). The governing documents are:
 - the register's DR-G24 row (`08-decision-and-readiness-register.md` line 369: "Host admission of preview analyze requests refuses a non-bundled pack identity and a non-declarative pack or contribution"; retained evidence "pack-identity refusal before evaluation; imperative-pack refusal; no user or third-party pack"; "no waiver for silent admission"), and DR-131 (line 320, SATISFIED at D-369);
@@ -9,7 +9,7 @@
 - the product contracts: admission-and-qualification §1 (external input versus host-generated layer), §1.1 (policy is "registered pack/waiver IDs"; "Both pack and waiver IDs require registry admission") and §5 items 1, 3 and 5; workflows-and-surfaces §5 (the closed `PolicyDocumentV2` DSL, the `POLICY.IMPERATIVE_KEY_REFUSED` classifier and the D9 table row "duplicate waiver / imperative policy key"); native-evidence's route row for an invalid capability request (the precedent for an unregistered id under external configuration); and `public-detail-registry.v1.json`;
 - the accepted laws X5 r2 (items 1, 3 and 5) and 468 r5 item 6 (the termination vocabulary).
 
-Items 1 to 5 and 7 to 9 contain lead decisions made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation; each names the alternative it rejects. r2 answers Grok X12 r1. RF-1: an imperative key in a bundled row is row 4, the host-invariant fault, and row 3 covers only a document the caller presents (items 6 and 7). RF-2: the claim that the registered `CONFIG.INVALID` detail already states the pack condition is withdrawn, and a remedy-text contract successor, X12-0, must precede X12b (item 7 and "Units after the law"). r1 bytes are preserved in PROPOSAL-r1.md. r3 answers Grok X12 r2 RF-1: the declarativeness prohibition is scoped to a document the caller presents; a bundled imperative member surfaces as row 4. r2 bytes are preserved in PROPOSAL-r2.md. Not code. Library only: no CLI command is wired.
+Items 1 to 5 and 7 to 9 contain lead decisions made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation; each names the alternative it rejects. r2 answers Grok X12 r1. RF-1: an imperative key in a bundled row is row 4, the host-invariant fault, and row 3 covers only a document the caller presents (items 6 and 7). RF-2: the claim that the registered `CONFIG.INVALID` detail already states the pack condition is withdrawn, and a remedy-text contract successor, X12-0, must precede X12b (item 7 and "Units after the law"). r1 bytes are preserved in PROPOSAL-r1.md. Not code. Library only: no CLI command is wired.
 
 ## Problem
 
@@ -206,7 +206,7 @@ The product contract leaves four things open for this gate:
   - admission by digest or bytes instead of by identity;
   - admitting a `Supplied` source for any bytes, including the bundled pack's bytes.
 - **Declarativeness:**
-  - an imperative member or string expression in a document the caller presents surfacing as anything but row 3 (`POLICY.IMPERATIVE_KEY_REFUSED`, with the member's pointer); a bundled imperative member surfaces as row 4;
+  - an imperative member or string expression surfacing as anything but `POLICY.IMPERATIVE_KEY_REFUSED`;
   - a contribution outside the row's set;
   - a script, hook, WASM or component closure as a pack contribution.
 - **Order:**

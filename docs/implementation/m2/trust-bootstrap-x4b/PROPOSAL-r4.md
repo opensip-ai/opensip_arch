@@ -14,7 +14,7 @@ r2 answers Grok X4B r1:
 
 r1 bytes are preserved in PROPOSAL-r1.md.
 
-r3 answers Grok X4B r2 RF-1: the monitor exists before F is chosen. The `FreshnessMonitor` and `FinalGate` are created first (X4 item 2). Their single first `read` runs the retained-capsule admission and, on F absent, the acceptance and the one confirming admission, then returns that view. The acceptance uses that read's clock sample. Items 1, 3, 10 and 11 are corrected. r2 bytes are preserved in PROPOSAL-r2.md. r4 answers Grok X4B r3 RF-1: item 5 names item 1 step 2.3, the confirming admission, as the reader of the retained owner. r3 bytes are preserved in PROPOSAL-r3.md. r4 ACCEPTED by Grok on 2026-10-01.
+r3 answers Grok X4B r2 RF-1: the monitor exists before F is chosen. The `FreshnessMonitor` and `FinalGate` are created first (X4 item 2). Their single first `read` runs the retained-capsule admission and, on F absent, the acceptance and the one confirming admission, then returns that view. The acceptance uses that read's clock sample. Items 1, 3, 10 and 11 are corrected. r2 bytes are preserved in PROPOSAL-r2.md. r4 answers Grok X4B r3 RF-1: item 5 names item 1 step 2.3, the confirming admission, as the reader of the retained owner. r3 bytes are preserved in PROPOSAL-r3.md.
 
 ## Problem
 
