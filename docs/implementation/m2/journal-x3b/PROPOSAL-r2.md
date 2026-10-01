@@ -1,6 +1,6 @@
-# The durable grant-journal append, its witness and the carrier high-water — proposal X3b r3
+# The durable grant-journal append, its witness and the carrier high-water — proposal X3b r2
 
-2026-09-30. Claude Opus 5.5, implementation lead. Law for unit X3b of `EXIT-PLAN.md` (DR-G19, COV-03), under owner.md §8, security-and-lifecycle S6 (linearization, commit-admission gate), S7 (lock order and modes) and S12, `security-completion.v8.md` §5.4 to §5.6 (the grant-journal carrier, lock handoff, witness, durability primitives), the selected physical carrier `design-corrections/security/grant-journal.carrier.v3.sql` (carrierFormat 3, S1 row 84), `host-foundation-completion.v2.md` (project namespace layout), the build plan's failure cases F06 to F11 and F19, and laws X1 r1, X3a r3, X2 r4 (items 5 to 7a: R0, R1, R2, X2d's lease, X2e's handoff), X4 r2 (`OperationGuard` inside X2e; the checkpoint under `JournalAppendLock`) and X4T r1. r2 answers Grok X3b r1 RF-1 (no floor write under a lease), RF-2 (the digest's preimage), RF-3 (no writer quarantine marker; the F46 row) and RF-4 (floor before witness). r1 bytes are preserved in PROPOSAL-r1.md. r3 answers Grok X3b r2 RF-1 (format dispatch before the floor table) and RF-2 (the floor table implements the crash list and reconciliation; a whole INIT floor). r2 bytes are preserved in PROPOSAL-r2.md. It keeps X2 r5 item 7's ordering (the floor step runs under the fence before any lease) and X4T r2's fenced admission at the same point. Items 1, 2, 3, 4, 5, 7 and 9 contain lead decisions made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation; each names the alternative it rejects. Not code. Library only: no command is wired.
+2026-09-30. Claude Opus 5.5, implementation lead. Law for unit X3b of `EXIT-PLAN.md` (DR-G19, COV-03), under owner.md §8, security-and-lifecycle S6 (linearization, commit-admission gate), S7 (lock order and modes) and S12, `security-completion.v8.md` §5.4 to §5.6 (the grant-journal carrier, lock handoff, witness, durability primitives), the selected physical carrier `design-corrections/security/grant-journal.carrier.v3.sql` (carrierFormat 3, S1 row 84), `host-foundation-completion.v2.md` (project namespace layout), the build plan's failure cases F06 to F11 and F19, and laws X1 r1, X3a r3, X2 r4 (items 5 to 7a: R0, R1, R2, X2d's lease, X2e's handoff), X4 r2 (`OperationGuard` inside X2e; the checkpoint under `JournalAppendLock`) and X4T r1. r2 answers Grok X3b r1 RF-1 (no floor write under a lease), RF-2 (the digest's preimage), RF-3 (no writer quarantine marker; the F46 row) and RF-4 (floor before witness). r1 bytes are preserved in PROPOSAL-r1.md. Items 1, 2, 3, 4, 5, 7 and 9 contain lead decisions made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation; each names the alternative it rejects. Not code. Library only: no command is wired.
 
 ## Problem
 
@@ -31,26 +31,17 @@ M2's commit path appends a `SEAL` to the project's grant journal under the level
 
 3. **The floor step: the only floor write at operation start (RF-1, RF-4; lead decision).** The floor is trust state, so it is written only under the fence and never while this process holds a project lease (S7; S1 records v8 §5.4's handoff as refined by that sentence). The floor step runs under the held fence, before X2d takes the lease:
    1. **Probe.** Take `writer.lease` LOCK_EX|LOCK_NB and release it at once. If it is busy, another writer is admitted: skip the floor step entirely (v8's skip rule), write nothing, and continue; X2d will then report the busy row. If the probe succeeds, no writer can append until this fence hold ends, because a lease needs the fence (S7). No project lock is held for the rest of the step.
-   2. **Observe, read-only.** Read the floor for N (positively present, or positively absent under the retained `trust/carrier-floors/`), and in the namespace the carrier, its committed tail from one read snapshot, and the witness bytes. Nothing in the namespace is written here.
-   3. **Format dispatch first (RF-1).** The carrier is classified by the existing carrier dispatch before any floor decision, whether or not a floor is present:
-      - **absent**, or an **empty database** holding no schema objects: no carrier;
-      - a **complete carrierFormat 1 or 2** carrier: the F46 row (item 8), whatever the floor;
-      - a **carrierFormat 3 footprint that is not a lawful durable prefix** (partial object set, definitions not byte-equal, rows before the format row, a violated generation boundary): the migration-footprint row (item 8);
-      - a **complete carrierFormat 3** carrier: its `project_key_digest` must equal the lowercase hex of `SHA-256(N)`, or the carrier project-binding row.
+   2. **Observe, read-only.** Read the floor for N (positively present, or positively absent under the retained `trust/carrier-floors/`), and in the namespace the carrier (absent, an empty database with no schema objects, or complete), its committed tail from one read snapshot, and the witness bytes. Nothing in the namespace is written here.
+   3. **Decide, in this table order:**
 
-      A present floor is decoded as the whole closed `CarrierFloor` and its `projectKeyDigest` must equal the same digest, or the binding row. Each refusal writes nothing.
-   4. **Floor decision, in this table order (RF-2).** "Witness" means the witness file is present; it is decoded by the closed shape where a row says so.
+      | Floor | Carrier and witness | Action |
+      |---|---|---|
+      | absent | no carrier (absent or empty database), no witness | **floor-first INIT:** write the floor `{lastSeq 0, tailSha256 null}` |
+      | absent | anything else | quarantine `floorLost`: the floor step writes the floor before item 3a creates any carrier or witness, so a carrier or witness without a floor means a published floor is gone. Nothing is written |
+      | present at `lastSeq 0` | no carrier, no witness | INIT resumes under the lease (item 3a); nothing is written here |
+      | present | no carrier, witness present, or `lastSeq > 0` | quarantine `uncertainTailLoss` |
+      | present | carrier present | compare: a committed tail lower than `lastSeq`, or an equal sequence with a different body hash, or a different `grantGeneration` order, quarantines. Otherwise write the floor to the observed committed tail only if it is higher; the floor never moves down |
 
-      | Floor | Carrier (after step 3) | Witness | Action |
-      |---|---|---|---|
-      | absent | none | absent | **floor-first INIT:** write the whole INIT floor `{highWaterSchema:1, projectKeyDigest: hex SHA-256(N), grantGeneration:1, lastSeq:0, tailSha256:null}` |
-      | absent | complete format 3 | any | `floorLost` |
-      | absent | none | present | `floorLost` |
-      | present | none | absent, and the floor is `grantGeneration 1, lastSeq 0` | INIT resumes under the lease (item 3a); nothing is written |
-      | present | none | present, or the floor has `lastSeq > 0` | `uncertainTailLoss` |
-      | present | complete format 3 | any | run `reconcile_witness` **as a decision only** (item 4's table, read-only; the witness is not written here). A QUARANTINE outcome (`witnesslessRestore`, `witnessMalformed`, `uncertainTailLoss`, protocol violation, carrier mismatch) refuses and leaves the floor untouched. An INIT outcome (empty journal, no witness) requires the floor to be `grantGeneration 1, lastSeq 0`, else `uncertainTailLoss`; nothing is written and item 3a finishes INIT. An OK, REVERT or ADVANCE outcome then compares the committed tail with the floor: a lower generation or a lower sequence in the floor's generation, or an equal sequence with a different body hash, is floor regression. Otherwise the floor is copied forward to the committed tail only if the tail is higher; it never moves down |
-
-      The committed tail is the last committed row; REVERT and ADVANCE concern only the witness, so the copied tail is the same either way. The witness write that REVERT, ADVANCE or INIT needs is performed later by the carrier start under the lease (item 4).
       Writes use item 5's file protocol under `trust/carrier-floors/`, with the fence held and no project lock held.
 
    **Rejected:** r1's floor writes at creation, start and end while the lease was held (S7), and r1's witness-before-floor creation order, which made a crash between them indistinguishable from a deleted floor (RF-4). Floor first makes "floor absent" always mean "never published" when the namespace holds no carrier and no witness, and "lost" otherwise.
@@ -62,11 +53,10 @@ M2's commit path appends a `SEAL` to the project's grant journal under the level
    **Crash states**, each found by the next floor step and carrier start:
    - floor 0, no carrier, no witness: INIT resumes;
    - floor 0, empty database, no witness: INIT resumes at step 1;
-   - a complete format-1 or format-2 carrier, with or without a floor: the F46 row;
    - floor 0, complete carrier with its row and an empty journal, no witness: INIT finishes at step 2;
    - floor 0, complete carrier, witness `COMMITTED 0`: created;
    - a complete carrier whose journal holds a record, with no witness: `witnesslessRestore`;
-   - a complete format-3 carrier or a witness present with the floor absent: `floorLost` (floor step);
+   - carrier or witness present with the floor absent: `floorLost` (floor step);
    - a partial format-3 object set: impossible by step 1; if observed, item 8's migration-footprint row.
 
 4. **Carrier start and the end step (the §5.4 handoff, refined by S7).**
