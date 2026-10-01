@@ -1,4 +1,4 @@
-REVIEWER re-review: X3a-1 r2 (selected store endpoint) after Grok's r1 finding. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/REVIEWDIR. If you build, use a CARGO_TARGET_DIR under that directory.
+Grok re-review: X3a-1 r2 (selected store endpoint) after Grok's r1 finding. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/grok-store-endpoint-x3a1-r2. If you build, use a CARGO_TARGET_DIR under that directory.
 
 Subject: the same worktree `/Users/sb/code/opensip-ai/opensip-x3a1` (base 84a8bfd). Pins are in hashes.txt. Save `git -C <worktree> diff` as product.diff and report its sha256. The r1 review is `reviews/grok-store-endpoint-x3a1-r1/`. v83 and every arch pin are unchanged.
 
