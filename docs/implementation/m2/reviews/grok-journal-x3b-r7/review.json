@@ -1,0 +1,35 @@
+{
+  "actualModel": "Grok",
+  "verdict": "REQUIRED-FINDINGS",
+  "requiredFindings": [
+    {
+      "id": "RF-1",
+      "title": "RA, REV and CLN are admitted at the tail the refusal calls full",
+      "failureScenario": "Item 5a's admission table admits RA, REV and CLN when the committed tail t is ≤ 9007199254740990. At that tail the next seq is 9007199254740991. carrier-format.v3 §5 and gj3_append_laws reserve seq 9007199254740991 for TERMINAL, and X3b-2 at 9dbefb9 refuses a non-TERMINAL when tail.seq >= LAST_ORDINARY_SEQ (9007199254740990), so an ordinary record is admitted only when t ≤ 9007199254740989 and the appended seq is at most 9007199254740990. The same item's GenerationFull bullet, and the item 11 test, refuse RA, REV and CLN at t = 9007199254740990 on the busy row. That tail has two results, and the admitting result is the one the carrier aborts. Required: the RA, REV and CLN row admits them when t ≤ 9007199254740989. GenerationFull at t = 9007199254740990 stays the busy row. The SEAL ceiling, the TERMINAL window, and the trigger stay as written."
+    },
+    {
+      "id": "RF-2",
+      "title": "A tail inside the window and below the proven tail is closed",
+      "failureScenario": "Item 13 carries X3d's {grantGeneration: G, provenTailSeq}, and the attempt reached rollover because that seq was at least 9007199254740988. The decision table appends TERMINAL whenever the observed open tail is still inside 9007199254740988 through 9007199254740990. It treats a tail below what the attempt proved as loss only when the tail is below the window. A restore can leave the committed tail at 9007199254740988 or 9007199254740989 while provenTailSeq is 9007199254740990 and the floor is still behind both, so item 3's floor regression does not fire, and the in-window row appends TERMINAL over the missing records. Required: an observed open tail below provenTailSeq refuses before any write, as floor regression when the floor is ahead of that tail and as uncertainTailLoss otherwise, including when the observed tail is still inside the window. The TERMINAL row runs only when the observed tail is in the window and is at least provenTailSeq."
+    },
+    {
+      "id": "RF-3",
+      "title": "Rollover appends TERMINAL when no successor generation exists",
+      "failureScenario": "Item 8's no-successor row, generation 9223372036854775807, writes nothing and appends no TERMINAL, and it rejects appending TERMINAL because the carrier would then have no open generation. Item 4a applies that refusal to OPEN when the last row is already a TERMINAL at that generation. Item 13's table has no row for an open generation at that maximum. When that generation is open and the tail is in the window, the table writes the REVERT or ADVANCE witness and then runs steps 4 to 6, which append the TERMINAL before OPEN. OPEN then refuses, and the TERMINAL is already durable. Required: when the open generation is 9223372036854775807, the observation refuses on item 8's invariant row before any write, and no TERMINAL is appended."
+    }
+  ],
+  "subjectSha256": "b9aad8f68fd150ca5245378a7c3925b7f80e8b282fde0a772b35c7d3c948c3c5",
+  "subject": {
+    "path": "docs/implementation/m2/journal-x3b/PROPOSAL.md",
+    "bytes": 52076,
+    "sha256": "b9aad8f68fd150ca5245378a7c3925b7f80e8b282fde0a772b35c7d3c948c3c5"
+  },
+  "preservedR6": {
+    "path": "docs/implementation/m2/journal-x3b/PROPOSAL-r6.md",
+    "bytes": 25772,
+    "sha256": "4ee7e465e790fa3bc04ddd40c6e07e96e00e08a1487e0f10049b57dec4a72765"
+  },
+  "productHead": "9dbefb918aa2fb10848e6203fb0cb79338c7ce2f",
+  "realOpenSipAbsent": true,
+  "scope": "Law X3b r7. The end-step rollover, the SEAL ceiling, the successor rule, S7, and the op- token hold. RF-1: the RA, REV and CLN row admits the tail GenerationFull refuses. RF-2: an in-window tail below provenTailSeq is closed. RF-3: an open generation at 2^63-1 still appends TERMINAL. No product cargo."
+}

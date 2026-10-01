@@ -1,16 +1,10 @@
-# The durable grant-journal append, its witness, the carrier high-water and grant-generation rollover — proposal X3b r8
+# The durable grant-journal append, its witness, the carrier high-water and grant-generation rollover — proposal X3b r7
  r4 was ACCEPTED by Grok on 2026-09-30. r5 is an amendment found by Grok's X3c r1 review: on the SEAL path, level 4 is held through the evidence COMMIT, so no REV can slip between SEAL and commit. r4 bytes are preserved in PROPOSAL-r4.md. r6 answers Grok r5 RF-1 (the SEAL-path hold had no release when COMMIT is never called) and RF-2 (the r4 snapshot now equals the accepted bytes). r5 bytes are preserved in PROPOSAL-r5.md. r6 ACCEPTED by Grok on 2026-09-30; r6 bytes are preserved in PROPOSAL-r6.md.
 
 **r7 (2026-10-01) is an amendment required by the accepted X7 r3** (item 6 and its dependency note). It defines grant-generation rollover inside item 4's end step, under the fence that step already holds. It covers the `EXCLUSIVE` closure, the `TERMINAL` append and its `op-` token, the opening of generation g+1 with its crash states, the floor write for g+1, skip-if-busy, and the charge to the attempt ledger. It also reconciles X3d r3 item 3's capacity threshold with what the carrier admits.
 - **New:** item 4a (generation succession: the closed generation, the opened successor, the effective tail, the predecessor check), item 5a (the capacity window and the exact rollover trigger) and item 13 (the rollover operation).
 - **Amended:** items 3 (step 4's last table row), 4 (start and end), 5 (the `TERMINAL` bullet), 6, 8, 9, 10, 11 and 12, the forbidden substitutes and the not-claimed list.
 - **Unchanged from r6:** everything else.
-
-**r8 (2026-10-01) answers Grok X3b r7 RF-1 to RF-3.** r7 bytes are preserved in PROPOSAL-r7.md.
-- **RF-1 (item 5a, item 11).** `RA`, `REV` and `CLN` are admitted only when t ≤ `9007199254740989`, so the appended `seq` is at most `9007199254740990`. This matches carrier-format.v3 §5 and X3b-2's `LAST_ORDINARY_SEQ` check. `GenerationFull` at t = `9007199254740990` stays on the busy row. The `SEAL` ceiling, the `TERMINAL` window and the trigger are unchanged. Item 11's boundary test now covers both sides.
-- **RF-2 (item 13, item 11).** An observed open tail below the exhaustion's `provenTailSeq` refuses before any write, even inside the window. It refuses as floor regression when the floor is ahead of that tail, and as `uncertainTailLoss` otherwise. The `TERMINAL` row runs only when the observed tail is in the window and at least `provenTailSeq`. A test covers a restore that leaves the tail at `…988` or `…989` with `provenTailSeq` `…990`.
-- **RF-3 (item 13, item 11).** When the open generation is `9223372036854775807`, item 13's observation refuses on item 8's invariant row before any write, and no `TERMINAL` is appended. Item 13's table gains that row, and item 11 gains its test.
-- **Unchanged from r7:** everything else.
 
 2026-09-30. Claude Opus 5.5, implementation lead. Law for unit X3b of `EXIT-PLAN.md` (DR-G19, COV-03), under owner.md §8, security-and-lifecycle S6 (linearization, commit-admission gate), S7 (lock order and modes) and S12, `security-completion.v8.md` §5.4 to §5.6 (the grant-journal carrier, lock handoff, witness, durability primitives), the selected physical carrier `design-corrections/security/grant-journal.carrier.v3.sql` (carrierFormat 3, S1 row 84), `host-foundation-completion.v2.md` (project namespace layout), the build plan's failure cases F06 to F11 and F19, and laws X1 r1, X3a r3, X2 r4 (items 5 to 7a: R0, R1, R2, X2d's lease, X2e's handoff), X4 r2 (`OperationGuard` inside X2e; the checkpoint under `JournalAppendLock`) and X4T r1; r7 is also written under X3d r3 (items 3, 7 and 8), X7 r3 (items 6, 6a and 7), X1 r1 item 5, `carrier-format.v3.md` §5, §7 and §8, and v8 §5.4's WA-13. r2 answers Grok X3b r1 RF-1 (no floor write under a lease), RF-2 (the digest's preimage), RF-3 (no writer quarantine marker; the F46 row) and RF-4 (floor before witness). r1 bytes are preserved in PROPOSAL-r1.md. r3 answers Grok X3b r2 RF-1 (format dispatch before the floor table) and RF-2 (the floor table implements the crash list and reconciliation; a whole INIT floor). r2 bytes are preserved in PROPOSAL-r2.md. r4 answers Grok X3b r3 RF-1 (a present non-INIT floor with no carrier is `uncertainTailLoss`). r3 bytes are preserved in PROPOSAL-r3.md. r4 ACCEPTED by Grok on 2026-09-30. It keeps X2 r5 item 7's ordering (the floor step runs under the fence before any lease) and X4T r2's fenced admission at the same point. Items 1, 2, 3, 4, 4a, 5, 5a, 7, 9 and 13 contain lead decisions made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation; each names the alternative it rejects. Not code. Library only: no command is wired.
 
@@ -157,7 +151,7 @@ M2's commit path appends a `SEAL` to the project's grant journal under the level
      | Record | Admitted when |
      |---|---|
      | `SEAL` | t ≤ `9007199254740987`. The `SEAL` takes at most `9007199254740988`, which leaves `…989` and `…990` for its `REV` and `CLN`. |
-     | `RA`, `REV`, `CLN` | t ≤ `9007199254740989`, so the record takes at most `9007199254740990` (r8, RF-1; carrier-format.v3 §5 and X3b-2's `LAST_ORDINARY_SEQ` check, unchanged in effect) |
+     | `RA`, `REV`, `CLN` | t ≤ `9007199254740990` (unchanged) |
      | `TERMINAL`, cause `grantGenerationClosure` | `9007199254740988` ≤ t ≤ `9007199254740990`, so the `TERMINAL` takes `…989` to `…991`. Only item 13 builds it. |
      | anything | never after a `TERMINAL` in that generation |
 
@@ -223,7 +217,7 @@ M2's commit path appends a `SEAL` to the project's grant journal under the level
     **r7 tests (X3b-4).** Generations and tails near the cap are reached by X3b-2's reserved-slot technique: lift `gj3_append_laws`, insert, then reinstall the trigger's stored SQL byte-identically. The tests cover:
     - **item 5a's table at every boundary:**
       - `SEAL` at tail `…987` is admitted, and at `…988` it is `SealCeiling`;
-      - `RA`, `REV` and `CLN` at tail `…989` are admitted at `seq` `…990`, and at tail `…990` they are `GenerationFull` on the busy row (r8, RF-1);
+      - `RA`, `REV` and `CLN` at `…990` are `GenerationFull`;
       - `TERMINAL` at `…987` is `TerminalSlot`, and at `…988`, `…989` and `…990` it is admitted;
       - nothing is admitted after a `TERMINAL`;
     - **every case of item 4a:**
@@ -237,8 +231,6 @@ M2's commit path appends a `SEAL` to the project's grant journal under the level
     - **item 13:**
       - a busy `writer.lease`; a busy `readers.lease` (with the writer lock released);
       - `AlreadyRolled`; floor regression refused before any write;
-      - (r8, RF-2) a restore that leaves the tail at `…988` or `…989` with `provenTailSeq` `…990`: once with the floor ahead of the tail (floor regression) and once with the floor behind it (`uncertainTailLoss`). Each refuses before any write, with no witness change and no `TERMINAL`;
-      - (r8, RF-3) an open generation `9223372036854775807` with an in-window tail: the invariant row before any write, and no `TERMINAL`;
       - a crash at every row of the crash table, and an uncertain outcome at each effect with its reconciliation;
       - a token that is fresh per attempt and differs from the released operation's ref; the `wallClockData` shape;
       - a failed reservation, after which no lease is taken;
@@ -277,11 +269,8 @@ M2's commit path appends a `SEAL` to the project's grant journal under the level
       | Any QUARANTINE, or floor regression | refuse on item 8's row; nothing is written |
       | The newest generation is above G, or G+1 is open (case 1) | `AlreadyRolled`: nothing is written |
       | L is a `TERMINAL` in G, and the witness reconciles OK or ADVANCE against it | OPEN only (step 6) |
-      | G is open and G = `9223372036854775807` (r8, RF-3) | refuse on item 8's no-successor invariant row; nothing is written and no `TERMINAL` is appended |
-      | G is open and t < `provenTailSeq`, whether or not t is inside the window (r8, RF-2) | the tail is below what the attempt proved. Refuse as floor regression when the floor is ahead of t, otherwise as `uncertainTailLoss`. Nothing is written. |
-      | G is open, G < `9223372036854775807`, t is in item 5a's window, t ≥ `provenTailSeq`, and the witness is OK, REVERT or ADVANCE | write the witness for REVERT or ADVANCE as the start does, then steps 4 to 6 |
-
-      The rows apply in order, and the first match decides. Because `provenTailSeq` ≥ `9007199254740988` (item 5a's trigger), a tail below the window is always below `provenTailSeq` and takes the RF-2 row. **Rejected (RF-2):** closing any in-window tail. A restore can leave the tail at `…988` or `…989` behind a floor that is still lower, and appending `TERMINAL` there would seal the generation over records the attempt proved.
+      | G is open and t is in item 5a's window, with the witness OK, REVERT or ADVANCE | write the witness for REVERT or ADVANCE as the start does, then steps 4 to 6 |
+      | G is open and t is below the window | the tail is below what the attempt proved: floor regression where the floor shows it, otherwise `uncertainTailLoss`; nothing is written |
 
    4. **Mint the token and the wall-clock data (lead decision).**
       - **Token.** The `TERMINAL`'s `operationRef` is `op-` followed by the lowercase hex of 16 bytes from the host CSPRNG (`opensip_platform::request_entropy`, the source X3d item 2 draws the ExecutionId from). It is drawn once per rollover attempt, after the lease is held. It must differ from the released operation's `operationRef`; if it is equal, the invariant row applies and there is no redraw.
