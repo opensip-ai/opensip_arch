@@ -90,7 +90,7 @@ Sizes: S is about one review round of a single file; M is several files with one
 8. X8.
 9. X9 (M2 exit).
 
-X2 and X11 can run in parallel with X3 once X1 lands. They gate project and creator commands, not the M2 exit itself, except where X3a's store needs a registered project namespace; X3a's law must decide that.
+X3a's law (r1, 2026-09-30) decided that the store endpoint is admitted without a namespace, and that the full store binding needs a registered project (owner §8). So X2 now gates the real commit path of X3b and X3c, though not their scratch-installation tests. Run X2 alongside X3a and before X3b/X3c are integrated. X11 still runs in parallel with X3.
 
 ## Choices left open by the design
 
