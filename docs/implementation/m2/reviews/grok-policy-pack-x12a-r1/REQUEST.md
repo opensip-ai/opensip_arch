@@ -1,12 +1,12 @@
-Grok review: X12a, bundled policy-pack admission on the evaluator side (law X12 r3 items 2 to 7 and 9, with item 10's evaluator cases), with inventory v104. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/grok-policy-pack-x12a-r1. If you build or test, use a CARGO_TARGET_DIR under that directory. Run git only read-only, and only against the worktree below.
+Grok review: X12a, bundled policy-pack admission on the evaluator side (law X12 r3 items 2 to 7 and 9, with item 10's evaluator cases), with inventory v104 (parent v101). Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/grok-policy-pack-x12a-r1. If you build or test, use a CARGO_TARGET_DIR under that directory. Run git only read-only, and only against the worktree below.
 
 Law: `docs/implementation/m2/policy-admission-x12/PROPOSAL.md` r3 (accepted by you on 2026-10-01; the reviewed bytes are `PROPOSAL-r3.md`). Its "Units after the law" splits X12 into X12-0 (the `CONFIG.INVALID` remedy text), X12a (this unit), X12b (the host: `configuration.rs`, the termination mapping, the remedy, the host tests), and X12c and X12d at M3. X12a depends on nothing beyond the current product. X12-0 and X12b are not in this request.
 
 ## Subject
 
 Pins are in hashes.txt.
-- **Product:** the worktree `/Users/sb/code/opensip-ai/opensip-x12a`, detached at 920941b (X3c-2 integrated, inventory v102 selected). Nothing is committed; the five new files are intent-to-add. Save `git -C <worktree> diff` as product.diff and report its sha256. Lead's value: aa57d1e68c78e911e20532a3c068ad23478dd1519ac29629c3e6f57dec3a7ea8, 71108 bytes.
-- **Arch:** v104 (parent v102), `policy-pack-x12a-inventory-v104-subject.json` and `policy-pack-x12a-inventory-v104/`. These are untracked until acceptance. v101 belongs to X3b-2, which is in flight on v102, and v103 is unassigned.
+- **Product:** the worktree `/Users/sb/code/opensip-ai/opensip-x12a`, detached at 9dbefb9 (X3b-2 integrated, inventory v101 selected). Nothing is committed; the five new files are intent-to-add. Save `git -C <worktree> diff` as product.diff and report its sha256. Lead's value: aa57d1e68c78e911e20532a3c068ad23478dd1519ac29629c3e6f57dec3a7ea8, 71108 bytes.
+- **Arch:** v104 (parent v101), `policy-pack-x12a-inventory-v104-subject.json` and `policy-pack-x12a-inventory-v104/`. These are untracked until acceptance. v104 was first built on v102 at 920941b; X3b-2 (v101) then integrated, so the product change was rebased onto 9dbefb9 (the diff is byte-identical) and v104 rebuilt on v101 with the same five rows. Succession is by the lock's parent pin, not by number. v103 is unassigned.
 
 ## What it does
 
@@ -111,11 +111,11 @@ All new code is in `crates/evaluator/src/policy.rs` (the law names it as the eva
 ## Checks
 
 - X12a tests: 12/12 and the doctest pass.
-- Full workspace, two runs on 920941b plus this change: 1354 passed, 0 failed, 3 ignored, each time. The baseline is 1341, plus 12 tests and 1 doctest.
+- Full workspace, two runs on 920941b plus this change: 1354 passed, 0 failed, 3 ignored, each time (baseline 1341, plus 12 tests and 1 doctest). After the rebase, one run on 9dbefb9 plus this change: 1366 passed, 0 failed, 3 ignored (9dbefb9 adds X3b-2's tests; this change adds the same 12 tests and 1 doctest).
 - Clippy `--workspace --all-targets -D warnings` and fmt are clean.
 - `~/Library/Application Support/OpenSIP` is absent.
-- `check_package_edges --lane host` against v104 passes.
-- verify_scratch (v104 appended over the real lock at 920941b) passes: 68 inventory successors, 71 contract successors, 16 inheritance rows, v104 selected.
+- `check_package_edges --lane host` against v104 passes on 9dbefb9.
+- verify_scratch (v104 appended over the real lock at 9dbefb9, which selects v101) passes: 69 inventory successors, 71 contract successors, 16 inheritance rows, v104 selected.
 - verify_projection against the real lock: 16 rows, 83 corruptions refused.
 - `build_v104.py` reruns produce the same bytes.
 
@@ -130,15 +130,15 @@ All new code is in `crates/evaluator/src/policy.rs` (the law names it as the eva
   - `AdmittedPack` cannot be forged;
   - `check_plan_pack` is provided but not wired into replay.
 - Rule on the judgment calls, in particular 1, 2, 3, 4 and 6.
-- Is v104 right on v102?
+- Is v104 right on v101?
 - Is anything else wrong?
 
 review.json must contain:
 - "verdict": `ACCEPT-UNIT` or `REQUIRED-FINDINGS`;
 - "requiredFindings";
 - "subjectManifestSha256": the sha256 of `policy-pack-x12a-inventory-v104-subject.json`;
-- "inventoryCandidateAssessment": {verdict, requiredFindings, path, bytes, sha256 of v104, parent (the v102 pin), successorRecord}.
+- "inventoryCandidateAssessment": {verdict, requiredFindings, path, bytes, sha256 of v104, parent (the v101 pin), successorRecord}.
 
 Write REVIEW.md and review.json. Do not commit.
 
-**Lead note on ordering.** X3b-2's inventory101 is in flight on the same parent, v102. If X3b-2 integrates first, `build_v104.py` gets a parent-only rebuild on v101 (one more parent-map entry), and the rebuilt v104 gets a quick rebase-only recheck. This review judges v104 on v102 as submitted.
+**Lead note on ordering.** X3b-2 (inventory101) integrated at product 9dbefb9 before this request was sent, so this request already judges v104 on v101. `build_v104.py` maps both v102 and v101 to the records that bound their sixteen rows, and reads the parent from the lock.
