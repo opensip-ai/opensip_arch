@@ -1,4 +1,4 @@
-# The crash, lock and revocation matrix — proposal X9 r3
+# The crash, lock and revocation matrix — proposal X9 r4
 
 2026-10-01. Claude Opus 5.5, implementation lead. Law for unit X9 of `EXIT-PLAN.md`, the unit that gates M2 completion. It is written under:
 - the build plan's M2 row (`docs/v2/architecture/implementation-boundaries-and-build-plan.md` line 886: "actual crash/lock/revocation matrix pass; synthetic fixtures remain labelled"), its ordered failure matrix F00–F53 (lines 524–587), its required API and fault-injection checks (lines 591–613; the test owner `crates/storage/tests/commit_tests.rs`, line 594), and the tooling row for storage and process faults (line 1072: "deterministic synchronization and crash barriers against actual storage/processes … Record platform/filesystem/profile, actual state bytes and exact outcomes; inject before/after each durability step, without sleep-and-hope synchronization");
@@ -51,6 +51,32 @@ r2 (2026-10-01) is an amendment made as lead decisions under the owner's standin
   - **What it does not touch.** Matrix rows that arm `x4.observer.tick` (item 11) do not depend on the period.
   - **Who owes it.** X9-2's and X9-6's census runs, and this law's next revision if those runs need a rule for it.
 - **Unchanged from r2:** everything else.
+
+**r4 (2026-10-02) is an amendment made as lead decisions under the owner's standing direction of 2026-09-30.** r3 bytes are preserved in PROPOSAL-r3.md. It was found while starting X9-2. It changes two things and nothing else.
+
+- **The three driver entries (item 6 and the forbidden substitutes).**
+  - **What X9-2 found** at product `a36da7c`. X9-2's drivers run in storage's matrix target. That target links security as an ordinary library, and it can obtain none of the three admissions its drivers start from over item 6's synthetic installation:
+    - **The operation** (the `commit` driver, and R2's next writer). `admit_ordinary_writer`, `ordinary_writer::admit_with` and `OrdinaryWriteAdmission::begin_operation` are crate-private (`security/src/custody/ordinary_writer.rs`, lines 220 and 493–506), and no writer command is enabled in M2. So no production path outside security yields a `ProjectOperation`. Item 6 and this law's forbidden substitutes bar a support function that returns one. X8 r3 item 4's `scenario::operation` is the only lawful route. It is X8b's, it is not integrated, and it is not among X9-2's dependencies.
+    - **The recovery admission** (R1 and R4). `RecoveryAdmission::admit` is the only public constructor (X6 r3 item 2). It always takes `HomeSource::Native`, the account database's home (`recovery_admission.rs`, lines 484–509): the real account's home, which no matrix process may touch, and which this BASELINE-ATTESTED host refuses. The fixture form (`admit_on` over `HomeSource::Fixture`) is crate-private. No law exposes it, and X8's `scenario` has no recovery entry.
+    - **The sweep admission** (R3). `SettlementSweep::admit` is `admit_on(admit_ordinary_writer()?)`. It is native-only in the same way, and its fixture form is crate-private.
+
+    X9-1's census reaches all three only because it is in-crate (`crash_matrix_census.rs`: `InstallationAt::writer` and `begin_operation`). X9-1's request (call 7) left X9-2 needing "X8b's or this surface's operation path", and its review accepted that without a ruling.
+  - **Decision.** Item 6 gains exactly three driver entries in security's `crash_matrix_support`, forwarded unchanged by storage's and host's modules (item 6, r4). Each returns only what an existing crate-private production composition returns over the fixture home. This is the same exception X8 r3 item 4 gives `scenario::operation`. The forbidden substitutes are amended to match.
+  - **Rejected:**
+    - **A callback-style support function** that passes the `ProjectOperation`, `RecoveryAdmission` or `SettlementSweep` to a caller's closure and returns the closure's value. It would hand out the same authority type while technically not returning one. It meets the letter of the forbidden substitute and defeats its purpose, and it hides the exception instead of naming it.
+    - **A home override on the production entries.** For example, a feature-only branch in `admit_ordinary_writer`, `RecoveryAdmission::admit` or `SettlementSweep::admit` that takes H from the environment. It would add a site outside X9-1's pinned list, which item 6 forbids. It would also put a test-only input inside a production entry. And it would still not produce the synthetic read and write receipts, which come from 462's signed test trees rather than the native platform.
+    - **Waiting for X8b's `scenario::operation`.** It covers only the operation, so recovery and the sweep would still have no route. It would also tie the matrix target to `scenario-fixtures`, and X9-2 to X8b.
+- **The per-unit check (items 7 and 12).**
+  - **What X9-2 found.** `tools/check_crash_matrix.py check` requires `product.commit` to be the reviewed commit on a clean worktree, and every kill-set point of the full census to be killed by a process-death run. A unit's run set before X9-6 can meet neither: the unit is uncommitted while it is reviewed, and most of the census belongs to other units' rows.
+  - **Decision.** X9-2 to X9-5 each apply the checker's per-run check and its repetition agreement to their own subset of `required-runs.v1.json`. The full `check`, with a clean committed tree and full kill-set coverage, belongs to X9-6 only. X9-2 adds the subset mode (item 7, r4).
+  - **Rejected:** relaxing `check` itself, which would weaken the exit gate; and skipping the checker until X9-6, which would leave each unit's run records unchecked against their reviewed rows.
+- **X8 cross-reference.** X8 r3 items 4b and 4e say that `crash_matrix_support` "still returns no authority type". From r4 on, that sentence reads with this law's three-entry exception. X8 is not edited here, and its next revision may restate the sentence. The two exceptions stay separate:
+  - `scenario::operation` stays under `scenario-fixtures`;
+  - the three entries stay under `crash-matrix` only;
+  - neither surface calls the other;
+  - there is still one shared site list (item 6, r3).
+- **G1.** With r4, the matrix half of G1 has a lawful route. X9-2 closes G1 for its own rows.
+- **Unchanged from r3:** every injection mechanism, point, kind, scope, label, evidence member, row, expected value, limit and other forbidden substitute. No accepted outcome of any other law changes. No new public code, row or detail.
 
 Product baseline: main `f1b8321` (X3d-0 integrated). Every item contains a lead decision made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation; each names the alternative it rejects. Not product code. No new public code, row or detail.
 
@@ -186,7 +212,7 @@ At `f1b8321` the product has the following, and nothing more:
      - **Existing `cfg(test)` hooks stay.** Where one already exists (`AppendStep`, `ObjectStep`, the commit hook), the point sits at the same place, and its name matches the hook's variant.
 
 6. **The synthetic test-support surface (lead decision).** Under the feature only, each of security, storage and host exposes one `#[doc(hidden)] pub mod crash_matrix_support`.
-   - **What it exposes.** Producers of *inputs on disk* under a scratch root, never an authority type:
+   - **What it exposes.** Producers of *inputs on disk* under a scratch root, never an authority type (r4: except the three driver entries below):
      - a synthetic installation through the real creator path, with InitialCore's injected loaded image and the synthetic V2 profile set;
      - X4T-0's signed accepted store, built from the public test-only quorum seeds;
      - a revocation or policy publication helper that replaces `state.v1` atomically under the installation fence, as the trust owner does;
@@ -201,6 +227,25 @@ At `f1b8321` the product has the following, and nothing more:
      - **Running against a real installation.** On this host the real path refuses at InitialCore F0 and at `/` without owner signing keys (EXIT-PLAN, "Owner actions").
      - **Running X9 inside security's unit-test binary.** Storage's `commit.rs` and host's finalization are unreachable from it, because security depends on neither.
      - **A support module that mints authority types directly.** That is a production-shaped seam even under a feature, and it would test the fixture instead of the composition.
+   - **The three driver entries (r4; lead decision).** Security's `crash_matrix_support` exposes exactly three driver entries. Storage's and host's modules forward them unchanged, as they forward the rest of the surface:
+     - `operation(at, root) -> Result<ProjectOperation, InstallationTermination>`. Over the synthetic installation `at` and the project root `root`, it runs the crate-private composition that X9-1's census already drives:
+       - X1's ordinary writer admission, through `ordinary_writer::admit_with` with the write receipt over a signed test tree and the gate over `HomeSource::Fixture`;
+       - X2's root admission and tracking, and the first registration when the root is unregistered;
+       - `begin_operation` with APPEND-WRITE, which covers X2d's lease, X3a's endpoint, X4's monitor and first read, X3b's floor step and carrier start, and X2e's handoff.
+
+       It returns the `ProjectOperation` that `begin_operation` returns, and nothing else.
+     - `recovery_admission(at, request) -> Result<RecoveryAdmission, RecoveryRefusal>`. It produces a read receipt over a signed test tree for `at`'s H, allocates recovery's ledger as `admit` does, and runs `recovery_admission::admit_on` with `HomeSource::Fixture`. It returns that function's admission, and nothing else.
+     - `settlement_sweep(at) -> Result<SettlementSweep, InstallationTermination>`. It runs X1's ordinary writer admission as `operation` does, then `settlement_sweep::admit_on`. It returns that function's sweep, and nothing else.
+
+     **What every entry must satisfy:**
+     - **Placement.** It sits inside the pinned support module, so it adds no cfg site. It calls only existing items. The fixture gates it reaches are the existing joint-predicate sites of X9-1's list: `HomeSource::Fixture`, `DurableWriteGate::for_tests`, `InitialInstallationAttempt::for_tests`, the synthetic V2 profile set and `Image::Injected`. It adds no site and no home override on any production entry. A crate-private item it calls may be widened within security, at most to `pub(crate)`, and never to `pub`.
+     - **Release absence.** It is compiled only under `crash-matrix`, inside `cfg(all(feature = "crash-matrix", target_os = "macos"))`. It is never compiled under `scenario-fixtures` alone, and it is absent from every release build (item 2).
+     - **Inputs.** Its inputs are item 6's on-disk inputs (`SyntheticInstallation`, a root path) and the public inert `RecoveryRequest`. It accepts no receipt, gate, guard, monitor, clock, session, permit or `ReplayedRun` from the caller. It constructs no authority type itself. It returns the production composition's own result, or that composition's refusal.
+     - **One entry per process.** In line with X1 items 1 and 7, a process makes at most one call to any of the three. A second call refuses with the invariant row, without effect. The flag that enforces this is the support module's own. `publish_revocation` refuses, without writing, in a process that has made such a call: under item 11 the parent publishes, never a child that holds an operation.
+     - **No other entry.** The three are the whole exception. Every other item of the surface still returns no authority type.
+
+     **The production constructors stay the only ones** (X6 r4, record only): `RecoveryAdmission::admit` and `SettlementSweep::admit`. The three entries are test-only.
+     **Rejected:** see the r4 header (a callback-style function, a home override on production entries, and waiting for X8b).
 
 7. **The evidence shape (lead decision).**
    - **One record per run.** Each run writes `runs/<case>-<variant>.json`: canonical JSON through `opensip_identity::canonical_bytes`, sorted keys, no floats.
@@ -247,6 +292,23 @@ At `f1b8321` the product has the following, and nothing more:
      - the release absence passes;
      - the two lead repetitions agree run by run on `normalizedSha256` and on the trace digest, the trust store (`logical.trustState`) included (r2);
      - (r2) every run's labels include `scripted-clock`, and every child's ordinal follows spawn order.
+   - **The per-unit check (r4; lead decision).** Before X9-6, each of X9-2 to X9-5 checks its own run sets with a subset mode of the checker.
+     - **Who adds it.** X9-2 adds it to `tools/check_crash_matrix.py` as the `check-unit` command, with its tests.
+     - **The unit's rows.** `check-unit` names the unit (X9-2, X9-3, X9-4 or X9-5). It takes that unit's subset of the reviewed `required-runs.v1.json`: the rows whose case is in the unit's list in item 12.
+     - **What it checks** on two lead run sets. It refuses unless all of these hold:
+       - every subset row has exactly one run in each set, and no other run exists;
+       - `check`'s per-run check passes on each run (canonical JSON, schema, verdict PASS, labels, units, script and expected equal to the row, the clock and ordinals, and kill verification by signal 9 and `lastHeld`). The one difference: `product.commit` must equal the stated base commit, and `worktreeClean` may be `false`, because a unit is reviewed uncommitted;
+       - the census names only registered scopes, with their durability;
+       - the kill set equals the one derived from the census;
+       - every killed point of the unit's runs is in the kill set;
+       - the release absence passes;
+       - the limits are exactly L1 to L10;
+       - the two sets agree run by run on `normalizedSha256`, the trust store included, and on every child's trace digest, and they agree on the census.
+
+       It does not require the full kill-set coverage.
+     - **What binds the reviewed bytes.** The unit's review subject manifest binds them. The run records do not.
+     - **It is not a matrix pass.** The forbidden substitute "a matrix pass on a dirty worktree" still governs X9-6's `check`, which stays unchanged.
+     - **Rejected:** see the r4 header.
    - **How the review checks it.** The reviewer owns the native lane for X9-6, and:
      1. reruns the whole matrix on the reviewed commit;
      2. runs the checker over both run sets;
@@ -375,6 +437,7 @@ At `f1b8321` the product has the following, and nothing more:
 
       **Dependencies.** X9-0. It precedes X3d-2's, X6b's and X7a's composition tests, which need the same surface (gap G1).
     - **X9-2 (storage; carrier and objects).** `crates/storage/tests/commit_tests.rs` with `required-features`, the shared drivers (`commit`, `recover`, `sweep`, `competitor-writer`, `reader`), the ladder, and rows F00, F02–F05, F07–F10, F20–F22, F31 and F46, with their `required-runs.v1.json` rows. **Dependencies:** X9-1, X2e, X4a, X3d-1, X3d-2, X6a, X6b, X6c.
+      **r4:** X9-2 also adds item 6's three driver entries, which its drivers use, and item 7's `check-unit`. It does not depend on X8b.
     - **X9-3 (storage; commit and recovery).** Rows F11–F15, F23–F25, F27–F29, F33, F36, F42, F43–F45, F49, F52 and F53. **Dependencies:** X9-2.
     - **X9-4 (storage; locks and live revocation).** Rows F06, F18, F19, F26, F30, F34, F38, F39's storage half, F40 and F41, and C5 once G5 is decided (**r3 (record):** decided by X6c; C5's R3 is `refused` and its R4 is `terminal-not-committed`). **Dependencies:** X9-2 and X4a. It uses X4a's observer `gate` point.
     - **X9-5 (host).** `crates/host/tests/commit_matrix_tests.rs` with rows F01, F16, F17, F12's and F40's caller route, F32 with its rollover crash table, F39's delivery half, and F53's `store-gc` step. **Dependencies:** X9-2, X5a, X7a, X7b, X3b-4 and X6c.
@@ -403,7 +466,11 @@ These are recorded for the owning laws' next revisions. None changes an accepted
 - A kill not verified by `SIGKILL` status and by the trace's last held record.
 - An expected value read back from a run, or written after it.
 - Dropping `injected`, `mutation` or `synthetic` from a run's labels, or reporting a limit row as executed.
-- A support function that returns an authority type (`PlatformReceipt`, `ProjectOperation`, `CommitSession`, `ReplayedRun`, `PreparedCommit`, `PublishedCommit`, `RecoveredCommit`, `AdmissionPermit`).
+- A support function that returns an authority type (`PlatformReceipt`, `ProjectOperation`, `CommitSession`, `ReplayedRun`, `PreparedCommit`, `PublishedCommit`, `RecoveredCommit`, `AdmissionPermit`). **r4:** this excepts item 6's three driver entries, each returning only its crate-private production composition's own result (`ProjectOperation`, `RecoveryAdmission` or `SettlementSweep`) over the fixture home.
+- (r4) A fourth driver entry, or one that constructs its result itself, accepts a receipt, gate, guard, monitor, clock, session, permit or `ReplayedRun`, or is compiled under `scenario-fixtures` or in any release build.
+- (r4) A support function that hands an authority type to a caller's closure.
+- (r4) A home override, or any test-only input, on a production entry (`admit_ordinary_writer`, `RecoveryAdmission::admit`, `SettlementSweep::admit`).
+- (r4) A second entry in one process through the three entries, or `publish_revocation` in a process that made one.
 - A `cfg(any(test, feature))` site outside X9-1's pinned list.
 - Asserting either refusal or admission of a whole-file `state.v1` restore (L4).
 - A durability primitive reached outside a named scope during a matrix run.
@@ -411,7 +478,7 @@ These are recorded for the owning laws' next revisions. None changes an accepted
 - (r2) A wall reading from the OS in any process of a matrix run, a scripted wall reading in a build or process without the feature and `OPENSIP_X9_CLOCK`, or a scripted monotonic clock.
 - (r2) A `recover` call inside F34's injected writer run.
 - Raw state bytes committed to arch in place of the run records.
-- A matrix pass on a dirty worktree, or on a commit other than the reviewed one.
+- A matrix pass on a dirty worktree, or on a commit other than the reviewed one. **r4:** a unit's `check-unit` (item 7) is not a matrix pass.
 
 ## Not claimed
 

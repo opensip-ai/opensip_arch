@@ -1,4 +1,4 @@
-# Read-only carrier recovery and the settlement sweep — proposal X6 r3
+# Read-only carrier recovery and the settlement sweep — proposal X6 r4
 
 2026-10-01. Claude Opus 5.5, implementation lead. Law for unit X6 of `EXIT-PLAN.md`. It is written under:
 - `architecture/commit-recovery-readonly.v3.md`, the bounded algorithm owner: steps 0–4, §1 vocabulary, §3 anchor bound, §4 sweep;
@@ -10,6 +10,14 @@
 Items 1 to 9 contain lead decisions made under the owner's standing direction to proceed on the lead's recommendation; each names the alternative it rejects. r2 answers Grok X6 r1 RF-1 (the fence-free lease is now X2 r6's exception) and RF-2 (both projections of the degraded standing). r1 bytes are preserved in PROPOSAL-r1.md. r2 ACCEPTED by Grok on 2026-10-01.
 
 r3 (2026-10-01) is an amendment from starting X6b, made as a lead decision under the owner's standing direction. As r2 stood, item 6 had the host call `recover` on X3d's `ExistingAttempt` in the writer's own invocation, and items 2 and 3 admit recovery on the read receipt. X1 r1 items 1 and 7 and 458c r5 item 1 allow a process exactly one attempt, one receipt and one entry, and the writer's receipt is already spent, so no process can do both (`ATTEMPT_ALLOCATED` at product 81214cb). r3 changes item 6: `ExistingAttempt` stays on X3d item 9's invariant row, discloses the requested binding, and is recovered only by a later read-entry invocation. Items 1, 2 and 3 settle what that needs: the recovery request's shape and owner, the binding X3d supplies with `ExistingAttempt`, the one read entry, and how admission picks N. Item 8 gains the unregistered-namespace row, and item 12's X6b is restated. Items 4, 5, 7, 9, 10 (except F34's line) and 11 are unchanged. r2 bytes are preserved in PROPOSAL-r2.md. r3 ACCEPTED by Grok on 2026-10-04. Not code. Library only: no CLI command is wired; the `repair recover` CLI surface is not this selector.
+
+**r4 (2026-10-02) is record-only.** r3 bytes are preserved in PROPOSAL-r3.md. It records two decisions accepted elsewhere. It changes no API, admission step, standing, row, sweep write, test obligation or forbidden substitute of r3, and no accepted outcome of any other law. The r3 sentences it touches stay in place, each followed by a short "r4 (record)" note that points here.
+- **The production constructors (X9 r4 item 6).**
+  - `RecoveryAdmission::admit` (item 2's read entry) and `SettlementSweep::admit` (item 7's X1 entry) stay the only production constructors of their types.
+  - X9 r4 adds `crash_matrix_support::recovery_admission` and `crash_matrix_support::settlement_sweep`. They are test-only driver entries, compiled only under `crash-matrix` and absent from every release build. They run this law's crate-private compositions (`recovery_admission::admit_on` and `settlement_sweep::admit_on`) over X9's synthetic installation, with the fixture home source.
+  - They add no admission step, and no home override on the production entries.
+  - They keep X1 item 7's one entry per process.
+- **Item 11's fixtures across crates (X9 r3 G1, the one-line amendment owed).** Storage's and host's tests cannot see security's `cfg(test)` fixtures. So X6's fresh-process runs, with admission and `recover` in one process and the sweep in another, take their fixtures and these two entries from X9's `crash_matrix_support` (X9-2 and X9-3). Item 11's in-process tests are unchanged.
 
 ## Problem
 
@@ -49,7 +57,7 @@ X6 decides ownership, API, locks and units. It does not redesign the algorithm.
    - **`RequestedBinding`** is a public, inert security value: `storeGenerationDigest` (64 lowercase hex), `namespaceId`, `journalCarrierDigest` (64 lowercase hex) and `operationRef` (the physical `op-` grammar). Its one constructor checks those grammars and nothing else. It grants nothing and admits nothing.
    - **What X3d supplies.** `prepare_commit`'s outcome becomes `NotPrepared::ExistingAttempt { execution_id, requested: RequestedBinding }`. Storage builds `requested` from the plan it was about to write (the session's N, the digest of (N, S, G, K), the carrier digest and the operation reference), never from a read. No other `NotPrepared` or `CommitOutcome` variant changes.
    - **`RecoveryRequest`** has two checked constructors: one from an ExecutionId and a namespace id (a plain recovery, such as X7 item 5's later recovery of a `CommitUndetermined`), and one from an ExecutionId and a `RequestedBinding` (F34). The namespace id is a selector only (item 3 step 3).
-   - **The read entry.** Recovery is one of X1 item 7's read entries. The public `RecoveryAdmission::admit(request)` produces the process's one read receipt (458c-a's `produce_read_platform`) and then runs item 3 on it. The crate-private form taking `&mut ReadPremiseReceipt` is the signature above, kept for tests over synthetic receipts. A process that has already entered (the creator, an ordinary writer or another read entry) refuses with the `Invariant` row at receipt production, as X1 item 7 already says.
+   - **The read entry.** Recovery is one of X1 item 7's read entries. The public `RecoveryAdmission::admit(request)` produces the process's one read receipt (458c-a's `produce_read_platform`) and then runs item 3 on it. The crate-private form taking `&mut ReadPremiseReceipt` is the signature above, kept for tests over synthetic receipts. **r4 (record):** X9 r4's test-only `crash_matrix_support::recovery_admission` runs that form over X9's synthetic installation, and `admit` stays the only production constructor (see the r4 header). A process that has already entered (the creator, an ordinary writer or another read entry) refuses with the `Invariant` row at receipt production, as X1 item 7 already says.
    - **Rejected:** a public `ReadPremiseReceipt`, which would expose the attempt-holding receipt outside security; and a request whose namespace comes from the ExecutionId by scanning every namespace's ledger, which is unbounded and is not the selector.
 
    `RecoveredCommit` is a closed, private-constructor enum of exactly the §1 standings:
@@ -104,7 +112,7 @@ X6 decides ownership, API, locks and units. It does not redesign the algorithm.
 7. **The sweep: exactly what it writes, and under which lock (lead decision).**
    - **Where.** It is a per-namespace step of the existing `store-gc` command (`owner: security`, `requestClass: lifecycle`, `authorizationClass: exclusive-lease`).
    - **How it gets the namespace.**
-     1. X1 `admit_ordinary_writer`, which holds the installation fence through the 468 gate.
+     1. X1 `admit_ordinary_writer`, which holds the installation fence through the 468 gate. **r4 (record):** `SettlementSweep::admit` stays the sweep's only production constructor. X9 r4's test-only `crash_matrix_support::settlement_sweep` runs the same `admit_on` after the fixture writer admission (see the r4 header).
      2. For each registered N, X2's EXCLUSIVE lease primitive: `writer.lease` then `readers.lease`, each `LOCK_EX|LOCK_NB`, under that fence. A busy namespace is skipped and retained, never refused.
      3. One `ReadSnapshot` reading the receipt, association and custody row together.
      4. A decision per the §4.2 table, through the same `join_ledger`.
@@ -166,7 +174,7 @@ X6 decides ownership, API, locks and units. It does not redesign the algorithm.
       - `recover` reaches no write statement;
       - the sweep's only write is the settle `UPDATE`;
       - neither calls the fence or a writer lease from `recover`.
-    - **Real crash and concurrency runs** in fresh processes belong to X9.
+    - **Real crash and concurrency runs** in fresh processes belong to X9. **r4 (record):** their fixtures and admissions come from X9's `crash_matrix_support` (X9 r3 G1, X9 r4 item 6).
 
 12. **Units.**
     - **X6a (security).** `journal_store::recovery_capture`: the bracket, shape validation, anchor table, step 4 rule and the carrier precedence observations, all read-only. It depends on X3b-1b.
