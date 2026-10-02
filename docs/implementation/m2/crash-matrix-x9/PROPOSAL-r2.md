@@ -5,7 +5,7 @@
 - `EXIT-PLAN.md`'s X9 row and its "Choices left open" recommendation for crash injection;
 - the accepted laws X2 r8, X3a r5, X3b r10, X3c r7, X3d r6, X4 r7, X4T r9, X6 r2 and X7 r3, for every failure case each one assigns to X9 or says "X9 records".
 
-r1 was ACCEPTED by Grok on 2026-10-02; r1 bytes, without that note, are preserved in PROPOSAL-r1.md. r2 ACCEPTED by Grok on 2026-10-04.
+r1 was ACCEPTED by Grok on 2026-10-02; r1 bytes, without that note, are preserved in PROPOSAL-r1.md.
 
 r2 (2026-10-01) is an amendment made as lead decisions under the owner's standing direction. It changes two things and nothing else:
 - **F34 (follows X6 r3 item 6).** A writer's invocation can never recover, because X1 r1 items 1 and 7 give a process one attempt and one entry. F34's row is rewritten: the injected run ends on the invariant row with the requested binding disclosed, and a separate recovery run gives `BindingUnusable` or the attempt's standing.
