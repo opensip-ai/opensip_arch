@@ -1,4 +1,4 @@
-# The CommitSession storage facade — proposal X3d r6
+# The CommitSession storage facade — proposal X3d r7
 
 2026-10-01. Claude Opus 5.5, implementation lead. Law for unit X3d of `EXIT-PLAN.md`, under owner.md §5 and §8, the build plan's "Decision: require independently minted prerequisites at the storage boundary", "Security/storage ownership and the final commit gate" and "Publication sequence and lock discipline" (`docs/v2/architecture/implementation-boundaries-and-build-plan.md`, lines 25–190), and the accepted laws X1 r1, X2 r5, X3a r5, X3b r6, X3c r7, X4 r7 and X4T r5. The lead decisions here are made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation. Each names the alternative it rejects. r2 answers Grok X3d r1 RF-1 to RF-5: the capacity threshold, the attempt-admission commit's outcomes, a single end-path REV owner, an end-path reserve taken first, and the exhaustive rows. r1 bytes are preserved in PROPOSAL-r1.md. r3 answers Grok X3d r2 RF-1 (a failed end-path reserve funds no append) and RF-2 (after an uncertain journal outcome, the writer reconciles before any floor copy). r2 bytes are preserved in PROPOSAL-r2.md. r3 ACCEPTED by Grok on 2026-10-01. r4 is an amendment required by X3b r8 item 5a: item 3's capacity threshold is X3b's `seal_fits` predicate (a SEAL needs the proven tail at most 9007199254740987), not the literal 9007199254740990. r3 bytes are preserved in PROPOSAL-r3.md. r4 ACCEPTED by Grok on 2026-10-01. Not code. Library only: no CLI command commits (X11 and M3).
 
@@ -21,6 +21,38 @@
 - **Widened from r5 (lead decision).** r5 forbade the end-path append only after an uncertain *journal* outcome. r6 forfeits the reserve after every uncertain outcome: a journal commit or barrier, the attempt-admission `COMMIT`, or the evidence `COMMIT`. After any of them nothing follows (item 8).
 - **Rows.** No outcome or row changes. A failed end-path append is an end failure on its existing X3b item 8 row and never rewrites the outcome (item 9). X7 r3's projection is unchanged.
 - **Unchanged from r5:** everything else.
+
+**r7 (2026-10-04) is record-only.** r6 bytes are preserved in PROPOSAL-r6.md. It records decisions already accepted in other laws and unit reviews. It changes no decision, outcome, row, type, lock order, budget or forbidden substitute of r6, and no accepted outcome of any other law. The r6 sentences it touches stay in place, each followed by a short "r7 (record)" note that points here.
+- **Compile-fail evidence: X8's fixtures, not doctests (X8 r3 items 1 and 2).** Item 11's "pinned by `compile_fail` doctests on the public types" and item 13's "the X8 doctests" for X3d-2 are superseded by X8's isolated compile-fail fixtures.
+  - **The lane.** The fixtures live under `crates/host/tests/refusal/cases/`. The X8a driver in `crates/host/tests/admission_tests.rs` runs them with the pinned toolchain inside the documented `cargo test --locked --offline --workspace --all-targets` lane. Each case pins its error code, message fragment and line against a compiling control.
+  - **Doctests.** A doctest may still illustrate a type, but it is never cited as evidence. On stable rustdoc, a `compile_fail` doctest passes on any error, and the documented lane never runs doctests (X8 r3, trial items 1 and 2).
+  - **Who added which cases.** X3d-1 and X3d-2 added their cases as X8 fixtures: X8 r3 item 3's owner rows for `CommitSession`, `JournalWriteTxn`, `JournalSealBinding`, `StoppedSession`, `PreparedCommit` and `PublishedCommit`, the `open` arity case, and group H.
+- **The adapter source pin (X8 r3 item 3b).** Item 11's case "passing a caller-implemented adapter or `SealOutcome` to storage's facade" splits in two.
+  - **Compile-fail.** Storage's facade takes no adapter and no `SealOutcome`. That is pinned by group H (E0061 on `publish(adapter)` and on a three-argument `prepare_commit`).
+  - **Source pin.** Rust visibility cannot confine the implementations of security's adapter trait, or the callers of `begin_journal_txn` and `seal_under_append_lock`, to one sibling crate. So that confinement is pinned by source, not by compile-fail. The pin is in `admission_tests.rs` and was added by X3d-2. As accepted in the X3d-2 review (call 12):
+    - **Names.** It covers `CommitAdapter`, `StagedCommit`, `begin_journal_txn` and `seal_under_append_lock`.
+    - **Where they may appear.** In production code, only in security's `custody/commit_session.rs` and its root `lib.rs`, and in `crates/storage/src/commit.rs`. Production code is every `.rs` under `crates/*/src` except files named `*_tests.rs` or `tests.rs`, with comments stripped. A use anywhere else fails.
+  - **What a bypass could reach.** A caller that got around the pin could reach at most a durable SEAL without an evidence commit, which is F36's and F38's recoverable state. It still could not reach authority, because only storage constructs `PublishedCommit`.
+- **Where cross-crate tests get their fixtures (X8 r3 item 4g; X9 gap G1).** Item 12's "only through crate-private, `cfg(test)` fixtures" cannot be met across a crate boundary, because Rust sets `cfg(test)` only for the crate under test.
+  - **Ordinary lane.** Storage's and host's tests obtain a `ProjectOperation` through the `scenario-fixtures` feature. Only `[dev-dependencies]` enable it.
+  - **Matrix rows.** These obtain theirs through X9's `crash-matrix` feature.
+  - **One site list.** Both features reach a single shared site list: X8 r3 item 4b's list. It is X9-1's source pin, extended by name by X8b. Every site on it is written `cfg(any(test, feature = "crash-matrix", feature = "scenario-fixtures"))`.
+  - **The forbidden seam still holds.** The forbidden "production seam that supplies a `ProjectOperation`" stands, because both features are absent from every release build (X8 r3 item 4f; X9 item 2).
+- **Ordering: X3d-2 before X8b and X9-1 (lead decision, accepted in the X3d-2 review, call 1).**
+  - **What landed.** X3d-2 integrated before X8b and X9-1. Its storage tests take no `ProjectOperation`. They run the storage functions that `prepare_commit` and `publish` compose, on a scratch `I/stores/S`, with a real replay and no session. X3d-1's tests cover the session half.
+  - **The first end-to-end test.** `prepare_commit` and `publish` with a real `CommitSession` are first tested together by X8c's B0–B4, then by X9-2's matrix.
+  - **What this leaves unmet.** No X3d requirement of the unit. X8 r3's unit-list sentence that X8b "lands before X3d-2" described storage tests that X3d-2 does not contain.
+- **`ExistingAttempt` after X6 (X6 r3 items 2 and 6).** X6 r3 item 6 superseded "before X6 exists" for `ExistingAttempt`. That covers item 3 step 5's "Until X6 exists, `ExistingAttempt` terminates on the invariant row" and item 9's invariant-row entry "`ExistingAttempt` before X6 exists".
+  - **The row.** The invariant row is the writer's permanent projection of `ExistingAttempt`. A writer's invocation has spent its one attempt and receipt on the write entry, so it can never recover (X1 r1 items 1 and 7).
+  - **The variant.** It carries the requested binding: `NotPrepared::ExistingAttempt { execution_id, requested: RequestedBinding }`. Storage builds the binding from the plan it was about to write, never from a read (X6 r3 item 2, X6b).
+  - **Who acts on it.** Finalization discloses the binding (X7 r4 item 3). A later read-entry invocation recovers the attempt.
+  - **Item 3 step 5's routing.** Its "for the host to route to read-only recovery (X6)" is met by that disclosure and the later invocation.
+  - **What stays the same.** The row, its code and its detail.
+- **A known limit, left as follow-up for an X3c successor (X3d-2 review, call 8).** Re-committing a Run that is already committed in the same store and namespace (S, N) is refused at staging, on the invariant row.
+  - **Why.** X3c-2 stages the initial availability record unconditionally. identity-and-evidence allows a duplicate retry to share a Run under a separate attempt receipt.
+  - **The fix.** An X3c successor that stages availability only when none exists.
+  - **Why it can wait.** M2 never commits one Run twice. This is a disclosed limit, not a change to X3d.
+- **Unchanged from r6:** everything else.
 
 ## Problem
 
@@ -51,7 +83,7 @@ It has no `CommitSession`, `PreparedCommit`, `PublishedCommit`, `JournalWriteTxn
    | `PublishedCommit` | storage | storage's commit path and X6's recovery validation only | The exact committed receipt and RunId, after the `COMMIT` returned success. |
    | `StoppedSession` | security | every end of `publish` | The operation lease and the end-path owners, admitting cleanup only. It also holds the end-path settlement reserve, if step 0 took it and no uncertain outcome forfeited it (item 8, r6). |
 
-   - **The adapter.** The two-phase adapter trait (stage, then commit) is owned by security, and its implementation is private to storage (build plan line 112).
+   - **The adapter.** The two-phase adapter trait (stage, then commit) is owned by security, and its implementation is private to storage (build plan line 112). **r7 (record):** Rust visibility cannot enforce that privacy, so a source pin does (X8 r3 item 3b; see the r7 header).
    - **What the facade refuses.** Storage's public facade accepts no external adapter and no external `SealOutcome`.
    - **Crate edge.** Storage gains the direct dependency on `opensip-evaluator` that the build plan selected (line 34). Neither evaluator nor security depends on storage. `check_package_edges` must admit that edge, and X3d's unit records it.
    - **Rejected:** a single storage-owned session type, which would let storage mint security's authority; and types in the inert contracts crate.
@@ -76,6 +108,7 @@ It has no `CommitSession`, `PreparedCommit`, `PublishedCommit`, `JournalWriteTxn
       - the `COMMIT` errors, or the connection is lost: `CommitUndetermined { executionId }` on item 9's durability row. The ExecutionId is retained, there is no RunId and no retry, and X6 decides the row;
       - busy, or an I/O failure before the `COMMIT`: the busy or host I/O row (item 9).
    5. **Duplicate ExecutionId (F34).** If the insert hits the no-replace trigger, an attempt with this exact ExecutionId already exists. `prepare_commit` writes nothing further, does not `INSERT OR REPLACE`, appends no SEAL, and returns `ExistingAttempt { executionId }` for the host to route to read-only recovery (X6). X6 compares the requested binding exactly and refuses a different one. Because a session's ExecutionId is a fresh CSPRNG draw, this cannot occur on a lawful first attempt. Until X6 exists, `ExistingAttempt` terminates on the invariant row. **Rejected:** treating the collision as a busy or corrupt ledger.
+      **r7 (record):** X6 r3 item 6 superseded "Until X6 exists". The invariant row is the writer's permanent projection, and the outcome carries the requested binding (see the r7 header).
    6. **Objects (X3c item 4).** Each is published with its file and directory barriers.
 
    A refusal at any of these steps leaves no acknowledged Run, appends no SEAL, and returns the session's `StoppedSession`. A refusal after step 0 succeeded still holds the end-path reserve, even when the failure closed the attempt ledger (r6); a step-0 refusal holds none. **r6:** step 4's `CommitUndetermined` forfeits the reserve (item 8).
@@ -118,7 +151,7 @@ It has no `CommitSession`, `PreparedCommit`, `PublishedCommit`, `JournalWriteTxn
    - **`Committed(PublishedCommit)`.** Only after the ledger `COMMIT` returned success (F13). It carries the exact receipt, RunId, ExecutionId and `latchedAfterAdmission`.
    - **`CommitUndetermined { executionId }`.** The evidence `COMMIT` errored or the connection was lost (F12, F40), or an uncertain journal commit or barrier stopped `publish` (item 4). `prepare_commit` returns the same outcome for an uncertain attempt-admission `COMMIT` (item 3 step 4). The ExecutionId is retained, there is no RunId, and nothing is retried. The `attempt_custody` row stays `admitted` for X6.
    - **`Refused(InstallationTermination)`.** Any refusal before a permit was used.
-   - **`CarrierCapacityExhausted { grantGeneration, provenTailSeq }`, `ExistingAttempt { executionId }` and `CommitUndetermined`** can come from `prepare_commit` (item 3).
+   - **`CarrierCapacityExhausted { grantGeneration, provenTailSeq }`, `ExistingAttempt { executionId }` and `CommitUndetermined`** can come from `prepare_commit` (item 3). **r7 (record):** `ExistingAttempt` also carries `requested` (X6 r3 item 2).
 
    Whatever the outcome, the caller holds a `StoppedSession` and must finish it (item 7). **Rejected:** a single error enum, which would let a caller confuse undetermined with refused.
 
@@ -225,7 +258,7 @@ It has no `CommitSession`, `PreparedCommit`, `PublishedCommit`, `JournalWriteTxn
      - Other journal quarantines take X3b r6 item 8's rows.
    - **`CommitUndetermined`** (an attempt-admission or evidence `COMMIT`, or an uncertain journal commit or barrier): operational-failed, 4, `DURABILITY.COMMIT_FAILED`, `durability-commit`, with the ExecutionId and no RunId (F40).
    - **Revocation, observer fail-stop and stale guards:** X4 item 8's rows.
-   - **Invariant:** a `ReplayedRun` or session binding mismatch, or `ExistingAttempt` before X6 exists. Operational-failed, 4, `SYSTEM.OUTCOME.ILLEGAL_STATE`, `host-invariant`, detail `HOST.INVARIANT_VIOLATED` (as X3c item 10 gives a reused ExecutionId).
+   - **Invariant:** a `ReplayedRun` or session binding mismatch, or `ExistingAttempt` before X6 exists. Operational-failed, 4, `SYSTEM.OUTCOME.ILLEGAL_STATE`, `host-invariant`, detail `HOST.INVARIANT_VIOLATED` (as X3c item 10 gives a reused ExecutionId). **r7 (record):** X6 r3 item 6 superseded "before X6 exists". This row is `ExistingAttempt`'s permanent row in the writer's invocation.
    - **`CarrierCapacityExhausted`:** no row of its own. X7 maps the outcome after rollover.
    - **Budget:** operational-failed, 4, `SYSTEM.OUTCOME.ILLEGAL_STATE`, `host-invariant`, detail `WORK.BUDGET_EXHAUSTED`.
    - **Post-admission latch:** `DELIVERY.REQUIRED_FAILED`, `delivery-required`, from X7.
@@ -248,10 +281,17 @@ It has no `CommitSession`, `PreparedCommit`, `PublishedCommit`, `JournalWriteTxn
 
     Behavioural refusals, such as a binding mismatch or a reused ExecutionId, are tested in X3d's own tests and X8.
 
+    **r7 (record):** "pinned by `compile_fail` doctests" is superseded by X8's isolated compile-fail fixtures, run by the X8a driver (X8 r3 items 1 and 2). The adapter case is split (X8 r3 item 3b):
+    - group H pins that storage's facade takes no adapter and no `SealOutcome`;
+    - a source pin confines security's adapter trait and functions to storage.
+
+    The SQL-connection and `stage_recovery_pair` case is group I (E0603 on `ledger_store`). See the r7 header.
+
 12. **Failure cases.**
     - **Covered by X3d:** F32, F34 (routing), F38, F39 (outcome and delivery flag), F40 (outcome), F41, F19 (completion, with X4c), F13, and the composition of F06 and F11.
     - **Covered elsewhere:** F12 and F14's write side (X3c); F36 (X3b and X3c); F34's binding comparison and F14 and F15's read side (X6); F16, F17 and DR-G27 (X7).
     - **Tests while X2e and X5 are pending.** Tests in `opensip-security` and `opensip-storage` build a `ProjectOperation` and a `ReplayedRun` only through crate-private, `cfg(test)` fixtures: X3b and X3c's scratch namespace, X4T-0's signed store, and an evaluator-owned test replay. There is no production seam.
+      **r7 (record):** across a crate boundary, these fixtures come through `scenario-fixtures` (the ordinary lane) or `crash-matrix` (the matrix). Both reach X8 r3 item 4b's one shared site list under the joint predicate (X8 r3 item 4g; X9 G1). X3d-2 integrated before X8b and X9-1. Its end-to-end composition is first tested by X8c's B0–B4 (see the r7 header).
 
 13. **Units after the law.**
     - **X3d-0 (platform; r6, new):** the settlement reserve in `crates/platform/src/work_ledger.rs`, exactly as item 8 states: `reserve_settlement`, `SettlementReserve` and `settle`, with the platform re-export. It comes with an inventory successor for the platform crate. It has no dependency and lands before X3d-1. It is its own unit, not part of X3d-1, because it changes the platform crate's ledger, which every native unit since 412 relies on, and it is reviewed alone as 416 to 418 were.
@@ -277,6 +317,7 @@ It has no `CommitSession`, `PreparedCommit`, `PublishedCommit`, `JournalWriteTxn
       - after each uncertain outcome, nothing is appended;
       - the exact-cost pin.
     - **X3d-2 (storage):** `commit.rs`: `prepare_commit` (items 3 and 8), `PreparedCommit::publish`, the private adapter implementation, `PublishedCommit`, the `storage → evaluator` edge, and the X8 doctests. Depends on X3c-2 and X3d-1. **r6:** step 0 calls the session's end-path step. `CarrierCapacityExhausted` is returned after a completed scope (item 3), and storage holds no settlement reserve.
+      **r7 (record):** "the X8 doctests" became X8 r3 item 3's fixture rows A to D and G for `PreparedCommit` and `PublishedCommit`, group H, and item 3b's adapter source pin (X8 r3 item 2). X3d-2 is integrated. Its disclosed re-commit limit is a follow-up for an X3c successor (see the r7 header).
 
 ## Forbidden substitutes
 

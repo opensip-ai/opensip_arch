@@ -1,4 +1,4 @@
-# The crash, lock and revocation matrix — proposal X9 r2
+# The crash, lock and revocation matrix — proposal X9 r3
 
 2026-10-01. Claude Opus 5.5, implementation lead. Law for unit X9 of `EXIT-PLAN.md`, the unit that gates M2 completion. It is written under:
 - the build plan's M2 row (`docs/v2/architecture/implementation-boundaries-and-build-plan.md` line 886: "actual crash/lock/revocation matrix pass; synthetic fixtures remain labelled"), its ordered failure matrix F00–F53 (lines 524–587), its required API and fault-injection checks (lines 591–613; the test owner `crates/storage/tests/commit_tests.rs`, line 594), and the tooling row for storage and process faults (line 1072: "deterministic synchronization and crash barriers against actual storage/processes … Record platform/filesystem/profile, actual state bytes and exact outcomes; inject before/after each durability step, without sleep-and-hope synchronization");
@@ -10,6 +10,47 @@ r1 was ACCEPTED by Grok on 2026-10-02; r1 bytes, without that note, are preserve
 r2 (2026-10-01) is an amendment made as lead decisions under the owner's standing direction. It changes two things and nothing else:
 - **F34 (follows X6 r3 item 6).** A writer's invocation can never recover, because X1 r1 items 1 and 7 give a process one attempt and one entry. F34's row is rewritten: the injected run ends on the invariant row with the requested binding disclosed, and a separate recovery run gives `BindingUnusable` or the attempt's standing.
 - **The clock (EXIT-PLAN, "X9 clock dependence", found by X9-1).** Since X4a, a fenced first read publishes a trust floor only when the wall clock, in whole seconds, has passed the stored evaluation floor F (X4T r9 item 7's write-ahead). So whether `x4t.floor-publication` is reached, and the trust store's bytes, depend on when a process runs (34 against 39 creates were observed between lawful runs). That breaks item 5's fixed kill set and item 7's repetition agreement. Item 3 gains a scripted wall clock in every matrix process, and items 5, 6, 7 and 12 follow.
+
+**r3 (2026-10-04) is record-only.** r2 bytes are preserved in PROPOSAL-r2.md. It records decisions already accepted elsewhere, and the current status of this law's cross-law gaps. It changes no injection mechanism, point kind, scope, label, evidence member, row, limit or forbidden substitute of r2, and no accepted outcome of any other law. The r2 sentences it touches stay in place, each followed by a short "r3 (record)" note that points here.
+- **G5 is resolved by X6c (`reviews/grok-settlement-sweep-x6c-r1`, judgment call 1, accepted with no new law sentence).** A revoked closure subject does not refuse the sweep, and that includes the running core's own release closure.
+  - **Why.** The sweep's admission is X1's `admit_ordinary_writer` and nothing else. X1 item 4 grants that admission no trust admission, and X6 r3 item 7 adds none: the sweep takes no X4 guard and reads no trust record. X6c's test `a_view_revoking_the_running_closure_does_not_refuse_the_sweep` pins this.
+  - **The ladders.** C5 therefore no longer stops the F18, F19 and F38 ladders at R2. Their ladders run:
+    - **R3:** the sweep is admitted under the revoked view, and settles the crashed attempt `refused`. A crashed attempt here is phase `admitted`, with neither receipt nor association, and its lease free.
+    - **R4:** `terminal-not-committed`, the owner's composed case in §2.1.
+  - **Recording the outcome.** These runs record that R3 and R4 outcome, not `"ladderEnd": "G5"`. X9-4 transcribes it.
+  - **C5's rejection still stands.** C5 rejected X9 choosing the expected R3 itself. That is unchanged: X9 transcribes X6c's accepted reading and decides nothing.
+  - **The alternative X6c rejected.** A fenced X4T trust admission on the sweep. It would be a new X1 or X6 sentence, and it would leave every revoked attempt `admitted` for as long as the revocation stood.
+- **The joint predicate (X8 r3 item 4b, recorded as a wording change to X9 r1 and accepted with X8 r3).** X8's `scenario` surface and this law's `crash_matrix_support` share their fixture gates. A Rust item has one cfg predicate, so the two laws use one site list: X9-1's pin, extended by name by X8b. Two sentences change wording. No barrier point, `crash_matrix_support` item, row or outcome changes.
+  - **Item 6.** The sentence "that `cfg(test)` becomes `cfg(any(test, feature = "crash-matrix"))` … no other site may use the feature" reads, for the shared sites, `cfg(any(test, feature = "crash-matrix", feature = "scenario-fixtures"))`.
+    - **What the shared sites are.** At X8 r3: `Image::Injected`, `HomeSource::Fixture` and its `admit_with` arm, X4T-0's declaration, and the fenced `state.v1` publisher that item 6's helper and X8's `scenario::publish_revocation_fenced` both call.
+    - **Crash-matrix-only sites.** A site that only `crash_matrix_support` calls keeps `cfg(any(test, feature = "crash-matrix"))`.
+    - **Barrier and fault sites.** `AppendStep`, `ObjectStep` and the ledger commit hook stay `cfg(test)`, with this law's points beside them.
+  - **The forbidden substitute.** "a `cfg(any(test, feature = "crash-matrix"))` site … in a build reached without an explicit `--features crash-matrix`" now excepts the shared sites reached through `scenario-fixtures`. Only `[dev-dependencies]` enable that feature. Those sites are still absent from every release build (X8 r3 item 4f).
+  - **What stays forbidden** (X8 r3): folding the two features into one, enabling `crash-matrix` from any manifest, and a second site list or pin.
+- **G1 to G4: current status.**
+  - **G1 is open.** Its fix is item 6's support surface, together with X8b's `scenario-fixtures`.
+    - **X9-1** builds that surface: the support modules, the shared site list under the joint predicate, and the fenced publisher. It is under review (`reviews/grok-crash-matrix-x91-r1`) and is not integrated.
+    - **X8b** is not built.
+    - **The units G1 names integrated before X9-1.** Each split its tests and deferred the cross-crate composition:
+      - X3d-2 (review call 1): to X8c's B0–B4 and X9-2;
+      - X6b (call 13): admission and `recover` in one fresh process, to X9-2 and X9-3;
+      - X7a (call 16) and X7b (call 10): the session-level finalization rows, to X8c, X9-5 or an X7a-2 after X9-1.
+    - **The one-line test-item amendments.** X3d r7 and X7 r6 record these in this batch. X6 item 11's waits for X6's next revision.
+  - **G2 is open.** No law has restated its literal "`cfg(test)` only" sentence yet: X3c r7 item 11, X3b r10 item 11, and X4T item 12 (r9 when this law was drafted, r11 now). Item 2's guards meet the invariant those sentences protect. X9-1, still under review, also widens X4T-0's declaration and the fixture home source under the joint predicate. Each restatement waits for its law's next revision.
+  - **G3 is closed by X6a and X6b.**
+    - X6a placed the `x6.recover` bracket points `after-w1`, `after-h1`, `after-j`, `after-w2` and `after-h2`, and `after-fresh-capture` (`reviews/grok-recovery-capture-x6a-r2`).
+    - X6b placed `after-lease` and `after-ledger-snapshot` (`reviews/grok-recovery-admission-x6b-r1`).
+    - X6c placed item 5's `x6.sweep` points, which F53 uses.
+  - **G4 is closed by X4a (`reviews/grok-live-guards-x4a-r1`).** It placed:
+    - `x4.observer.tick` (kind `gate`) and `x4.observer.after-observation`;
+    - `x4.checkpoint.before-observation`, `.after-observation` and `.before-admit`;
+    - `x4.gate.admit.after` and `x4.gate.latch.after`.
+- **A disclosed gap from X9-1, for X9-2 and X9-6 (from X9-1's review request; the review is still pending).** X9-1's census runs unarmed, so X4a's observer waits on its real 5 s period. X9-1 discloses it; it decides nothing.
+  - **Why it holds today.** Each censused operation finishes well inside 5 s, and two census runs agree.
+  - **What would expose it.** An operation slower than 5 s would add an observer reading and point. Under item 5 (r2), two census runs that disagree are a `HARNESS-ERROR`, never a smaller kill set.
+  - **What it does not touch.** Matrix rows that arm `x4.observer.tick` (item 11) do not depend on the period.
+  - **Who owes it.** X9-2's and X9-6's census runs, and this law's next revision if those runs need a rule for it.
+- **Unchanged from r2:** everything else.
 
 Product baseline: main `f1b8321` (X3d-0 integrated). Every item contains a lead decision made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation; each names the alternative it rejects. Not product code. No new public code, row or detail.
 
@@ -154,6 +195,7 @@ At `f1b8321` the product has the following, and nothing more:
      - a synthetic run candidate for the evaluator's public `replay_run`.
    - **What comes from production code.** `PlatformReceipt`, `ProjectOperation`, `CommitSession`, `ReplayedRun`, `PreparedCommit`, `PublishedCommit` and `RecoveredCommit` all come from the production paths over those inputs.
    - **Substitutions inside production types.** Where a production type needs its existing test-only variant to accept the synthetic input (for example `trust/initial_core.rs`'s `Image::Injected`), that `cfg(test)` becomes `cfg(any(test, feature = "crash-matrix"))`. X9-1 pins the exact list of such sites with a source pin, and no other site may use the feature.
+     **r3 (record):** sites shared with X8's `scenario` are written `cfg(any(test, feature = "crash-matrix", feature = "scenario-fixtures"))`. There is one list and one pin, extended by name by X8b (X8 r3 item 4b; see the r3 header).
    - **Every record says so.** Each run records `"fixture": "synthetic-signed-v2"` and `"profileStanding": "BASELINE-ATTESTED"`, and (r2) `"clock": {"epoch": E, "script": "x9-ordinal-3600"}`. This is line 886's "synthetic fixtures remain labelled, not compiler qualification".
    - **Rejected:**
      - **Running against a real installation.** On this host the real path refuses at InitialCore F0 and at `/` without owner signing keys (EXIT-PLAN, "Owner actions").
@@ -288,6 +330,8 @@ At `f1b8321` the product has the following, and nothing more:
 
    **C5 (revocation ladders).** After a revocation of a subject in the closure, R2 is refused at X4T's admission. Whether R3, the sweep under X1's `admit_ordinary_writer`, is admitted under that revoked view is not fixed by an accepted law (gap G5). X9-4 transcribes R3 and R4 from the law that fixes it before running. Until then, the F18, F19 and F38 ladders end at R2 and record `"ladderEnd": "G5"`. **Rejected:** choosing the expected R3 in this law, which would decide an admission question for X1 and X6.
 
+   **r3 (record):** X6c fixed it. A revoked closure subject does not refuse the sweep. So for F18, F19 and F38, R3 settles the crashed attempt `refused`, and R4 is `terminal-not-committed`. The `"ladderEnd": "G5"` stop no longer applies (see the r3 header).
+
    **Why F43's lawful race is not a process case.** X6 step 1 reads the ledger before step 3 captures the carrier. The writer makes the SEAL durable before the ledger `COMMIT` (X3d item 4). So no lawful interleaving of processes gives a reader a journal capture older than its ledger snapshot. Only lost tail bytes can, and that is the mutation variant. The retry that reconciles is X6's in-process hazard test.
 
 10. **Limits: recorded, not tested.** Each is written into `matrix.json`'s `limits`, with its reason and its later owner.
@@ -332,7 +376,7 @@ At `f1b8321` the product has the following, and nothing more:
       **Dependencies.** X9-0. It precedes X3d-2's, X6b's and X7a's composition tests, which need the same surface (gap G1).
     - **X9-2 (storage; carrier and objects).** `crates/storage/tests/commit_tests.rs` with `required-features`, the shared drivers (`commit`, `recover`, `sweep`, `competitor-writer`, `reader`), the ladder, and rows F00, F02–F05, F07–F10, F20–F22, F31 and F46, with their `required-runs.v1.json` rows. **Dependencies:** X9-1, X2e, X4a, X3d-1, X3d-2, X6a, X6b, X6c.
     - **X9-3 (storage; commit and recovery).** Rows F11–F15, F23–F25, F27–F29, F33, F36, F42, F43–F45, F49, F52 and F53. **Dependencies:** X9-2.
-    - **X9-4 (storage; locks and live revocation).** Rows F06, F18, F19, F26, F30, F34, F38, F39's storage half, F40 and F41, and C5 once G5 is decided. **Dependencies:** X9-2 and X4a. It uses X4a's observer `gate` point.
+    - **X9-4 (storage; locks and live revocation).** Rows F06, F18, F19, F26, F30, F34, F38, F39's storage half, F40 and F41, and C5 once G5 is decided (**r3 (record):** decided by X6c; C5's R3 is `refused` and its R4 is `terminal-not-committed`). **Dependencies:** X9-2 and X4a. It uses X4a's observer `gate` point.
     - **X9-5 (host).** `crates/host/tests/commit_matrix_tests.rs` with rows F01, F16, F17, F12's and F40's caller route, F32 with its rollover crash table, F39's delivery half, and F53's `store-gc` step. **Dependencies:** X9-2, X5a, X7a, X7b, X3b-4 and X6c.
     - **X9-6 (record; the M2 exit).** Two full lead runs on one integrated commit, the checker, release absence, the reviewer's rerun, and the arch evidence record. **Dependencies:** all of the above, and VD1 (EXIT-PLAN, "lands before the X9 exit").
 
@@ -346,13 +390,13 @@ These are recorded for the owning laws' next revisions. None changes an accepted
 - **G2. The literal "`cfg(test)` only" sentences.** X3c r7 item 11 ("A fault-injection hook exists only under `cfg(test)`"), X3b r10 item 11, and X4T r9 items 12 and 13 ("the fixture is `cfg(test)`") protect one invariant: the code is absent from every non-test build. Item 2 meets that invariant by other means. Those sentences should be restated as "absent from every non-test build (`cfg(test)` or X9's `crash-matrix` feature)".
 - **G3. Read-path points (X6).** F49 needs named holds between `recover`'s bracket reads (`W1 H1 J W2 H2`), and F29, F44 and F45 need `recover` to report its admission and snapshot points. X6 r2 names none. X6a and X6b place item 5's `x6.*` points.
 - **G4. Observer and checkpoint points (X4).** Deterministic F18, F19, F38 and F39 need the `x4.*` points, including the observer's `gate`. X4 r7 names none. X4a places them.
-- **G5. The sweep's admission under a revoked view.** X6 r2 item 7 says the sweep "takes no X4 guard", but it does not say whether X1's `admit_ordinary_writer`, which the sweep runs first, refuses when a closure subject is revoked. The expected R3 for the F18, F19 and F38 ladders depends on it (C5). It needs an X1 or X6 decision before X9-4.
+- **G5. The sweep's admission under a revoked view.** X6 r2 item 7 says the sweep "takes no X4 guard", but it does not say whether X1's `admit_ordinary_writer`, which the sweep runs first, refuses when a closure subject is revoked. The expected R3 for the F18, F19 and F38 ladders depends on it (C5). It needs an X1 or X6 decision before X9-4. **r3 (record):** X6c resolved it with no new law sentence (see the r3 header).
 - **G6. EXIT-PLAN.** The X9 row's "Depends on" omits X2e and X5. The order "X9 (M2 exit)" last hides that X9-0 and X9-1 must precede X3d-2's, X6b's and X7a's composition tests (G1).
 - **Not a gap.** X3d item 10's promise of "named, test-only crash points before and after each durability step" is met by item 5. Its "test-only" is item 2's feature.
 
 ## Forbidden substitutes
 
-- Any barrier point, `crash_matrix_support` item or `cfg(any(test, feature = "crash-matrix"))` site in a release build, or in a build reached without an explicit `--features crash-matrix`.
+- Any barrier point, `crash_matrix_support` item or `cfg(any(test, feature = "crash-matrix"))` site in a release build, or in a build reached without an explicit `--features crash-matrix`. **r3 (record):** this excepts the shared sites of X8 r3 item 4b reached through `scenario-fixtures`. Those are still absent from every release build (see the r3 header).
 - A manifest dependency of any kind that enables `crash-matrix`.
 - A sleep, a polling loop or a timeout that decides an outcome. The watchdog only ever records `HARNESS-ERROR`.
 - An in-process "crash" (`catch_unwind`, an early return, a simulated state) counted as a process death in the matrix.

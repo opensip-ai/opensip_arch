@@ -1,4 +1,4 @@
-# Host finalization: outcomes, delivery after commit and the rollover route — proposal X7 r5
+# Host finalization: outcomes, delivery after commit and the rollover route — proposal X7 r6
 
 2026-10-01. Claude Opus 5.5, implementation lead. Law for unit X7 of `EXIT-PLAN.md`. It is written under:
 - the build plan's opaque-prerequisite decision (lines 25–40), its end-path paragraph (lines 140–146), its publication sequence (lines 155–185) and its delivery rule (lines 820–835);
@@ -19,6 +19,44 @@ r1 bytes are preserved in PROPOSAL-r1.md.
 r3 answers Grok X7 r2 RF-1. The rollover's reads, the `TERMINAL` append, the g+1 publication and their confirmations are attempt work. They are charged to the attempt ledger this invocation already opened (X1 item 5, X3d item 8, X3b item 9), and the gate ledger keeps only the gate's own work. Items 7 and 10 are corrected. r2 bytes are preserved in PROPOSAL-r2.md. r3 ACCEPTED by Grok on 2026-10-01.
 
 r4 (2026-10-01) is an amendment that follows X6 r3, made as lead decisions under the owner's standing direction. X1 r1 items 1 and 7 give a process one attempt, one receipt and one entry, so a writer's invocation can never make a 458c read entry. That changes two things here. Item 3's `ExistingAttempt` row is X6 r3 item 6's: the invariant row with the ExecutionId and the requested binding disclosed, recovered only by a later invocation. Item 4's delivery phase cannot read "through the read session (458c)", so it reads nothing from the store: it projects only the `PublishedCommit` and the evaluation the invocation already holds. Item 5's disclosure also names the namespace, which a later recovery needs as its selector. Items 10 and 11 follow. r3 bytes are preserved in PROPOSAL-r3.md. r5 answers Grok X7 r4 RF-1: item 5's parenthetical now states X3d r6 item 7 (after an uncertain outcome `finish` appends nothing and copies no floor; the next writer reconciles). r4 bytes are preserved in PROPOSAL-r4.md. r5 ACCEPTED by Grok on 2026-10-04.
+
+**r6 (2026-10-04) is record-only.** r5 bytes are preserved in PROPOSAL-r5.md. It records readings accepted in the X7a and X7b unit reviews (`reviews/grok-finalization-x7a-r1`, calls 4, 5 and 16; `reviews/grok-finalization-x7b-r1`, calls 1 to 3, 7, 10 and 14). Both reviews ruled that none of these needs a law change. r6 changes no decision, outcome, row, code, remedy, ledger or forbidden substitute of r5, and no accepted outcome of any other law. The r5 sentences it touches stay in place, each followed by a short "r6 (record)" note that points here.
+- **The rollover runs inside `finish` (X7a call 4).**
+  - **How it reaches the rollover.** `StoppedSession::finish` already passes `JournalOutcome::Exhausted` to X2e's `ProjectOperation::end`. That end step runs X3b-4's rollover, charged to the attempt ledger inside the receipt's charge. This is item 6 step 2's route: finalization adds no route, admission, gate, fence or ledger of its own.
+  - **How X7a reads item 11.** Item 11's "with no rollover" for X7a, and item 6's "Until X3b r7 is accepted, X7a maps the exhaustion … with no rollover", mean that X7a adds none of item 6's route of its own. X7a must finish every end path, so it cannot avoid the rollover that `finish` runs. It projects item 6a's busy row.
+  - **Item 11's X7b sentence is history.** "Until X7b lands, X7a projects the exhaustion on item 6a's row with no rollover" no longer applies: X7b is accepted and integrated (product 099de03).
+- **The `SessionEnd` accessors and `RolloverDisclosure` (X7a call 5; X7b calls 1 to 3).** X3d r6 item 9 and X3b item 4 have the caller disclose an end-step failure and a rollover failure. Both values were crate-private in security, so X7b added two read-only accessors on `SessionEnd`. They sit beside X3d-1's `settlement_failure()` and `end_step_entered()`.
+  - **`end_step_failure() -> Option<InstallationTermination>`.** It reports the end step's own failure once the step was entered: the walk, the fence, a rebind, the floor copy (including after a rollover) or the fence's unlock. It maps that failure onto its existing row. It is `None` in three cases:
+    - the end step was not entered;
+    - any `Ended(_)`, including the busy probe's skip;
+    - a rollover whose end step returned `Ok`. That includes a floor copy not attempted after the rollover closed the attempt ledger. A step that was not attempted is not disclosed (X3d r6 item 9).
+  - **`rollover() -> Option<RolloverDisclosure>`.** It is `Some` only when the end step ran the rollover.
+  - **`RolloverDisclosure` is a public value enum, not an authority type.** It grants no lease, lock, carrier, ledger or receipt. It is not on X8 r3 item 3's row D list, so it owes no X8 owner row and no census row. Its variants:
+    - `Rolled { opened_generation }`. Only the generation item 6a's retry proceeds to is disclosed. The closing `TERMINAL`'s (G, seq) stays in security.
+    - `AlreadyRolled`. X3b r10 item 13 names this outcome. It is distinct from `Skipped`: here the generation is already closed, whereas `Skipped` means the namespace was busy and the generation is still full (X7b call 2).
+    - `Skipped`.
+    - `Refused(InstallationTermination)`. Security maps it onto X3b item 8's rows, or onto `WORK.BUDGET_EXHAUSTED`.
+    - `Undetermined`. It carries no row.
+  - **What stays crate-private.** `OperationEnd`, `EndFailure`, `EndRefusal`, `RolloverOutcome`, `EndOutcome` and the carrier refusal types.
+  - **How finalization projects them.** It reads the three accessors once each and projects them beside the attempt's outcome. The exhausted attempt stays on item 6a's unchanged busy row whatever the rollover did. A rollover `Undetermined` is projected as `DURABILITY.COMMIT_FAILED` with no subject and no recovery remedy. The rollover's `op-` token belongs to the closure, not to an ExecutionId, so item 5's `recover(executionId)` remedy does not apply to it (X7b call 7).
+  - **Item 6's "disclosed on its own row … never rewrites the attempt's outcome"** is met by these accessors (X7b call 14).
+- **Session-level finalization tests wait on G1 (X7a call 16; X7b call 10).**
+  - **Why they cannot run yet.** Item 10's integration tests need a `ProjectOperation` built in a host test. Security's fixtures are `cfg(test)` in security only, and a host test cannot reach them. That is X9 gap G1, which X9-1's `crash_matrix_support` and X8b's `scenario-fixtures` close.
+  - **Where they land.** With X8c or X9-5, or as an X7a-2 after X9-1. They are:
+    - a committed Run delivered;
+    - a renderer failure after commit;
+    - a latch after admission;
+    - `CommitUndetermined` with the namespace;
+    - `ExistingAttempt` with its binding;
+    - capacity exhaustion through `finalize`;
+    - the gate-ledger balance assertion.
+  - **What runs now with real code:**
+    - X7a: the replay inside `finalize`, and every row of item 3 on injected outcomes.
+    - X7b, in security's tests: `StoppedSession::finish` on a real exhausted carrier. The cases are rolled, skipped while `readers.lease` is held, busy at level 3, and a rebind failure.
+    - X7b, at X3b-4's test points: undetermined, budget, host I/O on both the rollover and the copy, and a failed copy beside `Rolled`.
+    - Host: the projection over injected `EndDisclosure` values.
+  - **The crash table.** X3b-4's crash table remains the rollover's. Process-level rows are X9's.
+- **Unchanged from r5:** everything else.
 
 ## Problem
 
@@ -90,6 +128,8 @@ DR-G27 requires that a preview or ephemeral result is never labelled authoritati
       - it never takes a fence of its own.
 
       The caller holds no project lock when the end step starts.
+
+      **r6 (record):** this is how it is integrated. `finish` carries the exhaustion into X2e's `ProjectOperation::end`, and the rollover runs there (see the r6 header).
    3. **The rollover, under that fence (X3b r7).** The end step calls X3b r7's rollover operation, which closes the generation exactly as `carrier-format.v3.md` §7 step 1 closes one: under the S7 fence, with `EXCLUSIVE` on the namespace. It runs in this order:
       1. It takes `writer.lease` and then `readers.lease` LOCK_EX|LOCK_NB, as X2 item 7 takes an `EXCLUSIVE` lease while the fence is held. If either is busy, another operation was admitted after this one. The rollover is skipped, leaving the generation for the next writer that reaches the exhaustion, and the end step continues.
       2. Under that lease, it appends `TERMINAL` with cause `grantGenerationClosure` at tail + 1. This uses X3b item 5's one-append protocol, unchanged: level 3, level 4, the record, `PENDING`, `COMMIT`, then `COMMITTED`. The `TERMINAL` row's `op-` token is the closure's own, never the released analysis operation's (§7 step 1). X3b r7 fixes how that token is minted.
@@ -106,12 +146,16 @@ DR-G27 requires that a preview or ephemeral result is never labelled authoritati
      - budget: `WORK.BUDGET_EXHAUSTED`.
 
      The generation stays at capacity, and the next writer reaches the same exhaustion and route.
+
+     **r6 (record):** the caller discloses these through `SessionEnd::rollover()` and `SessionEnd::end_step_failure()`, beside the unchanged busy row (see the r6 header).
    - **Dependency (explicit).** The rollover operation in step 3 does not exist in X3b r6. Item 3a there creates only the INIT carrier, and item 5 names `TERMINAL` without defining g+1's opening. X7b depends on X3b r7, which must define:
      - the `EXCLUSIVE` closure in the end step;
      - the g+1 carrier, witness and floor, and their crash states;
      - the end step's floor write for the new generation.
 
      Until X3b r7 is accepted, X7a maps the exhaustion on item 6a's row with no rollover. That behaviour is honest but leaves the namespace full.
+
+     **r6 (record):** X3b's rollover operation (introduced in X3b r7; now X3b r10 item 13) was integrated before X7a, as X3b-4. X7a adds none of the route of its own, and X7b discloses it (see the r6 header).
    - **Rejected:**
      - a fresh `admit_ordinary_writer` or second gate after `finish` (RF-2; X1 item 7);
      - appending `TERMINAL` without the operation-lease protocol, or under the fence alone;
@@ -154,7 +198,7 @@ DR-G27 requires that a preview or ephemeral result is never labelled authoritati
      - F01 (X5).
 10. **Tests (scratch installations, synthetic signed trust from X4T-0).**
     - **Unit tests:** every row of item 3's table, through injected X3d outcomes.
-    - **Integration tests,** once X3d-2 lands:
+    - **Integration tests,** once X3d-2 lands and (**r6 (record)**) once a host test can build a `ProjectOperation` (X9 gap G1). They land with X8c or X9-5, or as an X7a-2 after X9-1. The r6 header lists what X7a and X7b test now. The tests are:
       - a committed Run delivered;
       - a renderer failure after commit keeps the `runId` and exits 4;
       - a latch after admission starts no delivery;
@@ -175,6 +219,7 @@ DR-G27 requires that a preview or ephemeral result is never labelled authoritati
     - **X7a:** `host/src/finalization.rs` with items 1 to 5 and 8, with tests on injected outcomes. It depends on X3d-1 and X5a; the integration tests come after X3d-2.
       - **(r4) X7a in flight.** X7a (inventory v125) was built on r3. Under r4 it changes in three places and nowhere else: item 3's `ExistingAttempt` arm (subject and binding disclosure; its match follows X6 r3's `NotPrepared::ExistingAttempt { execution_id, requested }`, whichever of X6b and X7a integrates second adapts), item 5's namespace disclosure, and the `DeliveryPhase` comment (item 4). Its `DeliveryPhase` trait and `finalize`'s order stand.
     - **X7b:** the capacity rollover route (item 6). It depends on X7a, on X3b r7's rollover operation, and on X3b-3's end step. It adds no admission and no gate. Until X7b lands, X7a projects the exhaustion on item 6a's row with no rollover.
+      **r6 (record):** X7a and X7b are integrated, and the last sentence is history. X7b's part is the `SessionEnd` accessors, `RolloverDisclosure` and their projection (see the r6 header).
 
 ## Forbidden substitutes
 
