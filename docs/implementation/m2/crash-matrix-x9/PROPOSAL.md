@@ -1,4 +1,4 @@
-# The crash, lock and revocation matrix — proposal X9 r9
+# The crash, lock and revocation matrix — proposal X9 r10
 
 2026-10-01. Claude Opus 5.5, implementation lead. Law for unit X9 of `EXIT-PLAN.md`, the unit that gates M2 completion. It is written under:
 - the build plan's M2 row (`docs/v2/architecture/implementation-boundaries-and-build-plan.md` line 886: "actual crash/lock/revocation matrix pass; synthetic fixtures remain labelled"), its ordered failure matrix F00–F53 (lines 524–587), its required API and fault-injection checks (lines 591–613; the test owner `crates/storage/tests/commit_tests.rs`, line 594), and the tooling row for storage and process faults (line 1072: "deterministic synchronization and crash barriers against actual storage/processes … Record platform/filesystem/profile, actual state bytes and exact outcomes; inject before/after each durability step, without sleep-and-hope synchronization");
@@ -168,10 +168,82 @@ r2 (2026-10-01) is an amendment made as lead decisions under the owner's standin
   X9 records these as an M2 known limit. No product code is added. The later owner is M3, a repair or resume writer. `matrix.json`'s `limits` carries L1 to L11. The checker's limit list follows, in both `check` and `check-unit`.
 - **Four choices made law (items 5, 7, 8 and 9).**
   - **Census scope (item 5).** A unit's census is the census of its own drivers. X9-2's census is its `commit` driver's lawful first commit on a fresh root: two runs, equal point for point. The `recover` and `sweep` censuses are X9-3's. X9-6's census is the union.
+    **r10:** X9-5's census is the union of two unarmed `finalize` runs, a lawful commit and an exhausted-carrier commit, and X9-6's union spans both targets (see the r10 header).
   - **The trace digest (item 7).** A child's `trace.sha256` hashes its records grouped by thread, in each thread's own order and threads by index. The pid and the process-wide sequence number are left out, because they interleave between threads. Every drawn value in a payload is numbered by first appearance with item 7's normalizer. Without this, an unarmed observer tick interleaving with the main thread, or a drawn ExecutionId in a payload, would make two lawful repetitions disagree.
   - **R3's value (item 8).** R3 is scored against the left attempt's ExecutionId. That is the outcome the sweep wrote for it, or "nothing". R2 is a lawful commit whose attempt the sweep also settles, `committed`; that settle is recorded beside R3 (`nextWriter`) and is not part of the row's R3. "R3 writes nothing" means nothing for the left attempt.
   - **F46's second variant (item 9).** "An association below `first_generation`" is not executed in M2. A fresh carrier's first generation is 1, and the ledger's `CHECK (grant_generation >= 1)` admits no association below it. Only a migrated carrier has a higher first generation, and no migration writer exists (L5). F46 runs the format-1 and format-2 variants.
 - **Unchanged from r7:** every injection mechanism, point, kind, scope, label, evidence member and forbidden substitute, and every row and expected value not named above. No accepted outcome of any other law changes. No new public code, row or detail.
+
+**r10 (2026-10-02) is an amendment made as lead decisions under the owner's standing direction of 2026-09-30.** r9 bytes are preserved in PROPOSAL-r9.md. It was found while starting X9-5, before any X9-5 code or run, on product main `b999ae3` (X9-2 integrated). It changes four things and nothing else. The r9 sentences it touches stay in place, each followed by a short "r10" note that points here.
+
+- **Host's two matrix runners (item 6).**
+  - **What X9-5 found.** Item 12 puts X9-5's rows in the integration target `crates/host/tests/commit_matrix_tests.rs`. Every one of them runs through host's commit coordinator or host's `store-gc` step, and no integration target can reach either:
+    - `finalize` is `pub(crate)` (`crates/host/src/finalization.rs` line 395), in the private `mod finalization` (`crates/host/src/lib.rs`). The crate exports only `AuthoritativeRun` and `authoritative_run`.
+    - `maintenance::run` and `sweep_store` are `pub(crate)`, in the private `mod maintenance`. `sweep_store` also admits natively (`SettlementSweep::admit`), which no matrix process may do (item 6, r4).
+    - Nothing public calls either one. Host's `crash_matrix_support` only forwards storage's surface, and X8c's B0 to B8 drive storage's API directly, not `finalize`.
+
+    This is the same kind of gap r4 found for the operation.
+  - **Decision.** Host's `crash_matrix_support` gains exactly two runners:
+    - `finalize_commit(at, root, candidate)`. It reads the on-disk run candidate at `candidate` (below), then calls host's own `finalize` with `admit` set to `operation(at, root)`, and with the support module's fixed delivery phase. `finalize` replays the candidate first, so the order "replay, then custody" is host's own code (X5 r3 item 3), and `operation` runs only if the replay succeeded.
+      - **The fixed delivery phase.** It renders one fixed response with exit 0 into an in-memory buffer the runner owns, and its optional effect succeeds. A delivery failure comes only from item 3's `fail-before` arm at `x7.delivery.required` or `x7.delivery.optional` (item 4; labelled `injected`). Like every delivery phase, it reads nothing from the store and takes no lease, receipt or read session (X7 r6 item 4).
+    - `store_gc(at)`. It calls host's own `maintenance::run` over `settlement_sweep(at)`. `SettlementSweep` already implements `maintenance::Sweep` (`maintenance.rs` line 61). An admission refusal is reported as `sweep_store` reports one.
+
+    **What both runners must satisfy:**
+    - **Placement.** They sit in host's pinned support module, so they add no cfg site. They are compiled only under `crash-matrix`, inside `cfg(all(feature = "crash-matrix", target_os = "macos"))`, never under `scenario-fixtures`, and they are absent from every release build (item 2). They call only existing items. `finalize`, `DeliveryPhase` and `maintenance::run` are already `pub(crate)`, so nothing is widened.
+    - **Value reports only.** Each returns a report of values and nothing else: the terminations as `InstallationTerminationV1` values, the retained RunId as a string, the exit, and the end-path, rollover and optional disclosures; or, for `store_gc`, each namespace's outcome and row and the ending row. A report never returns or lends an authority type (the forbidden list, with `AuthoritativeRun` and `RecoveredCommit`), and it holds no lease, lock, session or store handle once the runner returns.
+    - **Inputs.** Their inputs are item 6's on-disk inputs (`SyntheticInstallation`, a root path, the candidate file). They accept no receipt, gate, guard, monitor, clock, session, permit, `ProjectOperation` or `ReplayedRun` from the caller, and no delivery phase or callback.
+    - **One entry per process.** A runner makes its process's one driver entry, through `operation` or `settlement_sweep`, so r4's rule carries over unchanged. A process makes at most one call to any of the three entries and the two runners together. A second call refuses on the invariant row without effect. `publish_revocation` refuses in a process that made one: under item 11 the parent publishes, never a child.
+    - **No second coordinator.** The runners are routes into host's one coordinator and host's one sweep step. They decide no outcome and project nothing of their own beyond copying values out of host's result.
+  - **Rejected:**
+    - **Running X9-5's children in host's unit-test binary,** where `finalize` is reachable. It contradicts item 12, which names the integration target, and item 2's `required-features` gate, which a library's unit tests cannot carry.
+    - **Including a copy of `finalization.rs` in the test target with `#[path]`.** It is a second commit coordinator (X7's forbidden substitutes), and it would test the copy instead of the library. It would also compile `finalization_tests.rs`, which the file includes under `cfg(test)`, into the matrix target.
+    - **Making `finalize` or `maintenance` public.** X5 r3 item 6 rejects a public host export because it invites a second commit coordinator, and no command is wired in M2 (X11).
+- **The host-only order: the candidate is written before custody (items 6 and 12).**
+  - **What X9-5 found.** X3d-3's `synthetic_run_candidate` is built from a `CommitSession` (`CommitSession::project_id`, `core_evaluator_closure` and its preimages; X9 r7). `finalize` replays before admission, so no session exists when it needs the candidate. A child cannot open a session for the candidate and then call `finalize`, because that would be a second entry.
+  - **Decision.** A host run's scripted phase has two children before the ladder:
+    - **The `candidate` child.** Its one entry is `operation(at, root)`. It then calls `CommitSession::open`, builds X3d-3's candidate from that session, and writes the candidate's retained objects (domain and descriptor), blobs and claimed RunId as canonical JSON to a file under the run's scratch root. It ends the session on its refused end path before `prepare_commit`. Host's support module supplies that file's writer and the runner's reader, as inputs only. The child registers the root and starts its carrier, as the first registration does. It creates no attempt row, SEAL or object. Its trace is recorded as every child's is. If its trace or the post state shows a ledger or attempt row, X9-5 stops and reports.
+    - **The `finalize` child.** It calls `finalize_commit` over that file. Its replay runs before any custody of its own, as X5 r3 item 3 requires.
+
+    The ladder's ExecutionId is the `finalize` child's draw, never the `candidate` child's. Every run that uses the file stays labelled `synthetic`. F01's replay-invalid and substituted variants are written by the parent from that file before the `finalize` child starts. They are inputs, not stored custody bytes, so they take no `mutation` label.
+
+    This order is for host's matrix runs only. X9 r5's matrix-only order (replay after `open`) stays for storage's `commit` driver.
+  - **Rejected:**
+    - **Replaying after admission in host's children** (r5's matrix-only order). The children would no longer run host's order, which X5 r3 item 3 fixes, and which r5 left to X9-5.
+    - **A support function that builds the candidate from the installation without a session.** It would read the ProjectId and the core closure's preimages outside `CommitSession`'s getters, which X3d r8 item 13 binds the candidate to.
+    - **A full commit in the `candidate` child.** The `finalize` child would then not be the root's first attempt. Its ledger would already exist, and every host row would start from a committed state the row does not name.
+- **A separate host required-runs file (items 7 and 9).**
+  - **What X9-5 found.** `check-unit` takes a unit's rows by case alone (`check_crash_matrix.py`, `UNIT_CASES`). Item 12 names F12, F39, F40 and F53 for both a storage unit (X9-3 or X9-4) and X9-5. With one file, X9-3's `check-unit` would demand X9-5's host F12 and F53 rows in X9-3's storage run sets, and refuse with "missing runs". The same refusal happens the other way round.
+  - **Decision.** X9-5's rows live in `crates/host/tests/fixtures/crash-matrix/required-runs.v1.json`. That file uses the same schema (`opensip.x9.required-runs.v1`) and the same `clockEpoch` as storage's file, and it holds X9-5's rows and nothing else. Storage's file keeps the rows of X9-2, X9-3 and X9-4. A case in both lists has its storage rows in storage's file and its host rows in host's.
+    - **Item 7's "the reviewed `required-runs.v1.json`".** It reads as the two reviewed files, each run by its own target into its own run set.
+    - **`check-unit` is unchanged.** X9-5 runs `check-unit --unit X9-5 --required <host file>` over its two host run sets.
+    - **X9-6's `check` takes both files and both pairs of run sets.** Every `(case, variant)` of each file has exactly one run in its own target's set, and no extra run exists. The census is the union of the two targets' censuses (item 5, r10), and every point of the union's kill set is killed by a process-death run of either target. Every other condition of `check` applies to each set. X9-6 adds this to the checker.
+  - **Rejected:**
+    - **X9-5's rows in storage's file.** The case-based subset refuses, as shown above.
+    - **Changing `check-unit` to take rows by a unit tag.** r4 fixed the subset as item 12's case lists. A row's `units` field names owning laws, not X9 units.
+- **The host census: two unarmed `finalize` runs (item 5).**
+  - **What X9-5 found.** r8's census rule makes a unit's census the census of its own drivers. A lawful `finalize` commit never reaches the rollover, so F32's kills at X3b item 13's rollover points would lie outside the kill set, and `check-unit` refuses a killed point outside it.
+  - **Decision.** X9-5's census is the union of two unarmed runs of the `finalize` child, each after its own fixture and `candidate` child:
+    - **(a) A lawful commit** on the fresh root.
+    - **(b) An exhausted-carrier commit.** The root is first set up by F32's reserved-slot setup, so the attempt reaches `CarrierCapacityExhausted`, and `finish`'s end step runs the rollover (X3b item 13; X7 r6 item 6).
+
+    Each of (a) and (b) runs twice, and the two runs must be equal point for point. A difference is a `HARNESS-ERROR`, never a smaller kill set (item 5, r2).
+    - **The union.** A point reached in both runs takes the larger occurrence count, and the kill set is derived from the union as usual.
+    - **The census trace digest.** It is the normalized lines of (a) and then (b) (r8's trace rule).
+    - **What the census excludes.** The fixture child and the `candidate` child are not in it. Their points are X9-2's `commit` driver prefix, not host's drivers.
+  - **Rejected:**
+    - **A census of the lawful commit alone.** F32's rollover kills would be refused.
+    - **Adding the `candidate` child's trace.** It would count X9-2's registration and INIT points again as host's.
+- **Item 12.** X9-5 builds the two runners, the candidate file's writer and reader, the fixed delivery phase, the host target with its `candidate` and `finalize` children, the host required-runs file and the host census. X7 r6's session-level finalization tests (X7a call 16, X7b call 10) are met by X9-5's rows that run them:
+  - a committed Run delivered (F17's base);
+  - a renderer failure after commit (F16);
+  - a latch after admission (F39's delivery half);
+  - `CommitUndetermined` with the namespace (F12's and F40's caller route);
+  - exhaustion through `finalize` (F32).
+
+  `ExistingAttempt` with its binding is F34, X9-4's storage row. The gate-ledger balance assertion is not observable from a run record. Both stay with X7's next revision.
+
+  X9-5 now also depends on X3d-3, the candidate's owner.
+- **Unchanged from r9:** every injection mechanism, point, kind, scope, label, evidence member, row, expected value and limit; storage's `commit` driver and its r5 order; and every forbidden substitute not added below. No accepted outcome of any other law changes. No new public code, row or detail.
 
 Product baseline: main `f1b8321` (X3d-0 integrated). Every item contains a lead decision made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation; each names the alternative it rejects. Not product code. No new public code, row or detail.
 
@@ -339,6 +411,8 @@ At `f1b8321` the product has the following, and nothing more:
      - **One entry per process.** In line with X1 items 1 and 7, a process makes at most one call to any of the three. A second call refuses with the invariant row, without effect. The flag that enforces this is the support module's own. `publish_revocation` refuses, without writing, in a process that has made such a call: under item 11 the parent publishes, never a child that holds an operation.
      - **No other entry.** The three are the whole exception. Every other item of the surface still returns no authority type.
 
+     **r10:** host's support module adds two runners, `finalize_commit` and `store_gc`. Each makes its process's one entry and returns value reports only. Host's module also holds the on-disk run candidate's writer and reader. These are not a fourth entry, and they return no authority type (see the r10 header).
+
      **The production constructors stay the only ones** (X6 r4, record only): `RecoveryAdmission::admit` and `SettlementSweep::admit`. The three entries are test-only.
      **Rejected:** see the r4 header (a callback-style function, a home override on production entries, and waiting for X8b).
 
@@ -387,6 +461,7 @@ At `f1b8321` the product has the following, and nothing more:
      - the release absence passes;
      - the two lead repetitions agree run by run on `normalizedSha256` and on the trace digest, the trust store (`logical.trustState`) included (r2);
      - (r2) every run's labels include `scripted-clock`, and every child's ordinal follows spawn order.
+   - **r10:** the reviewed required runs are two files: storage's, and `crates/host/tests/fixtures/crash-matrix/required-runs.v1.json` for X9-5's rows. X9-6's `check` takes both files and both pairs of run sets, and checks the union census (see the r10 header).
    - **The per-unit check (r4; lead decision).** Before X9-6, each of X9-2 to X9-5 checks its own run sets with a subset mode of the checker.
      - **Who adds it.** X9-2 adds it to `tools/check_crash_matrix.py` as the `check-unit` command, with its tests.
      - **The unit's rows.** `check-unit` names the unit (X9-2, X9-3, X9-4 or X9-5). It takes that unit's subset of the reviewed `required-runs.v1.json`: the rows whose case is in the unit's list in item 12.
@@ -540,7 +615,9 @@ At `f1b8321` the product has the following, and nothing more:
     - **X9-3 (storage; commit and recovery).** Rows F11–F15, F23–F25, F27–F29, F33, F36, F42, F43–F45, F49, F52 and F53. **Dependencies:** X9-2.
     - **X9-4 (storage; locks and live revocation).** Rows F06, F18, F19, F26, F30, F34, F38, F39's storage half, F40 and F41, and C5 once G5 is decided (**r3 (record):** decided by X6c; C5's R3 is `refused` and its R4 is `terminal-not-committed`). **Dependencies:** X9-2 and X4a. It uses X4a's observer `gate` point.
     - **X9-5 (host).** `crates/host/tests/commit_matrix_tests.rs` with rows F01, F16, F17, F12's and F40's caller route, F32 with its rollover crash table, F39's delivery half, and F53's `store-gc` step. **Dependencies:** X9-2, X5a, X7a, X7b, X3b-4 and X6c.
+      **r10:** X9-5 adds host's two runners, the candidate file's writer and reader, and the fixed delivery phase. It also adds the `candidate` and `finalize` children (host order: the candidate is written before custody), the host required-runs file and the two-run host census. It depends on X3d-3 too (see the r10 header).
     - **X9-6 (record; the M2 exit).** Two full lead runs on one integrated commit, the checker, release absence, the reviewer's rerun, and the arch evidence record. **Dependencies:** all of the above, and VD1 (EXIT-PLAN, "lands before the X9 exit").
+      **r10:** X9-6's `check` covers both required-runs files and both targets' run sets, with the union census and kill-set coverage across both (see the r10 header).
 
 ## Cross-law corrections found while drafting
 
@@ -570,6 +647,10 @@ These are recorded for the owning laws' next revisions. None changes an accepted
 - (r4) A support function that hands an authority type to a caller's closure.
 - (r4) A home override, or any test-only input, on a production entry (`admit_ordinary_writer`, `RecoveryAdmission::admit`, `SettlementSweep::admit`).
 - (r4) A second entry in one process through the three entries, or `publish_revocation` in a process that made one.
+- (r10) A host runner that returns or lends an authority type; that accepts a receipt, gate, guard, monitor, clock, session, permit, `ProjectOperation`, `ReplayedRun`, delivery phase or callback from its caller; or that is compiled under `scenario-fixtures` or in any release build. A third runner. A runner call in a process that already made an entry, or a second runner call.
+- (r10) A copy of host's `finalization.rs` or `maintenance.rs` compiled into a test target. `finalize` or `maintenance` made public. Host's matrix children run in host's unit-test binary.
+- (r10) A host matrix child that replays its candidate after admission. A candidate built without a `CommitSession`.
+- (r10) Native admission (`SettlementSweep::admit`, `sweep_store`, `RecoveryAdmission::admit`) in any matrix process.
 - A `cfg(any(test, feature))` site outside X9-1's pinned list.
 - Asserting either refusal or admission of a whole-file `state.v1` restore (L4).
 - A durability primitive reached outside a named scope during a matrix run.
