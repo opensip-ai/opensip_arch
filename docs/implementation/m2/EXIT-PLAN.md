@@ -188,3 +188,9 @@ Rejected: changing the trust-anchor tool now for one sentence.
 
   The owning laws (X2 item 8, X3c item 10) already fail closed here. X9 r8 records these outcomes and adds no product code.
 - **X6c crash point fix (2026-10-02):** the sweep's `try_lock` took its lock outside any `x2.lease.*` scope. X9-2 carries the scope placement, which compiles to nothing without the feature.
+- **X8 record notes owed after X8c (2026-10-02).** X8's next record-only revision should cover:
+  - the B2 wording and owner;
+  - the corpus path (host `replay-fixtures.json`);
+  - the REV that B1, B2 and B4 append;
+  - B7's drift and B6's gate, as shown at the public boundary;
+  - B0's candidate route (`#[path]` include plus the schema-registry shim).
