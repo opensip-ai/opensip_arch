@@ -181,3 +181,10 @@ Rejected: changing the trust-anchor tool now for one sentence.
 - **X8 record note owed (2026-10-04, from the X3d r7 review):** X8 r3's unit list says X8b "lands before X3d-2", which the X3d-2-first ordering overtook. Fold a record-only X8 r4 into the X8b round.
 - **RESOLVED (X3d-3, 2026-10-02): commit closure binding (2026-10-02, found by X9-2).** X3d step 1 requires `run.evaluator_closure() == session.core_closure()`. These are a `kind:evaluator` closure and a `kind:core` closure, so their ids can never be equal, and `prepare_commit` refuses every real ReplayedRun. X3d-2's tests masked this by building the session from the Run's closure. The fix is X3d r8 plus an X3d-3 code unit. This blocks X8c, X9-2..X9-6 and any production commit.
 - **X8 B2 wording owed (2026-10-02).** In X8's next record note, the B2 row compares against the session's core evaluator closure (`CommitSession::core_evaluator_closure()`; X3d r8; EC1), and the owner column reads "X3d-2, binding X3d-3". B6 is unchanged.
+- **M2 known limit: permanently refused crash states (2026-10-02, found by X9-2).** A crash at any of the following points leaves the project refused permanently until a repair/resume writer exists (M3):
+  - inside first registration (RESERVED written, ACTIVE not): identity-recovery-required;
+  - between creating a namespace, ledger, object directory or trust dependency and sampling it private: Custody, Incomplete or HostIo;
+  - inside the ledger's WAL before the schema commit: LEDGER.CORRUPT.
+
+  The owning laws (X2 item 8, X3c item 10) already fail closed here. X9 r8 records these outcomes and adds no product code.
+- **X6c crash point fix (2026-10-02):** the sweep's `try_lock` took its lock outside any `x2.lease.*` scope. X9-2 carries the scope placement, which compiles to nothing without the feature.
