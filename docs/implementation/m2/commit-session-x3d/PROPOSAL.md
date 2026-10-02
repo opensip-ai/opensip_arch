@@ -1,4 +1,4 @@
-# The CommitSession storage facade — proposal X3d r7
+# The CommitSession storage facade — proposal X3d r8
 
 2026-10-01. Claude Opus 5.5, implementation lead. Law for unit X3d of `EXIT-PLAN.md`, under owner.md §5 and §8, the build plan's "Decision: require independently minted prerequisites at the storage boundary", "Security/storage ownership and the final commit gate" and "Publication sequence and lock discipline" (`docs/v2/architecture/implementation-boundaries-and-build-plan.md`, lines 25–190), and the accepted laws X1 r1, X2 r5, X3a r5, X3b r6, X3c r7, X4 r7 and X4T r5. The lead decisions here are made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation. Each names the alternative it rejects. r2 answers Grok X3d r1 RF-1 to RF-5: the capacity threshold, the attempt-admission commit's outcomes, a single end-path REV owner, an end-path reserve taken first, and the exhaustive rows. r1 bytes are preserved in PROPOSAL-r1.md. r3 answers Grok X3d r2 RF-1 (a failed end-path reserve funds no append) and RF-2 (after an uncertain journal outcome, the writer reconciles before any floor copy). r2 bytes are preserved in PROPOSAL-r2.md. r3 ACCEPTED by Grok on 2026-10-01. r4 is an amendment required by X3b r8 item 5a: item 3's capacity threshold is X3b's `seal_fits` predicate (a SEAL needs the proven tail at most 9007199254740987), not the literal 9007199254740990. r3 bytes are preserved in PROPOSAL-r3.md. r4 ACCEPTED by Grok on 2026-10-01. Not code. Library only: no CLI command commits (X11 and M3).
 
@@ -54,6 +54,28 @@
   - **Why it can wait.** M2 never commits one Run twice. This is a disclosed limit, not a change to X3d.
 - **Unchanged from r6:** everything else.
 
+**r8 (2026-10-02) is an amendment.** It fixes item 3 step 1's closure binding, which no real Run could meet. r7 bytes are preserved in PROPOSAL-r7.md. It is reviewed together with the identity contract successor EC1 (`core-evaluator-closure-ec1/`) and the record-only X9 r7. The decision is the lead's, made under the owner's standing direction of 2026-09-30. It is flagged to the owner, who may override it, because EC1 gives every core release a new evaluator closure and so new PlanIds and RunIds.
+- **The defect (found by X9-2; EXIT-PLAN "BLOCKER: commit closure binding").** r7 step 1 said: "Its evaluator closure equals the session's selected core closure." At a36da7c, `plan` (`crates/storage/src/commit.rs`, lines 248–256) enforces `run.evaluator_closure() == session.core_closure()`. The two sides can never be equal:
+  - **The session side.** `core_closure()` is `InitialCore::closure()`, the authenticated core inventory's `closure2:` over a descriptor with `kind: "core"` (`crates/security/src/trust/core_inventory.rs`, `bind`).
+  - **The Run side.** Replay requires the seal's `evaluatorClosure` to name a retained, Plan-selected closure with `kind: "evaluator"` (`crates/evaluator/src/execution_inputs.rs`, `capture_header`; `execution_reader.rs`).
+
+  So `prepare_commit` refuses every real `ReplayedRun` on the invariant row. X3d-2's tests did not catch it, because their `bound()` took the closure from the Run itself (`crates/storage/src/commit_tests.rs`, `bound`), and the project too.
+- **Why the design did not decide it.** The build plan binds the session to an "admitted producer closure" (line 51), and storage compares "producer selections" (line 67), without saying which closure that is. No accepted text relates the core closure to an evaluator closure. No authenticated record names one either: the core inventory has no evaluator member, and an admitted component manifest is `kind: "component"`, `role: "analyzer"`. r1 read "admitted producer closure" as "the receipt's selected core closure", and this defect follows from that reading.
+- **The change (items 1, 2, 3, 12 and 13, and the forbidden substitutes).**
+  - **EC1 defines the value.** A core release's evaluator closure is `closure2:` + H("closure", the authenticated core descriptor with `kind` = `"evaluator"`). For that kind, `manifestDigest` is the raw SHA-256 of the TR-CORE-signed inventory body. The core closure and the core evaluator closure differ only by `kind`.
+  - **The session carries it.** Security derives it from the same authenticated inventory as the core closure, and the session exposes it as `CommitSession::core_evaluator_closure()`.
+  - **Step 1 compares against it.** "Its evaluator closure equals the session's core evaluator closure, derived by security from the same authenticated inventory as the core closure." The core closure keeps every other use: the store pair, X4's closure subjects, and live revocation.
+  - **Where the session's value comes from.** It is never read from the Run, a worker claim, a build-time string or a test binding.
+- **Rows.** No outcome, row, code or detail changes. A mismatch is still item 9's invariant row, as a broken caller.
+- **Rejected:**
+  - **Fix (a) without a definition.** "The session exposes the evaluator closure the core admits" has nothing to expose: no authenticated record names one.
+  - **Fix (b), a membership test.** "The core closure contains the Run's evaluator closure", by a tree subset, is stated nowhere. It leaves `manifestDigest`, version and platform unbound, and is a weaker new identity law.
+  - **A signed core-inventory member naming the evaluator closure.** It changes the signed release format and 463h's builder, and still needs EC1's rule.
+  - **The evaluator as a TR-COMPONENT component.** It contradicts "evaluator = pure core" (D1-plan G28) and the analyzer-only component role.
+  - **Admitting kind `core` in replay.** It breaks the identity contract's `closureKinds`.
+  - **Dropping the check.** It removes the build plan's producer-selection comparison (line 67).
+- **Unchanged from r7:** everything else.
+
 ## Problem
 
 Every piece of an authoritative commit now has an accepted law, but nothing composes them:
@@ -76,7 +98,7 @@ It has no `CommitSession`, `PreparedCommit`, `PublishedCommit`, `JournalWriteTxn
 
    | Type | Crate | Created only by | Holds |
    |---|---|---|---|
-   | `CommitSession` | security | `CommitSession::open(ProjectOperation)` (item 2) | The consumed `ProjectOperation`: lease, project owners, `SelectedStoreEndpoint`, carrier, `OperationGuard`, monitor, `FinalGate`, the N-bound binding. Also the drawn ExecutionId, the receipt's selected core closure and the permitted operation. From item 3 step 0, the end-path settlement reserve (item 8, r6). |
+   | `CommitSession` | security | `CommitSession::open(ProjectOperation)` (item 2) | The consumed `ProjectOperation`: lease, project owners, `SelectedStoreEndpoint`, carrier, `OperationGuard`, monitor, `FinalGate`, the N-bound binding. Also the drawn ExecutionId, the receipt's selected core closure and the permitted operation. From item 3 step 0, the end-path settlement reserve (item 8, r6). **r8:** also the receipt's core evaluator closure (EC1), derived from the same authenticated inventory. |
    | `JournalWriteTxn` | security | `begin_journal_txn(CommitSession)` | The live session and the open level-3 journal transaction. It has no SQL, write or checkpoint method. |
    | `JournalSealBinding` | security | `seal_under_append_lock` only | Read-only carrier, generation, SEAL sequence and body digest, operationRef, the replayed RunId. It is evidence of that append, never a grant. |
    | `PreparedCommit` | storage | `storage::prepare_commit(ReplayedRun, CommitSession)` | Both prerequisites, the exact binding, the verified object set and the reserved budget. |
@@ -91,6 +113,7 @@ It has no `CommitSession`, `PreparedCommit`, `PublishedCommit`, `JournalWriteTxn
 2. **Opening a session: one ProjectOperation, one attempt (lead decision).** `CommitSession::open(operation: ProjectOperation)` consumes the operation, so one operation publishes at most one commit.
    - It draws the ExecutionId from 16 host-CSPRNG bytes (`exec1_` plus 32 hex, identity §2's grammar). That is its pre-use uniqueness draw. The durable reservation for an authoritative attempt is X3c item 3's `attempt_custody` row, whose no-replace trigger refuses a second insert.
    - It binds N, the endpoint's (S, G, K), the carrier's `project_key_digest`, the receipt's selected core closure and the permitted operation. These are X4 item 4's operation joins, now complete.
+   - **r8:** it also binds the receipt's core evaluator closure. Security derives it from the receipt's authenticated core inventory by EC1's rule, never from the Run, and exposes it read-only as `CommitSession::core_evaluator_closure()`. It is the session's half of the build plan's "producer selections" (line 67).
    - **Rejected:** several commits per operation. That would need a reusable gate, which the one `FinalGate` per operation (X4 item 2) forbids, plus a second ExecutionId under one guard.
 
 3. **`prepare_commit(ReplayedRun, CommitSession)`.** Under the writer lease, in this order. Steps 0 to 3 are preflight and take no level-3 lock. Step 4 is X3c's own attempt transaction. Steps 5 and 6 are the objects.
@@ -100,7 +123,8 @@ It has no `CommitSession`, `PreparedCommit`, `PublishedCommit`, `JournalWriteTxn
       - **Its size** is item 8's exact cost.
       - **Where it goes.** It moves with the session into the `StoppedSession`, unless an uncertain outcome forfeits it first.
       - **If it can't be reserved.** The refusal latches the attempt ledger, as any failed charge does. So `finish` runs no end step either (item 7 step 3): it releases the lease and stops. This replaces "and runs the end step" above, which a closed ledger would refuse.
-   1. **Binding equality.** The `ReplayedRun`'s RunId, plan and proof bind to the session. Its evaluator closure equals the session's selected core closure. A mismatch is the invariant row (item 9). It is a broken caller, never a retry.
+   1. **Binding equality.** The `ReplayedRun`'s RunId, plan and proof bind to the session. Its evaluator closure equals the session's core evaluator closure, derived by security from the same authenticated inventory as the core closure (r8; EC1). A mismatch is the invariant row (item 9). It is a broken caller, never a retry.
+      **r8:** r7 read "equals the session's selected core closure". That is a `kind: "core"` id, which no replayed Run can name (see the r8 header). The Run's `projectId` must still equal `CommitSession::project_id()` (X5 r3's target identity).
    2. **Retention feasibility and the publication budget.** The declared object bytes, pins and every post-effect confirmation of steps 4 to 6 and of `publish` are reserved on the operation ledger (X3c item 9). If this reservation fails, the attempt refuses on the budget row before the first write. Step 0's end-path reserve is kept.
    3. **Carrier capacity (F32, RF-1).** The reserved terminal slot is `9007199254740991`. X3b r8 item 5a reserves two ordinary slots after every SEAL for its `REV` and `CLN`, so a SEAL fits only when the proven tail is at most `9007199254740987`. When X3b's exported predicate `seal_fits(provenTail)` is false (proven tail `9007199254740988` or higher), `prepare_commit` returns `CarrierCapacityExhausted { grantGeneration, provenTailSeq }` before any write. X3d-1 calls `seal_fits` and writes no literal threshold (X3b r8 item 5a). Storage never calls lifecycle. Host finalization (X7) completes cleanup, releases the lease, then routes the rollover under the fence.
    4. **Attempt admission (X3c item 3, RF-2).** The `attempt_custody` row (`admitted`) is inserted in its own level-3, non-waiting ledger transaction and committed. Three outcomes, each stopping before any object:
@@ -292,6 +316,7 @@ It has no `CommitSession`, `PreparedCommit`, `PublishedCommit`, `JournalWriteTxn
     - **Covered elsewhere:** F12 and F14's write side (X3c); F36 (X3b and X3c); F34's binding comparison and F14 and F15's read side (X6); F16, F17 and DR-G27 (X7).
     - **Tests while X2e and X5 are pending.** Tests in `opensip-security` and `opensip-storage` build a `ProjectOperation` and a `ReplayedRun` only through crate-private, `cfg(test)` fixtures: X3b and X3c's scratch namespace, X4T-0's signed store, and an evaluator-owned test replay. There is no production seam.
       **r7 (record):** across a crate boundary, these fixtures come through `scenario-fixtures` (the ordinary lane) or `crash-matrix` (the matrix). Both reach X8 r3 item 4b's one shared site list under the joint predicate (X8 r3 item 4g; X9 G1). X3d-2 integrated before X8b and X9-1. Its end-to-end composition is first tested by X8c's B0–B4 (see the r7 header).
+      **r8:** a test's binding values come from a real session, never from the Run under test. X3d-2's `bound()` copied the Run's own project and evaluator closure, which is how the step 1 defect went unseen (item 13, X3d-3).
 
 13. **Units after the law.**
     - **X3d-0 (platform; r6, new):** the settlement reserve in `crates/platform/src/work_ledger.rs`, exactly as item 8 states: `reserve_settlement`, `SettlementReserve` and `settle`, with the platform re-export. It comes with an inventory successor for the platform crate. It has no dependency and lands before X3d-1. It is its own unit, not part of X3d-1, because it changes the platform crate's ledger, which every native unit since 412 relies on, and it is reviewed alone as 416 to 418 were.
@@ -318,6 +343,22 @@ It has no `CommitSession`, `PreparedCommit`, `PublishedCommit`, `JournalWriteTxn
       - the exact-cost pin.
     - **X3d-2 (storage):** `commit.rs`: `prepare_commit` (items 3 and 8), `PreparedCommit::publish`, the private adapter implementation, `PublishedCommit`, the `storage → evaluator` edge, and the X8 doctests. Depends on X3c-2 and X3d-1. **r6:** step 0 calls the session's end-path step. `CarrierCapacityExhausted` is returned after a completed scope (item 3), and storage holds no settlement reserve.
       **r7 (record):** "the X8 doctests" became X8 r3 item 3's fixture rows A to D and G for `PreparedCommit` and `PublishedCommit`, group H, and item 3b's adapter source pin (X8 r3 item 2). X3d-2 is integrated. Its disclosed re-commit limit is a follow-up for an X3c successor (see the r7 header).
+    - **X3d-3 (security and storage; r8, new):** the step 1 closure binding. It depends on EC1's selection and on X8b (the `scenario-fixtures` dev-dependency that gives storage's tests a `ProjectOperation`). It lands before X8c and X9-2, which it unblocks. It comes with one inventory successor for both crates.
+      - **security, `trust/core_inventory.rs`:** `Projection` gains the core evaluator closure, computed in `bind` from the descriptor it already builds, with `kind` set to `"evaluator"`, through the same `hash_canonical_value("closure", …)`. It has an accessor beside `closure()`.
+        - **Tests:** EC1's vector (`core-evaluator-closure-ec1/evidence/vector.json`, fixture case `baseline-macos`), reproduced byte for byte: both ids, and both descriptors' canonical SHA-256. For every accepted `core-inventory318` case, the two descriptors are equal except `kind`, and the ids differ.
+      - **security, `trust/initial_core.rs`:** `InitialCore::evaluator_closure()`, from the same `release.authentication().core().inventory()` as `closure()`, on both the running and the injected arm.
+      - **security, `custody/read_premise.rs` and `custody/operation_handoff.rs`:** `PlatformReceipt::core_evaluator_closure()` and `ProjectOperation::core_evaluator_closure()`. These are read-only values beside `selected_core()`. `selected_core()` is unchanged.
+      - **security, `custody/commit_session.rs`:** `pub fn core_evaluator_closure(&self) -> &str`, the new session getter. `core_closure()`'s doc comment no longer says a Run's evaluator closure must equal it. Its value and its other uses are unchanged.
+      - **security, test support (one shared site):** for the synthetic candidate below, a `#[doc(hidden)]` accessor that returns the core evaluator closure's descriptor, the inventory body bytes, and each tree member's bytes, read through the core's retained handles. It is gated `cfg(any(test, feature = "crash-matrix", feature = "scenario-fixtures"))` and added by name to X8 r3 item 4b's one site list and its pin. It is absent from every release build, and no production path calls it.
+      - **storage, `commit.rs`:** `Bound` gains `evaluator_closure`, from `CommitSession::core_evaluator_closure()`, and `plan` compares the Run's evaluator closure with it. The `PlanRefusal::Closure` doc comment names the core evaluator closure. The row is unchanged.
+      - **storage, `crash_matrix_support.rs`:** X9 r6's synthetic run candidate lands here, in X3d-3 instead of X9-2, because X3d-3's own positive tests need a Run that binds to a real session (X9 r7 records the move). Its inputs, gate and limits are X9 r6's, with one change: it rewrites the evaluator closure to `CommitSession::core_evaluator_closure()`, never `core_closure()`, and retains that closure's descriptor with its manifest blob (the inventory body) and its tree blobs. It never returns a `ReplayedRun`.
+      - **storage, `commit_tests.rs`:**
+        - `bound()` takes `project` and `evaluator_closure` from a real `CommitSession`, obtained through X8b's `scenario-fixtures` `ProjectOperation`. It never copies them from the Run.
+        - The positive tests replay the synthetic candidate built for that session.
+        - The existing closure-mismatch test is rewritten. A pinned corpus Run, whose evaluator closure is not the session's, is refused `PlanRefusal::Closure` on the invariant row.
+        - A new test pins that the session's `core_evaluator_closure()` differs from its `core_closure()`, and that a Run naming the session's core closure cannot be replayed (replay refuses kind `core`). So no Run can pass step 1 by naming the core closure.
+      - **Product copies of the closure annotations:** `schemas/sources/identity-v3.schema.json` (the `manifestDigest` artifact text and the `closureKinds` note) and the generated `apps/report/src/generated/report.ts` keep their bytes, as stage-meta-reference-selection-v1 kept them. EC1's passage overrides are the semantic owner. There is no generation, registry or drift change. `crates/identity/src/closure.rs` and `crates/evaluator/src/view-joins-registry.json` are unchanged.
+      - **Not changed:** no trust record, no signed release format, no component manifest and no 463h builder change. Security already holds the authenticated inventory.
 
 ## Forbidden substitutes
 
@@ -343,6 +384,7 @@ It has no `CommitSession`, `PreparedCommit`, `PublishedCommit`, `JournalWriteTxn
 - `PublishedCommit` before a successful `COMMIT`.
 - An external adapter or `SealOutcome` accepted by storage.
 - A production seam that supplies a `ProjectOperation` or `ReplayedRun`.
+- (r8) Comparing a Run's evaluator closure with the session's core closure, or taking the session's side of step 1 from the Run, a worker claim, a build-time string or a test binding copied from the Run.
 
 ## Not claimed
 

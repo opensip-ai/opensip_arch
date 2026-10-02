@@ -1,4 +1,4 @@
-# The crash, lock and revocation matrix — proposal X9 r6
+# The crash, lock and revocation matrix — proposal X9 r7
 
 2026-10-01. Claude Opus 5.5, implementation lead. Law for unit X9 of `EXIT-PLAN.md`, the unit that gates M2 completion. It is written under:
 - the build plan's M2 row (`docs/v2/architecture/implementation-boundaries-and-build-plan.md` line 886: "actual crash/lock/revocation matrix pass; synthetic fixtures remain labelled"), its ordered failure matrix F00–F53 (lines 524–587), its required API and fault-injection checks (lines 591–613; the test owner `crates/storage/tests/commit_tests.rs`, line 594), and the tooling row for storage and process faults (line 1072: "deterministic synchronization and crash barriers against actual storage/processes … Record platform/filesystem/profile, actual state bytes and exact outcomes; inject before/after each durability step, without sleep-and-hope synchronization");
@@ -110,7 +110,7 @@ r2 (2026-10-01) is an amendment made as lead decisions under the owner's standin
     Item 6 already lists "a synthetic run candidate for the evaluator's public `replay_run`". X9-1 left it to X9-5, and X5 r3 left X8c's B0 Run to X8c. X9-2's `commit` driver cannot commit without it.
   - **Decision.** X9-2 adds the candidate to the support surface. Because it needs the evaluator, it lives in storage's `crash_matrix_support`, which host forwards.
     - **Inputs only.** It produces the retained inputs (objects and blobs) and the claimed RunId, never a `ReplayedRun` (item 6's forbidden list stands).
-    - **How it is built.** It starts from a pinned corpus Run. It rewrites the snapshot's `projectId` and the evaluator closure to the caller's values (read from `CommitSession::project_id` and `core_closure`). It recomputes every content id and blob digest that depends on them. It re-derives the outputs with the evaluator's public `derive_evaluation`, then builds the evidence, seal and Run descriptors as `replay_run` checks them.
+    - **How it is built.** It starts from a pinned corpus Run. It rewrites the snapshot's `projectId` and the evaluator closure to the caller's values (read from `CommitSession::project_id` and `core_closure`). **r7 (record):** the evaluator closure comes from `core_evaluator_closure`, and its descriptor is retained (see the r7 header). It recomputes every content id and blob digest that depends on them. It re-derives the outputs with the evaluator's public `derive_evaluation`, then builds the evidence, seal and Run descriptors as `replay_run` checks them.
     - **The production mint.** `replay_run` in the matrix child stays the only constructor of the `ReplayedRun` that `prepare_commit` takes.
     - **Labels.** Every run that uses it stays labelled `synthetic`.
   - **The matrix-only order.** A first registration draws the ProjectId inside the operation, so the matrix child calls `replay_run` after `CommitSession::open` and before `prepare_commit`. Replay is pure and takes no custody, so no X3d step changes. This order is stated for matrix children only. The host's order, replay before any custody (X5 r3 item 3, F01), is unchanged and stays X9-5's.
@@ -122,6 +122,15 @@ r2 (2026-10-01) is an amendment made as lead decisions under the owner's standin
     - **Waiting for X8c's B0 Run.** It would couple the matrix to X8c's unit and order.
 - **Not legislated.** A possible F00 state after `x3c.ledger-create.wal` and before `ddl.commit`, a non-empty ledger with a WAL that `create_or_open_ledger` may not resume, is not decided here. If a run shows it, X9-2 stops and reports it.
 - **Unchanged from r4:** every injection mechanism, point, kind, scope, label, evidence member, limit and forbidden substitute, and every row and expected value not named above. No accepted outcome of any other law changes. No new public code, row or detail.
+
+**r7 (2026-10-02) is record-only.** r6 bytes are preserved in PROPOSAL-r6.md. It records X3d r8 and the identity contract successor EC1, reviewed together with it (`reviews/grok-evaluator-closure-x3d-r8`). It changes no injection mechanism, point, kind, scope, label, evidence member, row, expected value, limit or forbidden substitute of r6, and no accepted outcome of any other law. The r6 sentences it touches stay in place, each followed by a short "r7 (record)" note that points here.
+- **The closure binding (X3d r8 item 3 step 1; EC1).** The r5 header's reason, "the Run's evaluator closure must equal the session's selected core closure", described X3d r7. No Run could meet it. A core closure is `kind: "core"`, and replay requires `kind: "evaluator"`. That is the blocker X9-2 found. X3d r8 compares the Run's evaluator closure with the session's core evaluator closure, `CommitSession::core_evaluator_closure()`. EC1 defines that value as the authenticated core descriptor with `kind` set to `"evaluator"`.
+- **The synthetic run candidate.**
+  - **What it rewrites.** It rewrites the evaluator closure to the session's core evaluator closure (`CommitSession::core_evaluator_closure`), not to `core_closure`.
+  - **What it keeps.** It keeps that closure's descriptor as a retained closure object, with its manifest blob (the injected inventory body) and its tree blobs, through security's shared test-support accessor (X3d r8 item 13).
+  - **What stays the same.** Everything else in the r5 header's "How it is built": the `projectId` rewrite from `CommitSession::project_id`, the recomputed content ids and blob digests, the re-derivation with `derive_evaluation`, inputs only, never a `ReplayedRun`, and the `synthetic` label.
+- **Who lands it (X3d r8 item 13).** X3d-3 lands the candidate in storage's `crash_matrix_support`, under the same gate, because X3d-3's own storage tests need a Run that binds to a real session. X9-2 uses it and no longer adds it. X9-2 now also depends on X3d-3. Its `commit` driver order (replay after `CommitSession::open`, matrix children only) is unchanged.
+- **Unchanged from r6:** everything else.
 
 Product baseline: main `f1b8321` (X3d-0 integrated). Every item contains a lead decision made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation; each names the alternative it rejects. Not product code. No new public code, row or detail.
 
@@ -263,7 +272,7 @@ At `f1b8321` the product has the following, and nothing more:
      - a revocation or policy publication helper that replaces `state.v1` atomically under the installation fence, as the trust owner does;
      - the inherited format-1 and format-2 carrier fixture;
      - X3b-2's reserved-slot technique: lift `gj3_append_laws`, write, reinstall the trigger SQL byte-identically;
-     - a synthetic run candidate for the evaluator's public `replay_run`. **r5:** X9-2 adds it, in storage's module, as inputs only (see the r5 header).
+     - a synthetic run candidate for the evaluator's public `replay_run`. **r5:** X9-2 adds it, in storage's module, as inputs only (see the r5 header). **r7 (record):** X3d-3 adds it instead, binding the session's core evaluator closure (see the r7 header).
    - **What comes from production code.** `PlatformReceipt`, `ProjectOperation`, `CommitSession`, `ReplayedRun`, `PreparedCommit`, `PublishedCommit` and `RecoveredCommit` all come from the production paths over those inputs.
    - **Substitutions inside production types.** Where a production type needs its existing test-only variant to accept the synthetic input (for example `trust/initial_core.rs`'s `Image::Injected`), that `cfg(test)` becomes `cfg(any(test, feature = "crash-matrix"))`. X9-1 pins the exact list of such sites with a source pin, and no other site may use the feature.
      **r3 (record):** sites shared with X8's `scenario` are written `cfg(any(test, feature = "crash-matrix", feature = "scenario-fixtures"))`. There is one list and one pin, extended by name by X8b (X8 r3 item 4b; see the r3 header).
@@ -484,6 +493,7 @@ At `f1b8321` the product has the following, and nothing more:
     - **X9-2 (storage; carrier and objects).** `crates/storage/tests/commit_tests.rs` with `required-features`, the shared drivers (`commit`, `recover`, `sweep`, `competitor-writer`, `reader`), the ladder, and rows F00, F02–F05, F07–F10, F20–F22, F31 and F46, with their `required-runs.v1.json` rows. **Dependencies:** X9-1, X2e, X4a, X3d-1, X3d-2, X6a, X6b, X6c.
       **r4:** X9-2 also adds item 6's three driver entries, which its drivers use, and item 7's `check-unit`. It does not depend on X8b.
       **r5:** X9-2 also adds item 6's synthetic run candidate, and its `commit` driver replays after `CommitSession::open` (see the r5 header). It transcribes r5's F00 split and F07 to F10's R1.
+      **r7 (record):** the candidate is X3d-3's, and X9-2 depends on X3d-3 (see the r7 header).
     - **X9-3 (storage; commit and recovery).** Rows F11–F15, F23–F25, F27–F29, F33, F36, F42, F43–F45, F49, F52 and F53. **Dependencies:** X9-2.
     - **X9-4 (storage; locks and live revocation).** Rows F06, F18, F19, F26, F30, F34, F38, F39's storage half, F40 and F41, and C5 once G5 is decided (**r3 (record):** decided by X6c; C5's R3 is `refused` and its R4 is `terminal-not-committed`). **Dependencies:** X9-2 and X4a. It uses X4a's observer `gate` point.
     - **X9-5 (host).** `crates/host/tests/commit_matrix_tests.rs` with rows F01, F16, F17, F12's and F40's caller route, F32 with its rollover crash table, F39's delivery half, and F53's `store-gc` step. **Dependencies:** X9-2, X5a, X7a, X7b, X3b-4 and X6c.
