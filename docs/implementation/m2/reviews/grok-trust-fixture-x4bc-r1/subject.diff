@@ -1,0 +1,994 @@
+diff --git a/crates/security/src/trust/accepted_store_fixture.rs b/crates/security/src/trust/accepted_store_fixture.rs
+index 0094001..2ee0648 100644
+--- a/crates/security/src/trust/accepted_store_fixture.rs
++++ b/crates/security/src/trust/accepted_store_fixture.rs
+@@ -11,6 +11,18 @@
+ // on a real P0 publication from `initial_publication`. This module is compiled
+ // only under `cfg(test)`; no production path can reach it. X4T-a3 (law X4T
+ // r10 item 13) adds a recorded rotation of n roots, the head at the last.
++//
++// X4B-c (law X4B r5 item 9): wherever X4B's producer can end the requested
++// roles in their states (Trusted, Expired, StaleRevocation and Revoked,
++// through item 4's sequences), `generate` builds the signed payload those
++// states need and takes every retained-phase record from the producer
++// (`trust_bootstrap::build_over_p0`) over the same P0. Only a store the
++// producer cannot reach keeps this module's own construction: a state no
++// acceptance sequence ends in (QuorumLost; Recovery is not offered), a role
++// acceptance does not carry (TR-PROFILE, TR-REPAIR) or must carry (TR-BUNDLE,
++// TR-CORE, TR-INDEX), a combination item 4's time and revocation inputs do
++// not give, and the deliberately unlawful X4T-a3 stores (`ChainEnd` other
++// than `Head`, replaced signers). `AcceptedStore::produced` says which.
+ use super::core_authentication::tests::{quorum_root, sign};
+ use super::retained_metadata_index::Collection;
+ use crate::trust::trust_outcomes::reference;
+@@ -148,6 +160,8 @@ pub(crate) struct AcceptedStore {
+     pub(crate) p0_capsule: V,
+     pub(crate) root: V,
+     pub(crate) root_body: Vec<u8>,
++    /// X4B-c: true when every retained-phase record is X4B's producer's.
++    pub(crate) produced: bool,
+ }
+ impl AcceptedStore {
+     /// The bytes of one immutable record by collection and digest, as the
+@@ -280,7 +294,8 @@ impl Builder {
+ 
+ /// Generate a signed accepted store: P0 (revision 1) from the product
+ /// producer, then one retained publication (revision 2) that accepts the
+-/// chosen roles.
++/// chosen roles: X4B's producer's wherever it reaches them (X4B-c), this
++/// module's construction otherwise.
+ pub(crate) fn generate(spec: &Spec) -> AcceptedStore {
+     assert!(
+         spec.roles.iter().any(|r| *r != RoleTarget::Unbootstrapped),
+@@ -291,15 +306,27 @@ pub(crate) fn generate(spec: &Spec) -> AcceptedStore {
+         spec.chain_end != ChainEnd::Short || spec.roots >= 2,
+         "a short chain needs two roots"
+     );
+-    let sid = spec.store.clone().unwrap_or_else(|| STORE.to_owned());
+-    let mut b = Builder {
+-        files: Vec::new(),
+-        store: sid.clone(),
+-    };
++    #[cfg(target_os = "macos")]
++    if let Some(store) = produce(spec) {
++        return store;
++    }
++    construct(spec)
++}
+ 
+-    // P0, from the product producer.
++/// P0's files (the marker record, creation input, operation, event,
++/// descriptor and capsule) in the producer's order, its capsule's bytes and
++/// value, its store binding and its event head.
++struct P0 {
++    files: Vec<File>,
++    capsule_raw: Vec<u8>,
++    capsule: V,
++    store: V,
++    head: V,
++}
++fn p0_publication(spec: &Spec, sid: &str) -> P0 {
++    let mut files = Vec::new();
+     let inputs = super::initial_publication::Inputs {
+-        store: &sid,
++        store: sid,
+         state_schema: spec.state_schema,
+         core_closure: CORE_CLOSURE,
+         platform: "macos-aarch64",
+@@ -315,7 +342,6 @@ pub(crate) fn generate(spec: &Spec) -> AcceptedStore {
+     let p0 = ledger
+         .scope(|work| super::initial_publication::build(&inputs, work))
+         .unwrap();
+-    // The marker record, creation input, operation, event, descriptor, capsule.
+     let mut p0_capsule_raw = Vec::new();
+     let mut p0_event_raw = Vec::new();
+     for file in p0.files {
+@@ -333,34 +359,40 @@ pub(crate) fn generate(spec: &Spec) -> AcceptedStore {
+         if path.ends_with("/state.v1") {
+             p0_capsule_raw = file.bytes.clone();
+         }
+-        b.files.push(File {
++        files.push(File {
+             path,
+             collection,
+             bytes: file.bytes,
+         });
+     }
+-    let p0_capsule = opensip_identity::parse_json(&p0_capsule_raw).unwrap();
+-    let store = o(&p0_capsule)["store"].clone();
+-    let p0_head = event_ref(&p0_event_raw, 1, &sid);
+-    assert_eq!(o(&p0_capsule)["eventHead"], p0_head);
+-    // The P0 capsule image is also a record, so the time evidence can cite it.
+-    b.files.push(File {
+-        path: format!("trust/records/{}", digest_hex(&raw_sha256(&p0_capsule_raw))),
+-        collection: Some(Collection::Records),
+-        bytes: p0_capsule_raw.clone(),
+-    });
+-    let previous = digest_hex(&raw_sha256(&p0_capsule_raw));
++    let capsule = opensip_identity::parse_json(&p0_capsule_raw).unwrap();
++    let store = o(&capsule)["store"].clone();
++    let head = event_ref(&p0_event_raw, 1, sid);
++    assert_eq!(o(&capsule)["eventHead"], head);
++    P0 {
++        files,
++        capsule_raw: p0_capsule_raw,
++        capsule,
++        store,
++        head,
++    }
++}
+ 
+-    // Signed documents, public test-only seeds (quorum-roots.json schema 1).
+-    // X4T-a3: root 1 is quorum root 1; each later root rotates ROOT to the
+-    // next key set, signed by both. The last root is the signing root M.
++/// A stored body and its envelope.
++type SignedPair = (Vec<u8>, Vec<u8>);
++
++/// The recorded root chain, signed with the public test-only seeds
++/// (quorum-roots.json schema 1): root 1 is quorum root 1; each later root
++/// rotates ROOT to the next key set, signed by both (X4T-a3). The last root
++/// is the signing root M. X4B-c: `final_expires` replaces M's `expiresAt`.
++fn signed_chain(spec: &Spec, final_expires: Option<&str>) -> (Vec<V>, Vec<SignedPair>) {
+     let first = quorum_root(1);
+     let key_id = |i: usize| match &o(&first)["keys"] {
+         V::Array(keys) => o(&keys[i])["keyId"].clone(),
+         _ => panic!("keys"),
+     };
+     let n = spec.roots;
+-    let chain: Vec<V> = (0..n)
++    let mut chain: Vec<V> = (0..n)
+         .map(|k| {
+             if k == 0 {
+                 return first.clone();
+@@ -375,6 +407,11 @@ pub(crate) fn generate(spec: &Spec) -> AcceptedStore {
+             V::Object(r)
+         })
+         .collect();
++    if let Some(expires) = final_expires {
++        let mut r = o(&chain[n - 1]).clone();
++        r.insert("expiresAt".into(), s(expires));
++        chain[n - 1] = V::Object(r);
++    }
+     let mut chain_pairs = Vec::new();
+     for (k, root_k) in chain.iter().enumerate() {
+         let body = canonical_bytes(root_k).unwrap();
+@@ -391,6 +428,35 @@ pub(crate) fn generate(spec: &Spec) -> AcceptedStore {
+         let envelope = sign(&body, "root", "opensip.metadata.root.1", "ROOT", &first, &by);
+         chain_pairs.push((body, envelope));
+     }
++    (chain, chain_pairs)
++}
++
++/// This module's own construction of the retained publication (X4T-0), for
++/// the stores X4B's producer cannot reach (X4B-c).
++fn construct(spec: &Spec) -> AcceptedStore {
++    let sid = spec.store.clone().unwrap_or_else(|| STORE.to_owned());
++    let P0 {
++        files,
++        capsule_raw: p0_capsule_raw,
++        capsule: p0_capsule,
++        store,
++        head: p0_head,
++    } = p0_publication(spec, &sid);
++    let mut b = Builder {
++        files,
++        store: sid.clone(),
++    };
++    // The P0 capsule image is also a record, so the time evidence can cite it.
++    b.files.push(File {
++        path: format!("trust/records/{}", digest_hex(&raw_sha256(&p0_capsule_raw))),
++        collection: Some(Collection::Records),
++        bytes: p0_capsule_raw.clone(),
++    });
++    let previous = digest_hex(&raw_sha256(&p0_capsule_raw));
++
++    // Signed documents, public test-only seeds (quorum-roots.json schema 1).
++    let n = spec.roots;
++    let (chain, chain_pairs) = signed_chain(spec, None);
+     let root = chain[n - 1].clone();
+     let (root_body, root_env) = chain_pairs[n - 1].clone();
+     let root_version = n as i128;
+@@ -555,11 +621,7 @@ pub(crate) fn generate(spec: &Spec) -> AcceptedStore {
+     } else {
+         b.record(Definition::PayloadMetadataClosureV1, &closure_value)
+     };
+-    let invocation = obj([
+-        ("requestId", s("req1_cccccccccccccccccccccccccccccccc")),
+-        ("stepId", int(0)),
+-        ("executionId", s("exec1_dddddddddddddddddddddddddddddddd")),
+-    ]);
++    let invocation = invocation();
+     let operation = b.record(
+         Definition::OperationInputV1,
+         &obj([
+@@ -576,11 +638,7 @@ pub(crate) fn generate(spec: &Spec) -> AcceptedStore {
+             ),
+         ]),
+     );
+-    let anchor = obj([
+-        ("bootId", s("boot-1")),
+-        ("mono", int(7)),
+-        ("wall", s("2026-10-02T00:00:00Z")),
+-    ]);
++    let anchor = anchor();
+     let source = obj([("kind", s("ordinary")), ("closure", closure.clone())]);
+     encode(Definition::SignedTimeSourceV1, &source);
+     let time = b.record(
+@@ -887,7 +945,339 @@ pub(crate) fn generate(spec: &Spec) -> AcceptedStore {
+         p0_capsule,
+         root,
+         root_body,
++        produced: false,
++    }
++}
++
++/// The acceptance's invocation (its operation input and time evidence).
++fn invocation() -> V {
++    obj([
++        ("requestId", s("req1_cccccccccccccccccccccccccccccccc")),
++        ("stepId", int(0)),
++        ("executionId", s("exec1_dddddddddddddddddddddddddddddddd")),
++    ])
++}
++/// The acceptance's one clock sample (W, M, B): the anchor it records.
++fn anchor() -> V {
++    obj([
++        ("bootId", s("boot-1")),
++        ("mono", int(7)),
++        ("wall", s("2026-10-02T00:00:00Z")),
++    ])
++}
++
++/// X4B-c: what the signed payload carries so that law X4B r5 item 4's
++/// sequences end each carried role in its requested state. Index order is
++/// `ROLES`' first four: TR-BUNDLE, TR-COMPONENT, TR-CORE, TR-INDEX.
++#[cfg(target_os = "macos")]
++#[derive(Clone, Copy, Debug, PartialEq, Eq)]
++struct Knobs {
++    /// The signing root expired at tEval: every carried role's `expired`.
++    root_expired: bool,
++    /// The catalog expired at tEval: TR-INDEX's `expired`.
++    catalog_expired: bool,
++    /// The list's revocation data stale at tEval.
++    stale: bool,
++    /// The list names one signer of that role's document by keyId, and
++    /// the document's two other signers still meet its threshold.
++    revoked: [bool; 4],
++    /// A component manifest is carried (TR-COMPONENT leaves Unbootstrapped).
++    component: bool,
++}
++#[cfg(target_os = "macos")]
++impl Knobs {
++    /// The quorum62 seeds that sign each carried role's documents; the third
++    /// is the one a revoked role's list names.
++    const SIGNERS: [[usize; 3]; 4] = [[17, 18, 19], [14, 15, 16], [8, 9, 10], [11, 12, 13]];
++    /// The first knobs, time inputs in the order (root, catalog, stale) as
++    /// a binary count, under which `role_machine::bootstrap_sequence` (the
++    /// producer's own item 4 dispatch) ends every carried role in its
++    /// requested state; `None` where no acceptance reaches the request.
++    fn for_roles(roles: &[RoleTarget; 6]) -> Option<Self> {
++        use crate::trust::role_machine::{BootstrapEntry, State, bootstrap_sequence};
++        // TR-PROFILE and TR-REPAIR are never carried; every payload carries
++        // the bootstrap manifest, the core inventory and the catalog.
++        if roles[4] != RoleTarget::Unbootstrapped || roles[5] != RoleTarget::Unbootstrapped {
++            return None;
++        }
++        if [0, 2, 3]
++            .iter()
++            .any(|&i| roles[i] == RoleTarget::Unbootstrapped)
++        {
++            return None;
++        }
++        let component = roles[1] != RoleTarget::Unbootstrapped;
++        let revoked = [0, 1, 2, 3].map(|i| roles[i] == RoleTarget::Revoked);
++        let token = |state: State| -> Option<RoleTarget> {
++            Some(match state {
++                State::Unbootstrapped => RoleTarget::Unbootstrapped,
++                State::Trusted => RoleTarget::Trusted,
++                State::Expired => RoleTarget::Expired,
++                State::StaleRevocation => RoleTarget::StaleRevocation,
++                State::QuorumLost => RoleTarget::QuorumLost,
++                State::Revoked => RoleTarget::Revoked,
++                State::Recovery => return None,
++            })
++        };
++        (0u8..8).find_map(|bits| {
++            let knobs = Self {
++                root_expired: bits & 4 != 0,
++                catalog_expired: bits & 2 != 0,
++                stale: bits & 1 != 0,
++                revoked,
++                component,
++            };
++            let reached = (0..4).filter(|&i| i != 1 || component).all(|i| {
++                let expired = knobs.root_expired || (i == 3 && knobs.catalog_expired);
++                let sequence = bootstrap_sequence(
++                    BootstrapEntry::Admissible,
++                    expired,
++                    knobs.stale,
++                    revoked[i],
++                );
++                sequence.last().and_then(|(_, state)| token(*state)) == Some(roles[i])
++            });
++            reached.then_some(knobs)
++        })
++    }
++}
++
++/// X4B-c (law X4B r5 item 9): the accepted store through X4B's producer.
++/// The payload is signed with the public test-only seeds as the knobs
++/// require; P0 is 467's producer's; every retained-phase record, the
++/// descriptor and `state.v1` are `build_over_p0`'s, placed where `publish`
++/// writes them. `None` (the caller constructs) when the spec is not a
++/// lawful store, no knobs reach its roles, or the producer refuses or ends
++/// a role elsewhere (a caller's own list entry revoking a carried document).
++#[cfg(target_os = "macos")]
++fn produce(spec: &Spec) -> Option<AcceptedStore> {
++    use super::core_authentication::tests::{component_body, component_release, key};
++    use super::ordinary_targets::current_trust_admission::trust_bootstrap::{
++        BootstrapPayload, build_over_p0,
++    };
++    use opensip_platform::WorkFailure;
++    if spec.chain_end != ChainEnd::Head
++        || !spec.root_signers.is_empty()
++        || spec.revocation_signers.is_some()
++    {
++        return None;
++    }
++    let knobs = Knobs::for_roles(&spec.roles)?;
++    // Past at tEval (W is 2026-10-02), after every issue time.
++    const EXPIRED: &str = "2026-10-01T12:00:00Z";
++    let sid = spec.store.clone().unwrap_or_else(|| STORE.to_owned());
++    let p0 = p0_publication(spec, &sid);
++    let n = spec.roots;
++    let (chain, chain_pairs) = signed_chain(spec, knobs.root_expired.then_some(EXPIRED));
++    let root = chain[n - 1].clone();
++    let root_version = n as i128;
++
++    // The list: the caller's entries, then one signer of each revoked role.
++    // Stale data is a list issued more than 90 days before tEval.
++    let issued = if knobs.stale {
++        "2026-07-01T00:00:00Z"
++    } else {
++        "2026-10-01T00:00:00Z"
++    };
++    let mut listed: Vec<(&str, String)> = spec
++        .revocations
++        .iter()
++        .map(|(kind, subject)| (*kind, subject.clone()))
++        .collect();
++    for (role, revoked) in knobs.revoked.iter().enumerate() {
++        if *revoked {
++            listed.push(("keyId", digest_hex(&key(Knobs::SIGNERS[role][2]))));
++        }
+     }
++    let entries: Vec<String> = listed
++        .iter()
++        .map(|(kind, subject)| {
++            format!(
++                r#"{{"reason":"superseded","revokedAt":"{issued}","subject":"{subject}","subjectKind":"{kind}"}}"#
++            )
++        })
++        .collect();
++    let revocation = canonical_text(&format!(
++        r#"{{"entries":[{}],"issuedAt":"{issued}","revocationSchema":1,"revocationVersion":{},"rootVersion":{root_version}}}"#,
++        entries.join(","),
++        spec.revocation_version
++    ));
++    let revocation_env = sign(
++        &revocation,
++        "revocation",
++        "opensip.metadata.revocation.1",
++        "ROOT",
++        &root,
++        &root_keys(n - 1)[..2],
++    );
++    // One component manifest under TR-COMPONENT, joined by a catalog row.
++    let component = knobs.component.then(|| {
++        let body = component_body(0);
++        let (envelope, release) =
++            component_release(0, &body, ("TR-COMPONENT", &Knobs::SIGNERS[1]), &root);
++        (body, envelope, release)
++    });
++    let catalog = canonical_text(&format!(
++        r#"{{"catalogSchema":1,"expiresAt":"{}","issuedAt":"2026-10-01T00:00:00Z","releases":[{}],"reservedRootCommands":[],"revocationVersionRequired":1,"rootVersionRequired":{root_version},"snapshotVersion":1}}"#,
++        if knobs.catalog_expired {
++            EXPIRED
++        } else {
++            "2027-04-01T00:00:00Z"
++        },
++        component
++            .as_ref()
++            .map_or("", |(_, _, release)| release.as_str()),
++    ));
++    let catalog_env = sign(
++        &catalog,
++        "catalog",
++        "opensip.metadata.catalog.1",
++        "TR-INDEX",
++        &root,
++        &Knobs::SIGNERS[3],
++    );
++    let member = |p: &str, raw: &[u8]| {
++        format!(
++            r#"{{"path":"{p}","sha256":"{}"}}"#,
++            digest_hex(&raw_sha256(raw))
++        )
++    };
++    // Envelopes sorted by path; the root chain in chain order.
++    let mut envelopes: BTreeMap<String, &[u8]> = BTreeMap::from([
++        ("catalog.sig.json".to_owned(), catalog_env.as_slice()),
++        ("revocation.sig.json".to_owned(), revocation_env.as_slice()),
++    ]);
++    let mut blobs = vec![
++        revocation.clone(),
++        revocation_env.clone(),
++        catalog.clone(),
++        catalog_env.clone(),
++    ];
++    let mut root_members = Vec::new();
++    for (k, (body, envelope)) in chain_pairs.iter().enumerate() {
++        envelopes.insert(format!("root-{k}.sig.json"), envelope);
++        root_members.push(member(&format!("root-{k}.json"), body));
++        blobs.extend([body.clone(), envelope.clone()]);
++    }
++    let mut manifests = Vec::new();
++    if let Some((body, envelope, _)) = &component {
++        envelopes.insert("component-0.sig.json".to_owned(), envelope);
++        manifests.push(member("component-0.json", body));
++        blobs.extend([body.clone(), envelope.clone()]);
++    }
++    let manifest = canonical_text(&format!(
++        r#"{{"issuedAt":"2026-10-01T00:00:00Z","members":{{"artifacts":[],"catalog":{},"envelopes":[{}],"manifests":[{}],"permissionPolicies":[],"repairMaterial":{{"ridesOn":"DR-110","standing":"absent-by-typed-absence"}},"revocation":{},"rootChain":[{}]}},"payloadKind":"ordinary","payloadSchema":1}}"#,
++        member("catalog.json", &catalog),
++        envelopes
++            .iter()
++            .map(|(p, raw)| member(p, raw))
++            .collect::<Vec<_>>()
++            .join(","),
++        manifests.join(","),
++        member("revocation.json", &revocation),
++        root_members.join(","),
++    ));
++    let manifest_env = sign(
++        &manifest,
++        "payload",
++        "opensip.metadata.payload.1",
++        "TR-BUNDLE",
++        &root,
++        &Knobs::SIGNERS[0],
++    );
++    // The core inventory under TR-CORE, binding the embedded bootstrap pair.
++    // The producer verifies its envelope and stores nothing of it; the
++    // running core stays the synthetic `CORE_CLOSURE` P0 names.
++    let bound = |p: &str, raw: &[u8]| {
++        format!(
++            r#"{{"bytes":{},"path":"trust/bootstrap/{p}","sha256":"{}"}}"#,
++            raw.len(),
++            digest_hex(&raw_sha256(raw))
++        )
++    };
++    let inventory = canonical_text(&format!(
++        r#"{{"embeddedBootstrap":{{"directory":"trust/bootstrap","envelope":{},"manifest":{}}},"inventorySchema":3}}"#,
++        bound("payload.sig.json", &manifest_env),
++        bound("payload.json", &manifest),
++    ));
++    let inventory_env = sign(
++        &inventory,
++        "inventory",
++        "opensip.metadata.inventory.1",
++        "TR-CORE",
++        &root,
++        &Knobs::SIGNERS[2],
++    );
++    // The embedded root binding names root 1.
++    let anchor_root = super::admit(&chain[0], [true, true]).unwrap();
++    let binding = obj([
++        ("rootSchema", int(1)),
++        ("rootVersion", int(1)),
++        ("rootDigest", s(&digest_hex(&anchor_root.digest()))),
++    ]);
++
++    let acceptance = opensip_platform::WorkLedger::new()
++        .scope(|work| {
++            let payload = BootstrapPayload::from_parts(
++                binding,
++                (manifest, manifest_env),
++                (inventory, inventory_env),
++                CORE_CLOSURE,
++                blobs,
++                work,
++            )
++            .map_err(WorkFailure::Operation)?;
++            build_over_p0(
++                &p0.capsule,
++                &p0.capsule_raw,
++                &payload,
++                &anchor(),
++                &invocation(),
++                work,
++            )
++            .map_err(WorkFailure::Operation)
++        })
++        .ok()?;
++    let capsule = opensip_identity::parse_json(acceptance.capsule_raw()).unwrap();
++    if ROLES
++        .iter()
++        .zip(spec.roles)
++        .any(|(role, target)| o(&o(&o(&capsule)["roles"])[*role])["state"] != s(target.token()))
++    {
++        return None;
++    }
++    let mut files = p0.files;
++    let current = format!("trust/stores/{sid}/state.v1");
++    files.retain(|f| f.path != current);
++    let mut descriptor = None;
++    for write in &acceptance.files {
++        let path = write.path().unwrap().join("/");
++        if write.collection() == Collection::Publications {
++            descriptor = Some(opensip_identity::parse_json(write.bytes()).unwrap());
++        }
++        if files.iter().all(|f| f.path != path) {
++            files.push(File {
++                path,
++                collection: Some(write.collection()),
++                bytes: write.bytes().to_vec(),
++            });
++        }
++    }
++    files.push(File {
++        path: current,
++        collection: None,
++        bytes: acceptance.capsule_raw().to_vec(),
++    });
++    Some(AcceptedStore {
++        files,
++        store: p0.store,
++        capsule,
++        descriptor: descriptor.expect("one publication"),
++        p0_capsule: p0.capsule,
++        root,
++        root_body: chain_pairs[n - 1].0.clone(),
++        produced: true,
++    })
+ }
+ 
+ #[cfg(test)]
+diff --git a/crates/security/src/trust/accepted_store_fixture_tests.rs b/crates/security/src/trust/accepted_store_fixture_tests.rs
+index 59a597c..1544563 100644
+--- a/crates/security/src/trust/accepted_store_fixture_tests.rs
++++ b/crates/security/src/trust/accepted_store_fixture_tests.rs
+@@ -393,3 +393,238 @@ fn no_production_source_reaches_the_constructor() {
+         }
+     }
+ }
++
++/// X4B-c: the roles in `ROLES` order, from (bundle, component, core, index).
++fn carried(b: RoleTarget, c: RoleTarget, k: RoleTarget, i: RoleTarget) -> [RoleTarget; 6] {
++    [b, c, k, i, RoleTarget::Unbootstrapped, RoleTarget::Unbootstrapped]
++}
++
++/// X4B-c (law X4B r5 item 9): every request item 4's sequences reach is
++/// X4B's producer's store. Each role's events are exactly its sequence, in
++/// dispatch order, `accepted.by` names its EV-PRESENT-PAYLOAD and
++/// `revokedBy` its EV-REVOKE, and the reference binders accept the store
++/// (item 10's round trip).
++#[cfg(target_os = "macos")]
++#[test]
++fn x4b_produces_every_request_its_sequences_reach() {
++    use RoleTarget::*;
++    const P: &str = "EV-PRESENT-PAYLOAD";
++    const C: &str = "EV-CLOCK";
++    const R: &str = "EV-REVOKE";
++    let cases: Vec<(&str, Spec, [&[&str]; 4])> = vec![
++        ("default", Spec::default(), [&[P], &[P], &[P], &[P]]),
++        (
++            "no component manifest",
++            Spec {
++                roles: carried(Trusted, Unbootstrapped, Trusted, Trusted),
++                ..Spec::default()
++            },
++            [&[P], &[], &[P], &[P]],
++        ),
++        (
++            "expired catalog",
++            Spec {
++                roles: carried(Trusted, Trusted, Trusted, Expired),
++                ..Spec::default()
++            },
++            [&[P], &[P], &[P], &[P, C]],
++        ),
++        (
++            "expired root",
++            Spec {
++                roles: carried(Expired, Expired, Expired, Expired),
++                ..Spec::default()
++            },
++            [&[P, C], &[P, C], &[P, C], &[P, C]],
++        ),
++        (
++            "stale revocation",
++            Spec {
++                roles: carried(StaleRevocation, StaleRevocation, StaleRevocation, StaleRevocation),
++                ..Spec::default()
++            },
++            [&[P, C], &[P, C], &[P, C], &[P, C]],
++        ),
++        (
++            "expired catalog and stale revocation",
++            Spec {
++                roles: carried(StaleRevocation, StaleRevocation, StaleRevocation, Expired),
++                ..Spec::default()
++            },
++            [&[P, C], &[P, C], &[P, C], &[P, C]],
++        ),
++        (
++            "revoked core",
++            Spec {
++                roles: carried(Trusted, Trusted, Revoked, Trusted),
++                ..Spec::default()
++            },
++            [&[P], &[P], &[P, R], &[P]],
++        ),
++        (
++            "expired and revoked",
++            Spec {
++                roles: carried(Expired, Revoked, Revoked, Expired),
++                ..Spec::default()
++            },
++            [&[P, C], &[P, C, R], &[P, C, R], &[P, C]],
++        ),
++        (
++            "revoked bundle on a rotated chain",
++            Spec {
++                roles: carried(Revoked, Trusted, Trusted, Trusted),
++                roots: 2,
++                ..Spec::default()
++            },
++            [&[P, R], &[P], &[P], &[P]],
++        ),
++        (
++            "a successor list naming nothing carried",
++            Spec {
++                store: Some("33333333333333333333333333333333".into()),
++                state_schema: 2,
++                revocations: vec![("release", "closure2:".to_owned() + &"e".repeat(64))],
++                revocation_version: 2,
++                ..Spec::default()
++            },
++            [&[P], &[P], &[P], &[P]],
++        ),
++    ];
++    for (label, spec, sequences) in cases {
++        let store = generate(&spec);
++        assert!(store.produced, "{label}: produced");
++        let capsule = o(&store.capsule);
++        let roles = o(&capsule["roles"]);
++        let event = |r: &V| {
++            let V::String(h) = &o(r)["sha256"] else { panic!() };
++            let raw = store
++                .lookup(Collection::Events, super::super::decode_hex32(h).unwrap())
++                .unwrap();
++            opensip_identity::parse_json(&raw).unwrap()
++        };
++        let V::Array(rows) = &o(&store.descriptor)["events"] else { panic!() };
++        for (i, role) in ROLES.iter().enumerate() {
++            let r = o(&roles[*role]);
++            assert_eq!(r["state"], s(spec.roles[i].token()), "{label}: {role}");
++            let mine: Vec<V> = rows
++                .iter()
++                .map(|row| event(&o(row)["event"]))
++                .filter(|e| o(e).get("role") == Some(&s(role)))
++                .collect();
++            let names: Vec<&V> = mine.iter().map(|e| &o(e)["event"]).collect();
++            let want: Vec<V> = sequences.get(i).map_or(&[][..], |w| *w).iter().map(|n| s(n)).collect();
++            let want: Vec<&V> = want.iter().collect();
++            assert_eq!(names, want, "{label}: {role} sequence");
++            if want.is_empty() {
++                assert_eq!(roles[*role], blank_role(), "{label}: {role} blank");
++                continue;
++            }
++            assert_eq!(event(&o(&r["accepted"])["by"]), mine[0], "{label}: {role} accepted.by");
++            let revoked_by = &o(&r["conditionEvidence"])["revokedBy"];
++            if spec.roles[i] == Revoked {
++                assert_eq!(event(revoked_by), *mine.last().unwrap(), "{label}: {role} revokedBy");
++            } else {
++                assert_eq!(*revoked_by, V::Null, "{label}: {role} revokedBy");
++            }
++        }
++        let mut b = budget();
++        let bound = super::super::current_record_bindings::bind(
++            &mut b,
++            &store.store,
++            &store.capsule,
++            &store.descriptor,
++            &mut map_store(&store),
++        )
++        .unwrap();
++        assert_eq!(bound.projection().capsule(), &store.capsule, "{label}");
++        let p0 = o(&store.p0_capsule);
++        let mut b = budget();
++        let evidence = super::super::publication_events::bind_events(
++            &mut b,
++            &store.descriptor,
++            &p0["roles"],
++            &p0["eventHead"],
++            &mut map_store(&store),
++        )
++        .unwrap();
++        assert_eq!(evidence.roles(), &capsule["roles"], "{label}");
++        let mut b = budget();
++        let clock = super::super::admitted_trust_records::capsule_clock(
++            &mut b,
++            &store.capsule,
++            &store.descriptor,
++            None,
++        )
++        .unwrap();
++        let head =
++            super::super::ordinary_roots::bind_retained_head(&mut b, clock, &mut map_store(&store))
++                .unwrap();
++        assert_eq!(head.root().value(), &store.root, "{label}");
++    }
++    // S4 step 2 on the fixture's one sample: tEval = F = W, L = A.
++    let store = generate(&Spec::default());
++    let record = o(&o(&o(&store.capsule)["clock"])["record"]);
++    assert_eq!(record["evalHighWater"], s("2026-10-02T00:00:00Z"));
++    assert_eq!(record["lastAccepted"], s("2026-10-01T00:00:00Z"));
++}
++
++/// X4B-c: a request no acceptance reaches keeps this module's construction:
++/// QuorumLost, an accepted TR-PROFILE or TR-REPAIR, an uncarried TR-INDEX,
++/// a lone expired core or stale role, the unlawful X4T-a3 stores, and a
++/// caller's own list entry that would revoke a role requested Trusted.
++#[test]
++fn a_request_no_acceptance_reaches_is_constructed() {
++    use RoleTarget::*;
++    let cases: Vec<(&str, Spec)> = vec![
++        ("all targets", Spec { roles: all_targets(), ..Spec::default() }),
++        ("six trusted", Spec { roles: [Trusted; 6], ..Spec::default() }),
++        ("quorum lost", Spec { roles: carried(Trusted, Trusted, QuorumLost, Trusted), ..Spec::default() }),
++        ("expired core alone", Spec { roles: carried(Trusted, Trusted, Expired, Trusted), ..Spec::default() }),
++        ("stale component alone", Spec { roles: carried(Trusted, StaleRevocation, Trusted, Trusted), ..Spec::default() }),
++        ("no index", Spec { roles: carried(Trusted, Trusted, Trusted, Unbootstrapped), ..Spec::default() }),
++        ("other envelope", Spec { chain_end: ChainEnd::OtherEnvelope, ..Spec::default() }),
++        ("replaced root signers", Spec { roots: 2, root_signers: vec![(1, &[20, 21, 22])], ..Spec::default() }),
++        ("replaced list signers", Spec { roots: 2, revocation_signers: Some(&[0, 1]), ..Spec::default() }),
++        ("a list revoking the core", Spec { revocations: vec![("release", CORE_CLOSURE.to_owned())], ..Spec::default() }),
++    ];
++    for (label, spec) in cases {
++        let store = generate(&spec);
++        assert!(!store.produced, "{label}: constructed");
++        let roles = o(&o(&store.capsule)["roles"]);
++        for (role, target) in ROLES.iter().zip(spec.roles) {
++            assert_eq!(o(&roles[*role])["state"], s(target.token()), "{label}: {role}");
++        }
++    }
++}
++
++/// X4B-c: the producer's store builder is reached only by the producer's
++/// own `build_acceptance` and by this test-only generator.
++#[test]
++fn only_the_producer_and_the_generator_call_the_store_builder() {
++    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
++    let mut stack = vec![root];
++    let mut callers = Vec::new();
++    while let Some(dir) = stack.pop() {
++        for entry in std::fs::read_dir(dir).unwrap() {
++            let path = entry.unwrap().path();
++            if path.is_dir() {
++                stack.push(path);
++                continue;
++            }
++            let text = std::fs::read_to_string(&path).unwrap_or_default();
++            let n = text.matches(concat!("build_over_p0", "(")).count();
++            if n > 0 {
++                let name = path.file_name().unwrap().to_string_lossy().into_owned();
++                callers.push((name, n));
++            }
++        }
++    }
++    callers.sort();
++    assert_eq!(
++        callers,
++        [
++            ("accepted_store_fixture.rs".to_owned(), 1),
++            ("trust_bootstrap.rs".to_owned(), 2),
++        ]
++    );
++}
+diff --git a/crates/security/src/trust/core_authentication.rs b/crates/security/src/trust/core_authentication.rs
+index 5e18eec..3c392ea 100644
+--- a/crates/security/src/trust/core_authentication.rs
++++ b/crates/security/src/trust/core_authentication.rs
+@@ -566,6 +566,33 @@ pub(super) mod tests {
+     /// manifest268-semantic's `POS/empty-capabilities` body; the builder
+     /// varies its version per component.
+     const COMPONENT_MANIFEST: &str = r#"{"manifestSchemaVersion":1,"kind":"component","stableId":"6f1c2c3e-0b6a-4a1c-9c2d-1f0e2a3b4c5d","name":"typescript-analyzer","version":"1.0.0","role":"analyzer","commands":[{"name":"typescript-analyzer","description":"mounted root command of the TypeScript analyzer"}],"capabilities":[],"platforms":[{"os":"macos","arch":"arm64","tree":{"entries":[{"path":"bin","type":"dir","mode":"0755"},{"path":"bin/entry","type":"file","mode":"0755","length":91,"sha256":"dc854be9643a241b32c74ddd9545db6d25250f2c2cef3cb0879593fb42e381a7"},{"path":"lib","type":"dir","mode":"0755"},{"path":"lib/provider.js","type":"file","mode":"0644","length":30,"sha256":"b2c3576b7dcca113508cd56860bb2a88df4ea720c8579b75a3bd0a934016e6c0"},{"path":"runtime","type":"dir","mode":"0755"},{"path":"runtime/node","type":"file","mode":"0755","length":33,"sha256":"d2189c7fce3766cf320a8d6490afae9dd4c52218b5f751e00292cd9f9903ef5d"}]},"entrypoint":"bin/entry"}],"dependencies":[],"declarations":{"licenses":{"path":"declarations/licenses.json","sha256":"7d04ba339da1a52d73801c402049983db204aba87cf52047fc6b488b38894835"},"sbom":{"path":"declarations/sbom.json","sha256":"2f25499e7ad0bdcd26b5413a398c42ca0cf161ae8c7e2d5b2fc89768d90ee59f"},"attestation":{"path":"declarations/attestation.json","sha256":"34cdb3c6d0c1c1f39cda15e33f77879774526c298616b9cc182a5f273ae5b2b4"},"platformQualification":{"path":"declarations/platformQualification.json","sha256":"7cfad80cdd728bcd5ec49b1b17085510aa19c941315d9a11668b999681a60f34"},"capabilityParityEvidence":{"path":"declarations/capabilityParityEvidence.json","sha256":"4f134a79a5a81a364a622168ea98b748ba463664a8a256a4414a56e68bf2876f"},"performanceBaseline":{"path":"declarations/performanceBaseline.json","sha256":"f070f1cb480a4aef23c2d2a404ec7bf43a427e05e6e3b8c4c3e8069cb88d6d93"}},"permissions":[],"provenance":{"publisher":"opensip","sourceClass":"first-party"},"stateMigration":{"reserved":true,"ridesOn":["DR-124","DR-106","DR-109","DR-113"]},"updateData":{"reserved":true,"ridesOn":["DR-110","DR-112"]},"compatibility":{"manifest":1,"hostCore":{"min":"0.1.0","max":"0.2.0","includeMin":true,"includeMax":false},"control":1,"providerProtocol":1,"componentState":1}}"#;
++    /// Component manifest `i`: `COMPONENT_MANIFEST` at version `1.0.i`.
++    pub(crate) fn component_body(i: usize) -> Vec<u8> {
++        canonical(&COMPONENT_MANIFEST.replace("\"1.0.0\"", &format!("\"1.0.{i}\"")))
++    }
++    /// Component manifest `i`'s envelope, signed by `signer` (role, seed
++    /// indices) with the keys `root` lists, and the catalog release row that
++    /// joins it (law 463 r9; X4B-a; X4B-c reuses it for X4T-0's payload).
++    pub(crate) fn component_release(
++        i: usize,
++        body: &[u8],
++        (role, by): Signer<'_>,
++        root: &V,
++    ) -> (Vec<u8>, String) {
++        let env = sign(body, "manifest", "opensip.metadata.manifest.1", role, root, by);
++        let carrier = crate::trust::metadata::parse(&env).unwrap();
++        let preimage = super::verified_envelopes::parse_carrier(&carrier)
++            .unwrap()
++            .preimage_digest();
++        let release = format!(
++            r#"{{"artifacts":[{{"archiveDigest":"{z}","archiveProfileId":"p1","platform":"macos-arm64","sha256":"{z}"}}],"envelopeDigest":"{}","hostCoreConstraint":{{"includeMax":false,"includeMin":true,"max":"0.2.0","min":"0.1.0"}},"manifestDigest":"{}","manifestPreimageSha256":"{}","publisher":"opensip","sourceClass":"first-party","stableId":"6f1c2c3e-0b6a-4a1c-9c2d-1f0e2a3b4c5d","version":"1.0.{i}"}}"#,
++            digest_hex(&opensip_identity::raw_sha256(&env)),
++            digest_hex(&opensip_identity::raw_sha256(body)),
++            digest_hex(&preimage),
++            z = "0".repeat(64),
++        );
++        (env, release)
++    }
+     impl Default for Spec<'static> {
+         fn default() -> Self {
+             Self {
+@@ -672,20 +699,10 @@ pub(super) mod tests {
+         // so the retained reader's catalog join (`MissingRelease`) admits it.
+         let mut releases = Vec::new();
+         for (i, signer) in spec.component_signers.iter().enumerate() {
+-            let body = canonical(&COMPONENT_MANIFEST.replace("\"1.0.0\"", &format!("\"1.0.{i}\"")));
+-            if let Some((role, by)) = signer {
+-                let env = sign(&body, "manifest", "opensip.metadata.manifest.1", role, &root0, by);
+-                let carrier = crate::trust::metadata::parse(&env).unwrap();
+-                let preimage = super::verified_envelopes::parse_carrier(&carrier)
+-                    .unwrap()
+-                    .preimage_digest();
+-                releases.push(format!(
+-                    r#"{{"artifacts":[{{"archiveDigest":"{z}","archiveProfileId":"p1","platform":"macos-arm64","sha256":"{z}"}}],"envelopeDigest":"{}","hostCoreConstraint":{{"includeMax":false,"includeMin":true,"max":"0.2.0","min":"0.1.0"}},"manifestDigest":"{}","manifestPreimageSha256":"{}","publisher":"opensip","sourceClass":"first-party","stableId":"6f1c2c3e-0b6a-4a1c-9c2d-1f0e2a3b4c5d","version":"1.0.{i}"}}"#,
+-                    digest_hex(&opensip_identity::raw_sha256(&env)),
+-                    digest_hex(&opensip_identity::raw_sha256(&body)),
+-                    digest_hex(&preimage),
+-                    z = "0".repeat(64),
+-                ));
++            let body = component_body(i);
++            if let Some(signer) = signer {
++                let (env, release) = component_release(i, &body, *signer, &root0);
++                releases.push(release);
+                 files.insert(format!("component-{i}.sig.json"), env);
+             }
+             files.insert(format!("component-{i}.json"), body);
+diff --git a/crates/security/src/trust/current_trust_admission.rs b/crates/security/src/trust/current_trust_admission.rs
+index 0ab18cd..dd38a77 100644
+--- a/crates/security/src/trust/current_trust_admission.rs
++++ b/crates/security/src/trust/current_trust_admission.rs
+@@ -1139,9 +1139,10 @@ pub(crate) use live_observation::{
+ 
+ // Law X4B r5 items 2 to 6 (X4B-a): the first trust acceptance producer;
+ // item 1 (X4B-b): its F-absent branch inside the fenced first read, whose
+-// only payload source is the write receipt's running core.
++// only payload source is the write receipt's running core. X4B-c: visible
++// within `root_payload` so X4T-0 builds its accepted stores through it.
+ #[cfg(target_os = "macos")]
+-mod trust_bootstrap {
++pub(in crate::trust::root_payload) mod trust_bootstrap {
+     include!("trust_bootstrap.rs");
+ }
+ #[cfg(target_os = "macos")]
+diff --git a/crates/security/src/trust/current_trust_admission_tests.rs b/crates/security/src/trust/current_trust_admission_tests.rs
+index 6a9bbff..ec1186f 100644
+--- a/crates/security/src/trust/current_trust_admission_tests.rs
++++ b/crates/security/src/trust/current_trust_admission_tests.rs
+@@ -386,8 +386,14 @@ const MEASURED: (usize, usize, usize) = (23, 46, 35_371);
+ /// X4T-a3 adds the same two loads. A native load always revisits its
+ /// location, so each charges six edges (the load, two for each of `trust/`
+ /// and its collection, and the file) and still no object or byte.
++/// X4B-c: the default store is X4B's producer's (law X4B r5 item 9). Its
++/// payload carries one TR-COMPONENT manifest, so the closure check opens two
++/// more objects (`component-0.json` and its envelope, 3,193 bytes), the
++/// catalog gains that manifest's release row, and every role document has
++/// three signatures: two objects, 26 edges and 4,877 bytes more than the
++/// constructed store's (31, 265, 36_008).
+ #[cfg(target_os = "macos")]
+-const NATIVE_MEASURED: (usize, usize, usize) = (31, 265, 36_008);
++const NATIVE_MEASURED: (usize, usize, usize) = (33, 291, 40_885);
+ #[cfg(target_os = "macos")]
+ const _: () = assert!(
+     NATIVE_MEASURED.0 <= TRUST_VIEW_COST.0
+diff --git a/crates/security/src/trust/floor_publication.rs b/crates/security/src/trust/floor_publication.rs
+index 2ede3fd..1d468e6 100644
+--- a/crates/security/src/trust/floor_publication.rs
++++ b/crates/security/src/trust/floor_publication.rs
+@@ -292,7 +292,9 @@ impl TrustWrite {
+     pub(crate) fn path_for_tests(&self) -> Vec<String> {
+         self.path().expect("a built file has a locator")
+     }
+-    fn path(&self) -> Result<Vec<String>, TrustRefusal> {
++    /// The file's path components under I (X4B-c: X4T-0 places the
++    /// producer's files exactly where `publish` would).
++    pub(in crate::trust::root_payload) fn path(&self) -> Result<Vec<String>, TrustRefusal> {
+         locator_components(self.collection, &self.reference, self.initial_store.as_ref())
+             .or_else(|e| refuse(TrustRow::Incomplete, e))
+     }
+diff --git a/crates/security/src/trust/floor_publication_tests.rs b/crates/security/src/trust/floor_publication_tests.rs
+index 339799e..ed69323 100644
+--- a/crates/security/src/trust/floor_publication_tests.rs
++++ b/crates/security/src/trust/floor_publication_tests.rs
+@@ -246,8 +246,10 @@ fn the_next_admission_reaches_accepted_by_outside_the_current_chain() {
+ }
+ /// Item 11 (r8): the default store's native reread after one floor
+ /// publication, measured. X4T-a3's chain anchor adds twelve edges, as in
+-/// NATIVE_MEASURED.
+-const NATIVE_AFTER_FLOOR: (usize, usize, usize) = (31, 265, 32_103);
++/// NATIVE_MEASURED. X4B-c: the store is X4B's producer's, whose component
++/// manifest pair, catalog release row and third signatures add two objects,
++/// 26 edges and 4,876 bytes, as in NATIVE_MEASURED (was (31, 265, 32_103)).
++const NATIVE_AFTER_FLOOR: (usize, usize, usize) = (33, 291, 36_979);
+ 
+ /// Law X4T r10 item 12 (X4T-a3): a floor publication on a store whose
+ /// recorded chain rotates root 1 to root 2 is followed by an admitted read.
+diff --git a/crates/security/src/trust/ordinary_targets.rs b/crates/security/src/trust/ordinary_targets.rs
+index 384b9b8..619a44a 100644
+--- a/crates/security/src/trust/ordinary_targets.rs
++++ b/crates/security/src/trust/ordinary_targets.rs
+@@ -757,7 +757,8 @@ fn prepare_captured_clock_input(
+ 
+ // Law X4T r5 (X4T-a): read-only current-trust admission. A child module so it
+ // reuses this module's retained-head authentication composition, not a copy.
+-mod current_trust_admission {
++// X4B-c: visible within `root_payload` so X4T-0 reaches X4B's producer.
++pub(in crate::trust::root_payload) mod current_trust_admission {
+     include!("current_trust_admission.rs");
+ }
+ #[cfg(target_os = "macos")]
+diff --git a/crates/security/src/trust/trust_bootstrap.rs b/crates/security/src/trust/trust_bootstrap.rs
+index d58573e..f4db3cf 100644
+--- a/crates/security/src/trust/trust_bootstrap.rs
++++ b/crates/security/src/trust/trust_bootstrap.rs
+@@ -535,7 +535,8 @@ fn revokes(
+ 
+ /// What one acceptance built, before it is published.
+ pub(crate) struct BootstrapAcceptance {
+-    files: Vec<TrustWrite>,
++    /// Every dependency, in publication order (X4B-c: X4T-0 places them).
++    pub(in crate::trust::root_payload) files: Vec<TrustWrite>,
+     capsule_raw: Vec<u8>,
+     time: TimeAdmission,
+ }
+@@ -573,11 +574,32 @@ pub(crate) fn build_acceptance(
+     invocation: &V,
+     work: &mut WorkScope<'_>,
+ ) -> Result<BootstrapAcceptance, TrustRefusal> {
+-    let p0 = owner.capsule();
++    build_over_p0(
++        owner.capsule(),
++        owner.raw(),
++        payload,
++        observation,
++        invocation,
++        work,
++    )
++}
++
++/// `build_acceptance` over the P0 capsule `p0` decoded from exactly `p0_raw`.
++/// Unit X4B-c (law X4B r5 item 9): X4T-0's test-only store generator calls
++/// this over the P0 publication it produced with 467's producer, so the
++/// retained-phase records it writes are this producer's. It writes nothing
++/// and grants nothing; only `accept_bootstrap` publishes.
++pub(in crate::trust::root_payload) fn build_over_p0(
++    p0: &V,
++    p0_raw: &[u8],
++    payload: &BootstrapPayload,
++    observation: &V,
++    invocation: &V,
++    work: &mut WorkScope<'_>,
++) -> Result<BootstrapAcceptance, TrustRefusal> {
+     if !is_p0(p0)? {
+         return refuse(TrustRow::HostIo, "acceptance-predecessor");
+     }
+-    let p0_raw = owner.raw();
+     let observed =
+         RecordedObservation::admit(observation).or_else(|e| refuse(TrustRow::HostIo, e))?;
+     let auth = authenticate(payload, work)?;
