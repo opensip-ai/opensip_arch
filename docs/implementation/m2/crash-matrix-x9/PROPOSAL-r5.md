@@ -1,4 +1,4 @@
-# The crash, lock and revocation matrix — proposal X9 r6
+# The crash, lock and revocation matrix — proposal X9 r5
 
 2026-10-01. Claude Opus 5.5, implementation lead. Law for unit X9 of `EXIT-PLAN.md`, the unit that gates M2 completion. It is written under:
 - the build plan's M2 row (`docs/v2/architecture/implementation-boundaries-and-build-plan.md` line 886: "actual crash/lock/revocation matrix pass; synthetic fixtures remain labelled"), its ordered failure matrix F00–F53 (lines 524–587), its required API and fault-injection checks (lines 591–613; the test owner `crates/storage/tests/commit_tests.rs`, line 594), and the tooling row for storage and process faults (line 1072: "deterministic synchronization and crash barriers against actual storage/processes … Record platform/filesystem/profile, actual state bytes and exact outcomes; inject before/after each durability step, without sleep-and-hope synchronization");
@@ -78,7 +78,7 @@ r2 (2026-10-01) is an amendment made as lead decisions under the owner's standin
 - **G1.** With r4, the matrix half of G1 has a lawful route. X9-2 closes G1 for its own rows.
 - **Unchanged from r3:** every injection mechanism, point, kind, scope, label, evidence member, row, expected value, limit and other forbidden substitute. No accepted outcome of any other law changes. No new public code, row or detail.
 
-**r5 (2026-10-02) is an amendment made as lead decisions under the owner's standing direction of 2026-09-30.** r4 bytes are preserved in PROPOSAL-r4.md. **r6 (2026-10-02)** answers Grok's X9 r5 RF-1 and changes nothing else. r5 bytes are preserved in PROPOSAL-r5.md. The fix: a kill at `x3c.ledger-create.ddl.commit.after` comes after a schema `COMMIT` that returned success (`write_schema`, `project_ledger.rs` lines 500–502). So that point belongs to F00's UAU window, not its UC window. r6 corrects the two F00 sentences below and the F00 cell's r5 clause in place, because r5 was not accepted. X9-2 found these issues while transcribing its rows into `required-runs.v1.json`, before any run. The product is unchanged at `a36da7c`. r5 changes three things and nothing else.
+**r5 (2026-10-02) is an amendment made as lead decisions under the owner's standing direction of 2026-09-30.** r4 bytes are preserved in PROPOSAL-r4.md. X9-2 found these issues while transcribing its rows into `required-runs.v1.json`, before any run. The product is unchanged at `a36da7c`. r5 changes three things and nothing else.
 
 - **F07 to F10: R1 is plain UAO (item 9).**
   - **What X9-2 found.** For F07 (and F08, "as F07"), F09 and F10, R1 was expected to be UAO with a witness diagnosis (would-REVERT, would-ADVANCE, or OK). The integrated `recover` cannot report one:
@@ -97,8 +97,8 @@ r2 (2026-10-01) is an amendment made as lead decisions under the owner's standin
     Either is X6 r4 item 4's F24 sentence: "A missing, empty or fallback ledger or carrier is never absence". The row's "R1 and R4 UAU" therefore holds only once the ledger exists.
   - **Decision.** F00's runs are expected by kill point:
     - **before the draw** (no ExecutionId): R1 and R4 are not applicable (`"notApplicable": "no-execution-id"`, item 8);
-    - **from the draw through `x3c.ledger-create.ddl.commit.before`**, that point included (r6): R1 is UC with reason `ledger-missing` or `ledger-unreadable`, whichever the kill left, and R4 is UAU, because R2 has created the ledger by then;
-    - **from `x3c.ledger-create.ddl.commit.after`**, that point included (r6), until `x3c.attempt.commit.after`: R1 and R4 are both UAU.
+    - **from the draw through `x3c.ledger-create.ddl.commit.after`**, that point included: R1 is UC with reason `ledger-missing` or `ledger-unreadable`, whichever the kill left, and R4 is UAU, because R2 has created the ledger by then;
+    - **after `x3c.ledger-create.ddl.commit.after`** and before `x3c.attempt.commit.after`: R1 and R4 are both UAU.
 
     In every split, R3 writes nothing, and the rest of the row (no attempt row, the ledger's logical state unchanged, R2's crash-state handling and Committed) is unchanged. Which split a kill point falls in is fixed by its position in the census trace relative to those two points, never by a run's outcome. X9-2 transcribes the split into `required-runs.v1.json` before any run.
   - **Rejected:** keeping UAU for the whole window, which contradicts X6's F24 rule; and starting F00 from a namespace whose ledger already exists, which would drop registration and INIT from F00's kill set.
@@ -383,7 +383,7 @@ At `f1b8321` the product has the following, and nothing more:
 
    | Case | Owner | Injection | Status | Expected |
    |---|---|---|---|---|
-   | F00 | X2, X3a, X3b, X4T-b | `hold`→kill at every census point before `x3c.attempt.commit.after` (X4T floor, X3b floor, INIT, start witness, leases) | exec | No attempt row; ledger logical state unchanged. R2: the floor step and start handle X3b item 3a's or item 4's crash state (INIT resumes or finishes, REVERT, ADVANCE), then Committed. With an ExecutionId drawn: R1 and R4 UAU, R3 writes nothing. **r5:** expected by kill point: before the draw, R1 and R4 not applicable; from the draw through `x3c.ledger-create.ddl.commit.before`, R1 UC (`ledger-missing` or `ledger-unreadable`, X6 F24) and R4 UAU; from `x3c.ledger-create.ddl.commit.after` (included, r6) until `x3c.attempt.commit.after`, R1 and R4 UAU. R3 writes nothing (see the r5 header). |
+   | F00 | X2, X3a, X3b, X4T-b | `hold`→kill at every census point before `x3c.attempt.commit.after` (X4T floor, X3b floor, INIT, start witness, leases) | exec | No attempt row; ledger logical state unchanged. R2: the floor step and start handle X3b item 3a's or item 4's crash state (INIT resumes or finishes, REVERT, ADVANCE), then Committed. With an ExecutionId drawn: R1 and R4 UAU, R3 writes nothing. **r5:** expected by kill point: before the draw, R1 and R4 not applicable; from the draw through `x3c.ledger-create.ddl.commit.after`, R1 UC (`ledger-missing` or `ledger-unreadable`, X6 F24) and R4 UAU; after it, R1 and R4 UAU. R3 writes nothing (see the r5 header). |
    | F01 | X5 | replay-invalid candidate; substituted target or inventory | exec (host) | Refused before `prepare_commit`; no attempt row; no SEAL; ledger and carrier logical state unchanged. |
    | F02 | X3c | `torn` at `x3c.object.write` (first, middle and last object) | exec (inj) | Staging residue is never adopted. R1 UAO; R2 Committed; R3 refused; R4 TNC. The orphan stays (L6). |
    | F03 | X3c | kill at `file-barrier.before` and `.after` | exec (death branch; L1) | As F02. |
