@@ -1,4 +1,4 @@
-# The crash, lock and revocation matrix — proposal X9 r11
+# The crash, lock and revocation matrix — proposal X9 r10
 
 2026-10-01. Claude Opus 5.5, implementation lead. Law for unit X9 of `EXIT-PLAN.md`, the unit that gates M2 completion. It is written under:
 - the build plan's M2 row (`docs/v2/architecture/implementation-boundaries-and-build-plan.md` line 886: "actual crash/lock/revocation matrix pass; synthetic fixtures remain labelled"), its ordered failure matrix F00–F53 (lines 524–587), its required API and fault-injection checks (lines 591–613; the test owner `crates/storage/tests/commit_tests.rs`, line 594), and the tooling row for storage and process faults (line 1072: "deterministic synchronization and crash barriers against actual storage/processes … Record platform/filesystem/profile, actual state bytes and exact outcomes; inject before/after each durability step, without sleep-and-hope synchronization");
@@ -168,13 +168,13 @@ r2 (2026-10-01) is an amendment made as lead decisions under the owner's standin
   X9 records these as an M2 known limit. No product code is added. The later owner is M3, a repair or resume writer. `matrix.json`'s `limits` carries L1 to L11. The checker's limit list follows, in both `check` and `check-unit`.
 - **Four choices made law (items 5, 7, 8 and 9).**
   - **Census scope (item 5).** A unit's census is the census of its own drivers. X9-2's census is its `commit` driver's lawful first commit on a fresh root: two runs, equal point for point. The `recover` and `sweep` censuses are X9-3's. X9-6's census is the union.
-    **r10:** X9-5's census is the union of two unarmed `finalize` runs, a lawful commit and an exhausted-carrier commit, and (r11) one unarmed `store_gc` run, and X9-6's union spans both targets (see the r10 header).
+    **r10:** X9-5's census is the union of two unarmed `finalize` runs, a lawful commit and an exhausted-carrier commit, and X9-6's union spans both targets (see the r10 header).
   - **The trace digest (item 7).** A child's `trace.sha256` hashes its records grouped by thread, in each thread's own order and threads by index. The pid and the process-wide sequence number are left out, because they interleave between threads. Every drawn value in a payload is numbered by first appearance with item 7's normalizer. Without this, an unarmed observer tick interleaving with the main thread, or a drawn ExecutionId in a payload, would make two lawful repetitions disagree.
   - **R3's value (item 8).** R3 is scored against the left attempt's ExecutionId. That is the outcome the sweep wrote for it, or "nothing". R2 is a lawful commit whose attempt the sweep also settles, `committed`; that settle is recorded beside R3 (`nextWriter`) and is not part of the row's R3. "R3 writes nothing" means nothing for the left attempt.
   - **F46's second variant (item 9).** "An association below `first_generation`" is not executed in M2. A fresh carrier's first generation is 1, and the ledger's `CHECK (grant_generation >= 1)` admits no association below it. Only a migrated carrier has a higher first generation, and no migration writer exists (L5). F46 runs the format-1 and format-2 variants.
 - **Unchanged from r7:** every injection mechanism, point, kind, scope, label, evidence member and forbidden substitute, and every row and expected value not named above. No accepted outcome of any other law changes. No new public code, row or detail.
 
-**r10 (2026-10-02) is an amendment made as lead decisions under the owner's standing direction of 2026-09-30.** r9 bytes are preserved in PROPOSAL-r9.md. It was found while starting X9-5, before any X9-5 code or run, on product main `b999ae3` (X9-2 integrated). It changes four things and nothing else. The r9 sentences it touches stay in place, each followed by a short "r10" note that points here. **r11 (2026-10-02)** answers Grok's X9 r10 RF-1 and changes nothing else. r10 bytes are preserved in PROPOSAL-r10.md. The fix: X9-5's drivers are `finalize_commit` and `store_gc`, and F53 kills at `x6.sweep.settle.commit`, a point no `finalize` run reaches. So the host census also unions an unarmed `store_gc` run. r10 was not accepted, so r11 corrects the census point below, the item 5 note and the item 12 note in place.
+**r10 (2026-10-02) is an amendment made as lead decisions under the owner's standing direction of 2026-09-30.** r9 bytes are preserved in PROPOSAL-r9.md. It was found while starting X9-5, before any X9-5 code or run, on product main `b999ae3` (X9-2 integrated). It changes four things and nothing else. The r9 sentences it touches stay in place, each followed by a short "r10" note that points here.
 
 - **Host's two matrix runners (item 6).**
   - **What X9-5 found.** Item 12 puts X9-5's rows in the integration target `crates/host/tests/commit_matrix_tests.rs`. Every one of them runs through host's commit coordinator or host's `store-gc` step, and no integration target can reach either:
@@ -220,20 +220,18 @@ r2 (2026-10-01) is an amendment made as lead decisions under the owner's standin
   - **Rejected:**
     - **X9-5's rows in storage's file.** The case-based subset refuses, as shown above.
     - **Changing `check-unit` to take rows by a unit tag.** r4 fixed the subset as item 12's case lists. A row's `units` field names owning laws, not X9 units.
-- **The host census: two unarmed `finalize` runs and one unarmed `store_gc` run (item 5; r11).**
-  - **What X9-5 found.** r8's census rule makes a unit's census the census of its own drivers. A lawful `finalize` commit never reaches the rollover, so F32's kills at X3b item 13's rollover points would lie outside the kill set, and `check-unit` refuses a killed point outside it. (r11) No `finalize` run calls `maintenance::run` or `settlement_sweep`, so F53's kills at `x6.sweep.settle.commit` would lie outside it too. `x6.sweep` is a durable scope.
-  - **Decision.** X9-5's census is the union of three unarmed runs (r11: (c) added), each after its own fixture and `candidate` child:
+- **The host census: two unarmed `finalize` runs (item 5).**
+  - **What X9-5 found.** r8's census rule makes a unit's census the census of its own drivers. A lawful `finalize` commit never reaches the rollover, so F32's kills at X3b item 13's rollover points would lie outside the kill set, and `check-unit` refuses a killed point outside it.
+  - **Decision.** X9-5's census is the union of two unarmed runs of the `finalize` child, each after its own fixture and `candidate` child:
     - **(a) A lawful commit** on the fresh root.
     - **(b) An exhausted-carrier commit.** The root is first set up by F32's reserved-slot setup, so the attempt reaches `CarrierCapacityExhausted`, and `finish`'s end step runs the rollover (X3b item 13; X7 r6 item 6).
-    - **(c) (r11) A `store_gc` run.** It follows an unarmed (a) on the same root, in a fresh process. The sweep settles (a)'s attempt `committed`, as it settles any lawful commit's attempt (item 8, r8's R3 value), so it reaches `x6.sweep.settle.commit`. If its trace has no `x6.sweep.settle.commit` point, the run is a `HARNESS-ERROR`. Only the `store_gc` child's trace is (c)'s. The (a) before it is not counted again.
 
-    Each of (a), (b) and (c) runs twice, and the two runs must be equal point for point. A difference is a `HARNESS-ERROR`, never a smaller kill set (item 5, r2).
-    - **The union.** A point reached in more than one run takes the largest occurrence count, and the kill set is derived from the union as usual.
-    - **The census trace digest.** It is the normalized lines of (a), then (b), then (c) (r8's trace rule).
+    Each of (a) and (b) runs twice, and the two runs must be equal point for point. A difference is a `HARNESS-ERROR`, never a smaller kill set (item 5, r2).
+    - **The union.** A point reached in both runs takes the larger occurrence count, and the kill set is derived from the union as usual.
+    - **The census trace digest.** It is the normalized lines of (a) and then (b) (r8's trace rule).
     - **What the census excludes.** The fixture child and the `candidate` child are not in it. Their points are X9-2's `commit` driver prefix, not host's drivers.
   - **Rejected:**
     - **A census of the lawful commit alone.** F32's rollover kills would be refused.
-    - **(r11) Moving F53's process-death kills to X9-3's file,** so that X9-5's F53 rows kill no point outside the `finalize` union. Item 12 gives F53's `store-gc` step to X9-5, and a host row of `store_gc` that cannot be killed at the sweep's own commit would not exercise the step under process death.
     - **Adding the `candidate` child's trace.** It would count X9-2's registration and INIT points again as host's.
 - **Item 12.** X9-5 builds the two runners, the candidate file's writer and reader, the fixed delivery phase, the host target with its `candidate` and `finalize` children, the host required-runs file and the host census. X7 r6's session-level finalization tests (X7a call 16, X7b call 10) are met by X9-5's rows that run them:
   - a committed Run delivered (F17's base);
@@ -617,7 +615,7 @@ At `f1b8321` the product has the following, and nothing more:
     - **X9-3 (storage; commit and recovery).** Rows F11–F15, F23–F25, F27–F29, F33, F36, F42, F43–F45, F49, F52 and F53. **Dependencies:** X9-2.
     - **X9-4 (storage; locks and live revocation).** Rows F06, F18, F19, F26, F30, F34, F38, F39's storage half, F40 and F41, and C5 once G5 is decided (**r3 (record):** decided by X6c; C5's R3 is `refused` and its R4 is `terminal-not-committed`). **Dependencies:** X9-2 and X4a. It uses X4a's observer `gate` point.
     - **X9-5 (host).** `crates/host/tests/commit_matrix_tests.rs` with rows F01, F16, F17, F12's and F40's caller route, F32 with its rollover crash table, F39's delivery half, and F53's `store-gc` step. **Dependencies:** X9-2, X5a, X7a, X7b, X3b-4 and X6c.
-      **r10:** X9-5 adds host's two runners, the candidate file's writer and reader, and the fixed delivery phase. It also adds the `candidate` and `finalize` children (host order: the candidate is written before custody), the host required-runs file and the host census of two `finalize` runs and (r11) one `store_gc` run. It depends on X3d-3 too (see the r10 header).
+      **r10:** X9-5 adds host's two runners, the candidate file's writer and reader, and the fixed delivery phase. It also adds the `candidate` and `finalize` children (host order: the candidate is written before custody), the host required-runs file and the two-run host census. It depends on X3d-3 too (see the r10 header).
     - **X9-6 (record; the M2 exit).** Two full lead runs on one integrated commit, the checker, release absence, the reviewer's rerun, and the arch evidence record. **Dependencies:** all of the above, and VD1 (EXIT-PLAN, "lands before the X9 exit").
       **r10:** X9-6's `check` covers both required-runs files and both targets' run sets, with the union census and kill-set coverage across both (see the r10 header).
 
