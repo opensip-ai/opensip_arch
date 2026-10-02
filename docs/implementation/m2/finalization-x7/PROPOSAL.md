@@ -1,4 +1,4 @@
-# Host finalization: outcomes, delivery after commit and the rollover route — proposal X7 r3
+# Host finalization: outcomes, delivery after commit and the rollover route — proposal X7 r4
 
 2026-10-01. Claude Opus 5.5, implementation lead. Law for unit X7 of `EXIT-PLAN.md`. It is written under:
 - the build plan's opaque-prerequisite decision (lines 25–40), its end-path paragraph (lines 140–146), its publication sequence (lines 155–185) and its delivery rule (lines 820–835);
@@ -17,6 +17,8 @@ r2 answers Grok X7 r1:
 r1 bytes are preserved in PROPOSAL-r1.md.
 
 r3 answers Grok X7 r2 RF-1. The rollover's reads, the `TERMINAL` append, the g+1 publication and their confirmations are attempt work. They are charged to the attempt ledger this invocation already opened (X1 item 5, X3d item 8, X3b item 9), and the gate ledger keeps only the gate's own work. Items 7 and 10 are corrected. r2 bytes are preserved in PROPOSAL-r2.md. r3 ACCEPTED by Grok on 2026-10-01.
+
+r4 (2026-10-01) is an amendment that follows X6 r3, made as lead decisions under the owner's standing direction. X1 r1 items 1 and 7 give a process one attempt, one receipt and one entry, so a writer's invocation can never make a 458c read entry. That changes two things here. Item 3's `ExistingAttempt` row is X6 r3 item 6's: the invariant row with the ExecutionId and the requested binding disclosed, recovered only by a later invocation. Item 4's delivery phase cannot read "through the read session (458c)", so it reads nothing from the store: it projects only the `PublishedCommit` and the evaluation the invocation already holds. Item 5's disclosure also names the namespace, which a later recovery needs as its selector. Items 10 and 11 follow. r3 bytes are preserved in PROPOSAL-r3.md.
 
 ## Problem
 
@@ -60,17 +62,24 @@ DR-G27 requires that a preview or ephemeral result is never labelled authoritati
    | `Committed` with `latchedAfterAdmission` (F39) | the F16 row; no delivery phase is started | 4 |
    | `CommitUndetermined { executionId }` (F12, F40) | `operational-failed`, `DURABILITY.COMMIT_FAILED`, `durability-commit`; no `runId`; the `executionId` is disclosed in the remedy subject | 4 |
    | `Refused(row)` | the row as X3d item 9 fixes it | per the row |
-   | `ExistingAttempt` | X6's routing (X6 r1 item 6); before X6, X3d's invariant row | per the row |
+   | `ExistingAttempt { executionId, requested }` (F34; r4) | X3d item 9's invariant row (`operational-failed`, `SYSTEM.OUTCOME.ILLEGAL_STATE`, `host-invariant`, detail `HOST.INVARIANT_VIOLATED`), the `executionId` as the subject, and the four members of `requested` (store generation digest, namespace, carrier digest, operation reference) disclosed beside it; the remedy names a later invocation's read-only recovery with that binding (X6 r3 item 6). No `runId`, no recovery in this invocation | 4 |
    | `CarrierCapacityExhausted` | item 6a's busy row, after item 6's route | 4 |
 
    An optional effect, such as browser launch or export, that fails after required delivery succeeded (F17) is disclosed on its own surface. The termination is unchanged and the result is never rewritten.
 4. **The delivery phase (F16, F17, F39).**
    - **When it runs.** It runs only on `Committed` without `latchedAfterAdmission`. It runs after `StoppedSession::finish` has appended any REV or CLN and released the writer lease.
-   - **What it uses.** It reads in `SHARED-READ` mode through the read session (458c), drawing no authority from the stopped session (build plan F39).
+   - **What it reads (r4; lead decision).** Nothing from the store. It projects and renders only what the invocation already holds: the `PublishedCommit` (the exact committed receipt bytes and the RunId, built only after the evidence `COMMIT` returned success) and the evaluation result whose replay produced the committed Run, both in memory. Those are the committed snapshot's bytes, so required delivery is over the committed snapshot without a read. It takes no lease, no receipt and no read session, and it draws no authority from the stopped session (build plan F39). The phase is handed nothing that can open the store: `finalize` lends it `&PublishedCommit` only, and the phase itself holds just the evaluation result and the explicitly supplied output handle its caller gave it. X7a's caller-supplied `DeliveryPhase` (`render(&PublishedCommit)`, `output()`, `optional(&PublishedCommit)`) already has this shape; only its comment, which says a project read is the phase's own read session's, changes.
+   - **Why not 458c.** r3 had it read "in `SHARED-READ` mode through the read session (458c)". A read session needs the read receipt, and the writer's invocation has spent its one attempt on the write receipt (X1 items 1 and 7). That route cannot be built.
    - **Failure.** A failed or latched attempt never opens a delivery phase. A delivery failure never retries the commit and never relabels the Run.
+   - **Later delivery that needs a store read.** M2's required delivery needs none. A selected surface that does (artifact publication, HTML assets, SARIF; M3 and M4) runs as a later read-entry invocation over the committed Run, under its own law.
 
-   **Rejected:** delivering under the writer lease, which would hold a write lock across rendering and output.
-5. **`CommitUndetermined` (F12, F40; lead decision).** Finalization never calls X6's `recover` in the same invocation. It finishes the stopped session (X3d item 7 reconciles under the lease and copies the floor only on OK, REVERT or ADVANCE). It reports the durability row with the `executionId`, and the remedy names `opensip` recovery: a later invocation's read-only `recover(executionId)` (X6) settles it.
+   **Rejected:**
+   - delivering under the writer lease, which would hold a write lock across rendering and output;
+   - (r4) delivering inside the writer's session before `finish`. It is the same lease hold, and it reverses the owner's handoff order (cleanup, release, then delivery; owner §6.2);
+   - (r4) reading through the write receipt's own lending after `finish`. `finish` consumes the operation and its receipt, and keeping it would change X3d item 7 and X1 item 1's purpose rule, for a read M2 does not need;
+   - (r4) deferring all required delivery to a later read invocation. A committed Run would never be delivered by the invocation that committed it, and F16's after-commit row would describe a different process.
+
+5. **`CommitUndetermined` (F12, F40; lead decision).** Finalization never calls X6's `recover` in the same invocation. It finishes the stopped session (X3d item 7 reconciles under the lease and copies the floor only on OK, REVERT or ADVANCE). It reports the durability row with the `executionId`, and the remedy names `opensip` recovery: a later invocation's read-only `recover(executionId)` (X6) settles it. (r4) The namespace id is disclosed beside the row, because the later recovery request names its namespace as its selector (X6 r3 items 2 and 3).
 
    **Rejected:** calling `recover` immediately after `finish`. It would race the same invocation's own uncertain outcome. The recovery architecture requires recovery to judge the carrier fresh, not to confirm the caller's hope. It would also double the invocation's work budget on an already-failed path.
 6. **The capacity rollover route (F32; lead decision; RF-2).** On `CarrierCapacityExhausted { grantGeneration, provenTailSeq }` nothing has been written (X3d item 3). Finalization does this:
@@ -126,7 +135,7 @@ DR-G27 requires that a preview or ephemeral result is never labelled authoritati
 7. **Budget (RF-1 r2).** Finalization charges nothing itself.
    - **Replay** is bounded by X5's limits.
    - **The commit and its whole end path** are charged to X1's attempt ledger (X1 item 5, X3d item 8).
-   - **The delivery phase** runs on the read session's ledger (458c).
+   - **The delivery phase** reads nothing and charges no ledger (r4, item 4): it renders values already in memory. r3's "the read session's ledger (458c)" is withdrawn with the read session.
    - **The rollover is attempt work.** Its carrier reads, the `TERMINAL` append and the g+1 publication are charged, before they run, to the attempt ledger this invocation's one admission already opened, the ledger X3b item 9 calls the operation ledger. The end step's floor write is charged the same way. Every post-effect confirmation, such as a witness reopen, a barrier or a pointer confirmation, is reserved there first.
    - **The gate ledger stays the gate's own work** (X1 item 5, 468b).
    - **No second ledger** is opened, and no fresh admission is created.
@@ -149,7 +158,9 @@ DR-G27 requires that a preview or ephemeral result is never labelled authoritati
       - a committed Run delivered;
       - a renderer failure after commit keeps the `runId` and exits 4;
       - a latch after admission starts no delivery;
-      - `CommitUndetermined` discloses the `executionId` and calls no recover;
+      - `CommitUndetermined` discloses the `executionId` and the namespace, and calls no recover;
+      - (r4) `ExistingAttempt` ends on the invariant row with the `executionId` as subject and the four requested-binding members disclosed, and calls no recover;
+      - (r4) the delivery phase takes no lease, receipt or read session: a source pin over `finalization.rs` admits no call into 458c's read entries, X2's leases or storage's readers;
       - capacity exhaustion finishes, releases the operation lease, and runs the rollover in X3b's end step:
         - under that step's fence, on the same gate admission;
         - charged to the attempt ledger, before each read and append, with each confirmation reserved first, while the gate ledger's balance is unchanged by the rollover;
@@ -162,6 +173,7 @@ DR-G27 requires that a preview or ephemeral result is never labelled authoritati
     - **Compile-fail cases for X8:** the authoritative projection rejects anything but `&PublishedCommit`.
 11. **Units.**
     - **X7a:** `host/src/finalization.rs` with items 1 to 5 and 8, with tests on injected outcomes. It depends on X3d-1 and X5a; the integration tests come after X3d-2.
+      - **(r4) X7a in flight.** X7a (inventory v125) was built on r3. Under r4 it changes in three places and nowhere else: item 3's `ExistingAttempt` arm (subject and binding disclosure; its match follows X6 r3's `NotPrepared::ExistingAttempt { execution_id, requested }`, whichever of X6b and X7a integrates second adapts), item 5's namespace disclosure, and the `DeliveryPhase` comment (item 4). Its `DeliveryPhase` trait and `finalize`'s order stand.
     - **X7b:** the capacity rollover route (item 6). It depends on X7a, on X3b r7's rollover operation, and on X3b-3's end step. It adds no admission and no gate. Until X7b lands, X7a projects the exhaustion on item 6a's row with no rollover.
 
 ## Forbidden substitutes
@@ -171,7 +183,8 @@ DR-G27 requires that a preview or ephemeral result is never labelled authoritati
 - a second commit coordinator;
 - delivery under the writer lease, or for a latched or uncertain attempt;
 - retrying a commit or relabelling a Run after a delivery failure;
-- calling `recover` for this invocation's own `CommitUndetermined`;
+- calling `recover` for this invocation's own `CommitUndetermined`, or (r4) for its `ExistingAttempt`;
+- (r4) a store read, lease, receipt or read session in the delivery phase;
 - a rollover inside commit, or storage calling lifecycle;
 - a fresh `admit_ordinary_writer`, a second `DurableWriteGate`, or a fence of finalization's own for the rollover;
 - a `TERMINAL` append outside X3b item 5's protocol, or under any lease but `EXCLUSIVE`;

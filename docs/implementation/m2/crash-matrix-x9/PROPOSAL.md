@@ -1,9 +1,15 @@
-# The crash, lock and revocation matrix — proposal X9 r1
+# The crash, lock and revocation matrix — proposal X9 r2
 
-2026-10-01. Claude Opus 5.5, implementation lead. Law for unit X9 of `EXIT-PLAN.md`, the unit that gates M2 completion. It is written under: r1 ACCEPTED by Grok on 2026-10-02.
+2026-10-01. Claude Opus 5.5, implementation lead. Law for unit X9 of `EXIT-PLAN.md`, the unit that gates M2 completion. It is written under:
 - the build plan's M2 row (`docs/v2/architecture/implementation-boundaries-and-build-plan.md` line 886: "actual crash/lock/revocation matrix pass; synthetic fixtures remain labelled"), its ordered failure matrix F00–F53 (lines 524–587), its required API and fault-injection checks (lines 591–613; the test owner `crates/storage/tests/commit_tests.rs`, line 594), and the tooling row for storage and process faults (line 1072: "deterministic synchronization and crash barriers against actual storage/processes … Record platform/filesystem/profile, actual state bytes and exact outcomes; inject before/after each durability step, without sleep-and-hope synchronization");
 - `EXIT-PLAN.md`'s X9 row and its "Choices left open" recommendation for crash injection;
 - the accepted laws X2 r8, X3a r5, X3b r10, X3c r7, X3d r6, X4 r7, X4T r9, X6 r2 and X7 r3, for every failure case each one assigns to X9 or says "X9 records".
+
+r1 was ACCEPTED by Grok on 2026-10-02; r1 bytes, without that note, are preserved in PROPOSAL-r1.md.
+
+r2 (2026-10-01) is an amendment made as lead decisions under the owner's standing direction. It changes two things and nothing else:
+- **F34 (follows X6 r3 item 6).** A writer's invocation can never recover, because X1 r1 items 1 and 7 give a process one attempt and one entry. F34's row is rewritten: the injected run ends on the invariant row with the requested binding disclosed, and a separate recovery run gives `BindingUnusable` or the attempt's standing.
+- **The clock (EXIT-PLAN, "X9 clock dependence", found by X9-1).** Since X4a, a fenced first read publishes a trust floor only when the wall clock, in whole seconds, has passed the stored evaluation floor F (X4T r9 item 7's write-ahead). So whether `x4t.floor-publication` is reached, and the trust store's bytes, depend on when a process runs (34 against 39 creates were observed between lawful runs). That breaks item 5's fixed kill set and item 7's repetition agreement. Item 3 gains a scripted wall clock in every matrix process, and items 5, 6, 7 and 12 follow.
 
 Product baseline: main `f1b8321` (X3d-0 integrated). Every item contains a lead decision made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation; each names the alternative it rejects. Not product code. No new public code, row or detail.
 
@@ -55,8 +61,16 @@ At `f1b8321` the product has the following, and nothing more:
 
 3. **The process protocol and how the parent verifies the death point, without sleeps (lead decision).**
    - **The child.** The child is the same test binary, run as `current_exe() --exact <child entry> --nocapture --test-threads=1`.
-     - **Environment.** The environment is cleared and then given only: `OPENSIP_X9_CHILD` (the driver name: `commit`, `recover`, `sweep`, `competitor-writer`, `reader`), `OPENSIP_X9_INPUT` (the path of a driver input file under the run's scratch root), `OPENSIP_X9_ARMS`, and `TMPDIR` set to the run's scratch parent.
+     - **Environment.** The environment is cleared and then given only: `OPENSIP_X9_CHILD` (the driver name: `commit`, `recover`, `sweep`, `competitor-writer`, `reader`, and (r2) `fixture`), `OPENSIP_X9_CLOCK` (r2; the scripted clock below), `OPENSIP_X9_INPUT` (the path of a driver input file under the run's scratch root), `OPENSIP_X9_ARMS`, and `TMPDIR` set to the run's scratch parent.
      - **The entry.** The child entry is an ordinary `#[test]` that returns at once unless `OPENSIP_X9_CHILD` is set. So it passes trivially in the parent's own run.
+   - **The scripted wall clock (r2; lead decision).**
+     - **What it replaces.** Under the feature only, and only when `OPENSIP_X9_CLOCK` is set, `opensip_platform::observe_clock` takes its wall reading from the script instead of the OS. The monotonic readings and the boot identity stay native, so every product bound measured on the monotonic clock (the 468 fence wait, S7's backoff, X4's freshness and observer bounds, item 11's timing guard) is unchanged. Without the variable, or without the feature, the wall reading is the OS's, as in production.
+     - **The script.** `OPENSIP_X9_CLOCK=<E>:<k>`. E is the run set's epoch, a whole second fixed in `required-runs.v1.json` (`clockEpoch`) and inside every synthetic validity window of item 6's fixture. k is the process's ordinal in the run: the parent numbers its children 0, 1, 2, … in spawn order, and the fixture child (below) is 0. The n-th wall reading in the process (n from 0) is `E + 3600·k + n` seconds with zero nanoseconds. Readings are strictly increasing within a process and from one ordinal to the next. A process that would take a 3600th reading is a `HARNESS-ERROR`.
+     - **Why it settles the dependence.** A fenced first read in a later process of the run always sees a wall second strictly later than any floor an earlier process wrote, so it publishes whenever X4T's rule allows, and identically in every repetition. Whether a read publishes no longer depends on when the process happened to run. Two concurrent children (contention, revocation) have distinct ordinals, so their readings never coincide, and the script fixes which one is later.
+     - **The fixture child.** Item 6's synthetic installation, signed store and helpers are built by a child with driver `fixture` and ordinal 0, under the script, so that no stored floor or trust time comes from the OS clock. The parent's own process takes no wall reading during a run.
+     - **Labels.** Every run carries `scripted-clock` beside `synthetic`. The record's `children` entries carry their ordinal.
+     - **Rejected: comparing the trust store per publisher run.** It would leave the census and the kill set dependent on wall-clock timing: a run in which a fenced read happened within F's second would reach no `x4t.floor-publication` point, so the X4T floor kills of F00 could be reached only by waiting for the next second, which item 3 forbids. It would also take the trust store out of item 7's repetition agreement and so hide any real nondeterminism in trust publication.
+     - **Rejected: freezing the wall clock** at one value. Every fenced read after the first would publish nothing, which is not a state production reaches, and an expiry could never pass.
    - **Channels.** The channels are the child's standard streams, created by `Command` as pipes. No descriptor passing and no `unsafe` is needed.
      - **stderr (report).** It carries tagged records `X9|<pid>|<thread>|<n>|<full name>#<k>|<event>|<payload>`, each one `write(2)` of at most 512 bytes (`PIPE_BUF` on macOS), so it is atomic. Untagged stderr is kept as diagnostics.
      - **stdin (control).** The parent writes `resume\n` on it.
@@ -98,6 +112,7 @@ At `f1b8321` the product has the following, and nothing more:
    - **The census.** The required points are not a hand list. X9-0 runs a lawful commit, recovery and sweep with nothing armed, and records every point reached: the census trace. The kill matrix is then every durability point in the census, at `#1` and, for repeated protocols (objects, appends), at the first, a middle and the last occurrence.
      - A durability primitive reached outside any scope is a `HARNESS-ERROR`, so no unnamed step can hide.
      - A census point that a later product change removes, or a new unarmed durability point, fails the coverage check (item 7).
+     - (r2) The census runs under item 3's scripted clock, so its points, including each `x4t.floor-publication` occurrence, are a function of the script and the product only. Two census runs on one commit must be equal point for point; a difference is a `HARNESS-ERROR`, never a smaller kill set.
    - **The scopes, by owner:**
 
      | Scope | Owner law | Steps |
@@ -139,7 +154,7 @@ At `f1b8321` the product has the following, and nothing more:
      - a synthetic run candidate for the evaluator's public `replay_run`.
    - **What comes from production code.** `PlatformReceipt`, `ProjectOperation`, `CommitSession`, `ReplayedRun`, `PreparedCommit`, `PublishedCommit` and `RecoveredCommit` all come from the production paths over those inputs.
    - **Substitutions inside production types.** Where a production type needs its existing test-only variant to accept the synthetic input (for example `trust/initial_core.rs`'s `Image::Injected`), that `cfg(test)` becomes `cfg(any(test, feature = "crash-matrix"))`. X9-1 pins the exact list of such sites with a source pin, and no other site may use the feature.
-   - **Every record says so.** Each run records `"fixture": "synthetic-signed-v2"` and `"profileStanding": "BASELINE-ATTESTED"`. This is line 886's "synthetic fixtures remain labelled, not compiler qualification".
+   - **Every record says so.** Each run records `"fixture": "synthetic-signed-v2"` and `"profileStanding": "BASELINE-ATTESTED"`, and (r2) `"clock": {"epoch": E, "script": "x9-ordinal-3600"}`. This is line 886's "synthetic fixtures remain labelled, not compiler qualification".
    - **Rejected:**
      - **Running against a real installation.** On this host the real path refuses at InitialCore F0 and at `/` without owner signing keys (EXIT-PLAN, "Owner actions").
      - **Running X9 inside security's unit-test binary.** Storage's `commit.rs` and host's finalization are unreachable from it, because security depends on neither.
@@ -176,7 +191,7 @@ At `f1b8321` the product has the following, and nothing more:
      - **Capture.** It is captured after the last child of the scripted phase has exited and before the ladder starts. It is captured again after each ladder step, so that R1's `stateUnchanged` (recovery is read-only) is a comparison, not a claim.
      - **`raw`** is every file under the scratch installation by digest. That is line 1072's "actual state bytes".
      - **`logical`** dumps the SQLite tables row by row through a read-only connection, and decodes the witness, floor and object sets.
-     - **`normalizedSha256`** hashes `logical` after replacing every drawn value (ExecutionId, `op-` token, staging nonce, wall-clock datum) by a placeholder numbered in order of first appearance. Raw digests differ between repetitions; the normalized digest must not.
+     - **`normalizedSha256`** hashes `logical` after replacing every drawn value (ExecutionId, `op-` token, staging nonce, wall-clock datum) by a placeholder numbered in order of first appearance. (r2) Under the scripted clock a wall-clock datum is already identical between repetitions; it is still replaced, so the comparison does not depend on the script's values. Raw digests differ between repetitions; the normalized digest must not.
    - **Where it lives.**
      - **In the product.** Runs write under `target/opensip-x9/<runSetId>/`, which git ignores. That directory holds `runs/`, `matrix.json` and, for a failed run only, a tarball of the raw scratch tree.
      - **`matrix.json`** lists the run files with their sha256, the census, the release-absence result (item 2), and the repetition comparison.
@@ -188,7 +203,8 @@ At `f1b8321` the product has the following, and nothing more:
      - `product.commit` is the reviewed commit, and the worktree is clean;
      - the census and the kill set agree (item 5);
      - the release absence passes;
-     - the two lead repetitions agree run by run on `normalizedSha256` and on the trace digest.
+     - the two lead repetitions agree run by run on `normalizedSha256` and on the trace digest, the trust store (`logical.trustState`) included (r2);
+     - (r2) every run's labels include `scripted-clock`, and every child's ordinal follows spawn order.
    - **How the review checks it.** The reviewer owns the native lane for X9-6, and:
      1. reruns the whole matrix on the reviewed commit;
      2. runs the checker over both run sets;
@@ -200,7 +216,7 @@ At `f1b8321` the product has the following, and nothing more:
      - **A pass/fail log without state.** Line 1072 requires the actual state and the exact outcomes.
 
 8. **The recovery ladder.** Every run that leaves an attempt behind is followed by four steps, each in a fresh process:
-   - **R1:** `recover(executionId)` (X6, `SHARED-READ`, no fence). It must leave `normalizedSha256` unchanged.
+   - **R1:** `recover(executionId)` (X6, `SHARED-READ`, no fence). It must leave `normalizedSha256` unchanged. (r2) It is its own process and read entry, with a plain `RecoveryRequest` naming the run's namespace (X6 r3 item 2).
    - **R2:** a next writer that runs a full lawful commit on the same namespace. It records the floor step's decision and the start's witness action (OK, REVERT, ADVANCE, INIT or OPEN), then its outcome.
    - **R3:** the settlement sweep (X6c, `EXCLUSIVE` under the fence). It records what it wrote, or that it wrote nothing.
    - **R4:** `recover(executionId)` again.
@@ -252,7 +268,7 @@ At `f1b8321` the product has the following, and nothing more:
    | F31 | X3b | the parent installs the format-1 or format-2 fixture as the namespace's carrier | exec (mut) | R2 refused before commit work (X3b item 3a's F46 row); no SEAL is inserted. |
    | F32 | X3b-4, X7b | reserved-slot setup to tails `…987` and `…988`; kill at each X3b item 13 crash-table point | exec (host; mut + death) | `CarrierCapacityExhausted`; `finish`; the rollover in the end step; X7 r3 item 6a's busy row. Each crash row as X3b item 13 states; the next writer proceeds in G+1. |
    | F33 | X6 | the parent alters receipt bytes, the inventory, a signature, or the SEAL body digest | exec (mut) | R1 UC. |
-   | F34 | X3d, X6 | `inject-id` with a previous run's ExecutionId | exec (inj) | `ExistingAttempt`; X6 routing: the same binding gives that attempt's standing, a different one gives BU (`RECOVERY.REFUSED`); no new row, no SEAL. |
+   | F34 | X3d, X6 | (r2) run A: `inject-id` with a previous run's ExecutionId; then run B, a separate `recover` process, once with A's disclosed requested binding and once with the earlier attempt's own binding | exec (inj) | A: `ExistingAttempt`, projected on the invariant row (`SYSTEM.OUTCOME.ILLEGAL_STATE`, `HOST.INVARIANT_VIOLATED`) with the ExecutionId as subject and the requested binding disclosed (X6 r3 item 6, X7 r4 item 3); no new row, no SEAL, no recover in A; the earlier attempt's rows unchanged. B: with A's binding (a different `operationRef`), BU (`RECOVERY.REFUSED`, subject `operation`); with the earlier attempt's binding, that attempt's standing. B leaves `normalizedSha256` unchanged. |
    | F35 | — | — | LIMIT (L5) | — |
    | F36 | X3b, X3c, X6 | the orphan SEALs of F09, F11, F19 and F38, followed by R2 committing the same semantic RunId | exec | The earlier ExecutionId: R1 UAO, R3 refused, R4 TNC. The later ExecutionId: CH. The RunId is not blacklisted. |
    | F37 | X6 | — | elsewhere (X6 item 10: the pure ordering accessor) | — |
@@ -310,7 +326,8 @@ At `f1b8321` the product has the following, and nothing more:
       - the `crash_matrix_support` modules (item 6), and the pinned list of `cfg(any(test, feature))` sites;
       - scopes and points at the integrated sites: X3b-1, X3b-2, X3b-4 (if integrated), X3c-1, X3c-2, X2d's leases, X4T-b's floor publication;
       - the post-state capture and normalizer, and the run writer;
-      - the census of the then-integrated path.
+      - the census of the then-integrated path;
+      - (r2) item 3's scripted wall clock in `observe_clock` (a feature-only platform site, under item 2's guards, listed with the crash_barrier module), the `fixture` driver, the `scripted-clock` label and the census equality check.
 
       **Dependencies.** X9-0. It precedes X3d-2's, X6b's and X7a's composition tests, which need the same surface (gap G1).
     - **X9-2 (storage; carrier and objects).** `crates/storage/tests/commit_tests.rs` with `required-features`, the shared drivers (`commit`, `recover`, `sweep`, `competitor-writer`, `reader`), the ladder, and rows F00, F02–F05, F07–F10, F20–F22, F31 and F46, with their `required-runs.v1.json` rows. **Dependencies:** X9-1, X2e, X4a, X3d-1, X3d-2, X6a, X6b, X6c.
@@ -347,6 +364,8 @@ These are recorded for the owning laws' next revisions. None changes an accepted
 - Asserting either refusal or admission of a whole-file `state.v1` restore (L4).
 - A durability primitive reached outside a named scope during a matrix run.
 - An observer that ticks on its own timer in a matrix child.
+- (r2) A wall reading from the OS in any process of a matrix run, a scripted wall reading in a build or process without the feature and `OPENSIP_X9_CLOCK`, or a scripted monotonic clock.
+- (r2) A `recover` call inside F34's injected writer run.
 - Raw state bytes committed to arch in place of the run records.
 - A matrix pass on a dirty worktree, or on a commit other than the reviewed one.
 
