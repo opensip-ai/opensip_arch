@@ -1,4 +1,4 @@
-# The opaque API refusal suite — proposal X8 r4
+# The opaque API refusal suite — proposal X8 r5
 
 2026-10-02. Claude Opus 5.5, implementation lead. Law for unit X8 of `EXIT-PLAN.md`. It is written under:
 - the build plan's M2 row (`implementation-boundaries-and-build-plan.md` line 886: "Opaque API refusal tests … pass; synthetic fixtures remain labelled, not compiler qualification");
@@ -30,6 +30,20 @@
   - **X8b's dependencies.** X9-1, X2e, X3a-1, X3b-3, X4a, X4T-0 and X3c-2 stand. X3d-2 was never one of them.
   - **X8c's dependencies.** X8b, X3d-2 (and so X3d-1, X4a and X3c-2) and X5a stand, with B6 and B7's further needs.
 - **Unchanged from r3:** everything else.
+
+**r5 (2026-10-02) is record-only.** r4 bytes are preserved in PROPOSAL-r4.md. It records five things decided elsewhere: one by an accepted law (X3d r8 with EC1), and four in the X8c build of B0 to B8. It changes no item, trial result, case, group, code, fragment rule, feature, module, behavioural case, expected outcome or row, unit scope or dependency, or forbidden substitute of r4, and no accepted outcome of another law. Every r4 sentence stays in place. Short "r5 (record)" notes sit beside the sentences they qualify: one under item 5's corpus bullet, and one block directly after the B table.
+- **The sources.**
+  - `EXIT-PLAN.md`: "X8 B2 wording owed (2026-10-02)" and "X8 record notes owed after X8c (2026-10-02)".
+  - X3d r8, accepted with EC1 (`reviews/grok-evaluator-closure-x3d-r8`): item 3 step 1, item 7 step 1, and item 13's X3d-3.
+  - The X8c request (`reviews/grok-refusal-cases-x8c-r1/REQUEST.md`): judgment calls 1, 3, 4 and 7, and its "Record notes owed" (a) to (e). These are lead decisions of the X8c build, which Grok reviews in X8c r1. If that review changes one, the matching note here is corrected by a later record.
+- **What r5 records, and why each is a record.**
+  1. **B2's comparison and owner.** X3d r8 item 3 step 1 already compares a Run's evaluator closure with the session's core evaluator closure (EC1). r4's "the session's selected core closure" names the r7 value, a `kind: "core"` id that no Run can name (X3d r8 header). B2's alteration kind, expected outcome and row are unchanged.
+  2. **The corpus path.** Item 5 names `crates/evaluator/tests/fixtures`, which holds no Run, only policy-pack fixtures (product `a2c5e8b`). A Run from host's pinned `crates/host/tests/fixtures/replay-fixtures.json` is still "a corpus Run".
+  3. **The REV on B1, B2 and B4.** X3d item 7 step 1 already owes one REV whenever the gate is latched. The table's census for those rows omits it; B3, B5 and B6 already list theirs.
+  4. **B6 and B7 at the public boundary.** Item 5 already lists what every case asserts: the outcome, its row, that no `PublishedCommit` exists, and the census. Drift and the gate value are not disclosed at the public boundary, and X8 adds no public code, row or detail. X4 item 10 leaves guard-level tests to X4a.
+  5. **B0's candidate route.** Item 5 does not fix how B0's Run is built. The route changes no product file, cfg site, feature, export or site list.
+- **What stands.** Item 4b's shared site list and joint predicate; X9 item 2 (no manifest enables `crash-matrix`); item 4e; every B row's alteration, expected outcome and row; B6's revocation naming the session's core closure; X8c's dependencies; and "X8 adds no public code, row or detail".
+- **Unchanged from r4:** everything else.
 
 Every decision here is a lead decision, made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation; each names the alternative it rejects. Product baseline: `f1b8321` (X3d-0 integrated). Not code. X8 adds no public code, row or detail.
 
@@ -244,6 +258,7 @@ The trial driver is `/tmp/opensip-x8-trial/product/crates/host/tests/admission_t
    - `scenario::operation`;
    - `CommitSession::open`;
    - `evaluator::replay_run` on a corpus Run from `crates/evaluator/tests/fixtures`;
+     **r5 (record):** that directory holds no Run. The cases use host's pinned replay reference, `crates/host/tests/fixtures/replay-fixtures.json` (B1's other Run and B8's Run), and B0's synthetic run candidate (see the r5 notes after the B table).
    - `storage::prepare_commit`;
    - `publish`;
    - `finish`.
@@ -290,6 +305,19 @@ The trial driver is `/tmp/opensip-x8-trial/product/crates/host/tests/admission_t
    | B6 live revocation | after the handoff, the item 5a helper process publishes a revocation naming the session's core closure, and the test thread waits for it to exit | `Refused`, `TRUST.COMPONENT_REVOKED_DURING_OPERATION` (X4 item 8); gate `0 → 2` | as B3 | X4a |
    | B7 unrelated revocation | the same helper publishes a revocation naming nothing in the closure | `Committed`, with `revocation-unrelated` drift recorded | as B0 | X4a |
    | B8 replay-invalid (F01, line 609) | one byte of a claimed output altered | `replay_run` returns `Mismatch`, so no `ReplayedRun` exists to pass on (row K pins that nothing else can stand in) | the scratch home has no attempt, carrier or lease | X5a |
+
+   **r5 (record), on the table above** (see the r5 header):
+   - **B2.** The comparison is with the session's core evaluator closure, `CommitSession::core_evaluator_closure()` (X3d r8 item 3 step 1; EC1), not with its selected core closure. The owner column reads "X3d-2, binding X3d-3". The row is unchanged. B6 is unchanged: its revocation still names the session's core closure.
+   - **The REV on B1, B2 and B4.** Each of these refusals latches the gate, so `finish` appends one REV (X3d item 7 step 1). Their census is the one listed plus that REV; X8c asserts one REV and no CLN. This adds to the table and contradicts nothing in it.
+   - **B6 and B7 at the public boundary.** Drift is held only by security's `pub(crate)` `OperationGuard::drift()`, and no public type discloses the gate value. So the two are shown through what the public boundary exposes:
+     - **B7:** the outcome, `Committed` and not latched; and B0's census. Item 5a's self-checks show that the unrelated revocation was published.
+     - **B6:** the outcome, `Refused` on `TRUST.COMPONENT_REVOKED_DURING_OPERATION`, never a `PublishedCommit`; the one REV that `finish` appends (X3d item 7 step 1); and B3's census.
+
+     X4a's private test `an_unrelated_revocation_update_continues_as_drift_without_the_fence` (`crates/security/src/custody/operation_live_tests.rs`) pins the `revocation-unrelated` drift itself.
+   - **B0's Run.** It is storage's synthetic run candidate (X3d r8 item 13, X3d-3). The candidate lives in storage's `crash_matrix_support`, which no manifest may enable (X9 item 2). So `admission_tests.rs` includes X3d-3's `crates/storage/src/crash_matrix_support/run_candidate.rs`, unchanged, through a `#[path]` attribute, as storage's own `commit_tests.rs` does. The included module also serves B2 to B7.
+     - **The shim.** The candidate's one crate-private reference, `crate::schema_sources::registry()`, is met by a test-only module in `admission_tests.rs` over host's public `embedded_schema_registry()`.
+     - **The pin.** A test pins that host's and storage's schema sources name the same 48 files in the same order.
+     - **What does not change.** No product file, cfg site, feature, export or site list. Item 4b and X9 item 2 stand.
 
    - **B0 is required.** It is the positive control that makes B1 to B8 non-vacuous: the same harness, home and corpus do reach a commit.
    - **Alterations inside `publish`** (between the SEAL and the repeated checkpoint, F19) need X3d's named barrier points, which X9's law fixes. They are X3d-1's private tests and X9's matrix, not X8's.
