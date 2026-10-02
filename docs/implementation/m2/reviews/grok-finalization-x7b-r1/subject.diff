@@ -1,0 +1,935 @@
+diff --git a/crates/host/src/finalization.rs b/crates/host/src/finalization.rs
+index 301ab23..26f2f44 100644
+--- a/crates/host/src/finalization.rs
++++ b/crates/host/src/finalization.rs
+@@ -1,6 +1,6 @@
+-//! Law X7 r5 (unit X7a): host finalization, the one application coordinator
+-//! of a durable analysis (item 1). Read under the laws X3b r10, X3d r6, X5
+-//! r3, X6 r3, X8 r3, X9 r1 and X12 r3.
++//! Law X7 r5 (units X7a and X7b): host finalization, the one application
++//! coordinator of a durable analysis (item 1). Read under the laws X3b r10,
++//! X3d r6, X5 r3, X6 r3, X8 r3, X9 r1 and X12 r3.
+ //!
+ //! `finalize` runs, in this order and nowhere else in the host:
+ //! 1. X5's `replay_candidate`, with `REPLAY_LIMITS`, before any custody: a
+@@ -27,11 +27,18 @@
+ //!
+ //! Finalization charges no ledger itself (item 7), never calls recovery for
+ //! its own `CommitUndetermined` (item 5) or `ExistingAttempt` (item 3), never retries a commit, and takes
+-//! no admission, gate or fence of its own. A `CarrierCapacityExhausted`
+-//! attempt is finished like any other: X3d's `finish` carries the
+-//! exhaustion into X3b's end step, which owns the rollover. Finalization
+-//! projects the attempt on item 6a's busy row. The route's own disclosure
+-//! and tests are X7b's (item 11). Library only: no CLI command is wired.
++//! no admission, gate or fence of its own.
++//!
++//! The capacity rollover route (item 6, unit X7b). A
++//! `CarrierCapacityExhausted` attempt is finished like any other: X3d's
++//! `finish` carries the exhaustion into X3b's end step, which runs the
++//! rollover under the fence it already holds, on this invocation's one
++//! admission and attempt ledger (X3b r10 item 13). Finalization runs no
++//! rollover. It projects the attempt on item 6a's busy row, and discloses
++//! beside it, through `SessionEnd`'s accessors, the rollover's outcome
++//! (rolled, already rolled, skipped, or a refusal or an uncertain append on
++//! its own row) and any end-step failure. Neither rewrites the attempt's
++//! row. Library only: no CLI command is wired.
+ use crate::fact_admission::{
+     REPLAY_LIMITS, RunCandidateInputs, replay_candidate, replay_remedy, replay_termination,
+ };
+@@ -45,6 +52,7 @@ use opensip_contracts::generated::evidence::{
+ use opensip_evaluator::EvaluationCandidate;
+ use opensip_security::{
+     CommitSession, InstallationTermination as Row, ProjectOperation, RequestedBinding,
++    RolloverDisclosure, SessionEnd,
+ };
+ use opensip_storage::{CommitOutcome, NotPrepared, PublishedCommit, prepare_commit};
+ use std::io::Write;
+@@ -157,11 +165,74 @@ pub(crate) struct Finalization {
+     /// A failed end-path settlement (X3d r6 item 9), on its own existing
+     /// row.
+     pub(crate) end_failure: Option<InstallationTerminationV1>,
++    /// X3b's end step failed after it was entered (X3b r10 item 4), on its
++    /// own existing row. An end step not entered is not disclosed (X3d r6
++    /// item 9).
++    pub(crate) end_step_failure: Option<InstallationTerminationV1>,
++    /// Item 6 (X7b): the capacity rollover's outcome, where the end step
++    /// ran one; `None` where none was attempted.
++    pub(crate) rollover: Option<Rollover>,
+     /// An optional effect that failed after required delivery succeeded
+     /// (F17), disclosed on its own surface.
+     pub(crate) optional_failure: Option<OptionalFailed>,
+ }
+ 
++/// Item 6 (unit X7b): what the capacity rollover in `finish`'s end step did
++/// (X3b r10 item 13), disclosed beside the attempt's item 6a busy row, which
++/// it never rewrites.
++#[derive(Debug, PartialEq, Eq)]
++pub(crate) enum Rollover {
++    /// The generation was closed and this one opened; the busy row's retry
++    /// proceeds there (item 6a).
++    Rolled { opened_generation: i64 },
++    /// The generation was already closed; nothing was written.
++    AlreadyRolled,
++    /// Another operation held the namespace; nothing was written, and the
++    /// next writer that reaches the exhaustion takes the route.
++    Skipped,
++    /// A certain refusal, on its own row: busy, host I/O, quarantine, an
++    /// invariant or budget. The generation stays at capacity.
++    Refused(InstallationTerminationV1),
++    /// An uncertain append, on `DURABILITY.COMMIT_FAILED`; the next writer's
++    /// start reconciles it.
++    Undetermined(InstallationTerminationV1),
++}
++
++/// What `finish` disclosed, as values: the settlement's failure (X3d r6
++/// item 9), the end step's (X3b r10 item 4) and the rollover's outcome
++/// (item 6). None of it rewrites the outcome.
++#[derive(Debug, Default)]
++struct EndDisclosure {
++    settlement: Option<Row>,
++    end_step: Option<Row>,
++    rollover: Option<RolloverDisclosure>,
++}
++impl From<SessionEnd> for EndDisclosure {
++    fn from(end: SessionEnd) -> Self {
++        Self {
++            settlement: end.settlement_failure().cloned(),
++            end_step: end.end_step_failure(),
++            rollover: end.rollover(),
++        }
++    }
++}
++
++/// Item 6's rollover rows, exhaustively: a refusal keeps its own row, and an
++/// uncertain append takes the durability row.
++fn route(disclosure: &RolloverDisclosure) -> Rollover {
++    match disclosure {
++        RolloverDisclosure::Rolled { opened_generation } => Rollover::Rolled {
++            opened_generation: *opened_generation,
++        },
++        RolloverDisclosure::AlreadyRolled => Rollover::AlreadyRolled,
++        RolloverDisclosure::Skipped => Rollover::Skipped,
++        RolloverDisclosure::Refused(row) => Rollover::Refused(installation_termination(row)),
++        RolloverDisclosure::Undetermined => {
++            Rollover::Undetermined(installation_termination(&Row::CommitUndetermined))
++        }
++    }
++}
++
+ // ------------------------------------------------------- the delivery phase
+ 
+ /// The selected required renderer failed.
+@@ -338,22 +409,21 @@ pub(crate) fn finalize<D: DeliveryPhase>(
+                     requested: None,
+                 }),
+                 end_failure: None,
++                end_step_failure: None,
++                rollover: None,
+                 optional_failure: None,
+             };
+         }
+     };
+     let operation = match admit() {
+         Ok(operation) => operation,
+-        Err(row) => return finalization(Concluded::Refused(row), None),
++        Err(row) => return finalization(Concluded::Refused(row), EndDisclosure::default()),
+     };
+     let session = match CommitSession::open(operation) {
+         Ok(session) => session,
+         Err((refusal, stopped)) => {
+             let end = stopped.finish();
+-            return finalization(
+-                Concluded::Refused(refusal.termination()),
+-                end.settlement_failure(),
+-            );
++            return finalization(Concluded::Refused(refusal.termination()), end.into());
+         }
+     };
+     let namespace = session.namespace_id().to_owned();
+@@ -386,15 +456,18 @@ pub(crate) fn finalize<D: DeliveryPhase>(
+         },
+         Joined::Exhausted => Concluded::Exhausted { namespace },
+     };
+-    finalization(concluded, end.settlement_failure())
++    finalization(concluded, end.into())
+ }
+ 
+-/// Items 3 and 8: the one envelope, and the end failure beside it.
+-fn finalization(concluded: Concluded, settlement: Option<&Row>) -> Finalization {
++/// Items 3, 6 and 8: the one envelope, and the end path's disclosures beside
++/// it.
++fn finalization(concluded: Concluded, end: EndDisclosure) -> Finalization {
+     let (outcome, optional_failure) = project(concluded);
+     Finalization {
+         outcome,
+-        end_failure: settlement.map(installation_termination),
++        end_failure: end.settlement.as_ref().map(installation_termination),
++        end_step_failure: end.end_step.as_ref().map(installation_termination),
++        rollover: end.rollover.as_ref().map(route),
+         optional_failure,
+     }
+ }
+@@ -475,7 +548,8 @@ fn project(concluded: Concluded) -> (Outcome, Option<OptionalFailed>) {
+             }),
+             None,
+         ),
+-        // Item 6a: the existing busy row, naming the namespace.
++        // Item 6a: the existing busy row, naming the namespace, whatever the
++        // rollover did (item 6); its outcome is disclosed beside the row.
+         Concluded::Exhausted { namespace } => (
+             terminated(
+                 InstallationTerminationV1 {
+diff --git a/crates/host/src/finalization_tests.rs b/crates/host/src/finalization_tests.rs
+index ae39928..9145893 100644
+--- a/crates/host/src/finalization_tests.rs
++++ b/crates/host/src/finalization_tests.rs
+@@ -1,5 +1,8 @@
+-// Law X7 r5 item 10 (unit X7a), host side. Every row of item 3's table
+-// through injected X3d outcomes; the delivery phase over a scripted renderer
++// Law X7 r5 item 10 (units X7a and X7b), host side. Every row of item 3's
++// table through injected X3d outcomes; item 6's rollover outcomes and the
++// end step's failure through injected `finish` disclosures (X7b; the real
++// exhausted carrier through `finish` is security's
++// `commit_session_tests.rs`); the delivery phase over a scripted renderer
+ // and sink; the order of replay, admission and the commit facade over the
+ // evaluator's synthetic replay corpus (`tests/fixtures/replay-fixtures.json`);
+ // the ephemeral label (DR-G27); and the source pins of items 1, 2, 5 and 8.
+@@ -316,7 +319,7 @@ fn an_end_failure_is_disclosed_beside_the_outcome_never_in_it() {
+                     optional: None,
+                 },
+             },
+-            Some(&settlement),
++            settled(&settlement),
+         );
+         assert_eq!(
+             delivered.outcome,
+@@ -329,7 +332,7 @@ fn an_end_failure_is_disclosed_beside_the_outcome_never_in_it() {
+             delivered.end_failure,
+             Some(installation_termination(&settlement))
+         );
+-        let refused = finalization(Concluded::Refused(Row::HostIo), Some(&settlement));
++        let refused = finalization(Concluded::Refused(Row::HostIo), settled(&settlement));
+         assert_eq!(
+             terminated(refused.outcome).row,
+             installation_termination(&Row::HostIo)
+@@ -344,11 +347,186 @@ fn an_end_failure_is_disclosed_beside_the_outcome_never_in_it() {
+             execution_id: EXEC.into(),
+             namespace: N.into(),
+         },
+-        None,
++        EndDisclosure::default(),
+     );
+     assert_eq!(clean.end_failure, None);
++    assert_eq!(clean.end_step_failure, None);
++    assert_eq!(clean.rollover, None);
+     assert_eq!(clean.optional_failure, None);
+ }
++fn settled(row: &Row) -> EndDisclosure {
++    EndDisclosure {
++        settlement: Some(row.clone()),
++        ..EndDisclosure::default()
++    }
++}
++
++// ------------------------------------------- X7b: the capacity rollover
++
++fn exhausted() -> Concluded {
++    Concluded::Exhausted {
++        namespace: N.into(),
++    }
++}
++fn rolled_over(rollover: RolloverDisclosure) -> EndDisclosure {
++    EndDisclosure {
++        rollover: Some(rollover),
++        ..EndDisclosure::default()
++    }
++}
++/// The attempt's item 6a row, exactly as X7a projects it with no rollover.
++fn busy_row() -> Outcome {
++    project(exhausted()).0
++}
++
++/// Item 6: each rollover outcome security discloses is projected beside the
++/// attempt, which stays on item 6a's busy row whatever the rollover did.
++/// Rolled, already rolled and skipped carry no row.
++#[test]
++fn every_rollover_outcome_is_disclosed_beside_the_busy_row() {
++    for (disclosed, projected) in [
++        (
++            RolloverDisclosure::Rolled {
++                opened_generation: 2,
++            },
++            Rollover::Rolled {
++                opened_generation: 2,
++            },
++        ),
++        (RolloverDisclosure::AlreadyRolled, Rollover::AlreadyRolled),
++        (RolloverDisclosure::Skipped, Rollover::Skipped),
++    ] {
++        let f = finalization(exhausted(), rolled_over(disclosed));
++        assert_eq!(f.outcome, busy_row());
++        assert_eq!(f.rollover, Some(projected));
++        assert_eq!(f.end_failure, None);
++        assert_eq!(f.end_step_failure, None);
++        assert_eq!(f.optional_failure, None);
++    }
++}
++
++/// Item 6's rollover-failure rows: busy at level 3, host I/O, quarantine,
++/// an invariant and budget keep their own rows; an uncertain append is
++/// `DURABILITY.COMMIT_FAILED`, with no ExecutionId and no remedy of
++/// finalization's. None rewrites the attempt's busy row.
++#[test]
++fn a_rollover_failure_is_its_own_row_and_never_rewrites_the_attempt() {
++    let refused = |row: Row| {
++        let f = finalization(exhausted(), rolled_over(RolloverDisclosure::Refused(row)));
++        assert_eq!(f.outcome, busy_row());
++        match f.rollover {
++            Some(Rollover::Refused(row)) => spelled(&row),
++            other => panic!("{other:?}"),
++        }
++    };
++    assert_eq!(
++        refused(Row::Busy),
++        owned(
++            "operational-failed",
++            4,
++            "LEDGER.BUSY_TIMEOUT",
++            "ledger-busy",
++            Some("PROJECT.BUSY"),
++        )
++    );
++    assert_eq!(
++        refused(Row::HostIo),
++        owned("operational-failed", 4, "HOST.IO_FAILURE", "host-io", None)
++    );
++    assert_eq!(
++        refused(Row::LedgerCorrupt),
++        spelled(&installation_termination(&Row::LedgerCorrupt))
++    );
++    assert_eq!(
++        refused(Row::BudgetExhausted),
++        owned(
++            "operational-failed",
++            4,
++            "SYSTEM.OUTCOME.ILLEGAL_STATE",
++            "host-invariant",
++            Some("WORK.BUDGET_EXHAUSTED"),
++        )
++    );
++    assert_eq!(
++        refused(Row::Invariant),
++        spelled(&installation_termination(&Row::Invariant))
++    );
++    let f = finalization(exhausted(), rolled_over(RolloverDisclosure::Undetermined));
++    assert_eq!(f.outcome, busy_row());
++    let Some(Rollover::Undetermined(row)) = f.rollover else {
++        panic!("{:?}", f.rollover);
++    };
++    assert_eq!(
++        spelled(&row),
++        owned(
++            "operational-failed",
++            4,
++            "DURABILITY.COMMIT_FAILED",
++            "durability-commit",
++            None,
++        )
++    );
++    assert_eq!(row.subject, None);
++    assert_eq!(f.end_step_failure, None);
++}
++
++/// X3b r10 item 4 and X3d r6 item 9: an end step that failed after it was
++/// entered is disclosed on its own row, beside the outcome and beside any
++/// rollover outcome, and rewrites neither. One that stopped before the
++/// rollover discloses no rollover.
++#[test]
++fn an_end_step_failure_is_disclosed_beside_the_outcome_and_the_rollover() {
++    let f = finalization(
++        exhausted(),
++        EndDisclosure {
++            end_step: Some(Row::HostIo),
++            rollover: Some(RolloverDisclosure::Rolled {
++                opened_generation: 2,
++            }),
++            ..EndDisclosure::default()
++        },
++    );
++    assert_eq!(f.outcome, busy_row());
++    assert_eq!(
++        f.rollover,
++        Some(Rollover::Rolled {
++            opened_generation: 2
++        })
++    );
++    assert_eq!(
++        f.end_step_failure,
++        Some(installation_termination(&Row::HostIo))
++    );
++    let custody = Row::Custody {
++        subject: "required-files-changed",
++    };
++    let f = finalization(
++        exhausted(),
++        EndDisclosure {
++            end_step: Some(custody.clone()),
++            ..EndDisclosure::default()
++        },
++    );
++    assert_eq!(f.outcome, busy_row());
++    assert_eq!(f.rollover, None);
++    assert_eq!(f.end_step_failure, Some(installation_termination(&custody)));
++    // Any other outcome keeps its own row beside an end-step failure.
++    let f = finalization(
++        Concluded::Refused(Row::Busy),
++        EndDisclosure {
++            end_step: Some(Row::BudgetExhausted),
++            ..EndDisclosure::default()
++        },
++    );
++    assert_eq!(
++        terminated(f.outcome).row,
++        installation_termination(&Row::Busy)
++    );
++    assert_eq!(
++        f.end_step_failure,
++        Some(installation_termination(&Row::BudgetExhausted))
++    );
++}
+ 
+ // ------------------------------------------------------ the delivery phase
+ 
+@@ -614,6 +792,8 @@ fn a_replay_refusal_ends_before_any_admission() {
+                 requested: None,
+             }),
+             end_failure: None,
++            end_step_failure: None,
++            rollover: None,
+             optional_failure: None,
+         }
+     );
+@@ -643,6 +823,8 @@ fn admission_follows_the_replay_and_its_refusal_is_its_own_row() {
+         assert_eq!(admissions.get(), 1);
+         assert_eq!((phase.renders, phase.optionals), (0, 0));
+         assert_eq!(finalized.end_failure, None);
++        assert_eq!(finalized.end_step_failure, None);
++        assert_eq!(finalized.rollover, None);
+         assert_eq!(terminated(finalized.outcome).row, expected);
+     }
+ }
+@@ -780,7 +962,6 @@ fn finalization_owns_no_recovery_admission_ledger_or_wildcard() {
+         ".charge(",
+         "settle(",
+         "opensip_lifecycle",
+-        "rollover",
+         "fence",
+         "loop {",
+         "retry(",
+@@ -802,7 +983,7 @@ fn finalization_reaches_no_read_entry_lease_or_storage_reader() {
+     let source = production_source();
+     // X6b adds the inert `RequestedBinding` value it discloses (X6 r3 item 6).
+     assert!(source.contains(
+-        "use opensip_security::{\n    CommitSession, InstallationTermination as Row, ProjectOperation, RequestedBinding,\n};"
++        "use opensip_security::{\n    CommitSession, InstallationTermination as Row, ProjectOperation, RequestedBinding,\n    RolloverDisclosure, SessionEnd,\n};"
+     ));
+     assert!(source.contains(
+         "use opensip_storage::{CommitOutcome, NotPrepared, PublishedCommit, prepare_commit};"
+@@ -894,3 +1075,37 @@ fn the_delivery_points_are_placed() {
+     }
+     assert_eq!(source.matches("crash_barrier!(").count(), 2);
+ }
++
++/// Item 6 (X7b): finalization runs no rollover. It reads the end path only
++/// through `SessionEnd`'s three accessors, once each, in one place, and
++/// names no rollover operation, end step, carrier record or lease.
++#[test]
++fn finalization_reads_the_rollover_only_through_session_end() {
++    let source = production_source();
++    let from = &source[source
++        .find("impl From<SessionEnd> for EndDisclosure")
++        .unwrap()..];
++    let from = &from[..from.find("\n}\n").unwrap()];
++    for accessor in [
++        "end.settlement_failure()",
++        "end.end_step_failure()",
++        "end.rollover()",
++    ] {
++        assert_eq!(source.matches(accessor).count(), 1, "{accessor}");
++        assert!(from.contains(accessor), "{accessor}");
++    }
++    assert_eq!(source.matches("rollover(").count(), 1);
++    assert_eq!(source.matches("end_step_failure(").count(), 1);
++    for forbidden in [
++        "end_step_after_exhaustion",
++        "RolloverOutcome",
++        "OperationEnd",
++        "EndFailure",
++        "TERMINAL",
++        "EXCLUSIVE",
++        "Exclusive",
++        "grant_generation",
++    ] {
++        assert!(!source.contains(forbidden), "{forbidden}");
++    }
++}
+diff --git a/crates/security/src/custody/commit_session.rs b/crates/security/src/custody/commit_session.rs
+index 5e30927..9d547eb 100644
+--- a/crates/security/src/custody/commit_session.rs
++++ b/crates/security/src/custody/commit_session.rs
+@@ -41,8 +41,8 @@ use crate::InstallationTermination as T;
+ use crate::commit_authority::{AttemptState, PreparedJournalSeal};
+ use crate::journal_store::{
+     AppendError, CapacityExhaustion, CarrierRefusal, CarrierRefusalRow as CarrierRow,
+-    DetachedJournal, RecordDraft, end_path_append_bound, end_path_body_bound, project_key_digest,
+-    seal_fits,
++    DetachedJournal, RecordDraft, RolloverOutcome, end_path_append_bound, end_path_body_bound,
++    project_key_digest, seal_fits,
+ };
+ use opensip_evaluator::ReplayedRun;
+ use opensip_platform::{
+@@ -1172,6 +1172,69 @@ impl SessionEnd {
+     pub fn end_step_entered(&self) -> bool {
+         !matches!(self.end, OperationEnd::NotEntered)
+     }
++    /// Law X7 r5 item 6 (unit X7b): the disclosed row of X3b's end step, if
++    /// it was entered and failed: the walk, the fence, a rebind, the floor
++    /// copy (after a rollover too) or the fence's unlock (X3b r10 item 4).
++    /// An end step not entered is not a failure and is not disclosed (X3d
++    /// r6 item 9). Never rewrites the session's outcome.
++    pub fn end_step_failure(&self) -> Option<T> {
++        match &self.end {
++            OperationEnd::NotEntered
++            | OperationEnd::Ended(_)
++            | OperationEnd::RolledOver { end: Ok(_), .. } => None,
++            OperationEnd::RolledOver { end: Err(failure), .. } | OperationEnd::Failed(failure) => {
++                Some(operation_termination(&failure.row()))
++            }
++        }
++    }
++    /// Law X7 r5 item 6 (unit X7b): the rollover's outcome, when the end
++    /// step ran it after a `CarrierCapacityExhausted` attempt (X3b r10 item
++    /// 13). `None` when no rollover was attempted: any other outcome, an end
++    /// step not entered, or one that stopped before the rollover.
++    pub fn rollover(&self) -> Option<RolloverDisclosure> {
++        match &self.end {
++            OperationEnd::RolledOver { rollover, .. } => Some(RolloverDisclosure::of(rollover)),
++            OperationEnd::NotEntered | OperationEnd::Ended(_) | OperationEnd::Failed(_) => None,
++        }
++    }
++}
++
++/// Law X7 r5 item 6 (unit X7b): what the capacity rollover in `finish`'s end
++/// step did, as X3b r10 item 13 returns it. A disclosure value only: it
++/// carries no lease, lock, carrier, ledger or receipt, and building one
++/// grants nothing. None of it rewrites the attempt's outcome, which stays
++/// on X7 item 6a's busy row.
++#[derive(Debug, Clone, PartialEq, Eq)]
++pub enum RolloverDisclosure {
++    /// G was closed by a `TERMINAL` (appended now, or already durable when
++    /// only OPEN ran), and this generation was opened.
++    Rolled { opened_generation: i64 },
++    /// G was already closed and its successor open, or a later generation
++    /// has rows. Nothing was written.
++    AlreadyRolled,
++    /// `writer.lease` or `readers.lease` was busy: nothing was written, and
++    /// the next writer that reaches the exhaustion takes the route.
++    Skipped,
++    /// A certain refusal, on its own row (X3b item 8, or the budget row).
++    Refused(T),
++    /// The `TERMINAL` append or OPEN failed after visibility. Nothing
++    /// followed; the next writer's floor step and start reconcile.
++    Undetermined,
++}
++impl RolloverDisclosure {
++    fn of(outcome: &RolloverOutcome) -> Self {
++        match outcome {
++            RolloverOutcome::Rolled { opened, .. } => Self::Rolled {
++                opened_generation: *opened,
++            },
++            RolloverOutcome::AlreadyRolled => Self::AlreadyRolled,
++            RolloverOutcome::Skipped => Self::Skipped,
++            RolloverOutcome::Refused(failure) => {
++                Self::Refused(operation_termination(&carrier_failure(failure)))
++            }
++            RolloverOutcome::Undetermined(_) => Self::Undetermined,
++        }
++    }
+ }
+ #[cfg(test)]
+ impl SessionEnd {
+@@ -1184,6 +1247,16 @@ impl SessionEnd {
+ pub(super) mod end_path_for_tests {
+     //! The end path's closed drafts and bounds, for the unit's tests.
+     use super::*;
++    /// Unit X7b: a `SessionEnd` around a real end-step result, which the
++    /// handoff's tests produce at X3b-4's test points (no production path
++    /// reaches those faults through `finish`).
++    pub(in super::super) fn session_end(end: OperationEnd) -> SessionEnd {
++        SessionEnd {
++            appended: Vec::new(),
++            settlement: None,
++            end,
++        }
++    }
+     pub(in super::super) fn reserve_cost(n: &str, operation_ref: &str) -> Option<WorkCost> {
+         end_path_reserve_cost(n, operation_ref)
+     }
+@@ -1311,4 +1384,107 @@ mod tests {
+         assert!(!lawful_execution_id("exec1_"));
+         assert_eq!(render_id("op-", [0; 16]), format!("op-{}", "0".repeat(32)));
+     }
++
++    // ---------------------------------------- X7b: the end-step disclosure
++
++    use crate::journal_store::EndOutcome;
++
++    /// A `SessionEnd` around an end-step result (unit X7b); the real routes
++    /// are `commit_session_tests.rs`'s.
++    fn ended(end: OperationEnd) -> SessionEnd {
++        end_path_for_tests::session_end(end)
++    }
++    fn rolled_over(rollover: RolloverOutcome, end: EndOutcome) -> SessionEnd {
++        ended(OperationEnd::RolledOver {
++            rollover,
++            end: Ok(end),
++        })
++    }
++
++    /// Law X7 r5 item 6: each rollover outcome, as X3b r10 item 13 returns
++    /// it, is disclosed as itself, and each certain refusal on its own row:
++    /// busy, host I/O, quarantine, an invariant and budget. An uncertain one
++    /// is `Undetermined`, which X7 discloses on `DURABILITY.COMMIT_FAILED`. A
++    /// floor copy not run after a rollover that closed the attempt ledger is
++    /// not an end-step failure.
++    #[test]
++    fn every_rollover_outcome_is_disclosed_as_itself() {
++        use RolloverDisclosure as D;
++        let refused = |refusal| RolloverOutcome::Refused(WorkFailure::Operation(refusal));
++        for (outcome, end, disclosed) in [
++            (
++                RolloverOutcome::Rolled {
++                    closed: (1, 9_007_199_254_740_991),
++                    opened: 2,
++                },
++                EndOutcome::CopiedForward,
++                D::Rolled {
++                    opened_generation: 2,
++                },
++            ),
++            (
++                RolloverOutcome::AlreadyRolled,
++                EndOutcome::Unchanged,
++                D::AlreadyRolled,
++            ),
++            (RolloverOutcome::Skipped, EndOutcome::Skipped, D::Skipped),
++            (
++                refused(CarrierRefusal::Busy),
++                EndOutcome::NotCopied,
++                D::Refused(T::Busy),
++            ),
++            (
++                refused(CarrierRefusal::Unreadable),
++                EndOutcome::NotCopied,
++                D::Refused(T::HostIo),
++            ),
++            (
++                refused(CarrierRefusal::Binding),
++                EndOutcome::NotCopied,
++                D::Refused(T::LedgerCorrupt),
++            ),
++            (
++                refused(CarrierRefusal::Footprint),
++                EndOutcome::NotCopied,
++                D::Refused(T::MigrationCorrupt),
++            ),
++            (
++                refused(CarrierRefusal::NoSuccessor),
++                EndOutcome::NotCopied,
++                D::Refused(T::Invariant),
++            ),
++            (
++                RolloverOutcome::Refused(WorkFailure::Budget(WorkBudgetError::Bytes)),
++                EndOutcome::NotCopied,
++                D::Refused(T::BudgetExhausted),
++            ),
++            (
++                RolloverOutcome::Undetermined(WorkFailure::Operation(CarrierRefusal::Busy)),
++                EndOutcome::NotCopied,
++                D::Undetermined,
++            ),
++        ] {
++            let end = rolled_over(outcome, end);
++            assert!(end.end_step_entered());
++            assert_eq!(end.end_step_failure(), None);
++            assert_eq!(end.rollover(), Some(disclosed));
++        }
++    }
++
++    /// X3d r6 item 9: an end step not entered is not disclosed, and a
++    /// completed one discloses nothing. Neither is a rollover. (A failed one
++    /// is `commit_session_tests.rs`'s, on real end steps.)
++    #[test]
++    fn an_end_step_not_entered_or_completed_discloses_nothing() {
++        for end in [
++            OperationEnd::NotEntered,
++            OperationEnd::Ended(EndOutcome::CopiedForward),
++            OperationEnd::Ended(EndOutcome::Unchanged),
++            OperationEnd::Ended(EndOutcome::Skipped),
++        ] {
++            let end = ended(end);
++            assert_eq!(end.end_step_failure(), None);
++            assert_eq!(end.rollover(), None);
++        }
++    }
+ }
+diff --git a/crates/security/src/custody/commit_session_tests.rs b/crates/security/src/custody/commit_session_tests.rs
+index e7970ca..0c41de4 100644
+--- a/crates/security/src/custody/commit_session_tests.rs
++++ b/crates/security/src/custody/commit_session_tests.rs
+@@ -8,8 +8,8 @@
+ // sleeps; nothing opens the real account's I.
+ use crate::custody::commit_session::end_path_for_tests as end_path;
+ use crate::custody::commit_session::{
+-    CommitAdapter, CommitSession, EvidenceCommit, SealOutcome, SealRefusal, SessionEnd,
+-    StagedCommit, StoppedSession, begin_journal_txn, seal_under_append_lock,
++    CommitAdapter, CommitSession, EvidenceCommit, RolloverDisclosure, SealOutcome, SealRefusal,
++    SessionEnd, StagedCommit, StoppedSession, begin_journal_txn, seal_under_append_lock,
+ };
+ use crate::journal_store::{
+     AppendStep, Fault, RecordDraft, end_path_append_bound, end_path_append_cost, fixtures,
+@@ -473,6 +473,213 @@ fn an_exhausted_generation_is_returned_with_the_ledger_open() {
+     assert!(fence_free(&fixture) && unlocked(&fixture, &n));
+ }
+ 
++// ------------------------------- X7b: the rollover route, as disclosed
++
++/// Law X7 r5 item 6 (unit X7b): a real generation filled to an exhausted
++/// tail, a second operation whose session met the exhaustion at item 3 step
++/// 3, and its stopped session, not yet finished. `hold` runs before the
++/// second operation begins, and what it returns is held until the end.
++struct Exhausted<H> {
++    fixture: ReadFixture,
++    n: String,
++    stopped: StoppedSession,
++    _held: H,
++    _next: (scripted::Clock, ReadProducers),
++}
++fn exhausted_session<H>(
++    tag: &str,
++    next: &str,
++    hold: impl FnOnce(&ReadFixture, &str) -> H,
++) -> Exhausted<H> {
++    const FULL: i64 = 9_007_199_254_740_988;
++    let (fixture, project, n) = eligible(tag);
++    let first = start(&fixture, &project, tag);
++    assert!(matches!(
++        first.operation.end(JournalOutcome::Certain),
++        OperationEnd::Ended(_)
++    ));
++    plant_committed_tail_for_tests(&namespace_path(&fixture, &n), &n, FULL);
++    let held = hold(&fixture, &n);
++    let Started {
++        operation,
++        clock,
++        _trees,
++    } = start(&fixture, &project, next);
++    let session = CommitSession::open(operation)
++        .unwrap()
++        .reserve_end_path()
++        .unwrap();
++    let (exhausted, stopped) = session.capacity().unwrap_err();
++    assert_eq!(
++        (exhausted.grant_generation(), exhausted.proven_tail_seq()),
++        (1, FULL)
++    );
++    Exhausted {
++        fixture,
++        n,
++        stopped,
++        _held: held,
++        _next: (clock, _trees),
++    }
++}
++fn terminals(fixture: &ReadFixture, n: &str) -> usize {
++    kinds(fixture, n)
++        .iter()
++        .filter(|k| *k == "TERMINAL")
++        .count()
++}
++
++#[test]
++fn an_exhausted_carrier_through_finish_discloses_the_rollover_as_rolled() {
++    let e = exhausted_session("x7b-rolled", "x7b-rollee", |_, _| ());
++    let end = e.stopped.finish();
++    // Nothing was owed, the end step ran the rollover, and its floor copy
++    // followed: no end-step failure, and no row for the rollover.
++    assert!(!end.revocation_appended() && end.settlement_failure().is_none());
++    assert_eq!(end.end_step_failure(), None);
++    assert_eq!(
++        end.rollover(),
++        Some(RolloverDisclosure::Rolled {
++            opened_generation: 2
++        })
++    );
++    assert_eq!(terminals(&e.fixture, &e.n), 1);
++    assert_eq!(floor_of(&e.fixture, &e.n), (2, 0, false));
++    assert!(fence_free(&e.fixture) && unlocked(&e.fixture, &e.n));
++}
++
++#[test]
++fn a_held_readers_lease_discloses_the_rollover_as_skipped() {
++    // A reader holds N's readers.lease throughout: the rollover cannot take
++    // EXCLUSIVE, writes nothing, and the end step continues.
++    let e = exhausted_session("x7b-skipped", "x7b-skippee", |fixture, n| {
++        hold(
++            &namespace_path(fixture, n).join(READERS_LEASE),
++            LockMode::Shared,
++        )
++    });
++    let end = e.stopped.finish();
++    assert_eq!(end.rollover(), Some(RolloverDisclosure::Skipped));
++    assert_eq!(end.end_step_failure(), None);
++    assert_eq!(terminals(&e.fixture, &e.n), 0);
++    assert!(fence_free(&e.fixture));
++}
++
++#[test]
++fn a_busy_journal_transaction_discloses_the_rollover_as_refused_busy() {
++    // Another holder has the carrier's level 3: the TERMINAL's BEGIN
++    // IMMEDIATE is busy, nothing is written, and the closed attempt ledger
++    // runs no floor copy (X3b r10 item 4), which is not a failure.
++    let e = exhausted_session("x7b-refused", "x7b-refusee", |_, _| ());
++    let holder =
++        rusqlite::Connection::open(namespace_path(&e.fixture, &e.n).join("grant-journal.sqlite"))
++            .unwrap();
++    holder.execute_batch("BEGIN IMMEDIATE").unwrap();
++    let end = e.stopped.finish();
++    holder.execute_batch("ROLLBACK").unwrap();
++    drop(holder);
++    assert_eq!(end.rollover(), Some(RolloverDisclosure::Refused(T::Busy)));
++    assert_eq!(end.end_step_failure(), None);
++    assert_eq!(terminals(&e.fixture, &e.n), 0);
++    assert!(fence_free(&e.fixture) && unlocked(&e.fixture, &e.n));
++}
++
++#[test]
++fn an_end_step_that_stops_before_the_rollover_discloses_its_failure_and_no_rollover() {
++    // N is no longer bound by name when the end step rebinds it under the
++    // fence: the end step refuses before the rollover, which is not
++    // attempted and so not disclosed.
++    let e = exhausted_session("x7b-moved", "x7b-movee", |_, _| ());
++    let namespace = namespace_path(&e.fixture, &e.n);
++    fs::rename(&namespace, namespace.with_file_name("moved")).unwrap();
++    let end = e.stopped.finish();
++    assert_eq!(end.rollover(), None);
++    assert_eq!(
++        end.end_step_failure(),
++        Some(T::Custody {
++            subject: "required-files-changed"
++        })
++    );
++    assert!(fence_free(&e.fixture));
++}
++
++// The rollover outcomes no fault reaches through `finish` in production:
++// the handoff's own end step at X3b-4's test points, as X2e's tests drive
++// it, read back through `SessionEnd`'s accessors.
++
++#[test]
++fn an_undetermined_rollover_is_disclosed_as_undetermined_with_no_end_step_failure() {
++    use crate::journal_store::{Fault, RolloverStep, TestPoints};
++    let (fixture, n, operation, _trees) = exhausted_operation("x7b-und-a", None);
++    let points = TestPoints {
++        step: Some(std::sync::Arc::new(|step| {
++            (step == RolloverStep::Opened).then_some(Fault::Fail)
++        })),
++        ..TestPoints::default()
++    };
++    let end = end_path::session_end(end_at(operation, &points));
++    assert_eq!(end.rollover(), Some(RolloverDisclosure::Undetermined));
++    // Nothing followed, and a copy not attempted is not a failure.
++    assert_eq!(end.end_step_failure(), None);
++    assert_eq!(floor_of(&fixture, &n), (1, EXHAUSTED, true));
++}
++
++#[test]
++fn a_rollover_short_of_its_reservation_is_disclosed_on_the_budget_row() {
++    let (_twin, _, measured, _trees) = exhausted_operation("x7b-rsv-a", None);
++    let used = measured.attempt_used();
++    drop(measured);
++    let cap = WorkCost {
++        objects: 65_536,
++        edges: 131_072,
++        bytes: used.bytes + (1 << 20),
++    };
++    let (fixture, n, operation, _trees) = exhausted_operation("x7b-rsv-b", Some(cap));
++    let end = end_path::session_end(operation.end(exhausted()));
++    assert_eq!(
++        end.rollover(),
++        Some(RolloverDisclosure::Refused(T::BudgetExhausted))
++    );
++    assert_eq!(end.end_step_failure(), None);
++    not_rolled(&fixture, &n);
++}
++
++#[test]
++fn an_io_refused_rollover_and_its_failed_copy_are_each_disclosed_on_their_rows() {
++    let (fixture, n, operation, _trees) = exhausted_operation("x7b-iof-a", None);
++    floor_file(&fixture, &n, 0o000);
++    let end = end_path::session_end(operation.end(exhausted()));
++    floor_file(&fixture, &n, 0o600);
++    assert_eq!(end.rollover(), Some(RolloverDisclosure::Refused(T::HostIo)));
++    assert_eq!(end.end_step_failure(), Some(T::HostIo));
++    not_rolled(&fixture, &n);
++}
++
++#[test]
++fn a_failed_copy_after_a_rollover_is_an_end_step_failure_beside_rolled() {
++    use crate::journal_store::{RolloverStep, TestPoints};
++    let (fixture, n, operation, _trees) = exhausted_operation("x7b-cpy-a", None);
++    let floor = floor_path(&fixture, &n);
++    let points = TestPoints {
++        step: Some(std::sync::Arc::new(move |step| {
++            if step == RolloverStep::WriterReleased {
++                fs::set_permissions(&floor, fs::Permissions::from_mode(0o000)).unwrap();
++            }
++            None
++        })),
++        ..TestPoints::default()
++    };
++    let end = end_path::session_end(end_at(operation, &points));
++    floor_file(&fixture, &n, 0o600);
++    assert_eq!(
++        end.rollover(),
++        Some(RolloverDisclosure::Rolled {
++            opened_generation: 2
++        })
++    );
++    assert_eq!(end.end_step_failure(), Some(T::HostIo));
++}
++
+ // --------------------------------------------------------- the end path
+ 
+ #[test]
+diff --git a/crates/security/src/lib.rs b/crates/security/src/lib.rs
+index 0ae2e7f..0e4001d 100644
+--- a/crates/security/src/lib.rs
++++ b/crates/security/src/lib.rs
+@@ -20,11 +20,14 @@ mod custody;
+ /// session types are exported for storage's `prepare_commit` and `publish`
+ /// (X3d-2) and the host; none has a public constructor but the facade's own,
+ /// and none is Clone, Default or serializable (law X8 r3 groups D to G).
++/// `RolloverDisclosure` (law X7 r5 item 6, unit X7b) is not a session type:
++/// it is the value `SessionEnd::rollover` discloses, and carries no
++/// authority.
+ #[cfg(target_os = "macos")]
+ pub use custody::commit_session::{
+     CarrierCapacityExhausted, CommitAdapter, CommitSession, EvidenceCommit, JournalSealBinding,
+-    JournalWriteTxn, SealOutcome, SealRefusal, SessionEnd, SessionRefusal, StagedCommit,
+-    StoppedSession, StoreRoot, begin_journal_txn, seal_under_append_lock,
++    JournalWriteTxn, RolloverDisclosure, SealOutcome, SealRefusal, SessionEnd, SessionRefusal,
++    StagedCommit, StoppedSession, StoreRoot, begin_journal_txn, seal_under_append_lock,
+ };
+ /// Law X2 r8 item 7a's operation, exported because `CommitSession::open`
+ /// takes it (law X3d r6 item 2, unit X3d-1). Only security makes one.
