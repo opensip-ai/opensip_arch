@@ -170,3 +170,9 @@ Rejected: changing the trust-anchor tool now for one sentence.
 - **D2 and verify_design strictness (2026-10-03, from VD1).**
   - **D2:** a contract successor that supersedes the four inherited rows (`read_premise.rs`, `installation_session.rs`, `store_lineage.rs`, `initial_installation.rs`) through VD1's `passageSupersessions`. Bind it only after VD1 is in the product.
   - **Finding:** verify_design at main silently ignores unknown record fields. A later tooling unit should consider refusing unknown fields.
+- **X7 follow-ups (2026-10-04, from X7a).**
+  - X7's next revision is record-only. It covers three things:
+    - item 3: the rollover already runs inside `finish`;
+    - item 4: a security `SessionEnd` accessor, needed to disclose end-step and rollover outcomes (recommended for X7b);
+    - the integration-test gap.
+  - Session-level finalization tests need a `ProjectOperation` from a host test. That needs X9-1 or X8b, so those tests land with X8c, X9-5 or an X7a-2.
