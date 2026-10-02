@@ -1,4 +1,4 @@
-# The opaque API refusal suite — proposal X8 r3
+# The opaque API refusal suite — proposal X8 r4
 
 2026-10-02. Claude Opus 5.5, implementation lead. Law for unit X8 of `EXIT-PLAN.md`. It is written under:
 - the build plan's M2 row (`implementation-boundaries-and-build-plan.md` line 886: "Opaque API refusal tests … pass; synthetic fixtures remain labelled, not compiler qualification");
@@ -19,6 +19,17 @@
   - It calls `scenario::publish_revocation_fenced`, which runs the shared fenced publisher. X9-1 places that publisher on item 4b's joint-predicate site list, so it compiles under `scenario-fixtures` alone, with `crash-matrix` off.
   - Two self-checks make a no-op exit fail the case: the helper's tagged `published` record, and a strictly advanced revocation version read before and after.
 - **Unchanged from r2:** everything else.
+
+**r4 (2026-10-04) is record-only.** r3 bytes are preserved in PROPOSAL-r3.md. It records one ordering that was already accepted elsewhere. It changes no item, trial result, case, group, code, fragment rule, feature, module, behavioural case, unit scope or dependency, or forbidden substitute of r3, and no accepted outcome of another law. The one r3 sentence it touches stays in place, followed by a short "r4 (record)" note that points here.
+- **The source.** The record was asked for by Grok's review of X3d r7 (`reviews/grok-record-x3d-r7-x7-r6-x9-r3/REVIEW.md`, "X8's own record"), and noted in `EXIT-PLAN.md` as "X8 record note owed (2026-10-04)". The ordering itself is a lead decision accepted in the X3d-2 review (`reviews/grok-commit-facade-x3d2-r1`, call 1), recorded in `EXIT-PLAN.md` ("X3d-2 ordering and follow-ups (2026-10-03)") and in X3d r7 ("Ordering: X3d-2 before X8b and X9-1").
+- **The overtaken sentence.** "Units after the law" says X8b "Lands before X3d-2, whose storage tests use it (item 4g)." X3d-2 integrated first, at product `adc9081`, before X9-1 (`a36da7c`) and before X8b was built.
+  - **X3d-2's storage tests take no `ProjectOperation`.** They run the storage functions that `prepare_commit` and `publish` compose, on a scratch `I/stores/S`, with a real replay and no session (X3d r7). So no X3d-2 test needed this feature, and no requirement of X3d-2 is left unmet.
+  - **The first end-to-end test.** `prepare_commit` and `publish` with a real `CommitSession` are first tested together by X8c's B0 to B4, then by X9-2's matrix (X3d r7; X3d-2 review, call 1).
+- **What stands.**
+  - **Item 4g.** It stands as the arrangement for any storage test that needs a `ProjectOperation` in the ordinary lane: it obtains one through `scenario-fixtures` as a dev-dependency, never through crate-private `cfg(test)` fixtures or a production seam.
+  - **X8b's dependencies.** X9-1, X2e, X3a-1, X3b-3, X4a, X4T-0 and X3c-2 stand. X3d-2 was never one of them.
+  - **X8c's dependencies.** X8b, X3d-2 (and so X3d-1, X4a and X3c-2) and X5a stand, with B6 and B7's further needs.
+- **Unchanged from r3:** everything else.
 
 Every decision here is a lead decision, made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation; each names the alternative it rejects. Product baseline: `f1b8321` (X3d-0 integrated). Not code. X8 adds no public code, row or detail.
 
@@ -320,6 +331,7 @@ Each unit is reviewed with an inventory successor that lists its new files.
 - **X8b (security, storage and host manifests).** The `scenario-fixtures` feature and both `scenario` modules (item 4); the joint predicate on item 4b's shared sites, extending X9-1's pin by name; group J; and the dev-dependency entries.
   - **Depends on:** X9-1 (the site list, its pin and the fenced publisher), X2e (the handoff), X3a-1, X3b-3 (the carrier start), X4a (the monitor's first read in the chain), X4T-0, and X3c-2 (the ledger census).
   - **Lands before X3d-2,** whose storage tests use it (item 4g).
+    **r4 (record):** overtaken. X3d-2 integrated first, and its storage tests take no `ProjectOperation`. Item 4g stands for any storage test that needs one (see the r4 header).
 - **X8c (host tests).** B0 to B8 (item 5).
   - **Depends on:** X8b, X3d-2 (and so X3d-1, X4a and X3c-2), and X5a.
   - **B6 and B7** also need X4T-b's admitted reading of a newly published revocation, which X4a's observation path depends on, and X9-1's fenced publisher (item 5a).
