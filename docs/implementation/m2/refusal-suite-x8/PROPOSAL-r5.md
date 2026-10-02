@@ -31,7 +31,7 @@
   - **X8c's dependencies.** X8b, X3d-2 (and so X3d-1, X4a and X3c-2) and X5a stand, with B6 and B7's further needs.
 - **Unchanged from r3:** everything else.
 
-**r5 (2026-10-02) is record-only.** r4 bytes are preserved in PROPOSAL-r4.md. r5 ACCEPTED by Grok on 2026-10-02. It records five things decided elsewhere: one by an accepted law (X3d r8 with EC1), and four in the X8c build of B0 to B8. It changes no item, trial result, case, group, code, fragment rule, feature, module, behavioural case, expected outcome or row, unit scope or dependency, or forbidden substitute of r4, and no accepted outcome of another law. Every r4 sentence stays in place. Short "r5 (record)" notes sit beside the sentences they qualify: one under item 5's corpus bullet, and one block directly after the B table.
+**r5 (2026-10-02) is record-only.** r4 bytes are preserved in PROPOSAL-r4.md. It records five things decided elsewhere: one by an accepted law (X3d r8 with EC1), and four in the X8c build of B0 to B8. It changes no item, trial result, case, group, code, fragment rule, feature, module, behavioural case, expected outcome or row, unit scope or dependency, or forbidden substitute of r4, and no accepted outcome of another law. Every r4 sentence stays in place. Short "r5 (record)" notes sit beside the sentences they qualify: one under item 5's corpus bullet, and one block directly after the B table.
 - **The sources.**
   - `EXIT-PLAN.md`: "X8 B2 wording owed (2026-10-02)" and "X8 record notes owed after X8c (2026-10-02)".
   - X3d r8, accepted with EC1 (`reviews/grok-evaluator-closure-x3d-r8`): item 3 step 1, item 7 step 1, and item 13's X3d-3.
