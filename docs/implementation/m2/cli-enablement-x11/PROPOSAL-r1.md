@@ -1,6 +1,6 @@
 # CLI enablement of the creator commands: the M2 scope — proposal X11 r1
 
-2026-10-04. Claude Opus 5.5, implementation lead. Law for unit X11 of `EXIT-PLAN.md`, under owner.md §1a, §5 and §6, and the accepted laws 464 r2 (items 3, 4, 5 and 7), 468 r5 (items 1, 6, 7 and 8), 458c r6 (item 10), X10 r4 (items 1, 3 and 5), X1 r1 (item 7), X2 r8 (item 6), X3a r5 (item 2), X4B r5 (items 1 and 11), X5 r3, X7 r5 and X12 r3 (items 4 and 8). Items 1, 3 and 6 contain lead decisions made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation; each names the alternative it rejects. Not code. It answers the question EXIT-PLAN's X11 row leaves to this law: whether the partial creator behavior ships before M3. It does not. No command is enabled. r1 ACCEPTED by Grok on 2026-10-04.
+2026-10-04. Claude Opus 5.5, implementation lead. Law for unit X11 of `EXIT-PLAN.md`, under owner.md §1a, §5 and §6, and the accepted laws 464 r2 (items 3, 4, 5 and 7), 468 r5 (items 1, 6, 7 and 8), 458c r6 (item 10), X10 r4 (items 1, 3 and 5), X1 r1 (item 7), X2 r8 (item 6), X3a r5 (item 2), X4B r5 (items 1 and 11), X5 r3, X7 r5 and X12 r3 (items 4 and 8). Items 1, 3 and 6 contain lead decisions made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation; each names the alternative it rejects. Not code. It answers the question EXIT-PLAN's X11 row leaves to this law: whether the partial creator behavior ships before M3. It does not. No command is enabled.
 
 ## Problem
 

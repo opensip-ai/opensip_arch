@@ -177,3 +177,4 @@ Rejected: changing the trust-anchor tool now for one sentence.
     - the integration-test gap.
   - Session-level finalization tests need a `ProjectOperation` from a host test. That needs X9-1 or X8b, so those tests land with X8c, X9-5 or an X7a-2.
 - **G5 decided in X6c (2026-10-04, pending review).** A revoked closure subject does not refuse the sweep. X1 item 4 gives no trust admission and X6 item 7 adds none. For F18, F19 and F38: R3 writes `refused`, and R4 is terminal-not-committed. Record this in X9's next record-only revision.
+- **X11 (accepted r1, 2026-10-04, lead decision):** no creator command goes live in M2. The `opensip`, `analyze`, `fit` and `audit` refusals stay byte-identical. M2 carries only X11a (tests-only pins). The backup-status field, the analysis step order and the single-RequestId rule move to an M3 successor law.
