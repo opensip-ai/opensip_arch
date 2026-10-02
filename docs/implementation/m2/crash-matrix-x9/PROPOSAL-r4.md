@@ -52,7 +52,7 @@ r2 (2026-10-01) is an amendment made as lead decisions under the owner's standin
   - **Who owes it.** X9-2's and X9-6's census runs, and this law's next revision if those runs need a rule for it.
 - **Unchanged from r2:** everything else.
 
-**r4 (2026-10-02) is an amendment made as lead decisions under the owner's standing direction of 2026-09-30.** r3 bytes are preserved in PROPOSAL-r3.md. r4 ACCEPTED by Grok on 2026-10-02. It was found while starting X9-2. It changes two things and nothing else.
+**r4 (2026-10-02) is an amendment made as lead decisions under the owner's standing direction of 2026-09-30.** r3 bytes are preserved in PROPOSAL-r3.md. It was found while starting X9-2. It changes two things and nothing else.
 
 - **The three driver entries (item 6 and the forbidden substitutes).**
   - **What X9-2 found** at product `a36da7c`. X9-2's drivers run in storage's matrix target. That target links security as an ordinary library, and it can obtain none of the three admissions its drivers start from over item 6's synthetic installation:
