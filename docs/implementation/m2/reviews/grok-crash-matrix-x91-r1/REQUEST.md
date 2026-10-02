@@ -1,4 +1,4 @@
-Grok review: unit X9-1 r1, the crash-matrix support surface and the barrier points at the integrated sites (law X9 r2 item 12), with inventory v118 on v125. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/grok-crash-matrix-x91-r1. If you build or test, use a CARGO_TARGET_DIR under that directory, and a private 0700 TMPDIR under `$(getconf DARWIN_USER_TEMP_DIR)` (other experiments churn the shared temp folder). Run git only read-only, and only against the worktree below. Never touch the real home: `~/Library/Application Support/OpenSIP` must stay absent. Never read the private 413 UUID fixture.
+Grok review: unit X9-1 r1, the crash-matrix support surface and the barrier points at the integrated sites (law X9 r2 item 12), with inventory v118 on v128. Claude Opus 5.5 leads. You are the single reviewer. No repository edits, commits, pushes or delegation. Write only under /tmp/opensip-implementation/reviews/grok-crash-matrix-x91-r1. If you build or test, use a CARGO_TARGET_DIR under that directory, and a private 0700 TMPDIR under `$(getconf DARWIN_USER_TEMP_DIR)` (other experiments churn the shared temp folder). Run git only read-only, and only against the worktree below. Never touch the real home: `~/Library/Application Support/OpenSIP` must stay absent. Never read the private 413 UUID fixture.
 
 ## Inputs
 
@@ -6,9 +6,9 @@ Grok review: unit X9-1 r1, the crash-matrix support surface and the barrier poin
   - X9 r2, `docs/implementation/m2/crash-matrix-x9/PROPOSAL-r2.md`, 55703 bytes, sha256 `b9b254c37599cb8adaf99fea666a062b24abad2a7edf236a516e74a07f05a9a9` (accepted). Item 12 defines X9-1: the feature in security, storage and host; the `crash_matrix_support` modules (item 6) and the pinned list of feature sites; scopes and points at the integrated sites; the post-state capture, normalizer and run writer; the census of the then-integrated path; and (r2) item 3's scripted wall clock in `observe_clock`, the `fixture` driver, the `scripted-clock` label and the census equality check. G1–G4 are the cross-law gaps.
   - X8 r3, `docs/implementation/m2/refusal-suite-x8/PROPOSAL-r3.md`, 44288 bytes, sha256 `1dc6b71f…bbf385` (accepted). Items 4b and 5a: one shared site list under the joint predicate `cfg(any(test, feature = "crash-matrix", feature = "scenario-fixtures"))`, owned and pinned by X9-1 and extended by X8b; the fenced `state.v1` publisher beside the trust owner's publication code, on the list, called by both surfaces; `AppendStep`, `ObjectStep` and the ledger commit hook stay `cfg(test)`.
   - X10 r4, `docs/implementation/m2/read-cli-x10/PROPOSAL-r4.md`, 17619 bytes, sha256 `33095e6c13c0e16a5e4fdc87832dbd2f048b01f126b432d49347cc2f116b386a` (accepted). Item 5's test-bridge pin, narrowed: no bridge reaches the binary, the doctor ingress or a default or release build; `apps/cli` and reporting declare no features; host, security and storage may declare only `crash-matrix` and `scenario-fixtures`. X9-1 found the conflict with X10 r3 and implements r4's pin.
-- **Product.** Worktree `/Users/sb/code/opensip-ai/opensip-x9-1`, detached at main `f097c5b` (X7a integrated), uncommitted. The eight new files are intent-to-add. `git diff f097c5b` is 253597 bytes, sha256 `8ee03e991d1ef363d8a986577fc45ab6fcf546974a8fe873234155187e730ba7`; 50 files, +4362 −217. Every file is pinned in `hashes.txt`.
+- **Product.** Worktree `/Users/sb/code/opensip-ai/opensip-x9-1`, detached at main `099de03` (X6b, X4B-c, X6c, X11a, F6 and X7b integrated), uncommitted. The eight new files are intent-to-add. `git diff 099de03` is 255380 bytes, sha256 `c267442e21aae7fa8704e638e40d2c13dabe0f37336f09a7bc30af11a820a2df`; 52 files, +4369 −218. F6's `churned` import in the widened `initial_platform` test module stays `cfg(test)`, since F6's retry exists only in the crate's test build. Every file is pinned in `hashes.txt`.
 - **Toolchain.** `PATH=/opt/homebrew/bin:/opt/homebrew/Cellar/rust/1.95.0/bin`, Python `python3.14`.
-- **X9-0** (the mechanism) is integrated at `daa7b01`; X4a, X3d-1, X3d-2, X5a, X6a and X7a placed their own `x4.*`, `x3d.*`, `x6.recover` and `x7.delivery` points. X9-1 places none of those.
+- **X9-0** (the mechanism) is integrated at `daa7b01`; X4a, X3d-1, X3d-2, X5a, X6a, X6b, X6c and X7a placed their own `x4.*`, `x3d.*`, `x6.recover`, `x6.sweep` and `x7.delivery` points. X9-1 places none of those. X4B-c's changes to X4T-0 (built through X4B's producer) keep its declaration under the joint predicate; X4T-0's own pin and this unit's site pin pass.
 
 ## What X9-1 builds
 
@@ -46,7 +46,7 @@ Grok review: unit X9-1 r1, the crash-matrix support surface and the barrier poin
 1. **`scenario-fixtures` declared now, empty, in security only.** The joint predicate must be a known cfg or the compiler warns. X8b gives it its module, storage's forward and the dev-dependencies. `cargo clippy -p opensip-security --features scenario-fixtures` is clean.
 2. **The site list.** X8 r3's four named gates, each with the closure it needs to compile and be reached, all under the joint predicate:
    - `Image::Injected` (variant and ten arms) with `initial_core`'s `tests` module (the injected image and signed tree); the synthetic V2 profile set: `initial_platform`'s `tests` module and its re-exports, the SYNTHETIC-standing `cfg!`, `core_authentication`'s `tests` module and its import, `InitialInstallationAttempt::for_tests`, and `lib.rs`'s `test_scratch`;
-   - `HomeSource::Fixture` and its arms (gate and read session), `create_at` and `prepare_installation_parent_at`, `DurableWriteGate::for_tests`, and `custody.rs`'s `installation_read_fixture` module (its read-session, F5 and X4a helpers stay `cfg(test)` inside it);
+   - `HomeSource::Fixture` and its arms (the gate, the read session, and X6b's recovery admission), `create_at` and `prepare_installation_parent_at`, `DurableWriteGate::for_tests`, and `custody.rs`'s `installation_read_fixture` module (its read-session, F5 and X4a helpers stay `cfg(test)` inside it);
    - X4T-0's declaration and its one accessor `accepted_store_files`, re-exported by `trust.rs`;
    - `publish_store_fenced` and its re-exports.
 
@@ -65,28 +65,28 @@ Grok review: unit X9-1 r1, the crash-matrix support surface and the barrier poin
 - **Observer timing.** The census is unarmed, so X4a's observer waits on its native 5 s period. Each operation finishes well inside it, and two census runs agree; an operation slower than 5 s would add an observer reading and point, which r2 makes a `HARNESS-ERROR` (two censuses must agree), never a smaller kill set. Matrix rows that arm `x4.observer.tick` (item 11) are unaffected.
 - **The X9 r1 clock-dependence finding** is settled by r2's script and implemented here.
 
-## Checks on f097c5b with this diff
+## Checks on 099de03 with this diff
 
-- **Full workspace without the feature, twice** (private TMPDIR): 1642 passed, 0 failed, 3 ignored each.
-- **Feature lane,** `cargo test -p opensip-platform -p opensip-security -p opensip-storage -p opensip-host --features crash-matrix --all-targets`: 1534 passed, 0 failed, 3 ignored.
+- **Full workspace without the feature** (private TMPDIR): 1707 passed, 0 failed, 3 ignored. (On f097c5b, before X6b to X7b, it was run twice: 1642 passed, 0 failed, 3 ignored each; on d64ef7b once: 1693 passed.)
+- **Feature lane,** `cargo test -p opensip-platform -p opensip-security -p opensip-storage -p opensip-host --features crash-matrix --all-targets`: 1592 passed, 0 failed, 3 ignored, both pinned censuses included. The censuses are unchanged by X6b's and X6c's recovery and sweep modules, which the census workload does not reach (X9-3's drivers will census them).
 - **Clippy `-D warnings`:** clean on the workspace without the feature, on the four crates with `crash-matrix`, and on security with `scenario-fixtures` alone.
 - **`cargo fmt --check`:** clean.
-- **`check_package_edges --lane host`:** passes against v118 and v125, 20 declared and 20 resolved internal edges.
+- **`check_package_edges --lane host`:** passes against v118 and v128, 20 declared and 20 resolved internal edges.
 - **Checker tests:** `python3.14 -I -B tools/tests/test_check_crash_matrix.py`, 12 OK.
-- **Release guard 4:** `cargo build --release -p opensip-cli` → `target/release/opensip`, 6314096 bytes, sha256 `d5f09ed6e95f2afda73bdb5cc3620ce120bb59aa78eba89d7e196995bb870adc`; `check_crash_matrix.py release-absence` passes, none of the 26 strings found. The feature's release build is refused for platform, security, storage and host (exit 101, the guard).
+- **Release guard 4:** `cargo build --release -p opensip-cli` → `target/release/opensip`, 6314176 bytes, sha256 `e1b545662b2b913a680ba42721a0edfa75989b5461e143dc336dcb83f89628a8`; `check_crash_matrix.py release-absence` passes, none of the 26 strings found. The feature's release build is refused for platform, security, storage and host (exit 101, the guard).
 - **Home:** `~/Library/Application Support/OpenSIP` is absent.
 
 ## Inventory v118
 
-`crash-matrix-x91-inventory-v118/evidence/build_v118.py` adds eight rows to the parent the lock selects, inventory125 (X7a), 506284 bytes, sha256 `1d157eea04974577502cc584b611c1ad77953214ca153eb1e14e514289df2d10`:
+`crash-matrix-x91-inventory-v118/evidence/build_v118.py` adds eight rows to the parent the lock selects, inventory128 (X11a), 530975 bytes, sha256 `c6bcf2f4818869756b99cec4a4d97c85c48353e2f66035ed92406165550c3ce2`. Its PRIOR table maps inventory125 through inventory128 (first built on v125 before any review, then moved):
 - `crash_matrix_support.rs`, `crash_matrix_support/post_state.rs`, `crash_matrix_support/run_record.rs` (security), and storage's and host's `crash_matrix_support.rs`: service;
 - `crash_matrix_census.rs`, `crash_matrix_sites.rs` (security) and `ledger_store/project_commit_census.rs` (storage): test.
 
-934 inherited rows equal by value, 942 files; packages, pending decisions and carried obligations unchanged; the fifty-five inheritance rows (sixteen carried, D1's thirty-nine, D2's four supersessions folded) re-projected by stable path, `supersessionsFolded: 0`. The README lists the changed existing rows and which descriptions go out of date by omission. Reruns are byte-identical; the builder refuses tracked paths and a lock that selects v118.
-- v118: 515069 bytes, sha256 `8a3f09689ab242d37055b6795ff662d666288ea7108058c96da70231bda24eec`;
-- successor.json: 145488 bytes, sha256 `77ff6c2bc9827ab5b1e90ea525f34eec4d8a11c3009a3a6a9bc49335e5b1d252`;
-- subject manifest `crash-matrix-x91-inventory-v118-subject.json`: 2110 bytes, sha256 `9e0e036e7cf9d1a93f3870acab8ccf763eb3b6199c95e1fa59156e79520691cf`.
-- verify_projection against the real lock at f097c5b: PASS, 55 rows, 278 corruptions refused. `evidence/verify_scratch.py` (v118 appended in memory over the worktree's lock, synthetic review and assent): passed, 86 inventory successors, 74 contract successors, 55 inheritance rows, v118 selected.
+949 inherited rows equal by value, 957 files; packages, pending decisions and carried obligations unchanged; the fifty-five inheritance rows (sixteen carried, D1's thirty-nine, D2's four supersessions folded) re-projected by stable path, `supersessionsFolded: 0`. The README lists the changed existing rows and which descriptions go out of date by omission. Reruns are byte-identical; the builder refuses tracked paths and a lock that selects v118.
+- v118: 539833 bytes, sha256 `ae94d003acdd4ee203a672c7164513705acc876a723faf4eb45a25fb99eaa925`;
+- successor.json: 145488 bytes, sha256 `a6e50642315c7c103892552adbd0be3bfe2b5ad9ea652ffedb70e8b71b4331b1`;
+- subject manifest `crash-matrix-x91-inventory-v118-subject.json`: 2110 bytes, sha256 `8c1025ba7282f9459aa46dbb5616bacb012d54650ab4cbb065fed5a878de88af`.
+- verify_projection against the real lock at 099de03: PASS, 55 rows, 278 corruptions refused. `evidence/verify_scratch.py` (v118 appended in memory over the worktree's lock, synthetic review and assent): passed, 89 inventory successors, 74 contract successors, 55 inheritance rows, v118 selected.
 
 ## Decide
 
@@ -95,13 +95,13 @@ Grok review: unit X9-1 r1, the crash-matrix support surface and the barrier poin
 - Are the points complete for the integrated sites and correctly scoped (no durability primitive outside a scope on the censused paths), and is every featureless expansion the prior code?
 - Is the shared fenced publisher sound (production fence walk, the trust owner's protocol, `state.v1` last, no write under contention, no authority returned)?
 - Is the scripted clock as r2 states, and do the censuses and post-states depend on nothing but the script and the product?
-- Is each judgment call acceptable? Is v118 right on v125?
+- Is each judgment call acceptable? Is v118 right on v128?
 - Is anything else wrong?
 
 review.json must contain:
 - "verdict": `ACCEPT-UNIT` or `REQUIRED-FINDINGS`;
 - "requiredFindings";
-- "subjectManifestSha256": `9e0e036e7cf9d1a93f3870acab8ccf763eb3b6199c95e1fa59156e79520691cf`, the sha256 of `docs/implementation/m2/crash-matrix-x91-inventory-v118-subject.json`;
-- "inventoryCandidateAssessment": {verdict, requiredFindings, path `docs/implementation/m2/repository-file-inventory.v118.json`, bytes 515069, sha256 `8a3f0968…`, parent (the v125 pin above), successorRecord (path `docs/implementation/m2/crash-matrix-x91-inventory-v118/successor.json`, bytes 145488, sha256 `77ff6c2b…`)}.
+- "subjectManifestSha256": `8c1025ba7282f9459aa46dbb5616bacb012d54650ab4cbb065fed5a878de88af`, the sha256 of `docs/implementation/m2/crash-matrix-x91-inventory-v118-subject.json`;
+- "inventoryCandidateAssessment": {verdict, requiredFindings, path `docs/implementation/m2/repository-file-inventory.v118.json`, bytes 539833, sha256 `ae94d003…`, parent (the v128 pin above), successorRecord (path `docs/implementation/m2/crash-matrix-x91-inventory-v118/successor.json`, bytes 145488, sha256 `a6e50642…`)}.
 
 Write REVIEW.md and review.json. Do not commit.
