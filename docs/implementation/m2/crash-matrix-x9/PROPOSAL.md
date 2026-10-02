@@ -1,4 +1,4 @@
-# The crash, lock and revocation matrix — proposal X9 r4
+# The crash, lock and revocation matrix — proposal X9 r5
 
 2026-10-01. Claude Opus 5.5, implementation lead. Law for unit X9 of `EXIT-PLAN.md`, the unit that gates M2 completion. It is written under:
 - the build plan's M2 row (`docs/v2/architecture/implementation-boundaries-and-build-plan.md` line 886: "actual crash/lock/revocation matrix pass; synthetic fixtures remain labelled"), its ordered failure matrix F00–F53 (lines 524–587), its required API and fault-injection checks (lines 591–613; the test owner `crates/storage/tests/commit_tests.rs`, line 594), and the tooling row for storage and process faults (line 1072: "deterministic synchronization and crash barriers against actual storage/processes … Record platform/filesystem/profile, actual state bytes and exact outcomes; inject before/after each durability step, without sleep-and-hope synchronization");
@@ -77,6 +77,51 @@ r2 (2026-10-01) is an amendment made as lead decisions under the owner's standin
   - there is still one shared site list (item 6, r3).
 - **G1.** With r4, the matrix half of G1 has a lawful route. X9-2 closes G1 for its own rows.
 - **Unchanged from r3:** every injection mechanism, point, kind, scope, label, evidence member, row, expected value, limit and other forbidden substitute. No accepted outcome of any other law changes. No new public code, row or detail.
+
+**r5 (2026-10-02) is an amendment made as lead decisions under the owner's standing direction of 2026-09-30.** r4 bytes are preserved in PROPOSAL-r4.md. X9-2 found these issues while transcribing its rows into `required-runs.v1.json`, before any run. The product is unchanged at `a36da7c`. r5 changes three things and nothing else.
+
+- **F07 to F10: R1 is plain UAO (item 9).**
+  - **What X9-2 found.** For F07 (and F08, "as F07"), F09 and F10, R1 was expected to be UAO with a witness diagnosis (would-REVERT, would-ADVANCE, or OK). The integrated `recover` cannot report one:
+    - `RecoveredCommit::UnknownAttemptOpen` carries no fields (X6 r4 item 2's closed list; `storage/src/recover.rs` lines 101–104).
+    - `recover` returns UAO at step 2 from the ledger standing alone (lines 380–381). An admitted attempt with neither receipt nor association is UAO (`recovery.rs` line 290).
+    - The carrier capture, the only source of `witnessWould*` (`CarrierObservation::diagnosis`), runs only after the ledger joins a receipt and an association (lines 395–419).
+
+    In these rows the evidence `COMMIT` never happened, so no such join exists.
+  - **Decision.** In these rows R1 is plain UAO. The would-REVERT, would-ADVANCE or OK expectation moves to R2's witness action only (item 8's "start's witness action"), which each row already states. No X6 or X3b outcome changes.
+  - **Rejected:** a carrier diagnosis on UAO, which would change X6's closed standings and its step order; and a separate carrier capture in R1's process, which X6 has no public route for and which item 8 does not ask of R1.
+- **F00: split by kill point (item 9).**
+  - **What X9-2 found.** F00 is a first commit, since it reaches registration and INIT. The ExecutionId is drawn in `CommitSession::open` (`x3d.session.execution-draw`), and `prepare_commit` creates the store directories and the ledger afterwards, inside `x3c.ledger-create`. A kill in between leaves one of two states:
+    - no ledger: `read_recovery_ledger` gives `Missing` (`ledger_store/recovery_read.rs` lines 136–146), and `recover` gives UnknownCustody `ledger-missing` (`recover.rs` lines 314–325);
+    - a ledger whose schema has not committed: UnknownCustody `ledger-unreadable`.
+
+    Either is X6 r4 item 4's F24 sentence: "A missing, empty or fallback ledger or carrier is never absence". The row's "R1 and R4 UAU" therefore holds only once the ledger exists.
+  - **Decision.** F00's runs are expected by kill point:
+    - **before the draw** (no ExecutionId): R1 and R4 are not applicable (`"notApplicable": "no-execution-id"`, item 8);
+    - **from the draw through `x3c.ledger-create.ddl.commit.after`**, that point included: R1 is UC with reason `ledger-missing` or `ledger-unreadable`, whichever the kill left, and R4 is UAU, because R2 has created the ledger by then;
+    - **after `x3c.ledger-create.ddl.commit.after`** and before `x3c.attempt.commit.after`: R1 and R4 are both UAU.
+
+    In every split, R3 writes nothing, and the rest of the row (no attempt row, the ledger's logical state unchanged, R2's crash-state handling and Committed) is unchanged. Which split a kill point falls in is fixed by its position in the census trace relative to those two points, never by a run's outcome. X9-2 transcribes the split into `required-runs.v1.json` before any run.
+  - **Rejected:** keeping UAU for the whole window, which contradicts X6's F24 rule; and starting F00 from a namespace whose ledger already exists, which would drop registration and INIT from F00's kill set.
+- **The synthetic run candidate moves to X9-2 (items 6 and 12).**
+  - **What X9-2 found.** `prepare_commit` refuses unless two things hold (X3d item 3 step 1; `storage/src/commit.rs`, `plan`). No corpus Run meets either:
+    - the Run's `projectId` must equal the session's ProjectId, and a first registration draws that id at random (`first_registration.rs` line 427);
+    - the Run's evaluator closure must equal the session's selected core closure, and the injected test inventory's closure differs from every corpus closure.
+
+    Item 6 already lists "a synthetic run candidate for the evaluator's public `replay_run`". X9-1 left it to X9-5, and X5 r3 left X8c's B0 Run to X8c. X9-2's `commit` driver cannot commit without it.
+  - **Decision.** X9-2 adds the candidate to the support surface. Because it needs the evaluator, it lives in storage's `crash_matrix_support`, which host forwards.
+    - **Inputs only.** It produces the retained inputs (objects and blobs) and the claimed RunId, never a `ReplayedRun` (item 6's forbidden list stands).
+    - **How it is built.** It starts from a pinned corpus Run. It rewrites the snapshot's `projectId` and the evaluator closure to the caller's values (read from `CommitSession::project_id` and `core_closure`). It recomputes every content id and blob digest that depends on them. It re-derives the outputs with the evaluator's public `derive_evaluation`, then builds the evidence, seal and Run descriptors as `replay_run` checks them.
+    - **The production mint.** `replay_run` in the matrix child stays the only constructor of the `ReplayedRun` that `prepare_commit` takes.
+    - **Labels.** Every run that uses it stays labelled `synthetic`.
+  - **The matrix-only order.** A first registration draws the ProjectId inside the operation, so the matrix child calls `replay_run` after `CommitSession::open` and before `prepare_commit`. Replay is pure and takes no custody, so no X3d step changes. This order is stated for matrix children only. The host's order, replay before any custody (X5 r3 item 3, F01), is unchanged and stays X9-5's.
+  - **Rejected:**
+    - **A corpus Run with the ProjectId fixed to it.** That needs either a scripted ProjectId draw, which is a new cfg site, or rewriting the registry row and project marker after registration, which is a custody mutation outside item 6's inputs and would label every run `mutation`.
+    - **Registering the root in the fixture child.** It removes registration and INIT from F00's kill set.
+    - **A support function returning a `ReplayedRun`.** That is a forbidden authority type.
+    - **Rewriting the outputs textually without re-derivation.** The derived proof carries digests of normalized evaluation records that no reference substitution reaches.
+    - **Waiting for X8c's B0 Run.** It would couple the matrix to X8c's unit and order.
+- **Not legislated.** A possible F00 state after `x3c.ledger-create.wal` and before `ddl.commit`, a non-empty ledger with a WAL that `create_or_open_ledger` may not resume, is not decided here. If a run shows it, X9-2 stops and reports it.
+- **Unchanged from r4:** every injection mechanism, point, kind, scope, label, evidence member, limit and forbidden substitute, and every row and expected value not named above. No accepted outcome of any other law changes. No new public code, row or detail.
 
 Product baseline: main `f1b8321` (X3d-0 integrated). Every item contains a lead decision made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation; each names the alternative it rejects. Not product code. No new public code, row or detail.
 
@@ -218,7 +263,7 @@ At `f1b8321` the product has the following, and nothing more:
      - a revocation or policy publication helper that replaces `state.v1` atomically under the installation fence, as the trust owner does;
      - the inherited format-1 and format-2 carrier fixture;
      - X3b-2's reserved-slot technique: lift `gj3_append_laws`, write, reinstall the trigger SQL byte-identically;
-     - a synthetic run candidate for the evaluator's public `replay_run`.
+     - a synthetic run candidate for the evaluator's public `replay_run`. **r5:** X9-2 adds it, in storage's module, as inputs only (see the r5 header).
    - **What comes from production code.** `PlatformReceipt`, `ProjectOperation`, `CommitSession`, `ReplayedRun`, `PreparedCommit`, `PublishedCommit` and `RecoveredCommit` all come from the production paths over those inputs.
    - **Substitutions inside production types.** Where a production type needs its existing test-only variant to accept the synthetic input (for example `trust/initial_core.rs`'s `Image::Injected`), that `cfg(test)` becomes `cfg(any(test, feature = "crash-matrix"))`. X9-1 pins the exact list of such sites with a source pin, and no other site may use the feature.
      **r3 (record):** sites shared with X8's `scenario` are written `cfg(any(test, feature = "crash-matrix", feature = "scenario-fixtures"))`. There is one list and one pin, extended by name by X8b (X8 r3 item 4b; see the r3 header).
@@ -338,17 +383,17 @@ At `f1b8321` the product has the following, and nothing more:
 
    | Case | Owner | Injection | Status | Expected |
    |---|---|---|---|---|
-   | F00 | X2, X3a, X3b, X4T-b | `hold`→kill at every census point before `x3c.attempt.commit.after` (X4T floor, X3b floor, INIT, start witness, leases) | exec | No attempt row; ledger logical state unchanged. R2: the floor step and start handle X3b item 3a's or item 4's crash state (INIT resumes or finishes, REVERT, ADVANCE), then Committed. With an ExecutionId drawn: R1 and R4 UAU, R3 writes nothing. |
+   | F00 | X2, X3a, X3b, X4T-b | `hold`→kill at every census point before `x3c.attempt.commit.after` (X4T floor, X3b floor, INIT, start witness, leases) | exec | No attempt row; ledger logical state unchanged. R2: the floor step and start handle X3b item 3a's or item 4's crash state (INIT resumes or finishes, REVERT, ADVANCE), then Committed. With an ExecutionId drawn: R1 and R4 UAU, R3 writes nothing. **r5:** expected by kill point: before the draw, R1 and R4 not applicable; from the draw through `x3c.ledger-create.ddl.commit.after`, R1 UC (`ledger-missing` or `ledger-unreadable`, X6 F24) and R4 UAU; after it, R1 and R4 UAU. R3 writes nothing (see the r5 header). |
    | F01 | X5 | replay-invalid candidate; substituted target or inventory | exec (host) | Refused before `prepare_commit`; no attempt row; no SEAL; ledger and carrier logical state unchanged. |
    | F02 | X3c | `torn` at `x3c.object.write` (first, middle and last object) | exec (inj) | Staging residue is never adopted. R1 UAO; R2 Committed; R3 refused; R4 TNC. The orphan stays (L6). |
    | F03 | X3c | kill at `file-barrier.before` and `.after` | exec (death branch; L1) | As F02. |
    | F04 | X3c | kill at `link.before` and `.after`; R2 republishes the same digest | exec | As F02. R2 confirms the existing object by exact bytes. An unequal-collision mutation variant refuses on X3c item 10's row. |
    | F05 | X3c | kill at `directory-barrier.before` and `.after` | exec (death branch; L1) | As F02. |
    | F06 | X3b, X3c, X3d | the parent holds a raw SQLite `BEGIN IMMEDIATE` on the carrier, or on the ledger, while the child runs `publish` (labelled `mutation`: a foreign holder) | exec (mut) | Busy row (`LEDGER.BUSY_TIMEOUT`/`PROJECT.BUSY`); an earlier level-3 transaction is released; no SEAL; orphans preserved. R1 UAO; R2 Committed after the holder ends; R3 refused; R4 TNC. |
-   | F07 | X3b | kill at each `x3b.append.seal.witness-pending/*` point and at `insert.before` | exec | R1 UAO, diagnosis would-REVERT; R2 REVERT, Committed; R3 refused; R4 TNC. |
+   | F07 | X3b | kill at each `x3b.append.seal.witness-pending/*` point and at `insert.before` | exec | R1 UAO, diagnosis would-REVERT; R2 REVERT, Committed; R3 refused; R4 TNC. **r5:** R1 is plain UAO; would-REVERT is R2's witness action only (see the r5 header). |
    | F08 | X3b | kill at `insert.after` and `commit.before` | exec | SQLite rolls back on reopen. As F07. |
-   | F09 | X3b | kill at `commit.after`; `fail-after` and `fail-before` at the SEAL `commit` | exec; exec (inj) | Injected: `CommitUndetermined` (`DURABILITY.COMMIT_FAILED`); nothing appended; no evidence `COMMIT`; the settlement reserve is forfeited. R1 UAO with would-ADVANCE (landed) or would-REVERT (not landed); R2 ADVANCE or REVERT, Committed; R3 refused; R4 TNC. |
-   | F10 | X3b | kill at each `witness-committed/*` point | exec | R1 UAO, would-ADVANCE before the rename survives, OK after; R2 ADVANCE or OK; R3 refused; R4 TNC. |
+   | F09 | X3b | kill at `commit.after`; `fail-after` and `fail-before` at the SEAL `commit` | exec; exec (inj) | Injected: `CommitUndetermined` (`DURABILITY.COMMIT_FAILED`); nothing appended; no evidence `COMMIT`; the settlement reserve is forfeited. R1 UAO with would-ADVANCE (landed) or would-REVERT (not landed); R2 ADVANCE or REVERT, Committed; R3 refused; R4 TNC. **r5:** R1 is plain UAO; landed or not landed shows only as R2's ADVANCE or REVERT (see the r5 header). |
+   | F10 | X3b | kill at each `witness-committed/*` point | exec | R1 UAO, would-ADVANCE before the rename survives, OK after; R2 ADVANCE or OK; R3 refused; R4 TNC. **r5:** R1 is plain UAO; would-ADVANCE or OK is R2's witness action only (see the r5 header). |
    | F11 | X3c, X3d | kill after each `x3c.evidence.stage-<table>` | exec | The ledger transaction rolls back; the SEAL is durable with no `REV` (the process died before `finish`). R1 UAO; R2 Committed; R3 refused; R4 TNC. |
    | F12 | X3c, X3d, X7 | `fail-after` and `fail-before` at `x3c.evidence.commit` | exec (inj) | `CommitUndetermined` with ExecutionId and no RunId; no retry; nothing appended. R1 CH with pendingSettlement (landed) or UAO; R3 committed or refused; R4 CH or TNC. |
    | F13 | X3c, X3d | kill at `x3d.publish.commit-returned` | exec | R1 CH with pendingSettlement; R2 Committed; R3 committed; R4 CH. |
@@ -438,6 +483,7 @@ At `f1b8321` the product has the following, and nothing more:
       **Dependencies.** X9-0. It precedes X3d-2's, X6b's and X7a's composition tests, which need the same surface (gap G1).
     - **X9-2 (storage; carrier and objects).** `crates/storage/tests/commit_tests.rs` with `required-features`, the shared drivers (`commit`, `recover`, `sweep`, `competitor-writer`, `reader`), the ladder, and rows F00, F02–F05, F07–F10, F20–F22, F31 and F46, with their `required-runs.v1.json` rows. **Dependencies:** X9-1, X2e, X4a, X3d-1, X3d-2, X6a, X6b, X6c.
       **r4:** X9-2 also adds item 6's three driver entries, which its drivers use, and item 7's `check-unit`. It does not depend on X8b.
+      **r5:** X9-2 also adds item 6's synthetic run candidate, and its `commit` driver replays after `CommitSession::open` (see the r5 header). It transcribes r5's F00 split and F07 to F10's R1.
     - **X9-3 (storage; commit and recovery).** Rows F11–F15, F23–F25, F27–F29, F33, F36, F42, F43–F45, F49, F52 and F53. **Dependencies:** X9-2.
     - **X9-4 (storage; locks and live revocation).** Rows F06, F18, F19, F26, F30, F34, F38, F39's storage half, F40 and F41, and C5 once G5 is decided (**r3 (record):** decided by X6c; C5's R3 is `refused` and its R4 is `terminal-not-committed`). **Dependencies:** X9-2 and X4a. It uses X4a's observer `gate` point.
     - **X9-5 (host).** `crates/host/tests/commit_matrix_tests.rs` with rows F01, F16, F17, F12's and F40's caller route, F32 with its rollover crash table, F39's delivery half, and F53's `store-gc` step. **Dependencies:** X9-2, X5a, X7a, X7b, X3b-4 and X6c.
