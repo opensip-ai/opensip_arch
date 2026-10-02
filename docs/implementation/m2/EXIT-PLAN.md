@@ -176,3 +176,4 @@ Rejected: changing the trust-anchor tool now for one sentence.
     - item 4: a security `SessionEnd` accessor, needed to disclose end-step and rollover outcomes (recommended for X7b);
     - the integration-test gap.
   - Session-level finalization tests need a `ProjectOperation` from a host test. That needs X9-1 or X8b, so those tests land with X8c, X9-5 or an X7a-2.
+- **G5 decided in X6c (2026-10-04, pending review).** A revoked closure subject does not refuse the sweep. X1 item 4 gives no trust admission and X6 item 7 adds none. For F18, F19 and F38: R3 writes `refused`, and R4 is terminal-not-committed. Record this in X9's next record-only revision.
