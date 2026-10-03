@@ -302,7 +302,7 @@ r2 (2026-10-01) is an amendment made as lead decisions under the owner's standin
 
   No accepted outcome of any other law changes. No new public code, row or detail.
 
-**r13 (2026-10-02) is an amendment made as lead decisions under the owner's standing direction of 2026-09-30.** r12 bytes are preserved in PROPOSAL-r12.md. r13 ACCEPTED by Grok on 2026-10-02.
+**r13 (2026-10-02) is an amendment made as lead decisions under the owner's standing direction of 2026-09-30.** r12 bytes are preserved in PROPOSAL-r12.md.
 - **Where it comes from.** X9-5 found these issues in development runs of its 95 transcribed host rows, on product main `b999ae3`, before any lead run set.
 - **What passed.**
   - Every F53 row and every F32 row.
