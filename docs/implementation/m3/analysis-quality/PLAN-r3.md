@@ -1,4 +1,4 @@
-# M3 analysis-quality plan — proposal r4
+# M3 analysis-quality plan — proposal r3
 
 2026-10-03. Claude Opus 5.5, implementation lead. Written at the owner's request ("draft the M3 analysis-quality plan"). r1 (`PLAN-r1.md`, sha256 `4e1c0901…`) was reviewed by GROK2 (fact validation, 7 required findings) and CODEX2 (method, 10 required findings). r2 answers all 17 and records the owner's decisions of 2026-10-03.
 
@@ -48,7 +48,6 @@ r3 answers the r2 reviews. GROK2 and CODEX2 each confirmed their r1 findings res
 | GROK2 RF-2 (r2) | §5.3 INC-1, INC-4 | Corrected bindings: scope and fact bind the snapshot, Coverage binds the scope, view binds the Plan (IE:183-186). New source gives a new Plan and Run (IE:1605-1606). INC-4 compares semantic payloads; snapshot- and Plan-bound identities are compared only within a pair. |
 | GROK2 RF-3 (r2) | §5.3 INC-6 | The single writer is the lifecycle lease (IE:1657-1660). The grant is `RepoExecutionGrantV2`, outside the Plan (IE:467, IE:1387; NE:1273, NE:1311). |
 | CODEX2 C2-AQ-R2-01 | §2 Q2, §4.3 | One primary confidence rule. Exact Clopper–Pearson applies only to established independent samples; correlated strata use a preregistered cluster-aware bound with a minimum count of independent repositories and no degenerate zero-error pass; otherwise INSUFFICIENT-EVIDENCE. 299/29 are labelled independent-sample examples. A qualified advisory rule must meet 0.90; anything else ships only as declared-unqualified exploratory, with no Q2 pass (D13). |
-| GROK2 RF-1 (r3) | §2 Q2, D4 note | The two Q2 sentences r3 missed now state §4.3's confidence rule. r3 is preserved as `PLAN-r3.md`. |
 | CODEX2 C2-AQ-R2-02 | §5.3 INC-4, INC-8 | Reuse provenance moves out of canonical Coverage into an operational record (operability plan §4.1). Coverage describes only the current Plan's semantic state. A provenance-carrying Coverage successor is rejected. |
 
 ## r2 changes and review responses
@@ -135,7 +134,7 @@ The case's "answerable" and "abstain" labels come from the corpus oracle. Candid
 | # | Dimension | Measured by | Target (owner-approved, D4) | Definition corrected in r2 |
 |---|---|---|---|---|
 | Q1 | Fact correctness | Oracle set equality per cell (existing) | Exactly 1.0 | none (existing law) |
-| Q2 | Finding precision | Adjudicated findings on T2 (§4.3) | Gating and repair-eligible ≥ 0.99; advisory ≥ 0.90 | The target applies to a one-sided 95% lower bound on conservative precision (true ÷ all reported), per rule × language × mode, under §4.3's single confidence rule. That means the exact Clopper–Pearson bound only for established independent samples, and otherwise a preregistered cluster-aware bound. Too little evidence gives INSUFFICIENT-EVIDENCE. |
+| Q2 | Finding precision | Adjudicated findings on T2 (§4.3) | Gating and repair-eligible ≥ 0.99; advisory ≥ 0.90 | The target applies to the one-sided 95% exact lower bound of conservative precision (true ÷ all reported) per rule × language × mode. Too little evidence gives INSUFFICIENT-EVIDENCE. |
 | Q3 | Finding recall | Validated seeds and curated cases (§4.4) | ≥ 0.95 | Answerable recall = found ÷ answerable positives. An abstention on an answerable case counts as a miss. |
 | Q4 | Coverage honesty | Must-abstain and insufficient-evidence cases (§4.4) | Zero; any one is release-blocking | Zero unsupported determinate negatives: no clean verdict or no-match on a case whose required evidence is insufficient. A sound positive may still determine fail (WS:600-604). |
 | Q5 | Stability | Refactor suite plus a determinism suite (§4.5) | ≥ 0.99 survival of unaffected findings; zero spurious CODE-NET-NEW | "Unaffected" comes from an independent mapping oracle. Zero spurious CODE-FIXED as well. Determinism must be exact. |
@@ -143,7 +142,7 @@ The case's "answerable" and "abstain" labels come from the corpus oracle. Candid
 | Q7 | Explanations | Field and proof-join check, plus a rubric (§6) | 100% fields; rubric average ≥ 4 of 5 | Every sample item scoring ≤ 2 is reviewed and dispositioned. |
 | Q8 | Zero-config usefulness | Manual corrections per pinned repository (FW-14) | 0 for conventional shapes | none. The measurement is required (SMAP:67); the 0 is this plan's proposal, now approved. |
 
-**The corrected definitions are part of D4's approval record.** The owner approved the numbers on 2026-10-03, and the reviewers corrected what Q2–Q6 measure. r2 keeps the numbers and applies the corrections. The change most visible to the owner is Q2: 0.99 now means "0.99 with 95% confidence" under §4.3's confidence rule. For example, where findings are established independent samples, that takes about 299 error-free gating findings per stratum. Correlated strata need a cluster-aware bound, or they are INSUFFICIENT-EVIDENCE. The D4 revisit after the first exploratory measurement is the point to confirm or change that.
+**The corrected definitions are part of D4's approval record.** The owner approved the numbers on 2026-10-03, and the reviewers corrected what Q2–Q6 measure. r2 keeps the numbers and applies the corrections. The change most visible to the owner is Q2: 0.99 now means "0.99 with 95% confidence", which needs about 299 independent error-free gating findings per stratum (§4.3). The D4 revisit after the first exploratory measurement is the point to confirm or change that.
 
 **Reported beside the targets, with no target yet** (CODEX2 N01). These are set at the D4 revisit, not now:
 - **Q2 noise:** false positives and total findings per 1,000 analyzed hand-written source lines, per rule and repository. Generated and vendored code is counted separately.
