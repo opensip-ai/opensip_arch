@@ -197,3 +197,10 @@ Rejected: changing the trust-anchor tool now for one sentence.
 - **X9 follow-ups (2026-10-03, from X9-3).**
   - **Clock-window flake in an X9-1 self-test.** `a_scripted_clock_gives_each_ordinal_its_own_increasing_wall_seconds` fails whenever the real clock reads 2026-10-03 00:00–03:00 UTC. The scripted clock's fixed epoch falls in that window, and the test asserts the OS clock lies outside it. A small test-only fix is owed; F7 or X9-6 can carry it.
   - **r14 overstatement (record).** The r14 header says the object-publication group order changes X9-2's F02–F05 next-writer trace digests too. X9-3's comparison shows only the killed child's digest changes (14 of 22 runs). The next writer's confirmed objects already sort first, so its digest is unchanged. No expected value depends on this. Fold it into X9's next record note.
+- **L1 follow-up (2026-10-03, lead decision, option A):** L1 (Apache-2.0, D14) leaves `tools/contracts/Cargo.toml`, `tools/contracts/package.json` and `tools/typescript-boundary/package.json` without a `license` field, because the generator closure, the generator build receipt and the TypeScript lane registry pin their bytes; add the field with the next generator-closure or lane-registry successor (rejected: a design successor plus generator rebuild now, for metadata alone).
+- **Stale dependency-policy rows (found by L1, 2026-10-03).** These checks fail identically at product `91cb45a`, before L1:
+  - `check_dependencies.py` refuses `crates/contracts/src/generated/evidence.rs`, which was regenerated at `f482f98` without a policy update;
+  - `check_identity_dependencies.py` refuses six unpinned identity sources and the changed `src/lib.rs` and `src/schema_registry.rs`;
+  - the contract generator's drift check pins the `verify_design.py` from before VD1.
+
+  A small policy-refresh unit is owed, alongside the next generator-closure successor.
