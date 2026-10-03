@@ -1,0 +1,201 @@
+{
+  "reviewer": "CODEX2",
+  "round": "M3-Q0-r3",
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectSha256": "b69c918f5fa5976285970dcda015cd98e3f04da706bf4c62d89a3c5900d73a04",
+  "schemaSha256": "f38b3f2046172b4365179694fe625a7936e107b95c937f341606c404de7fd96b",
+  "subjects": [
+    {
+      "path": "docs/implementation/m3/harness/DESIGN.md",
+      "bytes": 101902,
+      "sha256": "b69c918f5fa5976285970dcda015cd98e3f04da706bf4c62d89a3c5900d73a04"
+    },
+    {
+      "path": "docs/implementation/m3/harness/exploratory-quality-envelope.schema.v1.json",
+      "bytes": 52882,
+      "sha256": "f38b3f2046172b4365179694fe625a7936e107b95c937f341606c404de7fd96b"
+    }
+  ],
+  "r2FindingResolution": [
+    {
+      "id": "C2-Q0-R2-01",
+      "status": "RESOLVED",
+      "locations": [
+        "DESIGN.md:704-741",
+        "DESIGN.md:782"
+      ],
+      "reason": "The design now requires acknowledged CPU-wide subscriptions, channel sentinels, connector sequence continuity, receive-loss/CPU-change rejection, terminal AGROUP per-task record selection through ac_tgid, and all-lifetime/thread exit coverage before completion. Unprovable components are explicitly incomplete. The prior empty-cgroup completion inference and first-thread counter ambiguity are removed. Kernel calibration remains a future admission requirement, not a performed measurement.",
+      "nonBlockingClarification": "C2-Q0-R3-N01"
+    },
+    {
+      "id": "C2-Q0-R2-02",
+      "status": "PARTIALLY-RESOLVED",
+      "locations": [
+        "DESIGN.md:791-801",
+        "DESIGN.md:820",
+        "exploratory-quality-envelope.schema.v1.json:215-269",
+        "exploratory-quality-envelope.schema.v1.json:620-646",
+        "exploratory-quality-envelope.schema.v1.json:1764-1821"
+      ],
+      "reason": "The original batch ambiguity is resolved by required batchId/runSlot joins, batchObservations and identity/coverage/uniqueness/orphan validation. The newly specified missing-record exception cannot represent warmup absences and contradicts retention of known measured values. The full failure path therefore remains unfinished.",
+      "remainingFindings": [
+        "C2-Q0-R3-01",
+        "C2-Q0-R3-02"
+      ]
+    },
+    {
+      "id": "C2-Q0-R2-03",
+      "status": "RESOLVED",
+      "locations": [
+        "DESIGN.md:916-942",
+        "M3-PLAN.md:208",
+        "M3-PLAN.md:213",
+        "M3-PLAN.md:217-227"
+      ],
+      "reason": "The corrected rule includes F1 to H to J2, defines oracle slip s from day six and F1 delay d=max(0,s-1), and obtains M3-X=26+max(0,s-3) under the stated unchanged branch/day-zero assumptions, including O2_selected<=24. The unadopted split-authoring alternative and pending OI-12 updates are explicit."
+    }
+  ],
+  "requiredFindings": [
+    {
+      "id": "C2-Q0-R3-01",
+      "priority": "P2",
+      "title": "Provide a reason carrier for missing warmup records",
+      "r2Relation": "Incomplete portion of C2-Q0-R2-02's missing-evidence path",
+      "locations": [
+        "DESIGN.md:792-799",
+        "exploratory-quality-envelope.schema.v1.json:215-269",
+        "exploratory-quality-envelope.schema.v1.json:1420-1447",
+        "exploratory-quality-envelope.schema.v1.json:1558-1570"
+      ],
+      "problem": "The validator permits a missing operational record for any warmup or measured slot only when the row is incomplete and that slot lists record-missing. The incomplete Q6 row has exactly seven untyped runReasons lists aligned to measured samples; there is no warmup reason carrier. The typed runSlot exists only on records that are present.",
+      "counterexample": "Batch B has all seven measured records/samples and warmup records 1 and 2, but warmup 0's operational record is missing. No valid field can represent (B,warmup,0,record-missing). Writing runReasons[0] incorrectly attributes the absence to measured run 0; an extra typed failure field is rejected by the closed schema.",
+      "impact": "An intended incomplete batch cannot satisfy the new coverage invariant or be retained alongside its retry without fabricating a record or mislabelling a measured slot.",
+      "requestedChange": "Add typed absence/reason rows keyed by batchId and runSlot, or a separate explicit warmup-reason carrier. Make coverage validation consult that carrier for every required warmup and measured slot while preserving the seven measured-series positions. Define how a failed warmup-only batch remains incomplete and is retained."
+    },
+    {
+      "id": "C2-Q0-R3-02",
+      "priority": "P2",
+      "title": "Allow evidence-failure reasons without deleting known numeric samples",
+      "r2Relation": "New error introduced while addressing C2-Q0-R2-N04; also affects C2-Q0-R2-02's missing-evidence path",
+      "locations": [
+        "DESIGN.md:770",
+        "DESIGN.md:776-799",
+        "exploratory-quality-envelope.schema.v1.json:5",
+        "exploratory-quality-envelope.schema.v1.json:1540-1570"
+      ],
+      "problem": "The new semantic invariant requires a null sample if and only if a run has at least one reason. A reason such as record-missing can concern phase/reuse evidence while elapsed and both RSS figures are independently available. Coverage requires that reason and incomplete status, but the equivalence rejects retaining all known numeric samples. This contradicts the explicit rule to retain measured values where they exist.",
+      "counterexample": "Measured run 0 has elapsed=1000000, concurrent RSS=1024, own high-water sum=2048 and peak RSS=2048, but its operational record is absent. The row correctly has record-missing, phaseTimingsPresent=false and phaseAbsenceReason=record-missing. All four run-0 samples are known. DESIGN:799 rejects this row unless a known sample is erased or the required reason is dropped.",
+      "impact": "The validator rejects faithful failure records or forces deletion of available measurements, defeating the new incomplete-result retention mechanism.",
+      "requestedChange": "Replace the equivalence with per-value unavailable-sample/reason requirements. A null value must have an appropriate reason, but record/evidence or failure reasons may coexist with known numeric values. Explicitly permit incomplete rows caused solely by missing/invalid required operational evidence, preserve available samples and eligible aggregates, and align DESIGN and ENV's validator description."
+    }
+  ],
+  "nonBlockingObservations": [
+    {
+      "id": "C2-Q0-R3-N01",
+      "title": "Clarify lifetime correlation and the scope of sentinel fences",
+      "locations": [
+        "DESIGN.md:700",
+        "DESIGN.md:720-723",
+        "DESIGN.md:729-734",
+        "DESIGN.md:752"
+      ],
+      "observation": "Kernel emission before reaping does not ensure userspace receives a terminal record before a subsequent generation's fork arrives on the independent connector channel. Specify buffered per-TGID reconciliation or conservative rejection of reuse ambiguity, reconcile the start-time and fork-timestamp keys, and retain lifetime history for delayed host joins. Also narrow the claim that a post-run sentinel reads past all workload events: connector exit emission follows cgroup exit, so an exit notification may arrive later. The independent all-thread exit requirement and unevaluable-proof rejection already prevent premature completion; no categorical false-complete counterexample was established.",
+      "sources": [
+        "https://raw.githubusercontent.com/torvalds/linux/v6.18/kernel/taskstats.c",
+        "https://raw.githubusercontent.com/torvalds/linux/v6.18/kernel/exit.c"
+      ]
+    },
+    {
+      "id": "C2-Q0-R3-N02",
+      "title": "Separate successful calibration cases from rejection cases",
+      "locations": [
+        "DESIGN.md:736-741"
+      ],
+      "observation": "The introduction says the following are all detected as incomplete, but short-lived-child, early-leader and PID-reuse cases describe successful peak capture/correct joins. State their expected statuses separately from induced-loss/discarded-message cases, which must be incomplete."
+    }
+  ],
+  "r2NonBlockingResolution": [
+    {
+      "id": "C2-Q0-R2-N01",
+      "status": "RESOLVED",
+      "locations": [
+        "DESIGN.md:462",
+        "DESIGN.md:512"
+      ],
+      "reason": "CP and product-branch error requirements are distinguished and the fractional-error counterexample is included."
+    },
+    {
+      "id": "C2-Q0-R2-N02",
+      "status": "RESOLVED",
+      "locations": [
+        "DESIGN.md:514"
+      ],
+      "reason": "The unsupported prospective OI-17 cost reduction is withdrawn."
+    },
+    {
+      "id": "C2-Q0-R2-N03",
+      "status": "RESOLVED",
+      "locations": [
+        "DESIGN.md:391"
+      ],
+      "reason": "Guaranteed when replaces exactly when and smaller singleton strata are covered."
+    },
+    {
+      "id": "C2-Q0-R2-N04",
+      "status": "PARTIALLY-RESOLVED",
+      "locations": [
+        "DESIGN.md:799",
+        "exploratory-quality-envelope.schema.v1.json:5"
+      ],
+      "reason": "Consistency is explicitly assigned to the semantic validator, but the new equivalence rejects evidence-failure reasons with fully measured numeric samples.",
+      "newRequiredFinding": "C2-Q0-R3-02"
+    }
+  ],
+  "checkResults": [
+    {
+      "check": "Positive Linux RSS completeness design",
+      "result": "Acceptable at design level because complete birth history, terminal-record coverage and conservative rejection of unprovable components are required; live kernel admission remains pending calibration. Clarifications are non-blocking N01/N02."
+    },
+    {
+      "check": "batchId and batchObservations",
+      "result": "Normal/retry evidence joins and observations are resolved. Failure carriers/invariants need R3-01 and R3-02."
+    },
+    {
+      "check": "M3-X slip rule",
+      "result": "26+max(0,s-3) is correct for nonnegative oracle slip with the stated held branch/day-zero assumptions."
+    },
+    {
+      "check": "Schema",
+      "result": "Static inspection only: typed slot bounds are correct, batch carriers are required, new reasons are admitted, 39 object schemas are closed and no number-typed fields were introduced. No validator run."
+    },
+    {
+      "check": "Changes beyond table",
+      "result": "No unlisted substantive changes found across the 12 DESIGN diff hunks and complete schema diff. Revision bookkeeping, decision-index updates, RSS proof/identity/reasons, batch carriers/validator rules, statistics wording and slip/OI-12 updates all map to the declared table. The two required findings are errors within those declared changes."
+    }
+  ],
+  "scopeAssessment": {
+    "substantiveChangesBeyondTable": false,
+    "designDiffHunks": 12,
+    "schemaChanges": [
+      "revision/validator description",
+      "required batchObservations",
+      "six RSS failure reasons",
+      "typed runSlot",
+      "runner.calibration",
+      "operationalRecords batchId/slot",
+      "batchObservations carrier"
+    ],
+    "acceptedLawChangedBySubjects": false
+  },
+  "verification": {
+    "method": "Read-only static comparison of both r3 subjects with retained r2 snapshots/review, current M3-PLAN dependencies and primary Linux documentation/source; analytic schedule checks.",
+    "hashesMatchRequest": true,
+    "r2SnapshotHashesMatch": true,
+    "productCodeExecuted": false,
+    "testsOrBuildsRun": false,
+    "corpusFetched": false,
+    "runtimeHomeAccessed": false,
+    "commitsCreated": false,
+    "writesRestrictedTo": "/tmp/opensip-implementation/reviews/codex2-harness-q0-r3/"
+  }
+}
