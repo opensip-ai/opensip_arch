@@ -274,3 +274,5 @@ The pinned files above cannot take in-place notes without changing D-372's activ
 3. **RH-5** (QG items[12] versus AQ §3) goes to the next DR-G13 gate successor. The M3 analysis-quality plan's D1 and D13 already cover it.
 
 **Rejected:** a note-only manifest and design-lock successor now. It costs a full review cycle and moves D-372's activation subject for no change in meaning.
+
+**Update (2026-10-03), item 6.** The owner confirmed `docs/implementation/IMPLEMENTATION-AUTHORIZATION.md` on 2026-10-03, so D-372 condition 5 is MET by that record. The staged condition-5 note should now point there instead of reading "pending owner record". The successor that applies `staged-notes.patch` makes that change.
