@@ -1,0 +1,291 @@
+{
+  "reviewer": "CODEX2",
+  "round": "M3-Q0 r1",
+  "verdict": "REQUIRED-FINDINGS",
+  "summary": "The cluster-product confidence proof and minimum independent-family counts are sound under the stated assumptions. Eight required design revisions remain in label reuse, advisory sampling/guard computation, repository execution, RSS counter collection, evidence-carrier completeness and K2 scheduling.",
+  "requiredFindings": [
+    {
+      "id": "C2-Q0-R1-01",
+      "priority": "P1",
+      "title": "Use a sound truth-input closure before carrying labels",
+      "location": "docs/implementation/m3/harness/DESIGN.md:218-227 (§3.3, QD-5)",
+      "problem": "Detector independence alone does not make the lexical/witness TRI a conservative truth-input closure. It can remain unchanged after an input change that invalidates the old label.",
+      "evidence": [
+        {
+          "location": "docs/implementation/m3/harness/DESIGN.md:219-222",
+          "claim": "Existential TRI includes the declaring/witness files and manifest/configuration files; a tree-only change with identical TRI permits carry."
+        },
+        {
+          "location": "docs/implementation/m3/harness/DESIGN.md:220,226",
+          "claim": "Universal-negative TRI uses original identifier/module tokens and selected dynamic constructs; the incoming-reference trigger relies entirely on that digest."
+        },
+        {
+          "location": "docs/implementation/m3/analysis-quality/PLAN.md:257-261",
+          "claim": "Carry requires unchanged recorded truth-relevant inputs; subject/reference and unexplained detector-output changes require re-adjudication."
+        },
+        {
+          "location": "Analytic counterexample; no files or product runs",
+          "claim": "main.ts imports './missing', labelled true for unresolved-import. Adding missing.ts resolves the import without changing main.ts, manifests or old witness files. A detector that still misses the target can emit the same evidence. The proposed TRI stays identical and carries the stale true label. Alias/re-export consumer edits also need not contain the original identifier or declaring-module specifier, defeating the claimed referrer over-approximation."
+        }
+      ],
+      "fix": "Use a full selected-universe tree/enumeration and resolution-input digest as the conservative fallback, including additions, deletions and previously absent resolution candidates. Permit narrower rule-specific closures only after an independent soundness argument covers aliases, re-exports, configuration, generated inputs and negative searches. Re-adjudicate when that closure changes. Compare unchanged input components separately from output evidence/message fields in the unexplained-output trigger."
+    },
+    {
+      "id": "C2-Q0-R1-02",
+      "priority": "P2",
+      "title": "Make advisory allocation meet the accepted sample floor",
+      "location": "docs/implementation/m3/harness/DESIGN.md:341,433,443 (§5.2, §5.7, §5.8)",
+      "problem": "The capped per-family allocation can leave available findings unlabelled while selecting fewer than the accepted minimum of 100. The practical vote-cost example also describes one finding per family below the design's own 100-family branch.",
+      "evidence": [
+        {
+          "location": "docs/implementation/m3/analysis-quality/PLAN.md:228",
+          "claim": "Advisory rules require a stratified sample of at least 100 per rule/language, or all findings when fewer exist."
+        },
+        {
+          "location": "docs/implementation/m3/harness/DESIGN.md:433",
+          "claim": "Below 100 families the allocation caps each family at ceil(100/k), with no redistribution of unused slots."
+        },
+        {
+          "location": "Analytic counterexample; no product run",
+          "claim": "For k=29, one family has 100 findings and 28 have one each. The cap is four, so the design selects 4+28=32 of the 128 available findings."
+        },
+        {
+          "location": "docs/implementation/m3/harness/DESIGN.md:443",
+          "claim": "The suggested 30-50-family one-finding sample and 60-100 votes do not by themselves meet the advisory sample floor or the below-100-family allocation."
+        }
+      ],
+      "fix": "Preregister an allocation that reaches the accepted total whenever enough findings exist, redistributing unused slots while preserving uniform selection within each family. State the rule/language and mode allocation, including held-out-only evidence. Record population and sample sizes separately and use the sampled per-family denominator for the bound. Update the practical cost estimate, including two votes and calibration, to match this allocation."
+    },
+    {
+      "id": "C2-Q0-R1-03",
+      "priority": "P1",
+      "title": "Define the advisory census guard and separate its population from the sample",
+      "location": "docs/implementation/m3/harness/DESIGN.md:231-238,369,407-414,433; docs/implementation/m3/harness/exploratory-quality-envelope.schema.v1.json:304-335",
+      "problem": "The status rule requires exact pooled corpus precision, but advisory adjudication supplies only a sample. No rule assigns labels to the unadjudicated population, estimates its pooled precision, or prevents the sample ratio from being used as the claimed census.",
+      "evidence": [
+        {
+          "location": "docs/implementation/m3/harness/DESIGN.md:235,341,433",
+          "claim": "Advisory evidence consists of sampled findings; full adjudication is required only for gating/repair-eligible findings."
+        },
+        {
+          "location": "docs/implementation/m3/harness/DESIGN.md:407,412",
+          "claim": "The guard is true/all reported on the frozen corpus and determines FAIL before the confidence-bound pass."
+        },
+        {
+          "location": "docs/implementation/m3/harness/exploratory-quality-envelope.schema.v1.json:304-319,330-335",
+          "claim": "Only one findings/label-count set is carried, including censusPrecisionPpm; there are no distinct corpus, sampled, settled and unlabelled denominators."
+        },
+        {
+          "location": "Analytic counterexample; no product run",
+          "claim": "With 100 families, let one have 10,000 findings at precision 0.80 and the other 99 have one true finding each. The pooled corpus precision is 8099/10099, about 0.802. The one-per-family sample can be all true and pass the advisory bound. Calling that sample's 1.0 ratio a census defeats the large-repository guard."
+        },
+        {
+          "location": "docs/implementation/m3/analysis-quality/PLAN.md:232,238; docs/implementation/m3/harness/DESIGN.md:233-236",
+          "claim": "Conservative precision and the separate corpus/sample/independent-unit populations must remain explicit."
+        }
+      ],
+      "fix": "Specify an implementable guard: obtain complete labels, or use a preregistered conservative verified-true/corpus-total guard, or explicitly route another pooled-precision inference rule for approval. If the required guard is unavailable, report that fact and prohibit PASS. Carry corpus, sampled, settled, pending and unlabelled counts separately, with the denominator used for each family estimate and each pooled statistic. An unweighted stratified sample ratio must never be named census precision."
+    },
+    {
+      "id": "C2-Q0-R1-04",
+      "priority": "P1",
+      "title": "Keep repository-executing tools outside M3",
+      "location": "docs/implementation/m3/harness/DESIGN.md:493-497,746 (QD-17, OI-6)",
+      "problem": "The availability of an O7 profile or disposable container is presented as permission to run repository-executing differential tools and Rust compile validation. That condition does not satisfy the accepted categorical M3 prohibition.",
+      "evidence": [
+        {
+          "location": "docs/implementation/m3/harness/DESIGN.md:494-496",
+          "claim": "The record identifies build scripts, proc-macros and repository configuration evaluation, then permits those tools once a profile or container is available."
+        },
+        {
+          "location": "docs/implementation/m3/harness/DESIGN.md:746",
+          "claim": "OI-6 repeats profile/container availability as the gate for the Rust differential and mutant compile checks."
+        },
+        {
+          "location": "docs/implementation/m3/M3-PLAN.md:301,355-356",
+          "claim": "No repository-code execution in M3; prepared sets are imported and the worker prohibition stands."
+        },
+        {
+          "location": "docs/implementation/m3/M3-PLAN.md:347-352",
+          "claim": "Later M5 execution has its own successor/authorization path; O7 provider hardening does not replace it."
+        }
+      ],
+      "fix": "At M3 permit only tool modes whose pins verify that no repository code executes. Defer executing differentials and compile validation to the later explicit authorized execution path and applicable successors. Treat confinement/container availability as an additional execution condition, never the authorization or milestone gate. Update QD-17 and OI-6 together."
+    },
+    {
+      "id": "C2-Q0-R1-05",
+      "priority": "P1",
+      "title": "Specify lifetime per-process RSS counters and complete process accounting",
+      "location": "docs/implementation/m3/harness/DESIGN.md:611-621 (§9.3, QD-19)",
+      "problem": "QD-19 names wait4 for the direct child but only a polled peak for other descendants. It does not identify a lifetime counter source, final collection or complete descendant registration. Sampled observations and an unspecified host peak cannot establish the required sum of individual high-water counters.",
+      "evidence": [
+        {
+          "location": "docs/implementation/m3/harness/DESIGN.md:612-619",
+          "claim": "Concurrent RSS is sampled every 10 ms, while the proposed individual source is wait4 for the direct child and a polled per-process peak for descendants, combined with an operational-record peak."
+        },
+        {
+          "location": "docs/coop/completion/language-quality-matrix.completed.v2.json:925; docs/implementation/m3/analysis-quality/PLAN.md:329",
+          "claim": "The accepted method requires both sampled concurrent sum and each process's own high-water counter; missing child counters are NON-PASS."
+        },
+        {
+          "location": "docs/implementation/m3/operability/PLAN.md:249",
+          "claim": "The operational record promises peak RSS per process but does not itself specify the lifetime counter or collection protocol."
+        },
+        {
+          "location": "Linux kernel /proc documentation",
+          "url": "https://docs.kernel.org/filesystems/proc.html",
+          "claim": "VmHWM is a peak resident-set field distinct from current VmRSS. A maximum of current-RSS polls is not that lifetime counter."
+        },
+        {
+          "location": "Apple wait4 documentation",
+          "url": "https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man2/wait4.2.html",
+          "claim": "Returned resource usage covers the terminated process and its children; the design must specify field-specific own-versus-aggregate semantics rather than assume an own-process reading."
+        },
+        {
+          "location": "Analytic observation; no process launched",
+          "claim": "A descendant or an allocation spike can exist entirely between polls. Without launch/exit registration and final counter collection, an unobserved process cannot even trigger the stated missing-counter check."
+        }
+      ],
+      "fix": "Name the macOS and Linux lifetime counter APIs/fields, their units and own-versus-aggregate semantics. Register every supervised descendant and retain its final own counter through exit/reaping. Define de-duplication and how host observations are joined to the same process lifetime. Preserve the two accepted RSS quantities; incomplete process inventory or counter collection is an explicit NON-PASS, never replaced by sampled peaks."
+    },
+    {
+      "id": "C2-Q0-R1-06",
+      "priority": "P2",
+      "title": "Carry the missing metric denominators and repository-level results",
+      "location": "docs/implementation/m3/harness/DESIGN.md:693,707,711-712; docs/implementation/m3/harness/exploratory-quality-envelope.schema.v1.json:304-338,477-537",
+      "problem": "The claim that every result carries explicit counts is false for Q2 noise, Q6 yield and Q7 scoring. Family aggregation also replaces the accepted per-repository precision report. Definition digests alone do not supply these measured populations.",
+      "evidence": [
+        {
+          "location": "docs/implementation/m3/analysis-quality/PLAN.md:151-152,238,408-411,422",
+          "claim": "Noise is per rule/repository with hand-written-line counts and generated/vendored separation; yield reports its answerable population; per-repository precision is required; explanation field/proof checks and a 50-per-rule rubric sample must be reportable; every denominator is pinned."
+        },
+        {
+          "location": "docs/implementation/m3/harness/exploratory-quality-envelope.schema.v1.json:321-338",
+          "claim": "Q2 has optional aggregate per-million-line rates and family rows, but no repository rows or analyzed-line denominators."
+        },
+        {
+          "location": "docs/implementation/m3/harness/DESIGN.md:345-349",
+          "claim": "A family may contain multiple repositories, so per-family precision cannot substitute for per-repository precision."
+        },
+        {
+          "location": "docs/implementation/m3/harness/exploratory-quality-envelope.schema.v1.json:477,511",
+          "claim": "Q6 carries yieldPpm without determinate and answerable counts."
+        },
+        {
+          "location": "docs/implementation/m3/harness/exploratory-quality-envelope.schema.v1.json:522-537",
+          "claim": "Q7 has fieldPresencePpm and rubricAverageMilli but no fields-present/required counts, scored population or score sum, and no per-rule rows. Even status=measured requires no measurements."
+        },
+        {
+          "location": "docs/implementation/m3/harness/DESIGN.md:693",
+          "claim": "The D13 requirement is claimed to be met because every result has explicit counts."
+        }
+      ],
+      "fix": "Add closed per-repository Q2 rows with pinned repository/workload identity, family membership, label/population counts and line counts by class. Add Q6 yield numerators and denominators. Add per-rule Q7 sample counts, score totals or histogram, field/proof populations and disposition accounting. Require those fields when the section is measured; retain explicit not-measured states. Use digest-linked measured records instead if their shapes and joins are defined here. Update §11/§12 to match the actual carrier."
+    },
+    {
+      "id": "C2-Q0-R1-07",
+      "priority": "P2",
+      "title": "Represent incomplete performance measurements without inventing samples",
+      "location": "docs/implementation/m3/harness/DESIGN.md:621,635,641; docs/implementation/m3/harness/exploratory-quality-envelope.schema.v1.json:78-83,477-512",
+      "problem": "The closed Q6 shape cannot express the design's required missing-counter NON-PASS or the reason for a missing operational record. It requires complete positive arrays and permits only within, over or no-baseline.",
+      "evidence": [
+        {
+          "location": "docs/implementation/m3/harness/DESIGN.md:621",
+          "claim": "A process with no counter makes the run NON-PASS."
+        },
+        {
+          "location": "docs/implementation/m3/harness/DESIGN.md:635",
+          "claim": "Missing operational records produce null phase fields and a reason; nothing is synthesized."
+        },
+        {
+          "location": "docs/implementation/m3/harness/exploratory-quality-envelope.schema.v1.json:78-83,477-488,503-512",
+          "claim": "Seven positive values are required for each RSS series. There is no incomplete/invalid status, missing-counter field or absence-reason member."
+        },
+        {
+          "location": "docs/implementation/m3/harness/DESIGN.md:641; docs/implementation/m3/harness/exploratory-quality-envelope.schema.v1.json:237-242,477-512",
+          "claim": "Both retry batches must be retained with the second verdict final, but the carrier does not define batch identity/order or a link between separate envelopes."
+        }
+      ],
+      "fix": "Define a closed incomplete/invalid measurement variant with typed failure/absence reasons and unavailable samples represented explicitly. Such results cannot be within budget or Q6 PASS. Keep measured values that do exist; do not omit failed runs or fabricate RSS. Define batch identity, first/retry ordering and final-verdict selection, either within the envelope or through explicit linked batch envelopes, so the prescribed retry policy is reviewable."
+    },
+    {
+      "id": "C2-Q0-R1-08",
+      "priority": "P2",
+      "title": "Reconcile the K2 estimate with the independent-oracle schedule gate",
+      "location": "docs/implementation/m3/harness/DESIGN.md:726-733 (§13)",
+      "problem": "The 15-day estimate meets the day-21 finish condition but does not explain how oracle review finishes before producer output. The same section requires that independence gate, while the cited schedule allows producer validation/output much earlier.",
+      "evidence": [
+        {
+          "location": "docs/implementation/m3/harness/DESIGN.md:729,733",
+          "claim": "K2r must be done before any producer output exists, yet the conditional example starts K2 at day 0 and completes the serialized work at day 15."
+        },
+        {
+          "location": "docs/implementation/m3/M3-PLAN.md:172",
+          "claim": "K2 is authored before producers so expected answers are independent."
+        },
+        {
+          "location": "docs/implementation/m3/M3-PLAN.md:212-217",
+          "claim": "The bounded schedule has G2-v launch/validation at day 3, E3 at day 7, F2 facts at day 14 and G3 facts at day 15."
+        },
+        {
+          "location": "docs/implementation/m3/M3-PLAN.md:222,233; docs/implementation/m3/harness/DESIGN.md:752",
+          "claim": "Q0 owes K2 sizing; satisfying the finish-by-21 condition is separate from the before-producer requirement. OI-12 assigns folding the result into the path but supplies no reconciliation."
+        }
+      ],
+      "fix": "State a feasible start date and explicit oracle-freeze/review gates before affected candidate producer outputs. K2 can be scheduled earlier as pre-day-0 work, or producer validation/output can be delayed behind reviewed lane oracles. Show the resulting branch assumptions and identify the bounds to update under OI-12. Do not claim that completion by day 15 alone preserves the cited independence requirement."
+    }
+  ],
+  "nonBlockingObservations": [
+    {
+      "id": "C2-Q0-R1-N01",
+      "location": "docs/implementation/m3/harness/DESIGN.md:326-355,375-377,744-745",
+      "observation": "The family-weighted lower bound is not a population finding-weighted lower bound, and a corpus census guard does not make it one. OI-4 explicitly leaves that estimand choice to the qualification successor, which is an appropriate boundary for this exploratory design. A family can contain several repositories. One finding per family also establishes distinct evidence units, not by itself IID/common-success-probability Bernoulli observations.",
+      "followUp": "Name the estimand explicitly in reported results, prefer 'family-weighted' where that is the actual weighting, preserve OI-4 and OI-5 before qualification, and state the IID/common-p premise of the CP branch. Keep the product method's validity for heterogeneous independent family means distinct."
+    },
+    {
+      "id": "C2-Q0-R1-N02",
+      "location": "docs/implementation/m3/harness/DESIGN.md:364,405,441-443,724",
+      "observation": "The formal 29/299 floors and the one-error 46/473 examples are correct. However, §5.8 says a gating PASS needs zero errors, although larger samples can pass with errors. The 'no method can do better' argument is specifically an all-success-boundary limitation. The 299-success displayed value 0.990031 uses nearest rounding; the required downward stored bound is 990030 ppm, relevant to K1b's reference self-test.",
+      "followUp": "Say 299 error-free families suffice at the minimum; errors require more evidence. Limit the optimality claim to its proved boundary. Mark display approximations separately and supply the correct downward-rounded integer reference values."
+    },
+    {
+      "id": "C2-Q0-R1-N03",
+      "location": "docs/implementation/m3/harness/DESIGN.md:7,383-386,764",
+      "observation": "The record reports a 4,000-trial-per-scenario simulation and empirical frequencies, while the standing and final disclaimer say nothing was run and §5 contains only arithmetic. This does not invalidate the analytic proof, but the provenance statements contradict each other.",
+      "followUp": "Distinguish 'no product measurement or corpus run' from the method simulation. Give its seed/code digest and retained output if using it as supporting evidence, or remove the empirical claim and rely on the proof."
+    },
+    {
+      "id": "C2-Q0-R1-N04",
+      "location": "docs/implementation/m3/harness/DESIGN.md:215,227,281-301,453-465,509,655-657; docs/implementation/m3/harness/exploratory-quality-envelope.schema.v1.json:178-194",
+      "observation": "Several operational details should be explicit before implementation: unchanged input components versus output fields in the unexplained-change trigger; the ordered rater slots or pair-specific calculation used for Cohen's kappa; persistent held-out reservation/exposure history; and the carrier for load, frequency, swap, power and local-disk observations.",
+      "followUp": "Use §418's never-inspected condition as the controlling acceptance gate across rounds, so rotating a freeze seed or curating a differential cannot restore exposed cases to held-out standing. Define kappa's rater populations, and map QD-21 observations to a closed runner or digest-linked operational record."
+    },
+    {
+      "id": "C2-Q0-R1-N05",
+      "location": "docs/implementation/m3/harness/DESIGN.md:139-145,535",
+      "observation": "The catalog field citations to AQP:169-175 are shifted by one for subject population through default; AQP:168-174 are the corresponding rows. Rust's syntactic mod tree plus an unchanged manifest is also a limited check, so Q5 validation must not treat unsupported use/cfg/macro resolution as proven preserved.",
+      "followUp": "Correct the field citations. Document the restricted Rust refactor domain and discard/unvalidate pairs when the independent resolution invariant cannot be established; expand the semantic oracle in the later full Q5 suite."
+    }
+  ],
+  "subjectSha256": {
+    "docs/implementation/m3/harness/DESIGN.md": "22df1afb5b97f419a04e7c7cd5ffcb519f0a7311b8b4cddd7a1d90764aa831b3",
+    "docs/implementation/m3/harness/exploratory-quality-envelope.schema.v1.json": "4cdfbb60b70ffaf74ddcf64c8757c6adbebe5f64cf1a0e9e3c7a915149064877"
+  },
+  "subjectBytes": {
+    "docs/implementation/m3/harness/DESIGN.md": 65990,
+    "docs/implementation/m3/harness/exploratory-quality-envelope.schema.v1.json": 23190
+  },
+  "methodAssessment": {
+    "confidenceProof": "For independent X_j in [0,1], E[product X_j/m^k]=product E[X_j]/m^k<=1 under average E[X_j]<=m, by AM-GM. Markov gives the stated fixed-k one-sided bound. With true mean zero, all nonnegative X_j are zero almost surely and L=0. No within-family correlation model is required.",
+    "zeroError": "All true families give alpha^(1/k); k=3 gives about0.368, k_min(.90)=29 and k_min(.99)=299. The zero-error counterexample from the prior review does not pass.",
+    "methodSelection": "Structure-based selection before labels, held-out-only acceptance, exact-rational pass comparisons, conservative unclear handling, the status order, downgrade path and per-stratum confidence are specified. Advisory allocation and guard data remain required fixes.",
+    "rejectedAlternatives": "Ordinary empirical bootstrap is degenerate at all-success; the stated hierarchical and assumed-correlation alternatives require additional model/prior assumptions. The clean/unclean indicator is a valid but less informative alternative under the same independent-population premise. Product-bound conservatism is disclosed.",
+    "adjudication": "Frozen blind rubric, calibration exclusion, model-family grouping, implementation-context conflicts and a human vote/expert resolution are operational. Calibration numbers are design choices, not statistical guarantees of annotator independence or truth. TRI requires correction.",
+    "recall": "Oracle answerability, positive abstentions as misses, false completeness as release-blocking Q4, sound positives under deficiency, validated mutant states/audits and curated discovery-only differentials follow AQP. QD-17 needs the M3 boundary correction.",
+    "stability": "Separate-code mapping derivation and human review, content/proof/Coverage comparison, both spurious delta directions, small-population floor and deterministic input variants are present. Compatible cross-lane execution is expressly deferred. Restricted Rust invariant validation needs the noted limit.",
+    "performance": "Per-run cold resets, separate warm priming/new processes, product3+7 statistics, phase inventory, nonsemantic reuse disclosure and predetermined second-batch retry align with AQP/OPP. Lifetime RSS accounting and failed-run encoding require fixes.",
+    "envelope": "All object shapes are closed and measurement fields are integer based. Applying mandatory CAN parsing/canonicalization supplies lexical float rejection and byte limits. RS3 remains unchanged and referenced by digest; nonqualifying standing is fixed. Denominators, per-repository rows and incomplete measurement variants remain incomplete.",
+    "q0Scope": "Case/spec/ledger/confidence/envelope/runner mechanisms and a15-day serialized K2 estimate are all supplied. D12/D13/catalog and qualification successor signoffs remain separate. K2's before-output gate needs schedule reconciliation."
+  },
+  "reviewBoundary": "Read-only source/hash/schema inspection, analytic reasoning and primary-documentation lookup. No product code, builds, tests, fetches, benchmarks or qualification runs; no real OpenSIP runtime-home or413 fixture access; no commits. Supporting agents performed read-only checks. Only REVIEW.md and review.json are written under the requested temporary output directory."
+}
