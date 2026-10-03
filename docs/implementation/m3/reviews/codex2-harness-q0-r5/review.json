@@ -1,0 +1,117 @@
+{
+  "reviewer": "CODEX2",
+  "round": "M3-Q0-r5",
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectSha256": "d922f5bdea4a640b1f2723900da8bdadd6e4aa5c1c67acda3667bf467732637f",
+  "schemaSha256": "3f79b9797be80fb06f7981344c6d2bc524a61d615dd451f99d6067316b701800",
+  "subjects": [
+    {
+      "path": "docs/implementation/m3/harness/DESIGN.md",
+      "bytes": 111807,
+      "sha256": "d922f5bdea4a640b1f2723900da8bdadd6e4aa5c1c67acda3667bf467732637f"
+    },
+    {
+      "path": "docs/implementation/m3/harness/exploratory-quality-envelope.schema.v1.json",
+      "bytes": 53696,
+      "sha256": "3f79b9797be80fb06f7981344c6d2bc524a61d615dd451f99d6067316b701800"
+    }
+  ],
+  "r4FindingResolution": [
+    {
+      "id": "C2-Q0-R4-01",
+      "status": "RESOLVED",
+      "locations": [
+        "DESIGN.md:718",
+        "DESIGN.md:740-744",
+        "DESIGN.md:784-795",
+        "DESIGN.md:865-871"
+      ],
+      "reason": "QD-28 replaces the impossible notification interval with exact integer equality of the same /proc field-22 key, requires equal time namespaces and a usable unique match, retains unmatched host values, and marks unresolved joins incomplete. The start-before-notification case is explicitly included. This fixes the host join; the separate terminal-counter attribution rule has a new error."
+    }
+  ],
+  "requiredFindings": [
+    {
+      "id": "C2-Q0-R5-01",
+      "priority": "P1",
+      "title": "One fork inside the window does not exclude a predecessor's terminal counter",
+      "relation": "New error in the replacement for fork-timestamp attribution",
+      "locations": [
+        "DESIGN.md:739",
+        "DESIGN.md:746-757",
+        "DESIGN.md:794"
+      ],
+      "problem": "The replacement rule counts new-group forks only between sentinels and attributes records for a unique TGID without ordering. A predecessor born before the window can terminate during it, then the same TGID can be reused for a subtree process. Only the latter's birth is counted, although both generations can produce records. Terminal selection still uses ac_tgid and AGROUP, not the QD-28 start key.",
+      "counterexample": [
+        "Outside process A with TGID p is alive before the pre-launch sentinels. It exits during the run and emits a low taskstats terminal counter.",
+        "A becomes reapable and its TGID is released. A's connector exit can be delayed after the reaping notification; A's taskstats record is still pending in the independent userspace receive path.",
+        "Subtree B is created with TGID p. It is the only new-group fork(p) inside the window, so the declared uniqueness check passes.",
+        "A's taskstats record is consumed after B's fork and accepted as B's ac_tgid=p/AGROUP terminal record under the no-order attribution rule.",
+        "B's real taskstats report is omitted because prepare_reply allocation fails. The kernel can return before emitting a packet or allocating a sequence number, so no receive ENOBUFS or connector sequence gap is required.",
+        "B's connector exit and every post-run sentinel arrive. A's connector exit can arrive later than those fences; B's required exit is already present. There is one accepted terminal record and no duplicate.",
+        "B has no host entry, explicitly allowed by line 794. Therefore the exact host-start join cannot detect that B's missing own counter was replaced by A's counter."
+      ],
+      "impact": "All stated per-run predicates can be satisfied with the wrong, lower own-counter value. If the brief B peak also falls between concurrent samples, RSS can be understated and an incomplete run can be reported complete and potentially within budget.",
+      "requestedChange": "Require a positive way to exclude predecessor records and bind each accepted terminal counter to the lifetime opened for the subtree. One in-window birth alone is insufficient. Define how pre-window occupants and delayed outside/pre-opening terminal/exit traffic are retained and reconciled through completion, or use another generation-safe counter identity. Any attribution that cannot be proven must remain incomplete. Add a design/calibration case for a pre-window outside predecessor, in-window TGID reuse, delayed predecessor delivery and a missing successor taskstats report.",
+      "sources": [
+        {
+          "url": "https://raw.githubusercontent.com/torvalds/linux/v6.18/kernel/taskstats.c",
+          "evidence": "prepare_reply can fail allocation before taskstats sequence allocation (70-74); taskstats_exit returns on that failure without a report (592-594). AGROUP is applied to the per-task record at 600-602."
+        },
+        {
+          "url": "https://raw.githubusercontent.com/torvalds/linux/v6.18/kernel/exit.c",
+          "evidence": "taskstats_exit occurs at 888 before exit_notify at 923 and proc_exit_connector at 924, permitting the predecessor notification/counter delivery order described."
+        }
+      ]
+    }
+  ],
+  "nonBlockingObservations": [
+    {
+      "id": "C2-Q0-R5-N01",
+      "title": "Make the PID namespace and proc-view requirement explicit",
+      "locations": [
+        "DESIGN.md:740-743",
+        "DESIGN.md:784-785",
+        "DESIGN.md:1034"
+      ],
+      "observation": "The same-pair interface requirement should explicitly require compatible initial-namespace TGIDs and the corresponding /proc view, as well as equal time namespaces. Taskstats/connector report initial-namespace IDs; a host-side namespace-relative TGID is not interchangeable. The existing requirement that the host supply the same pair can already impose this, so it is an interface clarification under OI-11 rather than an additional required finding.",
+      "sources": [
+        "https://raw.githubusercontent.com/torvalds/linux/v6.18/kernel/taskstats.c",
+        "https://raw.githubusercontent.com/torvalds/linux/v6.18/drivers/connector/cn_proc.c"
+      ]
+    }
+  ],
+  "withdrawalAssessment": {
+    "forkTimestampAttributionWithdrawn": true,
+    "rejectingObservedReuse": "Sound and conservative: multiple observed births for a subtree TGID force incomplete.",
+    "claimedUniqueGeneration": "Not established by one birth within the sentinel window; C2-Q0-R5-01 covers the boundary predecessor case.",
+    "exactHostBridge": "Sound for usable equal keys in the required common namespace/proc representation, with unresolved joins retained and incomplete."
+  },
+  "referenceCaseInspection": {
+    "method": "Static inspection only; no reference implementation or validator run.",
+    "hostJoinCases": "The stated equality, failed/inconsistent read, key mismatch, observed double birth and time-namespace cases agree with QD-28. They do not cover predecessor generations born before the window.",
+    "quantityMapping": "host-join-unresolved is admitted by ENV runReason and carried by slotReasons. QD-27 removes ownHighWaterSumBytes and peakRssBytes, retains elapsed/concurrent samples and eligible median, and keeps the batch incomplete/non-Q6.",
+    "newReasonEnumLocation": "exploratory-quality-envelope.schema.v1.json:158",
+    "acceptedCaseLocation": "DESIGN.md:866",
+    "rejectedCaseLocation": "DESIGN.md:867"
+  },
+  "scopeAssessment": {
+    "substantiveChangesBeyondTable": false,
+    "designDiffHunks": 10,
+    "schemaDiffHunks": 2,
+    "description": "All changes map to revision metadata/table, exact start-key acquisition/host join, replacement TGID uniqueness attribution, calibration/reference cases, the new QD-27 reason and QD-28 index. The schema changes only its revision/validator description and adds host-join-unresolved to runReason. The new required finding is within the declared replacement attribution rule.",
+    "objectSchemasClosed": 40,
+    "numberTypedFieldsIntroduced": false
+  },
+  "verification": {
+    "method": "Read-only comparison of r5 with retained r4 subjects/review and static checks against primary Linux v6.18 source.",
+    "hashesMatchRequest": true,
+    "r4SnapshotHashesMatch": true,
+    "productCodeExecuted": false,
+    "testsOrBuildsRun": false,
+    "validatorExecuted": false,
+    "corpusFetched": false,
+    "runtimeHomeAccessed": false,
+    "commitsCreated": false,
+    "writesRestrictedTo": "/tmp/opensip-implementation/reviews/codex2-harness-q0-r5/"
+  }
+}
