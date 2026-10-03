@@ -1,0 +1,160 @@
+{
+  "reviewer": "CODEX2",
+  "round": "M3-Q0-r9",
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectSha256": "4db107c03d9d65b4c62cc113baf15335810228d3d6328bae961d809ca3d5924b",
+  "schemaSha256": "00f6d032c24c886341f27c4bb2befe6104f76daa0ca462c34c8175edb2c47d36",
+  "subjects": [
+    {
+      "path": "docs/implementation/m3/harness/DESIGN.md",
+      "bytes": 120794,
+      "sha256": "4db107c03d9d65b4c62cc113baf15335810228d3d6328bae961d809ca3d5924b"
+    },
+    {
+      "path": "docs/implementation/m3/harness/exploratory-quality-envelope.schema.v1.json",
+      "bytes": 53610,
+      "sha256": "00f6d032c24c886341f27c4bb2befe6104f76daa0ca462c34c8175edb2c47d36"
+    }
+  ],
+  "requiredFindings": [
+    {
+      "id": "C2-Q0-R9-01",
+      "priority": "P2",
+      "title": "Establish descriptor isolation and continuous control ownership",
+      "locations": [
+        "DESIGN.md:783-798",
+        "DESIGN.md:810-818"
+      ],
+      "problem": "The namespace guarantee omits inherited cgroup-control descriptors and access to writable ancestor controls. Either can defeat completeness while final emptiness/read checks pass.",
+      "impact": "A run can escape the measured subtree or lose its earlier memory-controller high-water and still be called complete.",
+      "requestedChange": "Specify and verify a descriptor allowlist/close-on-exec boundary and mount/access isolation that deny outside controls and preserve controller identity for the whole interval. Keep ordinary credentials and capability drop. If not established, report cgroup-escape-unprevented. Calibrate both inherited-descriptor migration and ancestor-controller interference.",
+      "evidence": "Two source-derived, unexecuted counterexamples are detailed in REVIEW.md. Ordinary namespace-local migration is correctly bounded.",
+      "sources": [
+        "https://raw.githubusercontent.com/torvalds/linux/v6.1/kernel/cgroup/cgroup.c",
+        "https://raw.githubusercontent.com/torvalds/linux/v6.1/mm/memcontrol.c"
+      ]
+    },
+    {
+      "id": "C2-Q0-R9-02",
+      "priority": "P2",
+      "title": "Remove the universal anonymous-RSS bound and qualify first-touch accounting",
+      "locations": [
+        "DESIGN.md:790-791",
+        "DESIGN.md:799",
+        "analysis-quality/PLAN-r5.md:332"
+      ],
+      "problem": "The run's charge peak is not a universal bound on mapped anonymous resident memory, and placement in the leaf does not charge every touched page there.",
+      "impact": "The report misstates the measurement's coverage and conservatism.",
+      "requestedChange": "Remove the universal inequality; qualify entry as placement for subsequent accounting, with inherited/shared/external ownership limits. Preserve the charged-memory label and D13 decision. Align the harness wording with the separately corrected quality-plan amendment.",
+      "sources": [
+        "https://www.kernel.org/doc/html/v6.1/admin-guide/cgroup-v2.html#memory-ownership"
+      ]
+    },
+    {
+      "id": "C2-Q0-R9-03",
+      "priority": "P2",
+      "title": "Make leaf validation compatible with unavailable or missing evidence",
+      "locations": [
+        "DESIGN.md:778-786",
+        "DESIGN.md:803",
+        "DESIGN.md:867-880",
+        "exploratory-quality-envelope.schema.v1.json:5"
+      ],
+      "problem": "Every measured slot must name a distinct actual leaf through its operational record, but declared unavailable-host/platform cases create no leaf, and record-missing is explicitly allowed.",
+      "impact": "A legitimate incomplete result either becomes invalid or needs invented evidence; the preserved known-sample case contradicts the new invariant.",
+      "requestedChange": "Condition actual-leaf identity and uniqueness on creation, define absent-leaf evidence for typed incomplete cases, and specify independent driver evidence or a record-present-only check for missing records. Preserve QD-27 known values. Add design reference cases for unavailable Linux, macOS, and measured record-missing."
+    },
+    {
+      "id": "C2-Q0-R9-04",
+      "priority": "P2",
+      "title": "Bind memory budget ratios to a compatible charged-memory baseline",
+      "locations": [
+        "DESIGN.md:764",
+        "DESIGN.md:841-844",
+        "DESIGN.md:913",
+        "exploratory-quality-envelope.schema.v1.json:1381",
+        "exploratory-quality-envelope.schema.v1.json:1518"
+      ],
+      "problem": "Q6 now carries charged-memory samples, but both schema variants retain baselinePeakRssBytes and the budget rule still applies the product memory ratio without defining a compatible denominator.",
+      "impact": "A reviewed old RSS baseline can produce a meaningless within/over status for the new metric.",
+      "requestedChange": "Give the baseline explicit charged-memory semantics and an accurate carrier name, and bind it to reviewed compatible measurement/reset/cache conditions. Do not reuse an RSS baseline by implication. Until such a baseline exists, use no-baseline or an explicitly approved exploratory absolute-charge comparison; retain the G13/D13 boundary."
+    }
+  ],
+  "nonBlockingObservations": [
+    {
+      "id": "C2-Q0-R9-N01",
+      "priority": "P3",
+      "title": "Correct ENV's stale AQP citations and pin the cited revision",
+      "locations": [
+        "exploratory-quality-envelope.schema.v1.json:5",
+        "DESIGN.md:36"
+      ],
+      "observation": "ENV still cites AQP:419-425 and :535. For the requested r5 basis the intended envelope/D13 targets are PLAN-r5.md:428-434 and :544. Live PLAN.md advanced to r6 during review; cite a pinned snapshot or remap deliberately. DESIGN's sampled mechanical remaps were correct for r5."
+    },
+    {
+      "id": "C2-Q0-R9-N02",
+      "priority": "P3",
+      "title": "Clarify descendant settlement and elapsed end after withdrawing tracing",
+      "locations": [
+        "DESIGN.md:762",
+        "DESIGN.md:794-798",
+        "DESIGN.md:808"
+      ],
+      "observation": "Empty cgroup membership does not prove every descendant was reaped or successful. State how the retained descendant-reaping requirement and elapsed end cover daemonized descendants, bounded cleanup and failed settlement after root exit. Keep the existing run-failure rule separate from the memory-counter read.",
+      "sources": [
+        "https://raw.githubusercontent.com/torvalds/linux/v5.19/Documentation/admin-guide/cgroup-v2.rst"
+      ]
+    }
+  ],
+  "requestAssessment": {
+    "cgroupMethod": "Fresh leaves, pre-exec placement, post-drain reading and page-cache ownership disclosure fit a per-run charged-memory metric. Containment/control continuity and the universal RSS claim require R9-01/02.",
+    "launcherCapabilities": "Creating the leaf-rooted cgroup namespace with CAP_SYS_ADMIN then dropping all workload capabilities is sound in principle; it does not revoke inherited descriptors or ordinary filesystem control access.",
+    "r8Findings": [
+      {
+        "id": "C2-Q0-R8-01",
+        "status": "MOOT-WITHDRAWN-MECHANISM"
+      },
+      {
+        "id": "C2-Q0-R8-02",
+        "status": "MOOT-WITHDRAWN-MECHANISM"
+      },
+      {
+        "id": "C2-Q0-R8-03",
+        "status": "MOOT-WITHDRAWN-MECHANISM"
+      },
+      {
+        "id": "C2-Q0-R8-04",
+        "status": "MOOT-WITHDRAWN-MECHANISM"
+      },
+      {
+        "id": "C2-Q0-R8-05",
+        "status": "MOOT-SAME-RUNS"
+      }
+    ],
+    "nulling": "The six cgroup reasons plus two additional memory reasons match QD-27. Only cgroup-not-empty invalidates elapsed as well as memory among those reasons. Record missing/invalid preserves known samples; any reason remains incomplete and excluded from Q6.",
+    "schema": "Static JSON inspection found all 40 object schemas closed and no floating-point fields; withdrawn sample/mode fields and reasons are removed. New leaf invariant and retained RSS baseline need R9-03/04.",
+    "standing": "RS3 is unchanged. Charged Q6 measurements stay exploratory; D13 owns qualification equivalence. This does not accept the separately proposed quality-plan amendment."
+  },
+  "dependencySnapshot": {
+    "path": "docs/implementation/m3/analysis-quality/PLAN-r5.md",
+    "sha256": "c8ceb480718c41a803c83fc170296ed89d1dde59885d61f6589d9a1eed2105d8",
+    "note": "Live PLAN.md advanced to proposal r6 during this review. Its preserved r5 snapshot matches the requested dependency hash. This review assesses the pinned Q0 r9 subjects and their r5 citations."
+  },
+  "scopeAssessment": {
+    "substantiveChangesBeyondTable": false,
+    "description": "The r8 delta fits the announced cgroup replacement, withdrawn mechanisms, reason/carrier/validator changes, preregistration, D12/OI updates and AQP citation remapping."
+  },
+  "verification": {
+    "method": "Read-only subject and retained-r8 comparison; static schema/carrier/citation checks; three independent challenge slices; primary Linux source and documentation inspection.",
+    "hashesMatchRequest": true,
+    "r8SnapshotHashesMatch": true,
+    "productCodeExecuted": false,
+    "testsOrBuildsRun": false,
+    "validatorExecuted": false,
+    "referenceImplementationExecuted": false,
+    "corpusFetched": false,
+    "runtimeHomeAccessed": false,
+    "commitsCreated": false,
+    "writesRestrictedTo": "/tmp/opensip-implementation/reviews/codex2-harness-q0-r9/"
+  }
+}
