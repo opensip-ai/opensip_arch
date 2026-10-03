@@ -1,6 +1,4 @@
-# M3 analysis-quality plan — proposal r4
-
-**r4 ACCEPTED 2026-10-03.** GROK2 accepted r4 (`52895ef2…`; fact validation). CODEX2 accepted r3 (`8f5b3547…`; method), and r4 differs from r3 only by GROK2's r3 RF-1, the two Q2 sentences. r4's bytes, without this note, are preserved in `PLAN-r4.md`.
+# M3 analysis-quality plan — proposal r5
 
 2026-10-03. Claude Opus 5.5, implementation lead. Written at the owner's request ("draft the M3 analysis-quality plan"). r1 (`PLAN-r1.md`, sha256 `4e1c0901…`) was reviewed by GROK2 (fact validation, 7 required findings) and CODEX2 (method, 10 required findings). r2 answers all 17 and records the owner's decisions of 2026-10-03.
 
@@ -39,6 +37,10 @@ Short names used below:
 - **CH13:** `docs/v2/architecture/13-evidence-workflows-and-product-contracts.md`
 
 ---
+
+## r5 changes
+
+r5 changes one thing: how peak memory is measured (§5.1). It is a lead decision made under the owner's standing direction, and it follows CODEX2's M3-Q0 r8 review. r4 is preserved as `PLAN-r4.md`. Linux peak memory is now cgroup v2 `memory.peak`, labelled as charged memory rather than RSS. Per-process `wait4` maxima are information only, and macOS remains `incomplete`. Whether it satisfies AQ's "peak RSS bytes" for qualification goes to the G13 successor (D13).
 
 ## r3 changes and review responses
 
@@ -326,7 +328,14 @@ A sound positive under incomplete Coverage is a correct determinate fail, not a 
 
 **Statistics.** The product regime governs every new cell: 3 warmups, then 7 measured runs; median elapsed time and maximum peak RSS; 1.20× and 1.25× against a reviewed baseline; and reviewed absolute bounds (AQ:268-282).
 - **Cold fixtures** reset to the cold definition before every measured run, so warmups never turn cold samples into warm ones (LQM:923-924; AQ:279-280).
-- **RSS.** The run records both the high-water mark of the concurrent process tree's summed RSS and the sum of each process's own high-water counter. The budget value is the larger of the two, following the preview method (AQC:142-145; LQM:925). Using the concurrent sum alone would be a new measurement choice; this plan does not make it.
+- **Peak memory (r5, lead decision).** On Linux the run's peak-memory figure is the workload cgroup's kernel high-water mark, cgroup v2 `memory.peak`. The workload runs in a dedicated cgroup that its descendants cannot leave without privilege. The kernel maintains the mark for everything charged to the group, so it is complete without tracing, event channels or per-process attribution.
+  - **What it measures.** It is charged memory, including page cache and kernel memory charged to the group. That is not strictly resident set size, and it is never smaller than the group's anonymous resident memory, so it is the conservative figure. Reports label it `cgroupMemoryPeak`, never "RSS".
+  - **Per-process peaks.** Each supervised process's maximum resident size, from the host's `wait4` resource usage when it reaps the process, is recorded as information only. It is never a budget input.
+  - **macOS** has no equivalent group high-water mark, so its peak-memory figure is `incomplete` and can't pass a budget.
+  - **Product qualification.** AQ:268-272 asks for "peak RSS bytes" without defining how they are measured. Whether `memory.peak` satisfies that for G13 qualification goes to the G13 successor (D13); exploratory measurements use it now.
+  - **Rejected alternatives:**
+    - **r4's larger-of-two rule** (the concurrent summed RSS high-water and the sum of per-process high-water counters, from the preview method, AQC:142-145; LQM:925). Its per-process half took four design rounds of event-channel and ptrace mechanisms (M3-Q0 r2–r8), and each still had loss or attribution gaps.
+    - **A sampled concurrent sum.** It can miss short peaks.
 - **Tails.** The seven samples and their maximum are reported as diagnostics only. They don't replace the median.
 - The preview's p95 regime stays the TypeScript preview's own. **D1** corrects QG:268-269.
 

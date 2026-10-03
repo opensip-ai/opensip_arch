@@ -1,0 +1,182 @@
+{
+  "reviewer": "CODEX2",
+  "round": "M3-Q0-r8",
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectSha256": "c958fdabce364316773b7238a98a6b2de118355f95f65872bd0c8e3a6dba89a8",
+  "schemaSha256": "cc6f3cb842b65fc1b7b2802a1769ade3d712e593578ee2dcfae4b17753b57ea4",
+  "subjects": [
+    {
+      "path": "docs/implementation/m3/harness/DESIGN.md",
+      "bytes": 120918,
+      "sha256": "c958fdabce364316773b7238a98a6b2de118355f95f65872bd0c8e3a6dba89a8"
+    },
+    {
+      "path": "docs/implementation/m3/harness/exploratory-quality-envelope.schema.v1.json",
+      "bytes": 57369,
+      "sha256": "cc6f3cb842b65fc1b7b2802a1769ade3d712e593578ee2dcfae4b17753b57ea4"
+    }
+  ],
+  "previousSubjects": [
+    {
+      "path": "docs/implementation/m3/harness/DESIGN-r7.md",
+      "sha256": "c72f71ba48f294ba0a98aacac8406cb4a6a61e9bbd5ec8a7da760b5b3d26bd44"
+    },
+    {
+      "path": "docs/implementation/m3/harness/exploratory-quality-envelope.schema.v1-r7.json",
+      "sha256": "1afd27094f80485e15fd397573462533dcf9d225efca764039b3f97722674deb"
+    }
+  ],
+  "requiredFindings": [
+    {
+      "id": "C2-Q0-R8-01",
+      "priority": "P1",
+      "title": "Cover creation paths that suppress automatic ptrace attachment",
+      "locations": [
+        "DESIGN.md:769",
+        "DESIGN.md:782",
+        "DESIGN.md:791-797"
+      ],
+      "problem": "CLONE_UNTRACED bypasses automatic child attachment. The exec-only filter does not observe an untraced child that allocates and exits without exec; periodic cgroup checks cannot prove that such a brief lifetime never existed.",
+      "impact": "All observed tracees can satisfy the structural proof while an unobserved child's counter is omitted, allowing false complete RSS.",
+      "requestedChange": "Establish coverage for attachment-suppressing creation paths or reliably mark the affected run untraced-process/incomplete. A complete run needs a positively established admission or observation rule, not the assertion that TRACEFORK/VFORK/CLONE catches every birth. Include legacy clone and clone3 handling.",
+      "requiredCalibration": "A short-lived CLONE_UNTRACED child allocates a peak and exits without exec between containment samples; the run must not be complete.",
+      "sources": [
+        "https://raw.githubusercontent.com/torvalds/linux/v6.18/kernel/fork.c",
+        "https://raw.githubusercontent.com/torvalds/linux/v6.18/include/linux/ptrace.h"
+      ]
+    },
+    {
+      "id": "C2-Q0-R8-02",
+      "priority": "P1",
+      "title": "Do not use an exec-entry read as the old image's final high-water counter",
+      "locations": [
+        "DESIGN.md:782-786",
+        "DESIGN.md:794",
+        "DESIGN.md:833-835"
+      ],
+      "problem": "The successful seccomp read precedes kernel copying of argv/envp. Faulting previously nonresident old-image argument pages can raise its high-water after that read; successful exec discards the old mm before the EXEC stop.",
+      "impact": "A single-threaded exec can satisfy every stated read/completion condition with an understated old-image counter. An occasional concurrent sample is not a repair.",
+      "requestedChange": "Capture a validated old-image terminal counter covering the interval through address-space retirement, or mark transitions whose final counter is unavailable own-counter-missing/incomplete. Keep the entry read diagnostic unless its terminal equivalence is proven.",
+      "requiredCalibration": "Exec with valid argv/env strings in nonresident mapped pages; account for the old-image peak raised during kernel argument copying, or report incomplete.",
+      "sources": [
+        "https://raw.githubusercontent.com/torvalds/linux/v6.18/fs/exec.c"
+      ]
+    },
+    {
+      "id": "C2-Q0-R8-03",
+      "priority": "P2",
+      "title": "Preserve shared-address-space ownership instead of counting inherited VmHWM history",
+      "locations": [
+        "DESIGN.md:779",
+        "DESIGN.md:782-786",
+        "DESIGN.md:53"
+      ],
+      "problem": "A CLONE_VM/vfork child has a distinct TGID but shares the parent's mm and its historical VmHWM. Summing that pre-exec segment counts a parent's peak from before the child's birth as the child's own peak.",
+      "impact": "Figure (b) changes and can be overstated despite successful tracing and reads, breaking its own-lifetime meaning and baseline/budget comparability.",
+      "requestedChange": "Restore the explicitly justified shared-mm/pre-exec ownership exception, or define a correct ownership source; unsupported sharing must be incomplete. Do not equate TGID uniqueness with ownership of a VmHWM history.",
+      "requiredCalibration": "Parent peaks, releases most memory, then vforks/posix_spawns a child that execs immediately; the old parent history must not be counted again for the child.",
+      "sources": [
+        "https://raw.githubusercontent.com/torvalds/linux/v6.18/kernel/fork.c",
+        "https://raw.githubusercontent.com/torvalds/linux/v6.18/fs/proc/task_mmu.c"
+      ]
+    },
+    {
+      "id": "C2-Q0-R8-04",
+      "priority": "P2",
+      "title": "Make attach and detach failures consistent with the installed exec-trace filter",
+      "locations": [
+        "DESIGN.md:763-768",
+        "DESIGN.md:795",
+        "DESIGN.md:801",
+        "DESIGN.md:880-881",
+        "DESIGN.md:926-927"
+      ],
+      "problem": "The root installs RET_TRACE before attachment. If attachment fails, exec returns ENOSYS instead of running the measured binary. Controlled detach similarly changes later exec outcomes, while tracer-unavailable/tracer-failed currently retain elapsed and concurrent samples.",
+      "impact": "Retained timing/RSS samples can describe failed bootstrap or altered workload execution rather than the requested workload. The unavailable calibration's retained-elapsed expectation is not executable as written.",
+      "requestedChange": "Provide an explicitly filter-free untraced launch path before irreversible filter installation, or treat the affected execution as failed with the appropriate null-all reason. For controlled failure define safe tracee cleanup and distinguish lost measurement from changed workload execution. Preserve failed slots and retry evidence.",
+      "requiredCalibration": "Forced SEIZE failure after bootstrap/filter setup, and a controlled tracer failure followed by a required exec; verify intended workload execution or failed-run nulling.",
+      "sources": [
+        "https://docs.kernel.org/userspace-api/seccomp_filter.html"
+      ]
+    },
+    {
+      "id": "C2-Q0-R8-05",
+      "priority": "P2",
+      "title": "Give timing and RSS batches distinct identities and a complete pairing contract",
+      "locations": [
+        "DESIGN.md:812",
+        "DESIGN.md:888-902",
+        "exploratory-quality-envelope.schema.v1.json:5",
+        "exploratory-quality-envelope.schema.v1.json:1406-1410",
+        "exploratory-quality-envelope.schema.v1.json:1458-1498",
+        "exploratory-quality-envelope.schema.v1.json:1594-1598"
+      ],
+      "problem": "The canonical batch tuple omits measurement role. Paired first timing/RSS batches have identical batchId; using ordinal 2 for RSS consumes the CI retry and conflicts with highest-ordinal finality. rssBatchId's same-configuration lookup does not define distinct roles, slot provenance or failure propagation.",
+      "impact": "The split mode cannot represent both physical batches and their unique operational evidence under the existing identity/coverage rules. Looser pairing can misassociate RSS and timing or select traced elapsed as final.",
+      "requestedChange": "Separate physical measurement role from retry ordinal in batch identity/carriers. Define pair identity, RSS source/destination and per-slot value provenance, reset/priming, observations/operational-record coverage, pair-wide incompleteness, and retry/finality rules. Update ENV and validator/reference cases consistently.",
+      "requiredCalibration": "Represent first and retry pairs with distinct physical batch IDs, reject self/wrong-role/wrong-ordinal links, preserve each role's evidence, and propagate an RSS-only failure without erasing valid untraced elapsed."
+    }
+  ],
+  "nonBlockingObservations": [
+    {
+      "id": "C2-Q0-R8-N01",
+      "priority": "P3",
+      "title": "Make stop classification and thread-group membership explicit",
+      "locations": [
+        "DESIGN.md:774-776",
+        "DESIGN.md:788-790"
+      ],
+      "observation": "Auto-attach EVENT_STOP/SIGTRAP is resumed without signal injection; genuine job-control stops use LISTEN, and signal-delivery stops reinject the delivered signal. GETEVENTMSG supplies the new TID, not clone flags; obtain Tgid/actual membership at the child stop. The design is implementable with these distinctions.",
+      "sources": [
+        "https://man7.org/linux/man-pages/man2/ptrace.2.html"
+      ]
+    },
+    {
+      "id": "C2-Q0-R8-N02",
+      "priority": "P3",
+      "title": "Make the preregistered overhead selector reproducible",
+      "locations": [
+        "DESIGN.md:554",
+        "DESIGN.md:810-814",
+        "exploratory-quality-envelope.schema.v1.json:567-585"
+      ],
+      "observation": "Define the untraced spread statistic, pairing/order and aggregation across fixtures/workloads, and retain the values used by both selection predicates. Overhead ppm and chosen mode alone do not reproduce the spread test. These details can be pinned by the already-required preregistration."
+    }
+  ],
+  "requestAssessment": {
+    "ptraceMechanism": "Not yet sound and complete: C2-Q0-R8-01/02 prevent the claimed positive proof, and C2-Q0-R8-03 changes the own-counter metric.",
+    "ordinaryAttachment": "Kernel auto-attachment and initial stops work for covered fork/vfork/clone paths, with options inherited.",
+    "execTakeover": "GETEVENTMSG is the correct basis for former-TID re-keying, and old-group exits precede successful takeover. This does not close the final old-mm counter gap.",
+    "signalsAndGroupStops": "The stated reinjection/LISTEN approach is sound with the classification clarification in N01.",
+    "earlyLeader": "Reading the exiting worker's task entry is sound under retained zombie-leader lookup. No separate early-leader rejection finding.",
+    "yamaAndTracerDeath": "Scope handling and EXITKILL are sound in principle; unavailable/detach execution handling needs R8-04. The parent-driver tracer-died/null-all path is retained.",
+    "O7": "No independent weakening found in the specified no-mutation tracer, seccomp precedence or Landlock direction. The pending O7 owner decision and D-law launch prerequisites remain in force.",
+    "timing": "The decision to measure tracing overhead and preregister the mode is reasonable; R8-04 and R8-05 block its specified failure/split paths.",
+    "r6Finding": {
+      "id": "C2-Q0-R6-01",
+      "status": "MOOT-WITHDRAWN-MECHANISM",
+      "reason": "QD-30 withdraws taskstats/connector attribution and all queue/per-CPU fences; no terminal substitution via that mechanism remains. This is not an acceptance of unseen r7 or of the new proof."
+    },
+    "earlierBatchJoins": "Retained for combined runs; split-mode physical batches collide under the old tuple (R8-05).",
+    "earlierQuantityNulling": "Warmup/priming slots and iff per-quantity mapping remain. R8-04 exposes a changed-workload case incorrectly categorized as measurement-only.",
+    "earlierHostJoin": "Exact (tgid, field-22 ticks), namespace compatibility, retained unresolved values and prohibition on replacing missing counters remain at DESIGN:821-826."
+  },
+  "scopeAssessment": {
+    "substantiveChangesBeyondTable": false,
+    "designDiffHunks": 10,
+    "description": "The r8 delta maps to decision/revision metadata, QD-31 preregistration, the QD-30 replacement and its interactions, QD-27 reason changes/reference cases, D12 carrier, schema and OI-19/QD index. No unrelated scope change found."
+  },
+  "verification": {
+    "method": "Read-only comparison with retained r7 subjects and prior review, static schema/carrier/authority inspection, independent challenge reviews, and primary Linux documentation/source checks.",
+    "hashesMatchRequest": true,
+    "r7SnapshotHashesMatch": true,
+    "productCodeExecuted": false,
+    "testsOrBuildsRun": false,
+    "validatorExecuted": false,
+    "referenceImplementationExecuted": false,
+    "corpusFetched": false,
+    "runtimeHomeAccessed": false,
+    "commitsCreated": false,
+    "writesRestrictedTo": "/tmp/opensip-implementation/reviews/codex2-harness-q0-r8/"
+  }
+}
