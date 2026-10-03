@@ -1,0 +1,146 @@
+{
+  "reviewer": "CODEX2",
+  "round": "M3-Q0-r4",
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectSha256": "f7afe2755e21c0f11dfb2fb071d4d8a89d293a1932b1590c1ad385df0fa9adec",
+  "schemaSha256": "b6c7d8ae34eb0ac4759a3b9ec330cc6b914c69aee2534932d95c08c9c3fb3006",
+  "subjects": [
+    {
+      "path": "docs/implementation/m3/harness/DESIGN.md",
+      "bytes": 107617,
+      "sha256": "f7afe2755e21c0f11dfb2fb071d4d8a89d293a1932b1590c1ad385df0fa9adec"
+    },
+    {
+      "path": "docs/implementation/m3/harness/exploratory-quality-envelope.schema.v1.json",
+      "bytes": 53642,
+      "sha256": "b6c7d8ae34eb0ac4759a3b9ec330cc6b914c69aee2534932d95c08c9c3fb3006"
+    }
+  ],
+  "r3FindingResolution": [
+    {
+      "id": "C2-Q0-R3-01",
+      "status": "RESOLVED",
+      "locations": [
+        "DESIGN.md:795-807",
+        "DESIGN.md:817-823",
+        "exploratory-quality-envelope.schema.v1.json:215-291",
+        "exploratory-quality-envelope.schema.v1.json:1468",
+        "exploratory-quality-envelope.schema.v1.json:1580-1587"
+      ],
+      "reason": "Nonempty slotReasons rows carry typed priming, warmup and measured identities. Warmup-only record failure is representable without corrupting measured positions, and coverage consults the correct slot. All seven measured-series positions and valid aggregates can be retained."
+    },
+    {
+      "id": "C2-Q0-R3-02",
+      "status": "RESOLVED",
+      "locations": [
+        "DESIGN.md:797-807",
+        "DESIGN.md:820-842",
+        "exploratory-quality-envelope.schema.v1.json:5"
+      ],
+      "reason": "QD-27 maps reasons to affected quantities, separates evidence failure from measurement availability, preserves all four numeric samples for missing/invalid operational records, and independently preserves aggregates when their inputs exist. Any affected slot still makes the batch incomplete and non-Q6. Schema and declared semantic checks agree for the listed cases."
+    }
+  ],
+  "requiredFindings": [
+    {
+      "id": "C2-Q0-R4-01",
+      "priority": "P2",
+      "title": "Join host kernel-start identities through an explicit bridge, not a later notification interval",
+      "relation": "New error introduced in the response to C2-Q0-R3-N01",
+      "locations": [
+        "DESIGN.md:710",
+        "DESIGN.md:730-734",
+        "DESIGN.md:769"
+      ],
+      "problem": "The new host join requires the host's process start to lie in the interval from the fork-event timestamp to the terminal record. The stated process identity uses kernel start time, which is assigned before the fork connector is invoked; the connector timestamps its later notification. A genuine process start therefore precedes the proposed interval's lower endpoint. The raw fields also use different clock representations: /proc stat22 is boot-time ticks, while connector timestamps use monotonic nanoseconds.",
+      "counterexample": {
+        "assumptions": "Single TGID lifetime on an unsuspended host, with units and clock domains normalized; no event loss or reuse ambiguity.",
+        "hostProcessStartSeconds": "100.000",
+        "forkNotificationSeconds": "100.001",
+        "terminalRecordSeconds": "100.200",
+        "result": "The host start is outside [100.001,100.200], so the stated rule returns no match and forces unjoinable-identity/incomplete despite a correct host record."
+      },
+      "impact": "Otherwise valid host RSS observations are systematically rejected under the stated kernel-start identity. Conservative incomplete status prevents false PASS, but breaks the intended complete-run path.",
+      "requestedChange": "Retain an explicit same-generation bridge between the host kernel-start identity and the harness lifetime generation, defining clock domains, units and tick quantization. Join through that bridge, or specify a sound generation-bound method whose lower endpoint can precede actual creation. Keep unavailable or ambiguous bridges incomplete. Add a design reference case in which a valid kernel start precedes its fork notification and joins correctly; do not discard an unmatched host value.",
+      "sources": [
+        {
+          "url": "https://raw.githubusercontent.com/torvalds/linux/v6.18/kernel/fork.c",
+          "evidence": "start_time/start_boottime are assigned at lines 2181-2182 before proc_fork_connector at 2279."
+        },
+        {
+          "url": "https://raw.githubusercontent.com/torvalds/linux/v6.18/drivers/connector/cn_proc.c",
+          "evidence": "proc_fork_connector timestamps the notification using ktime_get_ns at line 120."
+        },
+        {
+          "url": "https://raw.githubusercontent.com/torvalds/linux/v6.18/fs/proc/array.c",
+          "evidence": "stat22 derives from timens-adjusted start_boottime converted to clock ticks at lines 552-554."
+        }
+      ]
+    }
+  ],
+  "nonBlockingObservations": [],
+  "r3NonBlockingResolution": [
+    {
+      "id": "C2-Q0-R3-N01",
+      "status": "PARTIALLY-RESOLVED",
+      "locations": [
+        "DESIGN.md:731-744",
+        "DESIGN.md:769"
+      ],
+      "reason": "Buffering, conservative attribution rejection, retained lifetime history and the birth-history-only sentinel fence are supplied. The new host-key reconciliation introduces C2-Q0-R4-01."
+    },
+    {
+      "id": "C2-Q0-R3-N02",
+      "status": "RESOLVED",
+      "locations": [
+        "DESIGN.md:749-758"
+      ],
+      "reason": "Successful peak/join calibration cases are separated from expected-incomplete loss cases."
+    }
+  ],
+  "referenceCaseInspection": {
+    "method": "Static inspection of schema shapes and declared QD-27 semantic rules; no reference implementation or validator executed.",
+    "acceptedCases": [
+      "Warmup-0 record-missing with all 28 measured values and eligible aggregates retained.",
+      "Measured-0 record-missing with all four numeric samples retained.",
+      "Event-loss nulls own-high-water sum and peak, while elapsed, concurrent sum and eligible median remain.",
+      "Run-failed nulls all four numeric benchmark samples in its slot."
+    ],
+    "schemaRejections": [
+      "Empty slotReasons on an incomplete row.",
+      "Affected-slot row with no reasons.",
+      "Warmup index 3.",
+      "Legacy runReasons.",
+      "Complete-variant row carrying slotReasons.",
+      "Reasoned row claiming within."
+    ],
+    "semanticRejections": [
+      "Record-missing nulling an otherwise known elapsed sample.",
+      "Event-loss nulling concurrent sum.",
+      "Event-loss leaving own-high-water sum present.",
+      "Null measured value with only a warmup reason.",
+      "Duplicate slotReasons rows."
+    ],
+    "matchesDeclaredCases": true,
+    "qualificationRunPerformed": false
+  },
+  "scopeAssessment": {
+    "substantiveChangesBeyondTable": false,
+    "designDiffHunks": 8,
+    "schemaDiffHunks": 4,
+    "description": "All changes map to revision metadata/table, the two required fixes, RSS N01/N02 clarifications, validator reference cases and the QD-27 decisions-index entry. The schema changes only its revision/validator description, slotReason definition and replacement of runReasons with typed slotReasons. The new required finding is within the declared N01 response.",
+    "objectSchemasClosed": 40,
+    "numberTypedFieldsIntroduced": false
+  },
+  "verification": {
+    "method": "Read-only comparison of r4 subjects with retained r3 snapshots and review, static analysis of declared cases, and primary Linux v6.18 source checks for the new host join.",
+    "hashesMatchRequest": true,
+    "r3SnapshotHashesMatch": true,
+    "productCodeExecuted": false,
+    "testsOrBuildsRun": false,
+    "validatorExecuted": false,
+    "corpusFetched": false,
+    "runtimeHomeAccessed": false,
+    "commitsCreated": false,
+    "writesRestrictedTo": "/tmp/opensip-implementation/reviews/codex2-harness-q0-r4/"
+  }
+}
