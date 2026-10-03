@@ -485,7 +485,7 @@ It changes the following and nothing else.
 
   No accepted outcome of any other law changes. No new public code, row or detail.
 
-**r15 (2026-10-03) is an amendment made as lead decisions under the owner's standing direction of 2026-09-30.** r14 bytes are preserved in PROPOSAL-r14.md. r15 ACCEPTED by Codex on 2026-10-03.
+**r15 (2026-10-03) is an amendment made as lead decisions under the owner's standing direction of 2026-09-30.** r14 bytes are preserved in PROPOSAL-r14.md.
 
 - **Where it was found.** It was found while preparing X9-4, on product main `b999ae3` with X9-3's uncommitted worktree as its base.
 - **Nothing has been run.** X9-4 has made no census run, no development run and no lead run set. Every finding below comes from reading the code and X9-3's census trace (`x93-r14-census-x93`), and each states its file:line evidence.
