@@ -1,0 +1,51 @@
+# X9 r14 — ACCEPT
+
+r14 records three decisions from X9-3's two lead run sets. The diff against accepted r13 is those decisions, plus the r13 acceptance stamp. Each decision follows the product at `b999ae34ed567a010bd789488512884fa38df05b` and the sets as saved. The sets predate the prototype that implements the group order. The lead's report that three later sets agreed, and that the regenerated census files are byte-identical, is the lead's evidence of the change after these sets. This review judges the rule and the two other decisions against the law, that commit, and the saved sets.
+
+Subject `docs/implementation/m2/crash-matrix-x9/PROPOSAL.md` is 145042 bytes, sha256 `f2800ff94c9c95fae7b5b3f9e736a75d946b4f7004151acd3db087ded67dcbbd`. The preserved snapshot is the accepted r13: `PROPOSAL-r13.md`, 134335 bytes, sha256 `f373415ea1a7bb812b12d70e345a35562e54e4ee547034e1ecfab6a4b87d23cc`, equal to the r13 review's subject. The diff is nine hunks, 87 insertions and 5 deletions: the title, the r8 trace-digest bullet, the r13 acceptance stamp, the r14 header, item 7's two repetition bullets, item 8's mutation-row exception, the F25 cell, and the item 12 X9-3 line. Product main is clean at that commit. No product cargo. The real home was absent.
+
+## What the two sets showed
+
+`x93-lead-1` and `x93-lead-2` each hold 57 runs, every verdict `PASS`, with the same keys. Fifty runs agree on `normalizedSha256` and on every child's trace digest. Seven disagree, which is why `check-unit` refuses:
+
+| Run | What agrees | What differs |
+| --- | --- | --- |
+| F13 R2 | 1,166 records, same `normalizedSha256`, Committed | trace sha256 |
+| F14 R2 | 1,166 records, same `normalizedSha256`, Committed | trace sha256 |
+| F15 R2 | 1,156 records, same `normalizedSha256`, Committed | trace sha256 |
+| F25 `object-deleted` R2 | 1,265 records, same `normalizedSha256`, `Refused(Invariant)` | trace sha256 |
+| F25 `object-flipped` R2 | same `normalizedSha256`, `not-prepared:Refused(LedgerCorrupt)` | 1,115 records against 1,141 |
+| F49 `reader-skewed-by-append` | every child's trace digest | `normalizedSha256` |
+| F52 `purged` R2 | 1,265 records, same `normalizedSha256`, `Refused(Invariant)` | trace sha256 |
+
+F49's other variant, `reader-snapshot-before-commit`, agrees on both. F44 and F45 measure 2,777 and 2,791 ms in one set and 2,683 and 2,702 ms in the other, all inside the r13 limit of 5,000 ms. The census, kill set, limits, product, and release-absence records in the two `matrix.json` files are equal. The raw census traces differ in two payload fields, the drawn execution and the outcome line; the census digest those files record is the same.
+
+## The object-publication group order
+
+r8's trace digest is still per thread, in that thread's order, threads by index, with the pid and the process-wide sequence left out, and with drawn values numbered by first appearance. r14 runs one rewrite before that numbering. A run is a maximal sequence of consecutive records whose full name begins `x3c.object/`. The directory scopes `x3c.object.objects/…` and `x3c.object.sha256/…` use a dot, so they sit outside a run and they end one. Groups split at `x3c.object/create.before`. A leading group before the first `create.before` is ordered like any other; the header records that none occurs at this product. The key is the list of `<full name without #k>|<event>|<payload>`, compared element by element, a proper prefix ordering first. The sort is stable. Within a run each name keeps the occurrence numbers it already had, reassigned ascending. `lastHeld`, kill verification, the census points, and the kill set stay on the raw records.
+
+The uncommitted X9-3 prototype in `commit_tests.rs` (`object_groups_ordered`) is that rule. `Record::name` strips `#k`. `sort_by_cached_key` is stable. Occurrences are sorted and handed out from smallest to largest. Records outside a run are copied through. The lead sets were written before this function.
+
+The publication loop is content-derived. `commit.rs` `plan` walks `CapturedEvidence::object_frames`, a `BTreeMap` keyed by identity, then `blobs`, a `BTreeMap` keyed by the raw SHA-256, and pushes a declared object on the first insert of each digest. X3c item 4 is the per-object procedure: `publish_new_regular` for a new name, and `confirm_existing_regular` after an exclusive-link collision whose visibility is unchanged. The header's "content-digest order (X3c item 4)" is that loop. Both maps change when the drawn ProjectId changes, and F13 to F15 also change them through r12's distinct variant. `publish_objects_inner` wraps each object in `crash_scope!("x3c.object")` and emits no other barrier between objects, so one run holds every object. `admit_object_directory` runs earlier, under `x3c.object.objects` and then `x3c.object.sha256`.
+
+The two shapes are distinct, and the product matches the shapes the header names. A new object is `create`, `write`, `file-barrier`, `link` (`.before` and `.after`), `directory-barrier`. `crash_barrier::primitive` records `.after` only when the effect succeeded, and `NativeNewPublication::rename` is the `link` step with `RENAME_EXCL`. A confirmed object takes the same path through `link.before`; the exclusive link fails, `.after` is absent, and `StagingEntry::cleanup` is a bare `unlinkat` with no crash point. `confirm_existing_regular` then takes its own `file-barrier` and `directory-barrier` and `reopen-confirm`. The keys diverge at the record after `link.before`. Payloads of these points are empty at this product.
+
+A stable sort of equal keys, followed by ascending reassignment, is the identity. Every group of a lawful first commit is new, so every key is that one new shape and the digest is unchanged. The same holds for a writer whose every object is confirmed. The saved census trace of `x93-lead-1` is that case: 820 consecutive `x3c.object/` records, lines 215–1034, 82 groups, every group the new shape, every payload empty, every group starting at `create.before`. The directory scopes sit before that span. Applying the rule to those lines leaves them where they are. The header's report that the regenerated `census.json` files are byte-identical is the same fact for the census digest; this review did not regenerate those files.
+
+Where the groups differ, the multiset of shapes is what the digest keeps. F13, F14, F15, F25 `object-deleted`, and F52 `purged` have equal record counts and unequal trace digests, with equal `normalizedSha256`. That is a permutation of the same records. The header's 54 confirmed and 28 new in F13's R2 is the lead's count of that split; the saved run JSON stores the record count, so the split is the lead's evidence, and the equal counts with unequal digests are what the files show. A different number of objects changes the number of groups and the occurrence multiset, so the comparison still sees it. A partial last group, the killed child in X9-2's F02 to F05, is a proper prefix of a complete group and therefore sorts first. That changes the digest against the raw order. Both repetitions of a scripted kill move together, `normalizedSha256` is unchanged, and `lastHeld` still names the held point on the raw record. X9-2's accepted sets stay accepted. X9-6 reruns under the rule.
+
+## F25 runs R1 only
+
+F25's expected value stays R1, CAD with `evidence.missing` or `evidence.corrupt`. R1's `stateUnchanged` stays in the comparison. Item 8's mutation rows otherwise run R1 and R2 because the injected condition persists. r14 excepts F25, `{"ladder":"R1"}`.
+
+`object-flipped` is the count disagreement: 1,115 records in one set and 1,141 in the other, the same `LedgerCorrupt` refusal. No reordering makes those lengths equal. Each set draws a new ProjectId, so the flipped object's index in the publication order moves between sets. R2 of the same Run meets that object and stops. A distinct variant would still publish around the shared flipped blob at an index the draw chooses. The row never asked for R2's outcome.
+
+`object-deleted` is the permutation, 1,265 records both times, and R2 ends `Refused(Invariant)`. The group rule would make that trace agree. R2 still re-commits the same Run: objects publish before staging, and after the missing object is recreated the later staging is X3d-2's invariant row. The row does not score that next writer. Dropping the ladder step for both variants keeps one rule for the row. Leaving R2's child out of the comparison would keep recording a next writer whose outcome no row scores, and would weaken item 7 for that one child.
+
+## F49(a) stays with the unit
+
+`reader-skewed-by-append` has two `attempt_custody` rows. The saved schema is `PRIMARY KEY (store_generation_digest, namespace_id, execution_id)` `WITHOUT ROWID`. Both rows are `admitted` with `settled_outcome` null, and the first two key columns are equal inside a set, so the dump order is `execution_id`. The receipt and the association name the second of those ids in one set and the first in the other. The four children have equal trace digests (0, 1,111, 19, and 1,268 records). Only `normalizedSha256` differs. Item 7 still numbers every drawn value by first appearance, and the header leaves that definition as it stands. A dump order that follows drawn ExecutionIds changes which id is seen first. X9-3's post-state normalizer breaks that tie, the same layer as X9-2's call 7 for the object set, and the unit review is where that call is judged.
+
+## Nothing else moves
+
+The r13 stamp is the record of that acceptance, dated 2026-10-02. The timing guard stays 5,000 ms, and these sets sit inside it. Mechanisms, placements, kinds, scopes, labels, evidence members, limits, and forbidden substitutes are untouched. Every row and expected value outside the F25 ladder note is untouched, including X9-2, the rest of X9-3, and X9-5. Runners, host order, the required-runs file, and the census are untouched. The diff adds no public code, row, or detail. `noAcceptedOutcomeChanged` is true: F25's standing stays CAD with the two evidence kinds and its ladder is R1 only; the group order changes future trace digests of mixed and partial object runs, including X9-2's F02 to F05, while their `normalizedSha256` and X9-2's acceptance stand; F49 is a record left to the unit.

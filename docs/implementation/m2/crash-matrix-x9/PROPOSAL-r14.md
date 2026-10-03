@@ -405,7 +405,7 @@ It changes the following and nothing else.
 
   No accepted outcome of any other law changes. No new public code, row or detail.
 
-**r14 (2026-10-03) is an amendment made as lead decisions under the owner's standing direction of 2026-09-30.** r13 bytes are preserved in PROPOSAL-r13.md. r14 ACCEPTED by Grok on 2026-10-03.
+**r14 (2026-10-03) is an amendment made as lead decisions under the owner's standing direction of 2026-09-30.** r13 bytes are preserved in PROPOSAL-r13.md.
 
 - **Where it was found.** In X9-3's two lead run sets, `x93-lead-1` and `x93-lead-2`, on product main `b999ae3`. They ran r13's 57 X9-3 rows uncommitted, with the 5,000 ms timing guard.
 - **What passed.**
