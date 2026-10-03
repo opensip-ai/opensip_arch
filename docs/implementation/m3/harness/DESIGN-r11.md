@@ -1,6 +1,6 @@
-# M3-Q0 quality-harness design record — r12
+# M3-Q0 quality-harness design record — r11
 
-Draft r12. Claude Opus 5.5, implementation lead. Unit **M3-Q0** of the accepted M3 unit plan (`M3-PLAN.md:157`).
+Draft r11. Claude Opus 5.5, implementation lead. Unit **M3-Q0** of the accepted M3 unit plan (`M3-PLAN.md:157`).
 
 r1 (`DESIGN-r1.md`, sha256 `22df1afb…`, 65,990 bytes; schema `exploratory-quality-envelope.schema.v1-r1.json`, `4cdfbb60…`, 23,190 bytes) was reviewed by CODEX2 (method; `/tmp/opensip-implementation/reviews/codex2-harness-q0-r1/`), with 8 required findings and 5 non-blocking observations. r2 answers all of them. CODEX2 confirmed the cluster-product bound and the 29/299 floors as sound, so they are unchanged.
 
@@ -21,8 +21,6 @@ r8 (`DESIGN-r8.md`, sha256 `c958fdab…`, 120,918 bytes; schema `exploratory-qua
 r9 (`DESIGN-r9.md`, sha256 `4db107c0…`, 120,794 bytes; schema `exploratory-quality-envelope.schema.v1-r9.json`, `00f6d032…`, 53,610 bytes) was reviewed by CODEX2 (`/tmp/opensip-implementation/reviews/codex2-harness-q0-r9/`), with 4 required findings and 2 non-blocking observations. r10 answers all of them and changes nothing else.
 
 r10 (`DESIGN-r10.md`, sha256 `c926077c…`, 133,762 bytes; schema `exploratory-quality-envelope.schema.v1-r10.json`, `6558bd39…`, 59,031 bytes) was reviewed by CODEX2 (`/tmp/opensip-implementation/reviews/codex2-harness-q0-r10/`), with 2 required findings and 4 non-blocking observations. r11 answers all of them and changes nothing else.
-
-r11 (`DESIGN-r11.md`, sha256 `c003a06a…`, 143,572 bytes; schema `exploratory-quality-envelope.schema.v1-r11.json`, `8769ed0c…`, 59,433 bytes) was reviewed by CODEX2 (`/tmp/opensip-implementation/reviews/codex2-harness-q0-r11/`), with one required finding and one non-blocking observation. r12 implements the lead's decision on it and changes nothing else.
 
 ## Standing
 
@@ -54,15 +52,6 @@ Short names, as in the accepted plans:
 - **ENV:** `docs/implementation/m3/harness/exploratory-quality-envelope.schema.v1.json` (drafted with this record)
 
 ---
-
-## r12 changes and review responses
-
-| Finding | Section | Change |
-|---|---|---|
-| C2-Q0-R11-01 (macOS settlement), lead decision (QD-35) | §9.3 step 5 and macOS, QD-27, §9.5, ENV | macOS has no subreaper, so `ECHILD` after reaping the root proves nothing, and settlement is **not claimed**. Every macOS measured slot carries the new reason `settlement-unverified-platform`, so the row is `incomplete` and can never pass a budget. Linux is unchanged. |
-| (deviation from the decision text, explained) | QD-27, ENV | The decision kept the macOS elapsed value under per-quantity nulling. r12 keeps the **value** but not in `elapsedNanos`. That field is defined as spawn to settlement, and a root-reaped value doesn't meet that definition: left in place, it would feed a median and read as the defined measurement, which is the review's objection. So the reason nulls `elapsedNanos`, and the root-reaped value is carried in the informational `rootReapedElapsedNanos`, which is never a budget input. Nothing is discarded. If the lead prefers the decision text as written, the alternative is a one-line change to the QD-27 row. |
-| Disclosure | §9.3 macOS | **Q6 qualification is Linux-only, on the D12 runner.** A macOS settlement source (OI-20) and a group-peak source (OI-18) would be needed first. |
-| N01 (calibration headings) | §9.3 calibration | The ordinary inherited writable mount moves under "expected complete". Unavailable Linux and both macOS cases move under "expected incomplete". |
 
 ## r11 changes and review responses
 
@@ -863,8 +852,7 @@ The kernel maintains `memory.peak` for everything charged to the group, so it ne
    - **Settled, with a run leaf,** means both:
      - the harness has reaped the root, and `waitpid` reports no remaining children (`ECHILD`);
      - `cgroup.events` shows `populated 0`.
-   - **Settled, without a run leaf, on Linux** (absent-leaf slots, §9.5), means the first condition alone: the root has been reaped and `waitpid` reports `ECHILD`. That is sound only because the harness is a subreaper. No cgroup interface is consulted.
-   - **macOS cannot prove settlement (QD-35, lead decision, for C2-Q0-R11-01).** macOS has no subreaper. A root can fork a continuing child and exit, the child is reparented to `launchd` (pid 1), and the harness reaps the root and gets `ECHILD` while the descendant is still running. So `ECHILD` proves nothing there, and settlement is **not claimed**. Every macOS measured run carries the reason **`settlement-unverified-platform`**, which makes the row `incomplete`.
+   - **Settled, without a run leaf** (absent-leaf slots, §9.5), means the first condition alone: the root has been reaped and `waitpid` reports `ECHILD`. No cgroup interface is consulted.
    - **Drain, with a leaf.** The harness waits for settlement up to a preregistered drain limit (default 10 s). If the tree has not settled by then, it kills the leaf with `cgroup.kill`, reaps everything, and records `cgroup-not-empty`. The run did not end within the elapsed definition, so its elapsed value is invalid too (§9.5).
    - **Drain, without a leaf.** The same limit applies. At the limit, the harness signals the root's process group with `SIGKILL`, reaps what it can, and records **`settlement-failed`**, which nulls both values. A descendant that left the process group cannot be guaranteed killed, and that is disclosed in the reason's definition.
    - **Read.** The harness then reads `memory.peak` once through the held leaf descriptor, as an integer number of bytes. A failed or malformed read is `cgroup-read-failed`.
@@ -878,15 +866,12 @@ The kernel maintains `memory.peak` for everything charged to the group, so it ne
 
 *Per-process maxima, informational only (AQP:333).* When the host reaps a supervised child, it records `wait4` `ru_maxrss` (KiB on Linux, bytes on macOS) in its operational record (OPP:249), with the child's pid and role. The value covers that child and any descendants it has reaped, so it is labelled `hostReapedMaxRss`. It is never summed, never joined to the cgroup figure, and **never a budget input**. It is reported in the envelope as an operational-record digest (`operationalRecords[].carriesProcessMaxRss`). The r5–r8 host-join machinery (start-identity keys, namespace checks, `host-join-unresolved`) is withdrawn, because nothing is joined any more.
 
-*macOS (lead workstation, and the later macOS lanes)* cannot prove tree settlement (step 5), and it has no equivalent group high-water mark (AQP:334).
-- **Elapsed.** The time from spawn until the harness reaps the root is recorded in **`rootReapedElapsedNanos`**, for information only. `elapsedNanos` is null with `settlement-unverified-platform`, because the elapsed definition (spawn to settlement) is not met. The value is kept in the separate informational field so that it cannot be read as the defined measurement or enter a median.
-- **Memory.** Every macOS run also records `cgroupMemoryPeakBytes` as null, with the reason `memory-peak-unavailable-platform`. Its memory figure is `incomplete`, and it can never be within budget. The informational `ru_maxrss` values are still recorded. A macOS group-peak source is needed before any macOS G13 lane can qualify memory (OI-18).
-- **Q6 qualification is Linux-only, on the D12 runner.** No macOS row can be complete, and no macOS elapsed or memory value can pass a budget. A macOS settlement source and a macOS group-peak source would both be needed first (OI-18, OI-20).
+*macOS (lead workstation, and the later macOS lanes)* has no equivalent group high-water mark (AQP:334). Every macOS run records `cgroupMemoryPeakBytes` as null, with the reason `memory-peak-unavailable-platform`. Its memory figure is `incomplete`, and it can never be within budget. The informational `ru_maxrss` values are still recorded. A macOS group-peak source is needed before any macOS G13 lane can qualify memory (OI-18).
 
 **Calibration (K1c), on the D12 image.** These cases are expected to be **complete**, with the right value:
-- **The ordinary inherited writable mount (C2-Q0-R10-01):** the D12 layout's writable `cgroup2` mount at `/sys/fs/cgroup` is detached in the launcher's namespace. The re-read `mountinfo` shows exactly one read-only, leaf-rooted `cgroup2` entry, and the run completes;
 - **A known allocation.** A fixture touches a known number of anonymous bytes **after entering the leaf** and exits; `memory.peak` must be at least that.
 - **Inherited pages not counted.** The harness touches a large buffer before forking the launcher. The figure must not include it, which shows that the disclosure (step 6) is accurate.
+- **Unavailable Linux and macOS:** absent leaves, known elapsed values (settled by reaping), and memory null with the platform or host reason.
 - **A short-lived grandchild.** It allocates a peak and exits within 1 ms, and the peak is still captured. The mark is kernel-maintained, so no sampling is involved.
 - **A daemonizing grandchild.** It double-forks and is reparented, stays inside the leaf, and is drained or killed as in step 5.
 - **A fresh leaf per run.** Two consecutive runs with different peaks each report their own peak; no peak carries over.
@@ -894,19 +879,13 @@ The kernel maintains `memory.peak` for everything charged to the group, so it ne
 - **Determinism.** Results are equal with and without the cgroup namespace (§8.4).
 
 These cases are expected to be **`incomplete`**, with the stated reason:
-- **Unavailable Linux:** absent leaves, elapsed **known** (settled by reaping under the subreaper), and memory null with the host reason.
-- **macOS, with the root exiting before a continuing descendant (C2-Q0-R11-01):**
-  - the root forks a child that keeps running, then exits;
-  - the harness reaps the root and gets `ECHILD`, and must **not** report settlement;
-  - `elapsedNanos` is null with `settlement-unverified-platform`, `rootReapedElapsedNanos` holds the root-reaped value, and memory is null with `memory-peak-unavailable-platform`;
-  - a double-forked daemon gives the same result.
-- **macOS, ordinary run:** the same reasons and nulls. A macOS row is never complete.
 - a host with cgroup v1 only: `cgroup-v1-only`;
 - `memory.peak` removed or unmounted (simulated): `cgroup-unavailable`;
 - a parent without write access to `cgroup.subtree_control`: `cgroup-no-delegation`;
 - a `cgroup2` mount without `nsdelegate`, or a failed namespace creation: `cgroup-escape-unprevented`;
 - a deliberate self-migration attempt under `nsdelegate`, which must be **refused** by the kernel; the run itself must then be unaffected;
 - an **inherited descriptor**: a writable sibling `cgroup.procs` descriptor, opened outside the namespace and left open. `close_range` must close it, and the `/proc/self/fd` check must pass. With the close disabled in test mode, the check must fail with `cgroup-isolation-unverified`, and the run must never be complete;
+- **the ordinary inherited writable mount (C2-Q0-R10-01, expected complete):** the D12 layout's writable `cgroup2` mount at `/sys/fs/cgroup` is detached in the launcher's namespace. The re-read `mountinfo` shows exactly one read-only, leaf-rooted `cgroup2` entry, and the run completes;
 - **a writable alias bind-mounted elsewhere** (for example `/mnt/cg`): it is detached too. With detaching disabled in test mode, the invariant must fail with `cgroup-isolation-unverified`;
 - **a missing `nsdelegate` at batch start (C2-Q0-R10-02):** no leaf is created. Each row is absent with `cgroup-escape-unprevented`, elapsed is kept, and settlement is by reaping;
 - **a dumpable same-uid process at batch start:** no leaf is created. Each row is absent with `cgroup-isolation-unverified`, and elapsed is kept;
@@ -959,7 +938,6 @@ Without a compatible charged-memory baseline, a **complete** row's status is `no
 |---|---|---|
 | `run-failed`, `timeout`, `cgroup-not-empty`, `settlement-failed` | elapsed and `cgroupMemoryPeakBytes` | none. A failed run's numbers are not samples. A run with processes left behind did not end within the elapsed definition (§9.3 step 5). |
 | `cgroup-unavailable`, `cgroup-v1-only`, `cgroup-no-delegation`, `cgroup-escape-unprevented`, `cgroup-isolation-unverified`, `cgroup-read-failed`, `memory-peak-unverified`, `memory-peak-unavailable-platform` | `cgroupMemoryPeakBytes` | elapsed |
-| `settlement-unverified-platform` | elapsed (its value moves to the informational `rootReapedElapsedNanos`) | `cgroupMemoryPeakBytes` is unaffected by this reason (on macOS, a platform reason nulls it separately) |
 | `record-missing`, `record-invalid` | none | both. Only the operational evidence (phases, reuse disclosure and the informational per-process maxima) is missing, which shows as `phaseTimingsPresent: false` with a `phaseAbsenceReason` (§9.4). |
 
 For warmup and priming slots no numeric samples are carried, so their reasons, typically `run-failed`, `timeout`, `record-missing` or `record-invalid`, affect only the batch's status.
@@ -1061,15 +1039,6 @@ A row is `incomplete` whenever **any** slot has a reason, **including a row in w
   - **`settlement-failed` in the validator:** accepted when it nulls both values, rejected when it keeps elapsed.
   - **Baselines (N04):** a basis that differs in kernel release, or in cache policy, is rejected for `within`.
   - **The descriptor audit (N02):** the listed set {0, 1, 2, *a*} passes. After *a* is closed, the exec set is {0, 1, 2}.
-
-- **Reference cases added in r12 (C2-Q0-R11-01).**
-  - **Accepted:** a macOS row with all seven measured slots carrying `settlement-unverified-platform` and `memory-peak-unavailable-platform`, with both series null and `rootReapedElapsedNanos` holding seven values.
-  - **Rejected by the validator:**
-    - `settlement-unverified-platform` with `elapsedNanos` still present;
-    - `rootReapedElapsedNanos` present on a slot without that reason, such as a Linux slot;
-    - a macOS row whose runner OS is macOS but which lacks the reason.
-  - **Rejected by the schema:** a complete row carrying `rootReapedElapsedNanos`, and a macOS row claiming `within`.
-  - **A settlement model:** on macOS, root reaped plus `ECHILD`, with a live reparented descendant, gives `settlement-unverified-platform`, never settled. On Linux with the subreaper, the same sequence waits for the descendant.
 
 - **Flips.** A non-pass followed by a pass is counted as a `flip`. Three flips in any ten consecutive CI runs of a workload send that workload to noise review.
 
@@ -1240,11 +1209,10 @@ The rejected alternative was to delay every producer behind all three lane oracl
 | OI-17 | A sample-based pooled-precision guard: per-family exact hypergeometric lower bounds at α/*k* (§5.6). Until it is approved, the conservative verified-true guard is in force. | DR-G13 successor owners (QG:264); lead proposes | advisory Q2 PASS without near-complete adjudication |
 | OI-19 | Synchronous tracer collection of per-process counters. Decided in r8 (QD-30), then **withdrawn in r9**: the amended quality plan stops per-process attribution (AQP:331-338). Closed. | lead | — |
 | OI-18 | A macOS group peak-memory source (§9.3; AQP:334). Until one exists, the macOS memory figure is `incomplete`. | release engineering (D12); lead | any macOS G13 memory qualification |
-| OI-20 | A macOS whole-tree settlement source (§9.3 step 5). Until one exists, macOS elapsed is informational only, and Q6 qualification is Linux-only. | release engineering (D12); lead | any macOS G13 elapsed qualification |
 
 ## Lead decisions in this record
 
-QD-1 integer millionths and directional rounding · QD-2 outcome table · QD-3 proposition class · QD-4 JSON Lines ledger with a hash chain · QD-5 hard components and the full truth-input closure · QD-6 the separated populations · QD-7 the 20-minute time box · QD-8 calibration numbers · QD-9 agreement triggers · QD-10 the model-family rule · QD-11 family-weighted estimand · QD-12 independence families · QD-13 the cluster product bound · QD-14 *k*_min · QD-15 the two-sided pooled guard · QD-16 mutant states · QD-17 differential execution boundary · QD-18 determinism variants · QD-19 process inventory and own RSS counters (its mechanism replaced by QD-30) · QD-20 CI retry, batches and batch joins · QD-21 runner additions · QD-22 tree digest · QD-23 held-out exposure · QD-24 advisory water-filling allocation · QD-25 complete and incomplete performance results · QD-26 the K2 lane-freeze gate · QD-27 reason-to-quantity nulling · QD-28 the start-identity key and exact-equality host join · QD-29 generation safety (withdrawn in r8) · QD-30 ptrace exit-stop collection (withdrawn in r9) · QD-31 the tracing-overhead rule (withdrawn in r9) · QD-32 cgroup v2 `memory.peak` per fresh leaf, with cgroup-namespace escape prevention · QD-33 descriptor, mount (detach-then-mount) and control-ownership isolation · QD-34 charged-memory baselines · QD-35 macOS settlement not claimed (`settlement-unverified-platform`, `rootReapedElapsedNanos`).
+QD-1 integer millionths and directional rounding · QD-2 outcome table · QD-3 proposition class · QD-4 JSON Lines ledger with a hash chain · QD-5 hard components and the full truth-input closure · QD-6 the separated populations · QD-7 the 20-minute time box · QD-8 calibration numbers · QD-9 agreement triggers · QD-10 the model-family rule · QD-11 family-weighted estimand · QD-12 independence families · QD-13 the cluster product bound · QD-14 *k*_min · QD-15 the two-sided pooled guard · QD-16 mutant states · QD-17 differential execution boundary · QD-18 determinism variants · QD-19 process inventory and own RSS counters (its mechanism replaced by QD-30) · QD-20 CI retry, batches and batch joins · QD-21 runner additions · QD-22 tree digest · QD-23 held-out exposure · QD-24 advisory water-filling allocation · QD-25 complete and incomplete performance results · QD-26 the K2 lane-freeze gate · QD-27 reason-to-quantity nulling · QD-28 the start-identity key and exact-equality host join · QD-29 generation safety (withdrawn in r8) · QD-30 ptrace exit-stop collection (withdrawn in r9) · QD-31 the tracing-overhead rule (withdrawn in r9) · QD-32 cgroup v2 `memory.peak` per fresh leaf, with cgroup-namespace escape prevention · QD-33 descriptor, mount (detach-then-mount) and control-ownership isolation · QD-34 charged-memory baselines.
 
 ## Not claimed
 
