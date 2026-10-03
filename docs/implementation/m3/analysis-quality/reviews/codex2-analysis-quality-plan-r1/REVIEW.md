@@ -1,0 +1,219 @@
+# CODEX2 review: M3 analysis-quality plan r1
+
+**Verdict: REQUIRED-FINDINGS.**
+
+The eight dimensions and the three-tier corpus are a strong starting point, and staged incremental work is a reasonable proposal. The current scoring can nevertheless reward abstention, unresolved labels and stale adjudications; the experiments do not yet establish that mutations and tool disagreements represent the same proposition. Cross-snapshot reuse, performance workloads and the approval/qualification sequence also need explicit work before this plan can reliably establish excellent daily analysis. These findings require revising the plan, not implementing or approving its proposed successors now.
+
+Subject: [PLAN.md](/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/analysis-quality/PLAN.md:1), 28038 bytes; SHA-256 `4e1c090112ec7480753425605de052c77d2e36e6981bea493e437a3fe7145203`. The subject digest was verified before writing this review.
+
+Re-read the updated REQUEST.md and used Rust workspace-level pub analysis versus rustc lints for item 4.
+
+## Required findings
+
+There are 10 required plan revisions. Their IDs are identical in review.json. P1 identifies a risk to correctness or trustworthy acceptance; P2 identifies a necessary measurement or execution-plan repair.
+
+### C2-AQ-R1-01 (P1) — Define target-relative honesty and prevent abstention from manufacturing recall
+
+**Location:** [PLAN.md](/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/analysis-quality/PLAN.md:65) — docs/implementation/m3/analysis-quality/PLAN.md:65-74,157-163,215-216 (§2 Q3/Q4, §4.4, §6)
+
+**Problem.** Q3 conditions its denominator on claimed-complete scope, excludes every indeterminate answer, and only reports indeterminate rates without an acceptance condition. A rule can therefore improve its measured recall by declaring difficult supported cases indeterminate. Q4 also requires every seed in an unresolved region to become indeterminate, although an independently known positive can remain determinate under incomplete Coverage. 'Clean means clean' needs a precise boundary: zero unjustified absence claims under insufficient evidence differs from zero missed defects in a complete region, where Q3 currently allows 5% misses. The explanation that a finding 'holds outside' two dynamic imports is unsafe unless their possible targets are independently bounded; their source location does not bound their effects.
+
+**Recommended fix.** Define the scoring unit as rule, subject, required relation/rung, universe and configuration. Independently pin which seeded/curated cases should be answerable and which should abstain; never let candidate Coverage choose the evaluable population. Report conditional recall, determinate yield and all expected-supported abstentions separately, with proposed per-rule/per-shape yield floors or explicit owner dispositions under D4. Define Q4 as zero unsupported determinate negatives or clean verdicts on affected required evidence, allowing a sound positive to determine fail. Test propagation from unresolved referrers to possible targets, partial examination, missing inputs and zero findings; document whether complete-scope misses are Q3 failures or additionally violate an intended stronger Q4. Replace the §6 example with a scope claim justified by the retained target-relative sufficiency proof.
+
+**Contract/method anchors:**
+
+- [native-evidence.md](/Users/sb/code/opensip-ai/opensip_arch/docs/v2/contracts/product-v1/native-evidence.md:2113): RC-2 distinguishes complete, incomplete, partial and not-attempted; zero edges is insufficient.
+- [native-evidence.md](/Users/sb/code/opensip-ai/opensip_arch/docs/v2/contracts/product-v1/native-evidence.md:2230): Dynamic edges propagate to possible targets, including whole universes.
+- [native-evidence.md](/Users/sb/code/opensip-ai/opensip_arch/docs/v2/contracts/product-v1/native-evidence.md:2260): Sufficiency is requirement- and target-relative.
+- [workflows-and-surfaces.md](/Users/sb/code/opensip-ai/opensip_arch/docs/v2/contracts/product-v1/workflows-and-surfaces.md:600): Strong Kleene evaluation permits known positives under incomplete Coverage.
+
+### C2-AQ-R1-02 (P1) — Make precision acceptance statistically credible and resistant to adjudication bias
+
+**Location:** [PLAN.md](/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/analysis-quality/PLAN.md:149) — docs/implementation/m3/analysis-quality/PLAN.md:65,149-155 (§2 Q2, §4.3)
+
+**Problem.** The proposed true/(true+false) score removes unclear findings from the denominator even though a gating finding still burdens or blocks the user. With four unclear findings and 96 true findings, a rule scores 1.0 and avoids the greater-than-5% review trigger. There is no minimum evidence for the 0.99 claim, no rule/language/mode acceptance strata, and no specified outcome for zero findings. Two adjudications are not necessarily independent when the author, lead or agents share implementation context or the same model assumptions. A third adjudicator resolves disagreement procedurally but does not establish that the answer is correct.
+
+**Recommended fix.** Keep the descriptive resolved-label precision, but make acceptance use a conservative treatment of unresolved labels, such as a true/all-reported lower bound, or require resolution before a gate or repair claim qualifies. Specify counts, a confidence rule and insufficient-evidence outcomes per gating/repair rule and material language/mode stratum; do not pool away a failing high-cost rule. For illustration, about 299 genuinely independent zero-error observations are needed for a one-sided 95% exact lower bound of 0.99; repository-correlated findings require additional care, and this is an example rather than a proposed inherited gate. Freeze the adjudication rubric, use calibration negatives and independent rationales before disclosure of the other label or detector rationale, record agreement and conflicts of interest, and have a designated human/domain expert settle uncertain high-impact cases. Agents may assist, but correlated agent votes must not be treated as independent ground truth. Record false-positive cost and repair consequences separately from the headline precision.
+
+**Contract/method anchors:**
+
+- [admission-and-qualification.md](/Users/sb/code/opensip-ai/opensip_arch/docs/v2/contracts/product-v1/admission-and-qualification.md:195): The qualification method keeps expected answers outside the candidate report's authority.
+
+### C2-AQ-R1-03 (P1) — Do not reuse a truth label merely because finding-key2 survives
+
+**Location:** [PLAN.md](/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/analysis-quality/PLAN.md:153) — docs/implementation/m3/analysis-quality/PLAN.md:153-154 (§4.3 adjudication ledger)
+
+**Problem.** The ledger says labels carry forward while finding-key2 matches. The contract deliberately excludes concrete evidence from that key and explicitly says stable correspondence is not proof of unchanged detector semantics. A finding can keep its key after changes to its body, incoming references, policy, native configuration, prepared outputs or detector behavior while its old true/false label becomes wrong. The ledger is keyed by repository commit, but the cross-run carry-forward clause does not define the compatibility test when that commit or any non-source analysis input changes.
+
+**Recommended fix.** Bind labels to the adjudicated proposition and rubric revision, repository tree/configuration, selected mode/target/features, dependency and prepared-input identities, rule definition/program and relevant evidence provenance. Specify when a compatibility check can reuse a label and when it must be re-adjudicated; a stable fingerprint establishes correspondence only. Treat changed truth-relevant inputs and unexplained detector-output changes as re-adjudication triggers, retain superseded labels and reasons, and periodically blind-audit a sample of carried labels to detect label drift.
+
+**Contract/method anchors:**
+
+- [identity-and-evidence.md](/Users/sb/code/opensip-ai/opensip_arch/docs/v2/contracts/product-v1/identity-and-evidence.md:188): finding-key2 and finding3 bind different content.
+- [identity-and-evidence.md](/Users/sb/code/opensip-ai/opensip_arch/docs/v2/contracts/product-v1/identity-and-evidence.md:200): The fingerprint omits concrete evidence and does not prove unchanged semantics.
+- [native-evidence.md](/Users/sb/code/opensip-ai/opensip_arch/docs/v2/contracts/product-v1/native-evidence.md:1276): Native configuration changes create a different Plan.
+
+### C2-AQ-R1-04 (P1) — Validate mutations and align differential semantics before calling them recall ground truth
+
+**Location:** [PLAN.md](/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/analysis-quality/PLAN.md:159) — docs/implementation/m3/analysis-quality/PLAN.md:159-163 (§4.4)
+
+**Problem.** A recorded edit location does not establish a valid defect. An added pub function may be part of an external API, may be excluded by the selected cfg, or may not enter the analyzed subject population; a dependency can serve a build, test, macro or other selected target. Tool disagreement is likewise not automatically an OpenSIP recall miss: the plan does not align rule definitions, entry points, feature/target selections, dependency scope or duplicate subjects, and does not explicitly require a reference-tool finding to be confirmed true before counting it. Version pinning alone does not fix these mismatches. All named repositories and seed templates are also visible development material, with no held-out acceptance set.
+
+**Recommended fix.** Require every mutant to be independently validated against the precise rule proposition, selected native configuration and expected Coverage. Record the subject, original control, expected introduced difference, eligibility and invalid/equivalent/not-enumerated mutations; invalid seeds cannot silently become misses or disappear from corpus accounting. Include realistic fix reversals from documented defects and difficult negative lookalikes, not only easy added declarations, and reserve held-out repositories or mutation families for acceptance. For each differential tool, pin its executable closure/version, compiler, configuration and adapters; publish a mapping of comparable propositions and explicit non-overlap. Adjudicate each normalized disagreement as a confirmed comparable defect, other-tool false positive, semantic non-overlap or unresolved case before changing recall/precision counts. Exercise missing/stale preparation and unresolved source-to-target effects as their own expected-indeterminate cases.
+
+**Contract/method anchors:**
+
+- [native-evidence.md](/Users/sb/code/opensip-ai/opensip_arch/docs/v2/contracts/product-v1/native-evidence.md:1263): Rust editions, target-dependent feature closure, cfg and prepared inputs are selected analysis inputs.
+- [native-evidence.md](/Users/sb/code/opensip-ai/opensip_arch/docs/v2/contracts/product-v1/native-evidence.md:2210): An exported subject's external consumers and closed-world assumptions affect negative claims.
+
+### C2-AQ-R1-05 (P2) — Give the refactor suite an independent correspondence oracle and include determinism
+
+**Location:** [PLAN.md](/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/analysis-quality/PLAN.md:165) — docs/implementation/m3/analysis-quality/PLAN.md:165-175 (§4.5)
+
+**Problem.** Moving modules, splitting files or reordering items is not automatically semantics-preserving for every supported repository shape. The suite currently identifies unaffected findings informally and compares by the very key whose stability is under test. It does not check finding content, Coverage or negative delta behavior, and no denominator is given for unmatched or ambiguous findings. Stable keys alone could conceal lost evidence or misclassified CODE-FIXED results. The plan also lacks the repeated-run/cross-machine determinism check requested for daily use.
+
+**Recommended fix.** Pin each transformation and an independently reviewed mapping of unchanged, changed and moved/renamed subjects plus expected fact/finding/Coverage differences. Validate its semantic invariants in the selected configuration, including import resolution, recognized entry points and prepared-output freshness. Match against that oracle, account for ambiguous/unmatched cases explicitly, and check findings, relevant proofs/Coverage and both spurious CODE-NET-NEW and CODE-FIXED outcomes. Report survival per rule and transformation, with counts and a non-vacuous population. Add an orthogonal determinism suite for identical semantic input closures under repeated runs, traversal/concurrency variations and compatible runner lanes; compare canonical semantic results and correspondence after only contract-permitted platform/context distinctions, rather than requiring identical IDs across different Plans.
+
+**Contract/method anchors:**
+
+- [identity-and-evidence.md](/Users/sb/code/opensip-ai/opensip_arch/docs/v2/contracts/product-v1/identity-and-evidence.md:200): Signature correspondence is syntactic and can be ambiguous.
+- [workflows-and-surfaces.md](/Users/sb/code/opensip-ai/opensip_arch/docs/v2/contracts/product-v1/workflows-and-surfaces.md:360): Absence in a baseline comparison needs complete enumeration and determinate emission proofs.
+- [identity-and-evidence.md](/Users/sb/code/opensip-ai/opensip_arch/docs/v2/contracts/product-v1/identity-and-evidence.md:1804): Independent replay across machines is an implementation obligation.
+
+### C2-AQ-R1-06 (P2) — Define executable performance workloads and the cost of obtaining useful Rust answers
+
+**Location:** [PLAN.md](/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/analysis-quality/PLAN.md:181) — docs/implementation/m3/analysis-quality/PLAN.md:123-138,181-196,207 (§4.2, §5.1-5.3)
+
+**Problem.** The proposed numbers are exploratory, so they need not be empirically proven now. Their measurement boundary is nevertheless underspecified. LOC classes do not capture dependency/graph/generated-code load; the unbounded greater-than-1M class has no proposed resource/termination limit. The correct separation of the user's cargo build from OpenSIP work still leaves room for a fast prepared-only result to be presented as the daily or first-run experience. There is no explicit workload for missing/stale preparation, partial or broken builds, and no single-file edit taxonomy for the 2-second target. A median alone can hide expensive edits and slow tails; three warmups must not turn cold samples into retained-evidence samples.
+
+**Recommended fix.** Pin workload manifests with source/generated-code counting, file/package/edge/dependency shape, selected rules/cells/configuration, exact cold/warm resets and priming, and per-run start/end events. Time source discovery/sealing, required replay, commit and useful delivery as applicable; record phase timings without excluding any OpenSIP work. Keep core analysis and user preparation separately reported as already proposed, but add total first-use and preparation-invalidating edit workflows, with result completeness/yield beside time. Measure clean, missing-input, stale-output and broken/partial-build controls, including unaffected-unit progress. Separate body-only, exported signature, import, feature/config and generated-input edits and disclose full invalidation fallbacks. Preserve the mandated product median/max-RSS method, report tails diagnostically, and give very-large/stress fixtures independently reviewed work/RSS/termination bounds before qualification; pending product budgets may remain explicit owner decisions. Measure process-tree concurrent RSS rather than summing unrelated individual peaks.
+
+**Contract/method anchors:**
+
+- [admission-and-qualification.md](/Users/sb/code/opensip-ai/opensip_arch/docs/v2/contracts/product-v1/admission-and-qualification.md:268): Product qualification uses median time, maximum RSS, reviewed initial/absolute bounds and separate cold/retained-evidence fixtures.
+- [language-quality-matrix.completed.v2.json](/Users/sb/code/opensip-ai/opensip_arch/docs/coop/completion/language-quality-matrix.completed.v2.json:923): Cold and retained-cache warm invocations have distinct process/cache definitions.
+- [native-evidence.md](/Users/sb/code/opensip-ai/opensip_arch/docs/v2/contracts/product-v1/native-evidence.md:612): Missing dependencies and generated/prepared outputs have typed semantic consequences.
+- [native-evidence.md](/Users/sb/code/opensip-ai/opensip_arch/docs/v2/contracts/product-v1/native-evidence.md:1233): A mixed repository can retain useful analysis in its unaffected unit.
+
+### C2-AQ-R1-07 (P1) — Specify the cross-snapshot reuse obligation before scheduling changed-scope authority
+
+**Location:** [PLAN.md](/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/analysis-quality/PLAN.md:198) — docs/implementation/m3/analysis-quality/PLAN.md:198-207 (§5.3)
+
+**Problem.** Option (a) proposes reusing admitted evidence for the rest of an edited repository. Under the existing contract, facts/scopes bind the snapshot, the cache key binds the Plan, new source creates a new Plan/Run, and a hit is reusable producer output only after the current closure checks. Full replay of an old Run does not make it evidence for the new snapshot. 'Exact dependency closure' also omits what must be invalidated for universal negatives, new incoming edges/subjects and non-file inputs. The resident-host option adds concurrent requests, stale replies, changing grants/closures and memory lifetime without corresponding quality controls. The categorical claim that one-shot cannot meet an edit-loop target has no measurement here.
+
+**Recommended fix.** Add a pre-implementation design/spike task that distinguishes optimization of producer work from reuse of authoritative objects, names any required reviewed IE/native/cache/protocol successors, and measures startup, sealing and replay costs before committing to a residency requirement. Require new-snapshot reconstruction and current admission for every retained result used by the new Plan; define invalidation over enumeration, incoming and negative dependencies, configuration, tool/rule closures, dependency sets and prepared outputs. Qualify paired full-vs-incremental sequences, including insert/delete, API/feature/config changes, missing inputs and a dynamic edge introduced into previously complete scope; compare the new run's findings, facts, Coverage and replay outcome. For a daemon, bind every response to an immutable request snapshot, preserve the single-writer/current-grant boundary, exercise cancellation, crash/restart and stale-reply rejection, and bound/measure persistent RSS and eviction. Decide these requirements before M3 implementation choices harden; BP already names current TS2/Rust3 protocols, so changing accepted wire contracts requires a successor rather than treating them as unselected.
+
+**Contract/method anchors:**
+
+- [identity-and-evidence.md](/Users/sb/code/opensip-ai/opensip_arch/docs/v2/contracts/product-v1/identity-and-evidence.md:179): Snapshot, Plan, fact, scope and cache identities bind their current inputs.
+- [identity-and-evidence.md](/Users/sb/code/opensip-ai/opensip_arch/docs/v2/contracts/product-v1/identity-and-evidence.md:1589): Authoritative admission inherits complete replay; new source creates a new Plan/Run.
+- [identity-and-evidence.md](/Users/sb/code/opensip-ai/opensip_arch/docs/v2/contracts/product-v1/identity-and-evidence.md:1610): A cache hit must join this Plan and snapshot and is not evidence authority.
+- [identity-and-evidence.md](/Users/sb/code/opensip-ai/opensip_arch/docs/v2/contracts/product-v1/identity-and-evidence.md:1657): Per-project writes and read snapshots have existing lifecycle boundaries.
+- [implementation-boundaries-and-build-plan.md](/Users/sb/code/opensip-ai/opensip_arch/docs/v2/architecture/implementation-boundaries-and-build-plan.md:717): The current selected worker protocols are TS2/Rust3.
+
+### C2-AQ-R1-08 (P1) — Define what each proposed gating rule proves, especially workspace-unused pub
+
+**Location:** [PLAN.md](/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/analysis-quality/PLAN.md:82) — docs/implementation/m3/analysis-quality/PLAN.md:82-103 (§3)
+
+**Problem.** The catalog names broad rules and classes without the operational proposition needed to adjudicate or seed them. 'No workspace reference to pub' is valuable additional information, but differs from an unused API with no external consumers and from safe deletion. The catalog limits Rust repair eligibility to closed world while leaving the gating proposition and default external-consumer policy unspecified; TS unused exports and whole-file negatives have the same issue. Module cycles and duplication can be accurately detected yet intentionally allowed, so factual precision alone cannot establish a sensible default gate. Unused-dependency scope also needs selected targets and configuration.
+
+**Recommended fix.** Make the rule-catalog draft an explicit prerequisite for quality scoring and specify per rule its subject population, precise predicate, selected configurations, origin/external-consumer policies, minimum sufficiency, legitimate negative lookalikes and whether it is enabled/gating by default or only after declared policy. Distinguish workspace-only unused-pub evidence, genuine closed-world dead code and repair eligibility; use explanatory/advisory treatment where the actionable conclusion is not established. Require outside-workspace consumers, re-exports, pub(crate), multiple workspace crates, feature/cfg variants, tests/build dependencies and framework/generated entry points in rule truth fixtures. Treat cycles as a declared-policy gate or justify an equally precise default defect definition. Keep the existing per-finding repair prerequisites; aggregate 0.99 precision never authorizes a deletion.
+
+**Contract/method anchors:**
+
+- [native-evidence.md](/Users/sb/code/opensip-ai/opensip_arch/docs/v2/contracts/product-v1/native-evidence.md:2208): ClosedWorldV2 and external-consumer policies distinguish different absence claims.
+- [native-evidence.md](/Users/sb/code/opensip-ai/opensip_arch/docs/v2/contracts/product-v1/native-evidence.md:2237): Dead-code repair requires specific retained closed-world ingredients.
+- [workflows-and-surfaces.md](/Users/sb/code/opensip-ai/opensip_arch/docs/v2/contracts/product-v1/workflows-and-surfaces.md:593): Selected rule programs explicitly declare subject enumeration, emission predicates and gate behavior.
+
+### C2-AQ-R1-09 (P2) — Make the milestone and decision dependencies executable
+
+**Location:** [PLAN.md](/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/analysis-quality/PLAN.md:263) — docs/implementation/m3/analysis-quality/PLAN.md:246-257,263-273,309-321 (§8, §9, §11)
+
+**Problem.** The pre-M3 row requires D1-D9 although D9 explicitly follows M3's readiness review, D7/D8 are lead-owned successors, and D6 may remain unapproved. The M3 dogfood checkpoint unconditionally runs analyze on T3 even though T3 is consent-gated and BP schedules complete analyze delivery at M4. M3 calls Q2-Q6 measurements 'for the catalog's facts', while finding predicates through the DSL are scheduled at M5; facts alone cannot supply Q2/Q3 finding metrics. Q8 is targeted but omitted from the M6 acceptance row. The resident/editor and optional platform decisions also lack a clear distinction between prerequisites, optional scope and post-M3 work.
+
+**Recommended fix.** Replace the blanket pre-M3 decision list with a dependency table naming decision authority, reviewed successor owner, earliest evidence and implementation/qualification prerequisites. Keep Python language-neutral readiness at M3 and D9 after it unless the owner deliberately changes that order. Make T3 conditional on D6 with a public T2 dogfood alternative; label any M3 internal-harness checkpoint precisely, or place complete CLI dogfood at M4. Assign an executable non-authoritative evaluation of draft finding rules early enough for exploratory Q2/Q3, or explicitly defer those metrics rather than scoring facts as findings. Include Q8/manual corrections and the accepted per-shape usefulness obligations at M6. Preserve BP's command/renderer prerequisites and all existing required gates; optional Python, MCP/LSP and platform additions enter only through their scoped decisions.
+
+**Contract/method anchors:**
+
+- [implementation-boundaries-and-build-plan.md](/Users/sb/code/opensip-ai/opensip_arch/docs/v2/architecture/implementation-boundaries-and-build-plan.md:887): M3 builds native core; M4 completes analyze delivery; M5 completes policy/workflow surfaces.
+- [implementation-boundaries-and-build-plan.md](/Users/sb/code/opensip-ai/opensip_arch/docs/v2/architecture/implementation-boundaries-and-build-plan.md:895): Intermediate checkpoints cannot silently redefine delivery prerequisites.
+- [qualification-gates.applied.v1.json](/Users/sb/code/opensip-ai/opensip_arch/docs/coop/design-corrections/qualification-gates.applied.v1.json:271): Real repository/configuration shapes and manual-correction counts are part of G13.
+
+### C2-AQ-R1-10 (P2) — Name the evidence-carrier and gate work for the newly proposed measurements
+
+**Location:** [PLAN.md](/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/analysis-quality/PLAN.md:228) — docs/implementation/m3/analysis-quality/PLAN.md:228-233,271-273,307-321 (§7, §9, §11)
+
+**Problem.** Section 7 proposes using the current product report schema with standing:'exploratory', but that schema is closed and has no standing property. It carries exact per-cell observations and performance samples, not the described adjudication ledger, confidence/yield, refactor or explanation scoring protocol. Section 9 nevertheless assigns the new dimensions directly to G13, while §11 has no explicit report/gate successor task for this expansion. D1's statistics record correction cannot alone add new acceptance semantics. 'Fails on any regression' against an exploratory baseline also leaves performance noise and deliberate reviewed rule/oracle changes undefined.
+
+**Recommended fix.** Add an owned evidence-method decision/task: choose a separate exploratory envelope referencing unchanged product observations, or a reviewed dedicated successor, and pin metric definitions, denominators, ledgers, scoring harness and result provenance. Make qualification of new Q2-Q8 targets depend on the relevant reviewed G13/report/harness successor and the proper product/language/release owners; preserve the independent expected-answer and authenticated-runner boundaries. Keep exploration unpromotable and re-execute qualification as already proposed. Specify CI's exact correctness/expected-behavior checks, thresholded performance checks and the reviewed process for advancing a baseline after intentional semantic or corpus changes; noisy differences are not a meaningful zero-tolerance performance gate.
+
+**Contract/method anchors:**
+
+- [product-quality-report.schema.v3.json](/Users/sb/code/opensip-ai/opensip_arch/docs/coop/design-corrections/foundation/product-quality-report.schema.v3.json:1): The schema is closed; no standing member is declared.
+- [admission-and-qualification.md](/Users/sb/code/opensip-ai/opensip_arch/docs/v2/contracts/product-v1/admission-and-qualification.md:236): Current product report, trusted cell construction, independent observations and performance laws.
+- [qualification-gates.applied.v1.json](/Users/sb/code/opensip-ai/opensip_arch/docs/coop/design-corrections/qualification-gates.applied.v1.json:263): G13 has product/language/release ownership and a named current contract.
+
+## Answers to the requested focus areas
+
+| Focus | Assessment |
+|---|---|
+| 1. Dimensions Q1-Q8 | Keep the eight dimensions. Add per-rule cost/noise, useful answerable yield, cross-machine determinism, first-use latency and broken-build/stress workloads within them. R01/R02/R05/R06 and N01 address the missing acceptance method. |
+| 2. Targets | The numbers are provisional hypotheses, not demonstrated feasibility. 0.99 needs conservative label accounting and adequate evidence; zero false-clean must be scoped to unsupported absence claims unless the owner chooses a stronger complete-scope guarantee. Rust preparation and full edit-loop costs must be visible. See R01/R02/R06/R08 and N03. |
+| 3. Ground truth | Two votes and digest pinning do not establish an independent oracle. Freeze rubrics, guard label reuse, validate mutants, normalize and confirm differential disagreements, and hold out acceptance cases. Give transformations independent expected mappings. See R02-R05. |
+| 4. Rule catalog | Workspace-level pub usage is a valuable Rust hypothesis. Rule propositions/default gates must distinguish workspace absence, external API usage and repair safety. Cycles/clones need deliberate usefulness/default treatment. See R08 and N02. |
+| 5. Incremental/resident host | Staging (a) then (b) is reasonable conditionally. Decide authority/invalidation requirements before implementing M3, and review successors for any already selected protocol changes. Current replay cannot rebind old-snapshot evidence by itself. Measure necessity and persistent resource/concurrency costs. See R07. |
+| 6. Python/onboarding | The later explicit support decision is correct. Expand readiness beyond dynamic imports and typing blocks to environment/closure, discovery, stubs/native/generated inputs and partial/broken builds; avoid language-specific workspace assumptions. See N04 and R09. |
+| 7. Missing product/project work | Prioritize adjudication, supported-scope usefulness, edit-loop correctness and effort/maintenance ownership. The proposed integration surfaces are useful conditional follow-ons; they do not substitute for analysis quality. See N01/N05. |
+| 8. Consistency/ownership | The macro M3-M6 progression resembles BP, but D9 timing, consent-gated T3, M3 CLI dogfood, early finding scoring and omitted Q8 need correction. New metric/report/gate work needs explicit reviewed owners and prerequisites. Owner/lead responsibilities are broadly sound. See R09/R10 and N06. |
+
+## Non-blocking observations
+
+### C2-AQ-R1-N01 — §2 Q1-Q8; §6
+
+The eight dimensions cover the central developer experience well. Keep them, but expose true-but-unhelpful noise and operational usefulness beside correctness: false positives and total findings per thousand analyzed source lines, triage time, accepted/dismissed findings, time to the first trustworthy useful result, and answerable population by rule/repository. A true cycle or clone can still consume attention without benefiting the user.
+
+**Follow-up.** Map these measures into Q2, Q6, Q7 and Q8 rather than multiplying headline dimensions. Separate generated/vendored source and record denominators. For explanations, validate that citations/paths join actual proof inputs and that suggested actions respect scope; inspect bad-tail and high-impact cases rather than relying only on an average rubric score of 4.
+
+### C2-AQ-R1-N02 — §3; corrected REQUEST item 4
+
+Rust workspace-level pub analysis is the right differentiator to investigate rather than measuring compiler-lint replication alone. The initial catalog also has useful TS/JS dead-code and boundary checks, but clone-near, intentional cycles and dynamic/framework entry points have substantial noise risk. Dependency correctness across targets and declared workspace/package architecture offer additional daily value.
+
+**Follow-up.** Prioritize precise cross-crate usage/re-export and feature/target-aware fixtures, package boundary rules and entry-point recognition failures. Select additions by adjudicated value and cost on the owner's repository shapes; do not turn M3 into a broad compiler, security or style-lint replacement.
+
+### C2-AQ-R1-N03 — §5.2-5.3
+
+Precision 0.99 for gating rules, recall 0.95 in supported answerable scope, and the size-class medians are reasonable hypotheses to take to measurement. They are not a sufficient safety case for repair, nor evidence of feasibility. Option (c) can be sensible if changed-scope work proves useful and residency independently earns its cost; one-shot versus resident should remain an empirical comparison.
+
+**Follow-up.** Retain the proposed numbers as provisional product choices, freeze evaluation criteria before acceptance measurements, and disposition failures explicitly. Report latency tails and full-invalidation edits without replacing the accepted median regime. Use the proposed residency stage to measure multi-request correctness, persistent memory and startup/replay savings before promising the editor/agent latency.
+
+### C2-AQ-R1-N04 — §8
+
+Python is a good language-neutrality test, and the explicit later support decision and self-contained closure requirements are appropriate. The listed concerns are useful but incomplete for onboarding: interpreter/version and platform-specific environments, import-path/package-root precedence, relative imports and editable/namespace layouts, installed dependency and stub/type-information closure, generated/native-extension surfaces, reflective monkey-patching, and runtime versus typing-only behavior need representative cases. A pyproject file should not automatically imply Cargo-style workspace semantics.
+
+**Follow-up.** Extend the kit with an input/environment/mode matrix, public-interface/entry-point model, syntax-only versus semantic advertisements, typed partial/error results and cross-language unresolved boundaries. Include missing stubs/dependencies, broken syntax and unavailable generated inputs. Compare candidates on the same pinned semantic propositions and closure costs; no analyzer choice or new supported role is required by this review.
+
+### C2-AQ-R1-N05 — §10
+
+Incremental responsiveness belongs near the top for daily use, but trusted finding ground truth, supported-scope yield, broken-build usefulness and triage cost deserve equal early attention. An effort/critical-path account is especially valuable because full adjudication across real repositories, providers and configurations can dominate the work. MCP/LSP and code-review projections are useful consumers after analysis earns trust.
+
+**Follow-up.** Put corpus/rule/adjudication ownership and the measured critical path before adding transport breadth. Stage editor/agent integrations through the same existing authority and projection boundaries, with explicit optional scope decisions, and reserve time for maintaining oracles and ledgers as dependencies and compilers change.
+
+### C2-AQ-R1-N06 — §11
+
+The broad split of authority is appropriate: the owner decides product targets, selected language/platform/surface scope and consent; the lead prepares technical mechanisms and record corrections. The plan correctly disclaims new law and qualification. D1 should retain its narrow record-correction standing; accepting this plan would not itself accept the proposed contract or gate successors.
+
+**Follow-up.** Name language-quality, identity/native/evaluator, security/lifecycle and release owners on affected successor tasks and preserve their required review. Keep the private corpus conditional; a public corpus must still allow qualification work to proceed. Revisit targets from exploratory evidence through an explicit decision without tuning acceptance on the same held-out evidence.
+
+## Review boundary and verification
+
+Repository reads and filesystem metadata only; no product code or tests, no benchmarks, no delegation, no commits or repository writes. No access to the runtime OpenSIP home or the private 413 UUID fixture. Only REVIEW.md and review.json were written, in the requested /tmp directory.
+
+This is a plan-method review, not a measurement, qualification or independent external-tool citation audit. Proposed experimental checks are future work; none were executed.
+
+Read-only inputs inspected:
+
+- The pinned PLAN.md and corrected REQUEST.md
+- Product-v1 admission/qualification, native evidence, identity/evidence, workflows/surfaces and README
+- The decision/readiness register, implementation build plan, scope chapter and three-reviewer synthesis
+- Applied qualification-gate DR-G13/DR-G14 rows
+- Historical analysis-quality/performance method and the current product report schema
