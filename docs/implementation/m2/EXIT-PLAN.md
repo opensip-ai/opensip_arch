@@ -194,3 +194,6 @@ Rejected: changing the trust-anchor tool now for one sentence.
   - the REV that B1, B2 and B4 append;
   - B7's drift and B6's gate, as shown at the public boundary;
   - B0's candidate route (`#[path]` include plus the schema-registry shim).
+- **X9 follow-ups (2026-10-03, from X9-3).**
+  - **Clock-window flake in an X9-1 self-test.** `a_scripted_clock_gives_each_ordinal_its_own_increasing_wall_seconds` fails whenever the real clock reads 2026-10-03 00:00–03:00 UTC. The scripted clock's fixed epoch falls in that window, and the test asserts the OS clock lies outside it. A small test-only fix is owed; F7 or X9-6 can carry it.
+  - **r14 overstatement (record).** The r14 header says the object-publication group order changes X9-2's F02–F05 next-writer trace digests too. X9-3's comparison shows only the killed child's digest changes (14 of 22 runs). The next writer's confirmed objects already sort first, so its digest is unchanged. No expected value depends on this. Fold it into X9's next record note.
