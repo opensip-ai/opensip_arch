@@ -1,4 +1,4 @@
-# The crash, lock and revocation matrix — proposal X9 r13
+# The crash, lock and revocation matrix — proposal X9 r14
 
 2026-10-01. Claude Opus 5.5, implementation lead. Law for unit X9 of `EXIT-PLAN.md`, the unit that gates M2 completion. It is written under:
 - the build plan's M2 row (`docs/v2/architecture/implementation-boundaries-and-build-plan.md` line 886: "actual crash/lock/revocation matrix pass; synthetic fixtures remain labelled"), its ordered failure matrix F00–F53 (lines 524–587), its required API and fault-injection checks (lines 591–613; the test owner `crates/storage/tests/commit_tests.rs`, line 594), and the tooling row for storage and process faults (line 1072: "deterministic synchronization and crash barriers against actual storage/processes … Record platform/filesystem/profile, actual state bytes and exact outcomes; inject before/after each durability step, without sleep-and-hope synchronization");
@@ -170,6 +170,7 @@ r2 (2026-10-01) is an amendment made as lead decisions under the owner's standin
   - **Census scope (item 5).** A unit's census is the census of its own drivers. X9-2's census is its `commit` driver's lawful first commit on a fresh root: two runs, equal point for point. The `recover` and `sweep` censuses are X9-3's. X9-6's census is the union.
     **r10:** X9-5's census is the union of two unarmed `finalize` runs, a lawful commit and an exhausted-carrier commit, and (r11) one unarmed `store_gc` run, and X9-6's union spans both targets (see the r10 header).
   - **The trace digest (item 7).** A child's `trace.sha256` hashes its records grouped by thread, in each thread's own order and threads by index. The pid and the process-wide sequence number are left out, because they interleave between threads. Every drawn value in a payload is numbered by first appearance with item 7's normalizer. Without this, an unarmed observer tick interleaving with the main thread, or a drawn ExecutionId in a payload, would make two lawful repetitions disagree.
+    **r14:** before the normalizer numbers drawn values, each thread's consecutive `x3c.object/` records are split into per-object groups at `x3c.object/create.before`, the groups are ordered by their records without occurrences (stable), and each name's occurrences are reassigned ascending in that order. Every lawful first commit is unchanged (see the r14 header).
   - **R3's value (item 8).** R3 is scored against the left attempt's ExecutionId. That is the outcome the sweep wrote for it, or "nothing". R2 is a lawful commit whose attempt the sweep also settles, `committed`; that settle is recorded beside R3 (`nextWriter`) and is not part of the row's R3. "R3 writes nothing" means nothing for the left attempt.
   - **F46's second variant (item 9).** "An association below `first_generation`" is not executed in M2. A fresh carrier's first generation is 1, and the ledger's `CHECK (grant_generation >= 1)` admits no association below it. Only a migrated carrier has a higher first generation, and no migration writer exists (L5). F46 runs the format-1 and format-2 variants.
 - **Unchanged from r7:** every injection mechanism, point, kind, scope, label, evidence member and forbidden substitute, and every row and expected value not named above. No accepted outcome of any other law changes. No new public code, row or detail.
@@ -404,6 +405,85 @@ It changes the following and nothing else.
 
   No accepted outcome of any other law changes. No new public code, row or detail.
 
+**r14 (2026-10-03) is an amendment made as lead decisions under the owner's standing direction of 2026-09-30.** r13 bytes are preserved in PROPOSAL-r13.md.
+
+- **Where it was found.** In X9-3's two lead run sets, `x93-lead-1` and `x93-lead-2`, on product main `b999ae3`. They ran r13's 57 X9-3 rows uncommitted, with the 5,000 ms timing guard.
+- **What passed.**
+  - Each set passed all 57 rows, verdict `PASS`.
+  - The two sets agreed on 50 runs, on both `normalizedSha256` and every child's trace digest.
+  - F44's and F45's timing guards measured 2,683 to 2,791 ms.
+- **What disagreed.** Seven runs disagreed between the two sets, so `check-unit` refused ("repetitions disagree on a trace digest"):
+  - F13, F14 and F15;
+  - F25's two variants;
+  - F49(a);
+  - F52 `purged`.
+
+  There are three causes:
+  1. **A next writer that confirms some objects and creates others.** This affects F13, F14, F15, F25 `object-deleted` and F52 `purged`, on the R2 child's trace digest. Their normalized post states agree.
+     - **The mechanism.** X3c publishes a Run's objects in content-digest order (X3c item 4). The digests derive from drawn values: the synthetic candidate's ProjectId, and in F13 to F15 r12's distinct variant.
+     - **Where it shows.** An R2 that finds some of its objects already present takes X3c item 4's confirm-existing branch for those and the new-object branch for the rest. Which object takes which branch, at which position, is a drawn permutation.
+     - **The evidence.** In F13's R2, 54 confirmed and 28 new objects interleaved differently in two runs: the same records, permuted.
+  2. **A next writer that refuses partway through its objects.** This affects F25 `object-flipped`, on the R2 child's trace digest, with 1,115 records in one set and 1,141 in the other.
+     - R2 replays the same Run (r12's X3d-2 limit) and refuses at the flipped object.
+     - That object's position in digest order is drawn, so the number of objects R2 publishes before it refuses differs between runs.
+     - No ordering of the trace can make that agree.
+  3. **Two `admitted` attempt rows in one table without rowid.** This affects F49(a)'s `normalizedSha256`.
+     - Such a table dumps in primary-key order. With two rows of equal shape, that order follows their drawn ExecutionIds.
+     - The unit fixes this in its post-state normalizer, as X9-2's call 7 fixed the object set. It is X9-3's judgment call, reviewed with the unit, and not law.
+- **No product code changed.**
+- **How it edits r13.** The r13 sentences it touches stay in place, each followed by a short "r14" note that points here.
+
+It changes the following and nothing else.
+
+- **The trace digest orders each object publication's groups (r8's trace rule; item 7).**
+  - **The basis.** r8's trace rule makes two lawful repetitions comparable where a drawn value would otherwise move a record. X3c item 4's digest order is such a value, because it orders identical steps by drawn digests. So the rule extends to it, in the same place and with the same scope: a child's trace digest only.
+  - **Decision: the object-publication group order.** Item 7's normalized lines are computed per thread, in that thread's order (r8). Before r8's normalizer numbers drawn values, each thread's records are rewritten as follows:
+    1. **Runs.** A *run* is a maximal sequence of consecutive records of that thread whose full name begins `x3c.object/`. These are the per-object publication steps. The directory steps `x3c.object.objects/…` and `x3c.object.sha256/…` are not in a run, and they end one.
+    2. **Groups.** A run is split into *groups*.
+       - Each group begins at a record whose name is `x3c.object/create.before`, and runs up to the record before the next such record, or to the run's end.
+       - Every object, new or already present, begins at `create.before`. X3c item 4 creates the object's staging file before it attempts the link. For an object already present, the link finds the name taken, and the group continues through `confirm_existing_regular`'s barriers and reopen. It never reaches `link.after`. In F13's R2, each of the 54 confirmed objects is `create, write, file-barrier, link.before, file-barrier, directory-barrier, reopen-confirm`, and each of the 28 new objects is `create, write, file-barrier, link, directory-barrier`.
+       - A killed child's last group ends at its held record.
+       - Records of a run before its first `create.before` form one leading group, ordered like any other. None occurs at this product.
+    3. **The order key.** A group's key is the list of its records, each as `<full name without "#k">|<event>|<payload>`, compared element by element as strings, with a list that is a prefix of another ordering first. The groups of a run are sorted by key. The sort is stable, so groups with equal keys keep their trace order. Such groups hold identical records apart from their occurrences, so after step 4 their order cannot show.
+       - The payload is the record's raw payload. At this product every `x3c.object/` point's payload is empty.
+    4. **Renumbering.** Within a run, each full name keeps exactly the occurrence numbers it had. They are reassigned ascending in the sorted order, so the *n*th record of that name in the sorted run takes the *n*th smallest of them.
+       - Records outside runs are unchanged, as are other threads.
+       - The point names and occurrences in `lastHeld`, kill verification, the census points and the kill set are unchanged. They come from the raw records, not from the digest's lines.
+  - **Why every lawful first commit is unchanged.**
+    - **Why nothing moves.** In a lawful first commit on a fresh root, every object is new. So every group of the run has the same key: `create, write, file-barrier, link, directory-barrier`, each `pass` with an empty payload. A stable sort of equal keys moves nothing, and step 4 then assigns each name's occurrences in the order they already had. The lines, and so the digest, are byte-identical.
+    - **The evidence.** X9-2's census (its commit driver) and X9-3's census (commit, recover and sweep) were regenerated with the rule in place. Both `census.json` files are byte-identical to those of the same product without it, including the census trace digest.
+    - **The same holds in every run whose object groups are all alike:**
+      - a writer whose every object is new;
+      - a writer whose every object is confirmed, such as R2 after F07 to F12, F36 and F42, which re-publishes the same Run's complete object set.
+  - **What the rule does change.**
+    - **X9-3's rows.** In a run with unequal groups the digest changes, and it now agrees between repetitions. On X9-3's rows, three development run sets agreed after the change on F13, F14, F15, F25 `object-deleted`, F52 `purged` and F49(a) (F49(a) with the unit's post-state call).
+    - **X9-2's rows.** The rule also changes the trace digests of X9-2's runs whose groups are unequal:
+      - the child killed inside an object publication in F02 to F05, whose last group is partial;
+      - the next writer in those rows, which confirms the killed attempt's objects and creates the rest.
+
+      Their `normalizedSha256` is unaffected. Their repetition agreement is per run set and holds as before, because those orders were already deterministic: the confirmed objects are a prefix in digest order. X9-2's accepted run sets stay accepted. X9-3's X9-2 regression run uses the new rule, and X9-6 reruns everything under it.
+  - **Rejected:**
+    - **Sorting object groups by name, or by digest.** Names and digests are drawn values. The point is an order that does not depend on them.
+    - **Leaving `x3c.object/` records out of the trace digest.** It would hide every object step from the repetition comparison, including a real difference in how many objects a writer published.
+    - **Excluding the affected children from the comparison.** It drops the comparison for exactly the runs where the next writer's behaviour matters.
+    - **Changing X3c's publication order.** That is product code. X3c item 4's order is lawful and is not this law's to change.
+- **F25 runs R1 only, both variants (items 8 and 9).**
+  - **The basis.** F25's row expects R1 alone: CAD with `evidence.missing` or `evidence.corrupt`. Its R2 is a mutation row's default (item 8), not part of the row, and it re-commits the same Run, X3d-2's known limit (r12).
+    - After `object-flipped`, R2 refuses at the flipped object, at a drawn position. So its trace cannot repeat (cause 2).
+    - After `object-deleted`, R2 re-creates the missing object among confirmed ones (cause 1).
+  - **Decision.** F25's two variants run R1 only (`{"ladder": "R1"}`). The expected value is unchanged. R1's `stateUnchanged` is still compared.
+  - **Rejected:**
+    - **Leaving R2's child out of the repetition comparison.** It weakens item 7's agreement for one child kind, and it records a run whose next writer's outcome no row scores.
+    - **R2 commits r12's distinct variant.** R2 would still publish around the flipped object at a drawn position, so the record count still varies.
+- **The unit's post-state call (record).** Cause 3 is fixed in X9-3's post-state normalizer as a judgment call reviewed with the unit, as X9-2's call 7 was. Item 7's `normalizedSha256` definition does not change: every drawn value is still numbered by first appearance, and nothing compared is dropped.
+- **Unchanged from r13:**
+  - every injection mechanism, point placement, kind, scope, label, evidence member, limit and timing guard;
+  - every forbidden substitute;
+  - every row and expected value not named above, including all of X9-2's rows, X9-3's other rows and X9-5's;
+  - X9-5's runners, host order, required-runs file and census.
+
+  No accepted outcome of any other law changes. No new public code, row or detail.
+
 Product baseline: main `f1b8321` (X3d-0 integrated). Every item contains a lead decision made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation; each names the alternative it rejects. Not product code. No new public code, row or detail.
 
 ## Problem
@@ -618,7 +698,7 @@ At `f1b8321` the product has the following, and nothing more:
      - `product.commit` is the reviewed commit, and the worktree is clean;
      - the census and the kill set agree (item 5);
      - the release absence passes;
-     - the two lead repetitions agree run by run on `normalizedSha256` and on the trace digest, the trust store (`logical.trustState`) included (r2);
+     - the two lead repetitions agree run by run on `normalizedSha256` and on the trace digest, the trust store (`logical.trustState`) included (r2) (**r14:** the trace digest with r14's object-publication group order);
      - (r2) every run's labels include `scripted-clock`, and every child's ordinal follows spawn order.
    - **r10:** the reviewed required runs are two files: storage's, and `crates/host/tests/fixtures/crash-matrix/required-runs.v1.json` for X9-5's rows. X9-6's `check` takes both files and both pairs of run sets, and checks the union census (see the r10 header).
    - **The per-unit check (r4; lead decision).** Before X9-6, each of X9-2 to X9-5 checks its own run sets with a subset mode of the checker.
@@ -632,7 +712,7 @@ At `f1b8321` the product has the following, and nothing more:
        - every killed point of the unit's runs is in the kill set;
        - the release absence passes;
        - the limits are exactly L1 to L10 (**r12 (record):** L1 to L11, as r8 set);
-       - the two sets agree run by run on `normalizedSha256`, the trust store included, and on every child's trace digest, and they agree on the census.
+       - the two sets agree run by run on `normalizedSha256`, the trust store included, and on every child's trace digest, and they agree on the census (**r14:** each trace digest with r14's object-publication group order).
 
        It does not require the full kill-set coverage.
      - **What binds the reviewed bytes.** The unit's review subject manifest binds them. The run records do not.
@@ -658,6 +738,7 @@ At `f1b8321` the product has the following, and nothing more:
 
    **Exceptions.**
    - **Mutation rows** run R1 and R2 only, because the injected condition persists.
+      **r14:** F25 runs R1 only (see the r14 header).
    - **Runs without an ExecutionId** skip R1 and R4 and record `"notApplicable": "no-execution-id"`. The ExecutionId comes from the `x3d.session.execution-draw` pass record.
    - **Every lawful run** also asserts the release order line 608 requires, from its trace: level 4, then each level-3 transaction, then the lease, then the fence.
 
@@ -694,7 +775,7 @@ At `f1b8321` the product has the following, and nothing more:
    | F22 | X6, X3b | the parent restores a carrier copy taken at an earlier `hold`, under a newer floor; or equal seq with a different hash | exec (mut) | R1 UQ; R2 quarantine (floor regression or `uncertainTailLoss`). |
    | F23 | X6 | the parent deletes the receipt row, or the association row | exec (mut) | R1 UC; R3 writes nothing (one-sided). |
    | F24 | X6, X3a | ledger mode `000` or a truncated header; a wrong store generation selected | exec (mut) | R1 UC; R2 refused on its X3c or X3a row; R3 reports host I/O for that namespace and writes nothing. **r12:** the wrong-store-generation variant (every row's digest changed, the ledger readable) gives R1 UAU, R2 Committed, and R3 `swept` with nothing written, per the owner's §2 matrix (see the r12 header). |
-   | F25 | X6 | the parent deletes, or flips one byte of, a committed object | exec (mut) | R1 CAD with `evidence.missing` or `evidence.corrupt`. |
+   | F25 | X6 | the parent deletes, or flips one byte of, a committed object | exec (mut) | R1 CAD with `evidence.missing` or `evidence.corrupt`. **r14:** both variants run R1 only; R2 would re-commit the same Run at a drawn position (see the r14 header). |
    | F26 | X4, X6 | commit, then the parent publishes a revocation | exec | R1 CH; R2 refused at admission; no grant reused. |
    | F27 | X6 | the parent swaps the association's namespace, generation, operation or execution; or a request with a different binding | exec (mut) | R1 BU. **r12:** the association's operation and execution swaps give R1 UC `ledger-join` (the snapshot's join); the store-generation and namespace swaps, and a request with a different binding, give BU (see the r12 header). |
    | F28 | X6 | X6a's pruned-record fixture, read in a fresh process | exec (mut) | R1 UC. |
@@ -776,6 +857,7 @@ At `f1b8321` the product has the following, and nothing more:
       **r8:** X9-2 transcribes r8's F00 and F07 splits, runs F46's format variants only, and carries L11 in the checker's limit list (see the r8 header).
     - **X9-3 (storage; commit and recovery).** Rows F11–F15, F23–F25, F27–F29, F33, F36, F42, F43–F45, F49, F52 and F53. **Dependencies:** X9-2.
       **r12:** X9-3 also adds the distinct candidate variant, R5, the timing guard with its `timingGuard` member in the run writer and the checker, and the F39 script with the r12 admission hold for F44 and F45. Its F14 is the `published` kill only, and its F36 is F09 and F11 only (see the r12 header).
+      **r14:** X9-3 also adds r14's object-publication group order to the matrix target's trace digest, and runs F25 with R1 only (see the r14 header).
     - **X9-4 (storage; locks and live revocation).** Rows F06, F18, F19, F26, F30, F34, F38, F39's storage half, F40 and F41, and C5 once G5 is decided (**r3 (record):** decided by X6c; C5's R3 is `refused` and its R4 is `terminal-not-committed`). **Dependencies:** X9-2 and X4a. It uses X4a's observer `gate` point.
       **r12:** X9-4 also takes F14's `x3d.finish.settle.before` kill, in an owed-end-record run after F39's script. It inherits the r12 admission hold and X9-3's timing guard (see the r12 header).
     - **X9-5 (host).** `crates/host/tests/commit_matrix_tests.rs` with rows F01, F16, F17, F12's and F40's caller route, F32 with its rollover crash table, F39's delivery half, and F53's `store-gc` step. **Dependencies:** X9-2, X5a, X7a, X7b, X3b-4 and X6c.
