@@ -1,0 +1,297 @@
+{
+  "reviewer": "CODEX2",
+  "round": "M3-Q0-r2",
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectSha256": "4225ca34728ba1494a087110c5b92664f7d3f1560dc5ce3dd70fa24cf91e63c4",
+  "schemaSha256": "df67c65128065c33867ad3317a1cf25f870a0b4670c06a8af4336ab00de9548f",
+  "subjects": [
+    {
+      "path": "docs/implementation/m3/harness/DESIGN.md",
+      "bytes": 91319,
+      "sha256": "4225ca34728ba1494a087110c5b92664f7d3f1560dc5ce3dd70fa24cf91e63c4"
+    },
+    {
+      "path": "docs/implementation/m3/harness/exploratory-quality-envelope.schema.v1.json",
+      "bytes": 50098,
+      "sha256": "df67c65128065c33867ad3317a1cf25f870a0b4670c06a8af4336ab00de9548f"
+    }
+  ],
+  "r1FindingResolution": [
+    {
+      "id": "C2-Q0-R1-01",
+      "status": "RESOLVED",
+      "locations": [
+        "DESIGN.md:242-260"
+      ],
+      "reason": "TRI now includes the full snapshot path/mode/content inventory and resolution inputs; additions and deletions invalidate carry-forward. No narrower closure is admitted without an independently reviewed soundness specification. Input triggers are separate from detector outputs."
+    },
+    {
+      "id": "C2-Q0-R1-02",
+      "status": "RESOLVED",
+      "locations": [
+        "DESIGN.md:490-495"
+      ],
+      "reason": "Water-filling reaches min(100, corpus count) separately per stratum and evidence set. The former 29-family counterexample now draws 72 + 28 = 100; selection and sampled denominators are explicit."
+    },
+    {
+      "id": "C2-Q0-R1-03",
+      "status": "RESOLVED",
+      "locations": [
+        "DESIGN.md:264-274",
+        "DESIGN.md:453-471"
+      ],
+      "reason": "The guard uses verified true/corpus count and an optimistic upper bound. An unweighted sample ratio cannot qualify the guard; pending and unlabelled populations remain distinct. OI-17 is explicitly not adopted."
+    },
+    {
+      "id": "C2-Q0-R1-04",
+      "status": "RESOLVED",
+      "locations": [
+        "DESIGN.md:533",
+        "DESIGN.md:555-560"
+      ],
+      "reason": "M3 prohibits repository-controlled execution, requires verified non-executing tool modes, and defers executing tools to explicit M5 authorization. Confinement is no longer treated as permission."
+    },
+    {
+      "id": "C2-Q0-R1-05",
+      "status": "PARTIALLY-RESOLVED",
+      "locations": [
+        "DESIGN.md:681-709"
+      ],
+      "reason": "Linux taskstats provides an identified own-address-space counter, and unsupported or missing counters are incomplete. The registration/completion protocol still cannot establish a complete historical inventory or select the terminal thread-group counter unambiguously.",
+      "remainingFinding": "C2-Q0-R2-01"
+    },
+    {
+      "id": "C2-Q0-R1-06",
+      "status": "RESOLVED",
+      "locations": [
+        "exploratory-quality-envelope.schema.v1.json:845-929",
+        "exploratory-quality-envelope.schema.v1.json:947-999",
+        "exploratory-quality-envelope.schema.v1.json:1233-1256",
+        "exploratory-quality-envelope.schema.v1.json:1555-1573",
+        "exploratory-quality-envelope.schema.v1.json:1637-1657"
+      ],
+      "reason": "Required Q2 repository populations and line counts, Q3/Q6 yield denominators, and per-rule Q7 populations, histograms and dispositions now have carriers. Measured Q7 requires nonempty rule rows."
+    },
+    {
+      "id": "C2-Q0-R1-07",
+      "status": "PARTIALLY-RESOLVED",
+      "locations": [
+        "DESIGN.md:729-743",
+        "DESIGN.md:761",
+        "exploratory-quality-envelope.schema.v1.json:459-501",
+        "exploratory-quality-envelope.schema.v1.json:573-601"
+      ],
+      "reason": "Incomplete sample arrays, typed reasons, non-Q6 status, batch identity and final selection are supplied. Operational-record joins and runner observations still lack batch scope when both batches share an envelope.",
+      "remainingFinding": "C2-Q0-R2-02"
+    },
+    {
+      "id": "C2-Q0-R1-08",
+      "status": "RESOLVED",
+      "locations": [
+        "DESIGN.md:839-865"
+      ],
+      "reason": "The baseline places Rust and syntax oracles before day zero and freezes TS by day six; reviewed freezes precede T1 producer runs and are enforced. OI-12 explicitly lists the pending plan edits. The new slip calculation has a separate error.",
+      "newRelatedFinding": "C2-Q0-R2-03"
+    }
+  ],
+  "requiredFindings": [
+    {
+      "id": "C2-Q0-R2-01",
+      "priority": "P1",
+      "title": "Do not infer complete lifetime RSS accounting from an empty cgroup and known exits",
+      "r1Relation": "Remaining part of C2-Q0-R1-05",
+      "locations": [
+        "DESIGN.md:689-696"
+      ],
+      "problem": "The complete condition covers only registered lifetimes. Connector and taskstats delivery can lose events; a short-lived child can disappear between cgroup.procs reads with its notifications lost, leaving populated=0 and all known exits collected. These conditions do not prove that every historical descendant was accounted for. Per-task exit records also occur for individual threads, while lifetimes are deduplicated by tgid; the design does not select the final thread-group record or define complete draining.",
+      "counterexample": "A child allocates a peak and exits before the next inventory read. Its fork/exit and accounting messages are lost. All registered processes have counters and the cgroup becomes empty, so the stated completion test can accept an understated sum. Separately, a leader may exit before a worker thread raises the shared address-space peak; accepting the first record for the tgid understates that lifetime.",
+      "impact": "An incomplete process inventory or premature counter can be emitted as a complete RSS result and potentially qualify a budget.",
+      "requestedChange": "Specify acknowledged pre-launch connector/taskstats subscriptions covering every permitted CPU, event-loss/continuity checks, stable identity acquisition, and an explicit terminal drain/completion rule. Any overflow, sequence gap, subscription failure, unknown/unjoinable identity, or missing terminal counter must force incomplete; empty cgroup snapshots cannot repair lost history. Define process-terminal record selection and de-duplication for the pinned kernel, such as the final per-task AGROUP record joined through ac_tgid, rather than the first thread record or summed thread counters. Extend the planned K1c calibration/rejection cases to cover short-lived and multithreaded processes and loss handling.",
+      "sources": [
+        "https://docs.kernel.org/accounting/taskstats.html",
+        "https://docs.kernel.org/admin-guide/cgroup-v2.html",
+        "https://raw.githubusercontent.com/torvalds/linux/v6.18/drivers/connector/cn_proc.c",
+        "https://raw.githubusercontent.com/torvalds/linux/v6.18/kernel/taskstats.c"
+      ]
+    },
+    {
+      "id": "C2-Q0-R2-02",
+      "priority": "P1",
+      "title": "Give operational records and runner observations an explicit batch join",
+      "r1Relation": "Remaining part of C2-Q0-R1-07; also affects r1 observation N04",
+      "locations": [
+        "DESIGN.md:740-742",
+        "DESIGN.md:761",
+        "exploratory-quality-envelope.schema.v1.json:459-501",
+        "exploratory-quality-envelope.schema.v1.json:573-601"
+      ],
+      "problem": "Both first and retry batches must share one envelope, but operationalRecords identifies only workloadId/runIndex plus a digest and disclosure flag. Those indexes recur across workflow/reset/control cells and retries. runner.observations is one closed object, although the design requires observations for each batch. No declared lookup binds either evidence carrier to a particular q6 batch.",
+      "counterexample": "For the same workload, both batches contain measured run index 0 and have different operational records and pre-batch load averages. The q6 rows have distinct batchIds, but the carrier cannot identify which record or observation belongs to each row.",
+      "impact": "A reviewer cannot reconstruct or validate the retained first/final batches, their phase/reuse evidence, or the quiet-run admission evidence.",
+      "requestedChange": "Add a required batchId join to operational-record rows, with explicit run-slot semantics, or place ordered record references directly in each batch. Carry observations as batch-keyed rows or required batch references. Define semantic validation for canonical IDs, unambiguous joins, duplicate/orphan evidence, and required retained-batch coverage; allow missing evidence only through the specified incomplete/absence state."
+    },
+    {
+      "id": "C2-Q0-R2-03",
+      "priority": "P2",
+      "title": "Recompute K2 slip slack through F1 to H to J2",
+      "r1Relation": "New r2 arithmetic error; the r1 baseline freeze defect is resolved",
+      "locations": [
+        "DESIGN.md:856-857",
+        "DESIGN.md:859-865",
+        "M3-PLAN.md:213",
+        "M3-PLAN.md:218-227"
+      ],
+      "problem": "The four-day slack statement compares F2 to the original J3 start but holds H and J2 fixed. H also depends on F1. Under the design's stated model that delayed first T1 activity shifts the F branch, three days of actual F1 delay already extend the host chain.",
+      "analyticIllustration": {
+        "assumptions": "Actual F1 delay d; other stated branch/day-zero assumptions hold and O2_selected is at most day 24.",
+        "formulas": [
+          "F1 = 10 + d; F2 = 14 + d; F3 = 17 + d",
+          "H = max(12, 10 + d) + 3",
+          "J2 = H + 3",
+          "J3 = max(J2, 14 + d, 15) + 3",
+          "M3-X = 26 + max(0, d - 2)"
+        ],
+        "rows": [
+          {
+            "f1DelayDays": 0,
+            "F1": 10,
+            "H": 15,
+            "J2": 18,
+            "J3": 21,
+            "M3M": 24,
+            "M3X": 26
+          },
+          {
+            "f1DelayDays": 2,
+            "F1": 12,
+            "H": 15,
+            "J2": 18,
+            "J3": 21,
+            "M3M": 24,
+            "M3X": 26
+          },
+          {
+            "f1DelayDays": 3,
+            "F1": 13,
+            "H": 16,
+            "J2": 19,
+            "J3": 22,
+            "M3M": 25,
+            "M3X": 27
+          },
+          {
+            "f1DelayDays": 4,
+            "F1": 14,
+            "H": 17,
+            "J2": 20,
+            "J3": 23,
+            "M3M": 26,
+            "M3X": 28
+          }
+        ]
+      },
+      "impact": "The record overstates delay tolerance in the conditional 26-day schedule.",
+      "requestedChange": "Replace the four-day assertion with dependency-aware formulas. Only two days of actual F1 delay fit. If oracle slip s is measured from the planned day-six freeze, its one-day margin gives d=max(0,s-1), so three days of oracle slip fit and the fourth extends the chain. Reflect the corrected consequences in the OI-12 update list, or explicitly use a different authoring/testing schedule and recompute its dependencies."
+    }
+  ],
+  "nonBlockingObservations": [
+    {
+      "id": "C2-Q0-R2-N01",
+      "title": "Restrict the error-free minimum wording to the CP branch",
+      "locations": [
+        "DESIGN.md:451",
+        "DESIGN.md:501"
+      ],
+      "observation": "The statement that any error requires more families is false for the product bound. At 299 families, 298 precisions of 1 and one of 999999/1000000 give L >= 0.990030 * 0.999999 = 0.99002900997 > 0.99. If these are fully adjudicated, the pooled guard also passes. The formal product decision rule is correct; qualify the prose and distinguish the CP one-error requirement of 473."
+    },
+    {
+      "id": "C2-Q0-R2-N02",
+      "title": "Make the hypothetical OI-17 cost reduction conditional",
+      "locations": [
+        "DESIGN.md:469",
+        "DESIGN.md:503"
+      ],
+      "observation": "The 29-by-4 example draws all 116 findings under current water-filling. A forced 100-finding sample is not guaranteed to pass the proposed alpha/29 hypergeometric guard: in an incompletely observed four-finding family, an all-true sample can still have probability at least 1/4 when one unobserved finding is false, much larger than 0.05/29. Approval of that inference rule alone does not establish the stated sufficiency. Keep the current 260-vote estimate, and qualify or withdraw the prospective 224-vote estimate."
+    },
+    {
+      "id": "C2-Q0-R2-N03",
+      "title": "Change exactly when to guaranteed when in the allocation explanation",
+      "locations": [
+        "DESIGN.md:380"
+      ],
+      "observation": "At least 100 families guarantees one sampled finding per family, but fewer than 100 singleton families also receive one each. This is a wording error; the formal branch condition at lines 375-376 is correct."
+    },
+    {
+      "id": "C2-Q0-R2-N04",
+      "title": "Assign sample/reason consistency to the envelope validator",
+      "locations": [
+        "exploratory-quality-envelope.schema.v1.json:1495-1526",
+        "DESIGN.md:729-742"
+      ],
+      "observation": "The incomplete variant permits null samples with seven empty reason lists. Define cross-field invariants tying unavailable slots to typed reasons and reconciling phase presence/absence and aggregate availability. This does not permit a within-budget result because the incomplete status and q6Labelled=false are enforced."
+    }
+  ],
+  "r1NonBlockingResolution": [
+    {
+      "id": "C2-Q0-R1-N01",
+      "status": "RESOLVED",
+      "reason": "Family-weighted estimand and additional CP premise are explicit; OI-4/OI-5 remain successor decisions."
+    },
+    {
+      "id": "C2-Q0-R1-N02",
+      "status": "PARTIALLY-RESOLVED",
+      "reason": "Rounded-down reference values and all-success boundary qualification are corrected. Error wording still needs the distinction recorded in C2-Q0-R2-N01."
+    },
+    {
+      "id": "C2-Q0-R1-N03",
+      "status": "RESOLVED",
+      "reason": "The unperformed simulation claim is withdrawn; this record labels its numbers as arithmetic, not measurements."
+    },
+    {
+      "id": "C2-Q0-R1-N04",
+      "status": "PARTIALLY-RESOLVED",
+      "reason": "Input/output separation, rater slots and permanent exposure tracking are supplied. Runner observation fields exist but their batch scope remains C2-Q0-R2-02."
+    },
+    {
+      "id": "C2-Q0-R1-N05",
+      "status": "RESOLVED",
+      "reason": "Source citations are tightened and Rust refactoring eligibility is restricted to the stated non-expansion domain."
+    }
+  ],
+  "checkResults": [
+    {
+      "check": "Water-filling",
+      "result": "Sound floor/allocation; no new required finding."
+    },
+    {
+      "check": "Two-sided census guard",
+      "result": "Sound deterministic bounds and conservative status order; OI-17 not adopted."
+    },
+    {
+      "check": "Linux taskstats/cgroup",
+      "result": "Counter source is credible, but completeness protocol needs C2-Q0-R2-01."
+    },
+    {
+      "check": "Schema rejection cases",
+      "result": "By static inspection: missing required denominators, measured Q7 without nonempty rules, within results with null RSS samples, incomplete results marked Q6-labelled, and unknown run reasons are rejected by the relevant shapes. Remaining carrier issue is C2-Q0-R2-02; consistency note is N04. No validator was run."
+    },
+    {
+      "check": "K2 freeze schedule",
+      "result": "Baseline freeze ordering resolves r1. New slip arithmetic needs C2-Q0-R2-03."
+    }
+  ],
+  "openItemAssessment": {
+    "OI-17": "A new inference rule awaiting approval; the current conservative guard remains valid. Its open status alone is not a required finding.",
+    "OI-18": "Explicit macOS incomplete RSS is conservative. A macOS qualification lane still needs an own-counter source; absence is disclosed rather than filled in.",
+    "OI-12": "The pending M3-PLAN edits are explicitly listed. They must incorporate the corrected slip arithmetic; this review does not require editing the plan before the design is accepted."
+  },
+  "verification": {
+    "method": "Read-only static review of both r2 subjects, retained r1 subjects/review, governing local design references and primary Linux documentation/source; analytic allocation, bound and schedule checks.",
+    "productCodeExecuted": false,
+    "testsOrBuildsRun": false,
+    "corpusFetched": false,
+    "productRuntimeHomeAccessed": false,
+    "commitsCreated": false,
+    "writesRestrictedTo": "/tmp/opensip-implementation/reviews/codex2-harness-q0-r2/"
+  }
+}
