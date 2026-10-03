@@ -1,14 +1,12 @@
-# M3-Q0 quality-harness design record — r5
+# M3-Q0 quality-harness design record — r4
 
-Draft r5. Claude Opus 5.5, implementation lead. Unit **M3-Q0** of the accepted M3 unit plan (`M3-PLAN.md:157`).
+Draft r4. Claude Opus 5.5, implementation lead. Unit **M3-Q0** of the accepted M3 unit plan (`M3-PLAN.md:157`).
 
 r1 (`DESIGN-r1.md`, sha256 `22df1afb…`, 65,990 bytes; schema `exploratory-quality-envelope.schema.v1-r1.json`, `4cdfbb60…`, 23,190 bytes) was reviewed by CODEX2 (method; `/tmp/opensip-implementation/reviews/codex2-harness-q0-r1/`), with 8 required findings and 5 non-blocking observations. r2 answers all of them. CODEX2 confirmed the cluster-product bound and the 29/299 floors as sound, so they are unchanged.
 
 r2 (`DESIGN-r2.md`, sha256 `4225ca34…`, 91,319 bytes; schema `exploratory-quality-envelope.schema.v1-r2.json`, `df67c651…`, 50,098 bytes) was reviewed by CODEX2 (`/tmp/opensip-implementation/reviews/codex2-harness-q0-r2/`). Six r1 findings were resolved and two partly resolved, with 3 required findings and 4 non-blocking observations. r3 answers all of them and changes nothing else of substance.
 
 r3 (`DESIGN-r3.md`, sha256 `b69c918f…`, 101,902 bytes; schema `exploratory-quality-envelope.schema.v1-r3.json`, `f38b3f20…`, 52,882 bytes) was reviewed by CODEX2 (`/tmp/opensip-implementation/reviews/codex2-harness-q0-r3/`), with 2 required findings and 2 non-blocking observations. r4 answers them and changes nothing else.
-
-r4 (`DESIGN-r4.md`, sha256 `f7afe275…`, 107,617 bytes; schema `exploratory-quality-envelope.schema.v1-r4.json`, `b6c7d8ae…`, 53,642 bytes) was reviewed by CODEX2 (`/tmp/opensip-implementation/reviews/codex2-harness-q0-r4/`), with one required finding. r5 answers it and changes nothing else.
 
 ## Standing
 
@@ -39,12 +37,6 @@ Short names, as in the accepted plans:
 - **ENV:** `docs/implementation/m3/harness/exploratory-quality-envelope.schema.v1.json` (drafted with this record)
 
 ---
-
-## r5 changes and review responses
-
-| Finding | Section | Change |
-|---|---|---|
-| C2-Q0-R4-01 (host-join bridge) | §9.3 steps 4 and the host join, QD-27, ENV `runReason` | The interval test is withdrawn. On each fork or exec event, the harness reads `/proc/<tgid>/stat` field 22 (clock ticks) and keys the lifetime by (tgid, `starttimeTicks`), the same field the host's parent reads before reaping. The join is exact integer equality, with no clock conversion and equal time namespaces required. A failed read, an inconsistent key, a reused tgid, a missing match or a namespace mismatch is `host-join-unresolved`, and the run is `incomplete`; the host value is kept, never discarded. Fork-timestamp ordering is replaced by a run-window tgid-uniqueness rule. Calibration and validator cases are added. |
 
 ## r4 changes and review responses
 
@@ -715,7 +707,7 @@ The run's value is the **larger of (a) and (b)**. The cell statistic is the maxi
 
 **Process inventory and own counters (QD-19, revised for C2-Q0-R1-05).**
 
-*Lifetime identity and de-duplication.* A process lifetime is identified by its tgid together with the connector event that opened it, and, for joins, by the start-identity key defined in step 4 below: (tgid, `/proc/<tgid>/stat` field 22, in clock ticks). No timestamp from any other clock is used for identity. Threads are not separate lifetimes, because they share the process's address space.
+*Lifetime identity and de-duplication.* A process lifetime is keyed by (tgid, start time), where start time is the kernel's process start time (on Linux, `/proc/<pid>/stat` field 22, in clock ticks since boot). That key survives pid reuse. Threads are not separate lifetimes, because they share the process's address space.
 
 An `exec` keeps the key but replaces the address space, so a lifetime is split into **image segments** at each exec. Each segment needs its own counter, with one exception: a segment that has no address space of its own (a `CLONE_VM` spawn, which has vfork/posix_spawn semantics) needs none. K1c establishes once per runner and pinned toolchain whether the supervisor's spawn path is `CLONE_VM`. It does this by tracing a calibration run's clone flags, and records the result in the runner record. Otherwise every pre-exec segment lacks a counter, and the run is incomplete with the reason `pre-exec-image-unmeasured`. A second exec within one lifetime has the same effect.
 
@@ -734,14 +726,12 @@ An `exec` keeps the key but replaces the address space, so a lifetime is split i
    - any receive error or overrun (`ENOBUFS`) on either socket;
    - any gap in a CPU's connector sequence numbers between that CPU's pre-launch and post-run sentinels;
    - any change to the online-CPU set during the run.
-4. **Stable identity and the start-identity bridge (revised for C2-Q0-R4-01).**
-   - A **thread group lifetime** opens on the fork event that creates a new thread group (child pid = child tgid) whose parent chain, built from fork events, reaches the workload root. Internally it is identified by (tgid, the opening event's CPU and connector sequence number). That is an event position, not a time.
-   - **Uniqueness instead of time ordering.** For each subtree lifetime, its tgid must appear in exactly one new-group fork event, system-wide, between the pre-launch and post-run sentinels. The connector subscription is unfiltered, and step 3 proves the stream complete. If the tgid appears in more than one (it was reused within the run), every lifetime with that tgid is `unjoinable-identity`, which is conservative rejection. Records for a unique tgid are attributed without any ordering. r4's fork-timestamp ordering is withdrawn.
-   - **The start-identity key (QD-28).** On each fork or exec event of a subtree lifetime, the harness reads field 22 (`starttime`) of `/proc/<tgid>/stat`, an integer count of clock ticks. The kernel fixes the start time before the fork notification (C2-Q0-R4-01), so the value read after the event is that process's own start, not an interval endpoint. The lifetime's start-identity key is (tgid, `starttimeTicks`).
-     - **Gone.** If every read fails (ENOENT or ESRCH, because the process was already reaped), the lifetime has **no** key.
-     - **Inconsistent.** If two successful reads for one lifetime differ (a fork read against an exec read), the key is inconsistent and unusable.
-   - **One representation, no conversion.** The host's per-process entries in the operational record carry the same pair: tgid and `/proc/<tgid>/stat` field 22. The parent reads it **before reaping** that child, so the pid cannot have been reused at the time of the read. That is an interface requirement on the operational record, carried by OI-11. Both values are the same kernel field in the same unit, so the join compares integers. **No clock conversion is performed anywhere in the join.** Field 22 is adjusted for the reader's time namespace, so the harness records its own and the host's time-namespace identity (`/proc/<pid>/ns/time`). If they differ, every host join in the run is unresolved.
-   - Lifetime history, with the keys, is kept for the whole run, so that host entries delivered late can still be joined.
+4. **Stable identity.**
+   - A **thread group lifetime** opens on the fork event that creates a new thread group (child pid = child tgid) whose parent chain, built from fork events, reaches the workload root. It is keyed by (tgid, fork timestamp).
+   - A tgid cannot be reused until its process is reaped. The kernel emits the terminal record before reaping, but userspace may still **receive** a reused tgid's fork event before the old terminal record (C2-Q0-R3-N01). So the harness buffers events per tgid and reconciles them:
+     - if a new-group fork event arrives for a tgid whose lifetime is still open, it is held until that lifetime's terminal record arrives;
+     - if a record cannot be attributed to exactly one lifetime by its fork-timestamp order, the run is `unjoinable-identity` (conservative rejection).
+   - Lifetime history is kept for the whole run, so that host joins arriving late can still be resolved.
    - Exec events split the lifetime into the image segments described above.
    - A taskstats record or connector event for a subtree tgid that has no open lifetime is `unjoinable-identity`.
 5. **Terminal record selection and de-duplication.**
@@ -761,16 +751,11 @@ An `exec` keeps the key but replaces the address space, so a lifetime is split i
 *Expected complete, with the correct value:*
 - **A short-lived child.** It allocates a known peak and exits within 1 ms. The run is complete, and that peak is in figure (b).
 - **An early leader.** The thread-group leader exits before a worker raises the peak. The run is complete, and the terminal record carries the later peak.
-- **Start precedes notification.** A host-reported child whose kernel start precedes its fork notification, as it always does. The harness's field-22 read equals the host's value, the exact-key join succeeds, and the run is complete with the host value applied.
+- **Pid reuse.** Under a stress run, every record joins its own lifetime. Where attribution is ambiguous, the run is `incomplete` (`unjoinable-identity`) and never complete with a wrong join.
 
 *Expected `incomplete`, never complete:*
 - **Induced event loss.** A shrunken receive buffer under a fork storm must be detected as `event-loss`.
 - **Lost connector delivery.** The harness's test mode discards selected messages. The resulting sequence gap and the cross-join orphan must both be detected.
-- **Pid reuse within the run.** A stress run that forces a subtree tgid to be reused must give `unjoinable-identity`, never a join to the wrong lifetime.
-- **Unresolvable host join.** Each of these must give `host-join-unresolved`:
-  - a host-reported child reaped before the harness's read;
-  - a forced key mismatch;
-  - differing time namespaces.
 
 **Diagnostics and figure (a).**
 - **Diagnostics only.** `VmHWM` polled from `/proc/<pid>/status` (a lower estimate) and `wait4` `ru_maxrss` (KiB on Linux, aggregated over the reaped subtree) are recorded as cross-checks. They are never used as figure (b).
@@ -781,16 +766,9 @@ An `exec` keeps the key but replaces the address space, so a lifetime is split i
 - Every macOS run therefore records figure (b) as unavailable, with the reason `own-counter-unavailable-platform`. Its RSS is `incomplete`, and it can never be within budget. The concurrent sum (a) is still recorded, labelled diagnostic.
 - This matches the existing rule that macOS lead-workstation samples are never Q6-labelled (`M3-PLAN.md:158`). A macOS own-counter source must exist before any macOS G13 lane can qualify RSS (OI-18).
 
-*Joining host observations (revised for C2-Q0-R4-01).* The host's operational record reports peak RSS per process (OPP:249), each entry with (tgid, `starttimeTicks`) as defined in step 4. The join is **exact equality** on that key, with no interval test and no clock conversion.
-- **Exactly one match.** The entry joins the single subtree lifetime with a usable key equal to the host's key, the time namespaces are equal, and the lifetime's tgid is unique (step 4). The figure-(b) value for that segment is then the larger of the harness counter and the host value. The host value can only raise a figure, never replace a missing harness counter.
-- **No match, or not resolvable.** The join is **unresolved** if:
-  - no lifetime has that key;
-  - the lifetime with that tgid has no key or an inconsistent key;
-  - the tgid is not unique;
-  - the time namespaces differ.
-
-  The run is then `incomplete` with the reason `host-join-unresolved`. The unmatched host value is **kept** in the operational record and reported, never discarded, and no join is inferred.
-- **Host entry for a tgid outside the subtree.** The inventory is incomplete (reason `unregistered-process`), so the run is NON-PASS.
+*Joining host observations.* The host's operational record reports peak RSS per process (OPP:249). Each entry must carry the tgid and the process start time. The harness reconciles the two keys by mapping the entry to the unique lifetime for that tgid whose interval, from its fork event to its terminal record (from the retained lifetime history), contains the host's start. If no lifetime matches, or more than one does, the run is `incomplete` with the reason `unjoinable-identity`, because a host value that cannot be placed could hide a higher peak. The join rules:
+- **Matching entry.** The figure-(b) value for that segment is the larger of the harness counter and the host value. The host value can only raise a figure, never replace a missing harness counter.
+- **Host entry with no registered lifetime.** The inventory is incomplete (reason `unregistered-process`), so the run is NON-PASS.
 - **Registered lifetime with no host entry.** Allowed, because the host does not see every descendant. It is recorded.
 - **Host value higher than the harness counter.** A defect is filed.
 
@@ -821,7 +799,7 @@ Reuse disclosure is stored only in the envelope's `operationalRecords`, never in
 | Reasons | Quantities that are null in that measured slot | Quantities kept |
 |---|---|---|
 | `run-failed`, `timeout` | elapsed, concurrent sum (a), own high-water sum (b), peak (the larger of a and b) | none. A failed run's numbers are not samples. |
-| `own-counter-missing`, `own-counter-unverified`, `own-counter-unavailable-platform`, `unregistered-process`, `host-join-unresolved`, `pre-exec-image-unmeasured`, `inventory-incomplete`, `subscription-unverified`, `event-loss`, `unjoinable-identity`, `terminal-record-missing`, `terminal-record-duplicate`, `drain-timeout` | (b) and peak | elapsed and (a), which do not depend on the process inventory |
+| `own-counter-missing`, `own-counter-unverified`, `own-counter-unavailable-platform`, `unregistered-process`, `pre-exec-image-unmeasured`, `inventory-incomplete`, `subscription-unverified`, `event-loss`, `unjoinable-identity`, `terminal-record-missing`, `terminal-record-duplicate`, `drain-timeout` | (b) and peak | elapsed and (a), which do not depend on the process inventory |
 | `record-missing`, `record-invalid` | none | all four. Only the operational evidence (phases and reuse disclosure) is missing, which shows as `phaseTimingsPresent: false` with a `phaseAbsenceReason` (§9.4). |
 
 For warmup and priming slots no numeric samples are carried, so their reasons, typically `run-failed`, `timeout`, `record-missing` or `record-invalid`, affect only the batch's status.
@@ -862,13 +840,6 @@ A row is `incomplete` whenever **any** slot has a reason, **including a row in w
     - `event-loss` that leaves (b) present;
     - a null measured value with only a warmup reason;
     - duplicate slot rows.
-- **Reference cases added in r5 (C2-Q0-R4-01).**
-  - **Accepted:** `host-join-unresolved` on measured slot 4 that nulls (b) and the peak only, keeping elapsed and (a).
-  - **Rejected by the validator:** `host-join-unresolved` that also nulls elapsed.
-  - **The join itself.** A reference implementation of the exact-key join was checked:
-    - it joins a host entry whose kernel start (10000 ticks) precedes the fork notification, when the harness's field-22 read is 10000;
-    - it returns unresolved for a failed read, a key mismatch from reuse, a tgid seen in two new-group forks, inconsistent fork and exec reads, and differing time namespaces;
-    - it never returns a join by proximity.
 
   A violation makes the envelope invalid, not merely the row incomplete.
 - **Flips.** A non-pass followed by a pass is counted as a `flip`. Three flips in any ten consecutive CI runs of a workload send that workload to noise review.
@@ -1042,7 +1013,7 @@ The rejected alternative was to delay every producer behind all three lane oracl
 
 ## Lead decisions in this record
 
-QD-1 integer millionths and directional rounding · QD-2 outcome table · QD-3 proposition class · QD-4 JSON Lines ledger with a hash chain · QD-5 hard components and the full truth-input closure · QD-6 the separated populations · QD-7 the 20-minute time box · QD-8 calibration numbers · QD-9 agreement triggers · QD-10 the model-family rule · QD-11 family-weighted estimand · QD-12 independence families · QD-13 the cluster product bound · QD-14 *k*_min · QD-15 the two-sided pooled guard · QD-16 mutant states · QD-17 differential execution boundary · QD-18 determinism variants · QD-19 process inventory, the positive completeness proof and own RSS counters · QD-20 CI retry, batches and batch joins · QD-21 runner additions · QD-22 tree digest · QD-23 held-out exposure · QD-24 advisory water-filling allocation · QD-25 complete and incomplete performance results · QD-26 the K2 lane-freeze gate · QD-27 reason-to-quantity nulling · QD-28 the start-identity key and exact-equality host join.
+QD-1 integer millionths and directional rounding · QD-2 outcome table · QD-3 proposition class · QD-4 JSON Lines ledger with a hash chain · QD-5 hard components and the full truth-input closure · QD-6 the separated populations · QD-7 the 20-minute time box · QD-8 calibration numbers · QD-9 agreement triggers · QD-10 the model-family rule · QD-11 family-weighted estimand · QD-12 independence families · QD-13 the cluster product bound · QD-14 *k*_min · QD-15 the two-sided pooled guard · QD-16 mutant states · QD-17 differential execution boundary · QD-18 determinism variants · QD-19 process inventory, the positive completeness proof and own RSS counters · QD-20 CI retry, batches and batch joins · QD-21 runner additions · QD-22 tree digest · QD-23 held-out exposure · QD-24 advisory water-filling allocation · QD-25 complete and incomplete performance results · QD-26 the K2 lane-freeze gate · QD-27 reason-to-quantity nulling.
 
 ## Not claimed
 
