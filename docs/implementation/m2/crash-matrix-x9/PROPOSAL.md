@@ -1,4 +1,4 @@
-# The crash, lock and revocation matrix — proposal X9 r15
+# The crash, lock and revocation matrix — proposal X9 r16
 
 2026-10-01. Claude Opus 5.5, implementation lead. Law for unit X9 of `EXIT-PLAN.md`, the unit that gates M2 completion. It is written under:
 - the build plan's M2 row (`docs/v2/architecture/implementation-boundaries-and-build-plan.md` line 886: "actual crash/lock/revocation matrix pass; synthetic fixtures remain labelled"), its ordered failure matrix F00–F53 (lines 524–587), its required API and fault-injection checks (lines 591–613; the test owner `crates/storage/tests/commit_tests.rs`, line 594), and the tooling row for storage and process faults (line 1072: "deterministic synchronization and crash barriers against actual storage/processes … Record platform/filesystem/profile, actual state bytes and exact outcomes; inject before/after each durability step, without sleep-and-hope synchronization");
@@ -170,6 +170,7 @@ r2 (2026-10-01) is an amendment made as lead decisions under the owner's standin
   - **Census scope (item 5).** A unit's census is the census of its own drivers. X9-2's census is its `commit` driver's lawful first commit on a fresh root: two runs, equal point for point. The `recover` and `sweep` censuses are X9-3's. X9-6's census is the union.
     **r10:** X9-5's census is the union of two unarmed `finalize` runs, a lawful commit and an exhausted-carrier commit, and (r11) one unarmed `store_gc` run, and X9-6's union spans both targets (see the r10 header).
     **r15:** X9-4's census is the union of two unarmed commit-driver runs: the lawful first commit and the refused end (`open`, then the refused end path, which owes one `REV`), as X9-5's `candidate` child ends (see the r15 header).
+    **r16:** X9-6's storage census is the union of X9-3's commit, recover and sweep parts and X9-4's refused end; the checker unions it with host's (see the r16 header).
   - **The trace digest (item 7).** A child's `trace.sha256` hashes its records grouped by thread, in each thread's own order and threads by index. The pid and the process-wide sequence number are left out, because they interleave between threads. Every drawn value in a payload is numbered by first appearance with item 7's normalizer. Without this, an unarmed observer tick interleaving with the main thread, or a drawn ExecutionId in a payload, would make two lawful repetitions disagree.
     **r14:** before the normalizer numbers drawn values, each thread's consecutive `x3c.object/` records are split into per-object groups at `x3c.object/create.before`, the groups are ordered by their records without occurrences (stable), and each name's occurrences are reassigned ascending in that order. Every lawful first commit is unchanged (see the r14 header).
   - **R3's value (item 8).** R3 is scored against the left attempt's ExecutionId. That is the outcome the sweep wrote for it, or "nothing". R2 is a lawful commit whose attempt the sweep also settles, `committed`; that settle is recorded beside R3 (`nextWriter`) and is not part of the row's R3. "R3 writes nothing" means nothing for the left attempt.
@@ -637,6 +638,187 @@ These change no expected value and are X9-4's, reviewed with the unit:
 
 No accepted outcome of any other law changes. No new public code, row or detail.
 
+**r16 (2026-10-03) is an amendment made as lead decisions under the owner's standing direction of 2026-09-30.** r15 bytes are preserved in PROPOSAL-r15.md.
+
+- **Where it was found.** It was found while preparing X9-6, the M2 exit, on product main `91cb45a`, which has X9-0 to X9-5 integrated.
+  - X9-6's checker and storage driver are uncommitted in worktree `opensip-x9-6`, as the code unit X9-6a.
+  - No `crates/*/src` file has changed since `b999ae3`.
+- **What was run.** Census runs only: no development run and no lead run set.
+  - Storage's `x9_6_matrix` and host's `x9_5_matrix` ran with `OPENSIP_X9_CENSUS_ONLY`, as run sets `x96-census-storage` and `x96-census-host`.
+  - Then the new checker command `coverage` ran. It compares the union census's kill set with the kill scripts of both reviewed required-runs files, and runs nothing.
+- **What the census and the coverage gave:**
+
+  | Measure | Value |
+  |---|---|
+  | Storage census | 259 points; trace 1379 records, `e9add21e…`; `census.json` `6fa3cc02…` |
+  | Host census | 218 points, the same as X9-5's accepted census; trace 1195 records, `93d0922a…`; `census.json` `2492cbd0…` |
+  | Union census | **321 points**; kill set **383** |
+  | Kill-set points killed by an existing row | 333 |
+  | Killed points outside the kill set | none |
+  | Kill-set points no row kills | **50** |
+
+- **Predictions.** Where a finding below predicts a run's outcome, the prediction comes from the code, the census trace and the owning law. It is not an observation.
+  - X9-6 transcribes the new rows before any run.
+  - If a development run contradicts a prediction, X9-6 stops and reports, as X9-2 to X9-4 did.
+- **No product code changes** beyond X9-6a's matrix-target and checker code. No product file is added.
+- **How it edits r15.** The r15 sentences it touches stay in place, each followed by a short "r16" note that points here.
+
+It changes the following and nothing else.
+
+### Kill-set coverage: 50 new kill rows (items 5, 7, 9 and 12)
+
+- **What X9-6 found.**
+  - **The requirement.** Item 5 makes the kill matrix "every durability point in the census, at `#1` and … the first, a middle and the last occurrence". Item 7 and r10 require every point of the union's kill set to be killed by a process-death run of either target.
+  - **Why it is not met.** Each of X9-2 to X9-5 transcribed only its own item-9 rows under `check-unit`, which requires only that the unit's killed points lie inside its kill set (r4). Item 12's X9-6 line adds no rows. So 50 union kill-set points have no row.
+    - X9-2's F00 kills every kill-set point *before* `x3c.attempt.commit.after` (its transcription, `reviews/grok-crash-matrix-x92-r1/transcribe_required_runs.py:105`). After that point it kills only the F02 to F10 steps.
+    - X9-3, X9-4 and X9-5 add only their rows' points.
+  - **The 50 points, by scope.** `coverage.json` lists each one with its census counts.
+
+    | Scope | Points |
+    |---|---|
+    | `x4.checkpoint` | 12 |
+    | `x3c.object` | 9 |
+    | `x2.lease` | 6 |
+    | `x3b.append.seal` | 5 |
+    | `x7.delivery` | 4 |
+    | `x3c.evidence` | 3 |
+    | `x3d.finish` | 3 |
+    | `x2.fence` | 2 |
+    | `x3d.publish` | 2 |
+    | `x4.gate` | 2 |
+    | `x6.sweep` | 2 |
+
+- **Decision.** Every uncovered point gets a process-death row. None is dropped by a coverage rule.
+  - **Why no coverage rule.** Each of the 50 is a real step at which a process can die. Several hold a lock or an open transaction: the level-3 `BEGIN`s and level 4, the checkpoint's monitor lock, the readers lease, the fence's end lock, and the sweep's exclusive hold. Item 5 names exactly these as the matrix.
+  - **Equivalence is not a ground.** "Equivalent to an adjacent point" would be a reading of the product, not of the census. A kill costs about 5 s.
+  - **Not a point that can be omitted.** `x4.checkpoint` and `x4.gate` are registered `Durable` (`crash_barrier.rs:102-103`), and the checkpoint takes a lock primitive (`x4.checkpoint/lock.before`). Changing their registration would be a product change, outside this law.
+  - **Recover's readers lease** (`x2.lease.readers/*` in the `recover` part) has the same point identity as the sweep's. It is covered by the sweep rows below, because the census and the kill set are by point name and occurrence.
+  - **Window and expected values.** Each row is placed by its crash window, a position in the census trace, never a run's outcome (as r5 placed F00's split). It takes the expected values the owning law already gives that window's existing row. Each is a kill script, `[{"arm": "<P>=hold"}, {"await": "<P>", "then": "kill"}]`, unless stated otherwise.
+  - **Labels.** `process-death`, `scripted-clock`, `synthetic`.
+  - **Variant names.** As X9-2's transcription names them: `kill-<point slug>-<k>`.
+  - **Units.** Those of the case.
+
+**The windows.** Commit-trace positions are those of the storage census's `commit` part, `census-trace.txt`. Abbreviations are item 8's.
+
+| Window | Points (census trace) | Case | Expected (the owning law) |
+|---|---|---|---|
+| **W1a.** Attempt committed; objects being published; no SEAL | `x3c.object/create.before`, `create.after`, `write.after`, each at `#1`, `#41`, `#82` (9 points; 82 occurrences in both targets) | F02 | As F02: `scripted` killed, R1 UAO, R2 Committed, R3 refused, R4 TNC. Staging residue is never adopted (X3c item 4; F02's row). F02's existing rows do not score R2's witness action, and neither do these. |
+| **W1b.** Both level-3 transactions and level 4 taken, the first checkpoint, nothing appended (trace 30–37: `x3b.append.seal.begin` < `x3c.evidence.begin` < `level-four` < `x4.checkpoint/lock.before#1` < `before-observation#1` < `after-observation#1` < `before-admit#1` < `built`) | the 8 points named, each `#1` | F07 | As F07 before `witness-pending/rename.after` (r8): R1 UAO; R2 witness action **OK**, Committed; R3 refused; R4 TNC. The open transactions die with the process (L2), and the start reconciles a consistent tail (X3b items 4 and 4a; r8's F07 finding). |
+| **W2.** SEAL and its COMMITTED witness durable; evidence transaction open, not committed (trace 62–77) | `x4.checkpoint/lock.before`, `before-observation`, `after-observation`, `before-admit` at `#2` and `#3`; `x3d.publish.after-staging#1`; `x3d.publish.before-final-checkpoint#1`; `x4.gate.admit.after#1`; `x3c.evidence.commit.before#1` (12 points) | F11 | As F11: the ledger transaction rolls back, and the SEAL is durable with no `REV`. R1 UAO; R2 Committed; R3 refused; R4 TNC. **Also scored:** R2 witness action **OK**. The tail is the SEAL under a COMMITTED witness, F10's state after `witness-committed/rename.after` (F10 r5 and r8; X3b item 4). A kill at `x3c.evidence.commit.before` is F12's not-landed state, reached by death. |
+| **W3.** Evidence `COMMIT` landed; before `published` (trace 78–81) | `x3c.evidence.commit.after#1`; `x3b.append.seal.release-level-four#1`; `x3b.append.seal.release-level-three#1` | F13 | As F13: R1 CH `pendingSettlement`; R2 commits r12's distinct variant (`{"r2": "distinct"}`), Committed; R3 committed; R4 CH `settled`. F12's landed state, reached by death. |
+| **W4.** Published; lease release and end step, before the end floor (trace 83–88) | `x2.lease.writer/unlock.before#1`, `unlock.after#1`; `x3d.finish.lease-release#1`; `x3d.finish.end-step.before#1`; `x2.fence.end/lock.before#1`, `lock.after#1` | F14 | As F14's `published` row (as F13): R1 CH `pendingSettlement` (a lawful `finish` owes and settles nothing, X3d item 7); R2 distinct, Committed, its floor step handling any unwritten end floor (X3b item 4a); R3 committed; R4 CH `settled`. |
+| **W5.** The refused end path after a revocation (refused-end census part: `x4.gate.latch.after#1` before `x3d.finish.settle.before#1`; `x3d.finish.settle.after#1` after the `REV` append) | `x4.gate.latch.after#1`; `x3d.finish.settle.after#1` | F19 | F19's kill script (r15), with the kill at the point: arm `x4.observer.tick#*`, `x4.checkpoint.before-observation#2` and the point; revoke while held at the checkpoint; resume the main thread; await the point, then kill. Expected as F19's `REV` kill rows: R1 UAO; R2 refused at admission (`operation:*`, row not scored, C5); R3 refused; R4 TNC. The timing guard applies (r12, r15). |
+| **W6a.** The sweep before its settle `COMMIT` | `x2.lease.readers/lock.before#1`, `lock.after#1`; `x6.sweep.after-exclusive#1`; `x6.sweep.after-snapshot#1` | F53 | F53's sweep-kill script (writer killed at `x3c.attempt.commit.after#1`; the first sweep armed and killed at the point; a second sweep; ladder R1). Expected as F53's `settle.commit.before` kill: `first` killed, `second` refused, R1 TNC. Nothing was settled, and the next sweep settles the row once (X6 r4 item 7; the monotone trigger). |
+| **W6b.** The sweep after its settle `COMMIT` | `x2.lease.readers/unlock.before#1`, `unlock.after#1` | F53 | As F53's `settle.commit.after` kill: `first` killed, `second` nothing, R1 TNC. |
+| **W7.** Host delivery after `x3d.finish.end-step.after` (host census (a), trace 1005–1008) | `x7.delivery.required.before#1`, `.after#1` (F16); `x7.delivery.optional.before#1`, `.after#1` (F17) | F16, F17 | Host script `[{"r2": "distinct"}, {"arm": "<P>=hold"}, {"run": "finalize"}, {"await": "<P>", "then": "kill"}]`, the shape of F32's kill rows. Expected: `finalize1` killed; R1 `committed-historically:pendingSettlement`; R2 `authoritative:0`; R3 committed; R4 `committed-historically` (host's spellings, as in F12's landed host row). The Run is committed and kept; a death in delivery changes no evidence (line 610; X7 r6 item 4: delivery reads nothing from the store and takes no custody). |
+
+**Totals.** Storage gains 46 rows (F02 9, F07 8, F11 12, F13 3, F14 6, F19 2, F53 6), for 381 in all. Host gains 4 (F16 2, F17 2), for 98.
+
+- **Transcription.** X9-6 appends these rows to the two files before any run, from `x96-census-storage` and `x96-census-host` and this table only. X9-2's to X9-5's rows stay byte for byte.
+- **Selection.** The new rows carry `"unit": "X9-6"` (see the `unit` member below), so no unit's `check-unit` subset changes.
+- **F17's L9 is unchanged.** F17's kill rows kill the process inside the injected-path delivery phase. They are not native optional delivery, which stays a limit.
+- **Rejected:**
+  - **A coverage rule that exempts read-only-looking or "adjacent-equivalent" points** (the checkpoint, the gate, the delivery points). It weakens item 5 by a reading of the product. The rows are cheap.
+  - **Re-registering `x4.checkpoint`, `x4.gate` or `x7.delivery` as `ReadOnly`.** That is a product change to X4a's and X7's accepted placements.
+  - **Killing W1b and W2 under F18, F38 or F39's revocation scripts.** Those test revocation. These rows test death at the step.
+
+### The `unit` member gains `"X9-6"` (items 7 and 12; r15)
+
+- **What X9-6 found.** The 50 rows above belong to cases in other units' lists (F02, F07 and F11 to F53). Under r15's rule, X9-2's, X9-3's and X9-4's `check-unit` would demand them, and so would X9-5's, which lists F16, F17 and F53.
+- **Decision.** r15's `unit` member may name `"X9-6"`. Each of the 50 rows carries it.
+  - `check-unit` admits no `--unit X9-6`: X9-6 is checked only by `check`.
+  - `check` needs every row, as before.
+  - The checker's validation and the harness's `owned()` read the member as r15 states. This is an X9-6a code change, with a test.
+- **Rejected:** giving the rows to the case's unit, which would reopen accepted units' run sets.
+
+### The union occurrence counts (items 5 and 7; r10 and r11)
+
+- **What the census showed.** Every name the two targets share has an equal count in both, except the eight `x4t.floor-publication.dependency/*` names.
+  - Storage's commit reaches one more occurrence than host's `finalize`, whose installation already published once in the `candidate` child.
+  - The union takes storage's count. So F00's kills at storage's `#1`, middle and last are exactly the union's kill-set points for those names.
+  - Host's own middles (for example `create.after#3` of 6) are not union points.
+  - `killedOutsideKillSet` is empty.
+- **Decision.** None is needed. r10's rule stands. This is recorded so that a later census that inverts the counts is read by the same rule: such a shift re-transcribes the affected F00 rows before any run, never after one.
+
+### X9-6's storage census (record; items 5 and 12)
+
+- **The composition.** X9-6's storage census is the union of every storage driver's unarmed census part:
+  - X9-3's commit, recover and sweep, on one fresh root;
+  - then X9-4's refused end, on its own fresh root.
+
+  Each part runs twice and must be equal, and the trace digest hashes the parts' normalized lines in that order. X9-2's census is the commit part, and X9-4's lawful commit is the same run.
+- **Host.** Host's census stays X9-5's (a), (b) and (c).
+- **Across targets.** The checker forms the cross-target union. Each target's census trace digest is compared between repetitions; no cross-target trace digest is defined.
+
+### Item 8's release order is asserted on every lawful commit child (items 7 and 8)
+
+- **What X9-6 found.**
+  - **The law.** Item 8 says "every lawful run also asserts the release order line 608 requires, from its trace". The required order is level 4, then each level-3 transaction, then the lease, then the fence. Build plan lines 139–143 and 168–172 give it: both level-3 transactions are taken in a fixed order before level 4, and they are released after it, then the lease, then the S7 end handoff.
+  - **What the harness checks today.** It derives `<n>.releaseOrder` as `seal.L4,seal.L3,rev,cln` only (`commit_tests.rs:1312-1349`). Only F19's base rows score it. The lease and the fence appear in no assertion, and host asserts nothing.
+- **Decision.** It is a verdict condition, like R1's `stateUnchanged` (`verdict()`, `commit_tests.rs`): not a row value and not a new evidence member.
+  - **Which children.** For every child of a run, storage or host, whose outcome is a commit (`Committed…` or `authoritative:…`), the harness checks, on that child's own trace:
+    1. **acquisition:** `x3b.append.seal.begin` < `x3c.evidence.begin` < `x3b.append.seal.level-four`, the fixed order, never level 3 under level 4;
+    2. **release:** `x3c.evidence.commit.after` < `x3b.append.seal.release-level-four` < `x3b.append.seal.release-level-three` < `x2.lease.writer/unlock.after` < `x2.fence.end/unlock.after`, each at the occurrence that follows the SEAL;
+    3. **owed records:** where the child appends a `REV` or `CLN`, that append's `release-level-four` < `release-level-three` comes before the same `x2.lease.writer/unlock.after`.
+  - **On violation.** The run's verdict is `FAIL`, with the miss "release order".
+  - **Where it holds already.** The storage census `commit` part meets it (trace 30–32 and 78–104).
+  - **What it does not touch.** Killed children are exempt, since they release nothing.
+  - **Who owns it.** X9-6a adds it to both matrix targets.
+- **Rejected:**
+  - **Scoring it as a row value.** That re-transcribes about 300 accepted rows for a condition every lawful child shares.
+  - **A checker condition.** The checker sees trace digests, not traces.
+
+### The evidence record (item 7)
+
+- **What X9-6 found.** Item 7 commits "the final run set" as one `matrix.json` and `runs/`. X9-6 has two targets, each with its own `matrix.json`, and two repetitions.
+- **Decision.** The layout of `docs/implementation/m2/crash-matrix-x9/evidence/<C>/` is:
+
+  ```
+  check.json                    the checker's two-target `check` output (matrixPass)
+  release-absence.json          the record every set used
+  hashes.txt                    sha256, bytes, path of every file below, and of both
+                                required-runs.v1.json files at C
+  storage/matrix.json           lead-1
+  storage/census-trace.txt      lead-1
+  storage/runs/*.json           lead-1, 381 records
+  host/matrix.json              lead-1
+  host/census-trace-{a,b,c}.txt lead-1
+  host/runs/*.json              lead-1, 98 records
+  lead-2/storage/matrix.json    pins every lead-2 run's bytes and sha256
+  lead-2/host/matrix.json
+  ```
+
+  - **Why lead-1 in full and lead-2 by its pins.** The checker has already compared lead-2 with lead-1 run by run.
+  - **The reviewer's rerun** stays in its review directory, with its own `check.json` for the pairs (lead-1, reviewer) and (lead-2, reviewer).
+  - **No tarballs.** Failure tarballs and raw state bytes are never committed (item 7).
+- **Size.**
+  - **Not measured yet.** The census-only runs write no run record: `census.json` is 21 KB for storage and 18 KB for host, and the traces are 76 KB and 55 KB.
+  - **The estimate.** It comes from the post-state capture (`crash_matrix_support/post_state.rs` `capture`: one `raw` entry per installation file, plus the SQLite tables row by row): about 40–100 KB per record, so about 20–48 MB for 479 records.
+  - **The rule.** X9-6 measures one set before committing.
+    - If a target's `runs/` is at most 64 MB, the records are committed as plain files.
+    - Otherwise that target's `runs/` is committed as one `runs.tar.xz`. Under `docs/implementation/**` LFS already tracks it. Its `matrix.json` stays plain, with every member's pin, and `hashes.txt` pins the archive.
+    - This is not a failure tarball, and the evidence stays digests plus logical dumps.
+- **Rejected:**
+  - **Committing both repetitions in full.** It doubles the size for evidence the checker has already compared.
+  - **A merged `matrix.json`.** That would be a new schema. The checker already unions the two targets' records.
+
+### Records (no rule changes)
+
+- **The r14 overstatement.** r14 says its object-group order changes X9-2's F02 to F05 next-writer trace digests too. X9-3's comparison showed that only the killed child's digest changed (14 of 22 runs): the next writer's confirmed objects already sort first. No expected value depended on it.
+- **The X9-1 clock-window self-test flake** (EXIT-PLAN, "X9 follow-ups") is closed by F7 at product `9c5f145`.
+- **r3's disclosed gap** (the unarmed 5 s observer in census runs). X9-6's census parts were each equal across their two runs, so no rule is needed.
+
+### Unchanged from r15
+
+- every injection mechanism, point placement, kind, scope, label, evidence member, limit, and the timing guard's limit, measurement clock, record member, repetition exclusion and end point;
+- every forbidden substitute;
+- every existing row and expected value, including all of X9-2's, X9-3's, X9-4's and X9-5's;
+- r14's trace rule;
+- X9-5's runners, host order, required-runs file and census;
+- X9-4's census.
+
+No accepted outcome of any other law changes. No new public code, row detail or product file.
+
 Product baseline: main `f1b8321` (X3d-0 integrated). Every item contains a lead decision made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation; each names the alternative it rejects. Not product code. No new public code, row or detail.
 
 ## Problem
@@ -736,6 +918,7 @@ At `f1b8321` the product has the following, and nothing more:
 
 5. **The points the matrix needs, and who places them.**
    - **The census.** The required points are not a hand list. X9-0 runs a lawful commit, recovery and sweep with nothing armed, and records every point reached: the census trace. The kill matrix is then every durability point in the census, at `#1` and, for repeated protocols (objects, appends), at the first, a middle and the last occurrence.
+     **r16:** X9-6's union census (storage 259 points, host 218, union 321, kill set 383) left 50 kill-set points without a row; each gets a process-death row by its crash window, and none is exempted (see the r16 header).
      - A durability primitive reached outside any scope is a `HARNESS-ERROR`, so no unnamed step can hide.
      - A census point that a later product change removes, or a new unarmed durability point, fails the coverage check (item 7).
      - (r2) The census runs under item 3's scripted clock, so its points, including each `x4t.floor-publication` occurrence, are a function of the script and the product only. Two census runs on one commit must be equal point for point; a difference is a `HARNESS-ERROR`, never a smaller kill set.
@@ -844,6 +1027,7 @@ At `f1b8321` the product has the following, and nothing more:
      - **In the product.** Runs write under `target/opensip-x9/<runSetId>/`, which git ignores. That directory holds `runs/`, `matrix.json` and, for a failed run only, a tarball of the raw scratch tree.
      - **`matrix.json`** lists the run files with their sha256, the census, the release-absence result (item 2), and the repetition comparison.
      - **In arch.** X9-6 commits the final run set to `docs/implementation/m2/crash-matrix-x9/evidence/<product commit>/` (`matrix.json` and `runs/`, without the tarballs).
+       **r16:** for two targets: lead-1's storage and host `matrix.json`, census traces and `runs/` in full, lead-2's two `matrix.json`, the `check` output, the release-absence record and `hashes.txt`; `runs/` over 64 MB per target goes as one LFS `runs.tar.xz` (see the r16 header).
    - **The checker.** It is `tools/check_crash_matrix.py` in the product: read-only, standard library only, under the pinned Python. It refuses unless all of these hold:
      - every `(case, variant)` in the reviewed `required-runs.v1.json` (item 9) has exactly one run, and no extra run exists (**r15:** a row's optional `unit` member is admitted);
      - every verdict is `PASS`;
@@ -854,6 +1038,7 @@ At `f1b8321` the product has the following, and nothing more:
      - the two lead repetitions agree run by run on `normalizedSha256` and on the trace digest, the trust store (`logical.trustState`) included (r2) (**r14:** the trace digest with r14's object-publication group order);
      - (r2) every run's labels include `scripted-clock`, and every child's ordinal follows spawn order.
    - **r10:** the reviewed required runs are two files: storage's, and `crates/host/tests/fixtures/crash-matrix/required-runs.v1.json` for X9-5's rows. X9-6's `check` takes both files and both pairs of run sets, and checks the union census (see the r10 header).
+     **r16:** a row's `unit` member may name `"X9-6"`; such a row is in no unit's `check-unit` subset and is required by `check` (see the r16 header).
    - **The per-unit check (r4; lead decision).** Before X9-6, each of X9-2 to X9-5 checks its own run sets with a subset mode of the checker.
      - **Who adds it.** X9-2 adds it to `tools/check_crash_matrix.py` as the `check-unit` command, with its tests.
      - **The unit's rows.** `check-unit` names the unit (X9-2, X9-3, X9-4 or X9-5). It takes that unit's subset of the reviewed `required-runs.v1.json`: the rows whose case is in the unit's list in item 12.
@@ -895,6 +1080,7 @@ At `f1b8321` the product has the following, and nothing more:
       **r14:** F25 runs R1 only (see the r14 header).
    - **Runs without an ExecutionId** skip R1 and R4 and record `"notApplicable": "no-execution-id"`. The ExecutionId comes from the `x3d.session.execution-draw` pass record.
    - **Every lawful run** also asserts the release order line 608 requires, from its trace: level 4, then each level-3 transaction, then the lease, then the fence.
+     **r16:** every commit child of every run, storage and host, is checked for the fixed acquisition order (journal level 3, ledger level 3, level 4) and the release order (evidence COMMIT, level 4, level 3, writer lease, end fence); a violation makes the run FAIL, like R1's `stateUnchanged` (see the r16 header).
 
    Abbreviations in item 9: CH committed-historically, CAD committed-availability-degraded, TNC terminal-not-committed, UAO unknown-attempt-open, UAU unknown-attempt-unobserved, UC unknown-custody, UQ unknown-quarantine-condition, UB unavailable-busy, BU binding-unusable, UCI unknown-carrier-incompatible.
 
@@ -906,24 +1092,24 @@ At `f1b8321` the product has the following, and nothing more:
    |---|---|---|---|---|
    | F00 | X2, X3a, X3b, X4T-b | `hold`→kill at every census point before `x3c.attempt.commit.after` (X4T floor, X3b floor, INIT, start witness, leases) | exec | No attempt row; ledger logical state unchanged. R2: the floor step and start handle X3b item 3a's or item 4's crash state (INIT resumes or finishes, REVERT, ADVANCE), then Committed. With an ExecutionId drawn: R1 and R4 UAU, R3 writes nothing. **r5:** expected by kill point: before the draw, R1 and R4 not applicable; from the draw through `x3c.ledger-create.ddl.commit.before`, R1 UC (`ledger-missing` or `ledger-unreadable`, X6 F24) and R4 UAU; from `x3c.ledger-create.ddl.commit.after` (included, r6) until `x3c.attempt.commit.after`, R1 and R4 UAU. R3 writes nothing (see the r5 header). **r8:** R2 is the owning law's outcome for the crash state at the kill point: the registration window (X2 item 8 identity rows), the created-not-yet-private windows (custody, host I/O, and for an X4T dependency occurrence (r9) `CONFIG.CUSTODY_REFUSED` `installation-incomplete` when the next publication writes its name, Committed when it does not), the WAL gap (`LEDGER.CORRUPT`), and Committed everywhere else. R4 stays UC where R2 does not create the ledger (see the r8 header; L11). |
    | F01 | X5 | replay-invalid candidate; substituted target or inventory | exec (host) | Refused before `prepare_commit`; no attempt row; no SEAL; ledger and carrier logical state unchanged. **r13:** the replay-refused variants leave the whole post-state unchanged; the substituted variants add only the latched gate's one `REV` to the carrier (see the r13 header). |
-   | F02 | X3c | `torn` at `x3c.object.write` (first, middle and last object) | exec (inj) | Staging residue is never adopted. R1 UAO; R2 Committed; R3 refused; R4 TNC. The orphan stays (L6). |
+   | F02 | X3c | `torn` at `x3c.object.write` (first, middle and last object) | exec (inj) | Staging residue is never adopted. R1 UAO; R2 Committed; R3 refused; R4 TNC. The orphan stays (L6). **r16:** also killed at `x3c.object/create.before`, `create.after` and `write.after` (first, middle, last), as F02 (see the r16 header). |
    | F03 | X3c | kill at `file-barrier.before` and `.after` | exec (death branch; L1) | As F02. |
    | F04 | X3c | kill at `link.before` and `.after`; R2 republishes the same digest | exec | As F02. R2 confirms the existing object by exact bytes. An unequal-collision mutation variant refuses on X3c item 10's row. |
    | F05 | X3c | kill at `directory-barrier.before` and `.after` | exec (death branch; L1) | As F02. |
    | F06 | X3b, X3c, X3d | the parent holds a raw SQLite `BEGIN IMMEDIATE` on the carrier, or on the ledger, while the child runs `publish` (labelled `mutation`: a foreign holder) | exec (mut) | Busy row (`LEDGER.BUSY_TIMEOUT`/`PROJECT.BUSY`); an earlier level-3 transaction is released; no SEAL; orphans preserved. R1 UAO; R2 Committed after the holder ends; R3 refused; R4 TNC. |
-   | F07 | X3b | kill at each `x3b.append.seal.witness-pending/*` point and at `insert.before` | exec | R1 UAO, diagnosis would-REVERT; R2 REVERT, Committed; R3 refused; R4 TNC. **r5:** R1 is plain UAO; would-REVERT is R2's witness action only (see the r5 header). **r8:** R2's witness action is OK before `witness-pending/rename.after` and REVERT from it on (see the r8 header). |
+   | F07 | X3b | kill at each `x3b.append.seal.witness-pending/*` point and at `insert.before` | exec | R1 UAO, diagnosis would-REVERT; R2 REVERT, Committed; R3 refused; R4 TNC. **r5:** R1 is plain UAO; would-REVERT is R2's witness action only (see the r5 header). **r8:** R2's witness action is OK before `witness-pending/rename.after` and REVERT from it on (see the r8 header). **r16:** also killed at the SEAL append's prefix (`begin`, `x3c.evidence.begin`, `level-four`, the first checkpoint's four points, `built`), with R2 OK (see the r16 header). |
    | F08 | X3b | kill at `insert.after` and `commit.before` | exec | SQLite rolls back on reopen. As F07. |
    | F09 | X3b | kill at `commit.after`; `fail-after` and `fail-before` at the SEAL `commit` | exec; exec (inj) | Injected: `CommitUndetermined` (`DURABILITY.COMMIT_FAILED`); nothing appended; no evidence `COMMIT`; the settlement reserve is forfeited. R1 UAO with would-ADVANCE (landed) or would-REVERT (not landed); R2 ADVANCE or REVERT, Committed; R3 refused; R4 TNC. **r5:** R1 is plain UAO; landed or not landed shows only as R2's ADVANCE or REVERT (see the r5 header). |
    | F10 | X3b | kill at each `witness-committed/*` point | exec | R1 UAO, would-ADVANCE before the rename survives, OK after; R2 ADVANCE or OK; R3 refused; R4 TNC. **r5:** R1 is plain UAO; would-ADVANCE or OK is R2's witness action only (see the r5 header). |
-   | F11 | X3c, X3d | kill after each `x3c.evidence.stage-<table>` | exec | The ledger transaction rolls back; the SEAL is durable with no `REV` (the process died before `finish`). R1 UAO; R2 Committed; R3 refused; R4 TNC. |
+   | F11 | X3c, X3d | kill after each `x3c.evidence.stage-<table>` | exec | The ledger transaction rolls back; the SEAL is durable with no `REV` (the process died before `finish`). R1 UAO; R2 Committed; R3 refused; R4 TNC. **r16:** also killed at every point from the second checkpoint to `x3c.evidence.commit.before` (12 points), with R2's witness action OK (see the r16 header). |
    | F12 | X3c, X3d, X7 | `fail-after` and `fail-before` at `x3c.evidence.commit` | exec (inj) | `CommitUndetermined` with ExecutionId and no RunId; no retry; nothing appended. R1 CH with pendingSettlement (landed) or UAO; R3 committed or refused; R4 CH or TNC. |
-   | F13 | X3c, X3d | kill at `x3d.publish.commit-returned` | exec | R1 CH with pendingSettlement; R2 Committed; R3 committed; R4 CH. **r12:** R2 commits the distinct candidate variant, so it is Committed (see the r12 header). |
-   | F14 | X3d, X6 | kill at `x3d.publish.published` and at `x3d.finish.settle.before` | exec | As F13. **r12:** R2 as F13. The `x3d.finish.settle.before` kill moves to X9-4, after F39's script, where an end record is owed (see the r12 header). **r15:** that row is X9-4's (`"unit": "X9-4"`); its R2 is refused at admission (C5), not scored, as r13 has for F39 (see the r15 header). |
+   | F13 | X3c, X3d | kill at `x3d.publish.commit-returned` | exec | R1 CH with pendingSettlement; R2 Committed; R3 committed; R4 CH. **r12:** R2 commits the distinct candidate variant, so it is Committed (see the r12 header). **r16:** also killed at `x3c.evidence.commit.after` and the SEAL's level-4 and level-3 releases (see the r16 header). |
+   | F14 | X3d, X6 | kill at `x3d.publish.published` and at `x3d.finish.settle.before` | exec | As F13. **r12:** R2 as F13. The `x3d.finish.settle.before` kill moves to X9-4, after F39's script, where an end record is owed (see the r12 header). **r15:** that row is X9-4's (`"unit": "X9-4"`); its R2 is refused at admission (C5), not scored, as r13 has for F39 (see the r15 header). **r16:** also killed, as the `published` kill, at the writer lease's unlock, `x3d.finish.lease-release`, `end-step.before` and the end fence's lock (see the r16 header). |
    | F15 | X6 | kill after `x3d.finish.end-step.after` | exec | R1 CH; R2 creates no second receipt for this ExecutionId. **r12:** R2 commits the distinct variant: Committed, with no second receipt for this ExecutionId (see the r12 header). |
-   | F16 | X7 | `fail-before` at `x7.delivery.required` | exec (host, inj) | `DELIVERY.REQUIRED_FAILED`, exit 4, runId kept; R1 CH. |
-   | F17 | X7 | `fail-before` at `x7.delivery.optional` | exec (host, inj; L9) | Committed; optional failure disclosed; result unchanged. |
+   | F16 | X7 | `fail-before` at `x7.delivery.required` | exec (host, inj) | `DELIVERY.REQUIRED_FAILED`, exit 4, runId kept; R1 CH. **r16:** also a host kill at `x7.delivery.required.before` and `.after`: the Run stays committed, R1 CH `pendingSettlement`, R3 committed, R4 CH (see the r16 header). |
+   | F17 | X7 | `fail-before` at `x7.delivery.optional` | exec (host, inj; L9) | Committed; optional failure disclosed; result unchanged. **r16:** also a host kill at `x7.delivery.optional.before` and `.after`, as F16's kills; L9 is unchanged (see the r16 header). |
    | F18 | X4, X3d | `hold` at `x4.checkpoint.before-observation#1`; the parent publishes a revoking update, or makes the view unreadable or mixed; resume | exec | Refused `TRUST.COMPONENT_REVOKED_DURING_OPERATION`, or `OBSERVER.FAIL_STOP`; no SEAL; `finish` appends `REV` from the settlement reserve. R1 UAO; R2 refused at admission (revoked), or Committed after the view is restored (fail-stop variant); R3 and R4 per C5. **r15:** the mixed view is elsewhere (X4a's `a_replacement_during_the_first_attempt_is_absorbed_and_a_second_is_mixed`); the unreadable view is `state.v1` at mode `000`, restored before the ladder (see the r15 header). |
-   | F19 | X3b, X3d, X4 | as F18 at the repeated checkpoint after the SEAL (`#2`); also kill at each point of the end-path `REV` append | exec (stall variant: L3) | Refused; evidence transaction rolled back; the trace shows level 4, then level 3, then a fresh `x3b.append.rev`, then `CLN` if owed. A killed `REV` leaves X3b's append crash state. R1 UAO; R3 and R4 per C5 (or refused and TNC in the fail-stop variant). |
+   | F19 | X3b, X3d, X4 | as F18 at the repeated checkpoint after the SEAL (`#2`); also kill at each point of the end-path `REV` append | exec (stall variant: L3) | Refused; evidence transaction rolled back; the trace shows level 4, then level 3, then a fresh `x3b.append.rev`, then `CLN` if owed. A killed `REV` leaves X3b's append crash state. R1 UAO; R3 and R4 per C5 (or refused and TNC in the fail-stop variant). **r16:** after the revocation, also killed at `x4.gate.latch.after#1` and `x3d.finish.settle.after#1`, as the `REV` kills (see the r16 header). |
    | F20 | X6, X3b | the parent rewrites the witness as malformed or with a mismatched digest | exec (mut) | R1 UQ after the five stable observations; R2 quarantine row (`LEDGER.CORRUPT`). |
    | F21 | X6, X3b | the parent deletes the witness of a nonempty journal | exec (mut) | R1 UQ (`witnesslessRestore`); R2 quarantine row. |
    | F22 | X6, X3b | the parent restores a carrier copy taken at an earlier `hold`, under a newer floor; or equal seq with a different hash | exec (mut) | R1 UQ; R2 quarantine (floor regression or `uncertainTailLoss`). |
@@ -954,7 +1140,7 @@ At `f1b8321` the product has the following, and nothing more:
    | F47, F48, F50, F51 | — | — | LIMIT (L5) | — |
    | F49 | X6 | (a) a reader holds between bracket reads while a lawful writer appends, then resumes; (b) writer A holds at `x3c.attempt.commit.after`, a reader of A's ExecutionId holds at `x6.recover.after-ledger-snapshot`, A is resumed to Committed, then the reader resumes | exec | (a) UB, never UQ, never a corruption diagnosis; (b) UAO or UB from the one stale snapshot, never TNC. **r12:** (a) is CH with `pendingSettlement`: the owner's one fresh capture reconciles the moved tail (see the r12 header). |
    | F52 | X6 | the four lawful cells from earlier runs (admitted/none, admitted/both, settled-committed/both, settled-refused/none); the other seven by mutation | exec, exec (mut) | X6's §2 matrix; exactly one cell gives TNC. |
-   | F53 | X6c | live (a held writer), crashed (killed runs), one-sided (mutation), inaccessible (mode `000`), already settled (a second sweep); also kill the sweep at `x6.sweep.settle.commit.before` and `.after` | exec | X6 r2 item 7: skip, settle, or write nothing. After a killed sweep, the next sweep settles each row exactly once (the monotone trigger). |
+   | F53 | X6c | live (a held writer), crashed (killed runs), one-sided (mutation), inaccessible (mode `000`), already settled (a second sweep); also kill the sweep at `x6.sweep.settle.commit.before` and `.after` | exec | X6 r2 item 7: skip, settle, or write nothing. After a killed sweep, the next sweep settles each row exactly once (the monotone trigger). **r16:** the sweep is also killed at its readers lease's lock and unlock, `after-exclusive` and `after-snapshot` (see the r16 header). |
 
    **C5 (revocation ladders).** After a revocation of a subject in the closure, R2 is refused at X4T's admission. Whether R3, the sweep under X1's `admit_ordinary_writer`, is admitted under that revoked view is not fixed by an accepted law (gap G5). X9-4 transcribes R3 and R4 from the law that fixes it before running. Until then, the F18, F19 and F38 ladders end at R2 and record `"ladderEnd": "G5"`. **Rejected:** choosing the expected R3 in this law, which would decide an admission question for X1 and X6.
 
@@ -1021,6 +1207,7 @@ At `f1b8321` the product has the following, and nothing more:
       **r13:** X9-5's host rows start from the `candidate` child's INIT and one `REV`; R2 commits r12's distinct variant after a committed Run; F40's latch variant runs landed only; the timing guard's limit is 5,000 ms (see the r13 header).
     - **X9-6 (record; the M2 exit).** Two full lead runs on one integrated commit, the checker, release absence, the reviewer's rerun, and the arch evidence record. **Dependencies:** all of the above, and VD1 (EXIT-PLAN, "lands before the X9 exit").
       **r10:** X9-6's `check` covers both required-runs files and both targets' run sets, with the union census and kill-set coverage across both (see the r10 header).
+      **r16:** X9-6 also adds the storage driver over every storage row with its union census, the checker's two-target `check` and `coverage`, the `"X9-6"` unit value, item 8's release-order verdict condition, and the 50 kill rows of the r16 header (storage 381 rows, host 98) (see the r16 header).
 
 ## Cross-law corrections found while drafting
 
