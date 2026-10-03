@@ -1,4 +1,4 @@
-# The crash, lock and revocation matrix — proposal X9 r14
+# The crash, lock and revocation matrix — proposal X9 r15
 
 2026-10-01. Claude Opus 5.5, implementation lead. Law for unit X9 of `EXIT-PLAN.md`, the unit that gates M2 completion. It is written under:
 - the build plan's M2 row (`docs/v2/architecture/implementation-boundaries-and-build-plan.md` line 886: "actual crash/lock/revocation matrix pass; synthetic fixtures remain labelled"), its ordered failure matrix F00–F53 (lines 524–587), its required API and fault-injection checks (lines 591–613; the test owner `crates/storage/tests/commit_tests.rs`, line 594), and the tooling row for storage and process faults (line 1072: "deterministic synchronization and crash barriers against actual storage/processes … Record platform/filesystem/profile, actual state bytes and exact outcomes; inject before/after each durability step, without sleep-and-hope synchronization");
@@ -169,6 +169,7 @@ r2 (2026-10-01) is an amendment made as lead decisions under the owner's standin
 - **Four choices made law (items 5, 7, 8 and 9).**
   - **Census scope (item 5).** A unit's census is the census of its own drivers. X9-2's census is its `commit` driver's lawful first commit on a fresh root: two runs, equal point for point. The `recover` and `sweep` censuses are X9-3's. X9-6's census is the union.
     **r10:** X9-5's census is the union of two unarmed `finalize` runs, a lawful commit and an exhausted-carrier commit, and (r11) one unarmed `store_gc` run, and X9-6's union spans both targets (see the r10 header).
+    **r15:** X9-4's census is the union of two unarmed commit-driver runs: the lawful first commit and the refused end (`open`, then the refused end path, which owes one `REV`), as X9-5's `candidate` child ends (see the r15 header).
   - **The trace digest (item 7).** A child's `trace.sha256` hashes its records grouped by thread, in each thread's own order and threads by index. The pid and the process-wide sequence number are left out, because they interleave between threads. Every drawn value in a payload is numbered by first appearance with item 7's normalizer. Without this, an unarmed observer tick interleaving with the main thread, or a drawn ExecutionId in a payload, would make two lawful repetitions disagree.
     **r14:** before the normalizer numbers drawn values, each thread's consecutive `x3c.object/` records are split into per-object groups at `x3c.object/create.before`, the groups are ordered by their records without occurrences (stable), and each name's occurrences are reassigned ascending in that order. Every lawful first commit is unchanged (see the r14 header).
   - **R3's value (item 8).** R3 is scored against the left attempt's ExecutionId. That is the outcome the sweep wrote for it, or "nothing". R2 is a lawful commit whose attempt the sweep also settles, `committed`; that settle is recorded beside R3 (`nextWriter`) and is not part of the row's R3. "R3 writes nothing" means nothing for the left attempt.
@@ -484,6 +485,158 @@ It changes the following and nothing else.
 
   No accepted outcome of any other law changes. No new public code, row or detail.
 
+**r15 (2026-10-03) is an amendment made as lead decisions under the owner's standing direction of 2026-09-30.** r14 bytes are preserved in PROPOSAL-r14.md.
+
+- **Where it was found.** It was found while preparing X9-4, on product main `b999ae3` with X9-3's uncommitted worktree as its base.
+- **Nothing has been run.** X9-4 has made no census run, no development run and no lead run set. Every finding below comes from reading the code and X9-3's census trace (`x93-r14-census-x93`), and each states its file:line evidence.
+  - Where a finding predicts a run's outcome, the prediction is the code's. It is not an observation.
+  - If a development run contradicts one, X9-4 stops and reports, as X9-2 and X9-3 did.
+- **No product code changed.**
+- **How it edits r14.** The r14 sentences it touches stay in place, each followed by a short "r15" note that points here.
+
+It changes the following and nothing else.
+
+### X9-4's census adds the unarmed refused end (items 5 and 12)
+
+- **What X9-4 found.**
+  - **Kills outside any census.** X9-4 kills at two kinds of point that no lawful commit reaches:
+    - each point of the end-path `REV` append (F19);
+    - `x3d.finish.settle.before` (F14's moved kill, r12).
+    - `check-unit` refuses "killed points outside the kill set" (item 7). So these points must be in X9-4's census.
+  - **Why a lawful commit misses them.** `finish` owes a `REV` only if a durable SEAL has no evidence commit, the gate is latched, or a revocation was observed (`security/src/custody/commit_session.rs:1115`). It reaches `x3d.finish.settle.before` only when something is owed (`:1128`). A lawful commit owes nothing. That is r12's own finding for F14.
+  - **Why the scripts that reach them cannot be a census.** Those scripts arm `x4.observer.tick` (item 11). X9-0's `Census::from_exit` refuses any armed run: "a census runs traced with nothing armed" (`platform/src/crash_barrier/driver.rs:536-541`).
+- **Decision.** X9-4's census is the union of two unarmed runs of storage's commit driver. Each runs on its own fresh root after its own fixture child.
+  - **(a) The lawful first commit.** This is X9-2's census run.
+  - **(b) The refused end.** The child makes its one entry (`operation`) and calls `CommitSession::open`. It then reserves the end path and ends on the session's refused end path (`reserve_end_path`, then `refused().finish()`), with no candidate, no `prepare_commit` and nothing staged.
+    - **Why it owes a `REV`.** The refusal latches the gate (`refuse` calls `operation.guard().stop()`, `commit_session.rs:562`). So `finish` owes one `REV` and appends it from the settlement reserve, through `x3d.finish.settle.before` and every `x3b.append.rev` point.
+    - **The precedent.** This is the shape of X9-5's `candidate` child (r10), whose one `REV` r13 recorded.
+    - **A check.** If (b)'s trace has no `x3d.finish.settle.before` point, the census is a `HARNESS-ERROR`.
+  - **The usual rules.** Each of (a) and (b) runs twice, and the two runs must be equal point for point (item 5, r2). The union and the census trace digest follow r10's rules: the largest occurrence count wins, and the digest covers (a)'s normalized lines, then (b)'s.
+  - **What is not in it.** The census does not include `recover` or `sweep` runs. X9-4 kills no point of theirs.
+- **Rejected:**
+  - **An armed census of F19's or F39's script.** It needs a new census constructor in X9-0's driver. It would also make a revocation, a pause and the timing guard part of the census.
+  - **Dropping F19's `REV` kills, or F14's moved kill.** Item 9 and r12 name both. The census serves the kill set, not the reverse.
+
+### A row may name its unit; F14's moved row is X9-4's (items 7, 9 and 12)
+
+- **What X9-4 found.** r12 makes F14's `x3d.finish.settle.before` kill an X9-4 row. But `check-unit` takes a unit's rows by case alone, and F14 is in X9-3's list (`tools/check_crash_matrix.py:73`, X9-3's worktree; X9-4's list at `:75` has no F14).
+  - So X9-3's `check-unit` would demand the moved row in X9-3's run sets, and X9-4's would never see it.
+  - This is r10's finding again, within one file.
+- **Decision.**
+  - **The `unit` member.** A required run may carry an optional member `unit`, naming one unit of item 12: `"X9-2"` to `"X9-5"`. It is used only where a law moves a row to a unit other than the one its case is listed under.
+  - **Only one row carries it.** It is F14's moved row, with `"unit": "X9-4"`.
+  - **`check-unit` honours it.** Its subset for unit U is every row with `unit` equal to U, plus every row without `unit` whose case is in U's list. A row with `unit` is in no other unit's subset.
+  - **`check` honours it.** It admits the member. Every `(case, variant)` still has exactly one run in its target's set, and nothing else in `check` changes.
+  - **Who owns it.** X9-4 adds the member to the checker's required-run validation and to both selections, with tests. The harness's per-unit row selection reads the same member.
+- **Why this is not r10's rejected alternative.** r10 rejected "changing `check-unit` to take rows by a unit tag", meaning re-keying every row. Here selection stays by case, and the override names only a row a law has moved. A row's `units` field still names owning laws, not X9 units.
+- **Rejected:**
+  - **A separate X9-4 required-runs file.** r10 used one for a second target. X9-4's rows run in storage's target with X9-2's and X9-3's.
+  - **Giving the row to X9-3.** X9-3 would then run X9-4's revocation script and census part (above).
+
+### The moved F14 row's R2 is refused at admission (items 8 and 9; C5)
+
+- **What X9-4 found.** r12 gives the moved row "F13's expectations", and F13's R2 is Committed. But the row runs F39's script, which revokes the `release` subject of the session's own core closure (r12). Under C5, R2 is then refused at X4T's admission. The commit candidate and r12's distinct variant both bind that closure, so no R2 can commit.
+  - X9-5 met the same thing in host's F39, and r13 set R2 there to "refused at admission … The exact row is not scored".
+- **Decision.** The moved row's R2 is refused at admission, and the exact row is not scored.
+  - R1 is CH with `pendingSettlement`, R3 `committed` and R4 CH `settled`, as F13 gives. The sweep is admitted under the revoked view (r3, G5).
+  - R2 still commits r12's distinct variant if it is ever admitted. That keeps the script identical to r12's.
+- **Rejected:** restoring the view before R2. No row names a restore after a revocation, and the restore would test a different state than r12 moved.
+
+### The timing guard ends at the script's own main hold; F18 and F19 release the held tick (items 7 and 11)
+
+- **What X9-4 found.**
+  - **The guard's end point.** r12 ends the guard's window at "the script's admission-hold point (after its last checkpoint)". Only F39's script, which F40's latch variant and F14's moved row reuse, has such a point.
+    - X9-4's other tick-armed scripts hold the main thread earlier: F18 at `x4.checkpoint.before-observation#1`, F19 at `#2`, F38 at `x3d.publish.after-staging#1`, and F41's latch-first order at `x4.checkpoint.before-observation#3`.
+    - Each of those publishes or mutates while held there, and has no hold after its last checkpoint.
+  - **The observer must be released.** In F18 and F19, item 11 resumes the main thread, never a tick, so the checkpoint's own monitored read observes the change. But the observer, held at `x4.observer.tick#1`, can only leave its loop after a stopping observation (`security/src/custody/operation_guard.rs:309-341`, `if stopped` at `:338`). The guard's drop joins the observer thread (`Observer::drop`, `:276-281`), and `finish` drops the guard (`operation_handoff.rs:592`). So a child whose tick is never resumed cannot exit. The run would end at the watchdog as a `HARNESS-ERROR`.
+- **Decision.**
+  - **The guard's window.** For every run whose script arms `x4.observer.tick`, the window runs from the parent's read of the writer's first `x4.observer.tick` hold to its read of the writer's first hold at any other point. That second hold is the script's main hold.
+    - In F39's script, its F40 and F14 uses, and F44 and F45, that hold is r12's `x3c.evidence.commit.before#1`, so X9-3's measurement is unchanged.
+    - In F18, F19, F38 and F41's latch-first order, the hold comes earlier, so the window is shorter. It still bounds the awake time X4 charges before the main hold, and nothing else changes: the 5,000 ms limit, the record member and its exclusion from the repetition comparison all stay.
+  - **F18 and F19 release the tick.** After the parent resumes the main thread, it reads the writer's `x3d.finish.settle.before#1` `pass`, then resumes `x4.observer.tick#1`.
+    - By then the gate is latched and the stop cause recorded (the first cause wins, `Shared::record`, `operation_guard.rs:213-216`). The tick cannot change which party latched or what the end path owes.
+    - F19's kill rows, which kill inside the end path, never resume it.
+- **Rejected:**
+  - **No guard for scripts without an admission hold.** r12 applies the guard to every run that arms the tick.
+  - **Resuming the tick before the main thread.** The observer would then latch first, which is F38's order, not F18's or F19's.
+  - **Leaving the tick armed only for `#1`.** It still needs a resume to exit.
+
+### F30: the second B commits the distinct variant; (a) compares the project's state; (b)'s sweep is refused at its admission (item 9)
+
+- **The second B.** After A commits the candidate, a second B re-commits the same Run, because the candidate's RunId is a function of the project (r12). It is refused on X3c item 10's invariant row: r12's F13 finding, X3d-2's limit.
+  - **Decision.** The second B commits r12's distinct variant, and is expected to be Committed.
+- **(a) "No state change".** A holds its lease after the fence's release (X9-4 holds it at `x3c.attempt.commit.after#1`). B's admission then takes the free fence and runs X4T's fenced first read at the lease-free point. That read publishes a trust floor before B's lease attempt is refused busy.
+  - **Evidence for the order.** In the commit driver's census trace, the `x4t.floor-publication` points come before `x2.lease.writer/lock.before` (`x93-r14-census-x93/census-trace.txt`, commit lines 71–134 against 155). See also `operation_guard.rs:2-4`.
+  - **Why it publishes.** Under the scripted clock, B's wall second is past every stored floor (r2), so it does publish.
+  - **What else B writes.** X3b's floor step writes nothing: it is skipped when the writer lease is busy (`journal_store/carrier_floor.rs:826-827`).
+  - **Decision.** In (a), "no state change" compares the project's own state before and after B. That state is N's ledger and carrier, its witness and carrier floor, and its objects: the post state without `trustState` and the directory list. B's trust-floor publication is lawful (X4T r9 item 7) and is recorded, not scored: the run's `ladder` list carries one entry for B with both the full-state and the project-state comparison.
+  - **(b) keeps the full comparison.** There A holds the fence, so B stops at the fence's non-blocking lock before any write.
+- **(b) C, the sweep.** X6 r4 item 7, "How it gets the namespace", step 1, admits the sweep through "X1 `admit_ordinary_writer`, which holds the installation fence through the 468 gate". Its step 2, "A busy namespace is skipped and retained, never refused", applies only after that admission.
+  - **What the code does.** The gate's fence lock never waits: `lock_fence`, `security/src/custody/installation_admission.rs:1129-1142`, returns `GateRefusal::Busy`. That is projected as `Busy` (`installation_routing.rs:469`). The matrix entry `settlement_sweep` runs the same writer admission before `admit_on` (`security/src/crash_matrix_support.rs:256-263`, r4).
+  - **The result.** With A holding the fence in (b), C is refused at its own admission on the busy row and writes nothing. In (b) A has drawn no ExecutionId yet, so C names no attempt.
+  - **Decision.** (b)'s C is expected to be refused at admission on the busy row, writing nothing. (a)'s C keeps "skips and retains the namespace".
+- **Rejected:**
+  - **The second B committing the same Run.** That is r12's rejected expectation.
+  - **The full-state comparison for (a).** No lawful run meets it.
+  - **Moving (b)'s hold to after A releases the fence.** That is (a).
+
+### F26's "no grant reused" is observed on R2 (item 9)
+
+- **What X9-4 found.** X4 r7 item 7 states it as "The guard is never reused, and current custody still gates reading (F26)". No barrier point or outcome names a grant.
+- **Decision.** F26 scores the row's "no grant reused" as two things:
+  - R2 is refused at admission (exact row not scored);
+  - R2 leaves the project's own state unchanged (the F30 comparison above), captured just before and just after R2.
+- R1 is CH.
+- **Rejected:** an in-process assertion on the guard's identity, which no process-level run can make.
+
+### F18's mixed view is covered elsewhere; its unreadable view is defined (item 9)
+
+- **What X9-4 found.**
+  - **What "mixed" needs.** A mixed view is X4 r7 item 5's "second view that is still mixed": `state.v1` replaced under both attempts of one observation (`ObservationFailure::Mixed`, `security/src/trust/live_observation.rs:365`, returned at `:479`).
+  - **Why no process can produce it.** Between an attempt's open (step 1) and its reopen (step 4), the only seam is the `cfg(test)` `ObservationHook` (`:398-406`). The observation has no barrier point there, and adding one would be a new placement, which item 5 assigns to the owning unit.
+- **Decision.**
+  - **F18's mixed variant is "elsewhere".** It is covered by X4a's in-process test `a_replacement_during_the_first_attempt_is_absorbed_and_a_second_is_mixed` (`security/src/custody/operation_live_tests.rs:593`). The test drives two replacements through the hook and asserts `OBSERVER.FAIL_STOP`, subject `mixed` (`:625`).
+  - **F18's unreadable variant is executed.** The parent sets `I/trust/stores/S/state.v1` to mode `000` while the writer holds at the checkpoint (labelled `mutation`), and restores its mode before the ladder.
+    - Expected: `OBSERVER.FAIL_STOP`, subject `unreadable`; R2 is Committed after the restore, as the row states.
+    - F19's fail-stop variant uses the same mutation at checkpoint #2.
+- **Rejected:** a placement inside the live observation, which changes X4a's accepted placements for a case its own test covers.
+
+### F34's run A: the ledger and SEALs are unchanged; the carrier gains the latched gate's one `REV` (item 9)
+
+- **What X9-4 found.** A's `ExistingAttempt` comes from `prepare_commit` after `open`, on `session.refused()` (`storage/src/commit.rs:528-535`). That latches the gate (`commit_session.rs:529-530`, `:562`), so `finish` appends one `REV`. This is r13's finding for every refusal after `open`.
+  - So "no new row, no SEAL … the earlier attempt's rows unchanged" holds for the ledger and the SEALs, not for the whole post state.
+  - The invariant-row projection (`SYSTEM.OUTCOME.ILLEGAL_STATE`, `HOST.INVARIANT_VIOLATED`) is the host's (X7 r4 item 3). A storage run observes `NotPrepared::ExistingAttempt { execution_id, requested }`.
+- **Decision.** F34's run A expects:
+  - `ExistingAttempt`, whose `execution_id` is the earlier attempt's (the subject);
+  - N's ledger unchanged across A;
+  - no SEAL added;
+  - the carrier's change, the one `REV`, is not scored.
+
+  A's disclosed `requested` binding is run B's input. B's two expectations, and its `normalizedSha256` unchanged, stay as the row states. The host's projection stays with X7's next revision, as r10's item 12 note left it.
+- **Rejected:** "the whole post state unchanged" across A, which X3d item 7 step 1 forbids once the gate has latched.
+
+### The unit's judgment calls (record)
+
+These change no expected value and are X9-4's, reviewed with the unit:
+- the hold points X9-4 chose where a row names none:
+  - F06 holds the writer at `x3c.attempt.commit.after#1` while the parent takes its `BEGIN IMMEDIATE`, and releases it after the writer exits;
+  - F30(a) and (b) hold A at `x3c.attempt.commit.after#1` and `x2.lease.writer/lock.after#1`;
+  - F41's latch-first order holds at `x4.checkpoint.before-observation#3`, outside the shared monitor (`operation_guard.rs:549` against `:552`);
+- F40's two no-latch variants run under case F40 with F12's scripts;
+- F26's, F39's and F41's R3 and R4 run and are recorded, unscored;
+- F19's fail-stop R2 and F41's writer outcome are unscored, as their rows give none;
+- F06's "an earlier level-3 transaction is released" has no barrier point and is not scored;
+- the repetition risk of F30's held writer under the unarmed 5 s observer period. This is r3's disclosed gap; X9-4 reports it if a run shows it.
+
+### Unchanged from r14
+
+- every injection mechanism, point placement, kind, scope, label, evidence member, limit, and the timing guard's limit, measurement clock, record member and repetition exclusion;
+- every forbidden substitute;
+- every row and expected value not named above, including all of X9-2's, X9-3's and X9-5's rows;
+- r14's trace rule, X9-5's runners, host order, required-runs file and census.
+
+No accepted outcome of any other law changes. No new public code, row or detail.
+
 Product baseline: main `f1b8321` (X3d-0 integrated). Every item contains a lead decision made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation; each names the alternative it rejects. Not product code. No new public code, row or detail.
 
 ## Problem
@@ -692,7 +845,7 @@ At `f1b8321` the product has the following, and nothing more:
      - **`matrix.json`** lists the run files with their sha256, the census, the release-absence result (item 2), and the repetition comparison.
      - **In arch.** X9-6 commits the final run set to `docs/implementation/m2/crash-matrix-x9/evidence/<product commit>/` (`matrix.json` and `runs/`, without the tarballs).
    - **The checker.** It is `tools/check_crash_matrix.py` in the product: read-only, standard library only, under the pinned Python. It refuses unless all of these hold:
-     - every `(case, variant)` in the reviewed `required-runs.v1.json` (item 9) has exactly one run, and no extra run exists;
+     - every `(case, variant)` in the reviewed `required-runs.v1.json` (item 9) has exactly one run, and no extra run exists (**r15:** a row's optional `unit` member is admitted);
      - every verdict is `PASS`;
      - the labels equal the required labels;
      - `product.commit` is the reviewed commit, and the worktree is clean;
@@ -704,6 +857,7 @@ At `f1b8321` the product has the following, and nothing more:
    - **The per-unit check (r4; lead decision).** Before X9-6, each of X9-2 to X9-5 checks its own run sets with a subset mode of the checker.
      - **Who adds it.** X9-2 adds it to `tools/check_crash_matrix.py` as the `check-unit` command, with its tests.
      - **The unit's rows.** `check-unit` names the unit (X9-2, X9-3, X9-4 or X9-5). It takes that unit's subset of the reviewed `required-runs.v1.json`: the rows whose case is in the unit's list in item 12.
+       **r15:** a row with a `unit` member is in that unit's subset only, whatever its case; F14's moved row carries `"unit": "X9-4"` (see the r15 header).
      - **What it checks** on two lead run sets. It refuses unless all of these hold:
        - every subset row has exactly one run in each set, and no other run exists;
        - `check`'s per-run check passes on each run (canonical JSON, schema, verdict PASS, labels, units, script and expected equal to the row, the clock and ordinals, and kill verification by signal 9 and `lastHeld`). The one difference: `product.commit` must equal the stated base commit, and `worktreeClean` may be `false`, because a unit is reviewed uncommitted;
@@ -764,11 +918,11 @@ At `f1b8321` the product has the following, and nothing more:
    | F11 | X3c, X3d | kill after each `x3c.evidence.stage-<table>` | exec | The ledger transaction rolls back; the SEAL is durable with no `REV` (the process died before `finish`). R1 UAO; R2 Committed; R3 refused; R4 TNC. |
    | F12 | X3c, X3d, X7 | `fail-after` and `fail-before` at `x3c.evidence.commit` | exec (inj) | `CommitUndetermined` with ExecutionId and no RunId; no retry; nothing appended. R1 CH with pendingSettlement (landed) or UAO; R3 committed or refused; R4 CH or TNC. |
    | F13 | X3c, X3d | kill at `x3d.publish.commit-returned` | exec | R1 CH with pendingSettlement; R2 Committed; R3 committed; R4 CH. **r12:** R2 commits the distinct candidate variant, so it is Committed (see the r12 header). |
-   | F14 | X3d, X6 | kill at `x3d.publish.published` and at `x3d.finish.settle.before` | exec | As F13. **r12:** R2 as F13. The `x3d.finish.settle.before` kill moves to X9-4, after F39's script, where an end record is owed (see the r12 header). |
+   | F14 | X3d, X6 | kill at `x3d.publish.published` and at `x3d.finish.settle.before` | exec | As F13. **r12:** R2 as F13. The `x3d.finish.settle.before` kill moves to X9-4, after F39's script, where an end record is owed (see the r12 header). **r15:** that row is X9-4's (`"unit": "X9-4"`); its R2 is refused at admission (C5), not scored, as r13 has for F39 (see the r15 header). |
    | F15 | X6 | kill after `x3d.finish.end-step.after` | exec | R1 CH; R2 creates no second receipt for this ExecutionId. **r12:** R2 commits the distinct variant: Committed, with no second receipt for this ExecutionId (see the r12 header). |
    | F16 | X7 | `fail-before` at `x7.delivery.required` | exec (host, inj) | `DELIVERY.REQUIRED_FAILED`, exit 4, runId kept; R1 CH. |
    | F17 | X7 | `fail-before` at `x7.delivery.optional` | exec (host, inj; L9) | Committed; optional failure disclosed; result unchanged. |
-   | F18 | X4, X3d | `hold` at `x4.checkpoint.before-observation#1`; the parent publishes a revoking update, or makes the view unreadable or mixed; resume | exec | Refused `TRUST.COMPONENT_REVOKED_DURING_OPERATION`, or `OBSERVER.FAIL_STOP`; no SEAL; `finish` appends `REV` from the settlement reserve. R1 UAO; R2 refused at admission (revoked), or Committed after the view is restored (fail-stop variant); R3 and R4 per C5. |
+   | F18 | X4, X3d | `hold` at `x4.checkpoint.before-observation#1`; the parent publishes a revoking update, or makes the view unreadable or mixed; resume | exec | Refused `TRUST.COMPONENT_REVOKED_DURING_OPERATION`, or `OBSERVER.FAIL_STOP`; no SEAL; `finish` appends `REV` from the settlement reserve. R1 UAO; R2 refused at admission (revoked), or Committed after the view is restored (fail-stop variant); R3 and R4 per C5. **r15:** the mixed view is elsewhere (X4a's `a_replacement_during_the_first_attempt_is_absorbed_and_a_second_is_mixed`); the unreadable view is `state.v1` at mode `000`, restored before the ladder (see the r15 header). |
    | F19 | X3b, X3d, X4 | as F18 at the repeated checkpoint after the SEAL (`#2`); also kill at each point of the end-path `REV` append | exec (stall variant: L3) | Refused; evidence transaction rolled back; the trace shows level 4, then level 3, then a fresh `x3b.append.rev`, then `CLN` if owed. A killed `REV` leaves X3b's append crash state. R1 UAO; R3 and R4 per C5 (or refused and TNC in the fail-stop variant). |
    | F20 | X6, X3b | the parent rewrites the witness as malformed or with a mismatched digest | exec (mut) | R1 UQ after the five stable observations; R2 quarantine row (`LEDGER.CORRUPT`). |
    | F21 | X6, X3b | the parent deletes the witness of a nonempty journal | exec (mut) | R1 UQ (`witnesslessRestore`); R2 quarantine row. |
@@ -776,15 +930,15 @@ At `f1b8321` the product has the following, and nothing more:
    | F23 | X6 | the parent deletes the receipt row, or the association row | exec (mut) | R1 UC; R3 writes nothing (one-sided). |
    | F24 | X6, X3a | ledger mode `000` or a truncated header; a wrong store generation selected | exec (mut) | R1 UC; R2 refused on its X3c or X3a row; R3 reports host I/O for that namespace and writes nothing. **r12:** the wrong-store-generation variant (every row's digest changed, the ledger readable) gives R1 UAU, R2 Committed, and R3 `swept` with nothing written, per the owner's §2 matrix (see the r12 header). |
    | F25 | X6 | the parent deletes, or flips one byte of, a committed object | exec (mut) | R1 CAD with `evidence.missing` or `evidence.corrupt`. **r14:** both variants run R1 only; R2 would re-commit the same Run at a drawn position (see the r14 header). |
-   | F26 | X4, X6 | commit, then the parent publishes a revocation | exec | R1 CH; R2 refused at admission; no grant reused. |
+   | F26 | X4, X6 | commit, then the parent publishes a revocation | exec | R1 CH; R2 refused at admission; no grant reused. **r15:** "no grant reused" is R2 refused at admission and leaving the project's own state unchanged (see the r15 header). |
    | F27 | X6 | the parent swaps the association's namespace, generation, operation or execution; or a request with a different binding | exec (mut) | R1 BU. **r12:** the association's operation and execution swaps give R1 UC `ledger-join` (the snapshot's join); the store-generation and namespace swaps, and a request with a different binding, give BU (see the r12 header). |
    | F28 | X6 | X6a's pruned-record fixture, read in a fresh process | exec (mut) | R1 UC. |
    | F29 | X6 | a reader process while the writer holds at `x3c.attempt.commit.after`, after the SEAL, at `x3d.publish.after-staging` and at `commit-returned` | exec | UAO, UAO, UAO, CH with pendingSettlement; never mixed; the reader takes `readers.lease` alongside APPEND-WRITE without waiting. |
-   | F30 | X2, X6c | writer A holds (a) under its lease after the fence is released and (b) while it holds the fence; process B is a competing writer; process C is the sweep | exec | B: the busy row after S7's bounded fence or lease attempt, no upgrade, no state change. C: skips and retains the namespace. After A resumes, A is Committed, and a second B then succeeds. |
+   | F30 | X2, X6c | writer A holds (a) under its lease after the fence is released and (b) while it holds the fence; process B is a competing writer; process C is the sweep | exec | B: the busy row after S7's bounded fence or lease attempt, no upgrade, no state change. C: skips and retains the namespace. After A resumes, A is Committed, and a second B then succeeds. **r15:** the second B commits r12's distinct variant; in (a), B's "no state change" compares the project's own state and its lawful trust-floor publication is recorded; in (b), C is refused at its own admission on the busy row and writes nothing (X6 r4 item 7 step 1) (see the r15 header). |
    | F31 | X3b | the parent installs the format-1 or format-2 fixture as the namespace's carrier | exec (mut) | R2 refused before commit work (X3b item 3a's F46 row); no SEAL is inserted. |
    | F32 | X3b-4, X7b | reserved-slot setup to tails `…987` and `…988`; kill at each X3b item 13 crash-table point | exec (host; mut + death) | `CarrierCapacityExhausted`; `finish`; the rollover in the end step; X7 r3 item 6a's busy row. Each crash row as X3b item 13 states; the next writer proceeds in G+1. **r13:** the `…987` variant's R1 and R4 are `unknown-quarantine-condition:journalContiguity` (the planted tail is not contiguous from 1), and its R2 commits the distinct variant (see the r13 header). |
    | F33 | X6 | the parent alters receipt bytes, the inventory, a signature, or the SEAL body digest | exec (mut) | R1 UC. |
-   | F34 | X3d, X6 | (r2) run A: `inject-id` with a previous run's ExecutionId; then run B, a separate `recover` process, once with A's disclosed requested binding and once with the earlier attempt's own binding | exec (inj) | A: `ExistingAttempt`, projected on the invariant row (`SYSTEM.OUTCOME.ILLEGAL_STATE`, `HOST.INVARIANT_VIOLATED`) with the ExecutionId as subject and the requested binding disclosed (X6 r3 item 6, X7 r4 item 3); no new row, no SEAL, no recover in A; the earlier attempt's rows unchanged. B: with A's binding (a different `operationRef`), BU (`RECOVERY.REFUSED`, subject `operation`); with the earlier attempt's binding, that attempt's standing. B leaves `normalizedSha256` unchanged. |
+   | F34 | X3d, X6 | (r2) run A: `inject-id` with a previous run's ExecutionId; then run B, a separate `recover` process, once with A's disclosed requested binding and once with the earlier attempt's own binding | exec (inj) | A: `ExistingAttempt`, projected on the invariant row (`SYSTEM.OUTCOME.ILLEGAL_STATE`, `HOST.INVARIANT_VIOLATED`) with the ExecutionId as subject and the requested binding disclosed (X6 r3 item 6, X7 r4 item 3); no new row, no SEAL, no recover in A; the earlier attempt's rows unchanged. B: with A's binding (a different `operationRef`), BU (`RECOVERY.REFUSED`, subject `operation`); with the earlier attempt's binding, that attempt's standing. B leaves `normalizedSha256` unchanged. **r15:** across A, N's ledger is unchanged and no SEAL is added; the carrier gains the latched gate's one `REV` (r13), unscored (see the r15 header). |
    | F35 | — | — | LIMIT (L5) | — |
    | F36 | X3b, X3c, X6 | the orphan SEALs of F09, F11, F19 and F38, followed by R2 committing the same semantic RunId | exec | The earlier ExecutionId: R1 UAO, R3 refused, R4 TNC. The later ExecutionId: CH. The RunId is not blacklisted. **r12:** F09 and F11 only; the F19 and F38 variants do not exist, because R2 is refused under the revoked view. The later ExecutionId is ladder step R5 (see the r12 header). |
    | F37 | X6 | — | elsewhere (X6 item 10: the pure ordering accessor) | — |
@@ -828,6 +982,7 @@ At `f1b8321` the product has the following, and nothing more:
       - **Why it is deterministic.** Which party latches, and in which gate state, is fixed by the script.
     - **Timing guard.** A held child's awake time counts against X4's 10 s bound. Each run records the monotonic time from the operation's first monitored read to its last checkpoint. A run above 2 s (**r13:** 5 s, measured as r12 states; see the r13 header) is a `HARNESS-ERROR`, never an `OBSERVER.FAIL_STOP` that the run then accepts.
       **r12:** it applies to every run that arms `x4.observer.tick`. It is measured on the parent's monotonic clock, from the writer's first `x4.observer.tick` hold record to its hold at the script's admission-hold point, and recorded as `timingGuard`. X9-3 implements it for F44 and F45, and X9-4 uses it (see the r12 header).
+      **r15:** the window ends at the writer's first hold at a point other than the observer tick, the script's own main hold; F18 and F19 resume the held tick after reading `x3d.finish.settle.before#1` (see the r15 header).
     - **Rejected:** letting the observer tick on its own 5 s timer during matrix runs, which makes the latching party a race.
 
 12. **Units after the law.** Each comes with its inventory successor and is reviewed alone.
@@ -860,6 +1015,7 @@ At `f1b8321` the product has the following, and nothing more:
       **r14:** X9-3 also adds r14's object-publication group order to the matrix target's trace digest, and runs F25 with R1 only (see the r14 header).
     - **X9-4 (storage; locks and live revocation).** Rows F06, F18, F19, F26, F30, F34, F38, F39's storage half, F40 and F41, and C5 once G5 is decided (**r3 (record):** decided by X6c; C5's R3 is `refused` and its R4 is `terminal-not-committed`). **Dependencies:** X9-2 and X4a. It uses X4a's observer `gate` point.
       **r12:** X9-4 also takes F14's `x3d.finish.settle.before` kill, in an owed-end-record run after F39's script. It inherits the r12 admission hold and X9-3's timing guard (see the r12 header).
+      **r15:** X9-4 also adds its census's refused-end run, the required run's `unit` member in the checker (`check-unit` and `check`) with its tests, and the timing guard's general end point (see the r15 header).
     - **X9-5 (host).** `crates/host/tests/commit_matrix_tests.rs` with rows F01, F16, F17, F12's and F40's caller route, F32 with its rollover crash table, F39's delivery half, and F53's `store-gc` step. **Dependencies:** X9-2, X5a, X7a, X7b, X3b-4 and X6c.
       **r10:** X9-5 adds host's two runners, the candidate file's writer and reader, and the fixed delivery phase. It also adds the `candidate` and `finalize` children (host order: the candidate is written before custody), the host required-runs file and the host census of two `finalize` runs and (r11) one `store_gc` run. It depends on X3d-3 too (see the r10 header).
       **r13:** X9-5's host rows start from the `candidate` child's INIT and one `REV`; R2 commits r12's distinct variant after a committed Run; F40's latch variant runs landed only; the timing guard's limit is 5,000 ms (see the r13 header).
