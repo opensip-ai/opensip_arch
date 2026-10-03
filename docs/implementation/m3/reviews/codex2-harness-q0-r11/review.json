@@ -1,0 +1,117 @@
+{
+  "reviewer": "CODEX2",
+  "round": "M3-Q0 r11",
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectSha256": "c003a06a8d5eaa0ceb414f9458dc52d1fc644b304cf3aa73db6ef00317fac933",
+  "schemaSha256": "8769ed0c156d5496d9df6640eab29c1a219303768ede9c417b59dc638d4f6975",
+  "subjects": [
+    {
+      "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/harness/DESIGN.md",
+      "bytes": 143572,
+      "sha256": "c003a06a8d5eaa0ceb414f9458dc52d1fc644b304cf3aa73db6ef00317fac933"
+    },
+    {
+      "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/harness/exploratory-quality-envelope.schema.v1.json",
+      "bytes": 59433,
+      "sha256": "8769ed0c156d5496d9df6640eab29c1a219303768ede9c417b59dc638d4f6975"
+    }
+  ],
+  "previousSubjects": [
+    {
+      "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/harness/DESIGN-r10.md",
+      "bytes": 133762,
+      "sha256": "c926077ce4403005360339d1dfab85240fb6506a3811d03d2a4c2a5d4717fee1"
+    },
+    {
+      "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/harness/exploratory-quality-envelope.schema.v1-r10.json",
+      "bytes": 59031,
+      "sha256": "6558bd39ce60f788b78c55c18e8925bee5e02823956b4a25e3f9f61e711e12a9"
+    }
+  ],
+  "requiredFindings": [
+    {
+      "id": "C2-Q0-R11-01",
+      "priority": "P2",
+      "title": "Establish macOS tree settlement before retaining elapsed",
+      "locations": [
+        "DESIGN.md:790",
+        "DESIGN.md:851-857",
+        "DESIGN.md:874",
+        "DESIGN.md:1034-1038"
+      ],
+      "problem": "The new macOS no-leaf cases promise known elapsed after the root is reaped and waitpid reports ECHILD. The design supplies orphan adoption through Linux PR_SET_CHILD_SUBREAPER only. On macOS, a workload root can fork a continuing child and exit; the child is reparented to init, so the harness can reap the root and receive ECHILD while that descendant remains alive.",
+      "impact": "The elapsed endpoint is premature under the declared whole-tree definition. The drain timeout and settlement-failed reason are bypassed because the stated predicate already reports settlement. Memory platform unavailability makes the row incomplete but does not make its non-null elapsed value valid.",
+      "requestedChange": "Specify positive macOS whole-tree settlement evidence covering orphaned and daemonized descendants, or mark elapsed unavailable with a typed reason that nulls elapsed when such settlement cannot be established. Preserve elapsed for memory-only failures only when settlement is established. Align QD-27, the schema if the reason vocabulary changes, and the calibration/reference cases. Add a macOS case whose root exits before a continuing descendant; ECHILD alone must not validate elapsed.",
+      "evidence": "Static counterexample derived from the stated predicate and Apple wait/orphan semantics; not an executed demonstration.",
+      "sources": [
+        "https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man2/waitpid.2.html",
+        "https://raw.githubusercontent.com/apple-oss-distributions/xnu/xnu-11215.1.10/bsd/kern/kern_exit.c",
+        "https://man7.org/linux/man-pages/man2/PR_SET_CHILD_SUBREAPER.2const.html"
+      ]
+    }
+  ],
+  "nonBlockingObservations": [
+    {
+      "id": "C2-Q0-R11-N01",
+      "priority": "P3",
+      "title": "Place calibration cases under their expected status",
+      "locations": [
+        "DESIGN.md:871-874",
+        "DESIGN.md:881-888"
+      ],
+      "observation": "The unavailable Linux/macOS case appears under the complete heading even though its memory reason makes the row incomplete. The ordinary inherited writable mount is explicitly expected complete but appears under the incomplete heading. Move these cases or distinguish successful calibration from the resulting row status; the operative status/nulling rules remain clear."
+    }
+  ],
+  "priorFindingAssessment": [
+    {
+      "id": "C2-Q0-R10-01",
+      "status": "resolved",
+      "assessment": "Private-namespace detach of every inherited cgroup mount/alias, cwd relocation, FD closure and the exactly-one remaining read-only leaf-rooted mount invariant resolve the ordinary overmount contradiction. The clean inherited mount, aliases, v1 entries and detach failures have reference cases."
+    },
+    {
+      "id": "C2-Q0-R10-02",
+      "status": "partially-resolved",
+      "assessment": "Creation ordering, absent-versus-created evidence, Linux no-leaf settlement and settlement-failed nulling are consistent across design and schema. The newly explicit macOS known-elapsed branch lacks a valid whole-tree settlement mechanism; C2-Q0-R11-01 is the remaining required correction."
+    },
+    {
+      "id": "C2-Q0-R10-N01",
+      "status": "resolved",
+      "assessment": "The outside set is exactly harness and driver, each is non-dumpable before the batch, no outside exec is allowed during the batch, and the check repeats after settlement."
+    },
+    {
+      "id": "C2-Q0-R10-N02",
+      "status": "resolved",
+      "assessment": "The FD audit includes only its identified temporary descriptor and closes it before exec."
+    },
+    {
+      "id": "C2-Q0-R10-N03",
+      "status": "resolved",
+      "assessment": "AQP6 points to the retained PLAN-r6.md snapshot with the matching pin."
+    },
+    {
+      "id": "C2-Q0-R10-N04",
+      "status": "resolved",
+      "assessment": "Baseline compatibility includes measurement, reset/cache policy with charge ownership, kernel release, runner class and entry method; incomplete takes precedence over no-baseline."
+    }
+  ],
+  "requestAssessment": {
+    "bothR10FindingsResolved": "R10-01 is resolved. R10-02 is resolved for Linux and its evidence/nulling corrections, but its macOS extension requires C2-Q0-R11-01.",
+    "newError": "The added macOS no-leaf known-elapsed cases apply a Linux adoption-based settlement inference without an equivalent macOS mechanism.",
+    "changesBeyondTable": false
+  },
+  "scopeAssessment": "The full DESIGN and schema deltas fit the r11 response table and its listed refinements. No unrelated substantive change or additional schema/nulling blocker found.",
+  "verification": {
+    "method": "Read-only full DESIGN/schema comparison, hash/size checks, static carrier/nulling/citation inspection, three independent review slices and primary Linux/Apple documentation/source inspection.",
+    "hashesMatchRequest": true,
+    "r10SnapshotHashesMatch": true,
+    "productCodeExecuted": false,
+    "testsOrBuildsRun": false,
+    "validatorExecuted": false,
+    "referenceImplementationExecuted": false,
+    "corpusFetched": false,
+    "benchmarksRun": false,
+    "runtimeHomeAccessed": false,
+    "commitsCreated": false,
+    "writesRestrictedTo": "/tmp/opensip-implementation/reviews/codex2-harness-q0-r11/"
+  }
+}
