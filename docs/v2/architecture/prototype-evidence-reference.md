@@ -29,6 +29,8 @@ matrix, behavior/performance measurements, or parity threshold. Those artifacts
 do not exist in this V2 snapshot and remain OPEN future acceptance evidence at
 DR-118 and DR-G13.
 
+> **Current applicability (2026-10-02) — DR-118/DR-G13:** The statement above that no digest-pinned language-quality corpus exists describes this reference's original snapshot. DR-118 is SATISFIED under D-369 (see the DR-118 row of the [register](08-decision-and-readiness-register.md)), and its digest-pinned design corpus is [`quality-corpus-manifest.v1.json`](../../coop/completion/quality-corpus-manifest.v1.json) (SHA-256 `2a4c2fe0…`). That corpus covers the TypeScript preview only: 1,010 `.ts` sources, `productExecution: false`. The executable JS/Rust product corpus remains OPEN under DR-G13 `harness.DR-G13.product-v1` ([admission-and-qualification §3](../contracts/product-v1/admission-and-qualification.md#3-full-product-matrix-and-report-schema)). No language-quality cell is QUALIFIED. This note changes no grade or requirement.
+
 Before any supported role can claim language-native quality, its owner must pin
 the exact corpus/fixtures/goldens and their digests, record measured current and
 target behavior/performance, known limitations, and product-approved parity or
