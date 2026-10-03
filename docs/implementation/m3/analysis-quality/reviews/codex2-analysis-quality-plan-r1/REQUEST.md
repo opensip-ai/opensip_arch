@@ -27,7 +27,7 @@ Write only under /tmp/opensip-implementation/reviews/codex2-analysis-quality-pla
    - the cross-tool differential: tool-specific semantics, and versions;
    - the refactor suite.
    Can these be gamed, or give false confidence? What would make them robust?
-4. **The rule catalog** (§3). Is the initial set right for Rust and TypeScript teams? Is anything high-value missing? Example: Rust workspace-level  analysis versus rustc lints. Are any rules likely to be noisy?
+4. **The rule catalog** (§3). Is the initial set right for Rust and TypeScript teams? Is anything high-value missing? Example: Rust workspace-level `pub` analysis versus rustc lints. Are any rules likely to be noisy?
 5. **Incremental and resident host** (§5.3). Is the recommendation (c) sound? Is "decide before the M3 provider protocol is fixed" the right timing? What are the risks to authority, replay and Coverage honesty?
 6. **Python and the onboarding kit** (§8). Are the third-language concerns complete?
 7. **§10, what's missing.** Are the priorities right? What else is missing from the project and the product?
