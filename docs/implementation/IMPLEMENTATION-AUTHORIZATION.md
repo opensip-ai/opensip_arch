@@ -1,6 +1,6 @@
-# Implementation authorization record — DRAFT, awaiting the owner's confirmation
+# Implementation authorization record — CONFIRMED by the owner, 2026-10-03
 
-2026-10-03. Drafted by Claude Opus 5.5, implementation lead, at the owner's request. **It has no standing until the owner confirms it.** On confirmation, the owner's words and the date are added in the "Confirmation" section, and the status line changes to CONFIRMED.
+2026-10-03. Drafted by Claude Opus 5.5, implementation lead, at the owner's request. The owner confirmed it on 2026-10-03; see "Confirmation".
 
 ## Why this record exists
 
@@ -42,4 +42,4 @@ When confirmed, D-372 condition 5 reads as MET from the confirmation date, by th
 
 ## Confirmation
 
-*Pending: the owner's words and date.*
+The owner confirmed it on 2026-10-03, in reply to the lead's summary of this record: "confirmed, keep going". No changes were requested. D-372 condition 5 is MET from 2026-10-03 by this record.
