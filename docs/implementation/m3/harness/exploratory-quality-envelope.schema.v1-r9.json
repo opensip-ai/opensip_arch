@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "opensip.harness.exploratory-quality-envelope.1",
   "title": "OpenSIP exploratory quality envelope (D13 draft)",
-  "description": "Draft for D13 (docs/implementation/m3/analysis-quality/PLAN-r5.md:428-434, :544). Exploratory, never promoted, never a G13 input. References unchanged RS3 observations by digest; RS3 itself is not changed. Proportions and bounds are integer millionths (no floats; canonical bytes per docs/coop/design-corrections/foundation/canonical.py). Design: docs/implementation/m3/harness/DESIGN.md (r10) sections 11-12. Cross-row invariants a schema cannot express are checked by the envelope validator (DESIGN.md r10 section 9.5): exactly one final batch per key; batchId equals the SHA-256 of its canonical key tuple; every q6 batch has exactly one batchObservations row and, for each warmup and measured slot, exactly one operationalRecords row or a record-missing reason on that slot; no duplicate (batchId, slot); no orphan record or observation; at most one slotReasons row per slot, and every operational record missing from a required slot listed as record-missing on that slot; per measured slot and quantity, a value is null if and only if a reason the DESIGN QD-27 table maps to that quantity is present (record-missing and record-invalid null neither value; run-failed, timeout and cgroup-not-empty null both elapsedNanos and cgroupMemoryPeakBytes; every other cgroup or memory-peak reason, including cgroup-isolation-unverified, nulls cgroupMemoryPeakBytes only); the median non-null exactly when all seven elapsed values are, and maxCgroupMemoryPeakBytes exactly when all seven cgroupMemoryPeakBytes values are; cgroupLeaves has exactly one row per (batchId, slot) for every warmup, measured and priming slot of every q6 batch; a row with leafName null must carry an absentReason in {cgroup-unavailable, cgroup-v1-only, cgroup-no-delegation, memory-peak-unavailable-platform} that also appears in that slot's slotReasons; created leaves (leafName non-null) are pairwise distinct; status within or over requires non-null baselineMedianNanos, baselineCgroupMemoryPeakBytes and baselineBasisDigest, with the referenced basis declaring cgroupMemoryPeak and the row's runner class and cgroup entry method, otherwise status is no-baseline; phaseTimingsPresent true exactly when every measured slot has a valid record, and phaseAbsenceReason null exactly then; population counts summing (corpus = sampled + unlabelled, sampled = settled + pending, settled = true + false + unclear). Peak memory is cgroupMemoryPeak (cgroup v2 memory.peak, charged memory, not RSS; DESIGN.md r10 section 9.3); whether it satisfies RS3's peakRssBytes is D13's question.",
+  "description": "Draft for D13 (docs/implementation/m3/analysis-quality/PLAN.md:419-425, :535). Exploratory, never promoted, never a G13 input. References unchanged RS3 observations by digest; RS3 itself is not changed. Proportions and bounds are integer millionths (no floats; canonical bytes per docs/coop/design-corrections/foundation/canonical.py). Design: docs/implementation/m3/harness/DESIGN.md (r9) sections 11-12. Cross-row invariants a schema cannot express are checked by the envelope validator (DESIGN.md r9 section 9.5): exactly one final batch per key; batchId equals the SHA-256 of its canonical key tuple; every q6 batch has exactly one batchObservations row and, for each warmup and measured slot, exactly one operationalRecords row or a record-missing reason on that slot; no duplicate (batchId, slot); no orphan record or observation; at most one slotReasons row per slot, and every operational record missing from a required slot listed as record-missing on that slot; per measured slot and quantity, a value is null if and only if a reason the DESIGN QD-27 table maps to that quantity is present (record-missing and record-invalid null neither value; run-failed, timeout and cgroup-not-empty null both elapsedNanos and cgroupMemoryPeakBytes; every other cgroup or memory-peak reason nulls cgroupMemoryPeakBytes only); the median non-null exactly when all seven elapsed values are, and maxCgroupMemoryPeakBytes exactly when all seven cgroupMemoryPeakBytes values are; each measured slot's operational record names a distinct cgroup leaf; phaseTimingsPresent true exactly when every measured slot has a valid record, and phaseAbsenceReason null exactly then; population counts summing (corpus = sampled + unlabelled, sampled = settled + pending, settled = true + false + unclear). Peak memory is cgroupMemoryPeak (cgroup v2 memory.peak, charged memory, not RSS; DESIGN.md r9 section 9.3); whether it satisfies RS3's peakRssBytes is D13's question.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -21,7 +21,6 @@
     "tools",
     "rs3Observations",
     "batchObservations",
-    "cgroupLeaves",
     "operationalRecords",
     "unqualifiedAdvisoryRules",
     "results"
@@ -148,7 +147,6 @@
         "cgroup-v1-only",
         "cgroup-no-delegation",
         "cgroup-escape-unprevented",
-        "cgroup-isolation-unverified",
         "cgroup-read-failed",
         "cgroup-not-empty",
         "memory-peak-unverified",
@@ -1332,11 +1330,7 @@
                       "elapsedNanos",
                       "medianElapsedNanos",
                       "cgroupMemoryPeakBytes",
-                      "maxCgroupMemoryPeakBytes",
-                      "baselineMedianNanos",
-                      "baselineCgroupMemoryPeakBytes",
-                      "baselineBasisDigest",
-                      "absoluteChargeComparison"
+                      "maxCgroupMemoryPeakBytes"
                     ],
                     "properties": {
                       "workloadId": {
@@ -1375,6 +1369,16 @@
                         "const": 3
                       },
                       "baselineMedianNanos": {
+                        "oneOf": [
+                          {
+                            "$ref": "#/$defs/positiveInt"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "baselinePeakRssBytes": {
                         "oneOf": [
                           {
                             "$ref": "#/$defs/positiveInt"
@@ -1435,62 +1439,8 @@
                       },
                       "maxCgroupMemoryPeakBytes": {
                         "$ref": "#/$defs/positiveInt"
-                      },
-                      "baselineCgroupMemoryPeakBytes": {
-                        "oneOf": [
-                          {
-                            "$ref": "#/$defs/positiveInt"
-                          },
-                          {
-                            "type": "null"
-                          }
-                        ]
-                      },
-                      "baselineBasisDigest": {
-                        "oneOf": [
-                          {
-                            "$ref": "#/$defs/sha256"
-                          },
-                          {
-                            "type": "null"
-                          }
-                        ]
-                      },
-                      "absoluteChargeComparison": {
-                        "enum": [
-                          "at-or-below-absolute-figure",
-                          "above-absolute-figure",
-                          "not-applicable"
-                        ]
                       }
-                    },
-                    "allOf": [
-                      {
-                        "if": {
-                          "properties": {
-                            "status": {
-                              "enum": [
-                                "within",
-                                "over"
-                              ]
-                            }
-                          }
-                        },
-                        "then": {
-                          "properties": {
-                            "baselineMedianNanos": {
-                              "$ref": "#/$defs/positiveInt"
-                            },
-                            "baselineCgroupMemoryPeakBytes": {
-                              "$ref": "#/$defs/positiveInt"
-                            },
-                            "baselineBasisDigest": {
-                              "$ref": "#/$defs/sha256"
-                            }
-                          }
-                        }
-                      }
-                    ]
+                    }
                   },
                   {
                     "type": "object",
@@ -1517,11 +1467,7 @@
                       "medianElapsedNanos",
                       "slotReasons",
                       "cgroupMemoryPeakBytes",
-                      "maxCgroupMemoryPeakBytes",
-                      "baselineMedianNanos",
-                      "baselineCgroupMemoryPeakBytes",
-                      "baselineBasisDigest",
-                      "absoluteChargeComparison"
+                      "maxCgroupMemoryPeakBytes"
                     ],
                     "properties": {
                       "workloadId": {
@@ -1560,6 +1506,16 @@
                         "const": 3
                       },
                       "baselineMedianNanos": {
+                        "oneOf": [
+                          {
+                            "$ref": "#/$defs/positiveInt"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "baselinePeakRssBytes": {
                         "oneOf": [
                           {
                             "$ref": "#/$defs/positiveInt"
@@ -1625,33 +1581,6 @@
                       },
                       "maxCgroupMemoryPeakBytes": {
                         "$ref": "#/$defs/nullablePositiveInt"
-                      },
-                      "baselineCgroupMemoryPeakBytes": {
-                        "oneOf": [
-                          {
-                            "$ref": "#/$defs/positiveInt"
-                          },
-                          {
-                            "type": "null"
-                          }
-                        ]
-                      },
-                      "baselineBasisDigest": {
-                        "oneOf": [
-                          {
-                            "$ref": "#/$defs/sha256"
-                          },
-                          {
-                            "type": "null"
-                          }
-                        ]
-                      },
-                      "absoluteChargeComparison": {
-                        "enum": [
-                          "at-or-below-absolute-figure",
-                          "above-absolute-figure",
-                          "not-applicable"
-                        ]
                       }
                     }
                   }
@@ -1901,94 +1830,6 @@
             "x-opensip-order": "canonical-set"
           }
         }
-      },
-      "x-opensip-order": "canonical-set"
-    },
-    "cgroupLeaves": {
-      "type": "array",
-      "maxItems": 100000,
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "batchId",
-          "slot",
-          "leafName",
-          "leafInode",
-          "absentReason"
-        ],
-        "properties": {
-          "batchId": {
-            "$ref": "#/$defs/sha256"
-          },
-          "slot": {
-            "$ref": "#/$defs/runSlot"
-          },
-          "leafName": {
-            "oneOf": [
-              {
-                "type": "string",
-                "pattern": "^run-[0-9a-f]{64}-(priming|warmup|measured)-[0-6](?![\\s\\S])"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "leafInode": {
-            "oneOf": [
-              {
-                "$ref": "#/$defs/positiveInt"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "absentReason": {
-            "oneOf": [
-              {
-                "enum": [
-                  "cgroup-unavailable",
-                  "cgroup-v1-only",
-                  "cgroup-no-delegation",
-                  "memory-peak-unavailable-platform"
-                ]
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "oneOf": [
-          {
-            "properties": {
-              "leafName": {
-                "type": "string"
-              },
-              "leafInode": {
-                "$ref": "#/$defs/positiveInt"
-              },
-              "absentReason": {
-                "type": "null"
-              }
-            }
-          },
-          {
-            "properties": {
-              "leafName": {
-                "type": "null"
-              },
-              "leafInode": {
-                "type": "null"
-              },
-              "absentReason": {
-                "type": "string"
-              }
-            }
-          }
-        ]
       },
       "x-opensip-order": "canonical-set"
     }

@@ -1,6 +1,6 @@
-# M3-Q0 quality-harness design record — r10
+# M3-Q0 quality-harness design record — r9
 
-Draft r10. Claude Opus 5.5, implementation lead. Unit **M3-Q0** of the accepted M3 unit plan (`M3-PLAN.md:157`).
+Draft r9. Claude Opus 5.5, implementation lead. Unit **M3-Q0** of the accepted M3 unit plan (`M3-PLAN.md:157`).
 
 r1 (`DESIGN-r1.md`, sha256 `22df1afb…`, 65,990 bytes; schema `exploratory-quality-envelope.schema.v1-r1.json`, `4cdfbb60…`, 23,190 bytes) was reviewed by CODEX2 (method; `/tmp/opensip-implementation/reviews/codex2-harness-q0-r1/`), with 8 required findings and 5 non-blocking observations. r2 answers all of them. CODEX2 confirmed the cluster-product bound and the 29/299 floors as sound, so they are unchanged.
 
@@ -18,8 +18,6 @@ r7 (`DESIGN-r7.md`, sha256 `c72f71ba…`, 124,649 bytes; schema `exploratory-qua
 
 r8 (`DESIGN-r8.md`, sha256 `c958fdab…`, 120,918 bytes; schema `exploratory-quality-envelope.schema.v1-r8.json`, `cc6f3cb8…`, 57,369 bytes) was reviewed by CODEX2 (`/tmp/opensip-implementation/reviews/codex2-harness-q0-r8/`), with 5 required findings (R8-01 to R8-05). The lead then **decided to stop per-process attribution** and amended the quality plan to r5 (§5.1, AQP:331-338). r9 implements that decision.
 
-r9 (`DESIGN-r9.md`, sha256 `4db107c0…`, 120,794 bytes; schema `exploratory-quality-envelope.schema.v1-r9.json`, `00f6d032…`, 53,610 bytes) was reviewed by CODEX2 (`/tmp/opensip-implementation/reviews/codex2-harness-q0-r9/`), with 4 required findings and 2 non-blocking observations. r10 answers all of them and changes nothing else.
-
 ## Standing
 
 **This is a design record, not law and not a contract successor.** It changes no accepted contract, schema, gate, threshold or register row. It fixes the harness mechanisms that the accepted analysis-quality plan leaves to "the harness design" (AQP:237, AQP:489), so that K1, K2, I2, S-M and M3-M can be implemented from it directly. No product measurement, corpus fetch, adjudication or product run was performed for it. The numbers in §5 are arithmetic.
@@ -35,8 +33,7 @@ r9 (`DESIGN-r9.md`, sha256 `4db107c0…`, 120,794 bytes; schema `exploratory-qua
 **Authority.** The mechanisms below are lead decisions (AQP:527), numbered **QD-n** so that reviewers can cite them. Three items need sign-off that this record cannot give: D12 (AQP:543), D13 (AQP:544) and the D4 revisit (AQP:534). §14 lists them.
 
 Short names, as in the accepted plans:
-- **AQP:** `docs/implementation/m3/analysis-quality/PLAN-r5.md` (r5, pinned, sha256 `c8ceb480…`). Every plain `AQP:` citation refers to this file. r9 remapped citations from r4 to r5, and r10 pins them so that later plan revisions cannot move them. References to r4's removed RSS rule cite `PLAN-r4.md`.
-- **AQP6:** `docs/implementation/m3/analysis-quality/PLAN.md` (live proposal r6, sha256 `8aed6eb8…`). Cited only for its corrected §5.1 peak-memory wording (AQP6:335-346), which supersedes r5's §5.1 bullet.
+- **AQP:** `docs/implementation/m3/analysis-quality/PLAN.md` (r5, the live file). r9 remapped every earlier citation mechanically from the r4 live file to r5. References to r4's removed RSS rule cite `PLAN-r4.md` directly.
 - **M3-PLAN:** `docs/implementation/m3/M3-PLAN.md` (r4, accepted)
 - **OPP:** `docs/implementation/m3/operability/PLAN.md` (r3, accepted; lines of the live file, which carries the acceptance note)
 - **AQ / IE / NE / WS:** `docs/v2/contracts/product-v1/{admission-and-qualification,identity-and-evidence,native-evidence,workflows-and-surfaces}.md`
@@ -50,17 +47,6 @@ Short names, as in the accepted plans:
 - **ENV:** `docs/implementation/m3/harness/exploratory-quality-envelope.schema.v1.json` (drafted with this record)
 
 ---
-
-## r10 changes and review responses
-
-| Finding | Section | Change |
-|---|---|---|
-| C2-Q0-R9-01 (descriptors and control ownership) | §9.3 (QD-33), calibration, QD-27, ENV | Before exec, the launcher: unshares the cgroup and mount namespaces from inside the leaf; mounts a fresh **read-only** `cgroup2` that shows only the leaf; checks `mountinfo`; closes every non-allowlisted descriptor with `close_range` (all harness fds are also `O_CLOEXEC`) and checks `/proc/self/fd`; and requires every other same-uid process to be non-dumpable. The harness holds the leaf by an `O_PATH` directory fd, is the only writer, and checks the inode and controllers at the read. Anything unverifiable is `cgroup-isolation-unverified`, which nulls memory only. Both reviewed attack paths are calibration cases. |
-| C2-Q0-R9-02 (anonymous-RSS bound) | §9.3 steps 3 and 6, the peak-memory paragraph | The universal bound is withdrawn, matching quality-plan r6 §5.1 (AQP6:336-340). Entry establishes placement for later accounting only. First-touch charging means pages charged elsewhere, inherited before exec or shared are not counted, and shared pages are charged once. A calibration case shows that inherited pages are not counted. |
-| C2-Q0-R9-03 (leaf validation) | §9.5, ENV `cgroupLeaves` | Leaf evidence now comes from the driver, independent of the operational record. Each slot's row holds either a created leaf, or `leafName: null` with an `absentReason` tied to the same reason in `slotReasons` (`cgroup-unavailable`, `cgroup-v1-only`, `cgroup-no-delegation` or `memory-peak-unavailable-platform`). Distinctness is checked only among created leaves. |
-| C2-Q0-R9-04 (baseline compatibility) | §9.5 (QD-34), ENV | `baselinePeakRssBytes` is replaced by `baselineCgroupMemoryPeakBytes` plus `baselineBasisDigest`, a reviewed basis declaring the measurement, reset, cache policy, runner class and entry method. The 1.25× ratio applies only against a compatible charged baseline; otherwise the status is `no-baseline`, an initial measurement. Comparing against the §5.2 absolute budgets is informational only (`absoluteChargeComparison`) until D13. |
-| N01 (stale ENV citations) | ENV `description`, Short names | AQP citations are pinned to `PLAN-r5.md`, and the ENV description cites `PLAN-r5.md:428-434,544`. |
-| N02 (settlement) | §9.3 steps 5, Elapsed | The harness is a child subreaper. Settlement means the root has been reaped, `waitpid` reports `ECHILD`, and `populated 0`. A drain timeout kills the leaf, gives `cgroup-not-empty`, and nulls both values. |
 
 ## r9 changes: lead decision to stop per-process RSS attribution
 
@@ -773,19 +759,19 @@ Warmups therefore never turn cold samples warm. The page cache is never claimed 
 
 ### 9.3 Elapsed time and peak memory
 
-**Elapsed** is measured on a monotonic clock, from spawn to the **settlement** of the workload tree: the top process has exited, every descendant has been reaped, and the leaf reports `populated 0` (step 5). It is recorded as positive integer nanoseconds (AQ:268-269). The cell statistic is the median, `sorted[3]` (PQV:28).
+**Elapsed** is measured on a monotonic clock, from spawn to the exit of the top process, after every descendant has been reaped. It is recorded as positive integer nanoseconds (AQ:268-269). The cell statistic is the median, `sorted[3]` (PQV:28).
 
-**Peak memory (QD-32, lead decision, following the amended quality plan, r5 §5.1 as corrected in r6).** On Linux, each run's peak-memory figure is **`cgroupMemoryPeak`**: the kernel's high-water mark of memory **charged to the run's dedicated cgroup v2 leaf**, read from `memory.peak` (AQP6:335-336). It includes page cache and kernel memory charged there. It is not resident set size, and it is neither a superset nor a sum of per-process RSS (AQP6:336-340). It is **never** called RSS. The cell statistic is the maximum of the seven run values (AQ:270; PQV:28). A run whose figure cannot be established is `incomplete` (§9.5), and nothing is ever filled in.
+**Peak memory (QD-32, lead decision, following the amended quality plan r5).** On Linux, each run's peak-memory figure is **`cgroupMemoryPeak`**: the kernel's high-water mark of memory charged to the run's dedicated cgroup v2 leaf, read from `memory.peak` (AQP:331, the live r5 file). It is charged memory, including page cache and kernel memory charged to the group. It is **not** called RSS (AQP:332). The cell statistic is the maximum of the seven run values (AQ:270; PQV:28). A run whose figure cannot be established is `incomplete` (§9.5), and nothing is ever filled in.
 
 **The decision, and what it replaces.** r2–r8 tried to deliver r4's larger-of-two RSS rule: the concurrent summed RSS, and the sum of per-process own high-water counters (`PLAN-r4.md:327`; LQM:925). The per-process half needed complete, correctly attributed counters for every process.
 - r2–r7 used kernel event channels: the process-event connector and taskstats, with a census, fences and per-CPU sequence proofs.
 - r8 used ptrace exit stops.
 
-Every round still had loss or attribution gaps (C2-Q0-R2-01, R4-01, R5-01, R6-01, and R8-01 to R8-04). The lead amended the quality plan instead (AQP r5 §5.1, AQP:331-338; corrected in AQP6:335-346). Two alternatives were rejected (AQP6:344-346):
+Every round still had loss or attribution gaps (C2-Q0-R2-01, R4-01, R5-01, R6-01, and R8-01 to R8-04). The lead amended the quality plan instead (AQP r5 §5.1, AQP:331-338). Two alternatives were rejected (AQP:336-338):
 - **More ptrace rounds.** R8-01 to R8-04 showed that tracing still has to handle untraced clone paths, exec-entry reads that are not final counters, and shared address spaces after `CLONE_VM` or `vfork`, each of which needs further design.
 - **r4's larger-of-two rule**, with a sampled concurrent sum, which can miss short peaks.
 
-The kernel maintains `memory.peak` for everything charged to the group, so it needs no tracing, event channels or per-process attribution. Whether it satisfies AQ's "peak RSS bytes" (AQ:268-272) for G13 qualification is D13's question (AQP6:343; OI-2).
+The kernel maintains `memory.peak` for everything charged to the group, so it needs no tracing, event channels or per-process attribution. Whether it satisfies AQ's "peak RSS bytes" (AQ:268-272) for G13 qualification is D13's question (AQP:335; OI-2).
 
 *Linux, the D12 reference platform (AQP:543).* For each **measured run**, warmups included:
 
@@ -798,47 +784,26 @@ The kernel maintains `memory.peak` for everything charged to the group, so it ne
      - The harness must be able to: write `+memory` to the parent's `cgroup.subtree_control`; `mkdir` and `rmdir` a child; and write the child's `cgroup.procs`. Moving the root also needs write access to `cgroup.procs` of the common ancestor of the source and destination cgroups.
 
      Any failure is `cgroup-no-delegation`.
-   - **Escape prevention: the namespace.** A process with the same uid as the delegated subtree could write its own pid into another cgroup's `cgroup.procs`, and the leaf would then become empty without showing the escape. So the workload root starts in a new **cgroup namespace** rooted at the leaf (`CLONE_NEWCGROUP`), on a `cgroup2` mount with the `nsdelegate` option (checked in `mountinfo`). Under `nsdelegate`, a cgroup namespace is a delegation boundary for migrations made from inside it. If `nsdelegate` or the namespace is unavailable, the run is `cgroup-escape-unprevented`.
-   - **Isolation and control ownership (QD-33, for C2-Q0-R9-01).** A namespace alone does not hold. A descriptor opened outside the namespace keeps its opener's namespace and credentials, and the existing mount still exposes the delegated parent's writable `cgroup.subtree_control`. A `-memory` then `+memory` cycle there would recreate the leaf's controller state and lose its high-water. So the launcher, a harness-owned child that becomes the workload root at exec, establishes all four of these before exec:
-     1. **The launcher's position.** It is created in the leaf with `clone3(CLONE_INTO_CGROUP)`. It then calls `unshare(CLONE_NEWCGROUP | CLONE_NEWNS)`, so the namespace root is the leaf, and makes every mount private.
-     2. **A read-only, leaf-only cgroup view.** It mounts a fresh `cgroup2` over `/sys/fs/cgroup` with `MS_RDONLY`. Inside the cgroup namespace, that mount shows only the leaf. It then checks its own `/proc/self/mountinfo`: every `cgroup2` mount must be read-only and rooted at the namespace root, so no other cgroup mount, bind mount or writable control file is reachable. The workload therefore cannot write any control file, including the leaf's own and any ancestor's.
-     3. **A descriptor allowlist.** The allowlist is the three standard streams, which are pipes to the harness, and nothing else. The launcher closes every other descriptor with `close_range(3, ~0U, 0)`, and every harness descriptor is opened `O_CLOEXEC` as a second line of defence. It then lists `/proc/self/fd` and requires exactly the allowlist.
-     4. **No path back through other processes.** Every other process of the measurement uid on the runner, including the harness and its driver, is made non-dumpable (`PR_SET_DUMPABLE` 0). Their `/proc/<pid>/root` and `/proc/<pid>/fd` are then closed to the workload. The harness checks at batch start that no other process of that uid exists.
-
-     After these checks the launcher drops every capability (the effective, permitted, inheritable, ambient and bounding sets, with locked securebits) and executes the workload.
-
-     **Continuous ownership.** The harness opens the leaf's directory with `O_PATH | O_DIRECTORY` when it creates the leaf, and holds that descriptor for the whole run. Every control operation it makes (entry, `cgroup.events`, `memory.peak`, `cgroup.kill`) goes through `openat` on that descriptor. The harness is the **only writer**: it enables `+memory` on the parent once per batch, before any run, and makes no other `subtree_control` change while a run is live. At the read, it verifies through the held descriptor that:
-     - the leaf's inode equals the one recorded at creation;
-     - `memory` is still listed in the leaf's `cgroup.controllers` and in the parent's `cgroup.subtree_control`.
-
-     **Unverifiable means incomplete.** If any of items 1–4 or the ownership checks fails or cannot be evaluated, the run is `incomplete` with the reason `cgroup-isolation-unverified`, and its memory sample is null (§9.5). The workload's environment otherwise stays the same: only its view of cgroupfs and its inherited descriptors change. K1c's determinism comparison checks that results are unchanged.
+   - **Escape prevention.** A process with the same uid as the delegated subtree could write its own pid into another cgroup's `cgroup.procs`, and the leaf would then become empty without showing the escape. So the workload root starts in a new **cgroup namespace** rooted at the leaf (`CLONE_NEWCGROUP`), on a `cgroup2` mount with the `nsdelegate` option (checked in `mountinfo`). Under `nsdelegate`, a cgroup namespace is a delegation boundary, and its processes cannot migrate outside its root. Creating the namespace needs `CAP_SYS_ADMIN`. The D12 launcher holds it only for that step, and drops every capability before exec, so the workload runs with ordinary credentials. If `nsdelegate` or the namespace is unavailable, the run is `cgroup-escape-unprevented`, because escape cannot be excluded. Emptiness alone never proves that no process escaped.
 2. **A fresh leaf per run.** The harness creates `run-<batchId>-<slot>` with `mkdir`. A new cgroup's `memory.peak` starts from its own charges, so no peak carries over between runs. A leaf is never reused.
 3. **Into the leaf before exec.**
-   - **Preferred.** The launcher, which becomes the root, is created directly in the leaf with `clone3(CLONE_INTO_CGROUP)`. That **places** it in the leaf for all later accounting. It does not move charges that already exist (C2-Q0-R9-02). Pages inherited from the harness before exec stay charged to their owner, and `exec` then drops that inherited address space.
-   - **Fallback.** The child blocks on a pipe. The parent writes its pid to the leaf's `cgroup.procs` through the held leaf descriptor, and verifies the leaf path in `/proc/<pid>/cgroup` before releasing it. Charges made before the migration stay with their owner. The QD-33 steps then follow, and then `exec`.
+   - **Preferred.** The root is created directly in the leaf with `clone3(CLONE_INTO_CGROUP)`, so every page it touches is charged there from its first instruction.
+   - **Fallback.** The child blocks on a pipe. The parent writes its pid to the leaf's `cgroup.procs` and verifies the leaf path in `/proc/<pid>/cgroup` before releasing it to exec. Charges made before the migration stay where they were made, but `exec` replaces the address space, so the measured image is charged to the leaf from its first instruction.
    - The method used is recorded (`cgroupEntry: clone-into | migrate-before-exec`).
-4. **Containment during the run.** Every descendant inherits the leaf. The namespace, the read-only leaf-only mount, the descriptor allowlist and the non-dumpable outside processes (QD-33) together prevent leaving it, and prevent changing its controllers. No per-process tracking is needed.
-5. **Settlement, after the tree exits (C2-Q0-R9-N02).** Before forking the launcher, the harness sets `PR_SET_CHILD_SUBREAPER`, so every orphaned descendant, including a daemonized one, is reparented to the harness and reaped by it. Zombies are not listed in `cgroup.procs`, so emptiness alone does not prove settlement.
-   - **Settled** means both:
-     - the harness has reaped the root, and `waitpid` reports no remaining children (`ECHILD`);
-     - `cgroup.events` shows `populated 0`.
-   - **Drain.** The harness waits for settlement up to a preregistered drain limit (default 10 s). If the tree has not settled by then, it kills the leaf with `cgroup.kill`, reaps everything, and records `cgroup-not-empty`. The run did not end within the elapsed definition, so its elapsed value is invalid too (§9.5).
-   - **Read.** The harness then reads `memory.peak` once through the held leaf descriptor, as an integer number of bytes. A failed or malformed read is `cgroup-read-failed`.
+4. **Containment during the run.** Every descendant inherits the leaf, and the cgroup namespace prevents leaving it. No per-process tracking is needed.
+5. **After the tree exits.** Once the root has exited and been reaped:
+   - **Drain.** The harness waits until `cgroup.events` shows `populated 0`, up to a preregistered drain limit (default 10 s). If the leaf is still populated at the limit, processes were left behind. The harness kills them with `cgroup.kill`, and the run is `cgroup-not-empty`. Because the run did not end within its definition, its elapsed value is invalid too (§9.5).
+   - **Read.** The harness then reads `memory.peak` once, as an integer number of bytes. A failed or malformed read is `cgroup-read-failed`.
    - **Verify empty.** `cgroup.procs` must be empty, and `populated` must still be 0.
    - **Remove.** The leaf is then removed with `rmdir`. A failed `rmdir` is recorded as a defect, and the run is still complete if steps 1–5 passed.
-6. **What the figure includes, disclosed (aligned with AQP6:336-340, C2-Q0-R9-02).** It is the peak of memory charged to the leaf: anonymous memory the workload allocates there, page cache it faults in first, and kernel memory charged there. Memory is charged to the cgroup that first touched it.
-   - **Pages charged elsewhere are not counted,** even when the workload maps them. That includes cache populated by an earlier run or outside the leaf, memory first touched outside the leaf, and pages inherited before exec.
-   - **Shared pages are charged once.**
-
-   So the figure is not a bound on any RSS definition, and r9's claim that it is never smaller than anonymous resident memory is withdrawn. Cold and warm runs can differ in charged page cache. The cold reset records the page-cache state, and never claims it was flushed unless that is verified (LQM:923, §9.2). Charge ownership is part of a baseline's basis (§9.5).
+6. **What the figure includes, disclosed.** `memory.peak` counts anonymous memory, page cache faulted by the group, and kernel memory charged to the group. Page cache that is already resident and charged to another cgroup, such as corpus files read by an earlier run, is **not** charged again. So cold and warm runs can differ in charged page cache. The cold reset records the page-cache state, and never claims it was flushed unless that is verified (LQM:923, §9.2). The figure is never smaller than the group's anonymous resident memory (AQP:332).
 
 *Per-process maxima, informational only (AQP:333).* When the host reaps a supervised child, it records `wait4` `ru_maxrss` (KiB on Linux, bytes on macOS) in its operational record (OPP:249), with the child's pid and role. The value covers that child and any descendants it has reaped, so it is labelled `hostReapedMaxRss`. It is never summed, never joined to the cgroup figure, and **never a budget input**. It is reported in the envelope as an operational-record digest (`operationalRecords[].carriesProcessMaxRss`). The r5–r8 host-join machinery (start-identity keys, namespace checks, `host-join-unresolved`) is withdrawn, because nothing is joined any more.
 
 *macOS (lead workstation, and the later macOS lanes)* has no equivalent group high-water mark (AQP:334). Every macOS run records `cgroupMemoryPeakBytes` as null, with the reason `memory-peak-unavailable-platform`. Its memory figure is `incomplete`, and it can never be within budget. The informational `ru_maxrss` values are still recorded. A macOS group-peak source is needed before any macOS G13 lane can qualify memory (OI-18).
 
 **Calibration (K1c), on the D12 image.** These cases are expected to be **complete**, with the right value:
-- **A known allocation.** A fixture touches a known number of anonymous bytes **after entering the leaf** and exits; `memory.peak` must be at least that.
-- **Inherited pages not counted.** The harness touches a large buffer before forking the launcher. The figure must not include it, which shows that the disclosure (step 6) is accurate.
+- **A known allocation.** A fixture touches a known number of anonymous bytes and exits; `memory.peak` must be at least that.
 - **A short-lived grandchild.** It allocates a peak and exits within 1 ms, and the peak is still captured. The mark is kernel-maintained, so no sampling is involved.
 - **A daemonizing grandchild.** It double-forks and is reparented, stays inside the leaf, and is drained or killed as in step 5.
 - **A fresh leaf per run.** Two consecutive runs with different peaks each report their own peak; no peak carries over.
@@ -851,11 +816,6 @@ These cases are expected to be **`incomplete`**, with the stated reason:
 - a parent without write access to `cgroup.subtree_control`: `cgroup-no-delegation`;
 - a `cgroup2` mount without `nsdelegate`, or a failed namespace creation: `cgroup-escape-unprevented`;
 - a deliberate self-migration attempt under `nsdelegate`, which must be **refused** by the kernel; the run itself must then be unaffected;
-- an **inherited descriptor**: a writable sibling `cgroup.procs` descriptor, opened outside the namespace and left open. `close_range` must close it, and the `/proc/self/fd` check must pass. With the close disabled in test mode, the check must fail with `cgroup-isolation-unverified`, and the run must never be complete;
-- an **ancestor control write**: the workload attempts to write `-memory` to the parent's `cgroup.subtree_control`. It must be unreachable (`ENOENT` or `EROFS` in its view). With the read-only remount disabled in test mode, the mountinfo check must give `cgroup-isolation-unverified`;
-- a **controller cycle forced by a harness test hook mid-run**: the read-time controller and inode checks, or the sole-writer rule, must give `cgroup-isolation-unverified`, never a complete run with a lost high-water;
-- a **same-uid outside process left dumpable**: the batch-start check must give `cgroup-isolation-unverified`;
-- a **daemonized grandchild left as a zombie**: it is reparented to the harness and reaped, and settlement waits for `ECHILD`;
 - a process left running past the drain limit: `cgroup-not-empty`;
 - an injected read failure: `cgroup-read-failed`;
 - a macOS run: `memory-peak-unavailable-platform`.
@@ -880,16 +840,6 @@ Reuse disclosure is stored only in the envelope's `operationalRecords`, never in
 
 **Budgets.** The §5.2 budgets apply per size class (AQP:362-369), with the product ratios against a reviewed baseline. A null baseline never qualifies a cell (AQ:272-276). The seven samples and their maximum are diagnostics only (AQP:339).
 
-**Memory baselines must be charged-memory baselines (QD-34, for C2-Q0-R9-04).** The memory ratio, 1.25× (AQ:270), compares like with like. Its denominator is `baselineCgroupMemoryPeakBytes`: a reviewed baseline of the **same** quantity, `cgroupMemoryPeak`. Its **basis** is pinned by `baselineBasisDigest`, the digest of the reviewed baseline-advance record (AQP:500). That record must state:
-- the measurement (`cgroupMemoryPeak`);
-- the reset and cache policy (§9.2, and charge ownership, §9.3 step 6);
-- the runner class and kernel release;
-- the cgroup entry method.
-
-An RSS baseline (`baselinePeakRssBytes`, r9 and earlier) is never used as a denominator, and the field is removed.
-
-Without a compatible charged-memory baseline, the row's status is `no-baseline`: an **initial measurement**, never `within`. The validator checks the basis record's declared measurement and the run's runner class and entry method for compatibility. The §5.2 absolute byte budgets are written for process-tree RSS (AQP:364-369). Comparing `cgroupMemoryPeak` against them is reported only as an informational, exploratory **absolute-charge comparison** (`absoluteChargeComparison`). It never sets the row's status until D13 decides equivalence (OI-2). Elapsed time keeps its own `baselineMedianNanos`.
-
 **Complete and incomplete results (QD-25, for C2-Q0-R1-07).** Each workload, workflow, reset, control and batch result is either complete or incomplete.
 - **Complete:** 3 warmups and 7 measured runs, with every elapsed value and every `cgroupMemoryPeakBytes` value present. Status is `within`, `over` or `no-baseline`.
 - **Incomplete:** at least one slot (priming, warmup 0–2 or measured 0–6) has at least one typed reason. Reasons are carried in `slotReasons[]`, one row per affected slot, keyed by the typed run slot (`{slot, reasons}`; C2-Q0-R3-01). A warmup or priming failure therefore has its own carrier, and is never attributed to a measured position. The two measured series (elapsed and `cgroupMemoryPeakBytes`) keep their seven positions, with `null` where a value is unavailable.
@@ -899,7 +849,7 @@ Without a compatible charged-memory baseline, the row's status is `no-baseline`:
 | Reasons | Quantities that are null in that measured slot | Quantities kept |
 |---|---|---|
 | `run-failed`, `timeout`, `cgroup-not-empty` | elapsed and `cgroupMemoryPeakBytes` | none. A failed run's numbers are not samples. A run with processes left behind did not end within the elapsed definition (§9.3 step 5). |
-| `cgroup-unavailable`, `cgroup-v1-only`, `cgroup-no-delegation`, `cgroup-escape-unprevented`, `cgroup-isolation-unverified`, `cgroup-read-failed`, `memory-peak-unverified`, `memory-peak-unavailable-platform` | `cgroupMemoryPeakBytes` | elapsed |
+| `cgroup-unavailable`, `cgroup-v1-only`, `cgroup-no-delegation`, `cgroup-escape-unprevented`, `cgroup-read-failed`, `memory-peak-unverified`, `memory-peak-unavailable-platform` | `cgroupMemoryPeakBytes` | elapsed |
 | `record-missing`, `record-invalid` | none | both. Only the operational evidence (phases, reuse disclosure and the informational per-process maxima) is missing, which shows as `phaseTimingsPresent: false` with a `phaseAbsenceReason` (§9.4). |
 
 For warmup and priming slots no numeric samples are carried, so their reasons, typically `run-failed`, `timeout`, `record-missing` or `record-invalid`, affect only the batch's status.
@@ -919,12 +869,7 @@ A row is `incomplete` whenever **any** slot has a reason, **including a row in w
   - **No orphans.** No record or observation row names a batch absent from `q6`.
   - **Sample consistency (revised for C2-Q0-R3-02).** For each measured slot and each quantity, the value is null **if and only if** that slot has a reason that the QD-27 table maps to that quantity. A reason that does not concern a quantity never nulls it.
   - **Aggregates.** The median is non-null exactly when all seven elapsed values are, and `maxCgroupMemoryPeakBytes` exactly when all seven peaks are.
-  - **Leaf evidence (revised for C2-Q0-R9-03).** Leaf evidence comes from the **driver**, not from the product's operational record, so a missing operational record (`record-missing`) never removes it. The envelope carries one `cgroupLeaves[]` row per (`batchId`, slot) for every warmup, measured and priming slot. Each row has either:
-    - a created leaf: `leafName` (`run-<batchId>-<slot>`) and `leafInode`, with `absentReason` null; or
-    - no leaf: `leafName` null, and `absentReason` naming why. That reason must be one of `cgroup-unavailable`, `cgroup-v1-only`, `cgroup-no-delegation` or `memory-peak-unavailable-platform`, and the same reason must appear in that slot's `slotReasons`. Other reasons (for example `cgroup-escape-unprevented`, `cgroup-isolation-unverified`, `cgroup-read-failed` or `cgroup-not-empty`) arise after a leaf was created, so their rows carry a `leafName`.
-
-    Distinctness is checked **only among created leaves**: two rows naming the same leaf make the envelope invalid. A slot with no `cgroupLeaves[]` row also makes it invalid.
-  - **Baselines.** A row whose status is `within` or `over` must carry non-null `baselineMedianNanos`, `baselineCgroupMemoryPeakBytes` and `baselineBasisDigest`, and the referenced basis must declare `cgroupMemoryPeak` with a matching runner class and entry method. Otherwise the status must be `no-baseline`.
+  - **Leaf identity.** Every measured slot's operational record names a distinct leaf (`run-<batchId>-<slot>`). A leaf named twice is invalid (QD-32, step 2).
 
   A violation makes the envelope invalid, not merely the row incomplete.
   - **Phase evidence.** `phaseTimingsPresent` is true exactly when every measured slot has a valid record. `phaseAbsenceReason` is null exactly when `phaseTimingsPresent` is true; otherwise it names the first applicable reason, in the order `record-missing`, `record-invalid`, `phase-missing`, `negative-unattributed`.
@@ -956,32 +901,13 @@ A row is `incomplete` whenever **any** slot has a reason, **including a row in w
     - the withdrawn fields `ownHighWaterSumBytes`, `concurrentSumPeakRssBytes`, `peakRssBytes`, `rssCollection` and `rssBatchId`;
     - a calibration block carrying `yamaPtraceScope`.
   - **Accepted by the validator:** `cgroup-not-empty` that nulls both values, and `cgroup-escape-unprevented` that nulls the memory value only.
-  - **Rejected by the validator:** `cgroup-escape-unprevented` that nulls elapsed, and two slots naming the same created leaf.
+  - **Rejected by the validator:** `cgroup-escape-unprevented` that nulls elapsed, and two slots naming the same leaf.
   - **A reference model of the per-run cgroup procedure (step order 1–5).** It gives:
     - complete, on a clean run;
     - `cgroup-v1-only`, `cgroup-no-delegation` and `cgroup-escape-unprevented`, from the host checks;
     - `cgroup-not-empty`, on a drain timeout;
     - `cgroup-read-failed`, on a read error;
     - and it reads the peak only after `populated 0`.
-- **Reference cases added in r10.**
-  - **Leaf evidence (R9-03):**
-    - accepted: an unavailable Linux host whose seven measured rows are `leafName: null` with `absentReason: cgroup-unavailable` matching `slotReasons`;
-    - accepted: a macOS batch with `absentReason: memory-peak-unavailable-platform`;
-    - accepted: measured `record-missing` with a created leaf still present, keeping both values;
-    - rejected: a duplicate created leaf;
-    - rejected: an absent leaf whose `absentReason` is not in the slot's reasons;
-    - rejected: an absent leaf with a post-creation reason (`cgroup-read-failed`);
-    - rejected: a missing leaf row.
-  - **Baselines (R9-04):**
-    - accepted: `no-baseline` with null charged baseline values;
-    - accepted: `within` with a compatible charged baseline and basis;
-    - rejected by the schema: the removed `baselinePeakRssBytes`;
-    - rejected by the validator: `within` with a null charged baseline, and `within` with a basis declaring RSS or a different entry method.
-  - **Isolation (R9-01):**
-    - accepted: `cgroup-isolation-unverified` nulling memory only;
-    - rejected: it also nulling elapsed.
-  - **A reference model of the isolation checks:** the launcher passes only with fds equal to the allowlist, every `cgroup2` mount read-only and rooted at the namespace root, no dumpable same-uid outside process, and an unchanged inode and controllers at the read. Each injected violation gives `cgroup-isolation-unverified`.
-
 - **Flips.** A non-pass followed by a pass is counted as a `flip`. Three flips in any ten consecutive CI runs of a workload send that workload to noise review.
 
 **Baselines** advance only through a reviewed baseline-advance record (AQP:500).
@@ -1056,7 +982,7 @@ The schema is drafted as ENV, `exploratory-quality-envelope.schema.v1.json`, bes
 | Q3 | `q3.strata[]` | answerable positives, hits, misses by cause (§1.3), abstentions on answerable cases, answerable negatives and determinate negatives, so that yield is determinate ÷ answerable (AQP:154), and mutant accounting by family (§6.3) | `measured`, `insufficient` (no answerable positives) |
 | Q4 | `q4` | unsupported determinate negatives and false completeness claims (each must be 0; AQP:144), deficiency mismatches | `zero`, `nonzero` |
 | Q5 | `q5.survival[]`, `q5.determinism[]` | survival per rule × transformation, with counts; spurious CODE-NET-NEW and CODE-FIXED; discarded and unvalidated pairs; determinism variant results | `measured`, `insufficient` (< 20); `exact`, `differs` |
-| Q6 | `q6.workloads[]` | per workload × workflow × reset × control × batch: 7 elapsed samples and 7 `cgroupMemoryPeakBytes` samples (nullable only in the incomplete variant); the median elapsed and `maxCgroupMemoryPeakBytes`; `baselineMedianNanos`, `baselineCgroupMemoryPeakBytes` and `baselineBasisDigest` (QD-34); the informational `absoluteChargeComparison`; phase-timing state with a typed absence reason; unattributed time; yield as `determinateCases` ÷ `answerableCases`; runner class; `batchId`, `batchOrdinal` and `final`. Driver leaf evidence is carried in `cgroupLeaves[]` (§9.5). The informational per-process `ru_maxrss` values live in the digest-linked operational records. Q6 memory values are carried **only** in the envelope: no RS3-shaped Q6 report is produced until D13 decides whether `memory.peak` may fill RS3's `peakRssBytes` (AQP:335). | `within`, `over`, `no-baseline`, `incomplete` |
+| Q6 | `q6.workloads[]` | per workload × workflow × reset × control × batch: 7 elapsed samples and 7 `cgroupMemoryPeakBytes` samples (nullable only in the incomplete variant); the median elapsed and `maxCgroupMemoryPeakBytes`; baseline; phase-timing state with a typed absence reason; unattributed time; yield as `determinateCases` ÷ `answerableCases`; runner class; `batchId`, `batchOrdinal` and `final`. The informational per-process `ru_maxrss` values live in the digest-linked operational records. Q6 memory values are carried **only** in the envelope: no RS3-shaped Q6 report is produced until D13 decides whether `memory.peak` may fill RS3's `peakRssBytes` (AQP:335). | `within`, `over`, `no-baseline`, `incomplete` |
 | Q7 | `q7.rules[]` (M4, D8) | per rule: finding population; sample size (50, or all findings if fewer, labelled `small-population`); fields required and present; proof joins checked and failed; score histogram for 1 to 5 and the score sum; items scoring ≤ 2 and their dispositions; gating or repair-eligible items in the sample and their dispositions; median triage time; accepted and dismissed counts (AQP:417-420) | `measured`, `not-measured` |
 | Q8 | `q8.shapes[]` | manual corrections per pinned shape (SMAP:67; AQP:148) | `measured`, `not-measured` |
 
@@ -1154,7 +1080,7 @@ The rejected alternative was to delay every producer behind all three lane oracl
 
 ## Lead decisions in this record
 
-QD-1 integer millionths and directional rounding · QD-2 outcome table · QD-3 proposition class · QD-4 JSON Lines ledger with a hash chain · QD-5 hard components and the full truth-input closure · QD-6 the separated populations · QD-7 the 20-minute time box · QD-8 calibration numbers · QD-9 agreement triggers · QD-10 the model-family rule · QD-11 family-weighted estimand · QD-12 independence families · QD-13 the cluster product bound · QD-14 *k*_min · QD-15 the two-sided pooled guard · QD-16 mutant states · QD-17 differential execution boundary · QD-18 determinism variants · QD-19 process inventory and own RSS counters (its mechanism replaced by QD-30) · QD-20 CI retry, batches and batch joins · QD-21 runner additions · QD-22 tree digest · QD-23 held-out exposure · QD-24 advisory water-filling allocation · QD-25 complete and incomplete performance results · QD-26 the K2 lane-freeze gate · QD-27 reason-to-quantity nulling · QD-28 the start-identity key and exact-equality host join · QD-29 generation safety (withdrawn in r8) · QD-30 ptrace exit-stop collection (withdrawn in r9) · QD-31 the tracing-overhead rule (withdrawn in r9) · QD-32 cgroup v2 `memory.peak` per fresh leaf, with cgroup-namespace escape prevention · QD-33 descriptor, mount and control-ownership isolation · QD-34 charged-memory baselines.
+QD-1 integer millionths and directional rounding · QD-2 outcome table · QD-3 proposition class · QD-4 JSON Lines ledger with a hash chain · QD-5 hard components and the full truth-input closure · QD-6 the separated populations · QD-7 the 20-minute time box · QD-8 calibration numbers · QD-9 agreement triggers · QD-10 the model-family rule · QD-11 family-weighted estimand · QD-12 independence families · QD-13 the cluster product bound · QD-14 *k*_min · QD-15 the two-sided pooled guard · QD-16 mutant states · QD-17 differential execution boundary · QD-18 determinism variants · QD-19 process inventory and own RSS counters (its mechanism replaced by QD-30) · QD-20 CI retry, batches and batch joins · QD-21 runner additions · QD-22 tree digest · QD-23 held-out exposure · QD-24 advisory water-filling allocation · QD-25 complete and incomplete performance results · QD-26 the K2 lane-freeze gate · QD-27 reason-to-quantity nulling · QD-28 the start-identity key and exact-equality host join · QD-29 generation safety (withdrawn in r8) · QD-30 ptrace exit-stop collection (withdrawn in r9) · QD-31 the tracing-overhead rule (withdrawn in r9) · QD-32 cgroup v2 `memory.peak` per fresh leaf, with cgroup-namespace escape prevention.
 
 ## Not claimed
 
