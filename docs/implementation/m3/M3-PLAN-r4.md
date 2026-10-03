@@ -1,7 +1,5 @@
 # M3 unit plan
 
-**r4 ACCEPTED 2026-10-03.** CODEX2 accepted r4 (`e50f75d3…`; method). GROK2 accepted r3 (`7ef4f0d1…`; facts), and r4 differs from r3 only by CODEX2's exit-formula finding. r4's bytes, without this note, are preserved in `M3-PLAN-r4.md`.
-
 Draft r3. Claude Opus 5.5, implementation lead. **Planning record: not law, not code, not a contract successor.** It is the M3 counterpart of [m2/EXIT-PLAN.md](../m2/EXIT-PLAN.md). It orders M3's obligations into reviewable units and changes no accepted contract, gate, threshold or register row. Product baseline: main `eb0d503` (X9-3 integrated). M2's tail (X9-4, X9-5, X9-6 exit gate, D3, licence unit) is still in flight, so no unit below touches product crates before X9-6.
 
 r1 (`M3-PLAN-r1.md`, sha256 `65bf6ac5…`, 28,398 bytes) was reviewed by GROK2 (facts; `/tmp/opensip-implementation/reviews/grok2-m3-plan-r1/`, 6 required, 8 non-blocking) and CODEX2 (method; `…/codex2-m3-plan-r1/`, 5 required, 4 non-blocking). r2 answers all of them. r2 (`M3-PLAN-r2.md`, sha256 `add49e25…`, 35,300 bytes) was reviewed by GROK2 (`…/grok2-m3-plan-r2/`, 4 required, 6 non-blocking) and CODEX2 (`…/codex2-m3-plan-r2/`, 2 required, 3 non-blocking). r3 answers them.
