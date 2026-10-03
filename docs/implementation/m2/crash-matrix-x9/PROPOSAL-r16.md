@@ -638,7 +638,7 @@ These change no expected value and are X9-4's, reviewed with the unit:
 
 No accepted outcome of any other law changes. No new public code, row or detail.
 
-**r16 (2026-10-03) is an amendment made as lead decisions under the owner's standing direction of 2026-09-30.** r15 bytes are preserved in PROPOSAL-r15.md. r16 ACCEPTED by Grok on 2026-10-03.
+**r16 (2026-10-03) is an amendment made as lead decisions under the owner's standing direction of 2026-09-30.** r15 bytes are preserved in PROPOSAL-r15.md.
 
 - **Where it was found.** It was found while preparing X9-6, the M2 exit, on product main `91cb45a`, which has X9-0 to X9-5 integrated.
   - X9-6's checker and storage driver are uncommitted in worktree `opensip-x9-6`, as the code unit X9-6a.
