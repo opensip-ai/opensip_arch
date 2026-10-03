@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "opensip.harness.exploratory-quality-envelope.1",
   "title": "OpenSIP exploratory quality envelope (D13 draft)",
-  "description": "Draft for D13 (docs/implementation/m3/analysis-quality/PLAN.md:419-425, :535). Exploratory, never promoted, never a G13 input. References unchanged RS3 observations by digest; RS3 itself is not changed. Proportions and bounds are integer millionths (no floats; canonical bytes per docs/coop/design-corrections/foundation/canonical.py). Design: docs/implementation/m3/harness/DESIGN.md (r4) sections 11-12. Cross-row invariants a schema cannot express are checked by the envelope validator (DESIGN.md r4 section 9.5): exactly one final batch per key; batchId equals the SHA-256 of its canonical key tuple; every q6 batch has exactly one batchObservations row and, for each warmup and measured slot, exactly one operationalRecords row or a record-missing reason on that slot; no duplicate (batchId, slot); no orphan record or observation; at most one slotReasons row per slot, and every operational record missing from a required slot listed as record-missing on that slot; per measured slot and quantity, a value is null if and only if a reason the DESIGN QD-27 table maps to that quantity is present (record-missing and record-invalid null no numeric sample; run-failed and timeout null all four; inventory and own-counter reasons null ownHighWaterSumBytes and peakRssBytes only); the median non-null exactly when all seven elapsed values are, and the maximum exactly when all seven peaks are; phaseTimingsPresent true exactly when every measured slot has a valid record, and phaseAbsenceReason null exactly then; population counts summing (corpus = sampled + unlabelled, sampled = settled + pending, settled = true + false + unclear).",
+  "description": "Draft for D13 (docs/implementation/m3/analysis-quality/PLAN.md:419-425, :535). Exploratory, never promoted, never a G13 input. References unchanged RS3 observations by digest; RS3 itself is not changed. Proportions and bounds are integer millionths (no floats; canonical bytes per docs/coop/design-corrections/foundation/canonical.py). Design: docs/implementation/m3/harness/DESIGN.md (r3) sections 11-12. Cross-row invariants a schema cannot express are checked by the envelope validator (DESIGN.md r3 section 9.5): exactly one final batch per key; batchId equals the SHA-256 of its canonical key tuple; every q6 batch has exactly one batchObservations row and, for each warmup and measured slot, exactly one operationalRecords row or a record-missing reason on that slot; no duplicate (batchId, slot); no orphan record or observation; null sample slots if and only if non-empty reasons; median and maximum non-null only when all seven samples are; phaseTimingsPresent false if and only if phaseAbsenceReason is non-null; population counts summing (corpus = sampled + unlabelled, sampled = settled + pending, settled = true + false + unclear).",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -267,28 +267,6 @@
           }
         }
       ]
-    },
-    "slotReason": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "slot",
-        "reasons"
-      ],
-      "properties": {
-        "slot": {
-          "$ref": "#/$defs/runSlot"
-        },
-        "reasons": {
-          "type": "array",
-          "minItems": 1,
-          "maxItems": 16,
-          "items": {
-            "$ref": "#/$defs/runReason"
-          },
-          "x-opensip-order": "canonical-set"
-        }
-      }
     }
   },
   "properties": {
@@ -1465,7 +1443,7 @@
                       "peakRssBytes",
                       "medianElapsedNanos",
                       "maxPeakRssBytes",
-                      "slotReasons"
+                      "runReasons"
                     ],
                     "properties": {
                       "workloadId": {
@@ -1577,14 +1555,19 @@
                       "maxPeakRssBytes": {
                         "$ref": "#/$defs/nullablePositiveInt"
                       },
-                      "slotReasons": {
+                      "runReasons": {
                         "type": "array",
-                        "minItems": 1,
-                        "maxItems": 11,
+                        "minItems": 7,
+                        "maxItems": 7,
                         "items": {
-                          "$ref": "#/$defs/slotReason"
+                          "type": "array",
+                          "maxItems": 16,
+                          "items": {
+                            "$ref": "#/$defs/runReason"
+                          },
+                          "x-opensip-order": "canonical-set"
                         },
-                        "x-opensip-order": "canonical-set"
+                        "x-opensip-order": "sequence"
                       }
                     }
                   }

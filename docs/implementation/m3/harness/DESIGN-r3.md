@@ -1,12 +1,10 @@
-# M3-Q0 quality-harness design record — r4
+# M3-Q0 quality-harness design record — r3
 
-Draft r4. Claude Opus 5.5, implementation lead. Unit **M3-Q0** of the accepted M3 unit plan (`M3-PLAN.md:157`).
+Draft r3. Claude Opus 5.5, implementation lead. Unit **M3-Q0** of the accepted M3 unit plan (`M3-PLAN.md:157`).
 
 r1 (`DESIGN-r1.md`, sha256 `22df1afb…`, 65,990 bytes; schema `exploratory-quality-envelope.schema.v1-r1.json`, `4cdfbb60…`, 23,190 bytes) was reviewed by CODEX2 (method; `/tmp/opensip-implementation/reviews/codex2-harness-q0-r1/`), with 8 required findings and 5 non-blocking observations. r2 answers all of them. CODEX2 confirmed the cluster-product bound and the 29/299 floors as sound, so they are unchanged.
 
 r2 (`DESIGN-r2.md`, sha256 `4225ca34…`, 91,319 bytes; schema `exploratory-quality-envelope.schema.v1-r2.json`, `df67c651…`, 50,098 bytes) was reviewed by CODEX2 (`/tmp/opensip-implementation/reviews/codex2-harness-q0-r2/`). Six r1 findings were resolved and two partly resolved, with 3 required findings and 4 non-blocking observations. r3 answers all of them and changes nothing else of substance.
-
-r3 (`DESIGN-r3.md`, sha256 `b69c918f…`, 101,902 bytes; schema `exploratory-quality-envelope.schema.v1-r3.json`, `f38b3f20…`, 52,882 bytes) was reviewed by CODEX2 (`/tmp/opensip-implementation/reviews/codex2-harness-q0-r3/`), with 2 required findings and 2 non-blocking observations. r4 answers them and changes nothing else.
 
 ## Standing
 
@@ -37,14 +35,6 @@ Short names, as in the accepted plans:
 - **ENV:** `docs/implementation/m3/harness/exploratory-quality-envelope.schema.v1.json` (drafted with this record)
 
 ---
-
-## r4 changes and review responses
-
-| Finding | Section | Change |
-|---|---|---|
-| C2-Q0-R3-01 (warmup reason carrier) | §9.5, ENV `q6` | The untyped seven-position `runReasons` is replaced by `slotReasons[]`: one row per affected slot, keyed by the typed run slot (priming, warmup 0–2 or measured 0–6). Coverage consults it for every required slot. A warmup-only evidence failure keeps the batch `incomplete` and retained, with all measured samples intact. |
-| C2-Q0-R3-02 (reasons must not erase known values) | §9.5 (QD-27), ENV `description` | A fixed mapping says which quantities each reason invalidates. A value is null exactly when a reason concerning that quantity exists, and all other known values and aggregates are kept. `record-missing` and `record-invalid` null no numeric sample. Any reason still makes the row `incomplete`. |
-| N01, N02 | §9.3 | Per-tgid buffering and conservative rejection of reuse ambiguity; the host-key reconciliation and retained lifetime history; the sentinel as a birth-history fence only; calibration success cases separated from expected-incomplete cases. |
 
 ## r3 changes and review responses
 
@@ -728,10 +718,7 @@ An `exec` keeps the key but replaces the address space, so a lifetime is split i
    - any change to the online-CPU set during the run.
 4. **Stable identity.**
    - A **thread group lifetime** opens on the fork event that creates a new thread group (child pid = child tgid) whose parent chain, built from fork events, reaches the workload root. It is keyed by (tgid, fork timestamp).
-   - A tgid cannot be reused until its process is reaped. The kernel emits the terminal record before reaping, but userspace may still **receive** a reused tgid's fork event before the old terminal record (C2-Q0-R3-N01). So the harness buffers events per tgid and reconciles them:
-     - if a new-group fork event arrives for a tgid whose lifetime is still open, it is held until that lifetime's terminal record arrives;
-     - if a record cannot be attributed to exactly one lifetime by its fork-timestamp order, the run is `unjoinable-identity` (conservative rejection).
-   - Lifetime history is kept for the whole run, so that host joins arriving late can still be resolved.
+   - A tgid cannot be reused until its process is reaped, so between that fork event and the lifetime's terminal record, the tgid names exactly one lifetime.
    - Exec events split the lifetime into the image segments described above.
    - A taskstats record or connector event for a subtree tgid that has no open lifetime is `unjoinable-identity`.
 5. **Terminal record selection and de-duplication.**
@@ -741,21 +728,17 @@ An `exec` keeps the key but replaces the address space, so a lifetime is split i
    - Zero terminal records, or more than one, for a lifetime is `terminal-record-missing` or `terminal-record-duplicate`.
 6. **Draining and completion.** After the workload root has exited and the cgroup reports `populated 0`, the harness keeps reading both channels, and runs a **post-run sentinel on every online CPU**. Draining ends only when both of these hold:
    - every lifetime opened in step 4 has exactly one terminal record and a connector exit event for each of its threads;
-   - every post-run sentinel's fork, exit and terminal record has arrived. That is a fence on the workload's **birth history**: no workload fork can arrive later on that CPU. It is not a fence on exit notifications, which can arrive after a sentinel, and the first condition covers those (C2-Q0-R3-N01).
+   - every post-run sentinel's fork, exit and terminal record has arrived, which shows each CPU's queue has been read past the workload.
 
    A preregistered drain limit (default 10 s) that expires first gives `drain-timeout`.
 7. **Cross-join.** Every subtree lifetime from the connector has a terminal taskstats record, and every terminal record for a subtree tgid has a lifetime. Either kind of orphan makes the run incomplete. Because each process must appear on **both** channels, losing one message on one channel cannot hide a process.
 
-**Calibration (K1c) must show both of the following (C2-Q0-R3-N02).**
-
-*Expected complete, with the correct value:*
-- **A short-lived child.** It allocates a known peak and exits within 1 ms. The run is complete, and that peak is in figure (b).
-- **An early leader.** The thread-group leader exits before a worker raises the peak. The run is complete, and the terminal record carries the later peak.
-- **Pid reuse.** Under a stress run, every record joins its own lifetime. Where attribution is ambiguous, the run is `incomplete` (`unjoinable-identity`) and never complete with a wrong join.
-
-*Expected `incomplete`, never complete:*
-- **Induced event loss.** A shrunken receive buffer under a fork storm must be detected as `event-loss`.
+**Calibration (K1c) must show** that the mechanism records the right peak, and that the following are all detected as `incomplete`, never as complete:
+- **A short-lived child.** It allocates a known peak and exits within 1 ms; its peak must be present.
+- **An early leader.** The thread-group leader exits before a worker raises the peak; the terminal record must carry the later peak.
+- **Induced event loss.** A shrunken receive buffer under a fork storm must be detected as `incomplete`.
 - **Lost connector delivery.** The harness's test mode discards selected messages. The resulting sequence gap and the cross-join orphan must both be detected.
+- **Pid reuse.** A stress run must not join records to the wrong lifetime.
 
 **Diagnostics and figure (a).**
 - **Diagnostics only.** `VmHWM` polled from `/proc/<pid>/status` (a lower estimate) and `wait4` `ru_maxrss` (KiB on Linux, aggregated over the reaped subtree) are recorded as cross-checks. They are never used as figure (b).
@@ -766,7 +749,7 @@ An `exec` keeps the key but replaces the address space, so a lifetime is split i
 - Every macOS run therefore records figure (b) as unavailable, with the reason `own-counter-unavailable-platform`. Its RSS is `incomplete`, and it can never be within budget. The concurrent sum (a) is still recorded, labelled diagnostic.
 - This matches the existing rule that macOS lead-workstation samples are never Q6-labelled (`M3-PLAN.md:158`). A macOS own-counter source must exist before any macOS G13 lane can qualify RSS (OI-18).
 
-*Joining host observations.* The host's operational record reports peak RSS per process (OPP:249). Each entry must carry the tgid and the process start time. The harness reconciles the two keys by mapping the entry to the unique lifetime for that tgid whose interval, from its fork event to its terminal record (from the retained lifetime history), contains the host's start. If no lifetime matches, or more than one does, the run is `incomplete` with the reason `unjoinable-identity`, because a host value that cannot be placed could hide a higher peak. The join rules:
+*Joining host observations.* The host's operational record reports peak RSS per process (OPP:249). Each entry must carry the lifetime key (tgid and start time). The harness maps it to its own (tgid, fork timestamp) key through the open lifetime for that tgid. The join rules:
 - **Matching entry.** The figure-(b) value for that segment is the larger of the harness counter and the host value. The host value can only raise a figure, never replace a missing harness counter.
 - **Host entry with no registered lifetime.** The inventory is incomplete (reason `unregistered-process`), so the run is NON-PASS.
 - **Registered lifetime with no host entry.** Allowed, because the host does not see every descendant. It is recorded.
@@ -792,19 +775,15 @@ Reuse disclosure is stored only in the envelope's `operationalRecords`, never in
 
 **Complete and incomplete results (QD-25, for C2-Q0-R1-07).** Each workload, workflow, reset, control and batch result is either complete or incomplete.
 - **Complete:** 3 warmups and 7 measured runs, every elapsed value present, and both RSS figures present for every run. Status is `within`, `over` or `no-baseline`.
-- **Incomplete:** at least one slot (priming, warmup 0–2 or measured 0–6) has at least one typed reason. Reasons are carried in `slotReasons[]`, one row per affected slot, keyed by the typed run slot (`{slot, reasons}`; C2-Q0-R3-01). A warmup or priming failure therefore has its own carrier, and is never attributed to a measured position. The four measured series keep their seven positions, with `null` where a value is unavailable.
+- **Incomplete:** at least one run lacks a value. Each run slot then carries its measured values where they exist, `null` where they do not, and a list of typed reasons:
+  - `run-failed`, `timeout`;
+  - `own-counter-missing`, `own-counter-unverified`, `own-counter-unavailable-platform`;
+  - `unregistered-process`, `pre-exec-image-unmeasured`;
+  - `subscription-unverified`, `event-loss`, `unjoinable-identity`, `terminal-record-missing`, `terminal-record-duplicate`, `drain-timeout`;
+  - `inventory-incomplete`;
+  - `record-missing`, `record-invalid`.
 
-**Reasons and the quantities they invalidate (QD-27, for C2-Q0-R3-02).** A reason makes a numeric sample null only if it concerns that quantity, and every known value is kept. The fixed mapping:
-
-| Reasons | Quantities that are null in that measured slot | Quantities kept |
-|---|---|---|
-| `run-failed`, `timeout` | elapsed, concurrent sum (a), own high-water sum (b), peak (the larger of a and b) | none. A failed run's numbers are not samples. |
-| `own-counter-missing`, `own-counter-unverified`, `own-counter-unavailable-platform`, `unregistered-process`, `pre-exec-image-unmeasured`, `inventory-incomplete`, `subscription-unverified`, `event-loss`, `unjoinable-identity`, `terminal-record-missing`, `terminal-record-duplicate`, `drain-timeout` | (b) and peak | elapsed and (a), which do not depend on the process inventory |
-| `record-missing`, `record-invalid` | none | all four. Only the operational evidence (phases and reuse disclosure) is missing, which shows as `phaseTimingsPresent: false` with a `phaseAbsenceReason` (§9.4). |
-
-For warmup and priming slots no numeric samples are carried, so their reasons, typically `run-failed`, `timeout`, `record-missing` or `record-invalid`, affect only the batch's status.
-
-A row is `incomplete` whenever **any** slot has a reason, **including a row in which every numeric sample is known**, such as one whose only defect is a missing warmup record. Status `incomplete` is never `within` and never counts toward Q6. The aggregates are kept when their inputs exist: the median when all seven elapsed values are present, and the maximum when all seven peaks are. Failed runs are kept, never dropped and never re-run to fill the slot.
+  Failed runs are kept, never dropped and never re-run to fill the slot. Status is `incomplete`, which is never `within` and never counts toward Q6. The median and maximum are left null unless all seven values exist.
 
 **Batches (QD-20, revised for C2-Q0-R1-07).** Every result carries a `batchId` (SHA-256 of the canonical tuple of round, workload, workflow, reset, control and ordinal) and a `batchOrdinal`: 1 for the first batch, 2 for the CI retry. Both batches of a retry live in the same envelope.
 - **The retry.** On a threshold failure or an incomplete result, CI runs one more full batch, as AQP:490 allows.
@@ -814,32 +793,10 @@ A row is `incomplete` whenever **any** slot has a reason, **including a row in w
   - each batch has exactly one `batchObservations[]` row (§9.6), keyed by `batchId`.
 - **What the envelope validator checks.** These are cross-row rules a schema cannot express:
   - **Identity.** Each `batchId` equals the SHA-256 of its canonical key tuple.
-  - **Coverage.** Every Q6 row's batch has one observation row. Every warmup and measured slot (and the priming slot for a warm reset) has exactly one operational record, or the row is `incomplete` and its `slotReasons[]` row for that slot lists `record-missing`. A record that is present but fails §9.4's checks needs `record-invalid` on its slot.
-  - **Uniqueness.** No two records share (`batchId`, slot), and no two `slotReasons[]` rows in a row share a slot.
+  - **Coverage.** Every Q6 row's batch has one observation row. Every warmup and measured slot of that batch has exactly one operational record, or the row is `incomplete` and that slot lists `record-missing`.
+  - **Uniqueness.** No two records share (`batchId`, slot).
   - **No orphans.** No record or observation row names a batch absent from `q6`.
-  - **Sample consistency (revised for C2-Q0-R3-02).** For each measured slot and each quantity, the value is null **if and only if** that slot has a reason that the QD-27 table maps to that quantity. A reason that does not concern a quantity never nulls it.
-  - **Aggregates.** The median is non-null exactly when all seven elapsed values are, and the maximum exactly when all seven peaks are.
-  - **Phase evidence.** `phaseTimingsPresent` is true exactly when every measured slot has a valid record. `phaseAbsenceReason` is null exactly when `phaseTimingsPresent` is true; otherwise it names the first applicable reason, in the order `record-missing`, `record-invalid`, `phase-missing`, `negative-unattributed`.
-  - **Status.** A row with any slot reason has status `incomplete`, and a complete-variant row has no reasons.
-- **Reference cases for K1c's validator (r4).** These were checked against ENV, plus a reference implementation of the QD-27 rule, while this record was drafted. That was a design check, not a product run.
-  - **Accepted:**
-    - a warmup-0 `record-missing` with all 28 measured values known;
-    - a measured-0 `record-missing` that keeps all four values;
-    - `event-loss` that nulls (b) and the peak but keeps elapsed, (a) and the median;
-    - `run-failed` that nulls all four values in its slot.
-  - **Rejected by the schema:**
-    - empty `slotReasons`;
-    - a slot row with no reasons;
-    - warmup index 3;
-    - the legacy `runReasons`;
-    - a complete row that carries reasons;
-    - a reasoned row that claims `within`.
-  - **Rejected by the validator:**
-    - `record-missing` that nulls a known elapsed value;
-    - `event-loss` that also nulls (a);
-    - `event-loss` that leaves (b) present;
-    - a null measured value with only a warmup reason;
-    - duplicate slot rows.
+  - **Sample consistency (C2-Q0-R2-N04).** In an incomplete row, a slot has a null sample if and only if it has at least one reason. The median and maximum are non-null only when all seven values are. `phaseTimingsPresent` is false if and only if `phaseAbsenceReason` is non-null.
 
   A violation makes the envelope invalid, not merely the row incomplete.
 - **Flips.** A non-pass followed by a pass is counted as a `flip`. Three flips in any ten consecutive CI runs of a workload send that workload to noise review.
@@ -1013,7 +970,7 @@ The rejected alternative was to delay every producer behind all three lane oracl
 
 ## Lead decisions in this record
 
-QD-1 integer millionths and directional rounding · QD-2 outcome table · QD-3 proposition class · QD-4 JSON Lines ledger with a hash chain · QD-5 hard components and the full truth-input closure · QD-6 the separated populations · QD-7 the 20-minute time box · QD-8 calibration numbers · QD-9 agreement triggers · QD-10 the model-family rule · QD-11 family-weighted estimand · QD-12 independence families · QD-13 the cluster product bound · QD-14 *k*_min · QD-15 the two-sided pooled guard · QD-16 mutant states · QD-17 differential execution boundary · QD-18 determinism variants · QD-19 process inventory, the positive completeness proof and own RSS counters · QD-20 CI retry, batches and batch joins · QD-21 runner additions · QD-22 tree digest · QD-23 held-out exposure · QD-24 advisory water-filling allocation · QD-25 complete and incomplete performance results · QD-26 the K2 lane-freeze gate · QD-27 reason-to-quantity nulling.
+QD-1 integer millionths and directional rounding · QD-2 outcome table · QD-3 proposition class · QD-4 JSON Lines ledger with a hash chain · QD-5 hard components and the full truth-input closure · QD-6 the separated populations · QD-7 the 20-minute time box · QD-8 calibration numbers · QD-9 agreement triggers · QD-10 the model-family rule · QD-11 family-weighted estimand · QD-12 independence families · QD-13 the cluster product bound · QD-14 *k*_min · QD-15 the two-sided pooled guard · QD-16 mutant states · QD-17 differential execution boundary · QD-18 determinism variants · QD-19 process inventory, the positive completeness proof and own RSS counters · QD-20 CI retry, batches and batch joins · QD-21 runner additions · QD-22 tree digest · QD-23 held-out exposure · QD-24 advisory water-filling allocation · QD-25 complete and incomplete performance results · QD-26 the K2 lane-freeze gate.
 
 ## Not claimed
 
