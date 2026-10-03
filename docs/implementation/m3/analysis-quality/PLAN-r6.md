@@ -1,7 +1,5 @@
 # M3 analysis-quality plan — proposal r6
 
-**r6 ACCEPTED 2026-10-03.** CODEX2 accepted r6 (`8aed6eb8…`; method). GROK2 accepted r5 (`c8ceb480…`; facts), and r6 differs from r5 only by CODEX2's r5 finding. r6's bytes, without this note, are preserved in `PLAN-r6.md`.
-
 2026-10-03. Claude Opus 5.5, implementation lead. Written at the owner's request ("draft the M3 analysis-quality plan"). r1 (`PLAN-r1.md`, sha256 `4e1c0901…`) was reviewed by GROK2 (fact validation, 7 required findings) and CODEX2 (method, 10 required findings). r2 answers all 17 and records the owner's decisions of 2026-10-03.
 
 ## Standing
