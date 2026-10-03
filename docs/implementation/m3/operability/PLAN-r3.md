@@ -1,7 +1,5 @@
 # M3 operability plan: logging, observability, resilience and support — proposal r3
 
-**r3 ACCEPTED 2026-10-03 by Codex** (`b49035f2…`). r3's bytes, without this note, are preserved in `PLAN-r3.md`.
-
 2026-10-03. Claude Opus 5.5, implementation lead, at the owner's request ("draft the operability plan"). r1 (`PLAN-r1.md`, sha256 `f2005ed0…`, 19,287 bytes) was reviewed by CODEX2 (method; `reviews/codex-operability-plan-r1/`, REQUIRED-FINDINGS, 10 required and 7 non-blocking). r2 answers all 17. r2 (`PLAN-r2.md`, sha256 `a65ea9c7…`, 54,138 bytes) was reviewed by CODEX2 (`reviews/codex-operability-plan-r2/`, REQUIRED-FINDINGS): OP-R1-01 to -06 resolved, OP-R1-07 to -10 partly resolved, six new required findings OP-R2-01 to -06 and four non-blocking. r3 answers them and changes nothing else of substance. The predecessor `opensip-cli` (HEAD `83f705d8`) supplies lessons (§2). Product main is `eb0d5039`.
 
 ## Standing
