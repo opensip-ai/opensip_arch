@@ -1,6 +1,6 @@
-# M3-Q0 quality-harness design record — r11
+# M3-Q0 quality-harness design record — r10
 
-Draft r11. Claude Opus 5.5, implementation lead. Unit **M3-Q0** of the accepted M3 unit plan (`M3-PLAN.md:157`).
+Draft r10. Claude Opus 5.5, implementation lead. Unit **M3-Q0** of the accepted M3 unit plan (`M3-PLAN.md:157`).
 
 r1 (`DESIGN-r1.md`, sha256 `22df1afb…`, 65,990 bytes; schema `exploratory-quality-envelope.schema.v1-r1.json`, `4cdfbb60…`, 23,190 bytes) was reviewed by CODEX2 (method; `/tmp/opensip-implementation/reviews/codex2-harness-q0-r1/`), with 8 required findings and 5 non-blocking observations. r2 answers all of them. CODEX2 confirmed the cluster-product bound and the 29/299 floors as sound, so they are unchanged.
 
@@ -20,8 +20,6 @@ r8 (`DESIGN-r8.md`, sha256 `c958fdab…`, 120,918 bytes; schema `exploratory-qua
 
 r9 (`DESIGN-r9.md`, sha256 `4db107c0…`, 120,794 bytes; schema `exploratory-quality-envelope.schema.v1-r9.json`, `00f6d032…`, 53,610 bytes) was reviewed by CODEX2 (`/tmp/opensip-implementation/reviews/codex2-harness-q0-r9/`), with 4 required findings and 2 non-blocking observations. r10 answers all of them and changes nothing else.
 
-r10 (`DESIGN-r10.md`, sha256 `c926077c…`, 133,762 bytes; schema `exploratory-quality-envelope.schema.v1-r10.json`, `6558bd39…`, 59,031 bytes) was reviewed by CODEX2 (`/tmp/opensip-implementation/reviews/codex2-harness-q0-r10/`), with 2 required findings and 4 non-blocking observations. r11 answers all of them and changes nothing else.
-
 ## Standing
 
 **This is a design record, not law and not a contract successor.** It changes no accepted contract, schema, gate, threshold or register row. It fixes the harness mechanisms that the accepted analysis-quality plan leaves to "the harness design" (AQP:237, AQP:489), so that K1, K2, I2, S-M and M3-M can be implemented from it directly. No product measurement, corpus fetch, adjudication or product run was performed for it. The numbers in §5 are arithmetic.
@@ -38,7 +36,7 @@ r10 (`DESIGN-r10.md`, sha256 `c926077c…`, 133,762 bytes; schema `exploratory-q
 
 Short names, as in the accepted plans:
 - **AQP:** `docs/implementation/m3/analysis-quality/PLAN-r5.md` (r5, pinned, sha256 `c8ceb480…`). Every plain `AQP:` citation refers to this file. r9 remapped citations from r4 to r5, and r10 pins them so that later plan revisions cannot move them. References to r4's removed RSS rule cite `PLAN-r4.md`.
-- **AQP6:** `docs/implementation/m3/analysis-quality/PLAN-r6.md` (the r6 snapshot, sha256 `8aed6eb8…`; C2-Q0-R10-N03). Cited only for its corrected §5.1 peak-memory wording (AQP6:335-346), which supersedes r5's §5.1 bullet.
+- **AQP6:** `docs/implementation/m3/analysis-quality/PLAN.md` (live proposal r6, sha256 `8aed6eb8…`). Cited only for its corrected §5.1 peak-memory wording (AQP6:335-346), which supersedes r5's §5.1 bullet.
 - **M3-PLAN:** `docs/implementation/m3/M3-PLAN.md` (r4, accepted)
 - **OPP:** `docs/implementation/m3/operability/PLAN.md` (r3, accepted; lines of the live file, which carries the acceptance note)
 - **AQ / IE / NE / WS:** `docs/v2/contracts/product-v1/{admission-and-qualification,identity-and-evidence,native-evidence,workflows-and-surfaces}.md`
@@ -52,18 +50,6 @@ Short names, as in the accepted plans:
 - **ENV:** `docs/implementation/m3/harness/exploratory-quality-envelope.schema.v1.json` (drafted with this record)
 
 ---
-
-## r11 changes and review responses
-
-| Finding | Section | Change |
-|---|---|---|
-| C2-Q0-R10-01 (mount invariant) | §9.3 QD-33 item 2, calibration, §9.5 cases | The fresh view is installed by **removal, not overmount**. Inside the private mount namespace, the launcher moves its working directory out of cgroupfs, then detaches (`umount2` with `MNT_DETACH`) every inherited `cgroup2` and `cgroup` v1 mount and alias, then mounts a fresh read-only `cgroup2` at `/sys/fs/cgroup`. The invariant is stated over the mounts that remain: exactly one cgroup-type entry, which is read-only, leaf-rooted and at `/sys/fs/cgroup`. A failed setup is `cgroup-isolation-unverified`. The ordinary inherited writable mount is a success calibration case. |
-| C2-Q0-R10-02 (before-creation reasons; no-leaf settlement) | §9.3 steps 1 and 5, Elapsed, §9.5, QD-27, ENV | The batch checks run before any run leaf exists, and a failure creates no leaves. Absent rows may carry `cgroup-escape-unprevented` (no `nsdelegate`) and `cgroup-isolation-unverified` (the batch-start outside-process check). The same reasons after creation carry a created leaf. Elapsed settlement is conditional: with a leaf, the root reaped, `ECHILD` and `populated 0`; with no leaf, the root reaped and `ECHILD`. A no-leaf drain timeout kills the process group and records the new `settlement-failed`, which nulls both values. |
-| N01 (continuous non-dumpability) | §9.3 QD-33 item 4 | The outside set is the harness and its driver. Each is non-dumpable from its start, and they never exec during a batch. The check is repeated after every run, and a violation is `cgroup-isolation-unverified`. |
-| N02 (audit descriptor) | §9.3 QD-33 item 3 | The audit expects {0, 1, 2, *a*}, then closes *a*, so exec carries exactly {0, 1, 2}. |
-| N03 (AQP6 pin) | Short names | AQP6 now points at `PLAN-r6.md` (`8aed6eb8…`). |
-| N04 (baseline predicate) | §9.5 QD-34 | Compatibility is checked on the measurement, the reset and cache policy with charge ownership, the kernel release, the runner class and the entry method. "Otherwise `no-baseline`" applies only to complete rows; `incomplete` takes precedence. |
-| (review note) | §9.3 Continuous ownership, calibration | The endpoint inode and controller checks are explicitly **not** claimed to detect a disable and re-enable cycle. The test-hook case exercises the sole-writer guard instead. |
 
 ## r10 changes and review responses
 
@@ -787,7 +773,7 @@ Warmups therefore never turn cold samples warm. The page cache is never claimed 
 
 ### 9.3 Elapsed time and peak memory
 
-**Elapsed** is measured on a monotonic clock, from spawn to the **settlement** of the workload tree (step 5). Settlement always means that the top process has exited and every descendant has been reaped. When a run leaf exists, it also means that the leaf reports `populated 0`. A slot with no leaf settles by reaping alone (C2-Q0-R10-02). It is recorded as positive integer nanoseconds (AQ:268-269). The cell statistic is the median, `sorted[3]` (PQV:28).
+**Elapsed** is measured on a monotonic clock, from spawn to the **settlement** of the workload tree: the top process has exited, every descendant has been reaped, and the leaf reports `populated 0` (step 5). It is recorded as positive integer nanoseconds (AQ:268-269). The cell statistic is the median, `sorted[3]` (PQV:28).
 
 **Peak memory (QD-32, lead decision, following the amended quality plan, r5 §5.1 as corrected in r6).** On Linux, each run's peak-memory figure is **`cgroupMemoryPeak`**: the kernel's high-water mark of memory **charged to the run's dedicated cgroup v2 leaf**, read from `memory.peak` (AQP6:335-336). It includes page cache and kernel memory charged there. It is not resident set size, and it is neither a superset nor a sum of per-process RSS (AQP6:336-340). It is **never** called RSS. The cell statistic is the maximum of the seven run values (AQ:270; PQV:28). A run whose figure cannot be established is `incomplete` (§9.5), and nothing is ever filled in.
 
@@ -803,14 +789,7 @@ The kernel maintains `memory.peak` for everything charged to the group, so it ne
 
 *Linux, the D12 reference platform (AQP:543).* For each **measured run**, warmups included:
 
-1. **Host checks, once per batch, before any run leaf is created.** If any check fails, every run in the batch is `incomplete` with the stated reason. **No run leaf is created** for that batch: each run proceeds without one, its elapsed value is kept, and its `cgroupLeaves` row is absent with the failing reason (§9.5). The checks that can fail here are:
-   - cgroup v2 present;
-   - `memory.peak` supported;
-   - delegation;
-   - `nsdelegate` on the mount (`cgroup-escape-unprevented`);
-   - the batch-start check that the measurement uid has no outside process except the harness and its driver (`cgroup-isolation-unverified`).
-
-   The `memory.peak` probe uses a separate test cgroup, which is not a run leaf and is removed before the batch.
+1. **Host checks, once per batch.** If any check fails, every run in the batch is `incomplete` with the stated reason.
    - **cgroup v2.** The harness finds a `cgroup2` mount in `/proc/self/mountinfo` and the `memory` controller in the delegated parent's `cgroup.controllers`. A host with only cgroup v1 (or a hybrid with `memory` on v1) is `cgroup-v1-only`. No `cgroup2` mount at all is `cgroup-unavailable`.
    - **Kernel support.** `memory.peak` exists for cgroup v2 from Linux 5.19. The harness checks that the file exists in a test leaf, and if it does not, the result is `cgroup-unavailable`. AL2023's kernel (6.1) has it, but writing `memory.peak` to reset it needs a later kernel, so r9 never resets: it **recreates** the leaf for every run (step 2). `clone3` with `CLONE_INTO_CGROUP` (Linux 5.7) and `cgroup.kill` (5.14) are also available on 6.1. The kernel release is recorded in `runner.calibration`.
    - **Delegation and permissions.**
@@ -819,25 +798,16 @@ The kernel maintains `memory.peak` for everything charged to the group, so it ne
      - The harness must be able to: write `+memory` to the parent's `cgroup.subtree_control`; `mkdir` and `rmdir` a child; and write the child's `cgroup.procs`. Moving the root also needs write access to `cgroup.procs` of the common ancestor of the source and destination cgroups.
 
      Any failure is `cgroup-no-delegation`.
-   - **Escape prevention: the namespace.** A process with the same uid as the delegated subtree could write its own pid into another cgroup's `cgroup.procs`, and the leaf would then become empty without showing the escape. So the workload root starts in a new **cgroup namespace** rooted at the leaf (`CLONE_NEWCGROUP`), on a `cgroup2` mount with the `nsdelegate` option (checked in `mountinfo`). Under `nsdelegate`, a cgroup namespace is a delegation boundary for migrations made from inside it. A mount without `nsdelegate` is detected by the batch checks, before any leaf exists, and gives an absent leaf. A namespace that fails to be created in a launcher is detected **after** that run's leaf exists, and gives a created leaf with the same reason, `cgroup-escape-unprevented`.
+   - **Escape prevention: the namespace.** A process with the same uid as the delegated subtree could write its own pid into another cgroup's `cgroup.procs`, and the leaf would then become empty without showing the escape. So the workload root starts in a new **cgroup namespace** rooted at the leaf (`CLONE_NEWCGROUP`), on a `cgroup2` mount with the `nsdelegate` option (checked in `mountinfo`). Under `nsdelegate`, a cgroup namespace is a delegation boundary for migrations made from inside it. If `nsdelegate` or the namespace is unavailable, the run is `cgroup-escape-unprevented`.
    - **Isolation and control ownership (QD-33, for C2-Q0-R9-01).** A namespace alone does not hold. A descriptor opened outside the namespace keeps its opener's namespace and credentials, and the existing mount still exposes the delegated parent's writable `cgroup.subtree_control`. A `-memory` then `+memory` cycle there would recreate the leaf's controller state and lose its high-water. So the launcher, a harness-owned child that becomes the workload root at exec, establishes all four of these before exec:
      1. **The launcher's position.** It is created in the leaf with `clone3(CLONE_INTO_CGROUP)`. It then calls `unshare(CLONE_NEWCGROUP | CLONE_NEWNS)`, so the namespace root is the leaf, and makes every mount private.
-     2. **A read-only, leaf-only cgroup view, by removal and not overmount (C2-Q0-R10-01).** Mounting over the inherited `cgroup2` mount would leave it in the stack, and `mountinfo` would still list it. So, inside its private mount namespace, the launcher:
-        - first changes its working directory to the workload's directory, which is outside cgroupfs;
-        - then **detaches every inherited cgroup mount**, every `cgroup2` and any `cgroup` (v1) entry, including aliases and bind mounts wherever they are mounted. It works from its `mountinfo`, innermost first, with `umount2(…, MNT_DETACH)`. A detached mount leaves the namespace's mount tree. Its only remaining references would be open descriptors or working directories inside it, and item 3 closes the descriptors;
-        - then mounts a fresh `cgroup2` at `/sys/fs/cgroup` with `MS_RDONLY`, which inside the cgroup namespace shows only the leaf.
-
-        **The invariant over the remaining mounts.** The launcher re-reads `/proc/self/mountinfo` and requires exactly one cgroup-type entry: the new `cgroup2` mount at `/sys/fs/cgroup`, read-only, with root `/` (the leaf), and no `cgroup` v1 entry. A detach that fails, a mount that fails, or any other cgroup entry still present gives `cgroup-isolation-unverified`, so the run is incomplete. On the ordinary delegated D12 layout this setup leaves exactly one entry, and the check passes. The workload therefore cannot write any control file, including the leaf's own and any ancestor's.
-     3. **A descriptor allowlist.** The allowlist is the three standard streams, which are pipes to the harness, and nothing else. The launcher closes every other descriptor with `close_range(3, ~0U, 0)`, and every harness descriptor is opened `O_CLOEXEC` as a second line of defence.
-        - **The audit.** The launcher opens `/proc/self/fd` as descriptor *a*, which is `O_CLOEXEC`, and requires the listed set to be exactly {0, 1, 2, *a*}. It then closes *a*, so the set carried into exec is exactly {0, 1, 2} (C2-Q0-R10-N02).
-     4. **No path back through other processes (refined for C2-Q0-R10-N01).**
-        - **The outside set** is exactly two processes, the harness and its batch driver. Each sets `PR_SET_DUMPABLE` 0 at its own start, before any batch, so its `/proc/<pid>/root` and `/proc/<pid>/fd` are closed to the workload.
-        - **They never call exec during a batch.** An exec would reset dumpability before the new image runs, and would open a window. They create other processes only as launchers, which leave the outside set and become workload roots in a leaf.
-        - **The check.** The batch-start check requires that no other process of the measurement uid exists. The harness repeats it after every run's settlement. A same-uid process outside the leaf found then, or any outside-set exec recorded during the batch, gives `cgroup-isolation-unverified` for that run.
+     2. **A read-only, leaf-only cgroup view.** It mounts a fresh `cgroup2` over `/sys/fs/cgroup` with `MS_RDONLY`. Inside the cgroup namespace, that mount shows only the leaf. It then checks its own `/proc/self/mountinfo`: every `cgroup2` mount must be read-only and rooted at the namespace root, so no other cgroup mount, bind mount or writable control file is reachable. The workload therefore cannot write any control file, including the leaf's own and any ancestor's.
+     3. **A descriptor allowlist.** The allowlist is the three standard streams, which are pipes to the harness, and nothing else. The launcher closes every other descriptor with `close_range(3, ~0U, 0)`, and every harness descriptor is opened `O_CLOEXEC` as a second line of defence. It then lists `/proc/self/fd` and requires exactly the allowlist.
+     4. **No path back through other processes.** Every other process of the measurement uid on the runner, including the harness and its driver, is made non-dumpable (`PR_SET_DUMPABLE` 0). Their `/proc/<pid>/root` and `/proc/<pid>/fd` are then closed to the workload. The harness checks at batch start that no other process of that uid exists.
 
      After these checks the launcher drops every capability (the effective, permitted, inheritable, ambient and bounding sets, with locked securebits) and executes the workload.
 
-     **Continuous ownership.** The harness opens the leaf's directory with `O_PATH | O_DIRECTORY` when it creates the leaf, and holds that descriptor for the whole run. Every control operation it makes (entry, `cgroup.events`, `memory.peak`, `cgroup.kill`) goes through `openat` on that descriptor. The harness is the **only writer**: it enables `+memory` on the parent once per batch, before any run, and makes no other `subtree_control` change while a run is live. Controller continuity rests on that rule plus the isolation in items 1–4. **The endpoint checks below cannot detect a disable and re-enable cycle,** and are not claimed to (C2-Q0-R10 review). At the read, as consistency checks only, it verifies through the held descriptor that:
+     **Continuous ownership.** The harness opens the leaf's directory with `O_PATH | O_DIRECTORY` when it creates the leaf, and holds that descriptor for the whole run. Every control operation it makes (entry, `cgroup.events`, `memory.peak`, `cgroup.kill`) goes through `openat` on that descriptor. The harness is the **only writer**: it enables `+memory` on the parent once per batch, before any run, and makes no other `subtree_control` change while a run is live. At the read, it verifies through the held descriptor that:
      - the leaf's inode equals the one recorded at creation;
      - `memory` is still listed in the leaf's `cgroup.controllers` and in the parent's `cgroup.subtree_control`.
 
@@ -848,13 +818,11 @@ The kernel maintains `memory.peak` for everything charged to the group, so it ne
    - **Fallback.** The child blocks on a pipe. The parent writes its pid to the leaf's `cgroup.procs` through the held leaf descriptor, and verifies the leaf path in `/proc/<pid>/cgroup` before releasing it. Charges made before the migration stay with their owner. The QD-33 steps then follow, and then `exec`.
    - The method used is recorded (`cgroupEntry: clone-into | migrate-before-exec`).
 4. **Containment during the run.** Every descendant inherits the leaf. The namespace, the read-only leaf-only mount, the descriptor allowlist and the non-dumpable outside processes (QD-33) together prevent leaving it, and prevent changing its controllers. No per-process tracking is needed.
-5. **Settlement, after the tree exits (C2-Q0-R9-N02; no-leaf case for C2-Q0-R10-02).** Before forking the launcher, the harness sets `PR_SET_CHILD_SUBREAPER`, so every orphaned descendant, including a daemonized one, is reparented to the harness and reaped by it. Zombies are not listed in `cgroup.procs`, so emptiness alone does not prove settlement. The workload root is also placed in its own process group and session at launch.
-   - **Settled, with a run leaf,** means both:
+5. **Settlement, after the tree exits (C2-Q0-R9-N02).** Before forking the launcher, the harness sets `PR_SET_CHILD_SUBREAPER`, so every orphaned descendant, including a daemonized one, is reparented to the harness and reaped by it. Zombies are not listed in `cgroup.procs`, so emptiness alone does not prove settlement.
+   - **Settled** means both:
      - the harness has reaped the root, and `waitpid` reports no remaining children (`ECHILD`);
      - `cgroup.events` shows `populated 0`.
-   - **Settled, without a run leaf** (absent-leaf slots, §9.5), means the first condition alone: the root has been reaped and `waitpid` reports `ECHILD`. No cgroup interface is consulted.
-   - **Drain, with a leaf.** The harness waits for settlement up to a preregistered drain limit (default 10 s). If the tree has not settled by then, it kills the leaf with `cgroup.kill`, reaps everything, and records `cgroup-not-empty`. The run did not end within the elapsed definition, so its elapsed value is invalid too (§9.5).
-   - **Drain, without a leaf.** The same limit applies. At the limit, the harness signals the root's process group with `SIGKILL`, reaps what it can, and records **`settlement-failed`**, which nulls both values. A descendant that left the process group cannot be guaranteed killed, and that is disclosed in the reason's definition.
+   - **Drain.** The harness waits for settlement up to a preregistered drain limit (default 10 s). If the tree has not settled by then, it kills the leaf with `cgroup.kill`, reaps everything, and records `cgroup-not-empty`. The run did not end within the elapsed definition, so its elapsed value is invalid too (§9.5).
    - **Read.** The harness then reads `memory.peak` once through the held leaf descriptor, as an integer number of bytes. A failed or malformed read is `cgroup-read-failed`.
    - **Verify empty.** `cgroup.procs` must be empty, and `populated` must still be 0.
    - **Remove.** The leaf is then removed with `rmdir`. A failed `rmdir` is recorded as a defect, and the run is still complete if steps 1–5 passed.
@@ -871,7 +839,6 @@ The kernel maintains `memory.peak` for everything charged to the group, so it ne
 **Calibration (K1c), on the D12 image.** These cases are expected to be **complete**, with the right value:
 - **A known allocation.** A fixture touches a known number of anonymous bytes **after entering the leaf** and exits; `memory.peak` must be at least that.
 - **Inherited pages not counted.** The harness touches a large buffer before forking the launcher. The figure must not include it, which shows that the disclosure (step 6) is accurate.
-- **Unavailable Linux and macOS:** absent leaves, known elapsed values (settled by reaping), and memory null with the platform or host reason.
 - **A short-lived grandchild.** It allocates a peak and exits within 1 ms, and the peak is still captured. The mark is kernel-maintained, so no sampling is involved.
 - **A daemonizing grandchild.** It double-forks and is reparented, stays inside the leaf, and is drained or killed as in step 5.
 - **A fresh leaf per run.** Two consecutive runs with different peaks each report their own peak; no peak carries over.
@@ -885,13 +852,8 @@ These cases are expected to be **`incomplete`**, with the stated reason:
 - a `cgroup2` mount without `nsdelegate`, or a failed namespace creation: `cgroup-escape-unprevented`;
 - a deliberate self-migration attempt under `nsdelegate`, which must be **refused** by the kernel; the run itself must then be unaffected;
 - an **inherited descriptor**: a writable sibling `cgroup.procs` descriptor, opened outside the namespace and left open. `close_range` must close it, and the `/proc/self/fd` check must pass. With the close disabled in test mode, the check must fail with `cgroup-isolation-unverified`, and the run must never be complete;
-- **the ordinary inherited writable mount (C2-Q0-R10-01, expected complete):** the D12 layout's writable `cgroup2` mount at `/sys/fs/cgroup` is detached in the launcher's namespace. The re-read `mountinfo` shows exactly one read-only, leaf-rooted `cgroup2` entry, and the run completes;
-- **a writable alias bind-mounted elsewhere** (for example `/mnt/cg`): it is detached too. With detaching disabled in test mode, the invariant must fail with `cgroup-isolation-unverified`;
-- **a missing `nsdelegate` at batch start (C2-Q0-R10-02):** no leaf is created. Each row is absent with `cgroup-escape-unprevented`, elapsed is kept, and settlement is by reaping;
-- **a dumpable same-uid process at batch start:** no leaf is created. Each row is absent with `cgroup-isolation-unverified`, and elapsed is kept;
-- **a no-leaf run with a stuck descendant:** `settlement-failed`, and both values are null;
 - an **ancestor control write**: the workload attempts to write `-memory` to the parent's `cgroup.subtree_control`. It must be unreachable (`ENOENT` or `EROFS` in its view). With the read-only remount disabled in test mode, the mountinfo check must give `cgroup-isolation-unverified`;
-- a **controller cycle forced by a harness test hook mid-run**: the hook is a write by the harness itself. The harness's sole-writer guard must record the violation and give `cgroup-isolation-unverified`, never a complete run with a lost high-water. The endpoint checks are not relied on to detect the cycle;
+- a **controller cycle forced by a harness test hook mid-run**: the read-time controller and inode checks, or the sole-writer rule, must give `cgroup-isolation-unverified`, never a complete run with a lost high-water;
 - a **same-uid outside process left dumpable**: the batch-start check must give `cgroup-isolation-unverified`;
 - a **daemonized grandchild left as a zombie**: it is reparented to the harness and reaped, and settlement waits for `ECHILD`;
 - a process left running past the drain limit: `cgroup-not-empty`;
@@ -926,7 +888,7 @@ Reuse disclosure is stored only in the envelope's `operationalRecords`, never in
 
 An RSS baseline (`baselinePeakRssBytes`, r9 and earlier) is never used as a denominator, and the field is removed.
 
-Without a compatible charged-memory baseline, a **complete** row's status is `no-baseline`: an **initial measurement**, never `within`. Any slot reason keeps the row `incomplete`, and that takes precedence. The validator checks the basis record against the row for compatibility on every field above: the measurement, the reset and cache policy with charge ownership, the kernel release, the runner class and the entry method (C2-Q0-R10-N04). The §5.2 absolute byte budgets are written for process-tree RSS (AQP:364-369). Comparing `cgroupMemoryPeak` against them is reported only as an informational, exploratory **absolute-charge comparison** (`absoluteChargeComparison`). It never sets the row's status until D13 decides equivalence (OI-2). Elapsed time keeps its own `baselineMedianNanos`.
+Without a compatible charged-memory baseline, the row's status is `no-baseline`: an **initial measurement**, never `within`. The validator checks the basis record's declared measurement and the run's runner class and entry method for compatibility. The §5.2 absolute byte budgets are written for process-tree RSS (AQP:364-369). Comparing `cgroupMemoryPeak` against them is reported only as an informational, exploratory **absolute-charge comparison** (`absoluteChargeComparison`). It never sets the row's status until D13 decides equivalence (OI-2). Elapsed time keeps its own `baselineMedianNanos`.
 
 **Complete and incomplete results (QD-25, for C2-Q0-R1-07).** Each workload, workflow, reset, control and batch result is either complete or incomplete.
 - **Complete:** 3 warmups and 7 measured runs, with every elapsed value and every `cgroupMemoryPeakBytes` value present. Status is `within`, `over` or `no-baseline`.
@@ -936,7 +898,7 @@ Without a compatible charged-memory baseline, a **complete** row's status is `no
 
 | Reasons | Quantities that are null in that measured slot | Quantities kept |
 |---|---|---|
-| `run-failed`, `timeout`, `cgroup-not-empty`, `settlement-failed` | elapsed and `cgroupMemoryPeakBytes` | none. A failed run's numbers are not samples. A run with processes left behind did not end within the elapsed definition (§9.3 step 5). |
+| `run-failed`, `timeout`, `cgroup-not-empty` | elapsed and `cgroupMemoryPeakBytes` | none. A failed run's numbers are not samples. A run with processes left behind did not end within the elapsed definition (§9.3 step 5). |
 | `cgroup-unavailable`, `cgroup-v1-only`, `cgroup-no-delegation`, `cgroup-escape-unprevented`, `cgroup-isolation-unverified`, `cgroup-read-failed`, `memory-peak-unverified`, `memory-peak-unavailable-platform` | `cgroupMemoryPeakBytes` | elapsed |
 | `record-missing`, `record-invalid` | none | both. Only the operational evidence (phases, reuse disclosure and the informational per-process maxima) is missing, which shows as `phaseTimingsPresent: false` with a `phaseAbsenceReason` (§9.4). |
 
@@ -959,12 +921,10 @@ A row is `incomplete` whenever **any** slot has a reason, **including a row in w
   - **Aggregates.** The median is non-null exactly when all seven elapsed values are, and `maxCgroupMemoryPeakBytes` exactly when all seven peaks are.
   - **Leaf evidence (revised for C2-Q0-R9-03).** Leaf evidence comes from the **driver**, not from the product's operational record, so a missing operational record (`record-missing`) never removes it. The envelope carries one `cgroupLeaves[]` row per (`batchId`, slot) for every warmup, measured and priming slot. Each row has either:
     - a created leaf: `leafName` (`run-<batchId>-<slot>`) and `leafInode`, with `absentReason` null; or
-    - no leaf: `leafName` null, and `absentReason` naming why. That reason must be one of the **batch-level, before-creation** reasons (§9.3 step 1; C2-Q0-R10-02): `cgroup-unavailable`, `cgroup-v1-only`, `cgroup-no-delegation`, `memory-peak-unavailable-platform`, `cgroup-escape-unprevented` (no `nsdelegate`) or `cgroup-isolation-unverified` (the batch-start outside-process check). The same reason must appear in that slot's `slotReasons`.
-
-    The last two reasons can also arise **after** a leaf is created (a failed namespace creation, a failed mount invariant or descriptor audit, an outside exec). Those rows carry a `leafName`. The evidence records which case happened, and the validator never infers it. `cgroup-read-failed` and `cgroup-not-empty` exist only after creation and never appear in an absent row. A slot with no leaf settles by reaping (§9.3 step 5), and its elapsed value is kept unless a reason in the QD-27 table nulls it.
+    - no leaf: `leafName` null, and `absentReason` naming why. That reason must be one of `cgroup-unavailable`, `cgroup-v1-only`, `cgroup-no-delegation` or `memory-peak-unavailable-platform`, and the same reason must appear in that slot's `slotReasons`. Other reasons (for example `cgroup-escape-unprevented`, `cgroup-isolation-unverified`, `cgroup-read-failed` or `cgroup-not-empty`) arise after a leaf was created, so their rows carry a `leafName`.
 
     Distinctness is checked **only among created leaves**: two rows naming the same leaf make the envelope invalid. A slot with no `cgroupLeaves[]` row also makes it invalid.
-  - **Baselines.** A complete row whose status is `within` or `over` must carry non-null `baselineMedianNanos`, `baselineCgroupMemoryPeakBytes` and `baselineBasisDigest`. The referenced basis must match the row on the measurement (`cgroupMemoryPeak`), the reset and cache policy with charge ownership, the kernel release, the runner class and the entry method. Otherwise a complete row's status must be `no-baseline`, and an incomplete row stays `incomplete`.
+  - **Baselines.** A row whose status is `within` or `over` must carry non-null `baselineMedianNanos`, `baselineCgroupMemoryPeakBytes` and `baselineBasisDigest`, and the referenced basis must declare `cgroupMemoryPeak` with a matching runner class and entry method. Otherwise the status must be `no-baseline`.
 
   A violation makes the envelope invalid, not merely the row incomplete.
   - **Phase evidence.** `phaseTimingsPresent` is true exactly when every measured slot has a valid record. `phaseAbsenceReason` is null exactly when `phaseTimingsPresent` is true; otherwise it names the first applicable reason, in the order `record-missing`, `record-invalid`, `phase-missing`, `negative-unattributed`.
@@ -1021,24 +981,6 @@ A row is `incomplete` whenever **any** slot has a reason, **including a row in w
     - accepted: `cgroup-isolation-unverified` nulling memory only;
     - rejected: it also nulling elapsed.
   - **A reference model of the isolation checks:** the launcher passes only with fds equal to the allowlist, every `cgroup2` mount read-only and rooted at the namespace root, no dumpable same-uid outside process, and an unchanged inode and controllers at the read. Each injected violation gives `cgroup-isolation-unverified`.
-
-- **Reference cases added in r11.**
-  - **Mount setup (R10-01).** A model of the launcher's `mountinfo`:
-    - the inherited writable `cgroup2` plus the fresh read-only mount after detaching gives exactly one entry, so the check passes;
-    - overmounting without detaching leaves two entries and gives `cgroup-isolation-unverified`;
-    - a writable alias that was not detached gives `cgroup-isolation-unverified`;
-    - a cgroup v1 entry that was not detached gives `cgroup-isolation-unverified`;
-    - a failed detach gives `cgroup-isolation-unverified`.
-  - **Before-creation reasons (R10-02).**
-    - accepted: absent rows with `cgroup-escape-unprevented` or `cgroup-isolation-unverified` that match `slotReasons`;
-    - accepted: unavailable Linux and macOS with absent leaves and every elapsed value known;
-    - rejected: an absent row with `cgroup-read-failed`, and an absent row whose reason is not in `slotReasons`.
-  - **No-leaf settlement.**
-    - a model gives `settled` once the root is reaped and `ECHILD`, without consulting the cgroup;
-    - a stuck descendant at the limit gives `settlement-failed`.
-  - **`settlement-failed` in the validator:** accepted when it nulls both values, rejected when it keeps elapsed.
-  - **Baselines (N04):** a basis that differs in kernel release, or in cache policy, is rejected for `within`.
-  - **The descriptor audit (N02):** the listed set {0, 1, 2, *a*} passes. After *a* is closed, the exec set is {0, 1, 2}.
 
 - **Flips.** A non-pass followed by a pass is counted as a `flip`. Three flips in any ten consecutive CI runs of a workload send that workload to noise review.
 
@@ -1212,7 +1154,7 @@ The rejected alternative was to delay every producer behind all three lane oracl
 
 ## Lead decisions in this record
 
-QD-1 integer millionths and directional rounding · QD-2 outcome table · QD-3 proposition class · QD-4 JSON Lines ledger with a hash chain · QD-5 hard components and the full truth-input closure · QD-6 the separated populations · QD-7 the 20-minute time box · QD-8 calibration numbers · QD-9 agreement triggers · QD-10 the model-family rule · QD-11 family-weighted estimand · QD-12 independence families · QD-13 the cluster product bound · QD-14 *k*_min · QD-15 the two-sided pooled guard · QD-16 mutant states · QD-17 differential execution boundary · QD-18 determinism variants · QD-19 process inventory and own RSS counters (its mechanism replaced by QD-30) · QD-20 CI retry, batches and batch joins · QD-21 runner additions · QD-22 tree digest · QD-23 held-out exposure · QD-24 advisory water-filling allocation · QD-25 complete and incomplete performance results · QD-26 the K2 lane-freeze gate · QD-27 reason-to-quantity nulling · QD-28 the start-identity key and exact-equality host join · QD-29 generation safety (withdrawn in r8) · QD-30 ptrace exit-stop collection (withdrawn in r9) · QD-31 the tracing-overhead rule (withdrawn in r9) · QD-32 cgroup v2 `memory.peak` per fresh leaf, with cgroup-namespace escape prevention · QD-33 descriptor, mount (detach-then-mount) and control-ownership isolation · QD-34 charged-memory baselines.
+QD-1 integer millionths and directional rounding · QD-2 outcome table · QD-3 proposition class · QD-4 JSON Lines ledger with a hash chain · QD-5 hard components and the full truth-input closure · QD-6 the separated populations · QD-7 the 20-minute time box · QD-8 calibration numbers · QD-9 agreement triggers · QD-10 the model-family rule · QD-11 family-weighted estimand · QD-12 independence families · QD-13 the cluster product bound · QD-14 *k*_min · QD-15 the two-sided pooled guard · QD-16 mutant states · QD-17 differential execution boundary · QD-18 determinism variants · QD-19 process inventory and own RSS counters (its mechanism replaced by QD-30) · QD-20 CI retry, batches and batch joins · QD-21 runner additions · QD-22 tree digest · QD-23 held-out exposure · QD-24 advisory water-filling allocation · QD-25 complete and incomplete performance results · QD-26 the K2 lane-freeze gate · QD-27 reason-to-quantity nulling · QD-28 the start-identity key and exact-equality host join · QD-29 generation safety (withdrawn in r8) · QD-30 ptrace exit-stop collection (withdrawn in r9) · QD-31 the tracing-overhead rule (withdrawn in r9) · QD-32 cgroup v2 `memory.peak` per fresh leaf, with cgroup-namespace escape prevention · QD-33 descriptor, mount and control-ownership isolation · QD-34 charged-memory baselines.
 
 ## Not claimed
 
