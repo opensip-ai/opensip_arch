@@ -1,6 +1,6 @@
-# M3-Q0 quality-harness design record — r8
+# M3-Q0 quality-harness design record — r6
 
-Draft r8. Claude Opus 5.5, implementation lead. Unit **M3-Q0** of the accepted M3 unit plan (`M3-PLAN.md:157`).
+Draft r6. Claude Opus 5.5, implementation lead. Unit **M3-Q0** of the accepted M3 unit plan (`M3-PLAN.md:157`).
 
 r1 (`DESIGN-r1.md`, sha256 `22df1afb…`, 65,990 bytes; schema `exploratory-quality-envelope.schema.v1-r1.json`, `4cdfbb60…`, 23,190 bytes) was reviewed by CODEX2 (method; `/tmp/opensip-implementation/reviews/codex2-harness-q0-r1/`), with 8 required findings and 5 non-blocking observations. r2 answers all of them. CODEX2 confirmed the cluster-product bound and the 29/299 floors as sound, so they are unchanged.
 
@@ -11,10 +11,6 @@ r3 (`DESIGN-r3.md`, sha256 `b69c918f…`, 101,902 bytes; schema `exploratory-qua
 r4 (`DESIGN-r4.md`, sha256 `f7afe275…`, 107,617 bytes; schema `exploratory-quality-envelope.schema.v1-r4.json`, `b6c7d8ae…`, 53,642 bytes) was reviewed by CODEX2 (`/tmp/opensip-implementation/reviews/codex2-harness-q0-r4/`), with one required finding. r5 answers it and changes nothing else.
 
 r5 (`DESIGN-r5.md`, sha256 `d922f5bd…`, 111,807 bytes; schema `exploratory-quality-envelope.schema.v1-r5.json`, `3f79b979…`, 53,696 bytes) was reviewed by CODEX2 (`/tmp/opensip-implementation/reviews/codex2-harness-q0-r5/`), with one required finding and one non-blocking observation. r6 answers both and changes nothing else.
-
-r6 (`DESIGN-r6.md`, sha256 `3a17a943…`, 118,963 bytes; schema `exploratory-quality-envelope.schema.v1-r6.json`, `da73a476…`, 53,696 bytes) was reviewed by CODEX2 (`/tmp/opensip-implementation/reviews/codex2-harness-q0-r6/`), with one required finding and two non-blocking observations. r7 answers them, and records a simpler alternative as OI-19.
-
-r7 (`DESIGN-r7.md`, sha256 `c72f71ba…`, 124,649 bytes; schema `exploratory-quality-envelope.schema.v1-r7.json`, `1afd2709…`, 53,752 bytes) closed C2-Q0-R6-01 and proposed OI-19. The lead then **decided to adopt OI-19**. r8 implements that decision and changes nothing else.
 
 ## Standing
 
@@ -45,29 +41,6 @@ Short names, as in the accepted plans:
 - **ENV:** `docs/implementation/m3/harness/exploratory-quality-envelope.schema.v1.json` (drafted with this record)
 
 ---
-
-## r8 changes: lead decision to adopt OI-19
-
-| Item | Section | Change |
-|---|---|---|
-| **Lead decision (QD-30)** | §9.3 | Figure (b) on Linux is collected by ptrace: `PTRACE_SEIZE` with the TRACEFORK, VFORK, CLONE, EXEC, EXIT, SECCOMP and EXITKILL options. The exiting thread's `VmHWM` is read at each `PTRACE_EVENT_EXIT` stop, and the group's final value is the last thread's read. A seccomp `SECCOMP_RET_TRACE` exec stop reads each image before exec, and `PTRACE_GETEVENTMSG` re-keys a non-leader exec. Group-stops are held with `PTRACE_LISTEN`, and signals are reinjected unchanged. On harness death the tree is killed (`tracer-died`); on a controlled failure every tracee is detached (`tracer-failed`). |
-| Withdrawn | §9.3, QD-19, QD-29 | The process-event connector, taskstats records, the census, the K/L/S fences, the per-CPU sequence proofs and post-S probes, and `pre-exec-image-unmeasured`. |
-| Rejected alternatives, recorded | §9.3 | Keeping r7's mechanism: four rounds of gaps, and unproven until calibration. Budgeting on the concurrent sum alone: it needs an AQP/LQM successor (AQP:329; LQM:925). |
-| Completeness proof | §9.3 step 7 | Now structural: every task is attached before it runs; every thread ends in an observed exit stop with a read, or an observed termination without one (`own-counter-missing`); every exec is read; and the harness survives the run. |
-| Interactions | §9.3 steps 8–10 | Yama: scope 3 or a failed attach is `tracer-unavailable`. O7: seccomp stacks most-restrictive-wins, Landlock permits tracing from outside the domain, the tracer never changes a tracee's state, and K1c checks that confinement denials survive tracing. Overhead: K1c measures it, and the preregistered QD-31 rule chooses combined or split (`rssBatchId`) RSS collection. macOS is unchanged (`incomplete`). |
-| Host join | §9.3 | Kept as an exact-equality join on (tgid, field-22 ticks). The harness key is now read race-free at the attach stop. PID and time namespaces must match. |
-| Deviation from the decision text | §9.3 step 3 | `VmHWM` is read from the exiting thread's `/proc/<tgid>/task/<tid>/status`, not the leader's, because an early-exiting leader has already released its address space. The value is group-wide, and K1c verifies this. |
-| Schema | ENV | Withdrawn reasons removed (unused; nothing depends on them): `pre-exec-image-unmeasured`, `inventory-incomplete`, `unregistered-process`, `subscription-unverified`, `event-loss`, `unjoinable-identity`, `terminal-record-missing`, `terminal-record-duplicate`, `drain-timeout`, `cpu-coverage-unproven`. Added: `tracer-unavailable`, `tracer-died`, `tracer-failed`, `untraced-process`. Q6 rows carry `rssCollection` and `rssBatchId`. `runner.calibration` gains `yamaPtraceScope`, `tracingOverheadPpm` and `rssCollectionMode`, and drops `spawnIsCloneVm`. |
-| Tests | §9.3 calibration, §9.5 | New calibration success and incomplete cases, schema and validator cases, and a structural-proof reference model. |
-
-## r7 changes and review responses
-
-| Finding | Section | Change |
-|---|---|---|
-| C2-Q0-R6-01 (per-CPU coverage through S) | §9.3 steps 3 and 4, calibration, QD-27, ENV `runReason` | Once S's connector exit has been received, a post-S probe runs pinned to every online CPU. Each CPU's sequence-gap proof runs from its pre-launch sentinel through its post-S probe, and S stays the attribution cutoff. Coverage that cannot be proven (a CPU offline, pinning failed, or a probe missing) is `incomplete` with the new reason `cpu-coverage-unproven`, which nulls (b) and the peak only. Calibration adds the reviewed lost-late-birth sequence, which must give `event-loss`, and three unproven-coverage cases. |
-| N01 | §9.3 step 4 | The sufficiency argument is reworded around single-socket enqueue order and pre-reap ordering only. |
-| N02 | §9.3 calibration | The pre-launch-exit case is qualified: a census or window-birth predecessor gives `unjoinable-identity`. |
-| (lead) | OI-19 | A simpler synchronous alternative is recorded for the coordinator's decision: ptrace exit-stop collection of `VmHWM`. |
 
 ## r6 changes and review responses
 
@@ -550,8 +523,7 @@ Before any acceptance measurement, the freeze record (§1.5) pins a **preregistr
 - the family map and the held-out set, with its exposure history (QD-23);
 - the advisory allocation, below;
 - the pooled guard and the status order (§5.6);
-- the rounding rule (QD-1);
-- the tracing-overhead rule that chooses combined or split RSS collection (QD-31, §9.3).
+- the rounding rule (QD-1).
 
 **Advisory allocation (QD-24, revised for C2-Q0-R1-02).**
 - **Unit and floor.** The floor applies to each stratum (rule × language × mode), which satisfies AQP:228's "at least 100 per rule per language". It applies separately to the held-out and the development evidence sets. Let *N_j* be family *j*'s corpus count in the stratum and evidence set, and *T* = min(100, Σ*N_j*).
@@ -750,106 +722,105 @@ Warmups therefore never turn cold samples warm. The page cache is never claimed 
 
 The run's value is the **larger of (a) and (b)**. The cell statistic is the maximum of the seven run values (AQ:270; PQV:28). A sampled peak is never used as an own counter. A run whose process inventory or counter collection is incomplete is NON-PASS (LQM:925) and recorded as `incomplete` (§9.5), never filled in.
 
-**Process inventory and own counters (QD-30, lead decision in r8; replaces QD-19's event-channel mechanism and QD-29).**
+**Process inventory and own counters (QD-19, revised for C2-Q0-R1-05).**
 
-**The decision.** The lead adopted OI-19 after the r7 review. Figure (b) on Linux is collected **synchronously by tracing**, not from asynchronous kernel event channels. r2–r7's mechanism (the process-event connector, taskstats exit records, the window-open census, the K/L/S fences and the per-CPU sequence proofs) is withdrawn. Two alternatives were rejected:
-- **Keeping r7's mechanism.** Each of four review rounds (C2-Q0-R2-01, R4-01, R5-01 and R6-01) found another way a silently dropped message could produce a false complete result, and the mechanism would stay unproven until K1c calibrated it on the D12 kernel.
-- **Budgeting on the concurrent sum (a) alone.** AQP declines that measurement choice ("Using the concurrent sum alone would be a new measurement choice; this plan does not make it", AQP:329), and LQM:925 requires the larger of the two figures. Adopting it would need an AQP/LQM successor from the DR-G13 owners (QG:264).
+*Lifetime identity and de-duplication.* A process lifetime is identified by its tgid together with the connector event that opened it, and, for joins, by the start-identity key defined in step 4 below: (tgid, `/proc/<tgid>/stat` field 22, in clock ticks). No timestamp from any other clock is used for identity. Threads are not separate lifetimes, because they share the process's address space.
 
-Tracing keeps both accepted figures unchanged.
+An `exec` keeps the key but replaces the address space, so a lifetime is split into **image segments** at each exec. Each segment needs its own counter, with one exception: a segment that has no address space of its own (a `CLONE_VM` spawn, which has vfork/posix_spawn semantics) needs none. K1c establishes once per runner and pinned toolchain whether the supervisor's spawn path is `CLONE_VM`. It does this by tracing a calibration run's clone flags, and records the result in the runner record. Otherwise every pre-exec segment lacks a counter, and the run is incomplete with the reason `pre-exec-image-unmeasured`. A second exec within one lifetime has the same effect.
 
-*Linux, the D12 reference platform (AQP:534).*
+*Linux, the D12 reference platform (AQP:534). Completeness must be proven positively (QD-19, revised for C2-Q0-R2-01).* An empty cgroup plus the exits the harness happened to collect proves nothing. `cgroup.procs` excludes zombies, `populated` describes only live processes, and both event channels can lose messages. So figure (b) is **complete only when every item of the proof below holds for that run**. If any item fails, or cannot be evaluated, the run is `incomplete` with a typed reason. Completeness is never inferred from absence: a missing event, record or error is never read as "nothing happened". The kernel facts this relies on (per-CPU taskstats registration and its receive-buffer loss, `ac_tgid`, the `AGROUP` flag on the last thread's record, connector sequence numbers and send failures) are taken from the pinned kernel's documentation and source, as cited in CODEX2's review (`/tmp/opensip-implementation/reviews/codex2-harness-q0-r2/REVIEW.md`). They are **re-verified by K1c's calibration on the pinned D12 kernel**, whose version is recorded in the runner record. Until that calibration passes, Linux runs are `incomplete` with the reason `own-counter-unverified`.
 
-1. **Attaching the root.** The harness forks the workload root. Before the root executes the measured binary, it:
-   - sets `PR_SET_NO_NEW_PRIVS`;
-   - installs the harness's exec-trace seccomp filter (step 4);
-   - stops itself.
+1. **Channels.**
+   - **Process events:** the kernel process-event connector (fork, exec and exit events, each carrying the CPU, a per-CPU sequence number, a timestamp, and pid and tgid).
+   - **Own counters:** the taskstats per-task exit records from generic netlink `TASKSTATS`, with extended accounting.
+   - **Containment:** the workload runs in a dedicated cgroup v2 group, which every descendant inherits.
+2. **Acknowledged subscription before launch.**
+   - The harness registers its taskstats listener for **every online CPU** and requests an acknowledgement. It subscribes to the connector with no event filter.
+   - It records the online-CPU set, and enlarges both receive buffers.
+   - It then runs a **pre-launch sentinel on every online CPU**: a short child pinned to that CPU, which forks and exits. The harness must receive, for each sentinel, its fork and exit events and its taskstats terminal record. That proves both channels are live on every CPU.
+   - Failure is `subscription-unverified`.
+3. **Loss detection during the run.** Any one of these makes the run `incomplete` with the reason `event-loss`:
+   - any receive error or overrun (`ENOBUFS`) on either socket;
+   - any gap in a CPU's connector sequence numbers between that CPU's pre-launch and post-run sentinels;
+   - any change to the online-CPU set during the run.
+4. **Stable identity and the start-identity bridge (revised for C2-Q0-R4-01).**
+   - A **thread group lifetime** opens on the fork event that creates a new thread group (child pid = child tgid) whose parent chain, built from fork events, reaches the workload root. Internally it is identified by (tgid, the opening event's CPU and connector sequence number). That is an event position, not a time.
+   - **Generation safety (QD-29, for C2-Q0-R5-01).** Seeing one birth inside the window does not exclude a predecessor that was born before the window, ends during it, and has its tgid reused by the subtree. Terminal records carry only `ac_tgid`, and taskstats can omit a report on allocation failure without any receive error or connector sequence gap. So attribution is restricted to tgids whose only possible generation in the window is the counted subtree lifetime, and that is proven with **three fences**. Each fence is a harness-owned sentinel process. Each fence works by position in a single socket's receive queue, so no clock is involved.
+     - **K, the census fence.** Sentinel K forks. Every connector event received after K's fork event is a **window event**. After K's fork event has been received, the harness reads every live tgid in `/proc` (the initial PID namespace's `/proc`, below), with its field-22 start ticks. This is the **window-open census**.
+     - **L, the launch fence.** After the census completes, sentinel L exits, and the workload root is launched only once L's taskstats record and its connector exit event have both been received.
+     - **S, the close fence.** The post-run sentinels of step 6 exit, and the last of them defines S. Its taskstats record closes the attribution range of the taskstats channel. Its **connector exit event**, not its fork event, closes the window on the connector channel.
+   - **Why the fences are sufficient.** The kernel orders the events of one process: fork notification before the child runs, taskstats exit record before reaping, and connector exit notification after that (C2-Q0-R3 and C2-Q0-R5 review source checks; re-verified by K1c). Each socket delivers in enqueue order. Consider any process G whose terminal record falls between L's record and S's record in the taskstats queue.
+     - G exited after L. So G was either alive throughout the census, in which case it is in the census, or born after K's fork, in which case its fork event is a window event.
+     - G exited before S exited. So G's fork event was enqueued before S's connector exit event, and has been received by the time the window closes.
 
-   The harness then attaches with `PTRACE_SEIZE`, with these options:
-   - `PTRACE_O_TRACEFORK`, `PTRACE_O_TRACEVFORK` and `PTRACE_O_TRACECLONE`, so every new process and thread is attached by the kernel at creation and starts in a ptrace stop before running any of its own code;
-   - `PTRACE_O_TRACEEXEC` and `PTRACE_O_TRACEEXIT`;
-   - `PTRACE_O_TRACESECCOMP`;
-   - `PTRACE_O_EXITKILL`, so the traced tree is killed if the harness dies (step 7).
+     Every generation that can produce an in-range terminal record is therefore **known**: it is either a census entry or a window birth.
+   - **Attribution rules.**
+     1. **Ambiguous generations are unjoinable.** If a subtree lifetime's tgid is in the window-open census, or has any other window birth (in the subtree or outside it), the run is `incomplete` with the reason `unjoinable-identity`. The census start ticks are recorded but never used to resolve the ambiguity.
+     2. **Exactly one counted lifetime per terminal record.** An `AGROUP` terminal record received between L's and S's records is attributed only when its `ac_tgid` belongs to a subtree lifetime whose tgid has exactly one known generation: that lifetime's own window birth, absent from the census. Two records for that tgid in range, or none, is `terminal-record-duplicate` or `terminal-record-missing`.
+     3. **Outside the range.** Records received before L's record are pre-window and are never attributed. Records after S's record are post-window and are never attributed. If such a record carries a subtree tgid, it is recorded but cannot satisfy rule 2. A subtree lifetime whose only terminal record is outside the range is `terminal-record-missing`.
+     4. **No start-time check from taskstats.** Taskstats has no start-time field in field 22's representation. Its begin-time fields (`ac_btime`, and `ac_btime64` where present) are wall-clock epoch values, so using them would need a clock conversion, and r6 does not use them. Rules 1–3 carry attribution alone.
+   - **In the reviewed sequence** (C2-Q0-R5-01), predecessor A is alive at the census, and subtree B reuses A's tgid. Rule 1 makes the run `incomplete` whatever order A's record, B's missing record and A's late connector exit arrive in.
+   - **PID namespace and `/proc` view (C2-Q0-R5-N01).** The connector and taskstats report initial-namespace pids and tgids. So the harness, and the host's operational-record entries, must use initial-PID-namespace tgids, read through a `/proc` mounted for that namespace. The harness records the PID-namespace identity (`/proc/<pid>/ns/pid`) of itself, the host and pid 1, and requires all three to be equal. If they differ, every attribution and host join in the run is unresolved: `unjoinable-identity` and `host-join-unresolved`.
+   - **The start-identity key (QD-28).** On each fork or exec event of a subtree lifetime, the harness reads field 22 (`starttime`) of `/proc/<tgid>/stat`, an integer count of clock ticks. The kernel fixes the start time before the fork notification (C2-Q0-R4-01), so the value read after the event is that process's own start, not an interval endpoint. The lifetime's start-identity key is (tgid, `starttimeTicks`).
+     - **Gone.** If every read fails (ENOENT or ESRCH, because the process was already reaped), the lifetime has **no** key.
+     - **Inconsistent.** If two successful reads for one lifetime differ (a fork read against an exec read), the key is inconsistent and unusable.
+   - **One representation, no conversion.** The host's per-process entries in the operational record carry the same pair: tgid and `/proc/<tgid>/stat` field 22. The parent reads it **before reaping** that child, so the pid cannot have been reused at the time of the read. That is an interface requirement on the operational record, carried by OI-11. Both values are the same kernel field in the same unit, so the join compares integers. **No clock conversion is performed anywhere in the join.** Field 22 is adjusted for the reader's time namespace, so the harness records its own and the host's time-namespace identity (`/proc/<pid>/ns/time`). If they differ, every host join in the run is unresolved.
+   - Lifetime history, with the keys, is kept for the whole run, so that host entries delivered late can still be joined.
+   - Exec events split the lifetime into the image segments described above.
+   - A connector event for a subtree tgid that has no open lifetime is `unjoinable-identity`. Taskstats records follow the attribution rules above.
+5. **Terminal record selection and de-duplication.**
+   - Each thread emits a per-task record at exit. The **terminal** record for a lifetime is the single `AGROUP` record (the group's last exiting thread) that the QD-29 attribution rules assign to that lifetime. Matching `ac_tgid` alone is never enough.
+   - Its `hiwater_rss` (KiB, converted ×1024) is the high-water of the shared address space at group exit, so it covers a worker that raised the peak after an early-exiting leader.
+   - Non-terminal per-thread records are **never summed**, because that would count one address space several times. Each is only checked to be ≤ the terminal value, and a violation is a defect.
+   - Zero terminal records, or more than one, for a lifetime is `terminal-record-missing` or `terminal-record-duplicate`.
+6. **Draining and completion.** After the workload root has exited and the cgroup reports `populated 0`, the harness keeps reading both channels, and runs a **post-run sentinel on every online CPU**. Draining ends only when both of these hold:
+   - every lifetime opened in step 4 has exactly one terminal record and a connector exit event for each of its threads;
+   - every post-run sentinel's fork, exit and terminal record has arrived, and with them fence S (step 4). That is a fence on the workload's **birth history**: no workload fork can arrive later on that CPU. It is not a fence on exit notifications, which can arrive after a sentinel, and the first condition covers those (C2-Q0-R3-N01).
 
-   `PTRACE_SEIZE` is used rather than `PTRACE_ATTACH` or `PTRACE_TRACEME`, so the harness never injects a `SIGSTOP`, and group-stops are reported as `PTRACE_EVENT_STOP` (step 6).
-2. **Identity.** Every traced thread is known by its tid from the moment of its attach stop, and its thread group by its tgid. While a process is stopped at its attach stop, it can be neither reaped nor have its pid reused. So the harness reads `/proc/<tgid>/stat` field 22 there, and the start-identity key (tgid, `starttimeTicks`) is always obtained without a race.
-   - **Thread-group membership** comes from `PTRACE_EVENT_CLONE` with `CLONE_THREAD`.
-   - **Termination.** A traced thread's termination is reported to the harness through `waitpid(…, __WALL)`, and its tid cannot be reused until the harness has collected that report. Identity therefore never depends on ordering between channels.
-3. **The own counter at exit.** At each thread's `PTRACE_EVENT_EXIT` stop, its address space is still attached. The harness reads `VmHWM` (KiB, ×1024) from `/proc/<tgid>/task/<tid>/status` for the exiting thread.
-   - Threads share one address space and `VmHWM` never decreases, so the thread group's value for the current image is the read taken at the exit stop of the **last** thread of the group to exit. The harness tracks the live-thread count from clone and exit events. Every earlier read must be ≤ the final one; a violation is a defect.
-   - **Deviation from the decision text, flagged.** The decision text says to read from the leader. If the leader thread exits first, it has already released its address space, and `/proc/<tgid>/status` then has no `Vm*` fields. So r8 reads the exiting thread's own task entry. That gives the same group-wide value. K1c verifies this, including a leader that exits first.
-4. **Exec, image segments and the tgid change.**
-   - **Before an exec.** The harness's seccomp filter returns `SECCOMP_RET_TRACE` for `execve` and `execveat` only. Every exec attempt therefore stops at syscall entry, while the old address space is still mapped. The harness reads the old image's `VmHWM` there, which closes that image segment. If the exec then fails, the segment simply continues, and its final value is the larger of the two reads.
-   - **After an exec.** `PTRACE_EVENT_EXEC` opens the new segment. If a non-leader thread executed the exec, the kernel gives it the tgid's identity, and the harness reads the former tid with `PTRACE_GETEVENTMSG` to re-key it. The group's other threads take exit stops first, and those reads belong to the old segment.
-   - **Effect.** Every image, including the pre-exec copy left by a `fork` without `CLONE_VM`, now has its own counter. r2's `pre-exec-image-unmeasured` is withdrawn.
-   - **Stacking with the product's filter.** The filter stacks with any filter the product installs. Seccomp applies the most restrictive action across filters, so a product filter that denies `execve` still denies it. The harness filter only adds a trace stop and never allows anything that another filter forbids.
-5. **Figure (b)** is the sum, over every thread group and every image segment, of that segment's final `VmHWM`. Each segment is counted once, and no per-thread values are summed.
-6. **Not perturbing the workload.** The harness never alters a tracee's registers, memory or syscalls.
-   - **Signals.** Each signal-delivery stop resumes with exactly the signal that was delivered, so signals are reinjected unchanged and none is suppressed or added.
-   - **Group-stops.** These are reported as `PTRACE_EVENT_STOP`, and the harness holds them with `PTRACE_LISTEN`, so job-control semantics (`SIGSTOP`, `SIGTSTP`, `SIGCONT`) are preserved.
-   - **Seccomp stops** for exec resume without change.
-7. **The completeness proof, now structural.** Figure (b) is complete when all of the following hold:
-   - **(i) Attached before running.** Every process and thread in the workload tree was created by a traced task and is therefore attached before its first instruction. The workload cgroup is kept only as a containment check: any pid found in it that the harness is not tracing is `untraced-process`.
-   - **(ii) Every end accounted.** Every traced thread ends in exactly one of two observed ways: an exit stop with a successful `VmHWM` read, or a termination reported by `waitpid` without one (for example after `SIGKILL`). The second case is `own-counter-missing`. The harness never treats a thread it has not heard from as finished.
-   - **(iii) Every exec read.** Every exec attempt produced its seccomp stop with a successful read. A failed read is `own-counter-missing`.
-   - **(iv) The harness survived the run.** If the harness's tracer process dies, `PTRACE_O_EXITKILL` kills the traced tree. The batch driver, which is the tracer's parent, observes the abnormal exit and records the run as `incomplete` with the reason `tracer-died`. A failure the harness itself detects (an internal error, or a read it cannot interpret) leads it to detach every tracee with `PTRACE_DETACH`, passing any pending signal on unchanged, and record `tracer-failed`. After that detach the exec-trace filter makes later exec calls fail with `ENOSYS`. The run is already incomplete, so this only stops the workload from continuing unmeasured.
+   A preregistered drain limit (default 10 s) that expires first gives `drain-timeout`.
+7. **Cross-join.** Every subtree lifetime from the connector has a terminal taskstats record, and every terminal record for a subtree tgid has a lifetime. Either kind of orphan makes the run incomplete. Because each process must appear on **both** channels, losing one message on one channel cannot hide a process.
 
-   No message can be lost silently: stops and `waitpid` reports are synchronous and are not dropped. So completeness follows from (i)–(iv). It needs no census, fences or loss counters.
-8. **Yama.** The harness reads `/proc/sys/kernel/yama/ptrace_scope` and records it.
-   - **Scope 0 or 1:** the harness may trace its own descendants.
-   - **Scope 2:** tracing requires `CAP_SYS_PTRACE`, which the D12 runner's harness must hold.
-   - **Scope 3, or any failed attach:** every run is `incomplete` with the reason `tracer-unavailable`. The run continues untraced, so elapsed time and figure (a) are still kept.
+**Calibration (K1c) must show both of the following (C2-Q0-R3-N02).**
 
-   AL2023's default scope is not assumed. K1c records it on the D12 image (OI-7).
-9. **O7 confinement (`M3-PLAN.md:308-345`).** Tracing must neither be blocked by confinement nor weaken it.
-   - **Seccomp** filters a tracee's own syscalls. It does not stop a parent from tracing it, and the harness's filter only adds a trace stop for exec.
-   - **Landlock** allows tracing from outside a domain into it, but not the other way round, and the harness sits outside the providers' domains.
-   - **No added capability.** Because the harness never changes a tracee's state (step 6), tracing gives the confined process no capability it lacked, and the harness is a TCB measurement component (AQ:209-210).
-   - **Calibration.** K1c checks this directly. A confined child under tracing must still have its denied network attempt and its write outside scratch refused, exactly as without tracing.
-   - **Hardening against tracing.** If a confinement step (for example `PR_SET_DUMPABLE` 0) prevents a `/proc` read, the result is `own-counter-missing`. Any product behaviour that detects tracing and changes course is a defect. K1c's traced-against-untraced determinism comparison (§8.4) checks for it.
-10. **Overhead on timing (Q6 elapsed).** Tracing stops the tree on clone, exec, exit, signal delivery and group-stop, so it can lengthen elapsed time. K1c measures the overhead on the calibration fixtures and on the S-M medium workloads by pairing traced and untraced batches. The preregistered rule (QD-31):
-    - **Combined mode.** If the median elapsed overhead is ≤ 1% **and** no larger than the untraced run-to-run spread, elapsed time and both RSS figures come from the same traced runs. The envelope declares `rssCollection: traced-same-runs`.
-    - **Split mode.** Otherwise, elapsed time is measured in an untraced batch, and RSS in a separate traced batch with the same 3 + 7 structure, linked by `rssBatchId`. The envelope declares `rssCollection: traced-separate-runs`.
+*Expected complete, with the correct value:*
+- **A short-lived child.** It allocates a known peak and exits within 1 ms. The run is complete, and that peak is in figure (b).
+- **An early leader.** The thread-group leader exits before a worker raises the peak. The run is complete, and the terminal record carries the later peak.
+- **Start precedes notification.** A host-reported child whose kernel start precedes its fork notification, as it always does. The harness's field-22 read equals the host's value, the exact-key join succeeds, and the run is complete with the host value applied.
 
-    The overhead measured by K1c is recorded in `runner.calibration.tracingOverheadPpm`. The rule is fixed in the preregistration (§5.7) before any measurement.
+*Expected `incomplete`, never complete:*
+- **Induced event loss.** A shrunken receive buffer under a fork storm must be detected as `event-loss`.
+- **Lost connector delivery.** The harness's test mode discards selected messages. The resulting sequence gap and the cross-join orphan must both be detected.
+- **Pid reuse within the run.** A stress run that forces a subtree tgid to be reused must give `unjoinable-identity`, never a join to the wrong lifetime.
+- **A predecessor born before the window (C2-Q0-R5-01).** An outside process A is alive at the census. During the run, A exits, and its tgid is reused by a subtree process B (forced through pid allocation in the test mode). A's terminal record is delivered late, B's taskstats report is suppressed by the harness test mode, and A's connector exit is delayed past S. The result must be `unjoinable-identity`, never complete.
+- **A pre-launch exit.** A process exits after K and before L, and its tgid is later reused by the subtree. Its record falls before L's, so it is never attributed. The successor's own record is required, and if it is suppressed the result is `terminal-record-missing`.
+- **A late outside reuse.** An outside process reuses an exited subtree tgid and exits before S. Its fork event is a window event, so the result is `unjoinable-identity`.
+- **A PID-namespace mismatch.** The host's entries come from a different PID namespace, and the result is unresolved.
+- **Unresolvable host join.** Each of these must give `host-join-unresolved`:
+  - a host-reported child reaped before the harness's read;
+  - a forced key mismatch;
+  - differing time namespaces.
 
-*macOS (lead workstation, and the later macOS lanes):* unchanged.
+**Diagnostics and figure (a).**
+- **Diagnostics only.** `VmHWM` polled from `/proc/<pid>/status` (a lower estimate) and `wait4` `ru_maxrss` (KiB on Linux, aggregated over the reaped subtree) are recorded as cross-checks. They are never used as figure (b).
+- **Concurrent sum (a).** The sum of `VmRSS` over the group's processes every 10 ms. It is a sampled figure, used only as AQP and LQM define it (LQM:925); it never proves inventory.
+
+*macOS (lead workstation, and the later macOS lanes):*
 - `wait4`'s resource usage covers the terminated process and its children, so `ru_maxrss` (bytes on macOS) is not an own counter. The harness has no identified own lifetime RSS high-water counter it can read for arbitrary descendants without privileged task access.
 - Every macOS run therefore records figure (b) as unavailable, with the reason `own-counter-unavailable-platform`. Its RSS is `incomplete`, and it can never be within budget. The concurrent sum (a) is still recorded, labelled diagnostic.
 - This matches the existing rule that macOS lead-workstation samples are never Q6-labelled (`M3-PLAN.md:158`). A macOS own-counter source must exist before any macOS G13 lane can qualify RSS (OI-18).
 
-*Joining host observations (QD-28, simplified in r8).* The host's operational record reports peak RSS per process (OPP:249), each entry with (tgid, `starttimeTicks`), which the parent reads before reaping, as an interface requirement carried by OI-11. The harness's key for the same process comes from its race-free read at the attach stop (step 2). The join is **exact integer equality** on that key, with no interval test and no clock conversion. Both keys must come from the same PID and time namespaces, which the harness verifies by recording `/proc/<pid>/ns/pid` and `/proc/<pid>/ns/time` for itself, the host and pid 1.
-- **Exactly one match.** The figure-(b) value for that segment is the larger of the harness counter and the host value. The host value can only raise a figure, never replace a missing harness counter.
-- **No match, more than one match, or a namespace mismatch.** The run is `incomplete` with the reason `host-join-unresolved`. The host value is kept and reported, never discarded, and no join is inferred.
-- **Host entry for a process the harness is not tracing.** This is `untraced-process`.
-- **Traced process with no host entry.** Allowed, because the host does not see every descendant.
+*Joining host observations (revised for C2-Q0-R4-01).* The host's operational record reports peak RSS per process (OPP:249), each entry with (tgid, `starttimeTicks`) as defined in step 4. The join is **exact equality** on that key, with no interval test and no clock conversion.
+- **Exactly one match.** The entry joins the single subtree lifetime with a usable key equal to the host's key, the time namespaces are equal, and the lifetime's tgid is unique (step 4). The figure-(b) value for that segment is then the larger of the harness counter and the host value. The host value can only raise a figure, never replace a missing harness counter.
+- **No match, or not resolvable.** The join is **unresolved** if:
+  - no lifetime has that key;
+  - the lifetime with that tgid has no key or an inconsistent key;
+  - the tgid is not unique;
+  - the time namespaces differ.
+
+  The run is then `incomplete` with the reason `host-join-unresolved`. The unmatched host value is **kept** in the operational record and reported, never discarded, and no join is inferred.
+- **Host entry for a tgid outside the subtree.** The inventory is incomplete (reason `unregistered-process`), so the run is NON-PASS.
+- **Registered lifetime with no host entry.** Allowed, because the host does not see every descendant. It is recorded.
 - **Host value higher than the harness counter.** A defect is filed.
-
-**Concurrent sum (a)** is the sum of `VmRSS` over the traced tree, sampled every 10 ms (LQM:925). It is unchanged, and it never proves the inventory. `wait4` `ru_maxrss` is recorded as a diagnostic only.
-
-**Calibration (K1c).** These cases are expected to be **complete**, with the correct value:
-- **A short-lived child.** It allocates a known peak and exits within 1 ms, and the peak is captured.
-- **A leader that exits first.** A worker raises the peak afterwards, and the last thread's read carries the later peak.
-- **Fork, then exec without `CLONE_VM`.** The pre-exec image's peak is captured at the seccomp exec stop.
-- **A failed exec, then continuation.** The segment continues, and its final value is the larger of the two reads.
-- **Exec by a non-leader thread.** The tid change is resolved with `PTRACE_GETEVENTMSG`, and the old-segment exit stops are attributed to the old segment.
-- **Job control.** `SIGSTOP`, `SIGCONT` and `SIGTSTP` sent to the workload keep their effect, held with `PTRACE_LISTEN`.
-- **Signal handlers.** `SIGTERM`, `SIGCHLD` and `SIGUSR1` produce the same observable behaviour traced and untraced.
-- **A daemonizing grandchild.** It stays traced after being reparented.
-- **The host join.** It succeeds on a host child, using the attach-stop key.
-- **Confinement.** A confined child under tracing still has its denials enforced.
-- **Determinism.** Results are equal traced and untraced (§8.4).
-
-These cases are expected to be **incomplete**, with the stated reason:
-- a thread killed by `SIGKILL` without an exit stop: `own-counter-missing`;
-- the harness killed mid-run: tree killed, `tracer-died`;
-- an injected internal error: all tracees detached, `tracer-failed`;
-- Yama scope 3, or a forced attach failure: `tracer-unavailable`;
-- a pid placed in the workload cgroup from outside: `untraced-process`;
-- a refused `/proc` read under hardening: `own-counter-missing`;
-- a host entry with no matching key: `host-join-unresolved`.
-
-**Overhead.** K1c also records the paired traced/untraced overhead that QD-31 uses.
 
 ### 9.4 Phase timings from the operational record
 
@@ -877,8 +848,8 @@ Reuse disclosure is stored only in the envelope's `operationalRecords`, never in
 
 | Reasons | Quantities that are null in that measured slot | Quantities kept |
 |---|---|---|
-| `run-failed`, `timeout`, `tracer-died` | elapsed, concurrent sum (a), own high-water sum (b), peak (the larger of a and b) | none. A failed run's numbers are not samples. |
-| `own-counter-missing`, `own-counter-unverified`, `own-counter-unavailable-platform`, `untraced-process`, `host-join-unresolved`, `tracer-unavailable`, `tracer-failed` | (b) and peak | elapsed and (a), which do not depend on the process inventory |
+| `run-failed`, `timeout` | elapsed, concurrent sum (a), own high-water sum (b), peak (the larger of a and b) | none. A failed run's numbers are not samples. |
+| `own-counter-missing`, `own-counter-unverified`, `own-counter-unavailable-platform`, `unregistered-process`, `host-join-unresolved`, `pre-exec-image-unmeasured`, `inventory-incomplete`, `subscription-unverified`, `event-loss`, `unjoinable-identity`, `terminal-record-missing`, `terminal-record-duplicate`, `drain-timeout` | (b) and peak | elapsed and (a), which do not depend on the process inventory |
 | `record-missing`, `record-invalid` | none | all four. Only the operational evidence (phases and reuse disclosure) is missing, which shows as `phaseTimingsPresent: false` with a `phaseAbsenceReason` (§9.4). |
 
 For warmup and priming slots no numeric samples are carried, so their reasons, typically `run-failed`, `timeout`, `record-missing` or `record-invalid`, affect only the batch's status.
@@ -904,7 +875,7 @@ A row is `incomplete` whenever **any** slot has a reason, **including a row in w
   - **Accepted:**
     - a warmup-0 `record-missing` with all 28 measured values known;
     - a measured-0 `record-missing` that keeps all four values;
-    - `own-counter-missing` that nulls (b) and the peak but keeps elapsed, (a) and the median (r4's `event-loss` example, re-expressed in r8);
+    - `event-loss` that nulls (b) and the peak but keeps elapsed, (a) and the median;
     - `run-failed` that nulls all four values in its slot.
   - **Rejected by the schema:**
     - empty `slotReasons`;
@@ -915,22 +886,24 @@ A row is `incomplete` whenever **any** slot has a reason, **including a row in w
     - a reasoned row that claims `within`.
   - **Rejected by the validator:**
     - `record-missing` that nulls a known elapsed value;
-    - `own-counter-missing` that also nulls (a);
-    - `own-counter-missing` that leaves (b) present;
+    - `event-loss` that also nulls (a);
+    - `event-loss` that leaves (b) present;
     - a null measured value with only a warmup reason;
     - duplicate slot rows.
-- **Reference cases from r5 to r7 (superseded in r8).** The r5 exact-key join cases still hold for the host join, now with keys read at the attach stop. The r6 and r7 attribution and per-CPU coverage cases tested the withdrawn event-channel mechanism and are retained only in `DESIGN-r7.md`.
-- **Reference cases added in r8 (QD-30).**
-  - **Accepted by the schema:** each new reason (`tracer-unavailable`, `tracer-died`, `tracer-failed`, `untraced-process`).
-  - **Rejected by the schema:** each withdrawn reason (for example `event-loss` and `cpu-coverage-unproven`), and a split-mode row without `rssBatchId`.
-  - **Accepted by the validator:** `tracer-died` that nulls all four values, and `tracer-unavailable` that nulls (b) and the peak only.
-  - **Rejected by the validator:** `tracer-unavailable` that nulls elapsed.
-  - **A reference model of the structural proof:**
-    - every thread with an exit-stop read is complete;
-    - a thread terminated without an exit stop is `own-counter-missing`;
-    - an exec attempt without a read is `own-counter-missing`;
-    - a tracer death is `tracer-died`;
-    - a cgroup pid that is not traced is `untraced-process`.
+- **Reference cases added in r5 (C2-Q0-R4-01).**
+  - **Accepted:** `host-join-unresolved` on measured slot 4 that nulls (b) and the peak only, keeping elapsed and (a).
+  - **Rejected by the validator:** `host-join-unresolved` that also nulls elapsed.
+  - **The join itself.** A reference implementation of the exact-key join was checked:
+    - it joins a host entry whose kernel start (10000 ticks) precedes the fork notification, when the harness's field-22 read is 10000;
+    - it returns unresolved for a failed read, a key mismatch from reuse, a tgid seen in two new-group forks, inconsistent fork and exec reads, and differing time namespaces;
+    - it never returns a join by proximity.
+- **Reference cases added in r6 (C2-Q0-R5-01).** A reference implementation of the QD-29 attribution was checked:
+  - **Attributes:** a subtree tgid absent from the census, with one window birth and one in-range `AGROUP` record.
+  - **`unjoinable-identity`:** the reviewed predecessor sequence (tgid in the census, its record in range, the successor's record missing), and a late outside reuse before S.
+  - **`terminal-record-missing`:** a record before L or after S only.
+  - **`terminal-record-duplicate`:** two in-range records.
+  - **Unresolved:** a PID-namespace mismatch.
+
   A violation makes the envelope invalid, not merely the row incomplete.
 - **Flips.** A non-pass followed by a pass is counted as a `flip`. Three flips in any ten consecutive CI runs of a workload send that workload to noise review.
 
@@ -949,8 +922,8 @@ It records the fields in `runnerRequired` (LQM:926-937): CPU model, OS version a
 - **Quiet.** No other lead run set (`M3-PLAN.md:270`), and a one-minute load average below 0.2 before each batch.
 - **Fixed CPU frequency policy,** with swap and power state recorded.
 - **Storage.** The corpus store is on the runner's local disk.
-- **Kernel interfaces.** On Linux: cgroup v2 (containment check only), ptrace with Yama scope 0 or 1 (or 2 with `CAP_SYS_PTRACE`), seccomp filters with `SECCOMP_RET_TRACE`, and the §9.3 calibration passed.
-- **Carrier (N04; batch-scoped for C2-Q0-R2-02).** Each batch records its observations in its own `batchObservations[]` row, keyed by `batchId`. That row holds: load average before the batch (milli-units), CPU frequency policy, swap bytes in use, power state, whether the corpus store is on local disk, and the online-CPU set before and after. The §9.3 calibration results are per runner and toolchain, so they stay in `runner.calibration`: kernel release, `ownCounterVerified`, `yamaPtraceScope`, `tracingOverheadPpm` and the QD-31 `rssCollectionMode`.
+- **Kernel interfaces.** On Linux: cgroup v2, the process-event connector and taskstats extended accounting, with the privileges they need, and the §9.3 calibration passed.
+- **Carrier (N04; batch-scoped for C2-Q0-R2-02).** Each batch records its observations in its own `batchObservations[]` row, keyed by `batchId`. That row holds: load average before the batch (milli-units), CPU frequency policy, swap bytes in use, power state, whether the corpus store is on local disk, and the online-CPU set before and after. The §9.3 calibration results (`ownCounterVerified`, `spawnIsCloneVm`, kernel release) are per runner and toolchain, so they stay in `runner.calibration`.
 
 **Labelling.** Samples from any other machine are labelled `lead-workstation` or `ci` (ENV `runner.runnerClass`) and are never Q6-labelled (`M3-PLAN.md:158`). For qualification at M6, the runner's identity and keys are authenticated under AQ:191-198; exploratory runs don't need that.
 
@@ -1099,12 +1072,11 @@ The rejected alternative was to delay every producer behind all three lane oracl
 | OI-15 | **D2**: where the catalog lives (§2) | lead + evaluator owner, owner sign-off (AQP:523) | the M5 product pack |
 | OI-16 | Family assignment for each T2 entry (§5.3) | M3-T2 (lead), D3 sign-off | the freeze |
 | OI-17 | A sample-based pooled-precision guard: per-family exact hypergeometric lower bounds at α/*k* (§5.6). Until it is approved, the conservative verified-true guard is in force. | DR-G13 successor owners (QG:264); lead proposes | advisory Q2 PASS without near-complete adjudication |
-| OI-19 | Synchronous tracer collection of figure (b). **Decided in r8 (lead decision, QD-30)**, and implemented in §9.3. The remaining work is K1c's calibration, Yama and overhead measurement on the D12 image. | lead; release engineering (D12) | figure (b) on Linux |
 | OI-18 | A macOS own lifetime RSS counter source (§9.3). Until one exists, macOS RSS is `incomplete`. | release engineering (D12); lead | any macOS G13 RSS qualification |
 
 ## Lead decisions in this record
 
-QD-1 integer millionths and directional rounding · QD-2 outcome table · QD-3 proposition class · QD-4 JSON Lines ledger with a hash chain · QD-5 hard components and the full truth-input closure · QD-6 the separated populations · QD-7 the 20-minute time box · QD-8 calibration numbers · QD-9 agreement triggers · QD-10 the model-family rule · QD-11 family-weighted estimand · QD-12 independence families · QD-13 the cluster product bound · QD-14 *k*_min · QD-15 the two-sided pooled guard · QD-16 mutant states · QD-17 differential execution boundary · QD-18 determinism variants · QD-19 process inventory and own RSS counters (its mechanism replaced by QD-30) · QD-20 CI retry, batches and batch joins · QD-21 runner additions · QD-22 tree digest · QD-23 held-out exposure · QD-24 advisory water-filling allocation · QD-25 complete and incomplete performance results · QD-26 the K2 lane-freeze gate · QD-27 reason-to-quantity nulling · QD-28 the start-identity key and exact-equality host join · QD-29 generation safety (withdrawn in r8) · QD-30 ptrace exit-stop collection of figure (b) · QD-31 the tracing-overhead rule for combined or split RSS collection.
+QD-1 integer millionths and directional rounding · QD-2 outcome table · QD-3 proposition class · QD-4 JSON Lines ledger with a hash chain · QD-5 hard components and the full truth-input closure · QD-6 the separated populations · QD-7 the 20-minute time box · QD-8 calibration numbers · QD-9 agreement triggers · QD-10 the model-family rule · QD-11 family-weighted estimand · QD-12 independence families · QD-13 the cluster product bound · QD-14 *k*_min · QD-15 the two-sided pooled guard · QD-16 mutant states · QD-17 differential execution boundary · QD-18 determinism variants · QD-19 process inventory, the positive completeness proof and own RSS counters · QD-20 CI retry, batches and batch joins · QD-21 runner additions · QD-22 tree digest · QD-23 held-out exposure · QD-24 advisory water-filling allocation · QD-25 complete and incomplete performance results · QD-26 the K2 lane-freeze gate · QD-27 reason-to-quantity nulling · QD-28 the start-identity key and exact-equality host join · QD-29 generation safety: the K/L/S fences, the census and the attribution rules.
 
 ## Not claimed
 

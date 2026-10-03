@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "opensip.harness.exploratory-quality-envelope.1",
   "title": "OpenSIP exploratory quality envelope (D13 draft)",
-  "description": "Draft for D13 (docs/implementation/m3/analysis-quality/PLAN.md:419-425, :535). Exploratory, never promoted, never a G13 input. References unchanged RS3 observations by digest; RS3 itself is not changed. Proportions and bounds are integer millionths (no floats; canonical bytes per docs/coop/design-corrections/foundation/canonical.py). Design: docs/implementation/m3/harness/DESIGN.md (r8) sections 11-12. Cross-row invariants a schema cannot express are checked by the envelope validator (DESIGN.md r8 section 9.5): exactly one final batch per key; batchId equals the SHA-256 of its canonical key tuple; every q6 batch has exactly one batchObservations row and, for each warmup and measured slot, exactly one operationalRecords row or a record-missing reason on that slot; no duplicate (batchId, slot); no orphan record or observation; at most one slotReasons row per slot, and every operational record missing from a required slot listed as record-missing on that slot; per measured slot and quantity, a value is null if and only if a reason the DESIGN QD-27 table maps to that quantity is present (record-missing and record-invalid null no numeric sample; run-failed, timeout and tracer-died null all four; own-counter, untraced-process, host-join-unresolved, tracer-unavailable and tracer-failed reasons null ownHighWaterSumBytes and peakRssBytes only); the median non-null exactly when all seven elapsed values are, and the maximum exactly when all seven peaks are; phaseTimingsPresent true exactly when every measured slot has a valid record, and phaseAbsenceReason null exactly then; population counts summing (corpus = sampled + unlabelled, sampled = settled + pending, settled = true + false + unclear). A traced-separate-runs row's rssBatchId must name a q6 batch of the same workload, workflow, reset and control, holding the RSS samples; the validator checks that pairing.",
+  "description": "Draft for D13 (docs/implementation/m3/analysis-quality/PLAN.md:419-425, :535). Exploratory, never promoted, never a G13 input. References unchanged RS3 observations by digest; RS3 itself is not changed. Proportions and bounds are integer millionths (no floats; canonical bytes per docs/coop/design-corrections/foundation/canonical.py). Design: docs/implementation/m3/harness/DESIGN.md (r6) sections 11-12. Cross-row invariants a schema cannot express are checked by the envelope validator (DESIGN.md r6 section 9.5): exactly one final batch per key; batchId equals the SHA-256 of its canonical key tuple; every q6 batch has exactly one batchObservations row and, for each warmup and measured slot, exactly one operationalRecords row or a record-missing reason on that slot; no duplicate (batchId, slot); no orphan record or observation; at most one slotReasons row per slot, and every operational record missing from a required slot listed as record-missing on that slot; per measured slot and quantity, a value is null if and only if a reason the DESIGN QD-27 table maps to that quantity is present (record-missing and record-invalid null no numeric sample; run-failed and timeout null all four; inventory, own-counter and host-join-unresolved reasons null ownHighWaterSumBytes and peakRssBytes only); the median non-null exactly when all seven elapsed values are, and the maximum exactly when all seven peaks are; phaseTimingsPresent true exactly when every measured slot has a valid record, and phaseAbsenceReason null exactly then; population counts summing (corpus = sampled + unlabelled, sampled = settled + pending, settled = true + false + unclear).",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -144,13 +144,18 @@
         "own-counter-missing",
         "own-counter-unverified",
         "own-counter-unavailable-platform",
+        "unregistered-process",
+        "pre-exec-image-unmeasured",
+        "inventory-incomplete",
         "record-missing",
         "record-invalid",
-        "host-join-unresolved",
-        "tracer-unavailable",
-        "tracer-died",
-        "tracer-failed",
-        "untraced-process"
+        "subscription-unverified",
+        "event-loss",
+        "unjoinable-identity",
+        "terminal-record-missing",
+        "terminal-record-duplicate",
+        "drain-timeout",
+        "host-join-unresolved"
       ]
     },
     "phaseAbsenceReason": {
@@ -543,9 +548,7 @@
           "required": [
             "kernelRelease",
             "ownCounterVerified",
-            "yamaPtraceScope",
-            "tracingOverheadPpm",
-            "rssCollectionMode"
+            "spawnIsCloneVm"
           ],
           "properties": {
             "kernelRelease": {
@@ -554,33 +557,14 @@
             "ownCounterVerified": {
               "type": "boolean"
             },
-            "yamaPtraceScope": {
+            "spawnIsCloneVm": {
               "oneOf": [
                 {
-                  "type": "integer",
-                  "minimum": 0,
-                  "maximum": 3
+                  "type": "boolean"
                 },
                 {
                   "type": "null"
                 }
-              ]
-            },
-            "tracingOverheadPpm": {
-              "oneOf": [
-                {
-                  "$ref": "#/$defs/count"
-                },
-                {
-                  "type": "null"
-                }
-              ]
-            },
-            "rssCollectionMode": {
-              "enum": [
-                "traced-same-runs",
-                "traced-separate-runs",
-                "unavailable"
               ]
             }
           }
@@ -1337,9 +1321,7 @@
                       "ownHighWaterSumBytes",
                       "peakRssBytes",
                       "medianElapsedNanos",
-                      "maxPeakRssBytes",
-                      "rssCollection",
-                      "rssBatchId"
+                      "maxPeakRssBytes"
                     ],
                     "properties": {
                       "workloadId": {
@@ -1454,49 +1436,8 @@
                       },
                       "maxPeakRssBytes": {
                         "$ref": "#/$defs/positiveInt"
-                      },
-                      "rssCollection": {
-                        "enum": [
-                          "traced-same-runs",
-                          "traced-separate-runs"
-                        ]
-                      },
-                      "rssBatchId": {
-                        "oneOf": [
-                          {
-                            "$ref": "#/$defs/sha256"
-                          },
-                          {
-                            "type": "null"
-                          }
-                        ]
                       }
-                    },
-                    "allOf": [
-                      {
-                        "if": {
-                          "properties": {
-                            "rssCollection": {
-                              "const": "traced-separate-runs"
-                            }
-                          }
-                        },
-                        "then": {
-                          "properties": {
-                            "rssBatchId": {
-                              "$ref": "#/$defs/sha256"
-                            }
-                          }
-                        },
-                        "else": {
-                          "properties": {
-                            "rssBatchId": {
-                              "type": "null"
-                            }
-                          }
-                        }
-                      }
-                    ]
+                    }
                   },
                   {
                     "type": "object",
@@ -1525,9 +1466,7 @@
                       "peakRssBytes",
                       "medianElapsedNanos",
                       "maxPeakRssBytes",
-                      "slotReasons",
-                      "rssCollection",
-                      "rssBatchId"
+                      "slotReasons"
                     ],
                     "properties": {
                       "workloadId": {
@@ -1647,50 +1586,8 @@
                           "$ref": "#/$defs/slotReason"
                         },
                         "x-opensip-order": "canonical-set"
-                      },
-                      "rssCollection": {
-                        "enum": [
-                          "traced-same-runs",
-                          "traced-separate-runs",
-                          "unavailable"
-                        ]
-                      },
-                      "rssBatchId": {
-                        "oneOf": [
-                          {
-                            "$ref": "#/$defs/sha256"
-                          },
-                          {
-                            "type": "null"
-                          }
-                        ]
                       }
-                    },
-                    "allOf": [
-                      {
-                        "if": {
-                          "properties": {
-                            "rssCollection": {
-                              "const": "traced-separate-runs"
-                            }
-                          }
-                        },
-                        "then": {
-                          "properties": {
-                            "rssBatchId": {
-                              "$ref": "#/$defs/sha256"
-                            }
-                          }
-                        },
-                        "else": {
-                          "properties": {
-                            "rssBatchId": {
-                              "type": "null"
-                            }
-                          }
-                        }
-                      }
-                    ]
+                    }
                   }
                 ]
               },
