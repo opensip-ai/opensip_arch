@@ -1,10 +1,8 @@
-# M3-Q0 quality-harness design record — r3
+# M3-Q0 quality-harness design record — r2
 
-Draft r3. Claude Opus 5.5, implementation lead. Unit **M3-Q0** of the accepted M3 unit plan (`M3-PLAN.md:157`).
+Draft r2. Claude Opus 5.5, implementation lead. Unit **M3-Q0** of the accepted M3 unit plan (`M3-PLAN.md:157`).
 
 r1 (`DESIGN-r1.md`, sha256 `22df1afb…`, 65,990 bytes; schema `exploratory-quality-envelope.schema.v1-r1.json`, `4cdfbb60…`, 23,190 bytes) was reviewed by CODEX2 (method; `/tmp/opensip-implementation/reviews/codex2-harness-q0-r1/`), with 8 required findings and 5 non-blocking observations. r2 answers all of them. CODEX2 confirmed the cluster-product bound and the 29/299 floors as sound, so they are unchanged.
-
-r2 (`DESIGN-r2.md`, sha256 `4225ca34…`, 91,319 bytes; schema `exploratory-quality-envelope.schema.v1-r2.json`, `df67c651…`, 50,098 bytes) was reviewed by CODEX2 (`/tmp/opensip-implementation/reviews/codex2-harness-q0-r2/`). Six r1 findings were resolved and two partly resolved, with 3 required findings and 4 non-blocking observations. r3 answers all of them and changes nothing else of substance.
 
 ## Standing
 
@@ -35,15 +33,6 @@ Short names, as in the accepted plans:
 - **ENV:** `docs/implementation/m3/harness/exploratory-quality-envelope.schema.v1.json` (drafted with this record)
 
 ---
-
-## r3 changes and review responses
-
-| Finding | Section | Change |
-|---|---|---|
-| C2-Q0-R2-01 (complete lifetime RSS) | §9.3, §9.5, ENV `runReason` | Linux figure (b) is complete only by a positive proof:<br>- an acknowledged pre-launch subscription on every online CPU, proven live by per-CPU sentinels;<br>- loss detection (receive errors and overruns, per-CPU connector sequence gaps, CPU-set changes);<br>- lifetimes keyed by (tgid, fork timestamp);<br>- one terminal record per thread group, selected by `ac_tgid` with `AGROUP`; per-thread records are never summed;<br>- draining that ends only when every lifetime has its terminal record and every per-CPU post-run sentinel has arrived;<br>- a two-channel cross-join.<br>Any failure, or anything that cannot be evaluated, is `incomplete` with a new typed reason. Completeness is never inferred from absence. K1c's calibration adds short-lived children, an early-exiting leader, induced loss and pid reuse. |
-| C2-Q0-R2-02 (batch join) | §9.5, §9.6, §11, ENV | `operationalRecords[]` rows carry `batchId` and a typed run slot. Runner observations move to `batchObservations[]`, one row per batch. Per-runner calibration stays in `runner.calibration`. The validator's identity, coverage, uniqueness, orphan and sample-consistency checks are listed. |
-| C2-Q0-R2-03 (slip slack) | §13 | The slip is recomputed through F1 → H → J2 with every dependency: M3-X = 26 + max(0, *s* − 3). That is 3 days of oracle slip, not 4. The split authoring/run alternative is named, and OI-12's list gains the slip rule. |
-| N01–N04 | §5.2, §5.6, §5.8, §9.5 | The error wording is restricted to the Clopper–Pearson branch, with the product-branch example. The OI-17 cost estimate is withdrawn. "Exactly when" becomes "guaranteed when". Sample and reason consistency is assigned to the validator. |
 
 ## r2 changes and review responses
 
@@ -388,7 +377,7 @@ The method is chosen from the **structure** of the stratum's evidence before any
 
 **The Clopper–Pearson premise, stated (N01).** One finding per family gives distinct evidence units. That alone does not make them IID Bernoulli draws with a common success probability. The Clopper–Pearson branch adds the premise that the *k* families are independent draws from one population of families, with the finding drawn uniformly within each. Each sampled finding is then Bernoulli with the population's family-weighted mean. If that premise is doubted, the product bound remains valid without it, since it allows heterogeneous independent family means (§5.5). The two branches therefore rest on different premises, and each result records which one applied (ENV `method`).
 
-**Where the single-finding design comes from.** The §5.7 allocation is guaranteed to give one finding per family when the stratum has at least 100 families with findings. Smaller strata of single-finding families also get one each, and the formal condition in the branch rule above decides. Gating strata are adjudicated in full (AQP:228), so they take the Clopper–Pearson branch only when every family has a single finding.
+**Where the single-finding design comes from.** The §5.7 allocation gives one finding per family exactly when the stratum has at least 100 families with findings. Gating strata are adjudicated in full (AQP:228), so they take the Clopper–Pearson branch only when every family has a single finding.
 
 ### 5.3 Independence families
 
@@ -459,7 +448,7 @@ This needs no model of how findings correlate inside a repository, no prior, no 
 | advisory 0.90 | **29** | *k* = 29 gives 901855; *k* = 28 gives 898534 |
 | gating and repair-eligible 0.99 | **299** | *k* = 299 gives 990030; *k* = 298 gives 989997 |
 
-The exact checks are 20·(9/10)^29 ≤ 1 < 20·(9/10)^28, and the same form for 99/100. These are floors: no stratum with fewer families can pass. In the single-finding (Clopper–Pearson) branch, any error raises the requirement (§5.4). In the product branch, an error raises it only if it lowers a family's precision enough. For example, 299 families with 298 at 1 and one at 999999/1000000 give *L* ≥ 0.990030 × 0.999999 > 0.99, which passes (C2-Q0-R2-N01).
+The exact checks are 20·(9/10)^29 ≤ 1 < 20·(9/10)^28, and the same form for 99/100. These are floors at zero errors. With errors, more families are needed (§5.4).
 
 **The pooled guard (QD-15, revised for C2-Q0-R1-03).** Let *N* be the stratum's corpus count, *T* and *F* its settled true and settled not-true counts (unclear counts as not true, AQP:232), and *U* = *N* − *T* − *F* the findings that are unlabelled or pending. The guard has two conservative values, computed exactly:
 - **verified lower value:** *T* / *N*, which treats every unlabelled finding as not true;
@@ -509,9 +498,9 @@ None of these may change after the freeze for that round (AQP:159).
 
 ### 5.8 What this means in practice, reported to the owner
 
-**Gating.** A **gating 0.99 PASS needs at least 299 held-out families with findings for that rule, language and mode**, and 299 error-free families suffice at that minimum. In the single-finding branch, one error raises the need to 473 (§5.4). In the product branch, an error costs extra families only to the extent that it lowers a family's precision (§5.6). Every gating finding in them must be adjudicated (AQP:228).
+**Gating.** At the minimum, a **gating 0.99 PASS needs 299 error-free held-out families with findings for that rule, language and mode**. Any error requires more families; one error needs 473 under the single-finding branch (§5.4). Every gating finding in them must be adjudicated (AQP:228).
 
-**Advisory.** A 0.90 PASS needs at least 29 held-out families. Under the in-force pooled guard, it also needs at least 0.90·*N* of the stratum's findings verified true. Example: 29 held-out families with 4 findings each give *N* = 116. All 116 are adjudicated: 232 votes, plus calibration of at least 10% of each of the two vote queues (about 13 items each), so about 260 votes, at least half of them human (§4.5). r2's lower estimate for OI-17 is withdrawn (C2-Q0-R2-N02). A sample from small families need not establish the proposed per-family hypergeometric bound, so approving OI-17 would not by itself reduce this cost.
+**Advisory.** A 0.90 PASS needs at least 29 held-out families. Under the in-force pooled guard, it also needs at least 0.90·*N* of the stratum's findings verified true. Example: 29 held-out families with 4 findings each give *N* = 116. All 116 are adjudicated: 232 votes, plus calibration of at least 10% of each of the two vote queues (about 13 items each), so about 260 votes, at least half of them human (§4.5). If OI-17's sample-based guard is approved, a 100-finding sample would suffice: about 200 votes plus about 24 calibration votes.
 
 **Scale.** T2 plans at least two repositories per language per size class, with one held out per class (AQP:218-219). Gating strata will therefore be INSUFFICIENT-EVIDENCE unless T2 grows by an order of magnitude. At the all-success boundary this is not a defect of the method: without a within-repository model, no valid 95% method can do better (§5.5). The choice is the D4 revisit (AQP:148, AQP:525) and D3 sizing (AQP:524); see OI-3.
 
@@ -701,55 +690,19 @@ The run's value is the **larger of (a) and (b)**. The cell statistic is the maxi
 
 An `exec` keeps the key but replaces the address space, so a lifetime is split into **image segments** at each exec. Each segment needs its own counter, with one exception: a segment that has no address space of its own (a `CLONE_VM` spawn, which has vfork/posix_spawn semantics) needs none. K1c establishes once per runner and pinned toolchain whether the supervisor's spawn path is `CLONE_VM`. It does this by tracing a calibration run's clone flags, and records the result in the runner record. Otherwise every pre-exec segment lacks a counter, and the run is incomplete with the reason `pre-exec-image-unmeasured`. A second exec within one lifetime has the same effect.
 
-*Linux, the D12 reference platform (AQP:534). Completeness must be proven positively (QD-19, revised for C2-Q0-R2-01).* An empty cgroup plus the exits the harness happened to collect proves nothing. `cgroup.procs` excludes zombies, `populated` describes only live processes, and both event channels can lose messages. So figure (b) is **complete only when every item of the proof below holds for that run**. If any item fails, or cannot be evaluated, the run is `incomplete` with a typed reason. Completeness is never inferred from absence: a missing event, record or error is never read as "nothing happened". The kernel facts this relies on (per-CPU taskstats registration and its receive-buffer loss, `ac_tgid`, the `AGROUP` flag on the last thread's record, connector sequence numbers and send failures) are taken from the pinned kernel's documentation and source, as cited in CODEX2's review (`/tmp/opensip-implementation/reviews/codex2-harness-q0-r2/REVIEW.md`). They are **re-verified by K1c's calibration on the pinned D12 kernel**, whose version is recorded in the runner record. Until that calibration passes, Linux runs are `incomplete` with the reason `own-counter-unverified`.
-
-1. **Channels.**
-   - **Process events:** the kernel process-event connector (fork, exec and exit events, each carrying the CPU, a per-CPU sequence number, a timestamp, and pid and tgid).
-   - **Own counters:** the taskstats per-task exit records from generic netlink `TASKSTATS`, with extended accounting.
-   - **Containment:** the workload runs in a dedicated cgroup v2 group, which every descendant inherits.
-2. **Acknowledged subscription before launch.**
-   - The harness registers its taskstats listener for **every online CPU** and requests an acknowledgement. It subscribes to the connector with no event filter.
-   - It records the online-CPU set, and enlarges both receive buffers.
-   - It then runs a **pre-launch sentinel on every online CPU**: a short child pinned to that CPU, which forks and exits. The harness must receive, for each sentinel, its fork and exit events and its taskstats terminal record. That proves both channels are live on every CPU.
-   - Failure is `subscription-unverified`.
-3. **Loss detection during the run.** Any one of these makes the run `incomplete` with the reason `event-loss`:
-   - any receive error or overrun (`ENOBUFS`) on either socket;
-   - any gap in a CPU's connector sequence numbers between that CPU's pre-launch and post-run sentinels;
-   - any change to the online-CPU set during the run.
-4. **Stable identity.**
-   - A **thread group lifetime** opens on the fork event that creates a new thread group (child pid = child tgid) whose parent chain, built from fork events, reaches the workload root. It is keyed by (tgid, fork timestamp).
-   - A tgid cannot be reused until its process is reaped, so between that fork event and the lifetime's terminal record, the tgid names exactly one lifetime.
-   - Exec events split the lifetime into the image segments described above.
-   - A taskstats record or connector event for a subtree tgid that has no open lifetime is `unjoinable-identity`.
-5. **Terminal record selection and de-duplication.**
-   - Each thread emits a per-task record at exit. The **terminal** record for a lifetime is the single record carrying that lifetime's `ac_tgid` with the `AGROUP` flag set, which marks the group's last exiting thread.
-   - Its `hiwater_rss` (KiB, converted ×1024) is the high-water of the shared address space at group exit, so it covers a worker that raised the peak after an early-exiting leader.
-   - Non-terminal per-thread records are **never summed**, because that would count one address space several times. Each is only checked to be ≤ the terminal value, and a violation is a defect.
-   - Zero terminal records, or more than one, for a lifetime is `terminal-record-missing` or `terminal-record-duplicate`.
-6. **Draining and completion.** After the workload root has exited and the cgroup reports `populated 0`, the harness keeps reading both channels, and runs a **post-run sentinel on every online CPU**. Draining ends only when both of these hold:
-   - every lifetime opened in step 4 has exactly one terminal record and a connector exit event for each of its threads;
-   - every post-run sentinel's fork, exit and terminal record has arrived, which shows each CPU's queue has been read past the workload.
-
-   A preregistered drain limit (default 10 s) that expires first gives `drain-timeout`.
-7. **Cross-join.** Every subtree lifetime from the connector has a terminal taskstats record, and every terminal record for a subtree tgid has a lifetime. Either kind of orphan makes the run incomplete. Because each process must appear on **both** channels, losing one message on one channel cannot hide a process.
-
-**Calibration (K1c) must show** that the mechanism records the right peak, and that the following are all detected as `incomplete`, never as complete:
-- **A short-lived child.** It allocates a known peak and exits within 1 ms; its peak must be present.
-- **An early leader.** The thread-group leader exits before a worker raises the peak; the terminal record must carry the later peak.
-- **Induced event loss.** A shrunken receive buffer under a fork storm must be detected as `incomplete`.
-- **Lost connector delivery.** The harness's test mode discards selected messages. The resulting sequence gap and the cross-join orphan must both be detected.
-- **Pid reuse.** A stress run must not join records to the wrong lifetime.
-
-**Diagnostics and figure (a).**
-- **Diagnostics only.** `VmHWM` polled from `/proc/<pid>/status` (a lower estimate) and `wait4` `ru_maxrss` (KiB on Linux, aggregated over the reaped subtree) are recorded as cross-checks. They are never used as figure (b).
-- **Concurrent sum (a).** The sum of `VmRSS` over the group's processes every 10 ms. It is a sampled figure, used only as AQP and LQM define it (LQM:925); it never proves inventory.
+*Linux, the D12 reference platform (AQP:534):*
+- **Registration.** The workload runs in a dedicated cgroup v2 group, and every descendant inherits membership. The harness subscribes to the kernel's process-event connector (fork, exec and exit events) before launch. It registers every fork whose ancestor is the workload root and cross-checks the registrations against `cgroup.procs`. The run is complete only when the cgroup reports itself unpopulated (`cgroup.events` `populated 0`) and every registered lifetime has its exit collected.
+- **Own counter.** The `hiwater_rss` field of the per-task taskstats record that the kernel emits at task exit to a registered listener (generic netlink `TASKSTATS`, extended accounting). Units are KiB. It is the high-water mark of that process's own address space, excluding children. The harness converts KiB to bytes (×1024).
+- **Verification.** K1c admits the mechanism on the D12 kernel only after a calibration fixture passes. The fixture allocates and touches a known peak, then exits, and the recorded `hiwater_rss` must be at least that peak. The calibration also confirms that the record is emitted before the address space is released. Until that passes, Linux runs are incomplete with the reason `own-counter-unverified`.
+- **Diagnostics only.** `VmHWM` polled from `/proc/<pid>/status` (a lower estimate of the same counter) and `wait4` `ru_maxrss` (KiB on Linux, and aggregated over the reaped subtree, so not an own counter) are recorded as cross-checks. They are never used as figure (b).
+- **Concurrent sum (a).** The sum of `VmRSS` over the group's processes, every 10 ms.
 
 *macOS (lead workstation, and the later macOS lanes):*
 - `wait4`'s resource usage covers the terminated process and its children, so `ru_maxrss` (bytes on macOS) is not an own counter. The harness has no identified own lifetime RSS high-water counter it can read for arbitrary descendants without privileged task access.
 - Every macOS run therefore records figure (b) as unavailable, with the reason `own-counter-unavailable-platform`. Its RSS is `incomplete`, and it can never be within budget. The concurrent sum (a) is still recorded, labelled diagnostic.
 - This matches the existing rule that macOS lead-workstation samples are never Q6-labelled (`M3-PLAN.md:158`). A macOS own-counter source must exist before any macOS G13 lane can qualify RSS (OI-18).
 
-*Joining host observations.* The host's operational record reports peak RSS per process (OPP:249). Each entry must carry the lifetime key (tgid and start time). The harness maps it to its own (tgid, fork timestamp) key through the open lifetime for that tgid. The join rules:
+*Joining host observations.* The host's operational record reports peak RSS per process (OPP:249). Each entry must carry the same (pid, start time) key. The join rules:
 - **Matching entry.** The figure-(b) value for that segment is the larger of the harness counter and the host value. The host value can only raise a figure, never replace a missing harness counter.
 - **Host entry with no registered lifetime.** The inventory is incomplete (reason `unregistered-process`), so the run is NON-PASS.
 - **Registered lifetime with no host entry.** Allowed, because the host does not see every descendant. It is recorded.
@@ -779,7 +732,6 @@ Reuse disclosure is stored only in the envelope's `operationalRecords`, never in
   - `run-failed`, `timeout`;
   - `own-counter-missing`, `own-counter-unverified`, `own-counter-unavailable-platform`;
   - `unregistered-process`, `pre-exec-image-unmeasured`;
-  - `subscription-unverified`, `event-loss`, `unjoinable-identity`, `terminal-record-missing`, `terminal-record-duplicate`, `drain-timeout`;
   - `inventory-incomplete`;
   - `record-missing`, `record-invalid`.
 
@@ -788,17 +740,6 @@ Reuse disclosure is stored only in the envelope's `operationalRecords`, never in
 **Batches (QD-20, revised for C2-Q0-R1-07).** Every result carries a `batchId` (SHA-256 of the canonical tuple of round, workload, workflow, reset, control and ordinal) and a `batchOrdinal`: 1 for the first batch, 2 for the CI retry. Both batches of a retry live in the same envelope.
 - **The retry.** On a threshold failure or an incomplete result, CI runs one more full batch, as AQP:490 allows.
 - **The final verdict** is the batch with the highest ordinal, whichever way it goes, and is marked `final: true`. Exactly one batch per key is final. A schema cannot express that cross-row rule, so the envelope validator checks it, together with the population sums (ENV `description`). The better batch is never kept by choice, and both batches are kept in the record.
-- **The batch join (C2-Q0-R2-02).** Every piece of supporting evidence names its batch:
-  - each `operationalRecords[]` row carries its `batchId` and a **run slot** (`priming`, `warmup` 0–2, or `measured` 0–6);
-  - each batch has exactly one `batchObservations[]` row (§9.6), keyed by `batchId`.
-- **What the envelope validator checks.** These are cross-row rules a schema cannot express:
-  - **Identity.** Each `batchId` equals the SHA-256 of its canonical key tuple.
-  - **Coverage.** Every Q6 row's batch has one observation row. Every warmup and measured slot of that batch has exactly one operational record, or the row is `incomplete` and that slot lists `record-missing`.
-  - **Uniqueness.** No two records share (`batchId`, slot).
-  - **No orphans.** No record or observation row names a batch absent from `q6`.
-  - **Sample consistency (C2-Q0-R2-N04).** In an incomplete row, a slot has a null sample if and only if it has at least one reason. The median and maximum are non-null only when all seven values are. `phaseTimingsPresent` is false if and only if `phaseAbsenceReason` is non-null.
-
-  A violation makes the envelope invalid, not merely the row incomplete.
 - **Flips.** A non-pass followed by a pass is counted as a `flip`. Three flips in any ten consecutive CI runs of a workload send that workload to noise review.
 
 **Baselines** advance only through a reviewed baseline-advance record (AQP:491).
@@ -817,7 +758,7 @@ It records the fields in `runnerRequired` (LQM:926-937): CPU model, OS version a
 - **Fixed CPU frequency policy,** with swap and power state recorded.
 - **Storage.** The corpus store is on the runner's local disk.
 - **Kernel interfaces.** On Linux: cgroup v2, the process-event connector and taskstats extended accounting, with the privileges they need, and the §9.3 calibration passed.
-- **Carrier (N04; batch-scoped for C2-Q0-R2-02).** Each batch records its observations in its own `batchObservations[]` row, keyed by `batchId`. That row holds: load average before the batch (milli-units), CPU frequency policy, swap bytes in use, power state, whether the corpus store is on local disk, and the online-CPU set before and after. The §9.3 calibration results (`ownCounterVerified`, `spawnIsCloneVm`, kernel release) are per runner and toolchain, so they stay in `runner.calibration`.
+- **Carrier (N04).** Each batch records its observations in the envelope's `runner.observations`: load average before the batch (milli-units), CPU frequency policy, swap bytes in use, power state, whether the corpus store is on local disk, and the §9.3 calibration results (`ownCounterVerified`, `spawnIsCloneVm`).
 
 **Labelling.** Samples from any other machine are labelled `lead-workstation` or `ci` (ENV `runner.runnerClass`) and are never Q6-labelled (`M3-PLAN.md:158`). For qualification at M6, the runner's identity and keys are authenticated under AQ:191-198; exploratory runs don't need that.
 
@@ -856,9 +797,9 @@ The schema is drafted as ENV, `exploratory-quality-envelope.schema.v1.json`, bes
 | It pins every metric definition and denominator (AQP:422) | `definitions` pins the metric-definition, preregistration, rule-spec and rubric digests. Each measured section carries its own numerators and denominators: Q2 per stratum and per repository, with corpus, sampled, settled, pending and unlabelled counts and line counts by class; Q3 and Q6 yield counts; Q7 per-rule populations and score histograms. A measured section must carry them, enforced by the schema's `if`/`then`; not-measured stays explicit. (C2-Q0-R1-06) |
 | It declares itself non-qualifying (AQP:423) | `standing` const `exploratory-never-promoted`; `qualificationEvidence` const `false` |
 | D13's exploratory class for unqualified advisory rules (AQP:237) | `unqualifiedAdvisoryRules[]` |
-| INC-8 provenance and phase timings, outside semantic Coverage (AQP:390; OPP:249) | `operationalRecords[]`, by digest, each joined to a Q6 batch and run slot (§9.5) |
+| INC-8 provenance and phase timings, outside semantic Coverage (AQP:390; OPP:249) | `operationalRecords[]`, by digest |
 | Incomplete performance results and retry batches (§9.5) | `q6.workloads[]` is a closed `oneOf` of complete and incomplete variants, with per-run nullable samples and typed reasons, `batchId`, `batchOrdinal` and `final` |
-| Runner observations (§9.6) | `batchObservations[]` per batch; `runner.calibration` per runner |
+| Runner observations (§9.6) | `runner.observations` |
 
 **What a valid envelope does not do.** It is never a G13 input and is never promoted (AQP:425, AQP:433). Validating against ENV says nothing about whether the claims inside are true. Envelopes are signed only in the sense that their digests are pinned. They need no authenticated runner, because they claim nothing that requires one.
 
@@ -912,25 +853,8 @@ The cell counts are `M3-PLAN.md:58`. The T1 obligation is all 57 supported cells
 
 **Consequences.**
 - **Pre-day-0.** 10 days of K2 join the pre-day-0 work, after Q0 is accepted, in parallel with S-M, T2b, S-P with G2 authoring, CF-P and L acceptance (`M3-PLAN.md:243-248`). If the other pre-day-0 items finish sooner, K2 becomes the latest pre-day-0 item, at Q0 + 10 days.
-- **Days 0–6.** K2a has one day of margin before F1's day-7 start. If K2a-r slips, F1 may still be authored, but its first run on TS T1 fixtures waits.
-- **Slip, computed through every dependency (C2-Q0-R2-03).** This record does not split F1's completion from its first T1 run, so conservatively a delay to that run delays F1's finish, and with it the whole F branch. Let *s* be the K2a freeze's slip past day 6, and *d* = max(0, *s* − 1) the resulting delay to F1. From the plan's rows (`M3-PLAN.md:208`, `M3-PLAN.md:213`, `M3-PLAN.md:217-227`):
-  - F1 = 10 + *d*; F2 = 14 + *d*; F3 = 17 + *d*;
-  - H = max(C4 = 12, F1) + 3; J2 = H + 3; J3 = max(J2, F2, G3 = 15) + 3; I2 = H + 2;
-  - M3-M = max(J3, G4 = 18, F3, I2, K2 = 6 + *s*, …) + 3; M3-X = max(M3-M, R, J4 = J3 + 2, 23, O2_selected) + 2.
-
-  r2 checked F2 against J3 alone and missed the path F1 → H → J2. With every other day-0 and branch assumption held (including O2_selected ≤ 24), the result is:
-
-  | *s* (oracle slip) | *d* (F1 delay) | F1 | H | J2 | J3 | M3-M | M3-X |
-  |---:|---:|---:|---:|---:|---:|---:|---:|
-  | 0–1 | 0 | 10 | 15 | 18 | 21 | 24 | 26 |
-  | 2 | 1 | 11 | 15 | 18 | 21 | 24 | 26 |
-  | 3 | 2 | 12 | 15 | 18 | 21 | 24 | 26 |
-  | 4 | 3 | 13 | 16 | 19 | 22 | 25 | 27 |
-  | 5 | 4 | 14 | 17 | 20 | 23 | 26 | 28 |
-
-  So **M3-X = 26 + max(0, *d* − 2) = 26 + max(0, *s* − 3)**. H's slack against F1 is 2 days (C4 finishes at 12 and F1 at 10), so 3 days of oracle slip fit (the 1-day margin plus 2), and every further day moves the host chain by a day. r2's "up to 4 days" is withdrawn.
-- **If authoring and first T1 run are later split.** Should F1's law allow F1 to finish and feed H while only its T1 conformance run waits, H would no longer depend on the freeze. The slip would then reach M3-X only through F2, F3 and K2. That schedule is not assumed here, and OI-12 recomputes it if it is adopted.
-- **Formulas with no slip.** K2 finishes by day 6. R = max(15, 6) + 2 = 17, and M3-M = max(21, 6) + 3 = 24, so the day-21 K2 condition (`M3-PLAN.md:233`) holds by construction.
+- **Days 0–6.** K2a has one day of margin before F1's day-7 start. If K2a-r slips, F1 may still be authored, but its first run on TS T1 fixtures waits. Every day of slip moves F1, F2 and F3 by a day. The F branch has 4 days of slack against J3 (F2 finishes at 14 against J3's start at 18; `M3-PLAN.md:213`, `M3-PLAN.md:220`). So up to 4 days of slip leave the 26-day host chain unchanged; beyond that, the path runs through K2a.
+- **Formulas.** K2 now finishes by day 6. R = max(15, 6) + 2 = 17, and M3-M = max(21, 6) + 3 = 24, so the day-21 K2 condition (`M3-PLAN.md:233`) holds by construction.
 
 **The M3-PLAN bounds to update under OI-12:**
 - the K2 row (`M3-PLAN.md:222`): 16 days, 10 before day 0 and 6 by day 6;
@@ -938,8 +862,7 @@ The cell counts are `M3-PLAN.md:58`. The T1 obligation is all 57 supported cells
 - the K2 clause of the condition (`M3-PLAN.md:233`, `M3-PLAN.md:239`);
 - "K2's size" in the unbounded list (`M3-PLAN.md:241`): it is now bounded;
 - the pre-day-0 list (`M3-PLAN.md:243-248`): add K2b and K2c, 10 days after Q0;
-- F1's row (`M3-PLAN.md:213`): its first T1 run waits for K2a's freeze;
-- the slip rule: M3-X = 26 + max(0, *s* − 3), for K2a freeze slip *s* past day 6, through F1 → H → J2 (C2-Q0-R2-03).
+- F1's row (`M3-PLAN.md:213`): its first T1 run waits for K2a's freeze.
 
 The rejected alternative was to delay every producer behind all three lane oracles. That would delay G2-v and E2 and lengthen the host chain.
 
@@ -970,7 +893,7 @@ The rejected alternative was to delay every producer behind all three lane oracl
 
 ## Lead decisions in this record
 
-QD-1 integer millionths and directional rounding · QD-2 outcome table · QD-3 proposition class · QD-4 JSON Lines ledger with a hash chain · QD-5 hard components and the full truth-input closure · QD-6 the separated populations · QD-7 the 20-minute time box · QD-8 calibration numbers · QD-9 agreement triggers · QD-10 the model-family rule · QD-11 family-weighted estimand · QD-12 independence families · QD-13 the cluster product bound · QD-14 *k*_min · QD-15 the two-sided pooled guard · QD-16 mutant states · QD-17 differential execution boundary · QD-18 determinism variants · QD-19 process inventory, the positive completeness proof and own RSS counters · QD-20 CI retry, batches and batch joins · QD-21 runner additions · QD-22 tree digest · QD-23 held-out exposure · QD-24 advisory water-filling allocation · QD-25 complete and incomplete performance results · QD-26 the K2 lane-freeze gate.
+QD-1 integer millionths and directional rounding · QD-2 outcome table · QD-3 proposition class · QD-4 JSON Lines ledger with a hash chain · QD-5 hard components and the full truth-input closure · QD-6 the separated populations · QD-7 the 20-minute time box · QD-8 calibration numbers · QD-9 agreement triggers · QD-10 the model-family rule · QD-11 family-weighted estimand · QD-12 independence families · QD-13 the cluster product bound · QD-14 *k*_min · QD-15 the two-sided pooled guard · QD-16 mutant states · QD-17 differential execution boundary · QD-18 determinism variants · QD-19 process inventory and own RSS counters · QD-20 CI retry and batches · QD-21 runner additions · QD-22 tree digest · QD-23 held-out exposure · QD-24 advisory water-filling allocation · QD-25 complete and incomplete performance results · QD-26 the K2 lane-freeze gate.
 
 ## Not claimed
 
