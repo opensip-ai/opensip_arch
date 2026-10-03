@@ -6,14 +6,6 @@ r1 (`M3-PLAN-r1.md`, sha256 `65bf6ac5…`, 28,398 bytes) was reviewed by GROK2 (
 
 Short names: **BP** `docs/v2/architecture/implementation-boundaries-and-build-plan.md`; **COV** `docs/v2/architecture/implementation-coverage.v1.json`; **CH14** `docs/v2/architecture/14-repository-and-module-layout.md`; **F02** `docs/v2/architecture/02-distribution-and-components.md`; **REG** `docs/v2/architecture/08-decision-and-readiness-register.md`; **NE / IE / AQ / WS / SL** `docs/v2/contracts/product-v1/{native-evidence,identity-and-evidence,admission-and-qualification,workflows-and-surfaces,security-and-lifecycle}.md`; **AQP** `docs/implementation/m3/analysis-quality/PLAN.md` (r4, accepted); **OPP** `docs/implementation/m3/operability/PLAN-r3.md` (r3, sha256 `b49035f2…`, accepted by Codex; the live `PLAN.md` carries the acceptance note). OPP is cited **by section**, so that a later revision doesn't silently move a citation; M3-O follows the accepted revision. **PTT** `docs/coop/artifacts/permission-truth-tables.v9.json`; **TES** `docs/coop/design-corrections/workflows/schemas/test-execution.schema.json`; **NEM** `docs/coop/design-corrections/native/native_evidence_model.v2.py`. **EXIT** `docs/implementation/m2/EXIT-PLAN.md`; **X11 / X12** `docs/implementation/m2/{cli-enablement-x11,policy-admission-x12}/PROPOSAL.md`. Product paths are under `opensip/`.
 
-## r4 changes and review responses
-
-r4 changes one thing. GROK2 accepted r3 (`7ef4f0d1…`), and r3 is preserved as `M3-PLAN-r3.md`.
-
-| Finding | Change |
-|---|---|
-| CODEX2 C2-M3-R3-01 | `O2_selected` is now in M3-X's dependencies and in its maximum. The 26-day condition now also needs every O2 part kept in M3 to finish by day 24. The note on which branch becomes critical when it runs late is qualified to match. |
-
 ## r3 changes and review responses
 
 | Finding | Change |
@@ -219,22 +211,22 @@ Each sub-unit (B1, C2 …) is reviewed on its own; the row is the planning unit.
 | K1 | 3 | Q0, T2b | 3 |
 | **K2 (T1, three lanes)** | **not yet sized** | Q0 | **unbounded until Q0 sizes it** |
 | O1; O3 | 4; 3 | P0 and S-OP-2; O1 and D5 | 4; 13 |
-| O2 parts | successor-gated | each S-OP | carried to M4 if unaccepted (O-row rule). **O2_selected** is the latest finish of the O2 parts the O-row rule keeps in M3, or 0 when none is kept. |
+| O2 parts | successor-gated | each S-OP | carried to M4 if unaccepted (O-row rule) |
 | R | 2 | F2, G3, K2 | max(15, K2) + 2 |
 | M3-M | 3 | J3, G4, F3, E3, I2, K1, K2, O1 | max(21, K2) + 3 |
-| M3-X | 2 | M3-M, B3, D4, D5, F4, CF-2, J4, O3, R, O2_selected | max(M3-M, R, 23, O2_selected) + 2 |
+| M3-X | 2 | M3-M, B3, D4, D5, F4, CF-2, J4, O3, R | max(M3-M, R, 23) + 2 |
 
 **Conditional host-chain duration: 26 days.**
 
 > B1 → B2 → C1 → C3 → C4 → H → J2 → J3 → M3-M → M3-X
 
-It holds only if K2 finishes by day 21 and every O2 part kept in M3 (O2_selected) finishes by day 24, in addition to the day-zero and branch assumptions. Every other bounded branch finishes earlier:
+It holds only if K2 finishes by day 21. Every other bounded branch finishes earlier:
 - the Rust branch at 18, 3 days of slack against J3;
 - J4 at 23;
 - O3 at 13;
 - CF-2 at 7.
 
-If K2 runs past day 21, the path runs through K2. If an O2 part kept in M3 runs past day 24, the path runs through that part instead, whichever finishes later.
+If K2 runs past day 21, K2 is the critical path.
 
 **The whole-M3 total is left uncomputed.** Three things are unbounded: the O7 decision date (outside the lead's control), the parallel pre-day-0 law rounds, and K2's size.
 
