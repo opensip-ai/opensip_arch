@@ -1,0 +1,182 @@
+{
+  "reviewer": "CODEX2",
+  "round": "M3-Q0-r10",
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectSha256": "c926077ce4403005360339d1dfab85240fb6506a3811d03d2a4c2a5d4717fee1",
+  "schemaSha256": "6558bd39ce60f788b78c55c18e8925bee5e02823956b4a25e3f9f61e711e12a9",
+  "subjects": [
+    {
+      "path": "docs/implementation/m3/harness/DESIGN.md",
+      "bytes": 133762,
+      "sha256": "c926077ce4403005360339d1dfab85240fb6506a3811d03d2a4c2a5d4717fee1"
+    },
+    {
+      "path": "docs/implementation/m3/harness/exploratory-quality-envelope.schema.v1.json",
+      "bytes": 59031,
+      "sha256": "6558bd39ce60f788b78c55c18e8925bee5e02823956b4a25e3f9f61e711e12a9"
+    }
+  ],
+  "previousSubjects": [
+    {
+      "path": "docs/implementation/m3/harness/DESIGN-r9.md",
+      "bytes": 120794,
+      "sha256": "4db107c03d9d65b4c62cc113baf15335810228d3d6328bae961d809ca3d5924b"
+    },
+    {
+      "path": "docs/implementation/m3/harness/exploratory-quality-envelope.schema.v1-r9.json",
+      "bytes": 53610,
+      "sha256": "00f6d032c24c886341f27c4bb2befe6104f76daa0ca462c34c8175edb2c47d36"
+    }
+  ],
+  "requiredFindings": [
+    {
+      "id": "C2-Q0-R10-01",
+      "priority": "P2",
+      "title": "Make the mount setup satisfy its own mountinfo invariant",
+      "locations": [
+        "DESIGN.md:803-804",
+        "DESIGN.md:855",
+        "DESIGN.md:983"
+      ],
+      "problem": "Overmounting the inherited writable cgroup2 view retains that covered mount in mountinfo. The subsequent all-cgroup2-entries predicate therefore rejects the ordinary delegated runner.",
+      "impact": "The prescribed clean setup cannot produce the expected complete calibration or memory samples; it fails closed as isolation-unverified.",
+      "requestedChange": "Remove inherited cgroup mounts and aliases in the private mount namespace before installing the leaf-only read-only view, or specify a sound check of reachable mount topology. Include the ordinary inherited writable mount as a successful setup case and preserve writable-alias rejection.",
+      "evidence": "Static inference from documented stacked-mount enumeration, not an executed demonstration.",
+      "sources": [
+        "https://man7.org/linux/man-pages/man5/proc_pid_mountinfo.5.html",
+        "https://man7.org/linux/man-pages/man7/cgroup_namespaces.7.html"
+      ]
+    },
+    {
+      "id": "C2-Q0-R10-02",
+      "priority": "P2",
+      "title": "Make pre-creation failures and no-leaf settlement representable",
+      "locations": [
+        "DESIGN.md:776",
+        "DESIGN.md:792-815",
+        "DESIGN.md:822-824",
+        "DESIGN.md:902",
+        "DESIGN.md:922-924",
+        "DESIGN.md:960-974",
+        "exploratory-quality-envelope.schema.v1.json:5",
+        "exploratory-quality-envelope.schema.v1.json:1948-1956"
+      ],
+      "problem": "Batch host checks can produce escape-unprevented or isolation-unverified before a leaf exists, but the absent-leaf carrier forbids those reasons and calls them post-creation. The elapsed definition also unconditionally requires populated 0 although legitimate unavailable Linux/macOS slots have no leaf and retain elapsed.",
+      "impact": "Declared incomplete outcomes lack a truthful witness/end condition, forcing invented leaf evidence, invalid envelopes, or loss of known elapsed values.",
+      "requestedChange": "Define creation/failure order and actual created-versus-absent evidence. Either guarantee creation before the relevant checks when possible or allow the applicable pre-creation absence reasons. Define no-leaf elapsed settlement using root/descendant reaping independently of cgroup interfaces. Update ENV, validator and reference cases while preserving QD-27 known values.",
+      "requiredReferenceCases": [
+        "missing nsdelegate before leaf creation",
+        "batch-start isolation failure before leaf creation",
+        "unavailable Linux with known elapsed and absent leaf",
+        "macOS with known elapsed and absent leaf"
+      ]
+    }
+  ],
+  "nonBlockingObservations": [
+    {
+      "id": "C2-Q0-R10-N01",
+      "priority": "P3",
+      "title": "Make non-dumpability a continuous prerequisite",
+      "locations": [
+        "DESIGN.md:806",
+        "DESIGN.md:820"
+      ],
+      "observation": "Non-dumpability correctly restricts ptrace-gated proc access for ordinary credentials while effective. Define the outside harness/driver process set and maintain that prerequisite throughout the interval. Ordinary exec resets dumpability before new-image userspace; post-exec restoration or polling leaves a window. No explicitly permitted outside exec defeats the stated invariant, so this is clarification rather than another required finding.",
+      "sources": [
+        "https://man7.org/linux/man-pages/man5/proc_pid_fd.5.html",
+        "https://raw.githubusercontent.com/torvalds/linux/v6.1/fs/exec.c"
+      ]
+    },
+    {
+      "id": "C2-Q0-R10-N02",
+      "priority": "P3",
+      "title": "Account for the audit's own descriptor",
+      "locations": [
+        "DESIGN.md:805"
+      ],
+      "observation": "Listing proc/self/fd opens a temporary directory descriptor. Exclude only that identified audit descriptor and close it before exec, or audit externally from the parent; the final inherited set must still be exactly the three pipes.",
+      "sources": [
+        "https://man7.org/linux/man-pages/man2/close_range.2.html"
+      ]
+    },
+    {
+      "id": "C2-Q0-R10-N03",
+      "priority": "P3",
+      "title": "Pin AQP6 to the matching accepted snapshot",
+      "locations": [
+        "DESIGN.md:39",
+        "DESIGN.md:778-788"
+      ],
+      "observation": "The live accepted PLAN.md now has hash 1611014d4b8b71e3c3ce28274d6423114d0a2f54ae3a72990f7476c2ca043480 and a two-line acceptance-note shift. PLAN-r6.md has the stated 8aed6eb8461592f68575b672d4f79248cded9c869a4ff124964aaffbc9a2f9f1 hash and the intended line numbers. Point AQP6 at that retained snapshot. Plain AQP and ENV's corrected r5 citations are sound."
+    },
+    {
+      "id": "C2-Q0-R10-N04",
+      "priority": "P3",
+      "title": "Make complete-row baseline compatibility checks explicit",
+      "locations": [
+        "DESIGN.md:883-891",
+        "DESIGN.md:927",
+        "DESIGN.md:931",
+        "exploratory-quality-envelope.schema.v1.json:5"
+      ],
+      "observation": "The general compatible-basis rule should compare reset/cache/charge-ownership policy and kernel as well as the enumerated metric, runner class and entry method. Qualify otherwise-no-baseline to complete rows; any slot reason continues to take precedence as incomplete. The metric mismatch from r9 is resolved."
+    }
+  ],
+  "priorFindingAssessment": [
+    {
+      "id": "C2-Q0-R9-01",
+      "status": "PARTIALLY-RESOLVED",
+      "resolution": "Descriptor closure/audit and stated sole-writer, mount and non-dumpable prerequisites address the two former access paths. The prescribed overlay cannot satisfy its all-mountinfo check; R10-01 remains."
+    },
+    {
+      "id": "C2-Q0-R9-02",
+      "status": "RESOLVED",
+      "resolution": "Entry establishes placement rather than charge transfer. External/shared/inherited ownership limits are explicit and the universal RSS bound is withdrawn."
+    },
+    {
+      "id": "C2-Q0-R9-03",
+      "status": "PARTIALLY-RESOLVED",
+      "resolution": "Independent driver cgroupLeaves fixes missing operational records and the four declared absence reasons. R10-02 covers pre-creation reasons and no-leaf elapsed settlement."
+    },
+    {
+      "id": "C2-Q0-R9-04",
+      "status": "RESOLVED",
+      "resolution": "The RSS denominator is removed, charged baseline and reviewed basis digest are required, and absolute RSS-budget comparison remains informational until D13."
+    },
+    {
+      "id": "C2-Q0-R9-N01",
+      "status": "RESOLVED",
+      "resolution": "ENV and plain AQP now cite the pinned r5 snapshot correctly. The new AQP6 live-file pointer has N03."
+    },
+    {
+      "id": "C2-Q0-R9-N02",
+      "status": "RESOLVED-FOR-CREATED-LEAF-RUNS",
+      "resolution": "Subreaper, root reaping, ECHILD and populated 0 define settlement and elapsed end; timeout invalidates both values. R10-02 covers the newly introduced no-leaf end-condition gap."
+    }
+  ],
+  "requestAssessment": {
+    "isolation": "Sound in principle under sustained mount/descriptor/non-dumpability and sole-writer prerequisites, but the exact setup/check sequence needs R10-01.",
+    "nonDumpable": "The kernel guard is appropriate while effective. No additional concrete false-complete case was established under the sustained prerequisite; N01 makes its lifetime explicit.",
+    "schema": "Static inspection: 41 closed object schemas, integer-only numeric fields and no unresolved local references. Created/absent leaf oneOf is internally consistent; the permitted absence reasons and lifecycle need R10-02.",
+    "nulling": "Isolation-unverified invalidates memory only. Failed run, timeout and failed settlement invalidate both. Missing operational evidence keeps known samples, and any reason remains incomplete and excluded from Q6.",
+    "qualification": "RS3 remains unchanged. Charged Q6 values remain exploratory; D13 decides equivalence to qualification RSS."
+  },
+  "scopeAssessment": {
+    "substantiveChangesBeyondTable": false,
+    "description": "Full retained-r9 comparison fits the response table: isolation, metric wording, driver leaf evidence, baseline carrier/basis, settlement, citations and their reference cases."
+  },
+  "verification": {
+    "method": "Read-only full DESIGN/schema comparison, hash/size checks, static carrier/validator/citation inspection, three independent challenge slices and primary Linux documentation/source inspection.",
+    "hashesMatchRequest": true,
+    "r9SnapshotHashesMatch": true,
+    "productCodeExecuted": false,
+    "testsOrBuildsRun": false,
+    "validatorExecuted": false,
+    "referenceImplementationExecuted": false,
+    "corpusFetched": false,
+    "benchmarksRun": false,
+    "runtimeHomeAccessed": false,
+    "commitsCreated": false,
+    "writesRestrictedTo": "/tmp/opensip-implementation/reviews/codex2-harness-q0-r10/"
+  }
+}
