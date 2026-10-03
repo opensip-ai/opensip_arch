@@ -1,0 +1,143 @@
+{
+  "reviewer": "CODEX2",
+  "round": "M3-Q0-r6",
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectSha256": "3a17a943d4139248ca9fc7a8b8893f04a452c71a6a0710d7bf954866262ec31d",
+  "schemaSha256": "da73a4765c7841555d1d77512baeeb7c2000b442ef885daa0b902b93a005e2e3",
+  "subjects": [
+    {
+      "path": "docs/implementation/m3/harness/DESIGN.md",
+      "bytes": 118963,
+      "sha256": "3a17a943d4139248ca9fc7a8b8893f04a452c71a6a0710d7bf954866262ec31d"
+    },
+    {
+      "path": "docs/implementation/m3/harness/exploratory-quality-envelope.schema.v1.json",
+      "bytes": 53696,
+      "sha256": "da73a4765c7841555d1d77512baeeb7c2000b442ef885daa0b902b93a005e2e3"
+    }
+  ],
+  "r5FindingResolution": [
+    {
+      "id": "C2-Q0-R5-01",
+      "status": "EXACT-SEQUENCE-RESOLVED",
+      "locations": [
+        "DESIGN.md:749-762",
+        "DESIGN.md:794"
+      ],
+      "reason": "The specified predecessor A is alive during the census, so B's reuse of A's TGID is unjoinable regardless of delayed A delivery or B's missing report. A record outside L-S cannot substitute either. The replacement's full generation-safety claim remains blocked by C2-Q0-R6-01."
+    },
+    {
+      "id": "C2-Q0-R5-N01",
+      "status": "RESOLVED",
+      "locations": [
+        "DESIGN.md:763",
+        "DESIGN.md:797",
+        "DESIGN.md:905"
+      ],
+      "reason": "The design explicitly requires initial-PID-namespace TGIDs and the corresponding proc view, checks harness/host/pid1 namespace identities, and makes mismatch unresolved. Namespace equality supplements the stated initial-namespace requirement."
+    }
+  ],
+  "requiredFindings": [
+    {
+      "id": "C2-Q0-R6-01",
+      "priority": "P1",
+      "title": "Extend every CPU's loss proof through the global generation window",
+      "relation": "New coverage obligation introduced by QD-29's system-wide K-S generation proof",
+      "locations": [
+        "DESIGN.md:744",
+        "DESIGN.md:748-759",
+        "DESIGN.md:776-781",
+        "DESIGN.md:796",
+        "DESIGN.md:900-904"
+      ],
+      "problem": "The global connector window closes at S, but connector sequence-gap coverage ends at each CPU's own post-run sentinel. An earlier CPU therefore has an uncovered interval in which an outside generation can be born and emit an in-range terminal record. Losing that birth can make the outside record appear to belong to the only observed subtree lifetime.",
+      "counterexample": [
+        "Let p be absent from the census. Subtree B with TGID p is born after launch and exits before CPU0's post-run sentinel P0. B's taskstats reply allocation fails silently; B's connector birth and exit are received, and B is reaped.",
+        "P0's fork, terminal record and exit arrive. The stated CPU0 gap-check interval ends at P0, while another CPU's final sentinel S has not yet closed either global range.",
+        "Outside single-thread process C reuses p, with its fork notification attempted on CPU0 after P0. Connector packet allocation fails before broadcast. The CPU0 sequence advances, but no packet or receiver ENOBUFS is produced.",
+        "C's successful AGROUP record is enqueued between L's and S's taskstats records. C's connector exit is delayed until after S and drain completion. No intervening CPU0 event exposes the missing fork before completion.",
+        "All remaining post-run sentinels arrive; CPU1's S closes the ranges. The observed history has only B's window birth for p and exactly one in-range terminal record, C's. Rule 2 assigns that record to B.",
+        "B's already received connector exit and all sentinels satisfy the completion rules. The cross-join also passes because p already has a lifetime. B need have no host entry, as explicitly allowed at line 822."
+      ],
+      "impact": "The run can be marked complete with C's lower RSS counter replacing B's missing counter. If concurrent sampling misses B's brief peak, RSS is understated and the run can falsely pass its budget. This violates the positive completeness requirement.",
+      "requestedChange": "Require an observed upper connector-sequence bound on every online CPU that covers all birth attempts through the fixed global S connector-close position. One sufficient approach is to freeze S and the L-S/K-S bounds, then obtain a further sequence-bearing validation probe on every CPU causally after receiving S's connector EXIT and check continuity through those probes. Do not move the attribution cutoff to the validation probes. Merely checking received gaps until S is insufficient without a later CPU0 message. Unprovable coverage must be incomplete.",
+      "requiredCalibration": "Add a two-CPU case with B's missing taskstats record, CPU0's completed post sentinel, outside C's later reuse of B's TGID, C's lost fork, C's terminal before CPU1's S and C's exit after S. Require event-loss/incomplete; never attribute C's counter to B or report complete.",
+      "sources": [
+        {
+          "url": "https://raw.githubusercontent.com/torvalds/linux/v6.18/drivers/connector/cn_proc.c",
+          "evidence": "send_msg assigns the per-CPU sequence at 87 before calling cn_netlink_send_mult at 102-103 and ignores its return."
+        },
+        {
+          "url": "https://raw.githubusercontent.com/torvalds/linux/v6.18/drivers/connector/connector.c",
+          "evidence": "nlmsg_new failure returns -ENOMEM at 91-94 before netlink broadcast, without notifying the receiving socket."
+        },
+        {
+          "url": "https://raw.githubusercontent.com/torvalds/linux/v6.18/kernel/taskstats.c",
+          "evidence": "prepare_reply can fail before sequence allocation at 70-74; taskstats_exit returns without a report at 592-594."
+        },
+        {
+          "url": "https://raw.githubusercontent.com/torvalds/linux/v6.18/kernel/exit.c",
+          "evidence": "do_exit invokes taskstats_exit at 888, then exit_notify at 923 and proc_exit_connector at 924, allowing terminal delivery before a delayed connector EXIT."
+        }
+      ]
+    }
+  ],
+  "nonBlockingObservations": [
+    {
+      "id": "C2-Q0-R6-N01",
+      "priority": "P3",
+      "title": "State the fence proof in terms of enqueue and reaping order",
+      "locations": [
+        "DESIGN.md:752-756"
+      ],
+      "observation": "One socket orders enqueues, not cross-process exit completion. The useful proof is narrower: a pre-K generation whose terminal enqueue follows L cannot have been reaped during the census; a generation's fork notification attempt precedes its own terminal enqueue, which precedes S's terminal enqueue and S's connector EXIT. Rewrite the two exit-chronology claims accordingly. This reasoning still requires the full loss coverage in C2-Q0-R6-01.",
+      "sources": [
+        "https://raw.githubusercontent.com/torvalds/linux/v6.18/kernel/taskstats.c",
+        "https://raw.githubusercontent.com/torvalds/linux/v6.18/kernel/exit.c",
+        "https://raw.githubusercontent.com/torvalds/linux/v6.18/kernel/fork.c"
+      ]
+    },
+    {
+      "id": "C2-Q0-R6-N02",
+      "priority": "P3",
+      "title": "Allow the conservative ambiguity outcome in the pre-launch calibration",
+      "locations": [
+        "DESIGN.md:758",
+        "DESIGN.md:795"
+      ],
+      "observation": "The pre-launch exit case promises terminal-record-missing without specifying whether its predecessor was in the census or has a window birth. If either holds, rule 1 instead requires unjoinable-identity. Qualify the case or permit that reason. Both outcomes remain incomplete, so this is not a separate false-complete defect."
+    }
+  ],
+  "fenceOrderingAssessment": {
+    "queuePositionApproach": "Sound causal basis when the required census is complete and all relevant connector births are positively covered.",
+    "lowerBound": "For a pre-K generation, an in-range terminal enqueue cannot occur after its PID was already released during the census, because taskstats sending precedes reaping.",
+    "upperBound": "The generation's fork attempt precedes its terminal enqueue, which precedes S's terminal enqueue and S's connector EXIT. It must be represented in the fixed connector window or fail the loss proof.",
+    "blockingGap": "The current per-CPU loss fences do not cover all attempts through global S. QD-29 therefore does not yet establish that every in-range generation is known.",
+    "clocks": "No taskstats-to-field-22 clock conversion is required or introduced."
+  },
+  "schemaAndReferenceAssessment": {
+    "method": "Static inspection only; no validator or reference implementation executed.",
+    "schemaShapeChanged": false,
+    "typedReasons": "Existing unjoinable-identity, terminal-record-missing, terminal-record-duplicate, host-join-unresolved and event-loss reasons fit the existing slotReasons/incomplete carrier.",
+    "quantityMapping": "QD-27 at DESIGN:852 makes ownHighWaterSumBytes and peakRssBytes null for these reasons, retaining elapsed and concurrent samples. DESIGN:857 and :873 exclude reasoned rows from complete/Q6 status.",
+    "referenceCases": "The stated census ambiguity, observed late reuse, range exclusion, duplicate and namespace cases agree with QD-29 on observed data. They omit the lost late birth after an individual CPU's post sentinel."
+  },
+  "scopeAssessment": {
+    "substantiveChangesBeyondTable": false,
+    "designDiffHunks": 7,
+    "schemaDiffHunks": 1,
+    "description": "All DESIGN differences map to revision metadata, the r6 response table, QD-29 attribution/fences, calibration/reference cases, namespace requirements and the decision index. The schema changes only r5-to-r6 description references. C2-Q0-R6-01 arises from the newly enlarged system-wide generation-proof window, not a reopened unrelated topic."
+  },
+  "verification": {
+    "method": "Read-only comparison with the retained r5 subjects/review, static schema/carrier inspection, and primary Linux v6.18 source checks.",
+    "hashesMatchRequest": true,
+    "r5SnapshotHashesMatch": true,
+    "productCodeExecuted": false,
+    "testsOrBuildsRun": false,
+    "validatorExecuted": false,
+    "corpusFetched": false,
+    "runtimeHomeAccessed": false,
+    "commitsCreated": false,
+    "writesRestrictedTo": "/tmp/opensip-implementation/reviews/codex2-harness-q0-r6/"
+  }
+}
