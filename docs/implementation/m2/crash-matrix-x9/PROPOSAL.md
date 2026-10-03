@@ -1,4 +1,4 @@
-# The crash, lock and revocation matrix — proposal X9 r12
+# The crash, lock and revocation matrix — proposal X9 r13
 
 2026-10-01. Claude Opus 5.5, implementation lead. Law for unit X9 of `EXIT-PLAN.md`, the unit that gates M2 completion. It is written under:
 - the build plan's M2 row (`docs/v2/architecture/implementation-boundaries-and-build-plan.md` line 886: "actual crash/lock/revocation matrix pass; synthetic fixtures remain labelled"), its ordered failure matrix F00–F53 (lines 524–587), its required API and fault-injection checks (lines 591–613; the test owner `crates/storage/tests/commit_tests.rs`, line 594), and the tooling row for storage and process faults (line 1072: "deterministic synchronization and crash barriers against actual storage/processes … Record platform/filesystem/profile, actual state bytes and exact outcomes; inject before/after each durability step, without sleep-and-hope synchronization");
@@ -292,13 +292,115 @@ r2 (2026-10-01) is an amendment made as lead decisions under the owner's standin
 - **Item 11's timing guard: assigned and specified (items 7, 11 and 12).**
   - **Where it applies.** It applies to every run that arms `x4.observer.tick`: F39, F40's latch variant, F44 and F45, and X9-4's revocation rows. X9-3 implements it for F44 and F45, and X9-4 uses the same implementation.
   - **The measurement.** The parent takes it with its own monotonic clock, not the wall clock (item 3's scripted wall clock is untouched). It runs from the moment the parent reads the writer's first `x4.observer.tick` hold record (the observer starts after the operation's first monitored read) to the moment it reads the writer's hold at the script's admission-hold point (after its last checkpoint). That bounds the awake time that X4's 10 s freshness bound charges between the first read and the last checkpoint.
-  - **The record.** The run records it as an optional member `timingGuard: {"monotonicMs": n, "limitMs": 2000}`. Above 2000 ms the run is a `HARNESS-ERROR`, never a pass and never an `OBSERVER.FAIL_STOP` that the run accepts. The checker admits the member, requires it for a run whose script arms `x4.observer.tick`, and refuses one above its limit. The member is not in the repetition comparison.
+  - **The record.** The run records it as an optional member `timingGuard: {"monotonicMs": n, "limitMs": 2000}` (**r13:** `limitMs` 5000; see the r13 header). Above 2000 ms (**r13:** 5000 ms) the run is a `HARNESS-ERROR`, never a pass and never an `OBSERVER.FAIL_STOP` that the run accepts. The checker admits the member, requires it for a run whose script arms `x4.observer.tick`, and refuses one above its limit. The member is not in the repetition comparison.
 - **Item 7, record.** `check-unit`'s limit list is L1 to L11, as r8 set and as the checker implements. "L1 to L10" in item 7's r4 bullet was out of date.
 - **Unchanged from r11:**
   - every injection mechanism, point placement, kind, scope, label, evidence member not named above, and limit;
   - every forbidden substitute;
   - every row and expected value not named above, including all of X9-2's rows;
   - X9-5's host rules.
+
+  No accepted outcome of any other law changes. No new public code, row or detail.
+
+**r13 (2026-10-02) is an amendment made as lead decisions under the owner's standing direction of 2026-09-30.** r12 bytes are preserved in PROPOSAL-r12.md.
+- **Where it comes from.** X9-5 found these issues in development runs of its 95 transcribed host rows, on product main `b999ae3`, before any lead run set.
+- **What passed.**
+  - Every F53 row and every F32 row.
+    - Ten F32 kill rows passed only after a transcription correction.
+    - That correction read X3b item 4a case 2 literally. The law is unchanged by it.
+  - F12, F16 and F17.
+  - F40 without the latch.
+  - F01's two replay-refused variants.
+- **What did not.**
+  - Two F01 rows failed on the owning law's lawful outcome.
+  - Three revocation rows were harness errors on the admission hold r12 has since moved.
+- **No product code changed.**
+- **How it edits r12.** The r12 sentences it touches stay in place, each followed by a short "r13" note that points here.
+
+It changes the following and nothing else.
+
+- **The `candidate` child's refused end appends one `REV` (record; items 6 and 9).**
+  - **What X9-5 found.** The `candidate` child opens a `CommitSession` and ends it on its refused end path before `prepare_commit` (r10).
+    - Every refusal after `open` latches the gate.
+    - `finish` therefore appends the latched gate's one `REV` (X3d item 7 step 1, funded by the settlement reserve). X8 r5 records the same `REV` for B1, B2 and B4.
+    - So every host row starts from the carrier's INIT and that one `REV` at seq 1. It has no ledger, no attempt row, no SEAL and no object.
+  - **Decision.** This is the host rows' starting state. r10's "It creates no attempt row, SEAL or object" holds unchanged. The `REV` is not a ledger or attempt row, so r10's stop rule is not met.
+- **F01: the substituted variants gain the latched gate's one `REV` (item 9).**
+  - **What X9-5 found.**
+    - **The substituted-target and substituted-inventory variants.**
+      - Each replays.
+      - Each is admitted, opens its session, and is refused at X3d item 3 step 1 on the invariant row. No attempt row, no ledger and no SEAL follow.
+      - The refusal latches the gate, so `finish` appends one `REV`. The carrier's logical state therefore changes by exactly that record. These are X8c's B1 and B2, and X8 r5 records the same `REV`.
+    - **The replay-refused variants** end inside `finalize` before `admit` (X5 r3 item 3). They leave the whole post-state unchanged.
+  - **Decision.**
+    - **F01's replay-refused variants:** the whole post-state is unchanged (`normalizedSha256` before and after the `finalize` child). That is stronger than the cell's "ledger and carrier logical state unchanged".
+    - **F01's substituted variants:** the ledger stays absent, there is no attempt row and no SEAL, and the carrier gains exactly one record, the latched gate's `REV`. Nothing else in the cell changes.
+  - **Rejected:** "carrier logical state unchanged" for the substituted variants. X3d item 7 step 1 owes that `REV`, and no host order can avoid it once the session is open.
+- **F40's latch variant runs landed only (items 9 and 11).**
+  - **What X9-5 found.** r12 moves the admission hold to `x3c.evidence.commit.before#1`. A point takes one action, so the latch variant cannot both hold there and inject `fail-before` there.
+  - **Decision.** F40's latch variant runs one script: r12's F39 script, holding at `x3c.evidence.commit.before#1`, with `x3c.evidence.commit.after#1=fail-after` armed.
+    - Its expectations are F12's landed ladder, with the latch observed.
+    - The not-landed latch variant is not run. Two things cover it:
+      - F40 without the latch, both landed and not landed;
+      - X4's in-process gate-trace test, which runs every interleaving of latch and admission (F41's "elsewhere").
+    - The timing guard (r12) applies to the variant, as to F39.
+  - **Rejected:**
+    - **Holding at `x3c.evidence.commit.after`.** The not-landed injection is `fail-before` at `.before`, so that hold could never pair with it.
+    - **Moving a placement.** r12 rejects that for the same script.
+- **R2 commits r12's distinct variant after a committed Run, in host rows (items 8 and 9).**
+  - **What X9-5 found.** F12's landed variant, F16 and F17 leave a committed Run, so each R2 re-committed the same Run and was refused on X3c item 10's invariant row. That is r12's F13 finding, in host rows.
+  - **Decision.**
+    - **Where R2 commits the distinct variant.** In every host row whose scripted phase leaves a committed Run, R2 commits r12's distinct variant (`{"r2": "distinct"}`):
+      - F12's landed variant;
+      - F16;
+      - F17;
+      - F39;
+      - F40's landed variants, with and without the latch;
+      - F32's `…987` variant.
+    - **How the host builds it.** The host's `candidate` child writes the variant beside the candidate, from the same session. That keeps it "inputs only".
+    - **What R2 is expected to give:**
+      - Committed, where no revocation stands: F12, F16, F17 and F40 without the latch;
+      - refused at admission, where one does: F39 and F40's latch variant (C5). The exact row is not scored.
+      - In F32's `…987` variant, R2 reaches the exhausted generation before staging, as the row already states. The variant changes nothing there.
+  - **Rejected:** R2 unscored in these rows. It would leave "the next writer proceeds" untested where the attempt committed.
+- **The revoked subject in host rows (record of r12).** The `candidate` child writes `CommitSession::core_closure` to a file under the run's scratch root, and the host's publisher child reads it. That is r12's revoked subject, applied to the host's order, where the session is the `candidate` child's.
+- **F32's `…987` variant: R1 and R4 are `unknown-quarantine-condition:journalContiguity` (item 9).**
+  - **What X9-5 found.** After the reserved-slot setup at `…987`, the attempt commits (its SEAL takes `…988`). `recover` of its ExecutionId gives `unknown-quarantine-condition` with reason `journalContiguity`.
+  - **Why this is the owning law's outcome.**
+    - The owner's §2 ("The requested sequence against tail and floor") requires "sequence contiguity `1..t`" before any confirmation. X6's capture enforces it as the generation's row count equal to its tail (`recovery_capture.rs`).
+    - X3b-2's reserved-slot technique (item 6) plants one committed `RA` at `(1, …987)`, with the trigger lifted. Below it the generation holds only the `candidate` child's `REV` at seq 1, so the count is far below the tail.
+    - The writer's start reads only the tail, the witness and the floor (X3b item 9), and the floor step admits a floor below the tail. So the writer commits, and R2 reaches the exhaustion.
+    - Recovery is the one reader that checks the whole sequence, and it quarantines. It is not a negative: the standing is a quarantine condition, never "not committed".
+  - **Decision.** F32's `…987` R1 and R4 are `unknown-quarantine-condition:journalContiguity`.
+    - R3 is not scored. The sweep reads the ledger, not the carrier.
+    - The `…988` variant and its kills are unaffected. Their attempt writes no ledger, so recovery stops at the ledger (UC `ledger-missing`, then UAU) and never captures the carrier.
+    - This is a property of the fixture, not of any production state. A lawful generation is contiguous. The same applies to F43's tail technique (X9-3).
+  - **Rejected:** planting 986 contiguous predecessor rows to make the tail lawful. That writes a synthetic journal of about 9×10¹⁵ rows, which is impossible, and it is not the technique item 6 names.
+- **The timing guard's limit is 5,000 ms (items 7, 11 and 12; r12's timing guard).**
+  - **What X9-3 found.**
+    - **The measurements.** On F44 the guard measured 2,845 ms, and on F45 2,893 ms.
+    - **What the window covers.** It runs from the writer's first `x4.observer.tick` hold to its hold at the admission-hold point. In that time it covers only the writer's own lawful work:
+      - the attempt row;
+      - about 40 objects, each barriered by `F_FULLFSYNC`;
+      - the SEAL and its witness writes;
+      - the checkpoints.
+    - **Why 2,000 ms cannot be met.** Neither the parent nor the publisher runs inside the window. In the matrix's debug profile on this host, 2,000 ms cannot be met by any lawful run.
+  - **Decision.** `limitMs` is 5,000. Above 5,000 ms the run is a `HARNESS-ERROR`, as before.
+    - **Why it still bounds what X4 charges.** 5,000 ms is half of X4's 10 s freshness bound, the awake time the guard exists to keep away from, and about 1.7× the measured value. So a run that passes still leaves X4's freshness stall unreached, and an `OBSERVER.FAIL_STOP` still never passes as a run.
+    - **What else stays.** The measurement, its window, the record member and its exclusion from the repetition comparison are unchanged.
+  - **The code changes that follow, owned by X9-3:**
+    - the checker's limit;
+    - its test;
+    - the run record's `limitMs` constant.
+  - **Rejected:**
+    - **Narrowing the window to the main thread's held time.** It would stop measuring the awake time the guard bounds: the observer's freshness is charged across the writer's work, not only across its holds.
+    - **Keeping 2,000 ms.** No lawful run on this host meets it, so every revocation row would be a `HARNESS-ERROR`.
+    - **A limit at or near 10 s.** It would accept runs whose awake time approaches X4's own bound.
+- **Unchanged from r12:**
+  - every injection mechanism, point placement, kind, scope, label, evidence member and limit, except the timing guard's limit above;
+  - every forbidden substitute;
+  - every row and expected value not named above, including all of X9-2's and X9-3's rows;
+  - X9-5's runners, host order, required-runs file and census.
 
   No accepted outcome of any other law changes. No new public code, row or detail.
 
@@ -568,7 +670,7 @@ At `f1b8321` the product has the following, and nothing more:
    | Case | Owner | Injection | Status | Expected |
    |---|---|---|---|---|
    | F00 | X2, X3a, X3b, X4T-b | `hold`→kill at every census point before `x3c.attempt.commit.after` (X4T floor, X3b floor, INIT, start witness, leases) | exec | No attempt row; ledger logical state unchanged. R2: the floor step and start handle X3b item 3a's or item 4's crash state (INIT resumes or finishes, REVERT, ADVANCE), then Committed. With an ExecutionId drawn: R1 and R4 UAU, R3 writes nothing. **r5:** expected by kill point: before the draw, R1 and R4 not applicable; from the draw through `x3c.ledger-create.ddl.commit.before`, R1 UC (`ledger-missing` or `ledger-unreadable`, X6 F24) and R4 UAU; from `x3c.ledger-create.ddl.commit.after` (included, r6) until `x3c.attempt.commit.after`, R1 and R4 UAU. R3 writes nothing (see the r5 header). **r8:** R2 is the owning law's outcome for the crash state at the kill point: the registration window (X2 item 8 identity rows), the created-not-yet-private windows (custody, host I/O, and for an X4T dependency occurrence (r9) `CONFIG.CUSTODY_REFUSED` `installation-incomplete` when the next publication writes its name, Committed when it does not), the WAL gap (`LEDGER.CORRUPT`), and Committed everywhere else. R4 stays UC where R2 does not create the ledger (see the r8 header; L11). |
-   | F01 | X5 | replay-invalid candidate; substituted target or inventory | exec (host) | Refused before `prepare_commit`; no attempt row; no SEAL; ledger and carrier logical state unchanged. |
+   | F01 | X5 | replay-invalid candidate; substituted target or inventory | exec (host) | Refused before `prepare_commit`; no attempt row; no SEAL; ledger and carrier logical state unchanged. **r13:** the replay-refused variants leave the whole post-state unchanged; the substituted variants add only the latched gate's one `REV` to the carrier (see the r13 header). |
    | F02 | X3c | `torn` at `x3c.object.write` (first, middle and last object) | exec (inj) | Staging residue is never adopted. R1 UAO; R2 Committed; R3 refused; R4 TNC. The orphan stays (L6). |
    | F03 | X3c | kill at `file-barrier.before` and `.after` | exec (death branch; L1) | As F02. |
    | F04 | X3c | kill at `link.before` and `.after`; R2 republishes the same digest | exec | As F02. R2 confirms the existing object by exact bytes. An unequal-collision mutation variant refuses on X3c item 10's row. |
@@ -599,7 +701,7 @@ At `f1b8321` the product has the following, and nothing more:
    | F29 | X6 | a reader process while the writer holds at `x3c.attempt.commit.after`, after the SEAL, at `x3d.publish.after-staging` and at `commit-returned` | exec | UAO, UAO, UAO, CH with pendingSettlement; never mixed; the reader takes `readers.lease` alongside APPEND-WRITE without waiting. |
    | F30 | X2, X6c | writer A holds (a) under its lease after the fence is released and (b) while it holds the fence; process B is a competing writer; process C is the sweep | exec | B: the busy row after S7's bounded fence or lease attempt, no upgrade, no state change. C: skips and retains the namespace. After A resumes, A is Committed, and a second B then succeeds. |
    | F31 | X3b | the parent installs the format-1 or format-2 fixture as the namespace's carrier | exec (mut) | R2 refused before commit work (X3b item 3a's F46 row); no SEAL is inserted. |
-   | F32 | X3b-4, X7b | reserved-slot setup to tails `…987` and `…988`; kill at each X3b item 13 crash-table point | exec (host; mut + death) | `CarrierCapacityExhausted`; `finish`; the rollover in the end step; X7 r3 item 6a's busy row. Each crash row as X3b item 13 states; the next writer proceeds in G+1. |
+   | F32 | X3b-4, X7b | reserved-slot setup to tails `…987` and `…988`; kill at each X3b item 13 crash-table point | exec (host; mut + death) | `CarrierCapacityExhausted`; `finish`; the rollover in the end step; X7 r3 item 6a's busy row. Each crash row as X3b item 13 states; the next writer proceeds in G+1. **r13:** the `…987` variant's R1 and R4 are `unknown-quarantine-condition:journalContiguity` (the planted tail is not contiguous from 1), and its R2 commits the distinct variant (see the r13 header). |
    | F33 | X6 | the parent alters receipt bytes, the inventory, a signature, or the SEAL body digest | exec (mut) | R1 UC. |
    | F34 | X3d, X6 | (r2) run A: `inject-id` with a previous run's ExecutionId; then run B, a separate `recover` process, once with A's disclosed requested binding and once with the earlier attempt's own binding | exec (inj) | A: `ExistingAttempt`, projected on the invariant row (`SYSTEM.OUTCOME.ILLEGAL_STATE`, `HOST.INVARIANT_VIOLATED`) with the ExecutionId as subject and the requested binding disclosed (X6 r3 item 6, X7 r4 item 3); no new row, no SEAL, no recover in A; the earlier attempt's rows unchanged. B: with A's binding (a different `operationRef`), BU (`RECOVERY.REFUSED`, subject `operation`); with the earlier attempt's binding, that attempt's standing. B leaves `normalizedSha256` unchanged. |
    | F35 | — | — | LIMIT (L5) | — |
@@ -607,7 +709,7 @@ At `f1b8321` the product has the following, and nothing more:
    | F37 | X6 | — | elsewhere (X6 item 10: the pure ordering accessor) | — |
    | F38 | X3d, X4 | `hold` at `x3d.publish.after-staging`; the parent revokes; resumes `x4.observer.tick#1` and awaits `x4.gate.latch.after`; resumes the main thread | exec | The gate goes 0→2; no permit; staged transaction rolled back; `REV` and `CLN` from the reserve. R1 UAO; R2 refused at admission; R3 and R4 per C5. |
    | F39 | X3d, X4, X7 | `hold` at `x4.gate.admit.after`; revoke; observer tick; latch 1→3; resume | exec (storage half; host half in X9-5) | Committed with `latchedAfterAdmission`; host projects `DELIVERY.REQUIRED_FAILED`; R1 CH. **r12:** the admission hold is `x3c.evidence.commit.before#1`, the first point after the shared monitor is released (see the r12 header). |
-   | F40 | X3d, X7 | as F12, with and without F39's latch | exec (inj) | `DURABILITY.COMMIT_FAILED`, ExecutionId, no RunId; the latch does not convert it. The ladder as F12. |
+   | F40 | X3d, X7 | as F12, with and without F39's latch | exec (inj) | `DURABILITY.COMMIT_FAILED`, ExecutionId, no RunId; the latch does not convert it. The ladder as F12. **r13:** the latch variant runs landed only, with r12's F39 hold; the not-landed latch variant is covered by F40 without the latch and by X4's gate-trace test (see the r13 header). |
    | F41 | X4, X3d | the two process-level orders: latch before admission, and admission before latch | exec (two orders); every interleaving is covered elsewhere (X4's gate-trace test) | At most one `x3c.evidence.commit` in the trace; the gate stays in 0..3. |
    | F42 | X3d | abort is every kill above; the child driver `mem::forget`s its `StoppedSession` and exits; a held point with a reader running | exec (kernel stall: L3) | Forget: the kernel releases the lease, the attempt stays admitted, R1 UAO. The reader during a hold: UB or UAO. Never a claimed cleanup. |
    | F43 | X6 | tail-lost variant: after a commit, the parent truncates the journal tail below the association's `journalSeq` (reserved-slot technique) | exec (mut); the reconciling-retry variant is elsewhere (X6 item 11's hazard test) | R1 per the F43 rule: UB attributed to the carrier owner, or the F22 condition when the floor is at or above the requested sequence and two tail observations agree; never uncommitted. |
@@ -643,7 +745,7 @@ At `f1b8321` the product has the following, and nothing more:
     - **Revocation.** Every child arms `x4.observer.tick#*=hold`, so the observer ticks only when the parent resumes it.
       - **Order of the parent's steps.** The parent holds the main thread at the named checkpoint or gate point, publishes the trust change (item 6's helper, under the fence, which the held child does not hold after its handoff), and resumes either the main thread (the checkpoint's own monitored read observes it) or one observer tick, awaiting `x4.gate.latch.after` before resuming the main thread.
       - **Why it is deterministic.** Which party latches, and in which gate state, is fixed by the script.
-    - **Timing guard.** A held child's awake time counts against X4's 10 s bound. Each run records the monotonic time from the operation's first monitored read to its last checkpoint. A run above 2 s is a `HARNESS-ERROR`, never an `OBSERVER.FAIL_STOP` that the run then accepts.
+    - **Timing guard.** A held child's awake time counts against X4's 10 s bound. Each run records the monotonic time from the operation's first monitored read to its last checkpoint. A run above 2 s (**r13:** 5 s, measured as r12 states; see the r13 header) is a `HARNESS-ERROR`, never an `OBSERVER.FAIL_STOP` that the run then accepts.
       **r12:** it applies to every run that arms `x4.observer.tick`. It is measured on the parent's monotonic clock, from the writer's first `x4.observer.tick` hold record to its hold at the script's admission-hold point, and recorded as `timingGuard`. X9-3 implements it for F44 and F45, and X9-4 uses it (see the r12 header).
     - **Rejected:** letting the observer tick on its own 5 s timer during matrix runs, which makes the latching party a race.
 
@@ -678,6 +780,7 @@ At `f1b8321` the product has the following, and nothing more:
       **r12:** X9-4 also takes F14's `x3d.finish.settle.before` kill, in an owed-end-record run after F39's script. It inherits the r12 admission hold and X9-3's timing guard (see the r12 header).
     - **X9-5 (host).** `crates/host/tests/commit_matrix_tests.rs` with rows F01, F16, F17, F12's and F40's caller route, F32 with its rollover crash table, F39's delivery half, and F53's `store-gc` step. **Dependencies:** X9-2, X5a, X7a, X7b, X3b-4 and X6c.
       **r10:** X9-5 adds host's two runners, the candidate file's writer and reader, and the fixed delivery phase. It also adds the `candidate` and `finalize` children (host order: the candidate is written before custody), the host required-runs file and the host census of two `finalize` runs and (r11) one `store_gc` run. It depends on X3d-3 too (see the r10 header).
+      **r13:** X9-5's host rows start from the `candidate` child's INIT and one `REV`; R2 commits r12's distinct variant after a committed Run; F40's latch variant runs landed only; the timing guard's limit is 5,000 ms (see the r13 header).
     - **X9-6 (record; the M2 exit).** Two full lead runs on one integrated commit, the checker, release absence, the reviewer's rerun, and the arch evidence record. **Dependencies:** all of the above, and VD1 (EXIT-PLAN, "lands before the X9 exit").
       **r10:** X9-6's `check` covers both required-runs files and both targets' run sets, with the union census and kill-set coverage across both (see the r10 header).
 
