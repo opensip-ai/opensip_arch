@@ -1,6 +1,6 @@
-# M3-Q0 quality-harness design record — r13
+# M3-Q0 quality-harness design record — r12
 
-Draft r13. Claude Opus 5.5, implementation lead. Unit **M3-Q0** of the accepted M3 unit plan (`M3-PLAN.md:157`).
+Draft r12. Claude Opus 5.5, implementation lead. Unit **M3-Q0** of the accepted M3 unit plan (`M3-PLAN.md:157`).
 
 r1 (`DESIGN-r1.md`, sha256 `22df1afb…`, 65,990 bytes; schema `exploratory-quality-envelope.schema.v1-r1.json`, `4cdfbb60…`, 23,190 bytes) was reviewed by CODEX2 (method; `/tmp/opensip-implementation/reviews/codex2-harness-q0-r1/`), with 8 required findings and 5 non-blocking observations. r2 answers all of them. CODEX2 confirmed the cluster-product bound and the 29/299 floors as sound, so they are unchanged.
 
@@ -23,8 +23,6 @@ r9 (`DESIGN-r9.md`, sha256 `4db107c0…`, 120,794 bytes; schema `exploratory-qua
 r10 (`DESIGN-r10.md`, sha256 `c926077c…`, 133,762 bytes; schema `exploratory-quality-envelope.schema.v1-r10.json`, `6558bd39…`, 59,031 bytes) was reviewed by CODEX2 (`/tmp/opensip-implementation/reviews/codex2-harness-q0-r10/`), with 2 required findings and 4 non-blocking observations. r11 answers all of them and changes nothing else.
 
 r11 (`DESIGN-r11.md`, sha256 `c003a06a…`, 143,572 bytes; schema `exploratory-quality-envelope.schema.v1-r11.json`, `8769ed0c…`, 59,433 bytes) was reviewed by CODEX2 (`/tmp/opensip-implementation/reviews/codex2-harness-q0-r11/`), with one required finding and one non-blocking observation. r12 implements the lead's decision on it and changes nothing else.
-
-r12 (`DESIGN-r12.md`, sha256 `72e70548…`, 148,609 bytes; schema `exploratory-quality-envelope.schema.v1-r12.json`, `d05472ec…`, 60,031 bytes) was reviewed by CODEX2 (`/tmp/opensip-implementation/reviews/codex2-harness-q0-r12/`), with one required finding. r13 answers it and changes nothing else.
 
 ## Standing
 
@@ -56,12 +54,6 @@ Short names, as in the accepted plans:
 - **ENV:** `docs/implementation/m3/harness/exploratory-quality-envelope.schema.v1.json` (drafted with this record)
 
 ---
-
-## r13 changes and review responses
-
-| Finding | Section | Change |
-|---|---|---|
-| C2-Q0-R12-01 (no root, no root-reaped time) | §9.3 macOS, calibration, §9.5 cases, ENV `description` | The if-and-only-if rule is replaced by three rules:<br>- a non-null `rootReapedElapsedNanos` requires `settlement-unverified-platform`;<br>- it is required only when a root was created and reaped, that is, when the slot has the reason and no `run-failed`;<br>- it is null when no root was created or reaped, and the slot then carries `run-failed`.<br>A failed run whose root was reaped may keep its value. A retained macOS failed-launch slot is added as calibration and reference cases. |
 
 ## r12 changes and review responses
 
@@ -888,12 +880,6 @@ The kernel maintains `memory.peak` for everything charged to the group, so it ne
 
 *macOS (lead workstation, and the later macOS lanes)* cannot prove tree settlement (step 5), and it has no equivalent group high-water mark (AQP:334).
 - **Elapsed.** The time from spawn until the harness reaps the root is recorded in **`rootReapedElapsedNanos`**, for information only. `elapsedNanos` is null with `settlement-unverified-platform`, because the elapsed definition (spawn to settlement) is not met. The value is kept in the separate informational field so that it cannot be read as the defined measurement or enter a median.
-  **When the value exists (C2-Q0-R12-01).** A root-reaped time exists only if a root was created, the harness observed its reaping, and both monotonic timestamps are valid. Three rules follow, and they replace r12's if-and-only-if rule:
-  1. **A non-null value requires the reason.** `rootReapedElapsedNanos` may be non-null only on a slot that carries `settlement-unverified-platform`.
-  2. **Required only when a root was created and reaped.** A slot with `settlement-unverified-platform` and no `run-failed` had its root created and reaped, so its value must be non-null.
-  3. **Null when there is no root.** If the launch failed before a root existed (for example, `posix_spawn` returned an error and created no child), or the root was never reaped, the value is null, and the slot must also carry `run-failed`. A failed run whose root **was** reaped may still keep its known value.
-
-  The macOS platform reasons stay mandatory on every macOS measured slot. The row stays `incomplete`.
 - **Memory.** Every macOS run also records `cgroupMemoryPeakBytes` as null, with the reason `memory-peak-unavailable-platform`. Its memory figure is `incomplete`, and it can never be within budget. The informational `ru_maxrss` values are still recorded. A macOS group-peak source is needed before any macOS G13 lane can qualify memory (OI-18).
 - **Q6 qualification is Linux-only, on the D12 runner.** No macOS row can be complete, and no macOS elapsed or memory value can pass a budget. A macOS settlement source and a macOS group-peak source would both be needed first (OI-18, OI-20).
 
@@ -915,7 +901,6 @@ These cases are expected to be **`incomplete`**, with the stated reason:
   - `elapsedNanos` is null with `settlement-unverified-platform`, `rootReapedElapsedNanos` holds the root-reaped value, and memory is null with `memory-peak-unavailable-platform`;
   - a double-forked daemon gives the same result.
 - **macOS, ordinary run:** the same reasons and nulls. A macOS row is never complete.
-- **macOS, failed launch with no root (C2-Q0-R12-01):** the launch fails before a root exists. The slot is kept with `run-failed`, `settlement-unverified-platform` and `memory-peak-unavailable-platform`. `rootReapedElapsedNanos` is null, with no number invented.
 - a host with cgroup v1 only: `cgroup-v1-only`;
 - `memory.peak` removed or unmounted (simulated): `cgroup-unavailable`;
 - a parent without write access to `cgroup.subtree_control`: `cgroup-no-delegation`;
@@ -1082,12 +1067,8 @@ A row is `incomplete` whenever **any** slot has a reason, **including a row in w
   - **Rejected by the validator:**
     - `settlement-unverified-platform` with `elapsedNanos` still present;
     - `rootReapedElapsedNanos` present on a slot without that reason, such as a Linux slot;
-    - (r13) a null value on a slot with `settlement-unverified-platform` but no `run-failed`;
     - a macOS row whose runner OS is macOS but which lacks the reason.
   - **Rejected by the schema:** a complete row carrying `rootReapedElapsedNanos`, and a macOS row claiming `within`.
-  - **(r13) Accepted:**
-    - a macOS failed launch with no root: `run-failed` and `settlement-unverified-platform`, with `rootReapedElapsedNanos` null;
-    - a macOS failed run whose root was reaped: `run-failed` and `settlement-unverified-platform`, with the known value kept.
   - **A settlement model:** on macOS, root reaped plus `ECHILD`, with a live reparented descendant, gives `settlement-unverified-platform`, never settled. On Linux with the subreaper, the same sequence waits for the descendant.
 
 - **Flips.** A non-pass followed by a pass is counted as a `flip`. Three flips in any ten consecutive CI runs of a workload send that workload to noise review.
