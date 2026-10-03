@@ -1,0 +1,2004 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "opensip.harness.exploratory-quality-envelope.1",
+  "title": "OpenSIP exploratory quality envelope (D13 draft)",
+  "description": "Draft for D13 (docs/implementation/m3/analysis-quality/PLAN-r5.md:428-434, :544). Exploratory, never promoted, never a G13 input. References unchanged RS3 observations by digest; RS3 itself is not changed. Proportions and bounds are integer millionths (no floats; canonical bytes per docs/coop/design-corrections/foundation/canonical.py). Design: docs/implementation/m3/harness/DESIGN.md (r13) sections 11-12. Cross-row invariants a schema cannot express are checked by the envelope validator (DESIGN.md r13 section 9.5): exactly one final batch per key; batchId equals the SHA-256 of its canonical key tuple; every q6 batch has exactly one batchObservations row and, for each warmup and measured slot, exactly one operationalRecords row or a record-missing reason on that slot; no duplicate (batchId, slot); no orphan record or observation; at most one slotReasons row per slot, and every operational record missing from a required slot listed as record-missing on that slot; per measured slot and quantity, a value is null if and only if a reason the DESIGN QD-27 table maps to that quantity is present (record-missing and record-invalid null neither value; run-failed, timeout, cgroup-not-empty and settlement-failed null both elapsedNanos and cgroupMemoryPeakBytes; settlement-unverified-platform nulls elapsedNanos only, and rootReapedElapsedNanos (informational, never a budget input) may be non-null on a measured slot only if that slot carries settlement-unverified-platform, must be non-null when the slot carries settlement-unverified-platform without run-failed (a root was created and reaped), and is null when no root was created or reaped, in which case the slot carries run-failed; every measured slot of a macOS runner carries settlement-unverified-platform; every other cgroup or memory-peak reason, including cgroup-isolation-unverified, nulls cgroupMemoryPeakBytes only); the median non-null exactly when all seven elapsed values are, and maxCgroupMemoryPeakBytes exactly when all seven cgroupMemoryPeakBytes values are; cgroupLeaves has exactly one row per (batchId, slot) for every warmup, measured and priming slot of every q6 batch; a row with leafName null must carry an absentReason in {cgroup-unavailable, cgroup-v1-only, cgroup-no-delegation, memory-peak-unavailable-platform, cgroup-escape-unprevented, cgroup-isolation-unverified} (batch-level, before any run leaf is created) that also appears in that slot's slotReasons; created leaves (leafName non-null) are pairwise distinct; a complete row with status within or over requires non-null baselineMedianNanos, baselineCgroupMemoryPeakBytes and baselineBasisDigest, with the referenced basis matching the row on measurement (cgroupMemoryPeak), reset and cache policy with charge ownership, kernel release, runner class and cgroup entry method; otherwise a complete row's status is no-baseline, and any slot reason keeps the row incomplete; phaseTimingsPresent true exactly when every measured slot has a valid record, and phaseAbsenceReason null exactly then; population counts summing (corpus = sampled + unlabelled, sampled = settled + pending, settled = true + false + unclear). Peak memory is cgroupMemoryPeak (cgroup v2 memory.peak, charged memory, not RSS; DESIGN.md r13 section 9.3); whether it satisfies RS3's peakRssBytes is D13's question. Q6 qualification is Linux-only, on the D12 runner (DESIGN.md r13 section 9.3).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaMajor",
+    "standing",
+    "qualificationEvidence",
+    "declaration",
+    "roundId",
+    "measuredAt",
+    "product",
+    "harness",
+    "corpus",
+    "ledger",
+    "definitions",
+    "runner",
+    "tools",
+    "rs3Observations",
+    "batchObservations",
+    "cgroupLeaves",
+    "operationalRecords",
+    "unqualifiedAdvisoryRules",
+    "results"
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
+    },
+    "gitCommit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}(?![\\s\\S])"
+    },
+    "label": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 18446744073709551615
+    },
+    "ppm": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000
+    },
+    "nullablePpm": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/ppm"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "positiveInt": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 18446744073709551615
+    },
+    "language": {
+      "enum": [
+        "ts",
+        "js",
+        "rust",
+        "python",
+        "syntax-only"
+      ]
+    },
+    "evidenceSet": {
+      "enum": [
+        "held-out",
+        "development"
+      ]
+    },
+    "stratumKey": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ruleId",
+        "language",
+        "mode"
+      ],
+      "properties": {
+        "ruleId": {
+          "$ref": "#/$defs/label"
+        },
+        "language": {
+          "$ref": "#/$defs/language"
+        },
+        "mode": {
+          "$ref": "#/$defs/label"
+        }
+      }
+    },
+    "samples7": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "items": {
+        "$ref": "#/$defs/positiveInt"
+      },
+      "x-opensip-order": "sequence"
+    },
+    "nullablePositiveInt": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/positiveInt"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "nullableCount": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/count"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "samples7Nullable": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "items": {
+        "$ref": "#/$defs/nullablePositiveInt"
+      },
+      "x-opensip-order": "sequence"
+    },
+    "runReason": {
+      "enum": [
+        "run-failed",
+        "timeout",
+        "record-missing",
+        "record-invalid",
+        "cgroup-unavailable",
+        "cgroup-v1-only",
+        "cgroup-no-delegation",
+        "cgroup-escape-unprevented",
+        "cgroup-isolation-unverified",
+        "cgroup-read-failed",
+        "cgroup-not-empty",
+        "memory-peak-unverified",
+        "memory-peak-unavailable-platform",
+        "settlement-failed",
+        "settlement-unverified-platform"
+      ]
+    },
+    "phaseAbsenceReason": {
+      "oneOf": [
+        {
+          "enum": [
+            "record-missing",
+            "record-invalid",
+            "phase-missing",
+            "negative-unattributed"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "populationCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "corpusFindings",
+        "sampledFindings",
+        "settledFindings",
+        "pendingFindings",
+        "unlabelledFindings",
+        "trueCount",
+        "falseCount",
+        "unclearCount"
+      ],
+      "properties": {
+        "corpusFindings": {
+          "$ref": "#/$defs/count"
+        },
+        "sampledFindings": {
+          "$ref": "#/$defs/count"
+        },
+        "settledFindings": {
+          "$ref": "#/$defs/count"
+        },
+        "pendingFindings": {
+          "$ref": "#/$defs/count"
+        },
+        "unlabelledFindings": {
+          "$ref": "#/$defs/count"
+        },
+        "trueCount": {
+          "$ref": "#/$defs/count"
+        },
+        "falseCount": {
+          "$ref": "#/$defs/count"
+        },
+        "unclearCount": {
+          "$ref": "#/$defs/count"
+        }
+      }
+    },
+    "runSlot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "index"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "priming",
+            "warmup",
+            "measured"
+          ]
+        },
+        "index": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 6
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "priming"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "index": {
+                "const": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "warmup"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "index": {
+                "maximum": 2
+              }
+            }
+          }
+        }
+      ]
+    },
+    "slotReason": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "slot",
+        "reasons"
+      ],
+      "properties": {
+        "slot": {
+          "$ref": "#/$defs/runSlot"
+        },
+        "reasons": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": {
+            "$ref": "#/$defs/runReason"
+          },
+          "x-opensip-order": "canonical-set"
+        }
+      }
+    }
+  },
+  "properties": {
+    "schemaMajor": {
+      "const": 1
+    },
+    "standing": {
+      "const": "exploratory-never-promoted"
+    },
+    "qualificationEvidence": {
+      "const": false
+    },
+    "declaration": {
+      "const": "Exploratory measurement. Not G13 evidence, not qualification evidence, never promoted. A qualification run re-executes from scratch on the D12 lanes against the held-out set."
+    },
+    "roundId": {
+      "$ref": "#/$defs/label"
+    },
+    "measuredAt": {
+      "type": "string",
+      "format": "date-time",
+      "maxLength": 64
+    },
+    "product": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "commit",
+        "treeClean",
+        "hostDigest",
+        "providerClosureDigest"
+      ],
+      "properties": {
+        "commit": {
+          "$ref": "#/$defs/gitCommit"
+        },
+        "treeClean": {
+          "const": true
+        },
+        "hostDigest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "providerClosureDigest": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "harness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "commit",
+        "harnessDigest",
+        "scoringHarnessDigest"
+      ],
+      "properties": {
+        "commit": {
+          "$ref": "#/$defs/gitCommit"
+        },
+        "harnessDigest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "scoringHarnessDigest": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "corpus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "t1ManifestDigest",
+        "t2ManifestDigest",
+        "caseSetDigest",
+        "familyMapDigest",
+        "heldOutSetDigest",
+        "heldOutIncluded",
+        "t3"
+      ],
+      "properties": {
+        "t1ManifestDigest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "t2ManifestDigest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "caseSetDigest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "familyMapDigest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "heldOutSetDigest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "heldOutIncluded": {
+          "type": "boolean"
+        },
+        "t3": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "present",
+            "localManifestDigest"
+          ],
+          "properties": {
+            "present": {
+              "type": "boolean"
+            },
+            "localManifestDigest": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/sha256"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "ledger": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ledgerDigest",
+        "headRecordDigest",
+        "freezeRecordDigest"
+      ],
+      "properties": {
+        "ledgerDigest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "headRecordDigest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "freezeRecordDigest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "t3LedgerDigest": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "definitions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "metricDefinitionsDigest",
+        "preregistrationDigest",
+        "ruleSpecSetDigest",
+        "rubricSetDigest",
+        "designRecordDigest"
+      ],
+      "properties": {
+        "metricDefinitionsDigest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "preregistrationDigest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "ruleSpecSetDigest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "rubricSetDigest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "designRecordDigest": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "runner": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runnerClass",
+        "runnerId",
+        "cpuModel",
+        "logicalCpus",
+        "memoryBytes",
+        "osVersion",
+        "osBuild",
+        "kernel",
+        "filesystem",
+        "concurrency",
+        "networkDisabled",
+        "compilerDigest",
+        "runtimeDigest",
+        "measurementToolDigest",
+        "cacheState",
+        "calibration"
+      ],
+      "properties": {
+        "runnerClass": {
+          "enum": [
+            "d12-reference",
+            "lead-workstation",
+            "ci"
+          ]
+        },
+        "runnerId": {
+          "$ref": "#/$defs/label"
+        },
+        "cpuModel": {
+          "$ref": "#/$defs/label"
+        },
+        "logicalCpus": {
+          "$ref": "#/$defs/positiveInt"
+        },
+        "memoryBytes": {
+          "$ref": "#/$defs/positiveInt"
+        },
+        "osVersion": {
+          "$ref": "#/$defs/label"
+        },
+        "osBuild": {
+          "$ref": "#/$defs/label"
+        },
+        "kernel": {
+          "$ref": "#/$defs/label"
+        },
+        "filesystem": {
+          "$ref": "#/$defs/label"
+        },
+        "concurrency": {
+          "$ref": "#/$defs/positiveInt"
+        },
+        "networkDisabled": {
+          "type": "boolean"
+        },
+        "compilerDigest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "runtimeDigest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "measurementToolDigest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "cacheState": {
+          "$ref": "#/$defs/label"
+        },
+        "calibration": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kernelRelease",
+            "memoryPeakVerified",
+            "nsdelegate",
+            "cgroupEntry",
+            "leafOverheadPpm"
+          ],
+          "properties": {
+            "kernelRelease": {
+              "$ref": "#/$defs/label"
+            },
+            "memoryPeakVerified": {
+              "type": "boolean"
+            },
+            "nsdelegate": {
+              "type": "boolean"
+            },
+            "cgroupEntry": {
+              "enum": [
+                "clone-into",
+                "migrate-before-exec",
+                "unavailable"
+              ]
+            },
+            "leafOverheadPpm": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/count"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "tools": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "version",
+          "closureDigest",
+          "role",
+          "executesRepositoryCode"
+        ],
+        "properties": {
+          "name": {
+            "$ref": "#/$defs/label"
+          },
+          "version": {
+            "$ref": "#/$defs/label"
+          },
+          "closureDigest": {
+            "$ref": "#/$defs/sha256"
+          },
+          "configurationDigest": {
+            "$ref": "#/$defs/sha256"
+          },
+          "adapterDigest": {
+            "$ref": "#/$defs/sha256"
+          },
+          "role": {
+            "enum": [
+              "toolchain",
+              "differential",
+              "formatter",
+              "harness-dependency"
+            ]
+          },
+          "executesRepositoryCode": {
+            "type": "boolean"
+          }
+        }
+      },
+      "x-opensip-order": "canonical-set"
+    },
+    "rs3Observations": {
+      "type": "array",
+      "maxItems": 4096,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "reportSha256",
+          "schemaId",
+          "signed"
+        ],
+        "properties": {
+          "reportSha256": {
+            "$ref": "#/$defs/sha256"
+          },
+          "schemaId": {
+            "const": "opensip.qualification.product-report.3"
+          },
+          "signed": {
+            "type": "boolean"
+          }
+        }
+      },
+      "x-opensip-order": "canonical-set"
+    },
+    "operationalRecords": {
+      "type": "array",
+      "maxItems": 100000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "recordSha256",
+          "batchId",
+          "slot",
+          "carriesReuseDisclosure",
+          "carriesProcessMaxRss"
+        ],
+        "properties": {
+          "recordSha256": {
+            "$ref": "#/$defs/sha256"
+          },
+          "batchId": {
+            "$ref": "#/$defs/sha256"
+          },
+          "slot": {
+            "$ref": "#/$defs/runSlot"
+          },
+          "carriesReuseDisclosure": {
+            "type": "boolean"
+          },
+          "carriesProcessMaxRss": {
+            "type": "boolean"
+          }
+        }
+      },
+      "x-opensip-order": "canonical-set"
+    },
+    "unqualifiedAdvisoryRules": {
+      "type": "array",
+      "maxItems": 512,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "stratum",
+          "reason"
+        ],
+        "properties": {
+          "stratum": {
+            "$ref": "#/$defs/stratumKey"
+          },
+          "reason": {
+            "enum": [
+              "fail",
+              "insufficient-evidence"
+            ]
+          }
+        }
+      },
+      "x-opensip-order": "canonical-set"
+    },
+    "results": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "q1",
+        "q2",
+        "q3",
+        "q4",
+        "q5",
+        "q6",
+        "q7",
+        "q8"
+      ],
+      "properties": {
+        "q1": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "cells"
+          ],
+          "properties": {
+            "cells": {
+              "type": "array",
+              "maxItems": 4096,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "cellId",
+                  "status",
+                  "expectedCount",
+                  "actualCount",
+                  "missingCount",
+                  "extraCount",
+                  "exitMatches",
+                  "rs3ReportSha256"
+                ],
+                "properties": {
+                  "cellId": {
+                    "$ref": "#/$defs/label"
+                  },
+                  "status": {
+                    "enum": [
+                      "exact",
+                      "mismatch"
+                    ]
+                  },
+                  "expectedCount": {
+                    "$ref": "#/$defs/count"
+                  },
+                  "actualCount": {
+                    "$ref": "#/$defs/count"
+                  },
+                  "missingCount": {
+                    "$ref": "#/$defs/count"
+                  },
+                  "extraCount": {
+                    "$ref": "#/$defs/count"
+                  },
+                  "exitMatches": {
+                    "type": "boolean"
+                  },
+                  "rs3ReportSha256": {
+                    "$ref": "#/$defs/sha256"
+                  }
+                }
+              },
+              "x-opensip-order": "canonical-set"
+            }
+          }
+        },
+        "q2": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "strata",
+            "repositories"
+          ],
+          "properties": {
+            "strata": {
+              "type": "array",
+              "maxItems": 8192,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "stratum",
+                  "evidenceSet",
+                  "targetPpm",
+                  "estimand",
+                  "method",
+                  "status",
+                  "families",
+                  "populations",
+                  "guardVerifiedPpm",
+                  "guardOptimisticPpm",
+                  "censusPrecisionPpm",
+                  "sampleRatioPpm",
+                  "resolvedPrecisionPpm",
+                  "lowerBoundPpm",
+                  "concentrated",
+                  "perFamily",
+                  "assumption"
+                ],
+                "properties": {
+                  "stratum": {
+                    "$ref": "#/$defs/stratumKey"
+                  },
+                  "evidenceSet": {
+                    "$ref": "#/$defs/evidenceSet"
+                  },
+                  "targetPpm": {
+                    "enum": [
+                      900000,
+                      990000
+                    ]
+                  },
+                  "estimand": {
+                    "const": "family-weighted conservative precision"
+                  },
+                  "method": {
+                    "enum": [
+                      "clopper-pearson-independent",
+                      "cluster-product-bound",
+                      "none"
+                    ]
+                  },
+                  "status": {
+                    "enum": [
+                      "PASS",
+                      "FAIL",
+                      "INSUFFICIENT-EVIDENCE",
+                      "NOT-YET-ADJUDICATED"
+                    ]
+                  },
+                  "statusReason": {
+                    "enum": [
+                      "none",
+                      "below-k-min",
+                      "no-findings",
+                      "guard-unverified",
+                      "guard-unavailable",
+                      "bound-below-target",
+                      "census-below-target",
+                      "pending-adjudication"
+                    ]
+                  },
+                  "families": {
+                    "$ref": "#/$defs/count"
+                  },
+                  "populations": {
+                    "$ref": "#/$defs/populationCounts"
+                  },
+                  "guardVerifiedPpm": {
+                    "$ref": "#/$defs/nullablePpm"
+                  },
+                  "guardOptimisticPpm": {
+                    "$ref": "#/$defs/nullablePpm"
+                  },
+                  "censusPrecisionPpm": {
+                    "$ref": "#/$defs/nullablePpm"
+                  },
+                  "sampleRatioPpm": {
+                    "$ref": "#/$defs/nullablePpm"
+                  },
+                  "resolvedPrecisionPpm": {
+                    "$ref": "#/$defs/nullablePpm"
+                  },
+                  "lowerBoundPpm": {
+                    "$ref": "#/$defs/nullablePpm"
+                  },
+                  "concentrated": {
+                    "type": "boolean"
+                  },
+                  "medianTriageMillis": {
+                    "$ref": "#/$defs/count"
+                  },
+                  "perFamily": {
+                    "type": "array",
+                    "maxItems": 100000,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "family",
+                        "corpusFindings",
+                        "sampledFindings",
+                        "trueCount",
+                        "sampledPrecisionPpm"
+                      ],
+                      "properties": {
+                        "family": {
+                          "$ref": "#/$defs/label"
+                        },
+                        "corpusFindings": {
+                          "$ref": "#/$defs/positiveInt"
+                        },
+                        "sampledFindings": {
+                          "$ref": "#/$defs/positiveInt"
+                        },
+                        "trueCount": {
+                          "$ref": "#/$defs/count"
+                        },
+                        "sampledPrecisionPpm": {
+                          "$ref": "#/$defs/ppm"
+                        }
+                      }
+                    },
+                    "x-opensip-order": "canonical-set"
+                  },
+                  "assumption": {
+                    "const": "Families are treated as independent draws from the population of repositories the claim is about; T2 is purposely selected, not randomly sampled."
+                  }
+                }
+              },
+              "x-opensip-order": "canonical-set"
+            },
+            "repositories": {
+              "type": "array",
+              "maxItems": 100000,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "stratum",
+                  "evidenceSet",
+                  "repository",
+                  "commit",
+                  "treeDigest",
+                  "family",
+                  "populations",
+                  "linesAnalysed",
+                  "findingsHandWritten",
+                  "findingsGeneratedOrVendored",
+                  "falsePositivesHandWritten",
+                  "falsePositivesGeneratedOrVendored",
+                  "sampledPrecisionPpm"
+                ],
+                "properties": {
+                  "stratum": {
+                    "$ref": "#/$defs/stratumKey"
+                  },
+                  "evidenceSet": {
+                    "$ref": "#/$defs/evidenceSet"
+                  },
+                  "repository": {
+                    "$ref": "#/$defs/label"
+                  },
+                  "commit": {
+                    "$ref": "#/$defs/gitCommit"
+                  },
+                  "treeDigest": {
+                    "$ref": "#/$defs/sha256"
+                  },
+                  "family": {
+                    "$ref": "#/$defs/label"
+                  },
+                  "populations": {
+                    "$ref": "#/$defs/populationCounts"
+                  },
+                  "linesAnalysed": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "handWritten",
+                      "generated",
+                      "vendored",
+                      "excluded"
+                    ],
+                    "properties": {
+                      "handWritten": {
+                        "$ref": "#/$defs/count"
+                      },
+                      "generated": {
+                        "$ref": "#/$defs/count"
+                      },
+                      "vendored": {
+                        "$ref": "#/$defs/count"
+                      },
+                      "excluded": {
+                        "$ref": "#/$defs/count"
+                      }
+                    }
+                  },
+                  "findingsHandWritten": {
+                    "$ref": "#/$defs/count"
+                  },
+                  "findingsGeneratedOrVendored": {
+                    "$ref": "#/$defs/count"
+                  },
+                  "falsePositivesHandWritten": {
+                    "$ref": "#/$defs/count"
+                  },
+                  "falsePositivesGeneratedOrVendored": {
+                    "$ref": "#/$defs/count"
+                  },
+                  "sampledPrecisionPpm": {
+                    "$ref": "#/$defs/nullablePpm"
+                  }
+                }
+              },
+              "x-opensip-order": "canonical-set"
+            }
+          }
+        },
+        "q3": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "strata",
+            "mutants"
+          ],
+          "properties": {
+            "strata": {
+              "type": "array",
+              "maxItems": 8192,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "stratum",
+                  "evidenceSet",
+                  "status",
+                  "answerablePositives",
+                  "hits",
+                  "missesDetector",
+                  "abstentionsOnAnswerable",
+                  "positivesDeterminate",
+                  "answerableNegatives",
+                  "negativesDeterminate",
+                  "recallPpm",
+                  "yieldPpm"
+                ],
+                "properties": {
+                  "stratum": {
+                    "$ref": "#/$defs/stratumKey"
+                  },
+                  "evidenceSet": {
+                    "$ref": "#/$defs/evidenceSet"
+                  },
+                  "status": {
+                    "enum": [
+                      "measured",
+                      "insufficient"
+                    ]
+                  },
+                  "answerablePositives": {
+                    "$ref": "#/$defs/count"
+                  },
+                  "hits": {
+                    "$ref": "#/$defs/count"
+                  },
+                  "missesDetector": {
+                    "$ref": "#/$defs/count"
+                  },
+                  "abstentionsOnAnswerable": {
+                    "$ref": "#/$defs/count"
+                  },
+                  "answerableNegatives": {
+                    "$ref": "#/$defs/count"
+                  },
+                  "negativesDeterminate": {
+                    "$ref": "#/$defs/count"
+                  },
+                  "recallPpm": {
+                    "$ref": "#/$defs/nullablePpm"
+                  },
+                  "positivesDeterminate": {
+                    "$ref": "#/$defs/count"
+                  },
+                  "yieldPpm": {
+                    "$ref": "#/$defs/nullablePpm"
+                  }
+                }
+              },
+              "x-opensip-order": "canonical-set"
+            },
+            "mutants": {
+              "type": "array",
+              "maxItems": 4096,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "ruleId",
+                  "family",
+                  "heldOut",
+                  "generated",
+                  "validPositive",
+                  "validNegative",
+                  "validAbstain",
+                  "invalid",
+                  "equivalent",
+                  "notEnumerated",
+                  "illFormed",
+                  "unvalidatable"
+                ],
+                "properties": {
+                  "ruleId": {
+                    "$ref": "#/$defs/label"
+                  },
+                  "family": {
+                    "$ref": "#/$defs/label"
+                  },
+                  "heldOut": {
+                    "type": "boolean"
+                  },
+                  "generated": {
+                    "$ref": "#/$defs/count"
+                  },
+                  "validPositive": {
+                    "$ref": "#/$defs/count"
+                  },
+                  "validNegative": {
+                    "$ref": "#/$defs/count"
+                  },
+                  "validAbstain": {
+                    "$ref": "#/$defs/count"
+                  },
+                  "invalid": {
+                    "$ref": "#/$defs/count"
+                  },
+                  "equivalent": {
+                    "$ref": "#/$defs/count"
+                  },
+                  "notEnumerated": {
+                    "$ref": "#/$defs/count"
+                  },
+                  "illFormed": {
+                    "$ref": "#/$defs/count"
+                  },
+                  "unvalidatable": {
+                    "$ref": "#/$defs/count"
+                  }
+                }
+              },
+              "x-opensip-order": "canonical-set"
+            }
+          }
+        },
+        "q4": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "mustAbstainCases",
+            "unsupportedDeterminateNegatives",
+            "falseCompletenessClaims",
+            "deficiencyMismatches"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "zero",
+                "nonzero"
+              ]
+            },
+            "mustAbstainCases": {
+              "$ref": "#/$defs/count"
+            },
+            "unsupportedDeterminateNegatives": {
+              "$ref": "#/$defs/count"
+            },
+            "falseCompletenessClaims": {
+              "$ref": "#/$defs/count"
+            },
+            "deficiencyMismatches": {
+              "$ref": "#/$defs/count"
+            }
+          }
+        },
+        "q5": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "survival",
+            "determinism"
+          ],
+          "properties": {
+            "survival": {
+              "type": "array",
+              "maxItems": 4096,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "ruleId",
+                  "transformation",
+                  "status",
+                  "pairsScored",
+                  "pairsDiscarded",
+                  "unaffected",
+                  "survived",
+                  "spuriousNetNew",
+                  "spuriousFixed",
+                  "ambiguous",
+                  "unmatched"
+                ],
+                "properties": {
+                  "ruleId": {
+                    "$ref": "#/$defs/label"
+                  },
+                  "transformation": {
+                    "$ref": "#/$defs/label"
+                  },
+                  "status": {
+                    "enum": [
+                      "measured",
+                      "insufficient"
+                    ]
+                  },
+                  "pairsScored": {
+                    "$ref": "#/$defs/count"
+                  },
+                  "pairsDiscarded": {
+                    "$ref": "#/$defs/count"
+                  },
+                  "unaffected": {
+                    "$ref": "#/$defs/count"
+                  },
+                  "survived": {
+                    "$ref": "#/$defs/count"
+                  },
+                  "spuriousNetNew": {
+                    "$ref": "#/$defs/count"
+                  },
+                  "spuriousFixed": {
+                    "$ref": "#/$defs/count"
+                  },
+                  "ambiguous": {
+                    "$ref": "#/$defs/count"
+                  },
+                  "unmatched": {
+                    "$ref": "#/$defs/count"
+                  }
+                }
+              },
+              "x-opensip-order": "canonical-set"
+            },
+            "determinism": {
+              "type": "array",
+              "maxItems": 4096,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "workloadId",
+                  "variant",
+                  "runs",
+                  "status",
+                  "differingDomains"
+                ],
+                "properties": {
+                  "workloadId": {
+                    "$ref": "#/$defs/label"
+                  },
+                  "variant": {
+                    "enum": [
+                      "V0",
+                      "V1",
+                      "V2",
+                      "V3",
+                      "V4",
+                      "V5"
+                    ]
+                  },
+                  "runs": {
+                    "$ref": "#/$defs/positiveInt"
+                  },
+                  "status": {
+                    "enum": [
+                      "exact",
+                      "differs",
+                      "not-run"
+                    ]
+                  },
+                  "differingDomains": {
+                    "type": "array",
+                    "maxItems": 64,
+                    "items": {
+                      "$ref": "#/$defs/label"
+                    },
+                    "x-opensip-order": "canonical-set"
+                  }
+                }
+              },
+              "x-opensip-order": "canonical-set"
+            }
+          }
+        },
+        "q6": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "workloads"
+          ],
+          "properties": {
+            "workloads": {
+              "type": "array",
+              "maxItems": 4096,
+              "items": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "workloadId",
+                      "workflow",
+                      "reset",
+                      "control",
+                      "sizeClass",
+                      "warmupRuns",
+                      "batchId",
+                      "batchOrdinal",
+                      "final",
+                      "answerableCases",
+                      "determinateCases",
+                      "yieldPpm",
+                      "phaseTimingsPresent",
+                      "phaseAbsenceReason",
+                      "unattributedNanos",
+                      "q6Labelled",
+                      "status",
+                      "elapsedNanos",
+                      "medianElapsedNanos",
+                      "cgroupMemoryPeakBytes",
+                      "maxCgroupMemoryPeakBytes",
+                      "baselineMedianNanos",
+                      "baselineCgroupMemoryPeakBytes",
+                      "baselineBasisDigest",
+                      "absoluteChargeComparison"
+                    ],
+                    "properties": {
+                      "workloadId": {
+                        "$ref": "#/$defs/label"
+                      },
+                      "workflow": {
+                        "enum": [
+                          "core-analyze",
+                          "first-use",
+                          "prep-invalidating-edit"
+                        ]
+                      },
+                      "reset": {
+                        "enum": [
+                          "cold",
+                          "warm"
+                        ]
+                      },
+                      "control": {
+                        "enum": [
+                          "clean",
+                          "missing-input",
+                          "stale-prepared",
+                          "broken-build"
+                        ]
+                      },
+                      "sizeClass": {
+                        "enum": [
+                          "small",
+                          "medium",
+                          "large",
+                          "very-large"
+                        ]
+                      },
+                      "warmupRuns": {
+                        "const": 3
+                      },
+                      "baselineMedianNanos": {
+                        "oneOf": [
+                          {
+                            "$ref": "#/$defs/positiveInt"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "q6Labelled": {
+                        "type": "boolean"
+                      },
+                      "batchId": {
+                        "$ref": "#/$defs/sha256"
+                      },
+                      "batchOrdinal": {
+                        "enum": [
+                          1,
+                          2
+                        ]
+                      },
+                      "final": {
+                        "type": "boolean"
+                      },
+                      "answerableCases": {
+                        "$ref": "#/$defs/count"
+                      },
+                      "determinateCases": {
+                        "$ref": "#/$defs/count"
+                      },
+                      "yieldPpm": {
+                        "$ref": "#/$defs/nullablePpm"
+                      },
+                      "phaseTimingsPresent": {
+                        "type": "boolean"
+                      },
+                      "phaseAbsenceReason": {
+                        "$ref": "#/$defs/phaseAbsenceReason"
+                      },
+                      "unattributedNanos": {
+                        "$ref": "#/$defs/nullableCount"
+                      },
+                      "status": {
+                        "enum": [
+                          "within",
+                          "over",
+                          "no-baseline"
+                        ]
+                      },
+                      "elapsedNanos": {
+                        "$ref": "#/$defs/samples7"
+                      },
+                      "medianElapsedNanos": {
+                        "$ref": "#/$defs/positiveInt"
+                      },
+                      "cgroupMemoryPeakBytes": {
+                        "$ref": "#/$defs/samples7"
+                      },
+                      "maxCgroupMemoryPeakBytes": {
+                        "$ref": "#/$defs/positiveInt"
+                      },
+                      "baselineCgroupMemoryPeakBytes": {
+                        "oneOf": [
+                          {
+                            "$ref": "#/$defs/positiveInt"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "baselineBasisDigest": {
+                        "oneOf": [
+                          {
+                            "$ref": "#/$defs/sha256"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "absoluteChargeComparison": {
+                        "enum": [
+                          "at-or-below-absolute-figure",
+                          "above-absolute-figure",
+                          "not-applicable"
+                        ]
+                      }
+                    },
+                    "allOf": [
+                      {
+                        "if": {
+                          "properties": {
+                            "status": {
+                              "enum": [
+                                "within",
+                                "over"
+                              ]
+                            }
+                          }
+                        },
+                        "then": {
+                          "properties": {
+                            "baselineMedianNanos": {
+                              "$ref": "#/$defs/positiveInt"
+                            },
+                            "baselineCgroupMemoryPeakBytes": {
+                              "$ref": "#/$defs/positiveInt"
+                            },
+                            "baselineBasisDigest": {
+                              "$ref": "#/$defs/sha256"
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "workloadId",
+                      "workflow",
+                      "reset",
+                      "control",
+                      "sizeClass",
+                      "warmupRuns",
+                      "batchId",
+                      "batchOrdinal",
+                      "final",
+                      "answerableCases",
+                      "determinateCases",
+                      "yieldPpm",
+                      "phaseTimingsPresent",
+                      "phaseAbsenceReason",
+                      "unattributedNanos",
+                      "q6Labelled",
+                      "status",
+                      "elapsedNanos",
+                      "medianElapsedNanos",
+                      "slotReasons",
+                      "cgroupMemoryPeakBytes",
+                      "maxCgroupMemoryPeakBytes",
+                      "baselineMedianNanos",
+                      "baselineCgroupMemoryPeakBytes",
+                      "baselineBasisDigest",
+                      "absoluteChargeComparison",
+                      "rootReapedElapsedNanos"
+                    ],
+                    "properties": {
+                      "workloadId": {
+                        "$ref": "#/$defs/label"
+                      },
+                      "workflow": {
+                        "enum": [
+                          "core-analyze",
+                          "first-use",
+                          "prep-invalidating-edit"
+                        ]
+                      },
+                      "reset": {
+                        "enum": [
+                          "cold",
+                          "warm"
+                        ]
+                      },
+                      "control": {
+                        "enum": [
+                          "clean",
+                          "missing-input",
+                          "stale-prepared",
+                          "broken-build"
+                        ]
+                      },
+                      "sizeClass": {
+                        "enum": [
+                          "small",
+                          "medium",
+                          "large",
+                          "very-large"
+                        ]
+                      },
+                      "warmupRuns": {
+                        "const": 3
+                      },
+                      "baselineMedianNanos": {
+                        "oneOf": [
+                          {
+                            "$ref": "#/$defs/positiveInt"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "q6Labelled": {
+                        "const": false
+                      },
+                      "batchId": {
+                        "$ref": "#/$defs/sha256"
+                      },
+                      "batchOrdinal": {
+                        "enum": [
+                          1,
+                          2
+                        ]
+                      },
+                      "final": {
+                        "type": "boolean"
+                      },
+                      "answerableCases": {
+                        "$ref": "#/$defs/count"
+                      },
+                      "determinateCases": {
+                        "$ref": "#/$defs/count"
+                      },
+                      "yieldPpm": {
+                        "$ref": "#/$defs/nullablePpm"
+                      },
+                      "phaseTimingsPresent": {
+                        "type": "boolean"
+                      },
+                      "phaseAbsenceReason": {
+                        "$ref": "#/$defs/phaseAbsenceReason"
+                      },
+                      "unattributedNanos": {
+                        "$ref": "#/$defs/nullableCount"
+                      },
+                      "status": {
+                        "const": "incomplete"
+                      },
+                      "elapsedNanos": {
+                        "$ref": "#/$defs/samples7Nullable"
+                      },
+                      "medianElapsedNanos": {
+                        "$ref": "#/$defs/nullablePositiveInt"
+                      },
+                      "slotReasons": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 11,
+                        "items": {
+                          "$ref": "#/$defs/slotReason"
+                        },
+                        "x-opensip-order": "canonical-set"
+                      },
+                      "cgroupMemoryPeakBytes": {
+                        "$ref": "#/$defs/samples7Nullable"
+                      },
+                      "maxCgroupMemoryPeakBytes": {
+                        "$ref": "#/$defs/nullablePositiveInt"
+                      },
+                      "baselineCgroupMemoryPeakBytes": {
+                        "oneOf": [
+                          {
+                            "$ref": "#/$defs/positiveInt"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "baselineBasisDigest": {
+                        "oneOf": [
+                          {
+                            "$ref": "#/$defs/sha256"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "absoluteChargeComparison": {
+                        "enum": [
+                          "at-or-below-absolute-figure",
+                          "above-absolute-figure",
+                          "not-applicable"
+                        ]
+                      },
+                      "rootReapedElapsedNanos": {
+                        "$ref": "#/$defs/samples7Nullable"
+                      }
+                    }
+                  }
+                ]
+              },
+              "x-opensip-order": "canonical-set"
+            }
+          }
+        },
+        "q7": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "rules"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "measured",
+                "not-measured"
+              ]
+            },
+            "rules": {
+              "type": "array",
+              "maxItems": 512,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "ruleId",
+                  "findingPopulation",
+                  "sampleSize",
+                  "smallPopulation",
+                  "fieldsRequired",
+                  "fieldsPresent",
+                  "proofJoinsChecked",
+                  "proofJoinFailures",
+                  "scoreHistogram",
+                  "scoreSum",
+                  "itemsAtMostTwo",
+                  "itemsAtMostTwoDispositioned",
+                  "gatingOrRepairInSample",
+                  "gatingOrRepairDispositioned",
+                  "medianTriageMillis",
+                  "accepted",
+                  "dismissed"
+                ],
+                "properties": {
+                  "ruleId": {
+                    "$ref": "#/$defs/label"
+                  },
+                  "findingPopulation": {
+                    "$ref": "#/$defs/count"
+                  },
+                  "sampleSize": {
+                    "$ref": "#/$defs/count"
+                  },
+                  "smallPopulation": {
+                    "type": "boolean"
+                  },
+                  "fieldsRequired": {
+                    "$ref": "#/$defs/count"
+                  },
+                  "fieldsPresent": {
+                    "$ref": "#/$defs/count"
+                  },
+                  "proofJoinsChecked": {
+                    "$ref": "#/$defs/count"
+                  },
+                  "proofJoinFailures": {
+                    "$ref": "#/$defs/count"
+                  },
+                  "scoreHistogram": {
+                    "type": "array",
+                    "minItems": 5,
+                    "maxItems": 5,
+                    "items": {
+                      "$ref": "#/$defs/count"
+                    },
+                    "x-opensip-order": "sequence"
+                  },
+                  "scoreSum": {
+                    "$ref": "#/$defs/count"
+                  },
+                  "itemsAtMostTwo": {
+                    "$ref": "#/$defs/count"
+                  },
+                  "itemsAtMostTwoDispositioned": {
+                    "$ref": "#/$defs/count"
+                  },
+                  "gatingOrRepairInSample": {
+                    "$ref": "#/$defs/count"
+                  },
+                  "gatingOrRepairDispositioned": {
+                    "$ref": "#/$defs/count"
+                  },
+                  "medianTriageMillis": {
+                    "$ref": "#/$defs/count"
+                  },
+                  "accepted": {
+                    "$ref": "#/$defs/count"
+                  },
+                  "dismissed": {
+                    "$ref": "#/$defs/count"
+                  }
+                }
+              },
+              "x-opensip-order": "canonical-set"
+            }
+          },
+          "if": {
+            "properties": {
+              "status": {
+                "const": "measured"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "rules": {
+                "minItems": 1
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "rules": {
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        "q8": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "shapes"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "measured",
+                "not-measured"
+              ]
+            },
+            "shapes": {
+              "type": "array",
+              "maxItems": 4096,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "shapeId",
+                  "manualCorrections"
+                ],
+                "properties": {
+                  "shapeId": {
+                    "$ref": "#/$defs/label"
+                  },
+                  "manualCorrections": {
+                    "$ref": "#/$defs/count"
+                  }
+                }
+              },
+              "x-opensip-order": "canonical-set"
+            }
+          },
+          "if": {
+            "properties": {
+              "status": {
+                "const": "measured"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "shapes": {
+                "minItems": 1
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "shapes": {
+                "maxItems": 0
+              }
+            }
+          }
+        }
+      }
+    },
+    "batchObservations": {
+      "type": "array",
+      "maxItems": 100000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "batchId",
+          "loadAverageMilli",
+          "cpuFrequencyPolicy",
+          "swapBytesInUse",
+          "powerState",
+          "corpusStoreLocal",
+          "onlineCpusBefore",
+          "onlineCpusAfter"
+        ],
+        "properties": {
+          "batchId": {
+            "$ref": "#/$defs/sha256"
+          },
+          "loadAverageMilli": {
+            "$ref": "#/$defs/count"
+          },
+          "cpuFrequencyPolicy": {
+            "$ref": "#/$defs/label"
+          },
+          "swapBytesInUse": {
+            "$ref": "#/$defs/count"
+          },
+          "powerState": {
+            "$ref": "#/$defs/label"
+          },
+          "corpusStoreLocal": {
+            "type": "boolean"
+          },
+          "onlineCpusBefore": {
+            "type": "array",
+            "maxItems": 4096,
+            "items": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            "x-opensip-order": "canonical-set"
+          },
+          "onlineCpusAfter": {
+            "type": "array",
+            "maxItems": 4096,
+            "items": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            "x-opensip-order": "canonical-set"
+          }
+        }
+      },
+      "x-opensip-order": "canonical-set"
+    },
+    "cgroupLeaves": {
+      "type": "array",
+      "maxItems": 100000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "batchId",
+          "slot",
+          "leafName",
+          "leafInode",
+          "absentReason"
+        ],
+        "properties": {
+          "batchId": {
+            "$ref": "#/$defs/sha256"
+          },
+          "slot": {
+            "$ref": "#/$defs/runSlot"
+          },
+          "leafName": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^run-[0-9a-f]{64}-(priming|warmup|measured)-[0-6](?![\\s\\S])"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "leafInode": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/positiveInt"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "absentReason": {
+            "oneOf": [
+              {
+                "enum": [
+                  "cgroup-unavailable",
+                  "cgroup-v1-only",
+                  "cgroup-no-delegation",
+                  "memory-peak-unavailable-platform",
+                  "cgroup-escape-unprevented",
+                  "cgroup-isolation-unverified"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "oneOf": [
+          {
+            "properties": {
+              "leafName": {
+                "type": "string"
+              },
+              "leafInode": {
+                "$ref": "#/$defs/positiveInt"
+              },
+              "absentReason": {
+                "type": "null"
+              }
+            }
+          },
+          {
+            "properties": {
+              "leafName": {
+                "type": "null"
+              },
+              "leafInode": {
+                "type": "null"
+              },
+              "absentReason": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "x-opensip-order": "canonical-set"
+    }
+  }
+}

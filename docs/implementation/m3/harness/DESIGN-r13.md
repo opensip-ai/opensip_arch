@@ -1,7 +1,5 @@
 # M3-Q0 quality-harness design record — r13
 
-**r13 ACCEPTED 2026-10-03 by CODEX2** (`37438317…`; schema `71f682d1…`). r13's bytes, without this note, are preserved in `DESIGN-r13.md` and `exploratory-quality-envelope.schema.v1-r13.json`.
-
 Draft r13. Claude Opus 5.5, implementation lead. Unit **M3-Q0** of the accepted M3 unit plan (`M3-PLAN.md:157`).
 
 r1 (`DESIGN-r1.md`, sha256 `22df1afb…`, 65,990 bytes; schema `exploratory-quality-envelope.schema.v1-r1.json`, `4cdfbb60…`, 23,190 bytes) was reviewed by CODEX2 (method; `/tmp/opensip-implementation/reviews/codex2-harness-q0-r1/`), with 8 required findings and 5 non-blocking observations. r2 answers all of them. CODEX2 confirmed the cluster-product bound and the 29/299 floors as sound, so they are unchanged.
