@@ -1,4 +1,4 @@
-# M3 analysis-quality plan — proposal r6
+# M3 analysis-quality plan — proposal r5
 
 2026-10-03. Claude Opus 5.5, implementation lead. Written at the owner's request ("draft the M3 analysis-quality plan"). r1 (`PLAN-r1.md`, sha256 `4e1c0901…`) was reviewed by GROK2 (fact validation, 7 required findings) and CODEX2 (method, 10 required findings). r2 answers all 17 and records the owner's decisions of 2026-10-03.
 
@@ -37,10 +37,6 @@ Short names used below:
 - **CH13:** `docs/v2/architecture/13-evidence-workflows-and-product-contracts.md`
 
 ---
-
-## r6 changes
-
-r6 answers CODEX2's C2-AQ-R5-01 and changes nothing else. r5 claimed that `memory.peak` is never smaller than anonymous RSS. That claim is withdrawn: pages charged to another cgroup aren't counted, and shared pages are charged once. GROK2 accepted r5, and r5 is preserved as `PLAN-r5.md`.
 
 ## r5 changes
 
@@ -333,11 +329,7 @@ A sound positive under incomplete Coverage is a correct determinate fail, not a 
 **Statistics.** The product regime governs every new cell: 3 warmups, then 7 measured runs; median elapsed time and maximum peak RSS; 1.20× and 1.25× against a reviewed baseline; and reviewed absolute bounds (AQ:268-282).
 - **Cold fixtures** reset to the cold definition before every measured run, so warmups never turn cold samples into warm ones (LQM:923-924; AQ:279-280).
 - **Peak memory (r5, lead decision).** On Linux the run's peak-memory figure is the workload cgroup's kernel high-water mark, cgroup v2 `memory.peak`. The workload runs in a dedicated cgroup that its descendants cannot leave without privilege. The kernel maintains the mark for everything charged to the group, so it is complete without tracing, event channels or per-process attribution.
-  - **What it measures.** It is the peak of memory *charged to the measured cgroup subtree*, including page cache and kernel memory charged there. It is not resident set size, and it is neither a superset nor a sum of per-process RSS:
-    - pages charged to another cgroup (for example cache populated earlier, or memory first touched outside the leaf) are not counted, even when the workload maps them;
-    - shared pages are charged once.
-
-    The workload starts in a fresh leaf, so the memory it allocates itself is charged there. The figure is a kernel-exact, declared measure of the subtree's own charges, not a bound on any RSS definition. Reports label it `cgroupMemoryPeak`, never "RSS".
+  - **What it measures.** It is charged memory, including page cache and kernel memory charged to the group. That is not strictly resident set size, and it is never smaller than the group's anonymous resident memory, so it is the conservative figure. Reports label it `cgroupMemoryPeak`, never "RSS".
   - **Per-process peaks.** Each supervised process's maximum resident size, from the host's `wait4` resource usage when it reaps the process, is recorded as information only. It is never a budget input.
   - **macOS** has no equivalent group high-water mark, so its peak-memory figure is `incomplete` and can't pass a budget.
   - **Product qualification.** AQ:268-272 asks for "peak RSS bytes" without defining how they are measured. Whether `memory.peak` satisfies that for G13 qualification goes to the G13 successor (D13); exploratory measurements use it now.
