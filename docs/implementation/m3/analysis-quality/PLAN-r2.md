@@ -1,4 +1,4 @@
-# M3 analysis-quality plan — proposal r3
+# M3 analysis-quality plan — proposal r2
 
 2026-10-03. Claude Opus 5.5, implementation lead. Written at the owner's request ("draft the M3 analysis-quality plan"). r1 (`PLAN-r1.md`, sha256 `4e1c0901…`) was reviewed by GROK2 (fact validation, 7 required findings) and CODEX2 (method, 10 required findings). r2 answers all 17 and records the owner's decisions of 2026-10-03.
 
@@ -37,18 +37,6 @@ Short names used below:
 - **CH13:** `docs/v2/architecture/13-evidence-workflows-and-product-contracts.md`
 
 ---
-
-## r3 changes and review responses
-
-r3 answers the r2 reviews. GROK2 and CODEX2 each confirmed their r1 findings resolved, except CODEX2's C2-AQ-R1-02 and -07, which were partly resolved and are finished here. r2 is preserved as `PLAN-r2.md` (`dd351ffe…`, the reviewed subject).
-
-| Finding | Section | Change |
-|---|---|---|
-| GROK2 RF-1 (r2) | §5.1 | RSS records both the concurrent summed high-water and the sum of per-process high-water counters; the budget uses the larger (AQC:142-145; LQM:925). |
-| GROK2 RF-2 (r2) | §5.3 INC-1, INC-4 | Corrected bindings: scope and fact bind the snapshot, Coverage binds the scope, view binds the Plan (IE:183-186). New source gives a new Plan and Run (IE:1605-1606). INC-4 compares semantic payloads; snapshot- and Plan-bound identities are compared only within a pair. |
-| GROK2 RF-3 (r2) | §5.3 INC-6 | The single writer is the lifecycle lease (IE:1657-1660). The grant is `RepoExecutionGrantV2`, outside the Plan (IE:467, IE:1387; NE:1273, NE:1311). |
-| CODEX2 C2-AQ-R2-01 | §2 Q2, §4.3 | One primary confidence rule. Exact Clopper–Pearson applies only to established independent samples; correlated strata use a preregistered cluster-aware bound with a minimum count of independent repositories and no degenerate zero-error pass; otherwise INSUFFICIENT-EVIDENCE. 299/29 are labelled independent-sample examples. A qualified advisory rule must meet 0.90; anything else ships only as declared-unqualified exploratory, with no Q2 pass (D13). |
-| CODEX2 C2-AQ-R2-02 | §5.3 INC-4, INC-8 | Reuse provenance moves out of canonical Coverage into an operational record (operability plan §4.1). Coverage describes only the current Plan's semantic state. A provenance-carrying Coverage successor is rejected. |
 
 ## r2 changes and review responses
 
@@ -227,12 +215,9 @@ The selection covers the shapes a heavy user meets:
 **Labels and scoring.**
 - Labels are *true*, *false* or *unclear*, each with a written rationale citing code. The label is about the rule's exact proposition (§3), not about whether the code is "good".
 - **Acceptance** uses conservative precision, p = true ÷ all reported. Unclear counts as not true, because a gating finding burdens the user either way. Resolved-label precision, true ÷ (true + false), is reported for description only.
-- **Confidence rule (single primary obligation).** The target is met when a one-sided 95% lower bound on p reaches it, per stratum: rule × language × mode. Strata are never pooled to hide a failing high-cost rule.
-  - **Independent findings.** Where the harness design establishes that a stratum's findings are independent sampling units, the bound is the exact Clopper–Pearson bound. For example, with zero errors 299 independent findings reach 0.99 and 29 reach 0.90. These are examples for independent samples, not sufficient counts for a clustered corpus.
-  - **Correlated findings.** Otherwise, typically when findings cluster by repository, the bound is a preregistered cluster-aware method, fixed in the harness design before acceptance measurement. It has a minimum number of independent repositories, and it must handle the zero-error boundary without a degenerate pass: resampling identical all-true repositories proves nothing. If no defensible bound is reached, the stratum is INSUFFICIENT-EVIDENCE.
-- **Insufficient evidence.** A stratum with too few findings for the bound, including zero findings, is INSUFFICIENT-EVIDENCE. It never passes. The remedy is more T2 repositories.
-  - **Downgrading to advisory.** A rule qualified as advisory must meet its own 0.90 criterion under the same confidence rule. A stratum that meets neither target may ship only as a declared-unqualified, exploratory advisory rule. It gets no Q2 pass and no automatic qualification waiver, and it is recorded as such under D13 and in the selected qualification inventory.
-- **Repository correlation.** Per-repository precision is reported, and a stratum dominated by one repository is labelled concentrated. Which bound applies is decided by the confidence rule above.
+- **Confidence rule.** The target is met when the one-sided 95% Clopper–Pearson lower bound on p reaches it. With zero errors that needs n ≥ 299 for 0.99 and n ≥ 29 for 0.90. The rule is applied per stratum: rule × language × mode. Strata are never pooled to hide a failing high-cost rule.
+- **Insufficient evidence.** A stratum with too few findings for the bound, including zero findings, is INSUFFICIENT-EVIDENCE. It never passes. The remedy is more T2 repositories; until then the rule can ship only as advisory in that stratum.
+- **Repository correlation.** Per-repository precision is reported. A stratum dominated by one repository is labelled concentrated. The harness design fixes a clustered confidence method, such as a repository-level bootstrap, before acceptance measurement.
 - **Cost.** False-positive cost (triage time, and for repair-eligible rules, the consequence of a wrong deletion) is recorded beside the headline precision, never folded into it.
 
 **Adjudication protocol** (C2-02):
@@ -323,7 +308,7 @@ A sound positive under incomplete Coverage is a correct determinate fail, not a 
 
 **Statistics.** The product regime governs every new cell: 3 warmups, then 7 measured runs; median elapsed time and maximum peak RSS; 1.20× and 1.25× against a reviewed baseline; and reviewed absolute bounds (AQ:268-282).
 - **Cold fixtures** reset to the cold definition before every measured run, so warmups never turn cold samples into warm ones (LQM:923-924; AQ:279-280).
-- **RSS.** The run records both the high-water mark of the concurrent process tree's summed RSS and the sum of each process's own high-water counter. The budget value is the larger of the two, following the preview method (AQC:142-145; LQM:925). Using the concurrent sum alone would be a new measurement choice; this plan does not make it.
+- **RSS** is the high-water mark of the concurrent process tree's summed RSS, not a sum of separate peaks (AQC:142-146).
 - **Tails.** The seven samples and their maximum are reported as diagnostics only. They don't replace the median.
 - The preview's p95 regime stays the TypeScript preview's own. **D1** corrects QG:268-269.
 
@@ -364,7 +349,7 @@ These were approved by the owner under D4 on 2026-10-03, to be revisited after t
 
 **The obligation the M3 law must meet** (C2-07). The schedule above is a plan. The obligations below are the condition that the M3 provider protocol and host law must be able to satisfy, whether or not changed-scope ships at M3. Any of them that needs a contract change goes through the successors named in D5a.
 
-- **INC-1. Optimization versus authority.** Reusing producer work is allowed as an optimization: a cache hit admitted against the new Plan's closure (IE:1610-1626). Reusing an authoritative object is not. Scopes and facts bind their snapshot, and Coverage binds its scope (IE:183-185); views bind the Plan (IE:186). New source makes a new Plan and Run (IE:1605-1606), so no old Run's replay is evidence for the new snapshot. Cache admission against an authoritative Run requires complete replay (IE:1586-1592).
+- **INC-1. Optimization versus authority.** Reusing producer work is allowed as an optimization: a cache hit admitted against the new Plan's closure (IE:1610-1626). Reusing an authoritative object is not. Facts, scopes and Coverage bind their snapshot and Plan (IE:177-182). New source makes a new snapshot, Plan and Run. Full replay of an old Run is not evidence for a new snapshot (IE:1586-1592).
 - **INC-2. Current admission.** Every result the new Plan uses is reconstructed and admitted under the new snapshot and Plan, with no inherited standing.
 - **INC-3. Invalidation.** Invalidation is defined over:
   - enumeration: added and deleted subjects;
@@ -376,15 +361,15 @@ These were approved by the owner under D4 on 2026-10-03, to be revisited after t
   - prepared outputs.
 
   When the host can't bound an invalidation, it falls back to full analysis and discloses that it did.
-- **INC-4. Equivalence acceptance.** For the same new snapshot and the same current semantic input closure, paired full-versus-incremental sequences must give equal semantic payloads and correspondence for findings, facts and Coverage, and equal replay outcomes. Identities that embed the snapshot or Plan (`fact2`, `coverage2`, Run IDs) are compared within each pair, where both runs share that snapshot; they are not compared across different Plans. Reuse provenance is not part of this comparison (INC-8). The sequences cover body-only edits, exported-signature edits, import edits, feature/config edits, generated-input edits, insert/delete, missing inputs, and a dynamic edge introduced into scope that was previously complete.
+- **INC-4. Equivalence acceptance.** Paired full-versus-incremental sequences must give canonically equal findings, facts, Coverage and replay outcomes. The sequences cover body-only edits, exported-signature edits, import edits, feature/config edits, generated-input edits, insert/delete, missing inputs, and a dynamic edge introduced into scope that was previously complete.
 - **INC-5. Wire contracts.** The current protocols are TS2 and Rust3 (BP:717). Changing an accepted wire contract needs a reviewed successor; the protocols are not unselected.
 - **INC-6. Resident host (M5).**
   - Every response is bound to an immutable request snapshot.
-  - The single writer is preserved (the per-project lifecycle lease, IE:1657-1660), and so is the current host execution grant, `RepoExecutionGrantV2`, which lives outside the Plan (IE:467, IE:1387; NE:1273, NE:1311).
+  - The single writer and the current grant are preserved (IE:1657-1660).
   - Cancellation, crash and restart, and rejection of stale replies are exercised.
   - Persistent RSS and eviction are bounded and measured.
 - **INC-7. Spike first.** Before the protocol is fixed, measure startup, sealing and replay costs for one-shot analysis on medium T2 workloads. Residency must earn its cost against that measurement.
-- **INC-8. Disclosure, outside semantic Coverage.** Which results were recomputed and which were reused producer work goes in a separately owned operational record (the run's timings and diagnostics; see the operability plan, §4.1). It never goes in canonical Coverage. Canonical Coverage describes only the current Plan's examined, resolved and sufficient state, and `CoverageResultV3` has no reuse field (NE:2014). Fully re-admitted reused work can support a complete result (INC-2). Any obligation not re-established for the current Plan stays a typed incomplete deficiency, never hidden as a reuse success. A semantic Coverage successor carrying provenance is rejected: it would make INC-4 fail by construction and change `coverage2` identities.
+- **INC-8. Disclosure.** A changed-scope result discloses in Coverage what it re-established and what it reused, so it is never presented as a full analysis it wasn't.
 
 ### 5.4 Stress and termination
 
