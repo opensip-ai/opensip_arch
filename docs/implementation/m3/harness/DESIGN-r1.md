@@ -1,12 +1,10 @@
-# M3-Q0 quality-harness design record — r2
+# M3-Q0 quality-harness design record — r1
 
-Draft r2. Claude Opus 5.5, implementation lead. Unit **M3-Q0** of the accepted M3 unit plan (`M3-PLAN.md:157`).
-
-r1 (`DESIGN-r1.md`, sha256 `22df1afb…`, 65,990 bytes; schema `exploratory-quality-envelope.schema.v1-r1.json`, `4cdfbb60…`, 23,190 bytes) was reviewed by CODEX2 (method; `/tmp/opensip-implementation/reviews/codex2-harness-q0-r1/`), with 8 required findings and 5 non-blocking observations. r2 answers all of them. CODEX2 confirmed the cluster-product bound and the 29/299 floors as sound, so they are unchanged.
+Draft r1. Claude Opus 5.5, implementation lead. Unit **M3-Q0** of the accepted M3 unit plan (`M3-PLAN.md:157`).
 
 ## Standing
 
-**This is a design record, not law and not a contract successor.** It changes no accepted contract, schema, gate, threshold or register row. It fixes the harness mechanisms that the accepted analysis-quality plan leaves to "the harness design" (AQP:235, AQP:480), so that K1, K2, I2, S-M and M3-M can be implemented from it directly. No product measurement, corpus fetch, adjudication or product run was performed for it. The numbers in §5 are arithmetic.
+**This is a design record, not law and not a contract successor.** It changes no accepted contract, schema, gate, threshold or register row. It fixes the harness mechanisms that the accepted analysis-quality plan leaves to "the harness design" (AQP:235, AQP:480), so that K1, K2, I2, S-M and M3-M can be implemented from it directly. Nothing here has been measured or run.
 
 **What Q0 owes.** The M3-Q0 row (`M3-PLAN.md:157`) names the case model (AQP:130-135), the label ledger (AQP:249-263), the confidence rule (AQP:233-237), the exploratory envelope (AQP:419-425), the D12 runner, and the rule-catalog draft specs (AQP:167-191). Q0 also has to size K2, which the critical path leaves "unbounded until Q0 sizes it" (`M3-PLAN.md:222`, `M3-PLAN.md:241`).
 
@@ -31,22 +29,6 @@ Short names, as in the accepted plans:
 - **LQM:** `docs/coop/completion/language-quality-matrix.completed.v2.json`
 - **SMAP:** `docs/coop/design-corrections/current-source-map.proposed.md`
 - **ENV:** `docs/implementation/m3/harness/exploratory-quality-envelope.schema.v1.json` (drafted with this record)
-
----
-
-## r2 changes and review responses
-
-| Finding | Section | Change |
-|---|---|---|
-| C2-Q0-R1-01 (truth-input closure) | §3.3 | The truth-input digest is now the full selected-universe and resolution-input closure: the whole snapshot inventory, including additions and deletions, so a newly present resolution candidate changes it. Narrower rule-specific closures are allowed only through a reviewed soundness argument (none is admitted in r2). The unexplained-output trigger compares input components separately from output fields. |
-| C2-Q0-R1-02 (advisory allocation) | §5.7, §5.8 | Water-filling allocation reaches the 100-finding floor whenever enough findings exist. Unused slots are redistributed, selection within each family stays uniform, and the floor applies per stratum and per evidence set. Population and sample are recorded separately, and the bound uses each family's sampled denominator. The cost estimate is redone with two votes and calibration. |
-| C2-Q0-R1-03 (advisory census guard) | §3.4, §5.6, ENV `q2` | The guard is now two-sided and conservative. Unlabelled findings count as not true for the guard's lower value and as true for its upper value. FAIL needs the upper value below the target; a lower value below the target is INSUFFICIENT-EVIDENCE. Corpus, sampled, settled, pending and unlabelled counts are carried separately. A sample ratio is never called census precision. A sharper pooled inference rule is routed for approval as OI-17. |
-| C2-Q0-R1-04 (repository execution) | §6.2, §7, OI-6 | At M3 only tool modes whose pin verifies, with a canary fixture, that no repository code executes. Executing differentials and Rust compile validation are deferred to the M5 authorized execution path (`M3-PLAN.md:347-352`). Confinement is an additional condition, never the authorization. |
-| C2-Q0-R1-05 (lifetime RSS) | §9.3, QD-19 | Named counter sources and units. Every supervised descendant is registered, and its own counter is collected at exit. Lifetimes are keyed by (tgid, start time). Host values can only raise a figure, never replace one. Incomplete inventory or collection is an explicit NON-PASS, never filled from sampled peaks. macOS has no harness-readable own lifetime counter, so macOS runs are `incomplete` for RSS; this is open item OI-18. |
-| C2-Q0-R1-06 (denominators) | §11, §12, ENV | Per-repository Q2 rows with line counts by class; Q3 and Q6 yield numerators and denominators; per-rule Q7 rows with populations, a score histogram and disposition counts. Measured sections must carry these fields; not-measured stays explicit. |
-| C2-Q0-R1-07 (incomplete performance) | §9.3–§9.5, ENV `q6` | A closed `incomplete` variant with typed per-run reasons and null where a sample is unavailable; it can never be `within`. Batch identity and ordering: the first run is batch 1, the retry is batch 2, and the final verdict is the last batch. |
-| C2-Q0-R1-08 (K2 schedule) | §13 | Each lane's oracle is frozen and reviewed before any producer output in that lane. K2 moves into the pre-day-0 window, and the M3-PLAN bounds to update under OI-12 are listed. |
-| N01–N05 | §5, §4.4, §1.4, §2.1, §8.3, §9.6 | "Family-weighted" naming; the IID premise of the Clopper–Pearson branch; correct rounded-down reference values; the simulation claim removed in favour of the proof; κ rater slots; persistent held-out exposure; runner observations carried; AQP:168-174 field citations; the restricted Rust refactor domain. |
 
 ---
 
@@ -122,7 +104,7 @@ On T1 a deficiency mismatch also fails Q1, because Coverage atoms are compared b
 | `tier` | `T1`, `T2` or `T3` (AQP:201-205) |
 | `origin` | `oracle-fixture`, `validated-seed`, `fix-reversal`, `negative-lookalike`, `curated-differential`, `curated-adjudication` |
 | `family` | the independence family (§5.3), for T2 and T3 |
-| `heldOut` | boolean: a member of the held-out repository set or a held-out mutation family (AQP:219, AQP:278). Held-out standing is **reserved and never exposed** (**QD-23**, N04). The ledger keeps a permanent `exposure` history (§3.2). Once a case, repository or family has been inspected outside an acceptance round (its findings viewed during development, its labels read, or used as a curated differential source during development), it loses held-out standing permanently. Rotating a freeze seed, or curating it again, never restores it. The acceptance gate checks this history, not the flag alone. |
+| `heldOut` | boolean: a member of the held-out repository set or a held-out mutation family (AQP:219, AQP:278) |
 | `inputs` | `fixtureManifestDigest` (T1) or `{repository, commit, treeDigest}` (T2, §10); for a seed, `controlTreeDigest` and `mutantPatchDigest` |
 | `rule` | `ruleId` and `ruleSpecDigest` (§2) |
 | `subject` | universe, subject kind, logical subject key |
@@ -154,13 +136,13 @@ The fields follow AQP:168-175. Q0 adds one field, `propositionClass` (**QD-3**),
 |---|---|
 | `ruleId`, `specRevision`, `specDigest` | identity |
 | `propositionClass` | `existential`: true because a witness exists (a cycle, an unresolved specifier, a crossing edge). `universal-negative`: true because nothing in a universe refers to the subject (the unused and unreferenced rules). |
-| `subjectPopulation` | universe, subject kind, include/exclude (AQP:168) |
-| `predicate` | the exact proposition in words, plus an `emitWhen` sketch (AQP:169). I2 binds the relation IDs. |
-| `configurations` | mode, targets, features, cfg and dev/build/test scope (AQP:170) |
-| `closedWorld` | the `ClosedWorldV2` fields the rule needs (AQP:171; NE:2210-2224) |
-| `minimumSufficiency` | the relation@rung and Coverage that must be complete for a determinate negative (AQP:172) |
-| `lookalikes` | legitimate cases that must not fire (AQP:173) |
-| `default` | gating, advisory, or gating only after declared policy (AQP:174) |
+| `subjectPopulation` | universe, subject kind, include/exclude (AQP:169) |
+| `predicate` | the exact proposition in words, plus an `emitWhen` sketch (AQP:170). I2 binds the relation IDs. |
+| `configurations` | mode, targets, features, cfg and dev/build/test scope (AQP:171) |
+| `closedWorld` | the `ClosedWorldV2` fields the rule needs (AQP:172; NE:2210-2224) |
+| `minimumSufficiency` | the relation@rung and Coverage that must be complete for a determinate negative (AQP:173) |
+| `lookalikes` | legitimate cases that must not fire (AQP:174) |
+| `default` | gating, advisory, or gating only after declared policy (AQP:175) |
 | `explanationTemplate`, `limitations` | (AQP:175) |
 | `mutationFamilies` | §6.1, with the held-out family marked |
 | `rubricDigest` | the frozen adjudication rubric (§4.1) |
@@ -210,7 +192,6 @@ Repair eligibility is never a catalog rule. It stays per finding, through `deadC
 | `calibration-result` | per voter and round: items, correct answers, known-false items labelled true, and pass/fail against the bar (§4.3) |
 | `agreement` | per rule and round: n, raw agreement, Cohen's κ, prevalence, and whether a trigger fired (§4.4) |
 | `drift-audit` | per rule and round: the sample, its seed, the results, and whether drift fired (§3.5) |
-| `exposure` | a held-out case, repository or family that was inspected outside acceptance: who, when and what was seen. It is permanent (QD-23). |
 | `supersede` | the record replaced, and why |
 
 ### 3.3 The label key, and what each component binds
@@ -226,54 +207,35 @@ A label is bound to a **label key** (AQP:250-255). Q0 splits its components into
 | `configurationDigest` | mode, target, features and cfg (AQP:253) |
 | `dependencySourceSetId`, `preparedOutputSetId` | NE:1265, NE:1274 (AQP:254) |
 
-**The input component that may differ in form only:**
+**Soft components may differ, provided the truth-relevant inputs are unchanged:**
 
 | Component | Bound to |
 |---|---|
-| `truthInputDigest` (TRI) | the truth-relevant input closure, defined next. It replaces r1's narrower lexical digest. |
-| `treeDigest` | the repository tree (AQP:253). It is recorded, and it is covered by the TRI below. |
+| `treeDigest` | the repository tree (AQP:253) |
+| `evidenceRefs` | the finding's evidence references (`finding3`, IE:190; AQP:255). These are detector output, recorded for the unexplained-change trigger below. They never justify reuse. |
+| `truthInputDigest` | the truth-relevant input digest, defined next |
 
-**Recorded outputs, which are never input components:**
+**The truth-relevant input digest (TRI)** covers the subject, its incoming references and the proof's evidence references (AQP:257). It must be computed **without the detector**. If the detector's own reference set were used, a new real reference that the detector missed would leave the TRI unchanged, and a stale "true" label would be carried. So the harness computes the TRI from its own lexical scan, using the spec's `propositionClass` (§2.1):
+- **Existential rules.** The digests of the subject's declaring file, of every file named in the witness, and of the universe's manifest and resolution-configuration files (`package.json`, `tsconfig*.json`, `Cargo.toml`, `Cargo.lock`, `.cargo/config*`).
+- **Universal-negative rules.** The declaring file's digest; the manifest and configuration files above; every file in the selected universe in which the subject's identifier occurs as a token, or which names the declaring module in an import or `use` specifier; and every file that contains a nonliteral loading construct (`require(` or `import(` with a nonliteral argument, `eval`, or reflective access). This is a deliberate over-approximation of the possible referrers.
 
-| Output | Content |
-|---|---|
-| `evidenceRefs`, `messageParameters` | the finding's evidence references and message parameters (`finding3`, IE:190; AQP:255). These are detector output. They never justify reuse; they feed only the unexplained-output trigger. |
+**The carry rule** (AQP:257). A label carries only if every hard component is identical and either the soft components are identical, or only `treeDigest` differs and the `truthInputDigest` is identical. The check is mechanical, and its per-component result is written as a `carry` record.
 
-**The truth-input closure (QD-5, revised for C2-Q0-R1-01).** The TRI covers the subject, its incoming references and the proof's evidence references (AQP:257). It must not depend on the detector, and it must be **conservative**: any input change that could change the label's truth must change the TRI. r1's lexical, witness-based digest failed that test. In CODEX2's counterexample, adding `missing.ts` resolves `import './missing'` without touching any file in the old digest, and edits through aliases or re-exports need not contain the subject's name. The default TRI is therefore the **full selected-universe and resolution-input closure**, which is the SHA-256 of the canonical record of:
-1. the **complete snapshot inventory**: every path in the analysed snapshot, with its mode and content digest, in the §10 tree-digest form. Additions and deletions anywhere in the snapshot change it. That includes previously absent resolution candidates (a new `missing.ts`, a new `index.ts`, a new crate directory) and generated inputs present in the snapshot.
-2. the **resolution inputs outside the tree**: `configurationDigest`, `dependencySourceSetId` and `preparedOutputSetId` (already hard components), plus the digest of the harness's resolution environment (the pinned toolchain and closure identities in the freeze).
-
-In practice the default TRI is unchanged exactly when the snapshot and the resolution inputs are byte-identical. A label then carries across product rebuilds that keep the detector semantics major, and across rounds on the same pinned commit, but never across a corpus commit bump.
-
-**Narrower closures.** A rule-specific closure smaller than the default (for example, the files that can reach the subject through resolution) is permitted only when **all** of these hold:
-- a written soundness argument covers aliases, re-exports, barrel files, configuration (path mappings, `exports` maps, cfg and features), generated inputs, and the negative searches that universal negatives depend on;
-- that argument is reviewed independently of the rule's author;
-- it is pinned by digest in the rule spec as `truthClosureSpecDigest`.
-
-r2 admits none, so every rule uses the default.
-
-**The carry rule** (AQP:257). A label carries only if every hard component is identical and the TRI is identical. The check is mechanical, and its per-component result is written as a `carry` record.
-
-**Re-adjudication triggers** (AQP:258-261). Each trigger maps to a mechanical test, and the tests compare inputs and outputs separately (N04):
-- a change to the rule, rubric, configuration, dependency set or prepared outputs: a hard component differs;
-- a change to the subject or its incoming references, or to anything that could resolve to it: the TRI differs;
-- a change in detector output that no input change explains: every hard component and the TRI are identical, but the recorded outputs (`evidenceRefs` or `messageParameters`) differ. This both re-queues the item and files a determinism defect (§8.4).
+**Re-adjudication triggers** (AQP:258-261). Each trigger maps to a mechanical test:
+- a change to the rule, rubric, configuration, dependency set or prepared outputs: any hard component differs;
+- a change to the subject or its incoming references: `truthInputDigest` differs;
+- a change in detector output that no input change explains: every component of the key, `truthInputDigest` included, is identical, but `evidenceRefs` or the finding's message parameters differ. This both re-queues the item and files a determinism defect (§8.4).
 
 `finding-key2` is used only to *propose* which earlier label might apply. It is never a reason to carry one (AQP:256; IE:199-213).
 
 ### 3.4 Evidence counts
 
-Following CODEX2's r2 observation N02 (`docs/implementation/m3/analysis-quality/reviews/codex2-analysis-quality-plan-r2/review.json`, C2-AQ-R2-N02), the populations are kept apart (**QD-6**, extended for C2-Q0-R1-03). Each count is carried per stratum and per repository (ENV `q2`):
-- **corpus:** every finding the candidate emitted in a stratum;
-- **sampled:** the findings drawn for adjudication. That is all of them for gating and repair-eligible rules (AQP:228), and the §5.7 allocation for advisory rules;
-- **settled:** sampled findings with a resolution (true, false or unclear);
-- **pending:** sampled findings without a resolution yet;
-- **unlabelled:** corpus minus sampled. These findings were never drawn, so they are never labelled.
-- **independent evidence units:** what the confidence rule counts (§5): families, with each family's sampled denominator.
+Following CODEX2's r2 observation N02 (`docs/implementation/m3/analysis-quality/reviews/codex2-analysis-quality-plan-r2/review.json`, C2-AQ-R2-N02), three populations are kept apart (**QD-6**):
+- **the corpus population:** every finding the candidate emitted in a stratum;
+- **the adjudicated sample:** the findings with a settled resolution, all of them for gating and repair-eligible rules (AQP:228);
+- **the independent evidence units:** what the confidence rule counts (§5).
 
-**Naming rule.** "Census precision" is used only when unlabelled = 0 and pending = 0. A ratio computed from a sample is called the *sample ratio*, and it is descriptive only. It is never used for the census guard (§5.6).
-
-Calibration items are never in any of these populations. A finding that appears in two rounds through a carried label counts once per round, not twice. Carried labels count as evidence only in the round that carried them.
+Calibration items are never in any of the three. A finding that appears in two rounds through a carried label counts once per round, not twice. Carried labels count as evidence only in the round that carried them.
 
 ### 3.5 Drift audit
 
@@ -323,7 +285,6 @@ The harness records raw agreement and Cohen's κ per rule and round (AQP:247). W
   - κ below 0.60, applied only when the minority label class has at least 10 items in the round;
   - `unclear` above 5% of the rule's settled labels.
 - **Small rounds.** Below the κ applicability floor, κ is still recorded, labelled `kappa-unstable`. Calibration (§4.3) does the work there.
-- **Rater populations (N04).** Each item has two ordered vote slots. Slot A holds the human vote, or the vote of the earlier-registered human when both votes are human. Slot B holds the other vote. The rule-level κ is Cohen's κ over the (A, B) pairs, so it measures agreement between the human slot and the independent second slot. Votes are mapped to slots only after the round closes, and voters never see their slot. The harness also records a pair-specific κ for each voter pair sharing at least 20 items. That is diagnostic only and does not trigger review. `unclear` is a third category in both calculations.
 
 ### 4.5 Votes, independence and the model-family rule
 
@@ -360,24 +321,24 @@ The harness records raw agreement and Cohen's κ per rule and round (AQP:247). W
 
 AQP sets the target on a one-sided 95% lower bound of conservative precision, per stratum. Conservative precision counts unclear as not true (AQP:232). A stratum is rule × language × mode, and strata are never pooled (AQP:233).
 
-The target generalizes beyond the corpus. The 95% statement is about repositories like those in the corpus, and the unit that is sampled from that population is the repository family (§5.3), not the finding.
+The target generalizes beyond the corpus. Gating findings on T2 are adjudicated in full (AQP:228), so precision on the frozen corpus is a census: the harness knows it exactly. The 95% statement is about repositories like those in the corpus, and the unit that is sampled from that population is the **repository**, not the finding.
 
-**QD-11.** The bound is placed on the **family-weighted conservative precision** (N01: named for its actual weighting): the average, over independence families in which the rule fires, of each family's expected conservative precision. Two reasons:
+**QD-11.** The bound is placed on the **repository-weighted conservative precision**: the mean over independence families (§5.3) of each family's conservative precision, among families in which the rule fires. Two reasons:
 - A finding-weighted bound over correlated findings invents independent evidence. This is the counterexample in the CODEX2 review that produced AQP:235 (the same review file, C2-AQ-R2-01 `analyticIllustration`).
-- The family-weighted quantity is close to what a single team sees on its own repository.
+- The repository-weighted quantity is what a single team sees on its own repository.
 
-**What it does not claim.** It is not a lower bound on the population's finding-weighted precision. The pooled guard in §5.6 does not make it one; the guard only stops a large, poor repository from being averaged away. Each Q2 result names its estimand (ENV `q2.strata[].estimand`). Whether qualification wants a finding-weighted estimand is OI-4, and family-wise confidence is OI-5. Both stay open for the DR-G13 successor.
+AQP's pooled ratio, true ÷ all reported (AQP:232), is kept beside it as a census guard (§5.5), so a large, poor repository cannot be averaged away.
+
+Reviewers should check this choice. If the DR-G13 successor wants a finding-weighted estimand instead, §14 OI-4 records the alternative.
 
 ### 5.2 Which bound applies
 
-The method is chosen from the **structure** of the stratum's evidence before any label is read, so the choice cannot follow the labels. Let *k* be the number of families with at least one finding in the stratum, and let *a_j* be the number of **sampled** findings from family *j* (§5.7). *a_j* equals family *j*'s corpus count for gating rules.
+The method is chosen from the **structure** of the stratum before any label is read, so the choice cannot follow the labels. Let *k* be the number of families with at least one finding in the stratum, and let *n_j* be the number of evidence findings from family *j*.
 
-- **Single-finding families** (AQP:234): every *a_j* = 1. **Method: exact Clopper–Pearson** (§5.4).
-- **Clustered** (AQP:235): some *a_j* > 1. **Method: the cluster-level product bound** (§5.5).
+- **Independent sample** (AQP:234): every *n_j* = 1. Each finding then comes from a different family, and the findings are independent Bernoulli draws with the repository-weighted mean as their success probability. **Method: exact Clopper–Pearson** (§5.4).
+- **Clustered** (AQP:235): some *n_j* > 1. **Method: the cluster-level product bound** (§5.5).
 
-**The Clopper–Pearson premise, stated (N01).** One finding per family gives distinct evidence units. That alone does not make them IID Bernoulli draws with a common success probability. The Clopper–Pearson branch adds the premise that the *k* families are independent draws from one population of families, with the finding drawn uniformly within each. Each sampled finding is then Bernoulli with the population's family-weighted mean. If that premise is doubted, the product bound remains valid without it, since it allows heterogeneous independent family means (§5.5). The two branches therefore rest on different premises, and each result records which one applied (ENV `method`).
-
-**Where the single-finding design comes from.** The §5.7 allocation gives one finding per family exactly when the stratum has at least 100 families with findings. Gating strata are adjudicated in full (AQP:228), so they take the Clopper–Pearson branch only when every family has a single finding.
+**Where the independent design comes from.** For an advisory stratum with at least 100 families, the preregistered sampling draws exactly one finding per family, uniformly, with a recorded seed. That makes it an independent sample by construction (§5.7). AQP:228's minimum of 100 is then 100 families. Gating strata are adjudicated in full (AQP:228), so they are independent only when every family contributes a single finding.
 
 ### 5.3 Independence families
 
@@ -389,49 +350,42 @@ The independence unit is a **family** of repositories, not a single repository (
 
 Sharing an organization alone does not merge two repositories.
 
-Families are assigned in the T2 manifest by M3-T2, reviewed, and pinned by `familyMapDigest` at the freeze. Families with no finding in a stratum do not count toward that stratum's *k*. T3 repositories form their own families, labelled `T3-local` (AQP:205). Per-repository results are reported as well as per-family ones (§12), because a family may hold several repositories (AQP:238).
+Families are assigned in the T2 manifest by M3-T2, reviewed, and pinned by `familyMapDigest` at the freeze. Families with no finding in a stratum do not count toward that stratum's *k*. T3 repositories form their own families, labelled `T3-local` (AQP:205).
 
 **The assumption every method needs.** Each bound treats the families as independent draws from the population of repositories the claim is about. T2 is purposely selected (AQP:213-219), not randomly sampled. The held-out discipline (§5.6) guards against tuning on the corpus, but not against unrepresentative selection. The envelope states this assumption on every Q2 result (ENV `q2.strata[].assumption`).
 
-### 5.4 Exact Clopper–Pearson (single-finding strata)
+### 5.4 Exact Clopper–Pearson (independent strata)
 
 Let *x* be the true count out of *k* single-finding families. The one-sided 95% lower bound *L* is the *p* that solves P(Bin(*k*, *p*) ≥ *x*) = α, with α = 0.05; *L* = 0 when *x* = 0. Equivalently, *L* is the α quantile of Beta(*x*, *k* − *x* + 1).
 
-**Exact decision.** *L* ≥ *t* holds exactly when Σ_{i=x}^{k} C(*k*, *i*) *t*^i (1 − *t*)^{k−i} ≤ α. The harness evaluates this in exact rational arithmetic, with *t* = 99/100 or 9/10 and α = 1/20. It stores *L* rounded down to millionths: the largest *q*/10⁶ for which the tail at *q*/10⁶ is ≤ α.
+**Exact decision.** *L* ≥ *t* holds exactly when Σ_{i=x}^{k} C(*k*, *i*) *t*^i (1 − *t*)^{k−i} ≤ α. The harness evaluates this in exact rational arithmetic, with *t* = 99/100 or 9/10 and α = 1/20. It reports *L* rounded down to millionths, found by bisection.
 
-**Reference values for K1b's self-test (N02).** These are stored integers, rounded down and computed exactly for this record:
-
-| Case | `lowerBoundPpm` |
-|---|---|
-| *x* = *k* = 299 | 990030 |
-| *x* = *k* = 29 | 901855 |
-| *x* = 472, *k* = 473 (one error) | 990010 |
-| *x* = 45, *k* = 46 (one error) | 900975 |
-
-With one error, *k* = 473 is the smallest count reaching 0.99, and *k* = 46 the smallest reaching 0.90 (AQP:234 gives the zero-error examples).
+Reference values, computed for this record:
+- *x* = *k* = 299 gives 0.990031, and 29 gives 0.901855 (AQP:234's examples);
+- one error needs *k* = 473 to reach 0.99, and *k* = 46 to reach 0.90.
 
 ### 5.5 The cluster-level product bound (clustered strata)
 
-**Chosen method (QD-13), unchanged from r1.** For each family *j*, let *X_j* = *t_j* / *a_j* ∈ [0, 1] be that family's conservative precision **on its sampled findings**: its census value for gating rules, or its uniform within-family sample estimate for advisory rules (§5.7). The denominator is always the family's sampled count *a_j*, never its corpus count. Then
+**Chosen method (QD-13).** For each family *j*, let *X_j* ∈ [0, 1] be that family's conservative precision in the stratum: its census value for gating rules, or its uniform within-family sample estimate for advisory rules (§5.7). Then
 
 > *L* = α^{1/k} · (Π_j *X_j*)^{1/k}, that is, α^{1/k} times the geometric mean of the per-family precisions; *L* = 0 if any *X_j* = 0.
 
-**Exact decision.** Pass iff Π_j *X_j* ≥ *t*^k / α, as an exact rational comparison.
+**Exact decision.** Pass iff Π_j *X_j* ≥ *t*^k / α. Each *X_j* is the rational *t_j*/*n_j*, so this is an exact integer comparison.
 
-**Why it is valid.** Fix any *m* in (0, 1]. Suppose the families are independent and the average of their expected precisions is at most *m*. For a sampled family, uniform selection within the family makes *E[X_j]* equal that family's precision. The product of the expectations of *X_j*/*m* is then at most 1 (AM–GM over the family means), so the product is an e-value. Markov's inequality gives P(Π *X_j* / *m^k* ≥ 1/α) ≤ α. Taking *m* to be the true mean, P(*L* ≥ true mean) ≤ α. CODEX2 verified this derivation (review §"Method assessment").
+**Why it is valid.** Fix any *m* in (0, 1]. Suppose the families are independent and the average of their expected precisions is at most *m*. Each *X_j*/*m* is non-negative, and the product of their expectations is at most 1 (by the AM–GM inequality, applied to the family means). So the product is an e-value, and Markov's inequality gives P(Π *X_j* / *m^k* ≥ 1/α) ≤ α. Taking *m* to be the true mean, P(*L* ≥ true mean) ≤ α.
 
-This needs no model of how findings correlate inside a repository, no prior, no asymptotics and no resampling. It also does not need the families to be identically distributed: it bounds the average of their means. It is the fixed-bet, all-in case of the betting confidence bounds for bounded means (Waudby-Smith and Ramdas, *JRSS-B*, 2024; Vovk and Wang, *Ann. Statist.*, 2021). The analytic proof is the evidence for validity. r1's simulation sentence is withdrawn (N03), because nothing about it was retained.
+This needs no model of how findings correlate inside a repository, no prior, no asymptotics and no resampling. It also does not need the families to be identically distributed: it bounds the average of their means. It is the fixed-bet, all-in case of the betting confidence bounds for bounded means (Waudby-Smith and Ramdas, *JRSS-B*, 2024; Vovk and Wang, *Ann. Statist.*, 2021).
 
-**The zero-error boundary.** If every family is all-true, *L* = α^{1/k}. That is exactly the Clopper–Pearson bound for *k* single observations. **At that all-success boundary**, it is also the most any method can claim without a within-repository model. If each repository were all-true or all-false with mean *μ*, the chance of *k* all-true repositories would be *μ*^k. So 300 findings from 3 perfect repositories give `lowerBoundPpm` 368403, as CODEX2's illustration requires. Identical all-true repositories are never resampled into a pass (AQP:235). Away from that boundary no optimality is claimed (N02).
+**The zero-error boundary.** If every family is all-true, *L* = α^{1/k}. That is exactly the Clopper–Pearson bound for *k* independent observations. It is also the most any method can honestly claim without a within-repository model: if each repository were all-true or all-false (perfect within-repository correlation) with mean *μ*, the chance of seeing *k* all-true repositories would be *μ*^k. So 300 findings from 3 perfect repositories give *L* = 0.368, as CODEX2's illustration requires. Identical all-true repositories are never resampled into a pass (AQP:235).
 
-**It uses partial information.** Unlike reducing each family to a single clean/unclean bit, a family at 0.995 contributes 0.995, not 0. Reference values, stored and rounded down:
-- 30 families at 1.0: 904966;
-- 29 at 1.0 and one at 0.90: 901793, a pass at 0.90;
-- 29 at 1.0 and one at 0.50: 884296, not a pass.
+**It uses partial information.** Unlike reducing each family to a single clean/unclean bit, a family at 0.995 contributes 0.995, not 0. With 30 families at 1.0, *L* = 0.904966. With 29 at 1.0 and one at 0.90, *L* = 0.901793, which passes 0.90. With 29 at 1.0 and one at 0.50, *L* = 0.884297, which does not.
 
-**What it costs.** When findings inside a repository really are independent, the bound is more conservative than a model-based one. That is the price of assuming nothing about correlation within a repository.
+**What it costs.** When findings inside a repository really are independent, the bound is far more conservative than it needs to be. That is the price of assuming nothing about how findings correlate within a repository. A simulation was run for this record. It is not a product measurement. There were 4,000 trials per scenario, with *k* from 30 to 300 and mean precision from 0.90 to 0.99, under three models:
+- perfect within-repository correlation, which is the worst case: the bound reached or exceeded the true mean in 0.039 to 0.049 of trials, at or below α;
+- within-repository independence: never;
+- beta-distributed per-repository precision: never.
 
-**One harsh property, accepted.** A single family whose sampled findings in the stratum are all false or unclear sets *L* = 0. For a gating rule, a repository where every finding is wrong is a defect worth failing. Gating unclear labels go to the expert first (§4.5), so this happens only when the expert also cannot confirm a single finding in that repository.
+**One harsh property, accepted.** A single family whose findings in the stratum are all false or unclear sets *L* = 0. For a gating rule, a repository where every finding is wrong is a defect worth failing. Gating unclear labels go to the expert first (§4.5), so this happens only when the expert also cannot confirm a single finding in that repository.
 
 **Rejected alternatives:**
 - **Repository bootstrap.** It is degenerate at zero errors (AQP:235).
@@ -439,36 +393,29 @@ This needs no model of how findings correlate inside a repository, no prior, no 
 - **Design-effect correction with an assumed intraclass correlation.** It is asymptotic, and it needs an assumed correlation that cannot be checked when there are no errors.
 - **Reducing each family to a clean/unclean indicator, then Clopper–Pearson.** It is valid, but it throws away partial information.
 
-### 5.6 Status rules, minimum counts, the pooled guard and INSUFFICIENT-EVIDENCE
+### 5.6 Status rules, minimum counts and INSUFFICIENT-EVIDENCE
 
-**Minimum independent families.** At zero errors both methods give α^{1/k}, so a pass needs *k* ≥ *k*_min(*t*) = ⌈ln α / ln *t*⌉ (**QD-14**). These are stored values, rounded down:
+**Minimum independent families.** At zero errors both methods give α^{1/k}, so a pass needs *k* ≥ *k*_min(*t*) = ⌈ln α / ln *t*⌉ (**QD-14**):
 
 | Target | *k*_min | Check |
 |---|---|---|
-| advisory 0.90 | **29** | *k* = 29 gives 901855; *k* = 28 gives 898534 |
-| gating and repair-eligible 0.99 | **299** | *k* = 299 gives 990030; *k* = 298 gives 989997 |
+| advisory 0.90 | **29** | 0.05^{1/29} = 0.901855; 0.05^{1/28} = 0.898534 |
+| gating and repair-eligible 0.99 | **299** | 0.05^{1/299} = 0.990031; 0.05^{1/298} = 0.989998 |
 
-The exact checks are 20·(9/10)^29 ≤ 1 < 20·(9/10)^28, and the same form for 99/100. These are floors at zero errors. With errors, more families are needed (§5.4).
+These are floors, not sufficient counts: any error raises the requirement (§5.4).
 
-**The pooled guard (QD-15, revised for C2-Q0-R1-03).** Let *N* be the stratum's corpus count, *T* and *F* its settled true and settled not-true counts (unclear counts as not true, AQP:232), and *U* = *N* − *T* − *F* the findings that are unlabelled or pending. The guard has two conservative values, computed exactly:
-- **verified lower value:** *T* / *N*, which treats every unlabelled finding as not true;
-- **optimistic upper value:** (*T* + *U*) / *N*, which treats every unlabelled finding as true.
+**The census guard (QD-15).** The stratum's pooled conservative precision on the frozen corpus, true ÷ all reported (AQP:232), must also meet the target. This catches a large repository with poor precision that the repository-weighted bound would average down.
 
-When *U* = 0, the two coincide and equal the **census precision**. That is the only case in which that name is used. For gating strata, *U* = 0 once adjudication is complete (AQP:228). An unweighted sample ratio is never used for the guard. In CODEX2's counterexample (one family of 10,000 findings at 0.80, plus 99 single true findings, sampled one per family), *T* ≤ 8,099 and *N* = 10,099. The verified value is at most 0.802, so the stratum cannot pass. The upper value depends on the sampled labels, and it is FAIL only if the sample shows enough errors.
-
-**Status, per stratum, evidence set and target, decided in this order:**
-1. `NOT-YET-ADJUDICATED`: some **sampled** finding is pending (`M3-PLAN.md:173`). Exploratory only; it is never a Q2 result.
+**Status, per stratum and target, decided in this order:**
+1. `NOT-YET-ADJUDICATED`: some finding in the stratum's evidence lacks a settled label (`M3-PLAN.md:173`). Exploratory only; it is never a Q2 result.
 2. `INSUFFICIENT-EVIDENCE`: zero findings, or *k* < *k*_min(*t*) (AQP:236). The bound is still reported.
-3. `FAIL`: the optimistic upper value is below *t*. Even if every unlabelled finding were true, pooled precision would miss the target.
-4. `INSUFFICIENT-EVIDENCE`: the verified lower value is below *t*. The guard cannot be established without more labels.
-5. `PASS`: *L* ≥ *t* by the exact decision in §5.4 or §5.5.
-6. `INSUFFICIENT-EVIDENCE`: otherwise. The guard holds, but the bound does not.
+3. `FAIL`: the census precision is below *t*.
+4. `PASS`: *L* ≥ *t* by the exact decision in §5.4 or §5.5.
+5. `INSUFFICIENT-EVIDENCE`: otherwise. The census meets the target, but the bound does not.
 
-If any guard input is unavailable (for example, the corpus count is missing), the stratum is `INSUFFICIENT-EVIDENCE` with the reason `guard-unavailable`, and PASS is prohibited. Neither non-pass status is ever a pass (AQP:236).
+Neither non-pass status is ever a pass (AQP:236).
 
-**A consequence for advisory rules.** Under this guard, an advisory PASS needs at least 0.90·*N* findings verified true, so in practice nearly the whole stratum must be adjudicated. A sharper rule would bound pooled precision from the sample: a per-family exact hypergeometric lower bound on true counts, at level α/*k* (Bonferroni), summed over families and divided by *N*. Unsampled families would contribute zero, and fully adjudicated families their exact count. That is a new inference rule, so r2 does not adopt it. It is routed for approval as OI-17, and until it is approved the conservative guard above is in force.
-
-**Which families count for acceptance.** The acceptance computation counts only **held-out** families, whose findings and labels were never exposed during rule development (AQP:219, AQP:433; QD-23). Development families give exploratory numbers only, labelled `development`. Both are reported, and every count and status is computed separately for each evidence set.
+**Which families count for acceptance.** The acceptance computation counts only **held-out** families, whose findings and labels were not inspected during rule development (AQP:219, AQP:433). Development families give exploratory numbers only, labelled `development`. Both are reported.
 
 **Downgrading** (AQP:237).
 - A gating stratum that does not PASS at 0.99 is evaluated at 0.90. If it passes, the rule may ship as a qualified advisory rule.
@@ -477,32 +424,23 @@ If any guard input is unavailable (for example, the corpus count is missing), th
 
 **Confidence is per stratum.** 95% applies to each stratum, as AQP:233 states. With *S* strata, a release could hold false passes on up to about 0.05·*S* of them in expectation. The plan sets no family-wise correction, and this record does not invent one. §14 OI-5 routes the question to the DR-G13 successor.
 
-### 5.7 Preregistration and advisory allocation
+### 5.7 Preregistration
 
 Before any acceptance measurement, the freeze record (§1.5) pins a **preregistration document** (`preregistrationDigest`). It fixes:
 - α = 1/20, and the targets 99/100 and 9/10;
 - the estimand (§5.1), and the method-selection rule (§5.2);
-- the family map and the held-out set, with its exposure history (QD-23);
-- the advisory allocation, below;
-- the pooled guard and the status order (§5.6);
+- the family map and the held-out set;
+- **advisory sampling.** If the stratum has at least 100 families, one finding per family. Otherwise ⌈100 / *k*⌉ findings per family, or all of that family's findings if it has fewer. Findings are drawn uniformly within each family, with the seed `SHA-256(roundId ‖ stratumId)`.
+- the census guard and the status order (§5.6);
 - the rounding rule (QD-1).
-
-**Advisory allocation (QD-24, revised for C2-Q0-R1-02).**
-- **Unit and floor.** The floor applies to each stratum (rule × language × mode), which satisfies AQP:228's "at least 100 per rule per language". It applies separately to the held-out and the development evidence sets. Let *N_j* be family *j*'s corpus count in the stratum and evidence set, and *T* = min(100, Σ*N_j*).
-- **Water-filling.** Find the smallest integer *c* ≥ 1 such that Σ_j min(*N_j*, *c*) ≥ *T*, and set *a_j* = min(*N_j*, *c*). Families too small for their share give their unused slots to the others, so the total reaches *T* whenever enough findings exist, and is all of them when Σ*N_j* ≤ 100. The total may exceed 100 by less than *k*.
-- **Effects.** With *k* ≥ 100 families, *c* = 1, which gives one per family and the Clopper–Pearson branch. In CODEX2's counterexample (*k* = 29, one family of 100 and 28 of 1), *c* = 72, so the allocation is 72 + 28 = 100.
-- **Selection.** Within each family, *a_j* findings are drawn uniformly without replacement, with the seed `SHA-256(roundId ‖ stratumId ‖ evidenceSet ‖ family)`.
-- **Recording.** *N_j* and *a_j* are both recorded per family and per repository. The bound uses *a_j* as the denominator (§5.5), and the guard uses *N* (§5.6).
 
 None of these may change after the freeze for that round (AQP:159).
 
 ### 5.8 What this means in practice, reported to the owner
 
-**Gating.** At the minimum, a **gating 0.99 PASS needs 299 error-free held-out families with findings for that rule, language and mode**. Any error requires more families; one error needs 473 under the single-finding branch (§5.4). Every gating finding in them must be adjudicated (AQP:228).
+Under this rule, a **gating 0.99 PASS needs at least 299 held-out families with findings for that rule, language and mode, and zero errors.** An advisory 0.90 PASS needs at least 29. T2 plans at least two repositories per language per size class, with one held out per class (AQP:218-219). Gating strata will therefore be INSUFFICIENT-EVIDENCE unless T2 grows by an order of magnitude.
 
-**Advisory.** A 0.90 PASS needs at least 29 held-out families. Under the in-force pooled guard, it also needs at least 0.90·*N* of the stratum's findings verified true. Example: 29 held-out families with 4 findings each give *N* = 116. All 116 are adjudicated: 232 votes, plus calibration of at least 10% of each of the two vote queues (about 13 items each), so about 260 votes, at least half of them human (§4.5). If OI-17's sample-based guard is approved, a 100-finding sample would suffice: about 200 votes plus about 24 calibration votes.
-
-**Scale.** T2 plans at least two repositories per language per size class, with one held out per class (AQP:218-219). Gating strata will therefore be INSUFFICIENT-EVIDENCE unless T2 grows by an order of magnitude. At the all-success boundary this is not a defect of the method: without a within-repository model, no valid 95% method can do better (§5.5). The choice is the D4 revisit (AQP:148, AQP:525) and D3 sizing (AQP:524); see OI-3.
+This is not a defect of the chosen method. Without a within-repository model, no valid 95% method can do better (§5.5). The cheapest path to an advisory PASS is about 30 to 50 extra small public held-out repositories, sampled one finding per family, which is about 60 to 100 votes. The gating path costs 299 or more held-out families, with every gating finding adjudicated. Choosing between them is the D4 revisit (AQP:148, AQP:525) and D3 sizing (AQP:524); see §14 OI-3.
 
 ---
 
@@ -530,7 +468,7 @@ At least one family per rule is held out for acceptance with the held-out reposi
 
 Each mutant records its subject, the unmutated control, the expected introduced difference, the selected configuration and its expected answer (AQP:269-274). It is then validated:
 1. **Applicability.** The site lies in a selected target, under the selected cfg and features, and inside the analyzed universe.
-2. **Well-formedness.** The mutant parses with the pinned grammar. For TS/JS, the pinned TypeScript compiler type-checks it without emitting; this executes no repository code. For Rust, nothing that would run build scripts or proc-macros is used (`M3-PLAN.md:355`), so a Rust mutant has no compile check at M3. Compile validation waits for the authorized execution path in QD-17. Any tool used here carries the same non-execution canary pin as QD-17.
+2. **Well-formedness.** The mutant parses with the pinned grammar. For TS/JS, the pinned TypeScript compiler type-checks it without emitting; this executes no repository code. For Rust, nothing that would run build scripts or proc-macros is used (`M3-PLAN.md:355`), so a Rust mutant has no compile check at M3.
 3. **Independent proposition check** (AQP:276). Simple families (`EXP-ADD`, `PUB-ADD`, `FILE-ADD`, `DEP-ADD`, `SPEC-BREAK`) have a mechanical validator: the name is lexically unique in the universe, the module is not star-re-exported into a published entry point, the crate is not a library's public surface (for gating rules), and so on. Every other family is adjudicated under §4, and its label settles the expected answer.
 4. **Validator audit.** For each mechanical validator, the harness audits a sample (10% and at least 20 per family and round) by adjudication. One disagreement suspends the validator for that family until it is fixed. Mutants it validated in that round are then adjudicated individually.
 
@@ -552,12 +490,11 @@ All counts are reported per family (AQP:276). Only the three `valid-*` states be
 
 **Tools.** Knip and ts-prune for TS/JS; rustc `dead_code`/`unused`, cargo-udeps and cargo-machete for Rust (AQP:281). Each is pinned by version, executable-closure digest, compiler, configuration and adapter digest (AQP:281), and recorded in the envelope's `tools` list with role `differential`.
 
-**Repository-code execution (QD-17, revised for C2-Q0-R1-04).**
-- **The M3 rule.** At M3 no repository code executes (`M3-PLAN.md:355`; prepared mode imports, `M3-PLAN.md:301`). The harness is bound by the same rule.
-- **What runs at M3.** Only a tool **mode** whose pin verifies that no repository code executes. The pin records the mode, its flags, and a **non-execution canary check**. The tool is run, in that mode, on a harness-owned canary fixture whose `build.rs`, proc-macro, package scripts and JS/TS configuration files would each write a distinct marker file, and whose formatter and linter plugins would do the same. The pin is accepted only if no marker appears. The canary fixture is harness-authored, not repository code, and it is re-run whenever the pin changes. A tool with no verified non-executing mode does not run at M3. `executesRepositoryCode` is recorded as `false` for every tool used at M3 (ENV `tools`).
-- **Expected outcome, to be confirmed at pin time.** cargo-machete (lexical) and ts-prune are candidates for a verified mode. rustc's `dead_code`/`unused` lints through a build, and cargo-udeps, build the crate, which runs build scripts and proc-macros, so they have no M3 mode. Knip qualifies only if a mode without configuration or plugin loading passes the canary.
-- **Deferred, not conditional.** Executing differentials and Rust compile validation (§6.2) are deferred to the later explicit authorized execution path: M5's `execution.rs` under the `RepoExecutionGrantV2` and the M5-EX successors (`M3-PLAN.md:319`, `M3-PLAN.md:347-352`), on public T2 bytes only, never T3. O7 confinement or a disposable container is an **additional** condition on that later execution. It is never the authorization or the milestone gate.
-- See OI-6.
+**Repository-code execution (QD-17).**
+- Some of these tools build the crate, which runs build scripts and proc-macros: rustc's lints through a build, and cargo-udeps. Knip can load and evaluate repository configuration files.
+- At M3 no repository code executes (`M3-PLAN.md:355`). So these tools run only once the O7 profile or a disposable container with no network and no credentials is available, and only on public T2 bytes, never on T3.
+- Until then, only tools that do not execute repository code run. Each tool's mode is checked when it is pinned, and the pin records it.
+- See §14 OI-6.
 
 **Why a tool is not an oracle.**
 - The tools answer different propositions. rustc's `dead_code` is crate-local and does not see cross-crate `pub` use, which is where OpenSIP adds value (AQP:184). cargo-machete is lexical. Knip uses its own entry-point heuristics.
@@ -569,7 +506,7 @@ A tool's output is therefore never an oracle and never G13 evidence (AQP:288-289
 1. **Normalize.** Each tool's finding is mapped to a catalog proposition through that tool's published proposition mapping, or marked non-overlapping (AQP:282).
 2. **Compare** against OpenSIP's result on the same case key (§1.2).
 3. **Adjudicate** every normalized disagreement under §4 into one of four classes (AQP:283-287): `confirmed-comparable-defect`, `other-tool-false-positive`, `semantic-non-overlap` or `unresolved`.
-4. **Curate.** Only a confirmed comparable defect becomes a case: `origin=curated-differential`, with its expected answer taken from the settled label and a ledger reference (AQP:288). It joins the **next** frozen round (§1.5). It is held out only if its repository is held out and unexposed (QD-23). Adjudicating a held-out repository's differential during development exposes it.
+4. **Curate.** Only a confirmed comparable defect becomes a case: `origin=curated-differential`, with its expected answer taken from the settled label and a ledger reference (AQP:288). It joins the **next** frozen round (§1.5), and is held out if its repository is.
 
 ---
 
@@ -600,13 +537,6 @@ For each pair, the generator emits a mapping: unchanged, changed, moved or renam
 - prepared-output freshness. In prepared mode, the harness recipe regenerates the imported set (`M3-PLAN.md:163`).
 
 A pair that fails is recorded with its reason and discarded, never scored.
-
-**The restricted Rust domain (N05).** A syntactic `mod` tree plus an unchanged manifest does not establish that `use` resolution, cfg selection or macro expansion is preserved. A Rust pair is therefore eligible only when the transformation cannot affect them:
-- formatting;
-- reordering items with no attributes and no macro invocations;
-- renaming a private item that is not referenced from any macro body, cfg-gated item or `use` path.
-
-Any other Rust pair whose independent resolution invariant cannot be established is recorded as `unvalidated` and discarded, never scored. Expanding the semantic oracle is part of the full Q5 suite at M5 (AQP:484).
 
 **Comparison** is against the oracle, not `finding-key2` alone (AQP:308-312):
 - finding content: message parameters, severity, and evidence references mapped through the oracle;
@@ -680,33 +610,15 @@ Warmups therefore never turn cold samples warm. The page cache is never claimed 
 
 **RSS per run** follows LQM:925 and AQP:329. The harness keeps two figures:
 - **(a) the concurrent sum:** the highest observed sum of resident bytes across the live supervised process tree, sampled every 10 ms;
-- **(b) the sum of own high-water marks:** the sum, over every process lifetime in the tree, of that process's **own** lifetime high-water counter, collected at its exit.
+- **(b) the sum of high-water marks:** the sum, over every process in the tree, of that process's own high-water counter.
 
-The run's value is the **larger of (a) and (b)**. The cell statistic is the maximum of the seven run values (AQ:270; PQV:28). A sampled peak is never used as an own counter. A run whose process inventory or counter collection is incomplete is NON-PASS (LQM:925) and recorded as `incomplete` (§9.5), never filled in.
+The run's value is the **larger of (a) and (b)**. The cell statistic is the maximum of the seven run values (AQ:270; PQV:28).
 
-**Process inventory and own counters (QD-19, revised for C2-Q0-R1-05).**
+**Where the per-process counter comes from (QD-19).** It is the larger of two readings:
+- the harness's own observation: `wait4` `ru_maxrss` for its direct child (bytes on macOS, KiB on Linux), and the polled per-process peak for every other descendant;
+- the per-process peak RSS in the host's operational record (OPP:249).
 
-*Lifetime identity and de-duplication.* A process lifetime is keyed by (tgid, start time), where start time is the kernel's process start time (on Linux, `/proc/<pid>/stat` field 22, in clock ticks since boot). That key survives pid reuse. Threads are not separate lifetimes, because they share the process's address space.
-
-An `exec` keeps the key but replaces the address space, so a lifetime is split into **image segments** at each exec. Each segment needs its own counter, with one exception: a segment that has no address space of its own (a `CLONE_VM` spawn, which has vfork/posix_spawn semantics) needs none. K1c establishes once per runner and pinned toolchain whether the supervisor's spawn path is `CLONE_VM`. It does this by tracing a calibration run's clone flags, and records the result in the runner record. Otherwise every pre-exec segment lacks a counter, and the run is incomplete with the reason `pre-exec-image-unmeasured`. A second exec within one lifetime has the same effect.
-
-*Linux, the D12 reference platform (AQP:534):*
-- **Registration.** The workload runs in a dedicated cgroup v2 group, and every descendant inherits membership. The harness subscribes to the kernel's process-event connector (fork, exec and exit events) before launch. It registers every fork whose ancestor is the workload root and cross-checks the registrations against `cgroup.procs`. The run is complete only when the cgroup reports itself unpopulated (`cgroup.events` `populated 0`) and every registered lifetime has its exit collected.
-- **Own counter.** The `hiwater_rss` field of the per-task taskstats record that the kernel emits at task exit to a registered listener (generic netlink `TASKSTATS`, extended accounting). Units are KiB. It is the high-water mark of that process's own address space, excluding children. The harness converts KiB to bytes (×1024).
-- **Verification.** K1c admits the mechanism on the D12 kernel only after a calibration fixture passes. The fixture allocates and touches a known peak, then exits, and the recorded `hiwater_rss` must be at least that peak. The calibration also confirms that the record is emitted before the address space is released. Until that passes, Linux runs are incomplete with the reason `own-counter-unverified`.
-- **Diagnostics only.** `VmHWM` polled from `/proc/<pid>/status` (a lower estimate of the same counter) and `wait4` `ru_maxrss` (KiB on Linux, and aggregated over the reaped subtree, so not an own counter) are recorded as cross-checks. They are never used as figure (b).
-- **Concurrent sum (a).** The sum of `VmRSS` over the group's processes, every 10 ms.
-
-*macOS (lead workstation, and the later macOS lanes):*
-- `wait4`'s resource usage covers the terminated process and its children, so `ru_maxrss` (bytes on macOS) is not an own counter. The harness has no identified own lifetime RSS high-water counter it can read for arbitrary descendants without privileged task access.
-- Every macOS run therefore records figure (b) as unavailable, with the reason `own-counter-unavailable-platform`. Its RSS is `incomplete`, and it can never be within budget. The concurrent sum (a) is still recorded, labelled diagnostic.
-- This matches the existing rule that macOS lead-workstation samples are never Q6-labelled (`M3-PLAN.md:158`). A macOS own-counter source must exist before any macOS G13 lane can qualify RSS (OI-18).
-
-*Joining host observations.* The host's operational record reports peak RSS per process (OPP:249). Each entry must carry the same (pid, start time) key. The join rules:
-- **Matching entry.** The figure-(b) value for that segment is the larger of the harness counter and the host value. The host value can only raise a figure, never replace a missing harness counter.
-- **Host entry with no registered lifetime.** The inventory is incomplete (reason `unregistered-process`), so the run is NON-PASS.
-- **Registered lifetime with no host entry.** Allowed, because the host does not see every descendant. It is recorded.
-- **Host value higher than the harness counter.** A defect is filed.
+A process with no counter makes the run NON-PASS (LQM:925). If the host reports a lower peak than the harness observed, a defect is filed.
 
 ### 9.4 Phase timings from the operational record
 
@@ -720,27 +632,13 @@ At M3 the record reaches the harness as internal instrumentation and the explora
 - the spans nest correctly and are monotonic;
 - the **unattributed** time, elapsed minus the sum of the top-level phases, is non-negative. It is reported, never dropped, because no OpenSIP work is excluded (AQP:340).
 
-Reuse disclosure is stored only in the envelope's `operationalRecords`, never in a semantic result (AQP:390). A run with no record, or with a record that fails these checks, has null phase fields and a typed reason (`record-missing`, `record-invalid`, `phase-missing`, `negative-unattributed`); nothing is synthesized (ENV `q6`). Instrumentation stays at the same preregistered setting for every sample (OPP:251).
+Reuse disclosure is stored only in the envelope's `operationalRecords`, never in a semantic result (AQP:390). A run with no record has null phase fields and a reason; nothing is synthesized. Instrumentation stays at the same preregistered setting for every sample (OPP:251).
 
-### 9.5 Statistics, budgets, incomplete measurements and continuous integration
+### 9.5 Statistics, budgets and continuous integration
 
 **Budgets.** The §5.2 budgets apply per size class (AQP:353-360), with the product ratios against a reviewed baseline. A null baseline never qualifies a cell (AQ:272-276). The seven samples and their maximum are diagnostics only (AQP:330).
 
-**Complete and incomplete results (QD-25, for C2-Q0-R1-07).** Each workload, workflow, reset, control and batch result is either complete or incomplete.
-- **Complete:** 3 warmups and 7 measured runs, every elapsed value present, and both RSS figures present for every run. Status is `within`, `over` or `no-baseline`.
-- **Incomplete:** at least one run lacks a value. Each run slot then carries its measured values where they exist, `null` where they do not, and a list of typed reasons:
-  - `run-failed`, `timeout`;
-  - `own-counter-missing`, `own-counter-unverified`, `own-counter-unavailable-platform`;
-  - `unregistered-process`, `pre-exec-image-unmeasured`;
-  - `inventory-incomplete`;
-  - `record-missing`, `record-invalid`.
-
-  Failed runs are kept, never dropped and never re-run to fill the slot. Status is `incomplete`, which is never `within` and never counts toward Q6. The median and maximum are left null unless all seven values exist.
-
-**Batches (QD-20, revised for C2-Q0-R1-07).** Every result carries a `batchId` (SHA-256 of the canonical tuple of round, workload, workflow, reset, control and ordinal) and a `batchOrdinal`: 1 for the first batch, 2 for the CI retry. Both batches of a retry live in the same envelope.
-- **The retry.** On a threshold failure or an incomplete result, CI runs one more full batch, as AQP:490 allows.
-- **The final verdict** is the batch with the highest ordinal, whichever way it goes, and is marked `final: true`. Exactly one batch per key is final. A schema cannot express that cross-row rule, so the envelope validator checks it, together with the population sums (ENV `description`). The better batch is never kept by choice, and both batches are kept in the record.
-- **Flips.** A non-pass followed by a pass is counted as a `flip`. Three flips in any ten consecutive CI runs of a workload send that workload to noise review.
+**CI retry (QD-20).** On a threshold failure, CI runs one more full batch, as AQP:490 allows. The second batch's verdict stands, whichever way it goes, and both batches are kept in the record. A fail followed by a pass is counted as a `flip`. Three flips in any ten consecutive CI runs of a workload send that workload to noise review. The better batch is never kept by choice. This answers CODEX2's observation N02.
 
 **Baselines** advance only through a reviewed baseline-advance record (AQP:491).
 
@@ -757,8 +655,6 @@ It records the fields in `runnerRequired` (LQM:926-937): CPU model, OS version a
 - **Quiet.** No other lead run set (`M3-PLAN.md:270`), and a one-minute load average below 0.2 before each batch.
 - **Fixed CPU frequency policy,** with swap and power state recorded.
 - **Storage.** The corpus store is on the runner's local disk.
-- **Kernel interfaces.** On Linux: cgroup v2, the process-event connector and taskstats extended accounting, with the privileges they need, and the §9.3 calibration passed.
-- **Carrier (N04).** Each batch records its observations in the envelope's `runner.observations`: load average before the batch (milli-units), CPU frequency policy, swap bytes in use, power state, whether the corpus store is on local disk, and the §9.3 calibration results (`ownCounterVerified`, `spawnIsCloneVm`).
 
 **Labelling.** Samples from any other machine are labelled `lead-workstation` or `ci` (ENV `runner.runnerClass`) and are never Q6-labelled (`M3-PLAN.md:158`). For qualification at M6, the runner's identity and keys are authenticated under AQ:191-198; exploratory runs don't need that.
 
@@ -794,12 +690,10 @@ The schema is drafted as ENV, `exploratory-quality-envelope.schema.v1.json`, bes
 |---|---|
 | It references unchanged RS3-shaped observations by digest (AQP:420) | `rs3Observations[]`: `reportSha256`, `schemaId` const `opensip.qualification.product-report.3`, `signed` |
 | It records the product commit, corpus and ledger digests, the scoring-harness digest, the runner and the tool versions (AQP:421) | `product`, `harness`, `corpus`, `ledger`, `runner`, `tools` |
-| It pins every metric definition and denominator (AQP:422) | `definitions` pins the metric-definition, preregistration, rule-spec and rubric digests. Each measured section carries its own numerators and denominators: Q2 per stratum and per repository, with corpus, sampled, settled, pending and unlabelled counts and line counts by class; Q3 and Q6 yield counts; Q7 per-rule populations and score histograms. A measured section must carry them, enforced by the schema's `if`/`then`; not-measured stays explicit. (C2-Q0-R1-06) |
+| It pins every metric definition and denominator (AQP:422) | `definitions` (metric-definition, preregistration, rule-spec and rubric digests); every result carries its explicit counts |
 | It declares itself non-qualifying (AQP:423) | `standing` const `exploratory-never-promoted`; `qualificationEvidence` const `false` |
 | D13's exploratory class for unqualified advisory rules (AQP:237) | `unqualifiedAdvisoryRules[]` |
 | INC-8 provenance and phase timings, outside semantic Coverage (AQP:390; OPP:249) | `operationalRecords[]`, by digest |
-| Incomplete performance results and retry batches (§9.5) | `q6.workloads[]` is a closed `oneOf` of complete and incomplete variants, with per-run nullable samples and typed reasons, `batchId`, `batchOrdinal` and `final` |
-| Runner observations (§9.6) | `runner.observations` |
 
 **What a valid envelope does not do.** It is never a G13 input and is never promoted (AQP:425, AQP:433). Validating against ENV says nothing about whether the claims inside are true. Envelopes are signed only in the sense that their digests are pinned. They need no authenticated runner, because they claim nothing that requires one.
 
@@ -810,12 +704,12 @@ The schema is drafted as ENV, `exploratory-quality-envelope.schema.v1.json`, bes
 | Q | Envelope section | Reported values | Status values |
 |---|---|---|---|
 | Q1 | `q1.cells[]` | per cell: expected, actual, missing and extra counts and exit match, computed by the gate (PQV:24-27); the RS3 report digest | `exact`, `mismatch` |
-| Q2 | `q2.strata[]`, `q2.repositories[]` | **Per stratum** (rule × language × mode × target × evidence set): estimand (`family-weighted`); method; *k*; corpus, sampled, settled, pending and unlabelled counts; true, false and unclear counts; the guard's verified and optimistic values; `censusPrecisionPpm` (null unless nothing is unlabelled or pending); the sample ratio (descriptive); resolved-label precision (descriptive, AQP:232); *L*; concentration (AQP:238); per-family *N_j*, *a_j* and true counts. **Per repository** (AQP:238, AQP:151): repository, commit, tree digest, family, evidence set, the same label and population counts, and analysed lines by class (hand-written, generated, vendored, excluded), with false positives split between hand-written and generated or vendored code, so that FP/KLOC and findings/KLOC can be recomputed from counts. False-positive cost (AQP:239) is carried as median triage time. | §5.6 |
-| Q3 | `q3.strata[]` | answerable positives, hits, misses by cause (§1.3), abstentions on answerable cases, answerable negatives and determinate negatives, so that yield is determinate ÷ answerable (AQP:152), and mutant accounting by family (§6.3) | `measured`, `insufficient` (no answerable positives) |
+| Q2 | `q2.strata[]` | per rule × language × mode × target: `heldOut` or `development`; method; *k*; census true/false/unclear counts; census precision; resolved-label precision (descriptive, AQP:232); *L*; concentration (AQP:238); per-family precision; FP/KLOC and findings/KLOC (AQP:151), stored as integers per million lines; false-positive cost (AQP:239) | §5.6 |
+| Q3 | `q3.strata[]` | answerable positives, hits, misses by cause (§1.3), abstentions on answerable cases, yield (AQP:152), mutant accounting by family (§6.3) | `measured`, `insufficient` (no answerable positives) |
 | Q4 | `q4` | unsupported determinate negatives and false completeness claims (each must be 0; AQP:142), deficiency mismatches | `zero`, `nonzero` |
-| Q5 | `q5.survival[]`, `q5.determinism[]` | survival per rule × transformation, with counts; spurious CODE-NET-NEW and CODE-FIXED; discarded and unvalidated pairs; determinism variant results | `measured`, `insufficient` (< 20); `exact`, `differs` |
-| Q6 | `q6.workloads[]` | per workload × workflow × reset × control × batch: 7 elapsed samples and both RSS figures per run (nullable only in the incomplete variant), median, max, baseline, phase-timing state with a typed absence reason, unattributed time, yield as `determinateCases` ÷ `answerableCases`, runner class, `batchId`, `batchOrdinal` and `final` | `within`, `over`, `no-baseline`, `incomplete` |
-| Q7 | `q7.rules[]` (M4, D8) | per rule: finding population; sample size (50, or all findings if fewer, labelled `small-population`); fields required and present; proof joins checked and failed; score histogram for 1 to 5 and the score sum; items scoring ≤ 2 and their dispositions; gating or repair-eligible items in the sample and their dispositions; median triage time; accepted and dismissed counts (AQP:408-411) | `measured`, `not-measured` |
+| Q5 | `q5.survival[]`, `q5.determinism[]` | survival per rule × transformation, with counts; spurious CODE-NET-NEW and CODE-FIXED; discarded pairs; determinism variant results | `measured`, `insufficient` (< 20); `exact`, `differs` |
+| Q6 | `q6.workloads[]` | per workload × workflow × reset: 7 elapsed and 7 RSS samples, median, max, ratio to baseline, budget, phase timings, unattributed time, yield, runner class | `within`, `over`, `no-baseline` |
+| Q7 | `q7` (M4, D8) | field presence, proof-join failures, rubric average, every item scoring ≤ 2 with its disposition, triage time, accepted and dismissed counts (AQP:408-411). Below 50 findings, every finding is scored and the result is labelled `small-population`. | `measured`, `not-measured` |
 | Q8 | `q8.shapes[]` | manual corrections per pinned shape (SMAP:67; AQP:146) | `measured`, `not-measured` |
 
 Time to first trustworthy result is reported under Q6 (AQP:153). Before D13's DR-G13 successor is accepted, Q2–Q8 are never qualification evidence (AQP:427-431).
@@ -832,39 +726,11 @@ Time to first trustworthy result is reported under Q6 (AQP:153). Before D13's DR
 | K2a | T1, TS/JS lane: 33 cells | XL part, 5 days |
 | K2b | T1, Rust lane: 22 cells | XL part, 5 days |
 | K2c | T1, syntax-only lane: 11 cells, per grammar (AQ:233-234) | 3 days |
-| K2a-r, K2b-r, K2c-r | each lane's independence review and oracle freeze | 1 day each |
+| K2r | independence review of the K2 expected answers, done before any producer output exists (`M3-PLAN.md:172`) | 2 days |
 
 The cell counts are `M3-PLAN.md:58`. The T1 obligation is all 57 supported cells per mode, typed refusal for 6 and non-advertisement for 3 (AQP:481).
 
-**K2 estimate: 16 days of serialized lane work** (5 + 5 + 3, plus 3 one-day lane reviews), using the plan's planning durations (`M3-PLAN.md:197-200`). This is a planning assumption, not a measurement. r1 counted 2 review days for all three lanes; r2 reviews and freezes each lane separately, so it costs one more day.
-
-**The independence gate (QD-26, for C2-Q0-R1-08).** K2 is authored before the producers so that expected answers are independent (`M3-PLAN.md:172`). Finishing by day 21 does not by itself secure that, so the gate is per lane:
-- **The freeze.** A lane's oracle is **frozen** by a ledger `freeze` record pinning its fixture-manifest and case-set digests, after its lane review. The review checks that no expected answer was derived from producer output.
-- **The ordering.** The freeze must precede, in the ledger chain, the **first producer run on that lane's T1 fixtures**, and K2 authors never see producer output for those cells before it.
-- **Enforcement.** The T1 runner refuses a lane that has no freeze. A producer may be *authored* earlier, and may be tested on its own unit fixtures, but it is not run on T1 fixtures before the freeze.
-
-**The schedule against the M3 table (`M3-PLAN.md:202-227`).** The earliest producer activity in each lane sets that lane's deadline:
-
-| Lane | Earliest producer activity on its inputs | Oracle frozen by | Placement |
-|---|---|---|---|
-| Rust (K2b) | G2-v, launch and validation from day 2 to day 3, after D1 (`M3-PLAN.md:210`, `M3-PLAN.md:215`) | before day 0 | **pre-day-0**: K2b + K2b-r, 6 days |
-| syntax-only (K2c) | E2 parser work from day 3, after C2 (`M3-PLAN.md:206`, `M3-PLAN.md:212`) | before day 0 | **pre-day-0**: K2c + K2c-r, 4 days |
-| TS/JS (K2a) | F1 from day 7, after C1, C2 and D3 (`M3-PLAN.md:213`) | end of day 6 | **days 0–6**: K2a + K2a-r, 6 days |
-
-**Consequences.**
-- **Pre-day-0.** 10 days of K2 join the pre-day-0 work, after Q0 is accepted, in parallel with S-M, T2b, S-P with G2 authoring, CF-P and L acceptance (`M3-PLAN.md:243-248`). If the other pre-day-0 items finish sooner, K2 becomes the latest pre-day-0 item, at Q0 + 10 days.
-- **Days 0–6.** K2a has one day of margin before F1's day-7 start. If K2a-r slips, F1 may still be authored, but its first run on TS T1 fixtures waits. Every day of slip moves F1, F2 and F3 by a day. The F branch has 4 days of slack against J3 (F2 finishes at 14 against J3's start at 18; `M3-PLAN.md:213`, `M3-PLAN.md:220`). So up to 4 days of slip leave the 26-day host chain unchanged; beyond that, the path runs through K2a.
-- **Formulas.** K2 now finishes by day 6. R = max(15, 6) + 2 = 17, and M3-M = max(21, 6) + 3 = 24, so the day-21 K2 condition (`M3-PLAN.md:233`) holds by construction.
-
-**The M3-PLAN bounds to update under OI-12:**
-- the K2 row (`M3-PLAN.md:222`): 16 days, 10 before day 0 and 6 by day 6;
-- the R and M3-M rows (`M3-PLAN.md:225-226`): K2 = 6;
-- the K2 clause of the condition (`M3-PLAN.md:233`, `M3-PLAN.md:239`);
-- "K2's size" in the unbounded list (`M3-PLAN.md:241`): it is now bounded;
-- the pre-day-0 list (`M3-PLAN.md:243-248`): add K2b and K2c, 10 days after Q0;
-- F1's row (`M3-PLAN.md:213`): its first T1 run waits for K2a's freeze.
-
-The rejected alternative was to delay every producer behind all three lane oracles. That would delay G2-v and E2 and lengthen the host chain.
+**K2 estimate: 15 days serialized** (5 + 5 + 3 + 2), using the plan's planning durations (`M3-PLAN.md:197-200`). Q0 is pre-day-0 work (`M3-PLAN.md:245`). If K2 starts by day 0, it finishes by day 15, inside the day-21 condition of the conditional host-chain duration (`M3-PLAN.md:233`). This is a planning assumption, not a measurement. The lead updates the critical path accordingly (§14 OI-12).
 
 ---
 
@@ -875,31 +741,28 @@ The rejected alternative was to delay every producer behind all three lane oracl
 | OI-1 | **D13**: accept the exploratory envelope (ENV) | lead, owner sign-off (AQP:535) | S-M's report, M3-M (`M3-PLAN.md:158`) |
 | OI-2 | **D13 successor**: the DR-G13/report/harness successor that carries this record's case model, ledger, confidence rule and oracles into qualification (AQP:427-431) | Language quality + Product + Release engineering (QG:264) | Q2–Q8 qualification at M6 |
 | OI-3 | **Q2 achievability** (§5.8): grow T2 held-out families toward *k*_min, or revisit D4 | owner (D4, AQP:525); lead (D3 sizing, AQP:524) | any Q2 PASS |
-| OI-4 | The estimand: family-weighted, with the pooled guard (QD-11, QD-15), against finding-weighted | DR-G13 successor owners | Q2 qualification |
+| OI-4 | The estimand: repository-weighted with a census guard (QD-11, QD-15) against finding-weighted | DR-G13 successor owners | Q2 qualification |
 | OI-5 | Per-stratum against family-wise confidence across strata (§5.6) | DR-G13 successor owners | Q2 qualification |
-| OI-6 | Differential tools and Rust compile validation that execute repository code (QD-17, §6.2) are outside M3. They wait for the authorized execution path: M5 `execution.rs`, `RepoExecutionGrantV2` and the M5-EX successors (`M3-PLAN.md:319`, `M3-PLAN.md:347-352`). Confinement is an additional condition, not the authorization. | M5-EX successor owners (`M3-PLAN.md:347-350`); lead | the Rust differential; Rust mutant compile checks (M5 or later) |
+| OI-6 | Differential tools and mutant validation that need repository-code execution (QD-17, §6.2): available only with O7's profile or a container | owner (O7, `M3-PLAN.md:308-310`); lead (CF) | the Rust differential; Rust mutant compile checks |
 | OI-7 | **D12**: select the reference runner (§9.6) | release engineering; lead with owner sign-off (AQP:534) | Q6-labelled samples |
 | OI-8 | Q3 and Q5 confidence statements. AQP sets point targets and a population floor of 20 (AQP:141, AQP:313); this record adds no bound. | DR-G13 successor owners | Q3/Q5 qualification |
 | OI-9 | **D7**: declared correspondence for moved and renamed subjects (§8.3) | lead + identity owner (AQP:529) | Q5 at M5 |
 | OI-10 | **D8**: explanation fields (Q7) | lead + reporting owner (AQP:530) | Q7 at M4 |
 | OI-11 | The operational-record carrier after M3: S-OP-1 and S-OP-6 (OPP:250) | OPP §9 owners | M4 `--timings` |
-| OI-12 | Fold K2's estimate and lane gates (§13) into M3-PLAN's bounds, as listed in §13 | lead | the M3 total |
+| OI-12 | Fold K2's estimate (§13) into the M3 critical path | lead | the M3 total |
 | OI-13 | **D1**: QG items[12] still says "cold/warm p95" (QG:268). The harness follows AQ:268-282 and PQV:28. | lead (AQP:522) | record hygiene only |
 | OI-14 | The expert roster and capacity (§4.6) | owner (`M3-PLAN.md:368`) | resolving gating labels |
 | OI-15 | **D2**: where the catalog lives (§2) | lead + evaluator owner, owner sign-off (AQP:523) | the M5 product pack |
 | OI-16 | Family assignment for each T2 entry (§5.3) | M3-T2 (lead), D3 sign-off | the freeze |
-| OI-17 | A sample-based pooled-precision guard: per-family exact hypergeometric lower bounds at α/*k* (§5.6). Until it is approved, the conservative verified-true guard is in force. | DR-G13 successor owners (QG:264); lead proposes | advisory Q2 PASS without near-complete adjudication |
-| OI-18 | A macOS own lifetime RSS counter source (§9.3). Until one exists, macOS RSS is `incomplete`. | release engineering (D12); lead | any macOS G13 RSS qualification |
 
 ## Lead decisions in this record
 
-QD-1 integer millionths and directional rounding · QD-2 outcome table · QD-3 proposition class · QD-4 JSON Lines ledger with a hash chain · QD-5 hard components and the full truth-input closure · QD-6 the separated populations · QD-7 the 20-minute time box · QD-8 calibration numbers · QD-9 agreement triggers · QD-10 the model-family rule · QD-11 family-weighted estimand · QD-12 independence families · QD-13 the cluster product bound · QD-14 *k*_min · QD-15 the two-sided pooled guard · QD-16 mutant states · QD-17 differential execution boundary · QD-18 determinism variants · QD-19 process inventory and own RSS counters · QD-20 CI retry and batches · QD-21 runner additions · QD-22 tree digest · QD-23 held-out exposure · QD-24 advisory water-filling allocation · QD-25 complete and incomplete performance results · QD-26 the K2 lane-freeze gate.
+QD-1 integer millionths and directional rounding · QD-2 outcome table · QD-3 proposition class · QD-4 JSON Lines ledger with a hash chain · QD-5 hard and soft key components · QD-6 three populations · QD-7 the 20-minute time box · QD-8 calibration numbers · QD-9 agreement triggers · QD-10 the model-family rule · QD-11 repository-weighted estimand · QD-12 independence families · QD-13 the cluster product bound · QD-14 *k*_min · QD-15 the census guard · QD-16 mutant states · QD-17 differential execution boundary · QD-18 determinism variants · QD-19 the RSS counter source · QD-20 CI retry · QD-21 runner additions · QD-22 tree digest.
 
 ## Not claimed
 
-- No product measurement, corpus fetch, adjudication or product run was performed for this record. The values in §5 are exact arithmetic, computed for this record. Validity rests on the analytic proof in §5.5.
+- No measurement, fetch, adjudication or run was performed for this record. The numerical values in §5 are arithmetic, computed for this record.
 - No contract, schema, gate, threshold or register row is changed. RS3 is unchanged.
 - ENV is a draft for D13, not an accepted carrier.
-- The differential tools' execution behaviour is to be confirmed by each pin's canary check (QD-17).
-- The Linux counter mechanism (§9.3) is to be confirmed by K1c's calibration on the D12 kernel. Until then, Linux RSS is `incomplete`.
-- The K2 estimate and its lane schedule are planning assumptions.
+- The differential tools' execution behaviour is to be confirmed when each one is pinned (QD-17).
+- The K2 estimate is a planning assumption.
