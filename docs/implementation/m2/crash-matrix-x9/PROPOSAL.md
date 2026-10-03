@@ -1,4 +1,4 @@
-# The crash, lock and revocation matrix — proposal X9 r11
+# The crash, lock and revocation matrix — proposal X9 r12
 
 2026-10-01. Claude Opus 5.5, implementation lead. Law for unit X9 of `EXIT-PLAN.md`, the unit that gates M2 completion. It is written under:
 - the build plan's M2 row (`docs/v2/architecture/implementation-boundaries-and-build-plan.md` line 886: "actual crash/lock/revocation matrix pass; synthetic fixtures remain labelled"), its ordered failure matrix F00–F53 (lines 524–587), its required API and fault-injection checks (lines 591–613; the test owner `crates/storage/tests/commit_tests.rs`, line 594), and the tooling row for storage and process faults (line 1072: "deterministic synchronization and crash barriers against actual storage/processes … Record platform/filesystem/profile, actual state bytes and exact outcomes; inject before/after each durability step, without sleep-and-hope synchronization");
@@ -247,6 +247,61 @@ r2 (2026-10-01) is an amendment made as lead decisions under the owner's standin
   X9-5 now also depends on X3d-3, the candidate's owner.
 - **Unchanged from r9:** every injection mechanism, point, kind, scope, label, evidence member, row, expected value and limit; storage's `commit` driver and its r5 order; and every forbidden substitute not added below. No accepted outcome of any other law changes. No new public code, row or detail.
 
+**r12 (2026-10-02) is an amendment made as lead decisions under the owner's standing direction of 2026-09-30.** r11 bytes are preserved in PROPOSAL-r11.md. X9-3 found these issues in a development run of its 58 transcribed rows on product main `b999ae3`, before any lead run set. 46 rows passed, and none of the 46 changes here. Six rows failed and two were harness errors. Each was either the owning law's lawful outcome where this law's row had expected another, or a script this law fixed that cannot run. No product code changed. The r11 sentences it touches stay in place, each followed by a short "r12" note that points here. It changes the following and nothing else.
+
+- **F13 and F14 (and F15): R2 commits a distinct Run (items 6, 8 and 9).**
+  - **What X9-3 found.**
+    - After a kill at `x3d.publish.commit-returned` or `x3d.publish.published`, the evidence `COMMIT` has landed. The ledger holds a receipt for the synthetic candidate's RunId.
+    - The candidate gives one RunId per project (X9 r5 and r7: a function of `projectId` and the core evaluator closure). So R2 replays the same Run and stages a receipt and Run material for it.
+    - The retained key already holds that Run, and staging refuses on X3c item 10's invariant row: "values that do not join, or that a retained key already holds" (`project_commit.rs`, `classify_staging`).
+    - R2 was therefore `Refused(Invariant)` in F13 and F14. F12's landed variant and F15 met the same refusal, though their rows score no R2 outcome. Re-committing a Run a project already committed is the known limit X3d-2 left. This law does not test it.
+  - **Decision.** Storage's `crash_matrix_support` gains a distinct variant of X3d-3's synthetic run candidate, as test support. Like the candidate, it is inputs only and compiled under `crash-matrix` only.
+    - **How it is built.** It is built exactly as the candidate is, with the same session's `projectId` and core evaluator closure. The one difference: before the fixpoint rewrite, one source file's bytes in the snapshot's inventory are replaced by bytes of the same length (a salt). The rewrite then recomputes every dependent content id and digest, and the outputs are re-derived with `derive_evaluation`, so the RunId differs.
+    - **What does not change.** `replay_run` stays the only constructor of its `ReplayedRun`, and every run that uses the variant stays labelled `synthetic`. No product code changes.
+    - **Where R2 uses it.** R2 in F13, F14 and F15 commits the distinct variant. R2's expected outcome in F13 and F14 stays Committed. F15 gains R2 Committed beside its existing "no second receipt for this ExecutionId". A script directive (`{"r2": "distinct"}`) names it.
+    - **Where R2 keeps the candidate.** Every other ladder's R2 commits the candidate as before. That includes X9-2's rows, which are unchanged, and F36's, whose R2 must commit the same semantic RunId.
+  - **Rejected:**
+    - **R2 expected on X3c item 10's invariant row.** "The next writer proceeds" would then be untestable in exactly the rows where the attempt committed.
+    - **Re-committing the same Run.** It stays X3d-2's known limit, and no M2 law decides it.
+- **F14's `x3d.finish.settle.before` moves to X9-4 (items 9 and 12).**
+  - **What X9-3 found.** `finish` reaches that point only when a REV or a CLN is owed (`commit_session.rs`, `finish`). A lawful commit owes neither. So no X9-3 run reaches it, and it is in no census. The kill was "armed point not reached".
+  - **Decision.** F14's second kill moves to an owed-end-record run under X9-4's latch context: F39's script, then a kill at `x3d.finish.settle.before`, with F13's expectations. It is an X9-4 row, and X9-4's census must reach the point. X9-3's F14 keeps its `x3d.publish.published` kill only.
+- **F24's wrong-store-generation variant (item 9).**
+  - **What X9-3 found.** Every row's store generation digest was changed in the parent, and the ledger file and schema stayed readable. Recovery's one snapshot then holds no attempt, receipt or association row under the admitted digest. That is the owner's §2 matrix row "both absent, no row" (`commit-recovery-readonly.v3.md` step 2): R1 is `unknown-attempt-unobserved`. R2 commits under the admitted digest. R3 finds no `admitted` row under it, so the sweep is `swept` and writes nothing.
+  - **Decision.** That variant's R1 is `unknown-attempt-unobserved`, R2 is Committed, and R3 is "nothing" with the sweep `swept`. The mode-`000` and truncated-header variants keep the row as written (R1 UC, R2 refused on its X3c or X3a row, R3 host I/O and nothing written). The forbidden reading "a wrong generation is no commit" is not met: the standing is unobserved, not a negative.
+  - **Rejected:** a ledger whose bytes belong to another generation's store, which needs a second store generation that no M2 writer creates (L5).
+- **F27's operation and execution swaps (item 9).**
+  - **What X9-3 found.** X6 r4 item 4 and the owner's step 2 make `binding-unusable` the association's store-generation, namespace or carrier mismatch only. An association whose `operationRef` differs from the attempt row, or whose `executionId` differs from the request, fails the same snapshot's join. That gives `unknown-custody` with reason `ledger-join` (`join_ledger`).
+  - **Decision.** Those two variants expect R1 `unknown-custody:ledger-join`. The store-generation and namespace swaps, and a request carrying a different binding (X6 r4 item 6), keep `binding-unusable`.
+- **F49(a) (item 9).**
+  - **What X9-3 found.** A reader held at `x6.recover.after-j` while a lawful writer appends and exits sees the moved tail when it resumes. It takes the owner's one permitted fresh capture (step 3), which reconciles: the earlier attempt is confirmed.
+  - **Decision.** F49(a)'s R1 is `committed-historically` with `pendingSettlement`. The row's law is unchanged: never UQ, never a corruption diagnosis. The second writer's own outcome is not scored, because it re-commits the same Run (the F13 limit above).
+- **F36's variants (item 9).** F36 runs the orphan SEALs of F09 and F11 only. The F19 and F38 variants do not exist: under the revoked view R2 is refused at admission (C5, r3), so no later operation can commit the same semantic RunId after them. The row's later-ExecutionId check is a fifth ladder step, **R5**: `recover` of R2's own ExecutionId, together with whether the two SEALs name one RunId (item 8).
+- **The F39 script's admission hold, for F39, F44 and F45 (item 11).**
+  - **What X9-3 found.** `x4.gate.admit.after` is reached inside the checkpoint's shared-monitor critical section (`operation_guard.rs`, `steps`: the monitor is held from step 2 through `FinalGate::admit`). The observer's tick needs that monitor to observe and latch. So a writer held at `x4.gate.admit.after` while the parent resumes `x4.observer.tick#1` never reaches `x4.gate.latch.after`, and the run ends at the watchdog. X9-3 reproduced this with the session's own core closure revoked.
+  - **Decision.** The admission-hold point of F39's script is `x3c.evidence.commit.before#1`. It is the first point after admission at which the shared monitor is released, and the gate is already admitted (state 1). The script is:
+    1. arm `x4.observer.tick#*`, that point and any later hold;
+    2. await the tick's first hold, then that point;
+    3. the parent publishes the revocation;
+    4. resume one tick and await `x4.gate.latch.after`, which is 1→3;
+    5. resume the main thread.
+
+    This is law for F39, F44 and F45. X9-4 inherits it for F39 and F40's latch variant. No point placement changes.
+  - **The revoked subject.** The revocation names the `release` subject of the session's own core closure (`CommitSession::core_closure`), as X8c's B6 does. The commit child writes that closure to a file under the run's scratch root, outside the installation and outside its trace, and the publisher child reads it. The accepted store fixture's own `CORE_CLOSURE` is not the session's.
+  - **Rejected:** moving the `x4.gate.admit.after` placement outside the monitor. That changes X4a's accepted placement for a script that has a lawful point to use.
+- **Item 11's timing guard: assigned and specified (items 7, 11 and 12).**
+  - **Where it applies.** It applies to every run that arms `x4.observer.tick`: F39, F40's latch variant, F44 and F45, and X9-4's revocation rows. X9-3 implements it for F44 and F45, and X9-4 uses the same implementation.
+  - **The measurement.** The parent takes it with its own monotonic clock, not the wall clock (item 3's scripted wall clock is untouched). It runs from the moment the parent reads the writer's first `x4.observer.tick` hold record (the observer starts after the operation's first monitored read) to the moment it reads the writer's hold at the script's admission-hold point (after its last checkpoint). That bounds the awake time that X4's 10 s freshness bound charges between the first read and the last checkpoint.
+  - **The record.** The run records it as an optional member `timingGuard: {"monotonicMs": n, "limitMs": 2000}`. Above 2000 ms the run is a `HARNESS-ERROR`, never a pass and never an `OBSERVER.FAIL_STOP` that the run accepts. The checker admits the member, requires it for a run whose script arms `x4.observer.tick`, and refuses one above its limit. The member is not in the repetition comparison.
+- **Item 7, record.** `check-unit`'s limit list is L1 to L11, as r8 set and as the checker implements. "L1 to L10" in item 7's r4 bullet was out of date.
+- **Unchanged from r11:**
+  - every injection mechanism, point placement, kind, scope, label, evidence member not named above, and limit;
+  - every forbidden substitute;
+  - every row and expected value not named above, including all of X9-2's rows;
+  - X9-5's host rules.
+
+  No accepted outcome of any other law changes. No new public code, row or detail.
+
 Product baseline: main `f1b8321` (X3d-0 integrated). Every item contains a lead decision made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation; each names the alternative it rejects. Not product code. No new public code, row or detail.
 
 ## Problem
@@ -474,7 +529,7 @@ At `f1b8321` the product has the following, and nothing more:
        - the kill set equals the one derived from the census;
        - every killed point of the unit's runs is in the kill set;
        - the release absence passes;
-       - the limits are exactly L1 to L10;
+       - the limits are exactly L1 to L10 (**r12 (record):** L1 to L11, as r8 set);
        - the two sets agree run by run on `normalizedSha256`, the trust store included, and on every child's trace digest, and they agree on the census.
 
        It does not require the full kill-set coverage.
@@ -496,6 +551,8 @@ At `f1b8321` the product has the following, and nothing more:
    - **R2:** a next writer that runs a full lawful commit on the same namespace. It records the floor step's decision and the start's witness action (OK, REVERT, ADVANCE, INIT or OPEN), then its outcome.
    - **R3:** the settlement sweep (X6c, `EXCLUSIVE` under the fence). It records what it wrote, or that it wrote nothing.
    - **R4:** `recover(executionId)` again.
+
+   **r12:** F36 adds **R5**: `recover` of R2's own ExecutionId, and whether the orphan SEAL and R2's SEAL name one RunId. In F13, F14 and F15, R2 commits the distinct candidate variant (see the r12 header).
 
    **Exceptions.**
    - **Mutation rows** run R1 and R2 only, because the injected condition persists.
@@ -523,9 +580,9 @@ At `f1b8321` the product has the following, and nothing more:
    | F10 | X3b | kill at each `witness-committed/*` point | exec | R1 UAO, would-ADVANCE before the rename survives, OK after; R2 ADVANCE or OK; R3 refused; R4 TNC. **r5:** R1 is plain UAO; would-ADVANCE or OK is R2's witness action only (see the r5 header). |
    | F11 | X3c, X3d | kill after each `x3c.evidence.stage-<table>` | exec | The ledger transaction rolls back; the SEAL is durable with no `REV` (the process died before `finish`). R1 UAO; R2 Committed; R3 refused; R4 TNC. |
    | F12 | X3c, X3d, X7 | `fail-after` and `fail-before` at `x3c.evidence.commit` | exec (inj) | `CommitUndetermined` with ExecutionId and no RunId; no retry; nothing appended. R1 CH with pendingSettlement (landed) or UAO; R3 committed or refused; R4 CH or TNC. |
-   | F13 | X3c, X3d | kill at `x3d.publish.commit-returned` | exec | R1 CH with pendingSettlement; R2 Committed; R3 committed; R4 CH. |
-   | F14 | X3d, X6 | kill at `x3d.publish.published` and at `x3d.finish.settle.before` | exec | As F13. |
-   | F15 | X6 | kill after `x3d.finish.end-step.after` | exec | R1 CH; R2 creates no second receipt for this ExecutionId. |
+   | F13 | X3c, X3d | kill at `x3d.publish.commit-returned` | exec | R1 CH with pendingSettlement; R2 Committed; R3 committed; R4 CH. **r12:** R2 commits the distinct candidate variant, so it is Committed (see the r12 header). |
+   | F14 | X3d, X6 | kill at `x3d.publish.published` and at `x3d.finish.settle.before` | exec | As F13. **r12:** R2 as F13. The `x3d.finish.settle.before` kill moves to X9-4, after F39's script, where an end record is owed (see the r12 header). |
+   | F15 | X6 | kill after `x3d.finish.end-step.after` | exec | R1 CH; R2 creates no second receipt for this ExecutionId. **r12:** R2 commits the distinct variant: Committed, with no second receipt for this ExecutionId (see the r12 header). |
    | F16 | X7 | `fail-before` at `x7.delivery.required` | exec (host, inj) | `DELIVERY.REQUIRED_FAILED`, exit 4, runId kept; R1 CH. |
    | F17 | X7 | `fail-before` at `x7.delivery.optional` | exec (host, inj; L9) | Committed; optional failure disclosed; result unchanged. |
    | F18 | X4, X3d | `hold` at `x4.checkpoint.before-observation#1`; the parent publishes a revoking update, or makes the view unreadable or mixed; resume | exec | Refused `TRUST.COMPONENT_REVOKED_DURING_OPERATION`, or `OBSERVER.FAIL_STOP`; no SEAL; `finish` appends `REV` from the settlement reserve. R1 UAO; R2 refused at admission (revoked), or Committed after the view is restored (fail-stop variant); R3 and R4 per C5. |
@@ -534,10 +591,10 @@ At `f1b8321` the product has the following, and nothing more:
    | F21 | X6, X3b | the parent deletes the witness of a nonempty journal | exec (mut) | R1 UQ (`witnesslessRestore`); R2 quarantine row. |
    | F22 | X6, X3b | the parent restores a carrier copy taken at an earlier `hold`, under a newer floor; or equal seq with a different hash | exec (mut) | R1 UQ; R2 quarantine (floor regression or `uncertainTailLoss`). |
    | F23 | X6 | the parent deletes the receipt row, or the association row | exec (mut) | R1 UC; R3 writes nothing (one-sided). |
-   | F24 | X6, X3a | ledger mode `000` or a truncated header; a wrong store generation selected | exec (mut) | R1 UC; R2 refused on its X3c or X3a row; R3 reports host I/O for that namespace and writes nothing. |
+   | F24 | X6, X3a | ledger mode `000` or a truncated header; a wrong store generation selected | exec (mut) | R1 UC; R2 refused on its X3c or X3a row; R3 reports host I/O for that namespace and writes nothing. **r12:** the wrong-store-generation variant (every row's digest changed, the ledger readable) gives R1 UAU, R2 Committed, and R3 `swept` with nothing written, per the owner's §2 matrix (see the r12 header). |
    | F25 | X6 | the parent deletes, or flips one byte of, a committed object | exec (mut) | R1 CAD with `evidence.missing` or `evidence.corrupt`. |
    | F26 | X4, X6 | commit, then the parent publishes a revocation | exec | R1 CH; R2 refused at admission; no grant reused. |
-   | F27 | X6 | the parent swaps the association's namespace, generation, operation or execution; or a request with a different binding | exec (mut) | R1 BU. |
+   | F27 | X6 | the parent swaps the association's namespace, generation, operation or execution; or a request with a different binding | exec (mut) | R1 BU. **r12:** the association's operation and execution swaps give R1 UC `ledger-join` (the snapshot's join); the store-generation and namespace swaps, and a request with a different binding, give BU (see the r12 header). |
    | F28 | X6 | X6a's pruned-record fixture, read in a fresh process | exec (mut) | R1 UC. |
    | F29 | X6 | a reader process while the writer holds at `x3c.attempt.commit.after`, after the SEAL, at `x3d.publish.after-staging` and at `commit-returned` | exec | UAO, UAO, UAO, CH with pendingSettlement; never mixed; the reader takes `readers.lease` alongside APPEND-WRITE without waiting. |
    | F30 | X2, X6c | writer A holds (a) under its lease after the fence is released and (b) while it holds the fence; process B is a competing writer; process C is the sweep | exec | B: the busy row after S7's bounded fence or lease attempt, no upgrade, no state change. C: skips and retains the namespace. After A resumes, A is Committed, and a second B then succeeds. |
@@ -546,19 +603,19 @@ At `f1b8321` the product has the following, and nothing more:
    | F33 | X6 | the parent alters receipt bytes, the inventory, a signature, or the SEAL body digest | exec (mut) | R1 UC. |
    | F34 | X3d, X6 | (r2) run A: `inject-id` with a previous run's ExecutionId; then run B, a separate `recover` process, once with A's disclosed requested binding and once with the earlier attempt's own binding | exec (inj) | A: `ExistingAttempt`, projected on the invariant row (`SYSTEM.OUTCOME.ILLEGAL_STATE`, `HOST.INVARIANT_VIOLATED`) with the ExecutionId as subject and the requested binding disclosed (X6 r3 item 6, X7 r4 item 3); no new row, no SEAL, no recover in A; the earlier attempt's rows unchanged. B: with A's binding (a different `operationRef`), BU (`RECOVERY.REFUSED`, subject `operation`); with the earlier attempt's binding, that attempt's standing. B leaves `normalizedSha256` unchanged. |
    | F35 | — | — | LIMIT (L5) | — |
-   | F36 | X3b, X3c, X6 | the orphan SEALs of F09, F11, F19 and F38, followed by R2 committing the same semantic RunId | exec | The earlier ExecutionId: R1 UAO, R3 refused, R4 TNC. The later ExecutionId: CH. The RunId is not blacklisted. |
+   | F36 | X3b, X3c, X6 | the orphan SEALs of F09, F11, F19 and F38, followed by R2 committing the same semantic RunId | exec | The earlier ExecutionId: R1 UAO, R3 refused, R4 TNC. The later ExecutionId: CH. The RunId is not blacklisted. **r12:** F09 and F11 only; the F19 and F38 variants do not exist, because R2 is refused under the revoked view. The later ExecutionId is ladder step R5 (see the r12 header). |
    | F37 | X6 | — | elsewhere (X6 item 10: the pure ordering accessor) | — |
    | F38 | X3d, X4 | `hold` at `x3d.publish.after-staging`; the parent revokes; resumes `x4.observer.tick#1` and awaits `x4.gate.latch.after`; resumes the main thread | exec | The gate goes 0→2; no permit; staged transaction rolled back; `REV` and `CLN` from the reserve. R1 UAO; R2 refused at admission; R3 and R4 per C5. |
-   | F39 | X3d, X4, X7 | `hold` at `x4.gate.admit.after`; revoke; observer tick; latch 1→3; resume | exec (storage half; host half in X9-5) | Committed with `latchedAfterAdmission`; host projects `DELIVERY.REQUIRED_FAILED`; R1 CH. |
+   | F39 | X3d, X4, X7 | `hold` at `x4.gate.admit.after`; revoke; observer tick; latch 1→3; resume | exec (storage half; host half in X9-5) | Committed with `latchedAfterAdmission`; host projects `DELIVERY.REQUIRED_FAILED`; R1 CH. **r12:** the admission hold is `x3c.evidence.commit.before#1`, the first point after the shared monitor is released (see the r12 header). |
    | F40 | X3d, X7 | as F12, with and without F39's latch | exec (inj) | `DURABILITY.COMMIT_FAILED`, ExecutionId, no RunId; the latch does not convert it. The ladder as F12. |
    | F41 | X4, X3d | the two process-level orders: latch before admission, and admission before latch | exec (two orders); every interleaving is covered elsewhere (X4's gate-trace test) | At most one `x3c.evidence.commit` in the trace; the gate stays in 0..3. |
    | F42 | X3d | abort is every kill above; the child driver `mem::forget`s its `StoppedSession` and exits; a held point with a reader running | exec (kernel stall: L3) | Forget: the kernel releases the lease, the attempt stays admitted, R1 UAO. The reader during a hold: UB or UAO. Never a claimed cleanup. |
    | F43 | X6 | tail-lost variant: after a commit, the parent truncates the journal tail below the association's `journalSeq` (reserved-slot technique) | exec (mut); the reconciling-retry variant is elsewhere (X6 item 11's hazard test) | R1 per the F43 rule: UB attributed to the carrier owner, or the F22 condition when the floor is at or above the requested sequence and two tail observations agree; never uncommitted. |
-   | F44 | X6 | attempt A runs F39's script (Committed, gate latched after admission), so its `finish` owes a `REV`; A holds at `x3b.append.rev.witness-pending/directory-barrier.after`; a reader process recovers A's ExecutionId. A's SEAL is above the floor its own floor step wrote | exec | UC, not invalidated; diagnosis witnessWouldRevert; no REVERT, ADVANCE, witness write or floor raise; no wait on A. |
-   | F45 | X6 | as F44, with A holding at `x3b.append.rev.commit.after` | exec | CH under witness-pending-at-tail, with `interior-bodies-not-authenticated`; diagnosis witnessWouldAdvance; no write. |
+   | F44 | X6 | attempt A runs F39's script (Committed, gate latched after admission), so its `finish` owes a `REV`; A holds at `x3b.append.rev.witness-pending/directory-barrier.after`; a reader process recovers A's ExecutionId. A's SEAL is above the floor its own floor step wrote | exec | UC, not invalidated; diagnosis witnessWouldRevert; no REVERT, ADVANCE, witness write or floor raise; no wait on A. **r12:** F39's script with the r12 admission hold; the revoked subject is the session's core closure (see the r12 header). |
+   | F45 | X6 | as F44, with A holding at `x3b.append.rev.commit.after` | exec | CH under witness-pending-at-tail, with `interior-bodies-not-authenticated`; diagnosis witnessWouldAdvance; no write. **r12:** as F44. |
    | F46 | X6 | the format-1 or format-2 fixture, or an association below `first_generation` | exec (mut) | R1 UCI. **r8:** the association-below-`first_generation` variant is not executed in M2 (a fresh carrier's first generation is 1; L5; see the r8 header). |
    | F47, F48, F50, F51 | — | — | LIMIT (L5) | — |
-   | F49 | X6 | (a) a reader holds between bracket reads while a lawful writer appends, then resumes; (b) writer A holds at `x3c.attempt.commit.after`, a reader of A's ExecutionId holds at `x6.recover.after-ledger-snapshot`, A is resumed to Committed, then the reader resumes | exec | (a) UB, never UQ, never a corruption diagnosis; (b) UAO or UB from the one stale snapshot, never TNC. |
+   | F49 | X6 | (a) a reader holds between bracket reads while a lawful writer appends, then resumes; (b) writer A holds at `x3c.attempt.commit.after`, a reader of A's ExecutionId holds at `x6.recover.after-ledger-snapshot`, A is resumed to Committed, then the reader resumes | exec | (a) UB, never UQ, never a corruption diagnosis; (b) UAO or UB from the one stale snapshot, never TNC. **r12:** (a) is CH with `pendingSettlement`: the owner's one fresh capture reconciles the moved tail (see the r12 header). |
    | F52 | X6 | the four lawful cells from earlier runs (admitted/none, admitted/both, settled-committed/both, settled-refused/none); the other seven by mutation | exec, exec (mut) | X6's §2 matrix; exactly one cell gives TNC. |
    | F53 | X6c | live (a held writer), crashed (killed runs), one-sided (mutation), inaccessible (mode `000`), already settled (a second sweep); also kill the sweep at `x6.sweep.settle.commit.before` and `.after` | exec | X6 r2 item 7: skip, settle, or write nothing. After a killed sweep, the next sweep settles each row exactly once (the monotone trigger). |
 
@@ -587,6 +644,7 @@ At `f1b8321` the product has the following, and nothing more:
       - **Order of the parent's steps.** The parent holds the main thread at the named checkpoint or gate point, publishes the trust change (item 6's helper, under the fence, which the held child does not hold after its handoff), and resumes either the main thread (the checkpoint's own monitored read observes it) or one observer tick, awaiting `x4.gate.latch.after` before resuming the main thread.
       - **Why it is deterministic.** Which party latches, and in which gate state, is fixed by the script.
     - **Timing guard.** A held child's awake time counts against X4's 10 s bound. Each run records the monotonic time from the operation's first monitored read to its last checkpoint. A run above 2 s is a `HARNESS-ERROR`, never an `OBSERVER.FAIL_STOP` that the run then accepts.
+      **r12:** it applies to every run that arms `x4.observer.tick`. It is measured on the parent's monotonic clock, from the writer's first `x4.observer.tick` hold record to its hold at the script's admission-hold point, and recorded as `timingGuard`. X9-3 implements it for F44 and F45, and X9-4 uses it (see the r12 header).
     - **Rejected:** letting the observer tick on its own 5 s timer during matrix runs, which makes the latching party a race.
 
 12. **Units after the law.** Each comes with its inventory successor and is reviewed alone.
@@ -615,7 +673,9 @@ At `f1b8321` the product has the following, and nothing more:
       **r7 (record):** the candidate is X3d-3's, and X9-2 depends on X3d-3 (see the r7 header).
       **r8:** X9-2 transcribes r8's F00 and F07 splits, runs F46's format variants only, and carries L11 in the checker's limit list (see the r8 header).
     - **X9-3 (storage; commit and recovery).** Rows F11–F15, F23–F25, F27–F29, F33, F36, F42, F43–F45, F49, F52 and F53. **Dependencies:** X9-2.
+      **r12:** X9-3 also adds the distinct candidate variant, R5, the timing guard with its `timingGuard` member in the run writer and the checker, and the F39 script with the r12 admission hold for F44 and F45. Its F14 is the `published` kill only, and its F36 is F09 and F11 only (see the r12 header).
     - **X9-4 (storage; locks and live revocation).** Rows F06, F18, F19, F26, F30, F34, F38, F39's storage half, F40 and F41, and C5 once G5 is decided (**r3 (record):** decided by X6c; C5's R3 is `refused` and its R4 is `terminal-not-committed`). **Dependencies:** X9-2 and X4a. It uses X4a's observer `gate` point.
+      **r12:** X9-4 also takes F14's `x3d.finish.settle.before` kill, in an owed-end-record run after F39's script. It inherits the r12 admission hold and X9-3's timing guard (see the r12 header).
     - **X9-5 (host).** `crates/host/tests/commit_matrix_tests.rs` with rows F01, F16, F17, F12's and F40's caller route, F32 with its rollover crash table, F39's delivery half, and F53's `store-gc` step. **Dependencies:** X9-2, X5a, X7a, X7b, X3b-4 and X6c.
       **r10:** X9-5 adds host's two runners, the candidate file's writer and reader, and the fixed delivery phase. It also adds the `candidate` and `finalize` children (host order: the candidate is written before custody), the host required-runs file and the host census of two `finalize` runs and (r11) one `store_gc` run. It depends on X3d-3 too (see the r10 header).
     - **X9-6 (record; the M2 exit).** Two full lead runs on one integrated commit, the checker, release absence, the reviewer's rerun, and the arch evidence record. **Dependencies:** all of the above, and VD1 (EXIT-PLAN, "lands before the X9 exit").
