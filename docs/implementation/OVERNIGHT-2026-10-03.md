@@ -322,3 +322,6 @@ Times are local.
     - the night's reversible lead decisions.
   - **Critical path:** still 33 days. D3 moves to day 10, leaving 2 days of slack against F1 and G1a. E2s is added, and J2c (day 27) joins M3-X.
   - **Log corrections:** its drafter found five overnight-log lines inconsistent with the laws, now corrected above, in B1, B2, B3, the I1-a dependency and ruling R2.
+- **M3-L r3:** Grok raised two findings, and r4 is being written.
+  - **RF-1:** item 13's list of later wire identities is inexact. **Lead direction:** derive it mechanically from the cited schemas, with a re-deriving control.
+  - **RF-2:** FA-2's §0 row C changes a wire commitment, so any change to it must trigger L's delta round. The dependence text is to be made consistent.
