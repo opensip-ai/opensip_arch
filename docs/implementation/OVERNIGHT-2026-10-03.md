@@ -579,3 +579,9 @@ Times are local.
   - **Lead decisions:** the nine judgment calls in its request are accepted. **Recheck cost** (call 3): at the worst case, a 64-node lineage on a 48-deep home, one reader plus two operations uses 128,745 of 131,072 edges.
 - **I1-a accepted by CODEX2** (ACCEPT-UNIT, plus ACCEPT-DESIGN-UNIT for its contract record) **and integrated** at product main `4c761e8`, giving 94 contract successors. The preview pack's schemas now carry the `cycle-representative` op, and the generated enums have `CycleRepresentative`. I1-b1 is next in the I1 chain. The observation (`fixturePath` is a stale locator beside I1-L's byte pin) is recorded for I1-b1.
 - **VD2 accepted by Codex,** with no required findings. Contract passage supersession is now law. Next: VD2-a and F8c as one product commit, then SD-7 r2 as a supersession.
+- **VD2-a and F8c built,** with all lanes passing, and sent to Codex.
+  - **Tests:** the tool tests pass 117/117, including Codex's six extra edge controls. They fail against the old tool, so the change fails closed. Mutation testing killed 17 of 18 mutants; the survivor is an unreachable invariant guard, and Codex is asked whether to keep it.
+  - **Real lock:** the output is unchanged apart from `contractPassageSupersessions: 0`.
+  - **F8c:** no generator rebuild. Seven outputs are byte-identical, and `report.ts` changed only in lines 2–3.
+  - **Remaining checks:** drift check `changed: []`, staged `verify_design` 94 → 95.
+  - **Next:** SD-7 r2 as a clean supersession.
