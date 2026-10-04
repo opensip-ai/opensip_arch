@@ -102,3 +102,4 @@ Times are local.
     - **X4T-c** (two continuation codes): right after F8b.
     - **X4-F1:** a real defect. Observer rereads don't evaluate expiry as X4T r9 item 6 requires. It is fixed by an X4T-a successor unit before any M3 analysis ships, and disclosed as a known defect at M2 completion.
   - None of the four is among BP:886's M2 criteria, but the owner should know.
+- **M3-B accepted at r2 by GROK2.** It covers configuration and discovery, plus D15 multi-repo workspaces through X2 r9. Its successors S1–S9 and the code units come next.

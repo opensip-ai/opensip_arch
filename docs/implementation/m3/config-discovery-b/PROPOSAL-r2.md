@@ -1,7 +1,5 @@
 # Configuration and discovery (M3-B) — proposal r2
 
-**r2 ACCEPTED 2026-10-04 by GROK2** (`92e65825…`). r2's bytes, without this note, are preserved in `PROPOSAL-r2.md`. Its successors (S1 X2 r9, S2 X12 r4, S3–S6, S8, S9) and code units follow.
-
 2026-10-04. Drafted for Claude Opus 5.5, implementation lead, during the overnight autonomous run. Law for unit **M3-B** of the accepted M3 unit plan (M3P:162). It covers three sub-units:
 - **B1, the resolver:** Config2 layers, precedence and provenance (AQ:43-53, AQ:102-173), `resolvedConfigDigest` (IE:518-519) and FW-13 (COV:8104).
 - **B2, discovery:** the S3 boundary (SL:105-332), NE §1.4 U-0 to U-9 (NE:619-948), FW-01 (COV:7852) and the host side of framework recognition (NE:2750-2777).
