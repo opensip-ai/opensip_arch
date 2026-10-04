@@ -255,3 +255,4 @@ Times are local.
   Its X9 regression covers 64 storage rows and 4 host rows, two sets each. Every run is byte-identical to the accepted X9-6 evidence, and the census and kill sets are identical. Release absence passes.
 - **E0 phase 2 started** on the now-quiet machine, with the lead's rulings on the probe's ambiguities.
 - **M3-C r7 accepted in review by CODEX2,** with no findings. It narrows row 8 to manifests admitted at R10a, and takes effect once L is accepted. The live J1 file now carries its r4 acceptance note.
+- **B-S9 accepted by Grok** (ACCEPT-DESIGN-UNIT, no findings) **and bound** at product main `8adfe0c`, giving 81 contract successors. All of M3-B's design units (B-S1, B-S2, B-S9) are now bound. B1-a, B2-a, B3-b, C1a and C1b are unblocked on their successors and wait for P0 and L.
