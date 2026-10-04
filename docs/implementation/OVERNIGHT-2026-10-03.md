@@ -128,3 +128,10 @@ Times are local.
     - the X3c re-commit gets X3c r8 plus X3c-3, before J3;
     - X4-F1 and X4-F2 land before J2;
     - F9 by 2026-12-01.
+- **M3-J1 r1 drafted,** queued for CODEX2. Lead decisions, reversible by the owner:
+  - **No new CLI commands at M3.** A host-library entry serves tests and the harness; the CLI comes at M4 per BP:887. So CLI dogfooding starts at M4, as the quality plan already says.
+  - **Steady state now has a lawful route.** A charged presence probe picks an ordinary writer, or the creator act followed by a second attempt.
+  - **Producers run twice on first use.**
+  - **The ephemeral path is read-only.**
+
+  It also found that six M2 laws need amendments (468, X1, X3a, X4B, X2, 464), and that J units need X9 r17 plus crash-matrix reruns.
