@@ -780,3 +780,11 @@ Times are local.
     - **The fix needed a second part,** confirmed as lead decision LD-5. Default `clones-near` would otherwise refuse every such Plan at `EXECUTION_INPUTS_CANDIDATE_REQUIRED`.
   - **SD-8:** a supersession of SD-7's NE:3540 override that drops the detail on every ephemeral request, per §7.4 (LD-S8-2, confirmed).
   - **Effect:** no code changes. C4a and J2c lift the product's refusals when they land.
+- **E1 r5 written and sent to GROK2.** It is a record revision covering:
+  - E2a's four rulings;
+  - E2a's record-item resolutions;
+  - NB-MC8-1 and X-10, conforming E1 to M3-C r8's core-closure widening;
+  - SYN-NS's routed items E-9 to E-12, which I had missed in the brief and the drafter caught.
+- **Two lead rulings in E1 r5:**
+  1. **Operation-budget exhaustion under T-native** reuses the existing `truncated:fuel` value. **Rejected:** a new value, which needs a contract successor and goes against the no-new-codes direction.
+  2. **A8's admissible range** is proposed by E2b from its native T2a measurement and fixed in E1's next revision before E2b integrates.
