@@ -795,3 +795,6 @@ Times are local.
 
   **Lead decision:** fix them as E1 r5 round 2, keeping the revision name, because the E2a records already cite "E1 r5". Round 1's bytes are snapshotted.
 - **ENUM-1 and SD-8 accepted by CODEX2** (ACCEPT-DESIGN-UNIT each, no findings) **and bound.** ENUM-1 is at `f7026dc` and SD-8 at product main `0765f8c`, giving 101 contract successors and 5 passage supersessions. C4a's law and contract prerequisites are now all met (X12 r4, X-H3/CRC-2, X-8/ENUM-1), and so are J2c's E-3 contract pieces (ENUM-1, SD-8).
+- **E1 r5 round 2 written and sent to GROK2.** It fixes E-R5-1 to E-R5-3 and NB-1.
+  - **Lead ruling recorded with it:** the T-native receipt's field list is left to E2b's proposal and fixed in E1's next revision, beside A8's range, as a gate before E2b integrates.
+  - **Rejected:** fixing the fields now, which the ruling never decided.
