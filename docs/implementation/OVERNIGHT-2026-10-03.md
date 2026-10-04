@@ -808,3 +808,11 @@ Times are local.
   - **Results:** workspace 1750/0/3 twice. Both full lead sets ran serially, unniced, under the lock: storage 381/381 and host 98/98, with **0 differences from X9-6** (post-states, traces, censuses 259/218 and kill sets 321/271).
   - **Lead ruling on its one open reading:** a checkpoint after the operation's own admission refuses with an explicit `FailStop{latched}`, which becomes the first recorded cause. F41's expectation is unchanged, and the ruling goes to X4's next record revision. W-5 and W-8's signal steps are J3b's, as S11.9 assigns them.
   - **Process note:** lane-lock contention cost X4-F3 about 26 minutes of waiting. The lock is doing its job.
+- **J4a implemented and sent to Codex.** It covers C-ACL, C-SUFFIX, RW-P1 to RW-P3 with typed completion results, and `.repair` crash scopes. It changes 11 files, adds no new file, and adds 22 tests; workspace 1760/0/3 twice.
+  - **Lead ruling S2: hold J4a's product integration until X9 r17's §RW is accepted.** J4a changes the outcome of six storage F00 rows. It then integrates in one commit with RW-F00's re-transcription of those six rows and a full storage lead set.
+  - **Rejected:**
+    - integrating now, which breaks every later storage lead set on six cells;
+    - holding J4a until all of J4e.
+  - **X3c-3 integrates before J4a**, because they share `project_ledger.rs`, in disjoint edits.
+  - **Owed:** RW-K5's empty kill set goes to §RW, and three stale inventory descriptions go to the next description batch.
+  - **Lock-hygiene bug found:** X3c-3's lane script released the shared lock on any exit, so a waiting process killed early could delete a lock it never held. It is being fixed. J4a's own helper had the same bug and is fixed.
