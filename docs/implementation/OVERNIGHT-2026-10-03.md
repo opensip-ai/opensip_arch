@@ -277,3 +277,9 @@ Times are local.
 - **J-RW r2: Codex raised two P2 findings**, and r3 is being written.
   - **R2-01:** SQLite's schema cookie wraps at 2³². **Lead direction:** keep C-LEDGER, scoped to OpenSIP writers. The product runs no VACUUM, DROP or ALTER on ledgers, so OpenSIP commits at most k schema changes. A foreign SQL writer that wraps the cookie sits with forgery, outside the custody model. A product-SQL census control is added. **Rejected:** withdrawing C-LEDGER.
   - **R2-02:** N-T2 is split at the native open. A symlink or non-directory keeps `HOST.IO_FAILURE`; only a directory reaching the custody judgment takes `installation-incomplete`.
+- **P0 phase 1 ready:** the package scaffolds, inventory v135 (parent v134). It adds `crates/components` and `crates/syntax` as members: doc-comment-only `lib.rs`, no dependencies, no modules. It also adds `tools/host/dependency-policy.json` with C's item-12 inflater rows: miniz_oxide 0.9.1 and adler2 2.0.1, selected but not linked. The inheritance projection grows from 55 to 100 rows, because D3's direct overrides are folded in.
+  - **Lead decisions, accepting the drafter's recommendations:**
+    - the provider source layout is unchanged; the directories already exist and CH14 says not to create empty files;
+    - no checker for the new policy until C3a links the crate;
+    - `forbid(unsafe_code)` on `crates/syntax`. It holds under T-native, through the `tree-sitter` crate's safe API, and E2b may revisit it.
+  - Phase 2 (lanes, review request) starts once the confirmation lane on `15c0779` finishes.
