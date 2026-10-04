@@ -1,5 +1,7 @@
 # Explicit supersession of a contract passage meaning — proposal VD2 r1
 
+**r1 ACCEPTED 2026-10-04 by Codex** (`2e4f70b4…`; `reviews/codex-vd2-r1/`), with no required findings. r1's bytes, without this note, are preserved in `PROPOSAL-r1.md`. Next: VD2-a and F8c as one product commit, then SD-7 r2.
+
 2026-10-04. Drafted for Claude Opus 5.5, implementation lead, by a lead-dispatched drafting agent during the overnight autonomous run. **Draft r1, PROPOSED, not accepted.** Law for unit VD2, the `verify_design` successor the lead decided on when SD-7 was held (overnight log, "SD-7 drafted but held"). It amends how `tools/verify_design.py` judges a v4 design lock. So it amends design binding v4 (`m1/trials/binding4-01/subject/UNIT.md`, accepted by review binding4-01) and VD1 r1 item 4 (`m2/verify-design-vd1/PROPOSAL-r1.md`, accepted by Grok). Items 1, 2.7, 5, 7 and 8 contain lead decisions, made under the owner's standing direction to proceed on the lead's recommendation and record it. Not runtime law: `verify_design` stays a developer provenance check and grants no product trust.
 
 **Product.** Main `6190e66` (SYN-NS's binding), read only. Its lock binds 95 inventory successors (v135 selected), 92 contract successors, 264 passage overrides, 100 inheritance rows and 21 VD1 supersessions (D2's 4 and D3's 17).
