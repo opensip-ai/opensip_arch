@@ -627,3 +627,16 @@ Times are local.
   - **C-LEDGER kept, scoped exactly:** OpenSIP's writers commit at most **k = 26** schema changes per ledger (one schema transaction of 26 `CREATE` statements, verified against bundled SQLite 3.53.2), with no VACUUM, ALTER or migration in the product. A foreign writer that wraps the cookie sits with forgery, outside the custody model.
   - **Controls:** RW-C17, a product-SQL census, is added. RW-C5 now pins the cookie at 26 after creation.
   - **N-T2:** split at the native open, as directed.
+- **X4 r8 (S11) and X7 r7 (S9) written.** X4 r8 goes to CODEX2 and X7 r7 to GROK2, in parallel.
+  - **X4 r8, the gate word:**
+    - state bits ADMITTED=1 and LATCHED=2, window bits 4 and 8; readers decode `word & 3`;
+    - strong compare-exchange loops that keep the window bits;
+    - the gate never resets, and only `admit` mints the one permit;
+    - LD8-3: the latch records `Operator` under the same stop-cause lock hold.
+  - **X7 r7, the projection:**
+    - decided once, at the output decision point;
+    - an undetermined commit keeps its durability row, and a latched one takes F39;
+    - a committed, unlatched Run with a signal in phase D gives `interrupted` 130 with its runId;
+    - the operator stop gives `interrupted` 130 with no runId;
+    - the step-1 render split between D and O.
+  - **New defect found (D8-1, follow-up X4-F3):** in today's product, an observer checkpoint can record a placeholder `FailStop{latched}` before an existing latch's own cause. That can turn `REV(operation-stopped)` into `observer-fail-stop`, or a refusal row into `OBSERVER.FAIL_STOP`. The operator stop is protected by LD8-3. X4-F3 needs a narrow law and a code unit, before J3b.
