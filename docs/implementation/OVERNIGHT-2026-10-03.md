@@ -497,3 +497,6 @@ Times are local.
   - The `do…while` edges are wrong.
   - Control-flow identities collide.
   - **Lead direction for r2:** the conservative rule. Where the grammar cannot prove a transform semantics-preserving, don't normalize.
+- **J1 r5 written (record), sent to Codex.** It records S19, S20 (row 56) and the S18 adoption, plus FA-1's row 31, L r5's item 13, and re-citations.
+  - **LD-r5-1:** a signal after `publish` returns `Refused` or `CommitUndetermined` takes the last phase reached: C if FinalGate admission succeeded, otherwise B.
+  - **LD-r5-2:** 8.3's commit-phase rules 1 and 2 stand on IE:1680-1681 and SL:551-554. WS:226's conflicting sentence becomes owed successor **S21**. Until S21 is accepted, these wait: J3d's durable signal wiring, J-C14's rule-1/2 cases, J-C15b's phase-C projections, and rows S12-C and S12-U.

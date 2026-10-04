@@ -1,10 +1,8 @@
-# The guarded durable host pipeline — proposal M3-J1 r4
+# The guarded durable host pipeline — proposal M3-J1 r5
 
-**r4 ACCEPTED 2026-10-04 by GROK2** (`c18c0d3c…`; `reviews/grok2-host-pipeline-j-r4/`), with no required findings. r4's bytes, without this note, are preserved in `PROPOSAL-r4.md`. Recording note for GROK2's observation NBO-1: the M3D short name's statement that the live `supervisor-d/PROPOSAL.md` equals `PROPOSAL-r3.md` no longer holds, because the live file now carries D's acceptance note. D is cited by its `PROPOSAL-r3.md` snapshot.
+2026-10-04. Drafted for Claude Opus 5.5, implementation lead, by a lead-dispatched drafting agent during the overnight autonomous run. Law for unit **M3-J1** of the accepted M3 unit plan (M3P:265).
 
-2026-10-04. Drafted for Claude Opus 5.5, implementation lead, by a lead-dispatched drafting agent during the overnight autonomous run. Law for unit **M3-J1** of the accepted M3 unit plan (`M3-PLAN-r6.md:217`).
-
-**Draft r4, not accepted. Not code.** M2 is complete: its crash-matrix gate was met by Grok's accepted rerun on C = `3d2d5b5` (`m2/M2-COMPLETE.md`; M3P:5). J's code units still wait for P0, for the B, C, D and H laws and the units named in item 14, and for I1's product units.
+**Draft r5, not accepted. Not code.** M2 is complete: its crash-matrix gate was met by Grok's accepted rerun on C = `3d2d5b5` (`m2/M2-COMPLETE.md`; M3P:7). P0 is integrated (product `5e25d04`). The B, D and H laws are accepted (M3B; M3D; MH), and M3-C r7 is accepted in review and takes effect with M3-L (M3C; M3L). J's code units still wait, as item 14 lists for each, for M3-C and M3-L to take effect, for the other units named there, and for I1's product units.
 
 r1 (`PROPOSAL-r1.md`, sha256 `ff5cb156…`, 75,581 bytes) was reviewed by CODEX2 (`reviews/codex2-host-pipeline-j-r1`; REQUIRED-FINDINGS, 7 required, 2 non-blocking). r2 answered all nine.
 
@@ -12,7 +10,28 @@ r2 (`PROPOSAL-r2.md`, sha256 `f7efb87a…`, 100,981 bytes) was reviewed by CODEX
 
 r3 (`PROPOSAL-r3.md`, sha256 `ad887c90…`, 111,561 bytes) was **accepted** by CODEX2 with no required findings (`reviews/codex2-host-pipeline-j-r3`). The acceptance covers the law and its method only: J-BS and S18 still need their own ACCEPT-DESIGN-UNIT reviews, and J2a–J3d need inventory-unit reviews. Its two non-blocking observations, J1-R3-NB-01 (narrow the WS:1409 composition citation to the X3D and X7 fault owners) and J1-R3-NB-02 (qualify post-freeze loss by the actual SOP2 freeze point), are carried into S18's successor text, not into this law.
 
-**r4 is a narrow amendment.** It applies successor **SD-6** of the accepted supervisor law M3-D r3 (**M3D**, M3D:1092) and one record correction. It changes nothing else. M3D owns what the new row admits and refuses, and how each refusal is routed. J1 only places the row.
+r4 (`PROPOSAL-r4.md`, sha256 `c18c0d3c…`, 120,506 bytes) was **accepted** by GROK2 with no required findings (`reviews/grok2-host-pipeline-j-r4`). It was a narrow amendment: it applied successor **SD-6** of the accepted supervisor law M3-D r3 (**M3D**, M3D:1092) and one record correction, and changed nothing else. M3D owns what the new row admits and refuses, and how each refusal is routed; J1 only places the row. GROK2's one observation, NBO-1, is recorded in r5's M3D short name.
+
+**r5 is a record revision.** It records the cross-law items that accepted successors and laws have settled since r4, and re-cites every snapshot that has moved. It decides nothing new, except the two lead decisions that S18's cross-law items call for: LD-r5-1 (8.2) and LD-r5-2 (8.3). It changes nothing else. The table below maps each change to its source. Diff r5 against `PROPOSAL-r4.md`.
+
+## r5 changes
+
+| Source | Where | Change |
+|---|---|---|
+| **SD-5, accepted and bound** (Grok ACCEPT-DESIGN-UNIT, `reviews/grok-sd-5-r1`; product `052d3cb`): its cross-law item X-SD5-J1, and this law's S20 | item 10: new row 56, row 27 and J-C20; item 4's R10a bullet; item 13's S20 row | **Row 56** is SD-5's row, word for word. A component manifest that is an excluded form at R10a or ER10a is request-rejected 2, `EXTENSION.ADMISSION_REJECTED`, with detail `PAYLOAD-NOT-ADMISSIBLE` and subject `excluded-form:<class>:<manifestDigest>`, and carries no runId or executionId. Row 27's "not admissible" now reads "not admitted by current trust", and never covers an excluded form. J-C20 gains row 56's test. S20 is recorded as bound for R10a's and ER10a's route, and SD-5's other refusals stay owed. |
+| **M3-C r7, accepted in review** (CODEX2, `reviews/codex2-snapshot-plan-c-r7`): this law's S19 | item 13's S19 row | S19 is recorded as accepted in review. It takes effect with M3-L. |
+| **SD-5's X-SD5-1** (M3D item 25) | item 10, a new bullet; item 13's S20 row | M3-D item 25's request-class `ExcludedForm` at R1 is recorded as **routed to M3-D r4**. M3-D r4 has not decided it: arch holds no M3-D r4 at r5's drafting. The row's shape is recorded as **pending**. SD-5 recommends request-rejected 2, `REQUEST.UNSATISFIABLE` (M3D:758). No row is added. |
+| **S18, accepted and bound** (GROK2 ACCEPT-DESIGN-UNIT at r2, `reviews/codex2-s18-r2`; product `5214350`): its cross-law items 1a to 1d and 1g | 5.3; 8.2's row O; 8.4; J-C14; J-C14b; S12-O; item 13's S18 row; every SOP2 citation | **1a (J1-R3-NB-02; S18 LD-7).** Row O's "because O follows SOP2's freeze, that event is post-freeze loss" becomes S18's three-way rule. The event is admitted before the producer cutoff. After the cutoff it is committed `drain-abandoned`. After the freeze's reads it reaches only the post-freeze tally. S12-O stays the post-freeze case, and J-C14's O case takes S18-T1's three points. <br>**1b (J1-R3-NB-01; S18 LD-6).** "Through WS:1409-1411's composition" becomes the fault owners (X3D:176, :283; X7:101, :120) and WS:1412-1413. J-C14b takes S18-T2's separate assertion. <br>**1c.** Every SOP2 line moves from r4 to r6: 205-208 → 226-230; 623 → 652; 623-650 → 652-683; 663 → 704; 815 → 871; 816 → 872. 710 → 766 is added, because S18 does not cite that line. <br>**1d (S18 LD-4).** 5.3's settlement point becomes "every required step terminal and the required output returned". r4 said the output decision point "does not make step 1 terminal", which is false when the decision point cancels step 1. 5.3 and 8.4 now say instead that it does not settle the invocation. Phase O is recorded as WS's own rule, no longer an exception J1 holds open. <br>**1g.** Item 13's S18 row records WSE, the after-settle lines and the copy form. |
+| **S18's cross-law item 1e** | 8.2, a new paragraph after the table; J-C14; J3b (item 14) | **Lead decision LD-r5-1.** Suppose `publish` returns without entering D, and a signal is then observed. That signal is labelled by the last phase the operation reached: C if FinalGate admission had succeeded, and B otherwise. The label is read from the window close's own sample. |
+| **S18's cross-law item 1f** (its LD-12) | 8.3, a new paragraph; item 13, new successor S21; item 12 and item 13's S12 row (S12-C, S12-U); item 14 (J3b, J3d, the critical path); Forbidden substitutes; Open questions | **Lead decision LD-r5-2.** 8.3's rules 1 and 2 stand against WS:226, on the basis of IE:1680-1681 and SL:551-554. The WS amendment this needs is recorded as an owed successor, **S21**, on WS:226 and WSE:226. Both lines are free in the lock at `5214350`. r5 does not make the amendment. Until S21 is accepted, no unit delivers a rule-1 or rule-2 termination for a signal. |
+| **FA-1's X-FA1-J1** (Grok ACCEPT-DESIGN-UNIT, `reviews/grok-fa-1-r1`; product `f97c02b`) | item 10, row 31's basis | Row 31's basis now reads NE:3849-3850 as FA-1 states them. The stage stays `partial` and the Run stays authoritative. The route is unchanged. |
+| **M3-L r5's X14** (and M3P's routing row for L r2's RF-1), and **FA-2's X-FA2-J1** (Codex ACCEPT-DESIGN-UNIT r2; product `8ca420f`) | item 2's forbidden substitutes (r4:207; r3:192) | "Beyond M3L:377's" becomes "beyond those M3L item 13 lists". Item 13's list is derived from the schemas and re-derived by control L-C1, and it includes FA-2's members. |
+| **M3-L r5's X10** (and M3P's routing row X10) | short name M3L; G2; items 2, 5.2, 7, 8.2 and 8.5 | M3L is now L r5, accepted in review. It is cited by item and finding, never by line. r1's lines map as follows: :120 → item 2; :375-382 and :377 → item 13; :442-462 → item 16; :450-457 → item 16c; :548 → X3. |
+| **Moved snapshots** | Short names; every citation of each | <br>- **M3P** is M3-PLAN r9 (GROK2, `72bc7a13…`). Every fact r9 still holds is re-pinned to r9's line. <br>- **M3P6** is new. It keeps r6 (`a6956e88…`) for r6's own words: item 1's quotation, item 14's r6 sizing and item 15's corrections to r6. <br>- **M3C** is M3-C r7 (`a1ee9386…`). Every line J1 cites keeps its text, and moves by 22 to 49 lines. <br>- **M3D** stays r3. Its sentence about the live file is corrected, which answers GROK2's NBO-1 on r4. <br>- **MH** is new: M3-H r3 (Grok, `7a562720…`). <br>- **SOP2** is S-OP-2 r6 (Codex, `ce8d3a4b…`). <br>- **X3C** is new: X3c r8 (GROK2, `ba638efb…`). <br>- **M3L** is L r5, as the X10 row above says. |
+| **M3-PLAN r9** (its routing row S17) | item 13's S17 row; item 15 | S17 is recorded as done: M3P r7 to r9 carry J's units and the M3P6 corrections (M3P:265, :619). |
+| **X3c r8, accepted** (GROK2, `m2/reviews/grok2-ledger-blob-x3c-r8`) | item 11; item 13's S14 row | X3C items 6 and 6a give J exactly the re-commit it needs. X3c-3 follows. |
+| **SYN-1, in review** (CODEX2, `reviews/codex2-syn-1-r2`; not accepted) | item 10, a new bullet | SYN-1's X-J1 asks row 52 to gain the `native.syntax-*` keys, and asks for a new "syntax backend fault" row. Its O-1 adds two native-context keys. Both are recorded as **pending SYN-1's acceptance**. No row changes. |
+| **Header and product** | header; Short names; Not claimed | r4's acceptance and r5's purpose are recorded. Product main is now `5214350` (88 contract successors; inventory v135). Of the product files J1 cites, only `operation_guard.rs` has changed since `3e64266`. X4-F1 changed its lines 225-241, and the lines J1 cites there (:99-106) are unchanged. |
 
 ## r4 changes
 
@@ -31,7 +50,7 @@ r3 (`PROPOSAL-r3.md`, sha256 `ad887c90…`, 111,561 bytes) was **accepted** by C
 | J1-R2-01 (the window and publication) | 8.1: `Ok(PreparedCommit)` is a continuing result and leaves the window **open**. The window closes only on `prepare_commit`'s error returns and on every return of `publish`, the successful sample included. Put simply, it closes in the step that produces the operation's `StoppedSession`, and only there. The CAS loops keep the word's window bits. 8.6, S10, S11 and J-C15 follow. New control J-C15b cancels during `publish` after a successful preparation. r2's J1-N1 sentence, "closed on every return of `prepare_commit` and `publish`", is withdrawn. |
 | J1-R2-02 (the renderer-failure route in phase O) | 8.2's phase O, 8.4, S18 and matrix rows 43 and 44 make the route depend on committed evidence. When a `PublishedCommit` exists, F16 applies (X7:99; WS:1376). Otherwise (ephemeral results, pre-commit refusals, undetermined commits, an interrupt with no Run) the route is WS:1377, row 44's `DELIVERY.REQUIRED_PROJECTION_FAILED`, with no runId, under WS:233-240's aggregate. An uncertain step 0 keeps its ExecutionId disclosure. New control J-C14b. |
 | J1-R2-03 (the ephemeral path and S18) | One common rule (5.3, item 6). **Before S18 is accepted:** no output path that uses phase O is wired, neither J2c's nor J3d's. Item 6's ephemeral rule stays as written: phase A only, under WS's before-settle rule. **Once S18 is accepted:** both paths use A (D only where a Run committed), then the output decision point, then O, then E. J2c is gated on S18 exactly as J3d is. New ephemeral controls go before the decision point, inside O and after settlement (J-C14c). |
-| J1-R2-NB-01 (recording a signal in phase O) | Adopted. "Recorded with arrival phase O" means: the host cancellation source classifies the signal in memory, and the SOP2 event is attempted with the new `CancelPhase` member `O` (an ordinary registration, SOP2:205-208). After the freeze it counts as post-freeze loss (SOP2:663). No sink is reopened, and the frozen diagnostics do not change. S12-O and J-C14 check the in-memory classification, never a persisted record. |
+| J1-R2-NB-01 (recording a signal in phase O) | Adopted. "Recorded with arrival phase O" means: the host cancellation source classifies the signal in memory, and the SOP2 event is attempted with the new `CancelPhase` member `O` (an ordinary registration, SOP2:226-230). After the freeze it counts as post-freeze loss (SOP2:704). No sink is reopened, and the frozen diagnostics do not change. S12-O and J-C14 check the in-memory classification, never a persisted record. |
 
 ## r2 changes and review responses
 
@@ -41,16 +60,16 @@ r3 (`PROPOSAL-r3.md`, sha256 `ad887c90…`, 111,561 bytes) was **accepted** by C
 | J1-R2 (settlement) | The settlement point is now the moment the required output returns, when every required step is terminal (5.3). An **output decision point** (8.4) now ends phase D. From that point to settlement is the **final output section, phase O**: a cancellation-deferral exception that successor **S18** reconciles with the WS and OPP owners, and J3d's output code is gated on it. S12-D now holds at a cancellable D point (`x3d.finish.end-step.after`). The new S12-O holds inside O (`x7.delivery.required.before`). `bootstrap.rs:57-58` is kept. |
 | J1-R3 (creation disclosure) | The durable entry's refusal now carries the value-only creation record (item 3, `EntryRefusal { termination, created }`). It is taken from this act's own result: `Published`, or a failure after the publication rename. Item 9's presence rule starts at publication and covers every envelope except the empty-errors `interrupted` branch. The new control is J-C6b. |
 | J1-R4 (ExecutionId reservation) | Item 2: every ExecutionId is reserved, uniqueness-checked, in a process-custody `ExecutionIdReservations` before P0, a provider frame or a record uses it (IE:77-81). That reservation is distinct from the durable attempt row (IE:83-101; X3D:114). Only the reserved type reaches a writer. This touches successors S4 and S10 and unit J3a, and adds control J-C4b. |
-| J1-R5 (J3d's dependencies) | J3d depends on F2 and G3 again (M3P:217, :309). The critical path is restated (item 14). |
-| J1-R6 (refusal families) | Matrix rows 52 to 55 cover native contexts and universe binding (NE:3530), the preparation bound (NE:3531), ambient Cargo configuration (NE:3532; M3C:674) and the authenticated release declaration (NE:3540, :3574). The new control is J-C20b. |
+| J1-R5 (J3d's dependencies) | J3d depends on F2 and G3 again (M3P:265, :451). The critical path is restated (item 14). |
+| J1-R6 (refusal families) | Matrix rows 52 to 55 cover native contexts and universe binding (NE:3530), the preparation bound (NE:3531), ambient Cargo configuration (NE:3532; M3C:716) and the authenticated release declaration (NE:3540, :3574). The new control is J-C20b. |
 | J1-R7 (audit at M4) | Item 1: the M4 CLI unit replaces the `opensip`, `analyze` and `fit` refusals. `audit`'s refusal stays until its M5 comparison prerequisite exists (BP:955). X11:28's "all four at once" is reconciled per command. |
 | J1-N1 (latch minting and window) | Adopted: the latch is minted once per operation, and its window is two bits of the gate's own atomic word. The window is closed on every return of `prepare_commit` and `publish` (8.1). **r3:** that close is withdrawn for `Ok(PreparedCommit)` (J1-R2-01). |
-| J1-N2 (SOP2's implementation) | Adopted: J3d depends on O1 (M3P:221, :314). |
+| J1-N2 (SOP2's implementation) | Adopted: J3d depends on O1 (M3P:269, :457). |
 | Context | M3-PLAN r6 is accepted (`a6956e88…`). M3-C r5 is accepted in review (`7f76052d…`) and takes effect once M3-L and X12 r4 are accepted. X12 r4 and X2 r9 are accepted by Grok. S-OP-2 is cited by its r4 bytes while r5 is in progress. M2 is complete. Every citation and pin is renewed. |
 
 **Standing direction.** Every item below that says "lead decision" is made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation. Each names the alternative it rejects. The owner may reverse any of them. No item blocks on an owner decision (see "Open questions").
 
-**What this law is.** The M3-J row asks J1 for four things (M3P:217):
+**What this law is.** The M3-J row asks J1 for four things (M3P:265):
 1. the X11 successor (X11:64-81);
 2. the invocation DAG (WS:76-256) as M3 implements it;
 3. the backup-status successor;
@@ -64,31 +83,34 @@ It also fixes the M3 outcome matrix and breaks J2 to J4 into units.
 
 | Name | Document |
 |---|---|
-| **M3P** | `docs/implementation/m3/M3-PLAN-r6.md`, the accepted r6 bytes (sha256 `a6956e88…`). The live `M3-PLAN.md` carries the acceptance note. |
+| **M3P** | `docs/implementation/m3/M3-PLAN-r9.md`, the M3-PLAN r9 bytes GROK2 accepted (sha256 `72bc7a13…`; `reviews/grok2-m3-plan-r9`). The live `M3-PLAN.md` carries the acceptance note. r9 records the state at its r7 cut-off. **(r5)** r4 and earlier cited r6. Every citation of a fact that r9 still holds is re-pinned to r9's line. |
+| **M3P6** | `docs/implementation/m3/M3-PLAN-r6.md`, the r6 bytes GROK2 accepted (`a6956e88…`). J1 r2 to r4 cite it. **(r5)** It is cited only for r6's own words: item 1's quotation, item 14's r6 sizing, and item 15's corrections to r6. |
 | **X11** | `docs/implementation/m2/cli-enablement-x11/PROPOSAL.md` (r1 accepted) |
 | **X12r4** | `docs/implementation/m2/policy-admission-x12/PROPOSAL-r4.md`, the r4 bytes Grok accepted (`adc9a88a…`) |
 | **X12** | `…/policy-admission-x12/PROPOSAL-r3.md` (r3 accepted). Its lines are cited the way other laws cite them. |
 | **X3D** | `docs/implementation/m2/commit-session-x3d/PROPOSAL.md` (r8) |
 | **X7** | `docs/implementation/m2/finalization-x7/PROPOSAL.md` (r6) |
+| **X3C** | `docs/implementation/m2/ledger-blob-x3c/PROPOSAL-r8.md`, the X3c r8 bytes GROK2 accepted (`ba638efb…`; `m2/reviews/grok2-ledger-blob-x3c-r8`) (r5). r8 leaves items 1 to 5, 7 and 8 unchanged, so "X3c item 3" and "X3c item 4" (items 2 and 5.4) read the same. |
 | **L464, L468** | `docs/implementation/m2/{creation-ingress-464,existing-root-admission-468}/PROPOSAL.md` (r2, r5) |
 | **X2** | `docs/implementation/m2/project-root-x2/PROPOSAL-r9.md`, the r9 bytes Grok accepted (`0d68e3a5…`) |
 | **X1, X3A, X4, X4B, X4T, X5, X9, X10** | `docs/implementation/m2/{ordinary-platform-x1, store-admission-x3a, live-guards-x4, trust-bootstrap-x4b, trust-admission-x4t, replay-join-x5, crash-matrix-x9, read-cli-x10}/PROPOSAL.md` |
 | **OWN** | `docs/implementation/m2/initial-root-binding-owner-selection-v1/owner.md` |
 | **EXIT** | `docs/implementation/m2/EXIT-PLAN.md` |
 | **M3B** | `docs/implementation/m3/config-discovery-b/PROPOSAL.md` (r2 accepted) |
-| **M3C** | `docs/implementation/m3/snapshot-plan-c/PROPOSAL-r5.md`, the r5 bytes CODEX2 accepted in review (`7f76052d…`, 1183 lines). Under its own gate, it takes effect once M3-L and X12 r4 are accepted. |
-| **M3D** | `docs/implementation/m3/supervisor-d/PROPOSAL-r3.md`, the M3-D r3 bytes GROK2 accepted (`9679dbc4…`; `reviews/grok2-supervisor-d-r3`). The live `PROPOSAL.md` is byte-identical to them on 2026-10-04. Cited by item, successor and line (r4). |
-| **M3L** | `docs/implementation/m3/provider-protocol-l/PROPOSAL.md` (r1 draft, not sent) |
+| **M3C** | `docs/implementation/m3/snapshot-plan-c/PROPOSAL-r7.md`, the M3-C r7 bytes CODEX2 accepted in review (`a1ee9386…`, 1232 lines; `reviews/codex2-snapshot-plan-c-r7`). Under its own gate, it takes effect once M3-L is in effect. X12 r4, its other gate item, is accepted. **(r5)** r4 cited r5 (`PROPOSAL-r5.md`, `7f76052d…`). r7 is r5 plus r6's X-C1 and X-C2 and r7's row 8 narrowing (S19). Every line J1 cites keeps its text, and moves by 22 to 49 lines. |
+| **M3D** | `docs/implementation/m3/supervisor-d/PROPOSAL-r3.md`, the M3-D r3 bytes GROK2 accepted (`9679dbc4…`; `reviews/grok2-supervisor-d-r3`). **(r5; GROK2's NBO-1 on r4)** The live `PROPOSAL.md` now differs from these bytes in recording text only: D's acceptance note and one corrected history sentence. J1 cites the snapshot by item, successor and line (r4). Row 56, quoted word for word from SD-5, calls the same snapshot MD. |
+| **MH** | `docs/implementation/m3/fact-admission-h/PROPOSAL-r3.md`, the M3-H r3 bytes Grok accepted (`7a562720…`; `reviews/grok-fact-admission-h-r3`) (r5) |
+| **M3L** | `docs/implementation/m3/provider-protocol-l/PROPOSAL-r5.md`, the M3-L r5 bytes GROK2 accepted in review (`f654ee4e…`; `reviews/grok-provider-protocol-l-r5`). The law takes effect only when every gate item, L-G1 to L-G11, is met. **(r5; M3L X10)** J1 cites it by item and finding, never by line. r4 and earlier cited r1's lines (`PROPOSAL-r1.md`, `5e858c05…`), and each is re-pinned: :120 → item 2; :375-382 and :377 → item 13; :442-462 → item 16; :450-457 → item 16c; :548 → X3. |
 | **I1** | `docs/implementation/m3/preview-pack-i1/PROPOSAL.md` (r2 accepted) |
 | **OPP** | `docs/implementation/m3/operability/PLAN.md` (r3 accepted). It is cited by section and by its live lines. |
-| **SOP2** | `docs/implementation/m3/operability/s-op-2/PROPOSAL-r4.md`, the r4 bytes (`db10e19c…`). Codex returned required findings on r4 (`reviews/codex-s-op-2-r4`), and r5 is in progress. J1 cites r4's lines and gains it no acceptance. |
+| **SOP2** | `docs/implementation/m3/operability/s-op-2/PROPOSAL-r6.md`, the S-OP-2 r6 bytes Codex accepted with ACCEPT-DESIGN-UNIT (`ce8d3a4b…`; `reviews/codex-s-op-2-r6`). Its accepted bytes still carry r5's title line. It binds with M3-O's O1 unit. **(r5; S18 cross-law item 1c)** r4 cited r4's lines (`PROPOSAL-r4.md`, `db10e19c…`), and each is re-pinned: 205-208 → 226-230; 623 → 652; 623-650 → 652-683; 663 → 704; 710 → 766; 815 → 871; 816 → 872. |
 | **AQP** | `docs/implementation/m3/analysis-quality/PLAN.md` (live r6) |
 | **WS, IE, SL, NE** | `docs/v2/contracts/product-v1/{workflows-and-surfaces, identity-and-evidence, security-and-lifecycle, native-evidence}.md` |
 | **BP** | `docs/v2/architecture/implementation-boundaries-and-build-plan.md` |
 | **CINV, WFC** | `docs/coop/design-corrections/workflows/{command-inventory.v3.json, workflow-cases.v1.json}` |
 | **ENV7, COMMON4, INV5** | `opensip/schemas/sources/{command-envelope-v7, common-v4, invocation-v5}.schema.json` |
 
-Product paths are under `opensip/` at main `3e64266`. They were read, not run.
+Product paths are under `opensip/` at main `3e64266`. They were read, not run. **(r5)** Product main is now `5214350`, with 88 contract successors and inventory v135 (P0). Between the two commits, the only product file J1 cites that changed is `crates/security/src/custody/operation_guard.rs`. X4-F1 changed its lines 225-241, and the lines J1 cites there (:99-106) are byte-identical. Every product citation stands.
 
 ## Problem
 
@@ -107,7 +129,7 @@ Product paths are under `opensip/` at main `3e64266`. They were read, not run.
 - **G1. No creator-class command can commit, even in steady state.** The creator's route drops `InitialCore` before the gate, so its `AdmittedInstallation` has no store (X3A:31-36) and no trust bootstrap (X4B:64, :181). X1 item 7 forbids a second entry in the process (X1:49-54). Every creator-class invocation would also mint an intent and print the first-use notice, whether or not I exists.
 - **G2. The lease and the attempt identity are in the wrong place for analysis.**
   - IE:1657-1658 requires one writer to hold the lease "through source admission, evaluation and atomic commit". X5 item 3 and `finalize` replay before any admission (X5:39-43).
-  - Providers carry the attempt's `executionId` on the wire before they spawn (M3L:120, :377). X3d draws it only at the session's open, which today follows evaluation.
+  - Providers carry the attempt's `executionId` on the wire before they spawn (M3L items 2 and 13). X3d draws it only at the session's open, which today follows evaluation.
 - **G3. Two RequestIds.** The intent's and the envelope's are separate draws (X11:74).
 - **G4. No signal reaches the commit gate.** That is S-OP-12 (OPP §5.5, OPP:330-340).
 - **G5. Three things are missing:**
@@ -143,7 +165,7 @@ Product paths are under `opensip/` at main `3e64266`. They were read, not run.
   - BP:887: "Complete CLI analysis delivery follows at M4 with every advertised renderer";
   - BP:895: "Every command delivery also waits for all of its advertised renderer milestones … not releases with silently reduced format contracts";
   - BP:951-955: `default`, `analyze` and `fit` are M4, `audit` is M5;
-  - M3P:110 and M3P:468 ("nothing is wired. J1 fixes the order and identity rules");
+  - M3P6:110 and M3P6:468 ("nothing is wired. J1 fixes the order and identity rules"), which M3P now records as decided (M3P:166, :619);
   - AQP:500 (the dogfood checkpoint "is not CLI `analyze`") and AQP:502 (CLI dogfood is M4);
   - M3B:720, M3B:904.
 
@@ -167,7 +189,7 @@ Product paths are under `opensip/` at main `3e64266`. They were read, not run.
 - **Decision.**
   - **The RequestId.** One per invocation, minted at ingress before parsing and admission (WS:78; IE:61-62) by the host's process-custody `RequestAuthority` (`request.rs:15-55`). It serves as:
     - the envelope's `requestId`;
-    - the correlator of every operational record (OPP §3.1; M3L:375);
+    - the correlator of every operational record (OPP §3.1; M3L item 13);
     - on the creation route, the RequestId that P0's `OperationInputV1.invocation` records.
   - **The handoff to security (successor S4, a 464 r3 amendment).** A sealed value `RequestIdentity` lives in `opensip-platform`. It is minted only by the CSPRNG draw (`request_entropy`). It has no constructor from bytes or text, and it is not `Default` or deserializable. The host's registry reserves it, and the host lends `&RequestIdentity` to item 3's entry. `mint_intent` records it and draws no RequestId of its own: it still draws its ExecutionId (`initial_installation.rs:591`). An ephemeral request involves no security draw.
   - **Uniqueness (stated limit).** IE:77-79 requires a reservation "in the corresponding operational ledger before use". For a host that serves one request per process (X10:30), that ledger is the process-custody registry (`request.rs:15-16`, `:28-41`), as for metadata and doctor.
@@ -195,7 +217,7 @@ Product paths are under `opensip/` at main `3e64266`. They were read, not run.
     - **Stated limit.** Until an id reaches attempt custody, cross-process uniqueness rests on the 128-bit draw. As for RequestIds, M3 keeps no permanent ExecutionId ledger.
     - **The crash-matrix census.** `x3d.session.execution-draw` keeps its name and place (X9:939). The reservation is in memory and adds no durability point. F34's `inject-id` still reaches the attempt row's trigger, because an earlier run's injected id is not in this process's registry.
   - **Phase-lawful identities.** OPP §3.1's table holds, with one reading fixed. For a durable request the ExecutionId is lawful from the session's open (OPP:156's "attempt admission"; item 7), which is the attempt's start. That open precedes the attempt row (X3D:130), and item 8 uses "attempt admitted" for the attempt row only, as OPP §5.5 does (OPP:335).
-- **Basis:** WS:78-82; IE:61-63, IE:77-81, IE:83-101, IE:88; L464:13-21 and :34; X3D:114, :130-134; X11:74; OPP §3.1 (OPP:145-160); M3L:375-382; `request.rs:28-41`.
+- **Basis:** WS:78-82; IE:61-63, IE:77-81, IE:83-101, IE:88; L464:13-21 and :34; X3D:114, :130-134; X11:74; OPP §3.1 (OPP:145-160); M3L item 13; `request.rs:28-41`.
 - **Rejected:**
   - **Binding the envelope's id to the intent's.** The intent exists only on the creation route, after F0, the probe and the actor. A refusal before it (parse, F0, a probe custody row) still needs a RequestId, which is "retained for refusal as well as success" (WS:78-79).
   - **Binding the prelude's ExecutionId to the analysis attempt.** X3d item 2 would have to take an id carried across the creator/ordinary boundary, and the shared RequestId already gives the correlation.
@@ -206,7 +228,7 @@ Product paths are under `opensip/` at main `3e64266`. They were read, not run.
 - **Forbidden substitutes:**
   - two RequestIds in one invocation;
   - a RequestId from a caller, from text or from a draw other than the ingress's;
-  - any identity on a provider's wire beyond M3L:377's;
+  - any identity on a provider's wire beyond those M3L item 13 lists (r5, M3L X14; FA-2's X-FA2-J1). Item 13's list is derived from the cited schemas and re-derived by its control L-C1;
   - a RunId before `Committed` (OPP:157);
   - (r2) an ExecutionId used by P0, a provider frame, a session or a record before its process reservation; a reservation released or reused.
 - **Controls:**
@@ -317,12 +339,12 @@ The durable request runs this order. Each row ends with a typed value the next r
 | R1 | Typed request admission: the command, the mode, the flags of M3B item 23's table (M3B:720-730), JSON and `InvocationModeV1`. The host builds the step list. A malformed library request is a host-generated layer: `SYSTEM.OUTCOME.ILLEGAL_STATE`, `host-invariant` (NE:3573). | J2a |
 | R2 | `installation_entry`: `Creator` for a durable request, `Outside` for an ephemeral one | `request.rs:85-135` |
 | R3 | Durable entry → `OrdinaryWriteAdmission`, with the fence held | item 3 |
-| R4 | S3's selection walk; X2 r9 item 3a's placement check and chain walk; the carrier captures | M3C:822; M3B:98 |
-| R5 | B1 configuration resolution | M3C:823; M3B items 1-11 |
-| R6 | X12 pack admission | X12r4:195-206; M3C:824 |
+| R4 | S3's selection walk; X2 r9 item 3a's placement check and chain walk; the carrier captures | M3C:864; M3B:98 |
+| R5 | B1 configuration resolution | M3C:865; M3B items 1-11 |
+| R6 | X12 pack admission | X12r4:195-206; M3C:866 |
 | R7 | The S3.1 storage choice (`grants.rs`), which is pure. Under 464's constant `UNKNOWN` it admits with the notice's disclosure. A positive `BACKED_UP` without the flag is `storage.backup-choice-required` (L468:39). | M3B:378, :729 |
 | R8 | X3a's endpoint admission, from the gate's own retained captures, with no new read | X3A:28-29 |
-| R9 | X2 item 5's registry capture; X2 item 6's first registration when the root is unregistered, with item 6a's tracking observation | M3C:825; X2:192, :202 |
+| R9 | X2 item 5's registry capture; X2 item 6's first registration when the root is unregistered, with item 6a's tracking observation | M3C:867; X2:192, :202 |
 | R10 | X3b's floor step; the operation's `FreshnessMonitor` and `FinalGate`; X4T's fenced first read, with X4B's acceptance when F is absent | X4:44; X4B:42-56 |
 | R10a | **(r4, SD-6) Pre-draw component admission.** D4's `components/manifest.rs` admits every component manifest that R10's trust view admits and that the analysis step can select, and refuses each manifest-class excluded form (EE-1, EE-3b, EE-4's manifest part, EE-5a) as `ExcludedForm {class, subject}`, routed as M3D item 24 fixes. The fence is still held. No analysis-attempt ExecutionId is drawn or reserved. It ends with the admitted manifest set, which M3C item 16's row 8 selects from (S19). | M3D item 24, the owner of what it admits and refuses; CH14:433 |
 | R11 | X2 item 7's `APPEND-WRITE` lease; X2e's handoff. The fence is released and the lease is held. | X2:328; `operation_handoff.rs:330` |
@@ -335,10 +357,10 @@ The durable request runs this order. Each row ends with a typed value the next r
     - no registry row, namespace, `.opensip`, marker, lease or journal;
     - the refusal's disclosure of the creation, through the notice on standard error and `retentionDisclosure` with `firstUse: true` (item 9).
 
-    This control is shared with M3C:906-910 (C4-T20) and B1-a.
+    This control is shared with M3C:955-959 (C4-T20) and B1-a.
 - **R10a, the pre-draw component admission (r4; M3D item 24, successor SD-6).** J1 places the row. M3D owns what it admits, what it refuses and how each refusal is routed (M3D:717-734).
   - **Its place.** After R10, whose fenced first read yields the authenticated trust view, and before R11's handoff and R12's draw. It does not wait for the Plan's selection, because selection needs discovery, and discovery runs only after R12 (M3D:718).
-  - **Its route.** The internal refusal is `ExcludedForm {class, subject}`. Its public projection is J1's, with existing codes, under M3D's successor SD-5 (S20). M3D recommends request-rejected 2 with `EXTENSION.ADMISSION_REJECTED` (SL:1306; M3D:733). No public code is added.
+  - **Its route.** The internal refusal is `ExcludedForm {class, subject}`. Its public projection is J1's, with existing codes, under M3D's successor SD-5 (S20). M3D recommends request-rejected 2 with `EXTENSION.ADMISSION_REJECTED` (SL:1306; M3D:733). No public code is added. **(r5)** SD-5 is accepted and bound, so the projection is row 56 (item 10): request-rejected 2, `EXTENSION.ADMISSION_REJECTED`, with detail `PAYLOAD-NOT-ADMISSIBLE` and subject `excluded-form:<class>:<manifestDigest>`.
   - **What a refusal leaves.** It comes before R11 and R12, so there is no handoff, lease or `CommitSession`, and neither `refused()` nor `finish` runs (item 7 governs every end after R12). Step 0 ends on the refusal, and step 1 projects it (5.2). When item 3's `created` is `Some`, the refusal discloses the creation, as every refusal after R3 does (item 9).
   - **The first-use exception, as M3D r3 states it** (M3D:722): "On the first-use route, the creation prelude's own ExecutionId was drawn earlier and names the creation act only (J1:161). It is not the analysis attempt's, and R10a creates none." In this law's terms: on route 3b, whatever the creator act's result, the prelude's reservation, made in `mint_intent` before P0 is staged (item 2; S4), may already be in `ExecutionIdReservations` when R10a runs. It is never bound to the analysis attempt (item 2, "Rejected"). R10a's no-draw property concerns the analysis attempt's ExecutionId only.
   - **What follows it.** M3C item 16's row 8 selects only among the manifests R10a admitted, and adds no admission of its own (S19). The ephemeral counterpart is ER10a (item 6).
@@ -363,7 +385,7 @@ The durable request runs this order. Each row ends with a typed value the next r
 
   This is WFC:3612's `default-analyze-render-success`, except for the retry policy.
 - **`analyze --ephemeral`:** the same two steps, with step 0's durability `ephemeral` (WFC:3741).
-- **`analyze`'s `import` step** (CINV:114) is instantiated only when an import is selected. M3 selects none: the `import` command is M5 (BP:957), and C3's library importer is not a step (M3C:475).
+- **`analyze`'s `import` step** (CINV:114) is instantiated only when an import is selected. M3 selects none: the `import` command is M5 (BP:957), and C3's library importer is not a step (M3C:517).
 - **Retry is `none` (lead decision).** A second durable attempt would need a second write entry, which X1 item 7 forbids even after S3. WS:105-108 makes idempotent retry lawful, not mandatory. A ledger-busy attempt therefore ends on the busy row (X3D:277), with no `WORKFLOW.RETRY_BUDGET_EXHAUSTED`.
 
 **5.2 The analysis step's joins.** Each join hands the next a typed value. No join is re-entered, and a refusal at any join ends step 0 (`rejected` or `failed`). Step 1's gate is `terminal`, so it then projects that refusal.
@@ -373,13 +395,13 @@ The durable request runs this order. Each row ends with a typed value the next r
 | J-α | request → durable entry (R0-R3), or the ephemeral entry (item 6) | J2a; J3a |
 | J-β | fence → project admission, configuration, pack, S3.1 and (r4) component admission (R4-R10a) | X2; M3B; X12r4; M3D item 24 |
 | J-γ | handoff → the open session (R11-R12) | X2e; X3d; item 7 |
-| J-δ | capture session → sealed `snapshot2`: M3C rows 5-9 (M3C:826-830), with downward discovery after the fence (M3B:336) | C1; B2 |
-| J-ε | the Plan: M3C rows 10-16 (M3C:831-837). The PlanId is minted at row 14 (M3C:835). Row 15's pre-execution joins come before any provider (M3C:836). | C3; C4 |
-| J-ζ | provider stages, one child per `(ExecutionId, SnapshotId, universe key)` (M3L:120), launched only under the D law and O7 (M3P:476) | D; F; G |
-| J-η | H's fact admission; then the **full `admit_enumeration`**, after every stage return is admitted and the host-derived inventories exist, and before `derive_evaluation`. This places it, as M3C:854 asks J1 to. | H; J2b |
+| J-δ | capture session → sealed `snapshot2`: M3C rows 5-9 (M3C:868-872), with downward discovery after the fence (M3B:336) | C1; B2 |
+| J-ε | the Plan: M3C rows 10-16 (M3C:873-879). The PlanId is minted at row 14 (M3C:877). Row 15's pre-execution joins come before any provider (M3C:878). | C3; C4 |
+| J-ζ | provider stages, one child per `(ExecutionId, SnapshotId, universe key)` (M3L item 2), launched only under the D law and O7 (M3P:627) | D; F; G |
+| J-η | H's fact admission; then the **full `admit_enumeration`**, after every stage return is admitted and the host-derived inventories exist, and before `derive_evaluation`. This places it, as M3C:896 asks J1 to. MH item 19 implements that placement unchanged (r5). | H; J2b |
 | J-θ | evaluation through `derive_evaluation` with I1-b2 (I1:406). The Plan's policy comes only from an `AdmittedPack` (X12r4:208). | I1; J2b |
 | J-ι | finalization (item 7): replay (X5, with X12d's Run-closure join), `prepare_commit`, `publish`, `finish` | X5; X3d; X7 |
-| J-κ | step 1, the render step: the projection of what step 0 holds, the **output decision point** (8.4), then the **final output section**: SOP2's finalization (SOP2:623-650), rendering of the decided envelope, and its output and flush (X7 item 4) | X7; SOP2; S18 |
+| J-κ | step 1, the render step: the projection of what step 0 holds, the **output decision point** (8.4), then the **final output section**: SOP2's finalization (SOP2:652-683), rendering of the decided envelope, and its output and flush (X7 item 4) | X7; SOP2; S18 |
 
 **5.3 Settlement (r2, J1-R2).**
 - Step outcomes are the closed set (WS:101-103).
@@ -387,21 +409,21 @@ The durable request runs this order. Each row ends with a typed value the next r
 - A required render failure dominates and keeps the runId (WS:236-238).
 - **When each step is terminal:**
   - **Step 0** is terminal when its attempt ends. For a durable attempt, that is when `finish` has returned; for an ephemeral one, when the evaluation result is held.
-  - **Step 1** is terminal only when its required work is done: projection, rendering and the output of the required envelope (X7:85; `finalization.rs:310-318`). It completes when `deliver_required` returns `Ok`. It fails when the renderer, the output or the flush fails.
-- **The settlement point** is the moment step 1 becomes terminal. The invocation is settled there, and not earlier (WS:224-228; OPP:337-338).
-- **The output decision point** (8.4) comes before settlement. It fixes which envelope is rendered: the decided class, or `interrupted` for a signal observed in D. It does not make step 1 terminal.
-- **The final output section, phase O,** runs from the decision point to the settlement point. A signal observed there is deferred: it is recorded with arrival phase O (8.2) and never changes the envelope already decided. This is a cancellation-deferral exception to WS's before-settle rule (WS:224-226), forced by the single required envelope (`bootstrap.rs:57-58`; L464:32).
-  - J1 does not claim the existing rule covers it. Successor **S18** reconciles it with the WS and OPP owners (item 13).
+  - **Step 1** is terminal only when its required work is done: projection, rendering and the output of the required envelope (X7:85; `finalization.rs:310-318`). It completes when `deliver_required` returns `Ok`. It fails when the renderer, the output or the flush fails. **(r5; S18 LD-4)** The exception is a step 1 that the output decision point cancels (row D). That step 1 is terminal at the decision point, but its termination output is still rendered and written in a final output section, and a renderer failure before any byte fails it.
+- **The settlement point (r5; S18 LD-4)** is the moment when every required step is terminal and the required output has returned (WS:227-228, as S18 states them). For a step 1 that completes or fails, that is the moment it becomes terminal. For a step 1 cancelled at the output decision point, it is later: the return of its termination output. The invocation is settled there, and not earlier (WS:224-228; OPP:337-338).
+- **The output decision point** (8.4) comes before settlement. It fixes which envelope is rendered: the decided class, or `interrupted` for a signal observed in D. It does not settle the invocation, even where it cancels step 1 (r5; S18 LD-4).
+- **The final output section, phase O,** runs from the decision point to the settlement point. A signal observed there is deferred: it is recorded with arrival phase O (8.2) and never changes the envelope already decided. This was a cancellation-deferral exception to WS's before-settle rule (WS:224-226), forced by the single required envelope (`bootstrap.rs:57-58`; L464:32).
+  - **(r5)** S18 is accepted and bound (product `5214350`), so the rule is now WS's own. WS:225's before-settle ends at the output decision point. The "Final output section" paragraph after WS:231 defers the signal. WS:227-228's after-settle begins at the settlement point. r4's "J1 does not claim the existing rule covers it" is withdrawn.
 - **One common rule, and one gate (r3, J1-R2-03).** The durable and ephemeral step lists share the same required render step (5.1), so the rule is the same for both:
   - **Before S18 is accepted,** no unit wires an output path that uses phase O. That means neither J3d's durable output nor J2c's ephemeral output. Every rule stands as WS:224-228 writes it. Authoring and testing the pure state models, and every part of J2c and J3d short of output wiring, may go ahead.
-  - **Once S18 is accepted,** both paths use the same phases: A (and D, only where a Run committed), the output decision point, O, then E (8.2). J2c and J3d are gated on S18 alike (item 14).
+  - **Once S18 is accepted,** both paths use the same phases: A (and D, only where a Run committed), the output decision point, O, then E (8.2). J2c and J3d are gated on S18 alike (item 14). **(r5)** S18 is now accepted: GROK2 accepted it at r2, and it is bound at product `5214350`.
 - Interruption follows item 8 (WS:224-231).
 
 **5.4 The choices M3-C hands J1.**
-- **(a) Candidate blob custody (M3C:115), lead decision.** Both modes capture into the invocation's private temporary custody. The durable commit publishes from the replay's retained evidence, through X3c item 4, at `prepare_commit` step 6 (`crates/storage/src/commit.rs:243-266`). Nothing is written to the store before the attempt row.
+- **(a) Candidate blob custody (M3C:137), lead decision.** Both modes capture into the invocation's private temporary custody. The durable commit publishes from the replay's retained evidence, through X3c item 4, at `prepare_commit` step 6 (`crates/storage/src/commit.rs:243-266`). Nothing is written to the store before the attempt row.
   - **Rejected:** capturing into `I/stores/S`'s CAS during analysis. That would mean store effects before attempt admission and before the publication reserve (X3D:128), orphans on every refusal or cancellation, and a contradiction of S-OP-8's placement, which assumes none (OPP §5.4).
-- **(b) The lease (M3C:188).** The writer lease is held from R11 through the commit (IE:1657-1658). The capture walk and discovery run under it, never under the fence (M3B:336).
-- **(c) The public projection of `SnapshotBound`, `DependencySetBound` and `DependencyAcquisitionBound`** (M3C:291, :557, :571). J1 adopts S-B: request-rejected 2, `REQUEST.UNSATISFIABLE`, detail `PROJECT.SCOPE_LIMIT`, subject `field:count>limit`, with no Plan and no Run (NE:3534; M3C:915). J's units that can reach these refusals are gated on S-B (M3C:1008).
+- **(b) The lease (M3C:210).** The writer lease is held from R11 through the commit (IE:1657-1658). The capture walk and discovery run under it, never under the fence (M3B:336).
+- **(c) The public projection of `SnapshotBound`, `DependencySetBound` and `DependencyAcquisitionBound`** (M3C:313, :599, :613). J1 adopts S-B: request-rejected 2, `REQUEST.UNSATISFIABLE`, detail `PROJECT.SCOPE_LIMIT`, subject `field:count>limit`, with no Plan and no Run (NE:3534; M3C:964). J's units that can reach these refusals are gated on S-B (M3C:1057).
 - **(d) Where the full `admit_enumeration` runs:** J-η.
 
 **5.5 Forbidden substitutes:**
@@ -438,12 +460,12 @@ The durable request runs this order. Each row ends with a typed value the next r
 | Join | Owner | Need | Lead recommendation |
 |---|---|---|---|
 | **E-1** | M3-B and X2 (successor S7b) | S3's selection and carrier captures with no installation fence, when I is positively absent. They produce no `ProjectRootAdmission` and grant no registry read, registration, marker or lease. | the same custody predicates on the ephemeral ledger. The fence protects I, and no I exists. |
-| **E-2** | M3-C (`snapshot2` takes `projectId` from X2, M3C:320) | the ProjectId of an unregistered root, or of a request with no I | a fresh per-invocation draw that is never persisted or compared. Such PlanIds are not comparable across invocations, and that is stated. |
-| **E-3** | M3-C item 7 (closure admission is TR-INDEX-verified by the trust owner, M3C:340-343) and X4T | what an ephemeral request admits with no admitted trust view (I absent, or F absent) | no manifest-admitted closure. Each capability it would serve is provider-unavailable: indeterminate 3, `COVERAGE.PROVIDER_UNAVAILABLE` with `COMPONENT.REQUIRED_CLOSURE_NOT_INSTALLED` (WS:1374; NE:3370), never silently dropped (BP:887). |
+| **E-2** | M3-C (`snapshot2` takes `projectId` from X2, M3C:342) | the ProjectId of an unregistered root, or of a request with no I | a fresh per-invocation draw that is never persisted or compared. Such PlanIds are not comparable across invocations, and that is stated. |
+| **E-3** | M3-C item 7 (closure admission is TR-INDEX-verified by the trust owner, M3C:362-365) and X4T | what an ephemeral request admits with no admitted trust view (I absent, or F absent) | no manifest-admitted closure. Each capability it would serve is provider-unavailable: indeterminate 3, `COVERAGE.PROVIDER_UNAVAILABLE` with `COMPONENT.REQUIRED_CLOSURE_NOT_INSTALLED` (WS:1374; NE:3370), never silently dropped (BP:887). |
 | **E-4** | X4T | F absent under an ephemeral read session | not a refusal: there is no trust view (E-3). Every other X4T refusal (authentication, floor, rollback, continuation) refuses on its own row (X4T:139-150). |
 
 - **Rejected:**
-  - **An ephemeral path that never opens I.** It ignores the user's layer 2 (M3B:91, "always") and can admit no closure at all (M3C:340-343). That makes it indeterminate on every machine.
+  - **An ephemeral path that never opens I.** It ignores the user's layer 2 (M3B:91, "always") and can admit no closure at all (M3C:362-365). That makes it indeterminate on every machine.
   - **Writing temporary custody inside I.** Forbidden by SL:1521.
 - **Forbidden substitutes:**
   - any write, lease, registration, bootstrap or creation by an ephemeral request;
@@ -455,7 +477,7 @@ The durable request runs this order. Each row ends with a typed value the next r
 
 - **Decision.**
   - **When the session opens.** It opens at R12, right after the handoff and before the capture session. There are two reasons:
-    - the attempt's ExecutionId must exist before any provider spawns (M3L:120, :377; WS:81), and X3d draws it at `open` (X3D:114; `commit_session.rs:322-345`);
+    - the attempt's ExecutionId must exist before any provider spawns (M3L items 2 and 13; WS:81), and X3d draws it at `open` (X3D:114; `commit_session.rs:322-345`);
     - IE:1657-1658 requires the writer to hold the lease through source admission, evaluation and commit.
 
     Opening early changes no security or storage code. X9's census already reaches `x3d.session.execution-draw` right after the handoff (X9:939).
@@ -473,7 +495,7 @@ The durable request runs this order. Each row ends with a typed value the next r
     4. `finish`, after which step 0 is terminal;
     5. step 1's projection of the committed Run, which is still cancellable (phase D);
     6. the output decision point (8.4);
-    7. the final output section (phase O): SOP2's finalization (SOP2:623-650), then rendering and output of the decided envelope (the delivery phase, X7 item 4);
+    7. the final output section (phase O): SOP2's finalization (SOP2:652-683), then rendering and output of the decided envelope (the delivery phase, X7 item 4);
     8. the settlement point, when the output returns (5.3).
 
     X7 item 7 stands: finalization charges nothing.
@@ -526,16 +548,42 @@ The operation's one `FinalGate` (X4:44, :115-116; `commit_authority.rs:26-48`) a
 
 **8.2 The five phases, and the final output section.**
 
-A phase is fixed by the operation's state when the host **observes** the signal: at once by the latch watcher in B and C, or at the main thread's next decision point in A and D. SOP2's `host.signal.received` record keeps the arrival phase (SOP2:815). Phase O (r2) lies between OPP's D and E. It is the deferral exception of 5.3, and it is not one of OPP's five. **(r3)** The table is the durable path's. An ephemeral request has A, which runs to the output decision point, then O and E, and never B, C or D (item 6). It uses O only once S18 is accepted (5.3).
+A phase is fixed by the operation's state when the host **observes** the signal: at once by the latch watcher in B and C, or at the main thread's next decision point in A and D. SOP2's `host.signal.received` record keeps the arrival phase (SOP2:871). Phase O (r2) lies between OPP's D and E. It is the deferral exception of 5.3, and it is not one of OPP's five. **(r3)** The table is the durable path's. An ephemeral request has A, which runs to the output decision point, then O and E, and never B, C or D (item 6). It uses O only once S18 is accepted (5.3).
 
 | Phase | Interval (code anchor) | What the signal does | Projection | Durable effect |
 |---|---|---|---|---|
-| **A.** Before attempt admission | From R0 until `prepare_commit` returns with the attempt row committed (X3D:130). It includes the durable entry, project admission, the whole analysis and replay. | It is cooperative. No new join starts. Providers get `cancel` (M3L:442-462). Native work already in flight completes, including the security entry's. With a session open, the host calls `refused()` and then `finish`. The cancellation latch is not used: `refused()` latches the gate as any refusal before admission does (X4:115), and with no reserve `finish` appends nothing (X3D:120). A signal seen during `prepare_commit`, when `prepare_commit` then returns the admitted attempt, is handled as B. | per 8.3: `interrupted` 130, `kind: failure`, `errors: []`, `termination {class, signal}` (ENV7:704-723), with no runId. A `CommitUndetermined` from the attempt row's own `COMMIT` takes rule 1. | Only what completed. An installation already created stays, and its notice is already on standard error. |
+| **A.** Before attempt admission | From R0 until `prepare_commit` returns with the attempt row committed (X3D:130). It includes the durable entry, project admission, the whole analysis and replay. | It is cooperative. No new join starts. Providers get `cancel` (M3L item 16). Native work already in flight completes, including the security entry's. With a session open, the host calls `refused()` and then `finish`. The cancellation latch is not used: `refused()` latches the gate as any refusal before admission does (X4:115), and with no reserve `finish` appends nothing (X3D:120). A signal seen during `prepare_commit`, when `prepare_commit` then returns the admitted attempt, is handled as B. | per 8.3: `interrupted` 130, `kind: failure`, `errors: []`, `termination {class, signal}` (ENV7:704-723), with no runId. A `CommitUndetermined` from the attempt row's own `COMMIT` takes rule 1. | Only what completed. An installation already created stays, and its notice is already on standard error. |
 | **B.** Attempt admitted, before FinalGate admission | From the committed attempt row until the compare-exchange at `publish` step 3.9 (`commit_session.rs:930`) | The latch takes the gate 0→2 and records `Operator`. The next checkpoint (3.2, 3.7 or 3.9) refuses: no permit, the staged transaction rolls back, and a durable SEAL stays history (F36, F38). `finish` appends `REV(operator)`, plus `CLN` if a SEAL exists, from the settlement reserve. | per 8.3: `interrupted` 130, as A, unless an uncertain journal commit or barrier came first, which takes rule 1. | The attempt row stays `admitted` until X6's sweep settles it `refused` (X6 item 7). Orphan objects remain. |
 | **C.** FinalGate admitted | From state 1 until `publish`'s sample (`commit_session.rs:953-954`) | The latch takes the gate 1→3. The evidence `COMMIT`'s own outcome stands (X3D:170; F39, F40). `finish` appends `REV(operator)` only after `Committed`, because an undetermined outcome forfeits the reserve (X3D:253-258). | per 8.3, matched on the outcome `publish` returned, never on the gate's state: **`CommitUndetermined`** is operational-failed 4, `DURABILITY.COMMIT_FAILED`, `durability-commit`, the ExecutionId as subject, the namespace disclosed, and no runId (X7:101, :120); **`Committed(PublishedCommit)` with `latchedAfterAdmission`** is X7's F39 row (X7:100): operational-failed 4, `DELIVERY.REQUIRED_FAILED`, `delivery-required`, detail `DELIVERY.RENDERER_FAILED_AFTER_COMMIT`, the runId, no delivery phase (SL:551-554). Neither is `interrupted`. | The Run is committed, or undetermined. |
 | **D.** Committed, not latched; step 1 cancellable | From `publish` returning `Committed` unlatched (the window is closed) until the output decision point. It includes `finish` and step 1's projection. | There is no latch. `finish` runs to completion. At the decision point, step 1 is `cancelled` and its projection is discarded. | `interrupted` 130 on `kind: run`, with `run.authority: authoritative`, the runId, and `termination {class: interrupted, signal, runId}` (WS:224-227; WFC:4720). This envelope is the invocation's termination output. It is rendered and written in its own final output section. | The Run is committed. No REV is owed for the signal. |
-| **O.** Final output section (r2; S18; durable and ephemeral alike, r3) | From the output decision point until the required output returns (5.3) | **Deferred.** It never changes the decided envelope. **"Recorded with arrival phase O" (r3, NB-01)** means three things: the host cancellation source classifies the signal as O in memory; SOP2's `host.signal.received` is attempted with the new `CancelPhase` member `O` (an ordinary registration, SOP2:205-208); and because O follows SOP2's freeze, that event is post-freeze loss (SOP2:663). No sink is reopened and the frozen diagnostics are unchanged. A second signal waits for an in-flight write, as for any native effect (OPP:341). **A renderer failure inside O, before any byte (r3, J1-R2-02),** replaces the decided envelope with the failure envelope, built through J2a's total projection (item 10), chosen by the committed evidence: <br>- **a `PublishedCommit` exists:** X7's F16 row (X7:99; WS:1376), operational-failed 4, `DELIVERY.REQUIRED_FAILED`, `delivery-required`, `DELIVERY.RENDERER_FAILED_AFTER_COMMIT`, keeping its runId; <br>- **no committed Run** (an ephemeral result, a refusal before the commit, a `CommitUndetermined`, an interrupt with no Run): WS:1377's row 44, operational-failed 4, `DELIVERY.REQUIRED_FAILED`, `delivery-required`, `DELIVERY.REQUIRED_PROJECTION_FAILED`, with no runId. <br>Either way, WS:233-240's aggregate decides the termination over both required steps. An uncertain step 0 keeps its ExecutionId and namespace disclosure (X7:101, :120), through WS:1409-1411's composition of a termination's `executionId`. No Run is manufactured. **A write failure after the first byte**, including one whose call cannot prove that no byte escaped, ends exit 4 with no replacement envelope (`bootstrap.rs:55-60`). If the failure envelope itself cannot be rendered, the invocation ends exit 4 with the one coded standard-error line, as `bootstrap.rs:42-47` does. | the decided envelope, or the failure envelope above; the exit follows it | as decided |
+| **O.** Final output section (r2; S18; durable and ephemeral alike, r3) | From the output decision point until the required output returns (5.3) | **Deferred.** It never changes the decided envelope. **"Recorded with arrival phase O" (r3, NB-01)** means three things: the host cancellation source classifies the signal as O in memory; SOP2's `host.signal.received` is attempted with the new `CancelPhase` member `O` (an ordinary registration, SOP2:226-230); and **(r5; J1-R3-NB-02; S18 LD-7)** that event's fate follows SOP2's finalization, which runs inside O (SOP2:652-683). Before the producer cutoff (step 1), the event is admitted. After the cutoff, its call commits `drain-abandoned`: the frozen summary counts it if the commit precedes the freeze's reads (step 4), and `in_flight_at_freeze` discloses it if it is still uncommitted at the freeze. After those reads, it reaches only the post-freeze tally, which no carrier reports (SOP2:682, :704). No sink is reopened and the frozen diagnostics are unchanged. A second signal waits for an in-flight write, as for any native effect (OPP:341). **A renderer failure inside O, before any byte (r3, J1-R2-02),** replaces the decided envelope with the failure envelope, built through J2a's total projection (item 10), chosen by the committed evidence: <br>- **a `PublishedCommit` exists:** X7's F16 row (X7:99; WS:1376), operational-failed 4, `DELIVERY.REQUIRED_FAILED`, `delivery-required`, `DELIVERY.RENDERER_FAILED_AFTER_COMMIT`, keeping its runId; <br>- **no committed Run** (an ephemeral result, a refusal before the commit, a `CommitUndetermined`, an interrupt with no Run): WS:1377's row 44, operational-failed 4, `DELIVERY.REQUIRED_FAILED`, `delivery-required`, `DELIVERY.REQUIRED_PROJECTION_FAILED`, with no runId. <br>Either way, WS:233-240's aggregate decides the termination over both required steps. **(r5; J1-R3-NB-01; S18 LD-6)** An uncertain step 0 keeps its termination, ExecutionId and namespace disclosure under its fault owners: X3d r8 items 6 and 9 (X3D:176, :283) and X7 r6 items 3 and 5 (X7:101, :120). It stays out of verdict and closed-Run composition (WS:1412-1413). Its ExecutionId and namespace stay disclosed whichever termination is primary, and they are never the render attempt's or a Run's. No Run is manufactured. **A write failure after the first byte**, including one whose call cannot prove that no byte escaped, ends exit 4 with no replacement envelope (`bootstrap.rs:55-60`). If the failure envelope itself cannot be rendered, the invocation ends exit 4 with the one coded standard-error line, as `bootstrap.rs:42-47` does. | the decided envelope, or the failure envelope above; the exit follows it | as decided |
 | **E.** Settled | After the settlement point (5.3) | Nothing is reclassified. The signal is recorded only. | The settled class stands (WS:227-228, WS:1393; WFC:4650). | none |
+
+**After a `publish` return that does not enter D (r5; lead decision LD-r5-1; S18 cross-law item 1e).** D begins only when `publish` returns `Committed` unlatched. The table gives no label to a signal observed after `publish` returns anything else and before the output decision point. Those returns are `Refused`, `CommitUndetermined`, and `Committed` with `latchedAfterAdmission`.
+- **Decision.** Such a signal takes the last phase the operation reached:
+  - **C** if FinalGate admission had succeeded;
+  - **B** otherwise.
+
+  The label comes from the state bits in the window close's own sample (8.1), which every `publish` return takes. State 1 or 3 gives C, and state 0 or 2 gives B. J3b carries that bit to the host cancellation source with the returned outcome. The bit is held in memory and adds no durability point.
+  - **`Refused`** is a stop before the permit is used (X3D items 4 and 6). After a successful admission the commit's own outcome stands instead (F39; X3D item 5). So a `Refused` return always takes B.
+  - **An uncertain journal commit or barrier** (`publish` steps 3.4 to 3.6) takes B.
+  - **An undetermined evidence `COMMIT`** takes C, and so does a **`Committed` that the latch sampled**.
+
+  The SOP2 record is `host.signal.received`, with that label as its `arrival_phase` (SOP2:871). No `CancelPhase` member is added.
+- **What the signal does.**
+  - The window is already closed, so a latch attempt returns `OutsideWindow` and changes nothing (8.1).
+  - `finish` runs to completion. Its REV follows 8.3's last paragraph: it takes the earlier cause's reason, and there is no REV where an undetermined outcome forfeited the reserve (X3D:253-258).
+  - The projection is 8.3's, by the returned outcome:
+    - rule 1 for any `CommitUndetermined` (row 38);
+    - rule 2 for a latched `Committed` (row 42);
+    - rule 4 for a `Refused` (row 46: `interrupted` 130, with no runId).
+  - The durable effect is whatever the return left.
+- **Scope.** This labels only the span after `publish` returns. `prepare_commit`'s error returns keep row A's reading, which r5 does not change.
+- **Rejected:**
+  - **D.** D is the phase of a committed, unlatched Run, which `interrupted` names by its runId (row 47). Labelling this span D would claim a Run that does not exist, or hide the latch.
+  - **A.** By its own words, row A ends when `prepare_commit` returns the admitted attempt. Here it has returned it, and `publish` has run.
+  - **A new `CancelPhase` member for the span.** It would be an ordinary registration (SOP2:226-230). But it would add a row to OPP §5.5's table, which is now S18's copy, for a span that B and C already handle. It would change no outcome.
+  - **No label.** `host.signal.received` requires an `arrival_phase` (SOP2:871).
 
 **8.3 Precedence (lead decision; r2, J1-R1).** For a signal observed before settlement, the rule matches the outcome X3d actually returned first. The gate's state 3 alone proves neither a commitment nor a RunId (X3D:170; X7:100-101; `commit_session.rs:939-958`, where an undetermined `COMMIT` builds no `PublishedCommit`). The first rule that applies decides:
 1. **Any `CommitUndetermined`**: from the attempt row's `COMMIT`, a journal commit or barrier, or the evidence `COMMIT`, whatever the gate's state. It takes the durability row, with the ExecutionId (IE:1680-1681; X3D:283; X7:101). The uncertainty must be recovered, and the empty-errors `interrupted` branch can carry no ExecutionId (ENV7:704-723).
@@ -547,23 +595,52 @@ A signal observed in phase O or E is not "before settlement" for the envelope: O
 
 End-path failures are disclosed beside the outcome and never rewrite it (X3D:289).
 
-When another stop came first (`AlreadyStopped`), or a certain refusal ended the attempt before the signal was observed, the REV takes that cause's reason (S6), and the projection still follows rules 1 to 4. WS's before-settle rule makes the aggregate `interrupted` (WS:224-226). The refused attempt's own row is kept in the operational record (SOP2:816), not in the envelope: the empty-errors `interrupted` branch admits no other member (ENV7:704-723, :790).
+When another stop came first (`AlreadyStopped`), or a certain refusal ended the attempt before the signal was observed, the REV takes that cause's reason (S6), and the projection still follows rules 1 to 4. WS's before-settle rule makes the aggregate `interrupted` (WS:224-226). The refused attempt's own row is kept in the operational record (SOP2:872), not in the envelope: the empty-errors `interrupted` branch admits no other member (ENV7:704-723, :790).
+
+**Rules 1 and 2 against WS:226 (r5; lead decision LD-r5-2; S18 cross-law item 1f, its LD-12).** WS §1's before-settle rule makes the aggregate `interrupted` (130) for every signal observed before settlement (WS:225-226, with WS:225 as S18 states it). Where X3d returned a `CommitUndetermined`, or a `Committed(PublishedCommit)` latched after admission, rules 1 and 2 give operational-failed 4 instead. Each of those two rows is a contract row in its own right:
+- IE:1680-1681 makes an undetermined commit "`durability-undetermined` to the caller, exit 4, with an ExecutionId for read-only recovery";
+- SL:551-554 says that for a state-3 attempt "the required delivery is reported failed through the existing `DELIVERY.REQUIRED_FAILED` path", and calls this "the **selected** law, not an open choice".
+
+No contract text orders these rows against WS:226. WS:233-240's aggregate order omits `interrupted`, and WS:226 sets `interrupted` outright. So the contracts conflict exactly where a signal meets one of these two outcomes.
+- **Decision.** Rules 1 and 2 stand. X3d's returned outcome is matched first, and for these two outcomes IE:1680-1681 and SL:551-554 govern over WS:226. J1 reads WS:226 as governing every other before-settle signal, under rules 3 and 4. WS's text does not say so, so a WS passage successor is owed: **S21** (item 13). S21 is to override WS:226 and WSE:226 to state the exception, adding no class, code or exit. Both lines are free in the lock at `5214350`. r5 records S21 and does not write it.
+- **Until S21 is accepted,** no wired path delivers, and no control or row asserts, a rule-1 or rule-2 termination for a signal. This mirrors phase O's wait for S18 (5.3). These wait for S21:
+  - J3d's durable signal wiring;
+  - J-C14's rule-1 and rule-2 signal cases;
+  - J-C15b's phase-C projections;
+  - X9 rows S12-C and S12-U.
+
+  These may go ahead:
+  - J2a's pure model;
+  - J3b's latch code and its other tests, J-C15b's latch and durable-effect assertions among them;
+  - rows S12-B and S12-D.
+
+  Rules 1 and 2 also cover an observer's latch, and an undetermined commit with no signal. X7 already routes both (X7:100-101), and no signal is involved, so neither waits.
+- **Rejected:**
+  - **Following WS:226 as written, which gives `interrupted` 130 under rules 1 and 2.**
+    - The empty-errors `interrupted` branch can carry no ExecutionId (ENV7:704-723). An undetermined commit would then lose the recovery disclosure that IE:1680-1681 requires.
+    - A latched committed Run would be reported as interrupted, where SL:551-554 selects `DELIVERY.REQUIRED_FAILED`.
+    - It would reopen J1-R1, which r2 closed.
+  - **Reading WS:226 as already subordinate to WS:233-240's aggregate,** so that an operational fault dominates `interrupted`. That order lists five classes, and `interrupted` is not one of them. S18's accepted LD-12 found that no successor amends WS:226.
+  - **Calling such a signal after-settle or final-output.** Step 0 is not terminal before `finish`, and the decision point has not been reached. That reading would falsify WS:225-228 as S18 states them.
+  - **Amending WS in this revision.** WS changes only through a reviewed contract successor, in S18's form, and r5 is a record revision.
+  - **No gate until S21.** Wired code would then deliver a termination that WS:226 forbids, on a reading not yet accepted. J1 gated phase O on S18 for the same reason (r3, J1-R2-03).
+  - **Gating J2a, or all of J3b.** Neither delivers a termination for a signal, and S18's gate likewise let the pure models proceed.
 
 **8.4 Phase D, the output decision point and phase O (OPP:337; lead decision, r2 J1-R2).**
 - **D takes WS's before-settle row,** `interrupted` with the runId. X7's F39 row is reserved for a `Committed` that `publish` sampled as latched (8.3, rule 2).
-- **The output decision point** is the single cancellation check after `finish` and step 1's projection. It comes before SOP2's finalization, because SOP2 finalizes once, "after the command's result is decided and before the required envelope is rendered or written" (SOP2:623). It decides which envelope the final output section renders. It does not make step 1 terminal (5.3).
+- **The output decision point** is the single cancellation check after `finish` and step 1's projection. It comes before SOP2's finalization, because SOP2 finalizes once, "after the command's result is decided and before the required envelope is rendered or written" (SOP2:652). It decides which envelope the final output section renders. It does not settle the invocation (5.3; r5, S18 LD-4).
 - **Phase O defers a signal.** The required envelope is one, and once its first byte is written no replacement may follow (`bootstrap.rs:57-58`; L464:32). The envelope also carries its own `exitCode` (ENV7 `exitCode`), so a signal that changed the class mid-section would contradict bytes already decided or written. O therefore records the signal and defers it.
-  - **This is an exception to WS:224-226's before-settle rule,** because step 1 is not terminal in O. J1 does not claim the existing rule covers it.
-  - **S18** reconciles the exception with the WS owner (WS §1's cancellation paragraph) and the OPP owner (OPP §5.5's phase table) as a passage successor. **Every** output path that uses O is gated on S18's acceptance, J2c's ephemeral output as well as J3d's durable output (r3, J1-R2-03). Until then, both units may land everything except their output wiring.
-  - **Its bound.** The section's length is SOP2's bounded finalization (SOP2:623-650) plus one rendering and one output. A blocked output has no elapsed bound (OPP:341), and that is stated, not hidden.
+  - **This was an exception to WS:224-226's before-settle rule,** because the invocation has not settled in O. **(r5)** S18 makes it WS's own rule (5.3).
+  - **S18** reconciles the exception with the WS owner (WS §1's cancellation paragraph) and the OPP owner (OPP §5.5's phase table) as a passage successor. **Every** output path that uses O is gated on S18's acceptance, J2c's ephemeral output as well as J3d's durable output (r3, J1-R2-03). Until then, both units may land everything except their output wiring. **(r5)** S18 is accepted and bound at product `5214350`, so this gate is met.
+  - **Its bound.** The section's length is SOP2's bounded finalization (SOP2:652-683) plus one rendering and one output. A blocked output has no elapsed bound (OPP:341), and that is stated, not hidden.
 - **Rejected:**
   - **X7's latched row for D.** It would report a delivery failure that did not happen. X7's F39 row means the commit observed a latch after admission (X7:100).
-  - **Treating the decision point as settlement (r1).** Step 1 is not terminal there, and a render failure can still follow (X7:85; `finalization.rs:310-318`).
-  - **Re-deciding after SOP2's finalization, or interrupting the envelope mid-write.** The first contradicts SOP2:623. The second tears the single required envelope or appends a replacement (`bootstrap.rs:57-58`).
+  - **Treating the decision point as settlement (r1).** Step 1 is not terminal there unless the signal cancels it, and a render failure can still follow, even of a termination output (X7:85; `finalization.rs:310-318`; r5, S18 LD-4).
+  - **Re-deciding after SOP2's finalization, or interrupting the envelope mid-write.** The first contradicts SOP2:652. The second tears the single required envelope or appends a replacement (`bootstrap.rs:57-58`).
   - **Leaving the output section under the before-settle rule.** A signal there would have to change an envelope whose class and `exitCode` are already decided, or be emitted as exit 130 beside a success envelope.
 
 **8.5 The second stage.**
-- A second signal, or the grace expiring, forces provider-tree kill (M3L:442-462; OPP §5.5). The grace is the protocol member that M3L item 16c reconciles (M3L:450-457), not OPP's provisional 2 s. This answers M3L's cross-law finding X3 (M3L:548) for S-OP-12.
+- A second signal, or the grace expiring, forces provider-tree kill (M3L item 16; OPP §5.5). The grace is the protocol member that M3L item 16c reconciles, not OPP's provisional 2 s. This answers M3L's cross-law finding X3 for S-OP-12.
 - Inside a native effect already in flight, the forced stage waits for it to return, with no elapsed bound (OPP:341):
   - in A, the security entry's native work;
   - in B, a journal commit, barrier or object write;
@@ -592,12 +669,13 @@ When another stop came first (`AlreadyStopped`), or a certain refusal ended the 
   - "`Committed(PublishedCommit)` with the latch → exit 4 with the runId";
   - "`CommitUndetermined` → exit 4 with the ExecutionId", including **a latch 1→3 followed by an undetermined evidence `COMMIT`**, which must never give F39 or a runId (8.3, rule 1; r2, J1-R1);
   - "a signal in D → exit 130 with the runId";
-  - "a signal in O → the decided envelope and its exit, with the signal recorded as O";
-  - "a renderer failure in O → the failure envelope chosen by committed evidence, with no byte of the decided envelope written" (J-C14b).
+  - "a signal in O → the decided envelope and its exit, with the signal recorded as O", at S18-T1's three points: before the producer cutoff, between the cutoff and the freeze, and after the freeze (r5; J1-R3-NB-02);
+  - "a renderer failure in O → the failure envelope chosen by committed evidence, with no byte of the decided envelope written" (J-C14b);
+  - (r5, LD-r5-1) a signal after each `publish` return that does not enter D. A checkpoint refusal is B, rule 4. An uncertain journal commit is B, rule 1. An undetermined evidence `COMMIT` is C, rule 1. An observer-latched `Committed` is C, rule 2. Each is classified by the close's sample. The rule-1 and rule-2 cases wait for S21 (8.3).
 - **J-C14b (r3, J1-R2-02).**
   - A durable `Committed` Run whose renderer fails before any byte gives F16, with the runId kept and `DELIVERY.RENDERER_FAILED_AFTER_COMMIT`.
   - An ephemeral result whose renderer fails before any byte gives `DELIVERY.REQUIRED_PROJECTION_FAILED`, with no runId, and so does the rendering of a pre-commit refusal.
-  - A `CommitUndetermined` whose failure envelope's renderer fails keeps the ExecutionId disclosure and has no runId.
+  - A `CommitUndetermined` whose failure envelope's renderer fails keeps the ExecutionId disclosure and has no runId. **(r5; S18-T2; J1-R3-NB-01)** The test asserts the analysis attempt's ExecutionId and namespace disclosure separately from the primary code and detail that WS:233-240's tie rule selects. It also asserts that the disclosed ExecutionId is not the render attempt's.
   - A write failure after the first byte gives exit 4 with no replacement envelope.
   - An unrenderable failure envelope gives exit 4 and the one coded line.
 - **J-C14c (r3, J1-R2-03).** The ephemeral path:
@@ -667,16 +745,16 @@ Every row uses an existing D9 class, error code, fault cause and detail. **No pu
 | 19 | Observer or monitor fail-stop, including a starved observer during a long analysis | operational-failed / 4 | `HOST.IO_FAILURE` / host-io | `OBSERVER.FAIL_STOP`, subject the stop reason | none | X4:121 |
 | 20 | Workspace-unit excess | request-rejected / 2 | `REQUEST.UNSATISFIABLE` | `PROJECT.WORKSPACE_UNIT_LIMIT` | none | NE:3533; M3B:370 |
 | 21 | Discovery or snapshot ledger exhausted | operational-failed / 4 | `SYSTEM.OUTCOME.ILLEGAL_STATE` / host-invariant | `WORK.BUDGET_EXHAUSTED` | none | M3B:340 |
-| 22 | Snapshot, dependency-set or acquisition bound; prospective-Plan bounds; selection arrays | request-rejected / 2 | `REQUEST.UNSATISFIABLE` | `PROJECT.SCOPE_LIMIT`, `field:count>limit` | none | 5.4c; NE:3534; M3C:915 |
+| 22 | Snapshot, dependency-set or acquisition bound; prospective-Plan bounds; selection arrays | request-rejected / 2 | `REQUEST.UNSATISFIABLE` | `PROJECT.SCOPE_LIMIT`, `field:count>limit` | none | 5.4c; NE:3534; M3C:964 |
 | 23 | Host I/O during capture or discovery | operational-failed / 4 | `HOST.IO_FAILURE` / host-io | — | none | OPP:293 |
 | 24 | Explicit root without a marker; root path invalid | request-rejected / 2 | `CONFIG.INVALID` | `native.explicit-root-without-marker` / `PROJECT.EXPLICIT_PATH_INVALID` | none | NE:3527 |
 | 25 | Discovery inventory mismatch; stale or non-inert import or prepared row | request-rejected / 2 | `REQUEST.PRECONDITION_FAILED` | `PROJECT.DISCOVERY_INVENTORY_MISMATCH` / `native.stale-*` | none | NE:3525, :3528 |
 | 26 | Capability request: invalid; contradictory; not selected | request-rejected / 2 | `CONFIG.INVALID`; per origin; `REQUEST.UNSATISFIABLE` | per NE's route registry | none | NE:3536-3539, :3569-3575 |
-| 27 | Required provider closure not installed, or not admissible (including ephemeral with no trust, E-3) | indeterminate / 3 | — | `COVERAGE.PROVIDER_UNAVAILABLE`; `COMPONENT.REQUIRED_CLOSURE_NOT_INSTALLED` | runId if committed | WS:1374; NE:3370 |
+| 27 | Required provider closure not installed, or not admitted by current trust (including ephemeral with no trust, E-3); never a trust-admitted excluded form, which is row 56 (r5, SD-5) | indeterminate / 3 | — | `COVERAGE.PROVIDER_UNAVAILABLE`; `COMPONENT.REQUIRED_CLOSURE_NOT_INSTALLED` | runId if committed | WS:1374; NE:3370 |
 | 28 | Installed closure bytes corrupt, or unspawnable | operational-failed / 4 | `HOST.IO_FAILURE` / host-io | `DELIVERY.CLOSURE_BYTES_CORRUPT` / `DELIVERY.CLOSURE_UNSPAWNABLE` | none | WS:1375 |
-| 29 | Plan just built fails `check_plan_pack`, or the structural enumeration admission | operational-failed / 4 | `SYSTEM.OUTCOME.ILLEGAL_STATE` / host-invariant | `HOST.INVARIANT_VIOLATED` | none | X12:144; M3C:836 |
+| 29 | Plan just built fails `check_plan_pack`, or the structural enumeration admission | operational-failed / 4 | `SYSTEM.OUTCOME.ILLEGAL_STATE` / host-invariant | `HOST.INVARIANT_VIOLATED` | none | X12:144; M3C:878 |
 | 30 | Worker fault: process fault, protocol violation, `ProviderFault`, crash, deadline, liveness, RSS breach | operational-failed / 4 | `PROVIDER.PROTOCOL_VIOLATION` / provider-protocol | absent; the key goes to the operational record | none: no facts, Coverage or Run | NE:3529, :3837-3843; NE:3224 |
-| 31 | Clean `Unavailable` or `BudgetExhausted` stage terminal; admitted incomplete inputs | indeterminate / 3 | — | the primary deficiency's route (NE:3364-3374) | runId (authoritative) or `authority: ephemeral` | NE:3844-3855 |
+| 31 | Clean `Unavailable` or `BudgetExhausted` stage terminal; admitted incomplete inputs | indeterminate / 3 | — | the primary deficiency's route (NE:3364-3374) | runId (authoritative) or `authority: ephemeral` | NE:3844-3855, with NE:3849-3850 as FA-1 states them (r5; MH item 4) |
 | 32 | Producer Coverage cause or carrier refusal; contradictory completeness | operational-failed / 4 | `PROVIDER.PROTOCOL_VIOLATION` / provider-protocol | absent | none | NE:3538, :3541 |
 | 33 | Evaluator work budget | indeterminate / 3 | — | `COVERAGE.BUDGET_EXHAUSTED`; detail `EVALUATION.WORK_BUDGET_EXHAUSTED` | runId (sealed) | OPP:284 |
 | 34 | Evaluation output bound | operational-failed / 4 | `OUTPUT.SERIALIZATION_FAILED` / output-serialization | `EVALUATION.OUTPUT_BOUND_EXCEEDED` | per that route (WPC:141, via OPP) | OPP:285 |
@@ -695,28 +773,41 @@ Every row uses an existing D9 class, error code, fault cause and detail. **No pu
 | 47 | Signal: phase D (before the output decision point) | interrupted / 130 | — | `signal` | runId | 8.2; WFC:4720 |
 | 48 | Signal: phase O (deferred, durable or ephemeral, only once S18 is accepted) or E; optional output failure | the decided or settled class | unchanged | unchanged | unchanged | 5.3; 8.4; WS:1393; X7:106 |
 | 49 | Host panic before or after FinalGate admission | operational-failed 4, host-invariant, where the termination layer is reachable after unwinding / nothing manufactured | `SYSTEM.OUTCOME.ILLEGAL_STATE` | — | none / unchanged | OPP:296-297; X3D:213 |
-| 50 | Observability loss (SOP2) | none, ever | — | counters only | — | OPP:298; SOP2:710 |
+| 50 | Observability loss (SOP2) | none, ever | — | counters only | — | OPP:298; SOP2:766 |
 | 51 | `--ephemeral` with an authority prerequisite (not reachable at M3) | request-rejected / 2 | `REQUEST.UNSATISFIABLE` | `WORKFLOW.EPHEMERAL_CANNOT_SUPPLY_AUTHORITY` | none | WS:246; CINV `analyze-ephemeral-required-authority` |
 | 52 | Native context or universe binding refused: a stdlib, rust-dev-llvm or tool closure that is unretained, recomputes to another identity or has the wrong kind; a suffix, component, `libSelection`, tool-member or compiler-version join that fails; a universe bound to a context this host did not mint, or to the other language's record. It is reached at J-ε (C2 contexts, M3C rows 10-13), before the PlanId, with no worker spawned. | request-rejected / 2 | `REQUEST.PRECONDITION_FAILED` / — | absent unless a registered `DomainDetailCode` names it. The `native.native-context-*`, `native.universe-context-binding-mismatch` or `native.native-context-language-mismatch` key goes to the operational record. | none | NE:3530; NE:3546-3555 |
 | 53 | Preparation bound exceeded. Reached only by native preparation (M5, BP:992), not at M3; recorded as not reachable. | operational-failed / 4 | `HOST.IO_FAILURE` / host-io | per NE's route registry; the key `native.prepare-bound-exceeded` goes to the operational record | none | NE:3531; NE:3546-3555 |
-| 54 | Ambient Cargo configuration in an ancestor, or an environment override, at the Rust context and adapter join (C3; M3C:674, C3-T9) | operational-failed / 4 | `HOST.IO_FAILURE` / host-io | per NE's route registry; the key `native.ambient-cargo-config` goes to the operational record | none | NE:3532; NE:3546-3555 |
+| 54 | Ambient Cargo configuration in an ancestor, or an environment override, at the Rust context and adapter join (C3; M3C:716, C3-T9) | operational-failed / 4 | `HOST.IO_FAILURE` / host-io | per NE's route registry; the key `native.ambient-cargo-config` goes to the operational record | none | NE:3532; NE:3546-3555 |
 | 55 | Invalid authenticated release declaration: a capability the matrix does not register, a mode outside the registered set, a `NOT-SELECTED` mode, a duplicate `capabilityId`, or a `preview-*` spelling. The origin is the authenticated release declaration (NE:3574), reached at B1's layer 1 (M3B:90), before any Plan, with no worker spawned. | request-rejected / 2 | `REQUEST.PRECONDITION_FAILED` / — | absent. The `native.release-capability-*` key goes to the operational record. | none | NE:3540, :3574 |
+| 56 | Component manifest that is a DR-117 excluded form at R10a or ER10a (EE-1, EE-3b, EE-4's manifest part, EE-5a), before any analysis-attempt ExecutionId | request-rejected / 2 | `EXTENSION.ADMISSION_REJECTED` | `PAYLOAD-NOT-ADMISSIBLE`, subject `excluded-form:<class>:<manifestDigest>`; every `ExcludedForm` in the operational record | none | NE §10 (SD-5); SL:1306; MD item 24 |
 
 - **Totality.** J2a's projection is an exhaustive match with no wildcard arm (X7 item 8). A detail with no row is a model error, never exit 0 (NE:3543).
-- **Control J-C20.** One test per row that M3 code can reach. Rows 41, 51 and 53 are skipped until their owners land, and the skip is recorded.
+- **(r5) Row 56 is S20 for R10a's and ER10a's route.** SD-5 adds it to NE §10 after NE:3540 (Grok ACCEPT-DESIGN-UNIT; bound at product `052d3cb`), and this row quotes it word for word. Every `ExcludedForm` that R10a or ER10a returns now has a row.
+- **(r5) M3-D item 25's request class is routed to M3-D r4 (SD-5's X-SD5-1).** `ExcludedForm` also arises at R1, in request validation, for EE-2, EE-4's request part and EE-6a (M3D item 25, M3D:748-763). R1's sentence on a malformed library request (item 4: a host-generated layer, `SYSTEM.OUTCOME.ILLEGAL_STATE`, NE:3573) does not route it. M3-D r4 decides that route. It has not yet done so, because arch holds no M3-D r4 at r5's drafting.
+  - **The row's shape is pending.** SD-5 recommends that a well-formed request asking for an excluded form, which is neither malformed nor a host bug, take M3D:758's route: request-rejected 2, `REQUEST.UNSATISFIABLE`, a detail chosen under SD-5 LD-S3's existing-code test, and no runId or executionId. R1's malformed-request sentence would keep its own scope.
+  - J1 adds no row until M3-D r4 decides. J1's next revision then records the row under S20.
+  - Until then, J2a's projection of item 25's `ExcludedForm` is incomplete.
+- **Control J-C20.** One test per row that M3 code can reach. Rows 41, 51 and 53 are skipped until their owners land, and the skip is recorded. **(r5; SD-5)** Row 56's test is D4-T1's public-route assertion. On paths 3a, 3b and ER10a, the envelope is row 56's, `errors` equals its one detail, and there is no runId or executionId.
 - **Control J-C20b (r2, J1-R6).**
   - At the C2 context boundary: each row 52 key refuses before the PlanId, with no worker spawned and its key in the operational record.
-  - At the Cargo adapter boundary: an ancestor `.cargo/config.toml`, and an environment override, refuse on row 54. This shares C3-T9's fixture (M3C:674).
+  - At the Cargo adapter boundary: an ancestor `.cargo/config.toml`, and an environment override, refuse on row 54. This shares C3-T9's fixture (M3C:716).
   - At the release boundary: a malformed declaration under the labelled synthetic signed release refuses on row 55, before any Plan.
 - **The internal keys.** Where no registered public detail names a condition, `domainDetail` is absent and the key goes to the operational record (NE:3546-3555). No public code is added.
+- **(r5) Pending SYN-1, in review with CODEX2 (`reviews/codex2-syn-1-r2`), not accepted.**
+  - **X-J1.** SYN-1's cross-law item X-J1 asks for two changes:
+    - row 52 gains the `native.syntax-*` keys of SYN-1's new NE route row after NE:3530, which take row 52's route at J-ε, before the PlanId;
+    - a new row, "Syntax backend fault": operational-failed 4, `SYSTEM.OUTCOME.ILLEGAL_STATE` / host-invariant, `HOST.INVARIANT_VIOLATED`, with subject `native.syntax-backend-fault:<grammarId>` and no runId.
+  - **O-1.** The native model also emits `native.native-context-closure-malformed:<where>` and `native.native-context-field-mismatch:<subject>`. Neither NE:3530 nor row 52 lists them.
+
+  No row changes until SYN-1 is accepted. J1's next revision records these then.
 
 ### 11. Re-commit and the resume writer: owned elsewhere (record of J's interface)
 
-M3P r6 assigns both M2 carry-ins outside J1: re-commit to X3c r8 and X3c-3 (P5-2), and the resume writer to the separate law J-RW and its code unit J4 (P5-1) (M3P:156-157, :236-237, :572-578). J1 decides neither. It records what the pipeline needs from each.
+M3P assigns both M2 carry-ins outside J1: re-commit to X3c r8 and X3c-3 (P5-2), and the resume writer to the separate law J-RW and its code unit J4 (P5-1) (M3P:204-205, :284-285, :756-763). J1 decides neither. It records what the pipeline needs from each.
 
 - **Re-commit (X3c r8, X3c-3).** Two analyses of an unchanged project produce the same RunId (IE:104-107). Today the second commit is refused at staging (EXIT:169-171; X3D:51-54). Daily use needs it.
-  - **What J needs.** The second commit of a byte-identical Run returns `Committed` with its own attempt row and receipt: "Duplicate retry can share a Run but has a separate attempt receipt" (IE:1683). It must not end on the invariant row.
-  - **Order.** X3c-3 lands before J3d (M3P:217).
+  - **What J needs.** The second commit of a byte-identical Run returns `Committed` with its own attempt row and receipt: "Duplicate retry can share a Run but has a separate attempt receipt" (IE:1683). It must not end on the invariant row. **(r5)** X3c r8 is accepted, and its items 6 and 6a give exactly this (X3C). A re-commit is a new attempt of the same Run, with its own attempt row, SEAL, receipt, association and Run-material row. It ends `Committed`, never on the invariant row, and stages no availability or pins.
+  - **Order.** X3c-3 lands before J3d (M3P:265).
   - **Control J-C21 (J3d's).** Two durable analyses of an unchanged scratch project both end `Committed`, with two receipts for one RunId. Recovery of either ExecutionId reports committed. X3c-3's own tests own the storage half.
 - **The resume writer (J-RW, J4).** The crash states M2 leaves permanently refused are listed at EXIT:186-191.
   - **J1's constraints on J-RW.** Any writer that resumes them is an X1 ordinary writer reached through item 3's durable entry, never the creator act. It adds no public code, class, exit or detail. It deletes no user data and adopts no foreign artifact (OWN:111-120).
@@ -730,7 +821,7 @@ M3P r6 assigns both M2 carry-ins outside J1: re-commit to X3c r8 and X3c-3 (P5-2
   - every WFC invocation case M3's step lists can express: WFC:3612, :3741, :4592, :4650 and :4720, plus `operational-fault-dominates-committed-policy-failure`;
   - the CINV goldens `default-first-use-durable` (CINV:1747), `analyze-renderer-failed-after-commit` (:1793), `interrupted-before-settle` (:2047) and `interrupted-after-settle` (:2055).
 - **The crash matrix rows J's code must keep passing.**
-  - **Both lead sets** (storage 381, host 98 required runs at C = `3d2d5b5`) are rerun on each integration commit of a J unit that touches `crates/security`, `crates/storage` or `host/src/finalization.rs`. The runs are serialized with every other lead set. The 5000 ms timing guard means no concurrent matrix run (M3P:421).
+  - **Both lead sets** (storage 381, host 98 required runs at C = `3d2d5b5`) are rerun on each integration commit of a J unit that touches `crates/security`, `crates/storage` or `host/src/finalization.rs`. The runs are serialized with every other lead set. The 5000 ms timing guard means no concurrent matrix run (M3P:567).
   - **The rows J's units touch:**
     - F00 (census, `x3d.session.execution-draw`);
     - F01 (host replay refusal, with the new `finalize` signature);
@@ -739,13 +830,13 @@ M3P r6 assigns both M2 carry-ins outside J1: re-commit to X3c r8 and X3c-3 (P5-2
     - F32 (the capacity rollover, host);
     - F34, F38 to F42, and F44.
   - **Each must keep its transcribed expected value** (X9:1089). A changed driver or expectation (F01, F12, F16, F17, F32, F39 and F40 host halves, because of item 7's signature) is re-transcribed by **S12** (X9 r17, record) **before** that unit's review, never read back from a run.
-- **New rows (S12).** Each is transcribed before any run:
+- **New rows (S12).** Each is transcribed before any run. **(r5)** S12-C and S12-U, which pin rules 2 and 1 for a signal, are transcribed only once S21 is accepted (8.3), as S12-O waits for S18:
   - **S12-B:** a hold at `x3d.publish.after-staging`; a signal through the support surface; the expectation is F38's with `REV(operator)` and the interrupted projection;
   - **S12-C:** a hold at `x3c.evidence.commit.before#1`; a signal; the expectation is F39's, with REV reason `operator`;
   - **S12-U:** S12-C with `fail-after` at `x3c.evidence.commit`; the expectation is F40's, never `interrupted`;
   - **S12-U (r2, J1-R1):** this is the row that pins 8.3's rule 1: a latch 1→3 followed by an undetermined evidence `COMMIT` gives the durability row, never F39 or a runId;
   - **S12-D (r2, J1-R2):** in a host run, a hold at `x3d.finish.end-step.after` (F15's point), which is after `finish` and before the output decision point, so a genuinely cancellable phase D point. Then a signal, then a resume. The expectation is `interrupted` with the runId, the Run committed (R1 CH), and no byte of a success envelope;
-  - **S12-O (r2, J1-R2; r3, NB-01):** a host hold at `x7.delivery.required.before`, which is inside the final output section, after the output decision point and SOP2's finalization. Then a signal, then a resume. The expectation is the decided envelope and its exit, the Run committed, and the signal **classified as O by the host cancellation source in memory**. No persisted log record is expected: the SOP2 event is post-freeze loss (SOP2:663). This row exercises S18's deferral, and it is transcribed only once S18 is accepted.
+  - **S12-O (r2, J1-R2; r3, NB-01):** a host hold at `x7.delivery.required.before`, which is inside the final output section, after the output decision point and SOP2's finalization. Then a signal, then a resume. The expectation is the decided envelope and its exit, the Run committed, and the signal **classified as O by the host cancellation source in memory**. No persisted log record is expected: the SOP2 event is post-freeze loss (SOP2:704), which is 8.2's post-freeze case (r5). This row exercises S18's deferral, and it is transcribed only once S18 is accepted.
 - **Census.** Item 7 adds no durability point. S-OP-12 adds none: it reuses `x4.gate.latch.after`, and its window bits are in memory. The ExecutionId reservation is in memory too (item 2). The REV reason `operator` adds one end-path body inside the existing reserve.
 
 ### 13. Successors
@@ -764,18 +855,19 @@ M3P r6 assigns both M2 carry-ins outside J1: re-commit to X3c r8 and X3c-3 (P5-2
 | S9 | X7 r7 | host | items 1, 3, 4 and 8 (items 7 and 8) | J3b |
 | S10 | X3d r9 | security, storage | 8.1 and 8.6, with the window closed only where a `StoppedSession` is produced (r3); the `refused()` record; item 2's reservation at `open` | J3a (item 2), J3b |
 | S11 | X4 r8 (amendment; r2, r3) | security | the cancellation latch as a gate source; the two window bits in the gate's word, preserved by every compare-exchange loop and never reset (8.1) | J3b |
-| S12 | X9 r17 (record and rows) | lead | re-transcribed host drivers; rows S12-B, -C, -U, -D and -O (-O after S18) | J3b, J3d |
+| S12 | X9 r17 (record and rows) | lead | re-transcribed host drivers; rows S12-B, -C, -U, -D and -O (-O after S18; r5: -C and -U after S21) | J3b, J3d |
 | S13 | J-BS (contract) | workflows/identity | item 9; after F8b's execution | J3d |
-| S14 | X3c r8 and X3c-3 (M3P P5-2, M3P:576-578) | storage | re-commit (item 11). J1 needs only its outcome. | J3d |
-| S14b | J-RW and J4 (M3P P5-1, M3P:572-575) | M3-J, with the X2, X3c and X4T owners | the resume writer (item 11), under J1's constraints | M3-X |
+| S14 | X3c r8 and X3c-3 (M3P P5-2, M3P:761-763) | storage | re-commit (item 11). J1 needs only its outcome. **(r5)** X3c r8 is accepted (X3C), and X3c-3 follows. | J3d |
+| S14b | J-RW and J4 (M3P P5-1, M3P:756-759) | M3-J, with the X2, X3c and X4T owners | the resume writer (item 11), under J1's constraints | M3-X |
 | S15 | S-OP-12 closed | OPP §9 | item 8 with S9 to S11. OPP's next revision cites it. | — |
 | S16 | S-B (M3-C) | native | the bounded projections (5.4c) | J units that reach them |
-| S17 | M3-PLAN's next revision (record) | lead | the J row and its units (item 14); "J1 fixes the order" done; M3-C's "J1 chooses" items answered | — |
-| S18 | **The final-output-section successor (r2, J1-R2):** a passage successor to WS §1's cancellation paragraph (WS:224-231) and to OPP §5.5's phase table (OPP:330-340) | the WS owner (product workflows) and the OPP owner (CLI and operability) | Step 1 is terminal when its required output returns. From the output decision point to that moment, a signal is classified as phase O and deferred: it never changes the decided envelope or its exit. The rule is the same for the durable and the ephemeral path (r3). A renderer failure there, before any byte, takes the failure envelope chosen by committed evidence: F16 with the runId when a `PublishedCommit` exists, otherwise WS:1377's no-Run row, both under WS:233-240 (r3). A write failure after the first byte ends exit 4 with no replacement envelope (5.3, 8.2, 8.4). `CancelPhase` gains `O` by SOP2's ordinary registration (SOP2:205-208). It adds no class, code or exit. | **every** output path that uses O: J2c's and J3d's output wiring (r3); S12-O |
-| S19 | **M3-C r7 (r4, SD-6):** item 16's row 8 narrowed | the M3-C author (lead) | Row 8's closure admission becomes a selection among the component manifests that R10a, or ER10a, admitted. It adds no admission of its own (M3D:719). The core role closures of M3C item 9 are not component manifests and are unchanged. | D4's integration (M3D's Units); J2b's closure selection |
-| S20 | **M3D's SD-5, for R10a's route (r4, record)** | lead (J1's author) | Item 10 rows, with existing codes only, for the internal refusals M3D assigns to J1's projection (M3D:1091), R10a's and ER10a's `ExcludedForm` among them (M3D:733). Until S20 lands, item 10 has no row for them, and J2a's projection of them is incomplete. | J2a's projection of those refusals; J3d's R10a wiring and J2c's ER10a wiring, each with D4 |
+| S17 | M3-PLAN's next revision (record) | lead | the J row and its units (item 14); "J1 fixes the order" done; M3-C's "J1 chooses" items answered. **(r5) Done:** M3P r7 to r9 record them (M3P:265, :619; M3P's "Cross-law items", row S17). | — |
+| S18 | **The final-output-section successor (r2, J1-R2):** a passage successor to WS §1's cancellation paragraph (WS:224-231) and to OPP §5.5's phase table (OPP:330-340). **(r5) Accepted** by GROK2 at r2 (ACCEPT-DESIGN-UNIT; `reviews/codex2-s18-r2`), and bound at product `5214350` | the WS owner (product workflows) and the OPP owner (CLI and operability) | Step 1 is terminal when its required output returns. From the output decision point to that moment, a signal is classified as phase O and deferred: it never changes the decided envelope or its exit. The rule is the same for the durable and the ephemeral path (r3). A renderer failure there, before any byte, takes the failure envelope chosen by committed evidence: F16 with the runId when a `PublishedCommit` exists, otherwise WS:1377's no-Run row, both under WS:233-240 (r3). A write failure after the first byte ends exit 4 with no replacement envelope (5.3, 8.2, 8.4). `CancelPhase` gains `O` by SOP2's ordinary registration (SOP2:226-230). It adds no class, code or exit. **(r5; S18 cross-law item 1g)** As accepted, S18 is ten line overrides: five on WS and the matching five on WS's selected effective copy WSE (WS:225, :227-228, :231, :1393; WSE:225, :229-230, :235, :1466). They include the after-settle pair (WS:227-228, WSE:229-230), which defines after-settle by the settlement point (S18 LD-4). With them comes a complete successor copy of OPP r3 with §5.5's row O (`s18/operability/PLAN.md`), selected by S18's record. | **every** output path that uses O: J2c's and J3d's output wiring (r3); S12-O. **(r5)** Met: S18 is bound. |
+| S19 | **M3-C r7 (r4, SD-6):** item 16's row 8 narrowed. **(r5) Accepted in review** by CODEX2 (M3C, `a1ee9386…`), and effective with M3-L | the M3-C author (lead) | Row 8's closure admission becomes a selection among the component manifests that R10a, or ER10a, admitted. It adds no admission of its own (M3D:719). The core role closures of M3C item 9 are not component manifests and are unchanged. | D4's integration (M3D's Units); J2b's closure selection. **(r5)** Met once M3-L is in effect. |
+| S20 | **M3D's SD-5, for R10a's route (r4, record)** | lead (J1's author) | Item 10 rows, with existing codes only, for the internal refusals M3D assigns to J1's projection (M3D:1091), R10a's and ER10a's `ExcludedForm` among them (M3D:733). Until S20 lands, item 10 has no row for them, and J2a's projection of them is incomplete. **(r5) R10a's and ER10a's route is bound.** SD-5 (Grok ACCEPT-DESIGN-UNIT, `reviews/grok-sd-5-r1`; product `052d3cb`) adds NE §10's row after NE:3540, and item 10 records it as row 56. **Still owed:** SD-5's other refusals, `MemoryBudgetBelowCeiling`, `ToolOutputBound`, `ToolScratchBound` and `confinement-refused`, which land with D1 to D5 (SD-5 LD-S6). M3-D item 25's request-class `ExcludedForm` at R1 is also owed; it is routed to M3-D r4 (X-SD5-1; item 10). | J2a's projection of those refusals; J3d's R10a wiring and J2c's ER10a wiring, each with D4. **(r5)** Met for R10a's and ER10a's refusal. J2a's projection of the rest still waits. |
+| S21 | **The commit-outcome exception to WS's before-settle rule (r5; LD-r5-2; S18 cross-law item 1f):** a passage successor to WS:226 and to WSE:226, the matching line of WS's selected effective copy | the WS owner (product workflows), with the X3D and X7 owners; the lead drafts it | A signal observed before settlement leaves the aggregate `interrupted` (130), except where the analysis attempt's commit outcome governs. An undetermined commit takes IE:1680-1681's durability termination with its ExecutionId. A commit latched after FinalGate admission takes SL:551-554's `DELIVERY.REQUIRED_FAILED` row. Each is operational-failed 4 (8.3, rules 1 and 2). It adds no class, code or exit, and leaves S18's lines (WS:225, :227-228, :231) as they are. | J3d's durable signal wiring; J-C14's rule-1 and rule-2 signal cases; J-C15b's phase-C projections; X9 rows S12-C and S12-U |
 
-Not successors: X12r4, whose first-use clause J1 implements unchanged; and S-OP-2, whose finalization point J1 places (SOP2:623).
+Not successors: X12r4, whose first-use clause J1 implements unchanged; and S-OP-2, whose finalization point J1 places (SOP2:652).
 
 ### 14. Units J2 to J4
 
@@ -784,31 +876,31 @@ Each unit is reviewed on its own. J4 is listed for its interface only; J-RW owns
 | Unit | Content | Depends on | Size |
 |---|---|---|---|
 | **J2a** | `host/src/invocation.rs`: the typed request, the step lists, the join state machine, settlement, the cancellation source and phase recording. `outcomes.rs`: NE §10's deficiency-to-D9 bridge, the route and origin tables (NE:3364-3374, :3523-3575), and item 10's total projection. Pure, with no I/O. Tests: the WFC cases and D9 goldens. | P0, J1 | M |
-| **J2b** | `host/src/analysis.rs`: the shared analysis core from the capture session through evaluation (J-δ to J-θ), on scratch projects with labelled synthetic closures. It is mode-agnostic and opens no installation. | J2a, and M3P's J2 set: H, C4a, C4c, X12d and its lead set, D3, CF-2, I1-b2, X4-F1 and X4-F2 (M3P:217, :309). Its provider stages also need O7 and D1's primitive (M3P:476). | L |
+| **J2b** | `host/src/analysis.rs`: the shared analysis core from the capture session through evaluation (J-δ to J-θ), on scratch projects with labelled synthetic closures. It is mode-agnostic and opens no installation. | J2a, and M3P's J2 set: H, C4a, C4c, X12d and its lead set, D3, CF-2, I1-b2, X4-F1 and X4-F2 (M3P:265, :451). Its provider stages also need O7 and D1's primitive (M3P:627). | L |
 | **J2c** | The ephemeral entry end to end (item 6). Its output wiring, and J-C14c's O and E cases, wait for S18 (r3, J1-R2-03). Everything else may land before. | J2b, S3, S7b; **S18** for output wiring | M |
 | **J3a** | Platform and security: `RequestIdentity` and `ExecutionIdReservations` (item 2); the durable entry, its probe, the two-slot attempt and `EntryRefusal` (item 3); the S2 to S7 code; `open`'s reservation (S10, item 2). Tests J-C2, J-C4, J-C4b and J-C5 to J-C9, with J-C6b. | J1, S2-S7, S10's item 2 | L |
-| **J3b** | X3d r9, X4 r8, X7 r7 and X5 r4 code: `take_cancellation_latch`, the window bits, `Operator`, the `refused()` uses, `finalize`'s new signature, step 1's terminality, the output decision point. S12's rows S12-B, -C, -U and -D. | J3a, S8-S12 | L |
-| **J3d** | The durable pipeline end to end, R0 to the settlement point; J-BS (S13); `workflow_tests.rs`; J-C10 to J-C21 and J-C20b. Its final output section, its output wiring and row S12-O wait for S18, as J2c's do. | J2b, **F2 and G3** (M3P:217, :309; r2, J1-R5), J3a, J3b, X3c-3 and its rows, **O1** for SOP2's finalization (M3P:221, :314; r2, J1-N2), S13, S16, S18 | L |
+| **J3b** | X3d r9, X4 r8, X7 r7 and X5 r4 code: `take_cancellation_latch`, the window bits, `Operator`, the `refused()` uses, `finalize`'s new signature, step 1's terminality, the output decision point. S12's rows S12-B, -C, -U and -D. **(r5)** S12-C and S12-U wait for S21 (8.3). J3b also carries the window close sample's admission bit to the host, for LD-r5-1's label (8.2). | J3a, S8-S12; **S21** for S12-C and S12-U (r5) | L |
+| **J3d** | The durable pipeline end to end, R0 to the settlement point; J-BS (S13); `workflow_tests.rs`; J-C10 to J-C21 and J-C20b. Its final output section, its output wiring and row S12-O wait for S18, as J2c's do. **(r5)** Its durable signal wiring, and J-C14's rule-1 and rule-2 signal cases, wait for S21 (8.3). | J2b, **F2 and G3** (M3P:265, :451; r2, J1-R5), J3a, J3b, X3c-3 and its rows, **O1** for SOP2's finalization (M3P:269, :457; r2, J1-N2), S13, S16, S18; **S21** for its durable signal wiring (r5) | L |
 | **J4** | J-RW's code unit (M3P P5-1), outside J1. It reaches the pipeline only through item 3's entry. | J-RW | L |
 
-**Critical path (r2, J1-R5).** M3P r6 sizes J2 → J3 at 3 + 3, finishing on days 25 and 28. J3 needs J2, F2, G3, X3c-3 and its rows; J4 needs J-RW, not J3 (M3P:309-311, :322, :572-578). Under this breakdown:
+**Critical path (r2, J1-R5).** M3P6 sizes J2 → J3 at 3 + 3, finishing on days 25 and 28. J3 needs J2, F2, G3, X3c-3 and its rows; J4 needs J-RW, not J3 (M3P6:309-311, :322, :572-578). Under this breakdown:
 - J2a, J3a and J3b run before or beside H, off the host chain.
 - The chain is H → J2b (3) → J3d (3) → M3-M, so the host-chain figure is unchanged **only if** all of these finish by J2b's last day, M3P's day 25:
   - F2 and G3, whose M3P finishes leave slack against J3;
   - J3a, J3b, X3c-3 and its rows, with their serialized lead sets;
-  - O1 and S18.
+  - O1, S18 and (r5) S21.
 
   If any of them is late, J3d waits for it, day for day, and the path runs through it. Their assumed early finish keeps the estimate, but it does not remove the dependency.
 - J4 follows J-RW, as M3P has it.
-- The whole-chain estimate stays M3P's conditional 33 days (M3P:320-322). Item 14 changes it only through the waits above, and S17 carries the unit names.
+- The whole-chain estimate stays M3P's conditional 33 days (M3P:465-467). Item 14 changes it only through the waits above, and S17 carries the unit names.
 
 ### 15. Record corrections (record only)
 
-- **M3P:217.** J's units are item 14's. M3P:468's "J1 fixes the order and identity rules" is done by items 2 to 4.
+- **M3P6:217.** J's units are item 14's. M3P6:468's "J1 fixes the order and identity rules" is done by items 2 to 4. **(r5)** M3P has applied both (M3P:265, :619; S17).
 - **X11:28's "The M3 unit replaces all four refusals at once"** reads per command (item 1; r2, J1-R7). `audit`'s refusal stays until M5.
 - **X11:78-80 (F0 after pack admission)** reads per item 3 under X12 r4.
 - **X7:11's "no CLI command is wired (X11 owns CLI enablement)"** now reads: J1 and the M4 CLI unit.
-- **The M3C items J1 was asked to choose:** M3C:115 → 5.4a; M3C:188 → 5.4b; M3C:291, :557, :571 → 5.4c; M3C:854 → J-η.
+- **The M3C items J1 was asked to choose:** M3C:137 → 5.4a; M3C:210 → 5.4b; M3C:313, :599, :613 → 5.4c; M3C:896 → J-η.
 
 ## Forbidden substitutes
 
@@ -825,6 +917,7 @@ Each unit is reviewed on its own. J4 is listed for its interface only; J-RW owns
 - (r3) F16, or a runId, for a renderer failure with no `PublishedCommit`; an uncertain step 0's ExecutionId dropped from the failure envelope.
 - (r3) Wiring any output path that uses phase O, durable or ephemeral, before S18 is accepted; requiring a persisted log record of an O signal after SOP2's freeze.
 - (r4) A manifest-class refusal (M3D item 24) after R11, R12 or the ephemeral attempt's start; an analysis-attempt ExecutionId drawn or reserved before R10a or ER10a returns; the creation prelude's ExecutionId bound to the analysis attempt.
+- (r5) Labelling a signal that follows a `publish` return that does not enter D as D, as A, or by a new `CancelPhase` member. A rule-1 or rule-2 termination delivered, or asserted by a control or row, for a signal before S21 is accepted, outside J2a's pure model. WS:226 amended outside a reviewed contract successor.
 - `audit`'s refusal replaced before its M5 comparison step exists (r2).
 - A `backupStatus` without `firstUse`, or `not-backed-up` from a missing detector.
 - An ephemeral write, lease, registration, bootstrap, creation, runId or authoritative label.
@@ -833,7 +926,7 @@ Each unit is reviewed on its own. J4 is listed for its interface only; J-RW owns
 
 ## Open questions
 
-**No owner decision blocks J1.** O7 gates provider launch (J-ζ; J2c), not this law (M3P:476).
+**No owner decision blocks J1.** O7 gates provider launch (J-ζ; J2c), not this law (M3P:627).
 
 **Flagged for the owner (non-blocking lead decisions the owner may reverse):**
 1. No CLI command at M3 (item 1). The owner's first daily use of `analyze` is M4, with signed releases.
@@ -841,6 +934,8 @@ Each unit is reviewed on its own. J4 is listed for its interface only; J-RW owns
 3. `--ephemeral` reads the installation when one is complete. With no installation, it is indeterminate for every closure-backed capability, with WS:1374's install remedy (item 6).
 4. M3 does not retry a busy durable attempt in-process (5.1).
 5. (r2) A signal that arrives while the required envelope is being finalized, rendered or written is deferred: it never changes the envelope or the exit (phase O, S18). The alternative would be exit 130 beside a success envelope that has already been decided.
+6. (r5, LD-r5-1) A signal can arrive after the commit has returned anything other than an unlatched `Committed`, and before the output decision point. It is labelled B or C, the last phase the operation reached. The label changes no outcome.
+7. (r5, LD-r5-2) Where a signal meets an undetermined commit, or a committed Run latched after admission, IE's and SL's exit-4 rows govern over WS's `interrupted` 130. WS gains that exception through successor S21. The wired signal paths that can produce those terminations wait for S21.
 
 **For the reviewer:**
 - **R1.** Is the presence probe (item 3, step 2) lawful against OWN §1a, §5 and §6, and against X1 item 1's purpose-typed receipts?
@@ -861,6 +956,7 @@ Each unit is reviewed on its own. J4 is listed for its interface only; J-RW owns
 - No confinement claim (O7, CF-1); no provider launch rule (D law).
 - No settlement of `admitted` attempt rows at M3. X6's sweep reaches them when `store-gc` lands (M5, BP:990), as in M2.
 - No elapsed bound on a second-signal wait inside a native effect, or on a blocked output in phase O (OPP:341).
-- No acceptance for S-OP-2: J1 places its finalization point (SOP2:623), and its r5 is still in progress.
+- **(r5)** S-OP-2 r6 is accepted (Codex). J1 places its finalization point (SOP2:652) and changes nothing in it.
+- **(r5)** No WS successor is written here: S21 is owed (8.3). No route is given for M3-D item 25's request class (X-SD5-1), and no SYN-1 row is added (item 10).
 - No change to the binary's bytes, to `doctor`, or to any accepted public code, class, exit or detail.
-- J1 was written from reading the product at `3e64266` and the laws named above. r2 rereads none of the product beyond the r1 citations and `commit_session.rs:939-958`.
+- J1 was written from reading the product at `3e64266` and the laws named above. r2 rereads none of the product beyond the r1 citations and `commit_session.rs:939-958`. **(r5)** r5 reads no product file. It only re-checks, at main `5214350`, that the files J1 cites are unchanged (see "Short names").
