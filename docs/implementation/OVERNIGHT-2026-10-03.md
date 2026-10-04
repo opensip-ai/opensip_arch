@@ -788,3 +788,9 @@ Times are local.
 - **Two lead rulings in E1 r5:**
   1. **Operation-budget exhaustion under T-native** reuses the existing `truncated:fuel` value. **Rejected:** a new value, which needs a contract successor and goes against the no-new-codes direction.
   2. **A8's admissible range** is proposed by E2b from its native T2a measurement and fixed in E1's next revision before E2b integrates.
+- **E1 r5: GROK2 raised three precise transcription findings.**
+  - **E-R5-1:** the perByte constant follows E0R:265's own derivation, not the base formula.
+  - **E-R5-2:** the receipt's compile-model fields weren't fixed by the ruling, so the three-field definition is dropped.
+  - **E-R5-3:** LD-NS8's closed list includes `ref mut x`, and also bounds declares extraction.
+
+  **Lead decision:** fix them as E1 r5 round 2, keeping the revision name, because the E2a records already cite "E1 r5". Round 1's bytes are snapshotted.
