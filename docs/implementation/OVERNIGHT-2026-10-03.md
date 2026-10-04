@@ -556,3 +556,8 @@ Times are local.
   - **Refusal route:** the existing `CONTINUE-CORE-NOT-TRUSTED` row, with subject `core:expired` or `core:stale-revocation`.
   - **X9:** no row moves. The code unit reruns 54 storage F00 rows by X4-F1's method.
   - **Record slip found:** X4T r11's live note said it was accepted on 2026-10-03; the correct date is 2026-10-01.
+- **SD-7 drafted but held (lead decision).** The only lawful form today is a complete 380 KB copy of NE, NE7, because NE:3540 already carries SD-5's override. NE7 would become the selected NE.
+  - **Why hold:** NE7's lines drift from the original from line 123, while every accepted law cites NE by original line. Every later NE successor would have to target NE7, which `verify_design` can't enforce. This is the third time tonight the no-second-override rule forced a copy, after B-S9 and CR-1's schema copy.
+  - **Decision:** draft **VD2**, a `verify_design` successor allowing explicit supersession of a bound contract successor's passage override (as VD1 did for inventory descriptions). Then **F8c** (generator re-pin, following F8b's template), then **SD-7 r2** as a clean one-line supersession.
+  - **Interim:** D r5's reading rule (SD-5's row is read through D's predicate) covers it; D4 is far off.
+  - **Rejected:** accepting NE7 now (citation drift and an unenforced hazard), and an erratum on another line (two class lists for one route).
