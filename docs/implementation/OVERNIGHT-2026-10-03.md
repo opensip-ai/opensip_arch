@@ -290,3 +290,13 @@ Times are local.
   - Coverage keys take row 30 or 32 by NE cause, with a tie rule;
   - a provider's terminal Coverage counts as provider-origin;
   - keys match by prefix token.
+- **FA-2 and M3-L r3 written.** FA-2 goes to Codex and L r3 to Grok.
+  - **FA-2's carrier** is the optional capability token `symbol-census-v1`. Under it, the existing Analyze and Complete payloads of TS2 and Rust3 each gain one member, `symbolCensus`. This stays within the current majors, as `target-attribution-v2` did.
+  - **Ordering:** the request key commits to the census rule (an empty-subject scope), and the terminal entry commits to the census values. Only NE:3279's "equals the requested key" gains an exception for symbol keys.
+  - **Also closed (F-1):** an inherited DLV/RPP request-key rule that conflicted with NE §4.1a for every key.
+  - **L r3:**
+    - item 13 lists every wire identity per protocol;
+    - new item 22 joins FA-2;
+    - new gate G10 makes FA-2 a condition of L taking effect;
+    - item 5 gains an exception for E1's syntax stage and H's inventory derivation.
+- **New finding, important for the owner's Rust use:** Rust3 caps a request's subject list at 256 files, and refuses before spawn above it. By the T2 manifest, 9 of the 22 Rust repositories exceed it, including tokio (808 files) and axum (301). A product Rust provider couldn't analyze them. It goes to the Rust protocol owner (L r3's X13/R12) as a limit successor, alongside SM-6's TS2 limit successor. **Lead recommendation:** raise or remove the cap in a Rust3 limit successor before G3 ships, measured by S-M.
