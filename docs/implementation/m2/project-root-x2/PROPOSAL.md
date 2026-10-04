@@ -1,6 +1,4 @@
-# Project-root custody, project admission and first registration — proposal X2 r9
-
-**r9 ACCEPTED by Grok on 2026-10-04** (`0d68e3a5…`). r9's bytes, without this note, are preserved in `PROPOSAL-r9.md`.
+# Project-root custody, project admission and first registration — proposal X2 r10
 
 2026-09-30. Claude Opus 5.5, implementation lead. Law for unit X2 of EXIT-PLAN.md, under owner.md §1b, §5, §7 and §8; the selected project registry owner (`project-registry-owner-selection-v2/owner.md`); the security contract S3 (discovery and custody), S7 (locks and leases) and S12; identity-and-evidence §2 and §5; and laws 458 (§3 and §5), 458b, 462, 465 item 4, 468 r5, 458c r6, 461 r3 (item 9, which requires this law) and X1. Every choice here is a lead decision, made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation; each is dated and names the alternative it rejects. r2 answers Codex X2 r1 RF-1 to RF-7 against product f7acb6d (X1a integrated). r1 bytes are preserved in PROPOSAL-r1.md. r3 answers Codex X2 r2 RF-1 to RF-4, and r2 bytes are preserved in PROPOSAL-r2.md. r4 answers Grok X2 r3 RF-1 to RF-3, and r3 bytes are preserved in PROPOSAL-r3.md. r5 answers Grok X2 r4 RF-1 (step 6 rechecks the current owners) and RF-2 (the floor step is ordered before item 7's lease, outside 7a). r4 bytes are preserved in PROPOSAL-r4.md. r5 was ACCEPTED by Grok on 2026-09-30. r6 is an amendment required by Grok X6 r1 RF-1: one narrow exception to item 7's fence rule for the read-only recovery selector. r5 bytes are preserved in PROPOSAL-r5.md. r6 was ACCEPTED by Grok on 2026-10-01. r7 is an amendment from implementing X2b-2: system Git configuration sources are refusal-only evidence, read without custody, because the custody rule refused every repository on a stock Mac. r6 bytes are preserved in PROPOSAL-r6.md. r8 answers Grok X2 r7 RF-1: item 1's no-follow premise admission governs only the Git evidence still in scope, and a system source is refused only as item 6a says, never for its location. r7 bytes are preserved in PROPOSAL-r7.md. r8 ACCEPTED by Grok on 2026-10-01. Not code. Library only: CLI enablement is X11.
 
@@ -90,6 +88,42 @@ Each refusal is tested with its subject.
 - **Line citations.** Citations of the form X2:NNN, in M3-B, in other laws and in r9's own text, are to r8's lines, preserved in PROPOSAL-r8.md. This file's lines move with r9's header.
 
 **Unchanged from r8:** everything else. That includes items 2 to 7a apart from the additions above; the registry capture, first registration, leases and the handoff; every forbidden substitute other than the r9 bullet; and "Not claimed". No new public code, row or detail.
+
+**r10 (2026-10-04) carries two successors that name X2 r10, made as lead decisions under the owner's standing direction of 2026-09-30.** r9 was ACCEPTED by Grok on 2026-10-04 (`0d68e3a5…`; `reviews/grok-project-root-x2-r9`). r9's bytes, without the acceptance note, are preserved in PROPOSAL-r9.md. **Draft r10, not accepted.** Drafted for Claude Opus 5.5, implementation lead, by a lead-dispatched drafting agent during the autonomous run. Not code.
+
+- **Where it comes from.**
+  - **J1 r5**, the accepted host-pipeline law, cited as J1 (`docs/implementation/m3/host-pipeline-j/PROPOSAL-r5.md`, sha256 `4ccb2320…`; accepted by Codex, `m3/reviews/codex-host-pipeline-j-r5`). Its successor row S7 reads "X2 r10 | security | item 6's creator branch withdrawn | J3a" (J1:852). J1 item 3 states it: "The branch 'or under the creator's `AdmittedInstallation` from 468c' (X2:202) is withdrawn, so first registration runs under an `OrdinaryWriteAdmission` only" (J1:287).
+  - **J-RW r4**, the accepted resume/repair writer law, cited as JRW (`docs/implementation/m3/resume-repair-jrw/PROPOSAL-r4.md`, sha256 `9c53bce7…`; accepted by Codex, `m3/reviews/codex-resume-repair-jrw-r4`). Its successor row RW-S1 gives this law item 4's join classification on the write gate only; new item 6c with its namespace-and-marker clause; item 8's "no new row"; and new wording for one forbidden substitute and for "Not claimed" (JRW:679). JRW item 3.4 is item 6c's content (JRW:346-371), and JRW item 2 gives its authorization (JRW:189-193). Cross-law item X-RW-5 also names item 6's leftover sentence (JRW:709).
+- **Line citations.** In J1 r5, in JRW and in r10's own text, X2:NNN and r9:NNN are r9's lines, preserved in PROPOSAL-r9.md. This file's lines move with r10's text. REG is the selected registry owner, `docs/implementation/m2/project-registry-owner-selection-v2/owner.md` (sha256 `2d4b65c9…`). Its record successor, registry owner selection v3 (JRW RW-S2), is reviewed beside r10, and r10 does not rely on its bytes.
+- **How it edits r9.** r9's sentences stay in place. Each change is marked "(r10, J1 S7)" or "(r10, JRW RW-S1)". The new item is 6c.
+- **No product code changes here.** The code is J1 unit J3a's for S7, and J-RW unit J4b's for RW-S1.
+  - **S7.** At product main `d2c00a9`, first registration has one entry, `register_on_gate`, on the write gate (`crates/security/src/custody/first_registration.rs:2183`). No creator entry exists, so S7 needs no code change, and J3a keeps it so (J1:881).
+  - **RW-S1.** J4b implements item 4's write-gate join and item 6c (JRW:663).
+
+**r10 changes.**
+
+| # | Change | Where | Source |
+|---|---|---|---|
+| 1 | **S7.** First registration runs under X1's `OrdinaryWriteAdmission` only. The creator branch is withdrawn. | item 6 (r9:202) | J1:287, :852 |
+| 2 | **RW-S1.** On the write gate only, item 4 decides item 6c's reservation join. Every other path keeps r9's classification and row. | item 4 (r9:184, :190) | JRW:346, :371, :663, :679 |
+| 3 | **RW-S1.** New item 6c, reservation completion, with its namespace-and-marker clause: a present marker of any form requires the complete namespace. | item 6c | JRW:189-193, :346-371, :679 |
+| 4 | **RW-S1.** Item 6's leftover sentence names item 6c. | item 6 (r9:256) | JRW:709 |
+| 5 | **RW-S1.** Item 8: no new row. Three subjects no longer arise on the write gate from a state that meets item 6c's join. | item 8 (r9:366) | JRW:505-506, :513, :679 |
+| 6 | **RW-S1.** The forbidden substitute "deleting or adopting a leftover reservation, namespace or marker" reads "deleting one; adopting one except through item 6c". | Forbidden substitutes (r9:421) | JRW:679 |
+| 7 | **RW-S1.** "Not claimed: explicit recovery" excludes item 6c. | Not claimed (r9:433) | JRW:679 |
+| 8 | **Units.** J3a for S7, and J4b for item 4's join and item 6c. | item 10 | J1:881; JRW:663 |
+
+**r10 lead decisions.** Each is made under the owner's standing direction of 2026-09-30, and each names the alternative it rejects.
+- **LD10-1. One revision carries S7 and RW-S1.** Both accepted laws name X2 r10 (J1:852; JRW:679, "shared with J1's S7"). They agree. J1 withdraws the creator branch, and JRW's writer is an X1 ordinary writer, never the creator act (JRW:174, :190). Each successor has its own rows in the table.
+  - **Rejected:** RW-S1 in a later revision. JRW names r10, so another number would need a record note in J-RW's next revision.
+- **LD10-2. In item 6c, the registry owner R is item 5's capture R0, and R0 plays R1's role.** The crashed process confirmed RESERVED, so this admission's one capture already holds the row (JRW:359). Item 6c publishes no RESERVED. Its ACTIVE replacement therefore reconfirms R0 as the predecessor, the role item 6 gives R1. The forbidden substitute "reconfirming R0 after RESERVED is confirmed" concerns a RESERVED that this admission published, so it does not apply.
+  - **Rejected:** publishing RESERVED again to get an R1, which rewrites the row and which item 6c forbids (JRW:368); and a second registry read before ACTIVE, which item 6 already rejects.
+- **LD10-3. No new classification.** On the write gate, a root that meets the join is RecoveryNeeded, and RecoveryNeeded then grants item 6c's completion. That includes a root whose marker is zero-length or a strict prefix, which r9 refuses before classification or classifies Contradiction (JRW:427-428).
+  - **Rejected:** a new classification value. Every reader of the classification would have to match it, and no reader would see anything new: off the write gate, the row is r9's.
+- **LD10-4. Item 6's leftover sentence is amended.** RW-S1's row lists items 4, 6c and 8, one forbidden substitute and "Not claimed". JRW's X-RW-5 also makes RW-S1 the change for item 6's "Each leftover is the registry owner's explicit-recovery case, which X2 does not implement" (X2:256; JRW:709). Left as written, that sentence would contradict item 6c.
+  - **Rejected:** leaving it for a later revision.
+
+**Unchanged from r9:** everything else. That includes items 1 to 3a, 5, 6a, 6b, 7, 7a and 9; item 6's steps, preconditions, replacement primitive and durable prefixes; every other forbidden substitute; and every other row. No new public code, class, exit, detail, subject or remedy.
 
 ## Problem
 
@@ -184,12 +218,18 @@ Without the premise, no project root can be admitted. Without an admitted root, 
    - **Eligible:** namespace admission (item 7);
    - **FirstUseCandidate:** item 6's registration, under the write gate only;
    - **RecoveryNeeded, OneSided, Contradiction:** nothing.
+   - **(r10, JRW RW-S1) Except RecoveryNeeded on the write gate,** when item 6c's join holds: item 6c's completion, and nothing else.
 
    It is never a write capability on its own. Read commands get only the classification and Eligible's namespace for read leases.
 
    **The native birth sampler.** It is the existing `RetainedDirectory::observe_birth` (`crates/platform/src/filesystem/directory_birth.rs`). X2 adds only its charged admission use: it is charged before it runs, and an unsupported or unreliable birth refuses, with no mtime or ctime substitute, as the registry owner says. There is no second native sampler. The sample is inert data until joined with the qualified premise and the root admission above.
 
-   **Tracking.** Every classification that grants anything (Eligible, and FirstUseCandidate) also requires item 6a's tracking observation to show the marker path untracked. Otherwise the admission refuses on item 8's tracking row and grants nothing.
+   **Tracking.** Every classification that grants anything (Eligible, and FirstUseCandidate) also requires item 6a's tracking observation to show the marker path untracked. Otherwise the admission refuses on item 8's tracking row and grants nothing. **(r10)** So does RecoveryNeeded when it grants item 6c's completion.
+
+   **The reservation join, on the write gate only (r10, JRW RW-S1).** Under the write gate, admission also decides item 6c's join, after item 5's one capture and whole-document validation and before any effect (JRW:346).
+   - **The marker observation.** For that decision only, it keeps a marker that satisfies item 6c's P-PREFIX against a relevant RESERVED row's marker frame, instead of refusing it at once. r9 refuses such a marker as `marker-custody` when its ACL is omitted (`project_admission.rs:602-603`), and classifies it Contradiction when it is private (`:616`, `:684-685`).
+   - **The outcome.** If the join holds, the root is RecoveryNeeded and gets item 6c's completion. If it does not hold, the admission ends on exactly r9's classification, row and subject.
+   - **Every other path** keeps r9's observation, classification and row, byte for byte: the 458c read session, `doctor`, the read-only recovery selector (item 7), the settlement sweep and the ephemeral entry (JRW:175, :371).
 
 5. **The registry read: X2 owns the first capture.** At f7acb6d, the write gate and the read session judge `project-registry.v2`'s custody without reading its bytes (`judge("project-registry.v2", None, …)`), and the retained `RequiredFile` keeps only a path and (device, inode). There is no retained capture to reuse, so X2 adds the producer:
    - **Order.** Item 2's placement check runs first. An outside-home or otherwise inadmissible root refuses before any registry content read.
@@ -201,7 +241,7 @@ Without the premise, no project root can be admitted. Without an admitted root, 
    - **One read per admission.** Later consumers in the same admission never read the registry again. They use the current registry owner R of item 6: R0, this capture, for classification and for an Eligible root; R1 and then R2 after a first registration (item 6, item 7 and the item 7a handoff).
    - **Owner.** X2b owns this producer and its budget.
 
-6. **First registration** follows the registry owner's ordinary first-use sequence exactly, under X1's `OrdinaryWriteAdmission` (f7acb6d), or under the creator's `AdmittedInstallation` from 468c, inside the same held fence. It needs a FirstUseCandidate (item 4) with item 6a's untracked observation.
+6. **First registration** follows the registry owner's ordinary first-use sequence exactly, under X1's `OrdinaryWriteAdmission` (f7acb6d) only, inside the same held fence. **(r10, J1 S7)** r9's branch "or under the creator's `AdmittedInstallation` from 468c" is withdrawn. On first use, registration runs on J1's attempt B, an ordinary writer, after the creator act has ended (J1:259-261, :287). It needs a FirstUseCandidate (item 4) with item 6a's untracked observation.
 
    **Preconditions before any effect.** All of these run first:
    - the registry owner's completed active-transition-recovery gate. Any active transition slot, including a terminal one not yet retired, refuses;
@@ -255,7 +295,7 @@ Without the premise, no project root can be admitted. Without an admitted root, 
    - **Before ACTIVE is confirmed:** R1 (RESERVED) is guaranteed, and ACTIVE may also be durable.
    - **After ACTIVE is confirmed (R2):** R2 is guaranteed.
 
-   Each leftover is the registry owner's explicit-recovery case, which X2 does not implement. Plain read admission never takes any of these barriers.
+   Each leftover is the registry owner's explicit-recovery case. **(r10, JRW RW-S1)** Item 6c implements that case for an `allocationKind: random` reservation whose state meets its join. X2 implements no other leftover's recovery. Plain read admission never takes any of these barriers.
 
 6a. **Tracking observation (both first use and eligible reuse).** This is a bounded, charged, custody-checked observation that does not depend on where S3's selection walk stopped. Lead decision: M2 supports one closed, conventional Git layout, and refuses every other layout on `vcs-unsupported` rather than modeling it.
    - **Finding repositories.** Walk the retained chain from the selected root upward to `/`. At each directory, look up `.git`, `.hg`, `.svn` and `.jj` no-follow.
@@ -327,6 +367,48 @@ Without the premise, no project root can be admitted. Without an admitted root, 
    - **Rows:** item 8's r9 subjects. When each applies, and when a failure excludes the member instead, is M3-B item 24's (see the r9 header).
    - **Owner:** M3-B's unit B3-b (item 10, r9). Its tests are the controls in the r9 header.
 
+6c. **Reservation completion (r10, JRW RW-S1; JRW item 3.4).** It completes an ordinary first registration that a crash interrupted after RESERVED. It runs under the write gate only, in place of item 6, when item 4's write-gate join holds. It is the registry owner's explicit reservation recovery for an `allocationKind: random` row (REG:72-76). Law J-RW is the operation owner that authorizes it (REG:9, :74; JRW:189-192).
+   - **Who and when.** An X1 ordinary writer, reached through J1 item 3's durable entry, inside the next admitted durable write request on the same root (JRW:165, :174). Never the creator act.
+     - **Never on a read path:** not the 458c read session, `doctor`, the read-only recovery selector (item 7), the sweep or the ephemeral entry (JRW:175).
+     - **Never in the process that crashed.** A failed or uncertain step still latches, with no later step and no retry (item 6; JRW:176).
+   - **Authorization (JRW LD-2).** The write gate's `OrdinaryWriteAdmission`, for a durable request on the same root, whose locator and incarnation agree with the row. That is the authorization class, on the same root, that created the reservation. Completion runs as its own classified step in a later operation, never as the constructor's fallback (REG:74). An adopt-kind row still needs REG:76's fresh adoption context, and refuses.
+   - **The join.** It is decided under the write gate, after item 5's one capture and whole-document validation (no early match), in full and before any effect: before any C-ACL, C-SUFFIX or namespace publication. All of these hold:
+     1. Exactly one relevant live row, by item 4's relevance rule (`project_admission.rs:688-704`). Its status is RESERVED and its `allocationKind` is `random`.
+     2. The row's locator (platform, path bytes) and incarnation (volume UUID, inode, birth) agree with the admitted root.
+     3. **The namespace and the marker, together.** Exactly one of these holds:
+        - **(a)** `I/host/projects/N` (N the row's `namespaceId`) is positively absent, **and** the marker is positively absent;
+        - **(b)** N is present with exactly item 6's complete footprint: a private directory holding exactly two empty private lease files (REG:70). The marker is absent, exact with the row's ProjectId, or a file that satisfies P-PREFIX against the row's marker frame.
+
+        Every other combination is not the join. **A present marker of any form, with N absent, is never the join:** exact, zero-length, a strict prefix, ACL-omitted or private (JRW N-R2, N-R9).
+        - Item 6 publishes and confirms the complete N in step 3, before step 5 creates the marker (r9:239-247). The product enforces that order (`first_registration.rs:2260-2293`).
+        - So under process death, a present marker implies a complete N. REG:76 already refuses the exact-marker case for that reason.
+     4. `I/host` and `I/host/projects` are each absent, private, or P-ACL.
+     5. Item 6's preconditions that a completion needs hold: the active-transition gate (`first_registration.rs:1310`), capacity for the ACTIVE document, item 6a's tracking observation (the marker path untracked), and the recheck set.
+   - **The predicates (JRW items 3.1 and 3.2).** Each is judged under the fence, through the owner's retained parent, no-follow, charged before it runs, and before any effect.
+     - **P-ACL.** All of these hold:
+       1. The object is at its fixed name, at the step that creates or admits that name, on its parent's filesystem.
+       2. It is owned by the invoking user. Its mode is exactly `0700` for a directory and `0600` for a file, and a file has one link.
+       3. Its ACL is omitted (`CapturedAclState::NotReturned`). A NOACL sentinel, an inconsistent capture or a present ACL is not omission. A present ACL is judged as it stands, as in r9.
+       4. A directory holds no entry but `.` and `..`, by one bounded scan. A file has length 0, or satisfies P-PREFIX.
+     - **P-PREFIX.** A regular file that meets P-ACL clauses 1 and 2, whose ACL is omitted or judged private, and whose bytes are a strict prefix (the empty prefix included) of the marker frame of the row's ProjectId (`first_registration.rs:860`). The read is bounded by the frame's length plus one.
+   - **Action.** Item 6's remaining steps, from the first incomplete one. R is item 5's capture R0, which already holds the RESERVED row (LD10-2).
+     - **Step 3, in case (a) only.** Parents are created or admitted as step 3 says, with C-ACL where P-ACL holds. Then N is published from positive absence through a fresh stage. In case (b), the complete N is admitted, and its own and `projects`' barriers are reconfirmed (REG:70).
+     - **Step 4.** `.opensip` is created or admitted.
+     - **Step 5.** The marker is created. Or, in case (b) only, it is completed in place: C-ACL first if its ACL is omitted, then C-SUFFIX. Or, when it is exact, its file barrier and `.opensip`'s and the root's barriers are reconfirmed.
+     - **Step 6.** Every current owner is rechecked: the root; the `.opensip`, marker and namespace owners, whether steps 3 to 5 published or admitted them; R0; the chain; and the tracking observation. Then RESERVED becomes ACTIVE through the replacement primitive, with a fresh temporary file, and R becomes R2.
+
+     Item 7's namespace admission and item 7a's handoff then follow, as after a fresh registration.
+   - **C-ACL and C-SUFFIX (JRW items 3.1 and 3.2).**
+     - **C-ACL** appends exactly one zero-rights owner allow and samples again, through the fresh path's own step (`prepare_fresh_private_sample`, `private_access.rs:120-126`). The new sample must judge private, or the object refuses on its r9 row; the allow stays. Then the step's remaining checks and barriers run unchanged. This is 465 item 5's rule, applied to `I/host`, `I/host/projects` and the marker.
+     - **C-SUFFIX** writes only the missing suffix, at an offset equal to the existing length. Then the file barrier (`F_FULLFSYNC`), `.opensip`'s directory barrier, and an exact-length capped read-back that must equal the frame, on the same device and inode. No existing byte is rewritten, so the marker only ever holds a prefix of its frame, or all of it.
+   - **What it never does.**
+     - It never deletes, truncates or renames an object away. It never adopts or touches an unpublished stage or a temporary file the crash left (REG:70; `first_registration.rs:1228`).
+     - It never moves, abandons or rewrites the row, except to its ACTIVE. It never converts a random row to an adopt row, or the reverse.
+     - It never changes a mode bit, and appends no ACE but the one zero-rights owner allow.
+     - It never acts on a present marker while N is absent, and it takes no effect before the join is decided.
+   - **Crash, budget and disclosure.** JRW item 6's rules govern a crash inside item 6c: each step only moves its object forward, so a run of crashes cannot cycle, and a step over a completed object is the ordinary admit path (JRW:468-484). Each step is charged to the gate's ledger before it runs, and reserves its post-effect confirmations, as item 6's steps do (item 9; JRW:514). It adds no code, row, subject or envelope member (item 8), and J1's `firstUse` stays false, because completion is not installation creation.
+   - **Owner.** J-RW's unit J4b (item 10, r10).
+
 7. **Namespace admission and leases.** **Ordering note (X3b r2 item 1).** Before this item takes any lease, with the fence held and no project lock, X3b's floor step runs once R is current (R0 for an Eligible root, R2 after a fresh registration). S7 writes trust state only under the fence and never under a lease. For `Eligible(N)`, or for a root this admission has just registered (R2), with N taken only from the ACTIVE row of the current registry owner R (R0 for an Eligible root; R2 after this admission's own first registration) and never from a caller, under the same held fence:
    - Confirm the namespace directory and both lease files under custody.
    - Take the S7 lease without blocking, starting from the existing `lifecycle::leases` two-lock implementation:
@@ -366,6 +448,7 @@ Without the premise, no project root can be admitted. Without an admitted root, 
    - **Config file custody:** `CONFIG.CUSTODY_REFUSED`.
    - **An explicit-path grammar or join problem:** `PROJECT.EXPLICIT_PATH_INVALID`, as S3 says.
    - **One-sided, contradiction or recovery-needed identity:** `PROJECT.ROOT_CUSTODY_REFUSED`, with subject `identity-recovery-required` or `identity-contradiction`.
+     - **(r10, JRW RW-S1) No new row.** On the write gate, `identity-recovery-required`, `marker-custody` and `identity-contradiction` no longer arise from a state that meets item 6c's join (JRW RW-R1 to RW-R7). Every state outside the join keeps its r9 row and subject (JRW N-R1 to N-R9), and every other path keeps r9's rows byte for byte (JRW:505-506, :513).
      - The identity contract calls these admission refusals that require explicit recovery or adoption, and no identity detail exists.
      - Alternative rejected: a new code, which the owner's no-new-codes rule forbids.
    - **A tracked marker, or an unsupported or unreadable VCS, on first use or eligible reuse (item 6a):** `PROJECT.ROOT_CUSTODY_REFUSED`, with subject `marker-tracked` or `vcs-unsupported`.
@@ -398,6 +481,7 @@ Without the premise, no project root can be admitted. Without an admitted root, 
     - **X2e:** the checked operation handoff (item 7a). It depends on X2d and X3a-1, and X3a's store binding and X3b depend on it.
     - **Unit discovery** (S3's workspace units, markers, pruning and the 4096 cap) belongs to M3's analysis owner. Item 1's scope already covers its custody-checked objects. **r9:** item 1 now names them.
     - **(r9)** M3-B's unit B1-b owns item 3a, and its unit B3-b owns item 6b.
+    - **(r10)** J1's unit J3a owns item 6's single admission (S7; J1:881), which needs no code change at `d2c00a9`. J-RW's unit J4b owns item 4's write-gate join and item 6c, with JRW's controls RW-C1 to RW-C4, RW-C8 and RW-C16 for them (JRW:663). Their X9 rows are J-RW's section of X9 r17 (JRW item 10).
 
 ## Forbidden substitutes
 
@@ -420,7 +504,7 @@ Without the premise, no project root can be admitted. Without an admitted root, 
 - changing the retained registry owner except through a confirmed publication;
 - a no-replace publication of the existing registry name, or a registry replacement published before its file barrier;
 - first registration over a tracked or unreadable marker;
-- deleting or adopting a leftover reservation, namespace or marker;
+- deleting a leftover reservation, namespace or marker; adopting one except through item 6c (r10, JRW RW-S1);
 - a new public code;
 - **(r9) D15 members:** every forbidden substitute above applies to members. In addition:
   - item 6b without the "no repository" precondition;
@@ -432,7 +516,7 @@ Without the premise, no project root can be admitted. Without an admitted root, 
 
 - CLI enablement;
 - unit discovery;
-- explicit recovery, adoption, move, fork and retirement;
+- explicit recovery, except item 6c's completion of a random-kind reservation (r10, JRW RW-S1); adoption, move, fork and retirement;
 - project roots outside H or on other volumes;
 - Linux;
 - any qualified measured row for this macOS 27 host. It stays BASELINE-ATTESTED, so real project admission here refuses, and tests use synthetic signed profiles.

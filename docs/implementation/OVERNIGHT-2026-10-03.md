@@ -704,3 +704,11 @@ Times are local.
     - leaving E2 out of the union.
   - **Caveat:** the numbers are predictions. §RC tells X3c-3 to stop if its census-only run differs.
 - **J1's successors S2–S6 accepted by Codex:** 468 r6, X1 r2, 464 r3, X3a r6 and X4B r6, each with no findings and no observations. J3a's law prerequisites are now S2–S6 (met), S10 (X3d r9, met) and S7 (X2 r10, being drafted with J-RW's RW-S1).
+- **J-RW's successors written and sent to CODEX2** as one batch:
+  - **X2 r10:** RW-S1 plus J1's S7, under LD10-1 to LD10-4;
+  - **REG v3:** a registry-owner-selection design unit, appending to four `owner.md` lines. It needs ACCEPT-DESIGN-UNIT and its own review.json, and stays untracked until accepted;
+  - **X3c r9:** RW-S3 plus X3c r8's CL-4;
+  - **X3b r11:** RW-S4;
+  - **X4T r13:** RW-S5's X4T part, now pinning the accepted X4B r6.
+
+  **Still owed:** J1's S7b, an M3-B and X2 successor that gates J2c, and RW-S6, X9 r17's §RW round.
