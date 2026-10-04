@@ -521,3 +521,7 @@ Times are local.
 - **Started:**
   - **X3a-2 implementation**, the read-side adoption of the selected endpoint (X3a r5 items 4 and 8). It is needed before C1a by day 10, with a possible inventory candidate v136, and goes to Grok.
   - **X4-F2 law draft**, closing the expiry gap in the fenced read (X4T r12). It goes to GROK2.
+- **M3-D r5 written and sent to Grok.**
+  - **RF-1:** case (a) is enforced by D4's own EE-5a check until C2a lands CR-1's schema (RJ-6). D4 ships with that check and doesn't rely on C2a. (b) and (c) stay with the security owner, with D4 as the backstop.
+  - **NBO-1:** Grok's NE:3577-3579 wording is applied.
+  - **NBO-2:** rows 56 and 57 are "owed via J1's next revision".
