@@ -659,3 +659,8 @@ Times are local.
   - **Lead decision:** build lanes are serialized through one lock directory. Inventory successors are taken in order: J2a v137, then E2a v138 on top of it.
   - **Rejected:** running them one after the other, which wastes the night's capacity, and unserialized lanes, which have caused timing flakes before (F3–F6).
   - **Next:** units that don't wait for L (O1, E2s, I1-b1, X4T-c), then J3a once its successors are in. B1-a and the rest of the host chain need L in effect, which waits on the owner (B1, B3).
+- **Drafting started:**
+  - **J1's successors S2–S6** (L468, X1, L464, X3A, X4B), as one batch request for Codex. These are J3a's law prerequisites. S7 (X2 r10) waits for J-RW, whose RW-S1 shares it.
+  - **X9 r17's RC section,** for Grok, which X3c-3 needs before its code. **Lead decision:** X9 r17 is accepted section by section. §RC goes now, while §S12 (J1) and §RW (J-RW) are reserved headings filled in later rounds of the same r17. **Rejected:**
+    - r17, r18 and r19 as separate revisions, which would make the "X9 r17" citations in four laws stale;
+    - waiting for all three sections, which blocks X3c-3 on J-RW and J3b.
