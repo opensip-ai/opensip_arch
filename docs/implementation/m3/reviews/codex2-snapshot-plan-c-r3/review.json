@@ -1,0 +1,115 @@
+{
+  "reviewer": "CODEX2",
+  "review": "M3-C r3 law and contract soundness",
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectSha256": "2e455c70ce318a12a3abe6caefebd15609d66615628c5d4d219e30a8a530aeb7",
+  "subjectBytes": 127963,
+  "subjectPath": "docs/implementation/m3/snapshot-plan-c/PROPOSAL.md",
+  "reviewedSubjectCopy": "/tmp/opensip-implementation/reviews/codex2-snapshot-plan-c-r3/subject-r3-pinned.md",
+  "productCommit": "30c5db1c1d2410135c5579f3a01ba6d152328bfb",
+  "requiredFindings": [
+    {
+      "id": "C3-R1",
+      "location": "docs/implementation/m3/snapshot-plan-c/PROPOSAL.md:103-110,117,129-134,726",
+      "problem": "The opensip.json digest join only compares a carrier read by the walk. It does not require the operationally captured carrier to have a matching row at sealing or specify agreement with an absent-carrier observation, so disappearance before the walk escapes the stated join.",
+      "evidence": [
+        "M3-B item 2 makes the project carrier optional: absent is no layer. Item 5 records its exact digest when present.",
+        "PROPOSAL.md:110 keeps B1's carrier bytes outside the capture session; the session's leftover-capture rule at :117 cannot account for this operational capture.",
+        "Counterexample: X2 captures/rechecks an opensip.json selecting policy/budget under the fence; after handoff the file is removed before root enumeration. The walk reads no carrier, so :103's digest comparison does not run, while B1's resolved configuration remains available for binding.",
+        "C1-T25 at :132 specifies a rewrite control, not present-to-absent or absent-to-present. X2's admission recheck does not specify a later C1 sealing join."
+      ],
+      "fix": "Retain observed carrier presence with an optional digest, with no raw-byte handoff or MarkerObservation change. At sealing require a present carrier to have exactly one inventory row of the captured digest and require stable absence for the absent case. Refuse presence changes, content changes or exclusion of a required present carrier as SnapshotCarrierChanged, without retry; state ignorePaths interaction. Add disappearance, creation and stable-absence controls."
+    },
+    {
+      "id": "C3-R2",
+      "location": "docs/implementation/m3/snapshot-plan-c/PROPOSAL.md:484-490,497-518,556-561",
+      "problem": "Logical protocol counts are applied during decoding before activation and final package admission establish the actual dependency-set population. Inactive or subsequently rejected candidates can therefore trigger a whole-import DependencySetBound although the admitted set is within every protocol bound.",
+      "evidence": [
+        "native_evidence_model.v2.py:1832-1845 iterates activated packages, skips path packages and selects supplied rows; :1870-1883 builds the admitted descriptor and fileCount/totalBytes from that population.",
+        "PROPOSAL.md:515-518 orders materialization of every supplied package before Cargo computes activation and before activated-set admission, while :490 stops decoding and refuses on a protocol-counter crossing.",
+        "An in-profile activated package containing one byte plus an in-profile inactive supplied package containing 8 GiB yields 8 GiB+1 over supplied candidates but only one byte in the admitted set. arithmetic_checks.json records this without constructing any archive.",
+        "An archive rejected by a late gzip-trailer or tar-profile check has no admitted package under :500-506. Its provisional content must not remain in final admitted-set totals or replace the missing/undecodable disposition with an unsupported set overflow."
+      ],
+      "fix": "Keep provisional acquisition/decoder accounting separate from protocol totals. Commit logical counts only for successfully admitted packages in the activated, non-path set population, and enforce protocol bounds before publishing its descriptor/transport. Any early protocol refusal must prove overflow of that population. Give any independent pre-activation resource cap its own owner, quantity and disposition. Add inactive in-profile excess and late outside-profile rejection controls."
+    }
+  ],
+  "nonBlockingObservations": [
+    {
+      "id": "C3-N1",
+      "location": "docs/implementation/m3/snapshot-plan-c/PROPOSAL.md:139-144,252",
+      "observation": "The claimed 2^33-byte allowance for 8 GiB plus metadata has zero room beyond 8 GiB, and WorkCost.bytes measures charged storage rather than only payload. Existing bounded-reader growth and native metadata/capture buffers require separate pricing. This is not a proof that a streaming C1 implementation must exhaust the proposed cap.",
+      "evidence": [
+        "At product 30c5db1, work_reader.rs:26-54,158-172 charges cumulative buffer growth; a 4 MiB bounded read has 12578817 growth bytes.",
+        "filesystem/path_binding.rs:117-126 and descriptor_acl_capture.rs:111-124 charge metadata and capture storage independently.",
+        "arithmetic_checks.json records both the equal-cap arithmetic and the reader-growth illustration; no product reader ran."
+      ],
+      "suggestion": "Specify the snapshot owner's cost recipe and derive its cap from charged buffers, copies and metadata. Extend byte evidence alongside the object/edge census and C1-T20; do not use the payload bound as the complete ledger-cost derivation."
+    },
+    {
+      "id": "C3-N2",
+      "location": "docs/implementation/m3/snapshot-plan-c/PROPOSAL.md:494,554,559,1058",
+      "observation": "D3's full-sized stored-block ratio is not universal DEFLATE behavior; establish its producer margin from R6's pinned compressor/configuration. The 16386-byte L example violates D2 while retaining the same 16896 padded bytes, so it does not by itself cross D1. The old unqualified decompression-bound set refusal also needs updating. No legitimate Cargo D3 counterexample was established.",
+      "evidence": [
+        "RFC 1951 sections 2 and 3.2.4 permit arbitrary block sizes and define stored-block LEN/NLEN; blocks need not contain 65535 bytes.",
+        "arithmetic_checks.json computes identical block-padded lengths for payloads of 16385 and 16386 bytes."
+      ],
+      "suggestion": "Include the pinned compressor and streaming-prefix margin in C3a/R6 evidence, give D1 a distinct boundary-crossing control, and qualify C3-T6 so a decoder breach keeps its archive-profile disposition.",
+      "sourceUrl": "https://www.rfc-editor.org/rfc/rfc1951"
+    },
+    {
+      "id": "C3-N3",
+      "location": "docs/implementation/m3/snapshot-plan-c/PROPOSAL.md:118,123,126,134",
+      "observation": "The capture origin must be operational side metadata, not an added member of a closed source-inventory Blob. Older project-byte/read-site wording is broader than the newly defined source-only boundary.",
+      "suggestion": "Keep identity inventory rows exactly {path,sha256,bytes}; retain/test origin separately. Narrow the old read prohibition and read-site control to source reads so permitted X2/VCS operational reads and rechecks remain explicit."
+    }
+  ],
+  "priorReviewDisposition": {
+    "C2-R1": "Resolved: inventory-free structural admission before execution; full actual inventory admission before evaluation with origin-sensitive routing and replay re-admission.",
+    "C2-R2": "Principal boundary resolved: operational marker/carriers/Git/rechecks, exact SX-1 anchors, post-fence source capture; carrier presence gap remains C3-R1.",
+    "C2-R3": "Logical units and decoder versus protocol disposition resolved; actual admitted-set population and counter timing remain C3-R2.",
+    "C2-N1": "Resolved: counterfactual gives 30/30 and narrowed F/G interface edges are explicit plan changes.",
+    "C2-N2": "Resolved as C3a evidence obligations: pinned sources, positive-fixture provenance and UTF-8 truncation boundary.",
+    "C-R3": "Prior exact six-member observation preimage is unchanged.",
+    "C-R4": "Conditional baseline schedules remain 29/28; accepted B unit durations give b=10 and variant B=33."
+  },
+  "scopeDecisions": {
+    "enumerationStructuralSubset": "Sound; appropriate C4-T19 specification, not an executed control.",
+    "operationalSourceBoundary": "Sound subject to C3-R1 and wording observations; no raw X2 capture transfer is needed.",
+    "decoderCounters": "D1 arithmetic checks; D2/D4 are explicit profile limits; D3 pinned-producer evidence remains gated. Protocol population needs C3-R2.",
+    "x12Order": "Faithful to pending X12 r4 including first-use disclosure and project-effect boundary; law/C4a acceptance gates remain required.",
+    "m3BObligations": "Distinct post-fence ledger, exact SX-1 anchors and S4 schema-3 member observations are carried. B-S2 acceptance precedes member implementation. Ledger pricing clarification is C3-N1.",
+    "schedule": "Variant B=b+23 gives 28/31/33 for b=5/8/10. Accepted B unit durations yield B2-c=10 and B2-d=12. K2/O2/serialized lead-set conditions apply.",
+    "regressions": "New carrier-presence and set-counter gaps are required findings; prior complete-spec, observation, native-import gates, core projections and X12d corpus decisions are preserved."
+  },
+  "verification": {
+    "pinRowsVerified": 28,
+    "allSelectedPinnedBytesMatched": true,
+    "inputEvidence": "input_checks.json",
+    "arithmeticEvidence": "arithmetic_checks.json",
+    "arithmeticMethod": "Pure integer scratch calculations only; no repository imports or archive/decoder execution.",
+    "frozenInputs": [
+      "subject-r3-pinned.md",
+      "m3-b-live-pinned.md",
+      "x12-r4-pinned.md",
+      "x2-r9-pinned.md"
+    ],
+    "laterDraftAdoptedAsAuthority": false,
+    "publishedSourceChecks": [
+      "https://www.rfc-editor.org/rfc/rfc1951",
+      "https://www.rfc-editor.org/rfc/rfc1952"
+    ]
+  },
+  "scope": {
+    "lawReviewOnly": true,
+    "productCodeExecuted": false,
+    "cargoOrTestsRun": false,
+    "archivesConstructedOrDecoded": false,
+    "delegated": false,
+    "repositoryEdited": false,
+    "committed": false,
+    "pushed": false,
+    "realHomeAccessed": false,
+    "fixture413Read": false,
+    "outputDirectory": "/tmp/opensip-implementation/reviews/codex2-snapshot-plan-c-r3"
+  }
+}
