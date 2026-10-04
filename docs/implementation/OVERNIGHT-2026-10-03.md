@@ -121,3 +121,10 @@ Times are local.
   - **Backend lead decision:** tree-sitter grammars compiled to Wasm and run in-host by `wasmi`, with fuel-metered, typed parse failures. Native tree-sitter is the fallback if probe E0 fails.
   - **Owner FYI:** the Wasm route needs a pinned wasi-sdk build toolchain.
 - **M3-C r3 sent to CODEX2.** The host chain is now about 31 days at M3-B's estimates; M3-PLAN r5 will carry it.
+- **M3-PLAN r5 sent to GROK2.**
+  - **Critical path: 33 days** with the C4 split, along B1→B2→C1a→C3→C4a→H→J2→J3→M→X. The earlier "about 31" in this log was the b=8 figure; M3-B's unit table gives b=10.
+  - **New owners (lead decisions):**
+    - the resume/repair writer gets law J-RW plus unit J4;
+    - the X3c re-commit gets X3c r8 plus X3c-3, before J3;
+    - X4-F1 and X4-F2 land before J2;
+    - F9 by 2026-12-01.
