@@ -326,3 +326,9 @@ Times are local.
   - **RF-1:** item 13's list of later wire identities is inexact. **Lead direction:** derive it mechanically from the cited schemas, with a re-deriving control.
   - **RF-2:** FA-2's §0 row C changes a wire commitment, so any change to it must trigger L's delta round. The dependence text is to be made consistent.
 - **CRC-1 r1:** GROK2 raised one wording finding. The `selectionLaw` string said "explicitly included" where IE:1377, C r7 item 9 and the README say "not even explicitly". r2 is being prepared. M3-PLAN r7 is now with GROK2.
+- **M3-H accepted at r3 by Grok** (fact admission), with no required findings. The accepted bytes are `fact-admission-h/PROPOSAL-r3.md` (`7a562720…`). With C r7 in review, the C → H → J laws of the host chain are in place, with C effective once L is. Grok's three observations will be applied as recording text after the M3-PLAN r7 review, which pins H's live file:
+  - the remaining "CRC-1" labels at :811 and :860;
+  - the row-30 citation range;
+  - the MC citation note.
+
+  Open cross-law items from H: X-H1 (FA-2, in review), X-H2 (FA-1), X-H3 (M3-C r8 / CRC-2), X-H4 (L r4), X-H5 (the M3-PLAN unit for H3) and X-H6 (S-B).
