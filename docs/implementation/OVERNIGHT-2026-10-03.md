@@ -51,3 +51,10 @@ Times are local.
   - It is product main `30c5db1`, on top of C, and touches `design-lock.json` only.
   - `verify_design` passes: 76 contract successors, v134 selected.
   - Main has moved past C. The X9-6 evidence and Grok's rerun stay on C (`3d2d5b5`), in the X9-6 worktree.
+- **M3-I1 accepted at r2 by CODEX2,** with no findings. It covers:
+  - the frozen preview rule IR;
+  - the `cycle-representative` atom;
+  - the policy-language and identity successors;
+  - the pack contract.
+
+  The product units I1-a, I1-b1, I1-b2 and I1-c are next, after X9-6 finishes.

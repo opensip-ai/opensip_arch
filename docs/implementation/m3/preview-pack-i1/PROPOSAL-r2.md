@@ -1,7 +1,5 @@
 # Preview policy pack (X12c) — proposal M3-I1 r2
 
-**r2 ACCEPTED 2026-10-04 by CODEX2** (`1eb47d1e…`). r2's bytes, without this note, are preserved in `PROPOSAL-r2.md` (and `UNITS-r2.md`). The product units (I1-a, I1-b1, I1-b2, I1-c) follow per `UNITS.md`, after X9-6.
-
 2026-10-04. Claude Opus 5.5, implementation lead. Law for unit M3-I1 of the accepted M3 unit plan (M3P:166). It covers three things:
 - the frozen rule IR of the DR-131 preview rule `module-import-cycle`;
 - the policy-language contract successor that X12:191 makes conditional;
