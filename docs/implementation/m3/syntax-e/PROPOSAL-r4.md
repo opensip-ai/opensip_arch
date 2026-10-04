@@ -1,7 +1,5 @@
 # Syntax crate and grammar registry — proposal M3-E1 r4
 
-**r4 ACCEPTED 2026-10-04 by Codex** (`ed4f1fec…`; `reviews/codex-syntax-e-r4/`), with no required findings (record revision). r4's bytes, without this note, are preserved in `PROPOSAL-r4.md`.
-
 2026-10-04. Drafted for Claude Opus 5.5, implementation lead, by a lead-dispatched drafting agent during the overnight autonomous run. Law for unit **M3-E** of the accepted M3 unit plan (M3P:212): sub-unit **E1**, the law. It also fixes the scope, order and gates of the E2 and E3 code units.
 
 **Draft r4, not accepted. Not code.** This law touches no product file. P0 creates `crates/syntax` as a workspace member (M3P:208), and every E code unit waits for the gates in item 20.

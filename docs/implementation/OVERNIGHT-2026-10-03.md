@@ -549,3 +549,4 @@ Times are local.
   - A commit latched after FinalGate (rule 2) is exit 4 through `DELIVERY.REQUIRED_FAILED`, with its runId.
   - The commit's returned outcome decides. No new code. It binds 91 → 92.
 - **SYN-NS accepted at r2 by GROK2 and bound** at product main `6190e66`, giving 92 contract successors. All of E1's successors (SYN-1, SYN-1F, SYN-NS) are now bound. M3-B r3 drew one finding: the directory-custody row's "as above" now resolves to the wrong code pair. The lead fixes it as r4.
+- **E1 r4 (Codex) and I1 r3 (CODEX2) accepted,** both record revisions with no findings. E1 now records E0's T-native outcome and the SYN items. I1 records I1-L's and I1-P's findings and I1-a's `verify_design` needs. CODEX2 now has I1-a.
