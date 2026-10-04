@@ -1,7 +1,5 @@
 # M3 unit plan
 
-**r9 ACCEPTED 2026-10-04 by GROK2** (`72bc7a13…`; `reviews/grok2-m3-plan-r9/`), with no findings. r9's bytes, without this note, are preserved in `M3-PLAN-r9.md`. It records the state at r7's cut-off. M3-H r3's acceptance, and everything accepted later tonight, go into the next record revision.
-
 Draft r9, not accepted. Claude Opus 5.5, implementation lead; drafted for the lead by a lead-dispatched drafting agent during the overnight autonomous run. **Planning record: not law, not code, not a contract successor.** It is the M3 counterpart of [m2/EXIT-PLAN.md](../m2/EXIT-PLAN.md). It orders M3's obligations into reviewable units and changes no accepted contract, gate, threshold or register row.
 
 **r7 is a record revision.** It brings the plan up to date with the laws, lead decisions and cross-law items of the night of 2026-10-03 to 2026-10-04. It moves no gate or threshold the owner set. Durations and edges move only where an accepted law moved them. It adds one lead gate item to M3-L's own row (G10, FA-2; P7-2).
