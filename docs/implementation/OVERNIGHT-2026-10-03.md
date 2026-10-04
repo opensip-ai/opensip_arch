@@ -430,3 +430,8 @@ Times are local.
   - **Checks:** 121 pass, and it binds 82 → 83.
   - **J1 record items:** NB wording, the S-OP-2 r6 re-citations, 5.3's settlement wording, an 8.2 phase label, and 8.3 against WS:226.
 - **RUST3-LIM accepted by GROK2** (ACCEPT-DESIGN-UNIT, no findings). The Rust3 256-file cap is lifted within the major, by a file list by reference behind an optional token. It binds after FA-2, which is in review at r2. **S18 goes to GROK2.**
+- **SYN-1 r2 written.**
+  - **Key forms:** a per-key table in NE §1.2 gives each of the 25 keys its exact emitted form. Five are bare, including the new missing-closure key (LD-13).
+  - **Audit:** it reads the native model's literal emissions with `ast` and checks each form character for character.
+  - **New record item (O-1):** the model emits two native-context keys that NE:3530 and J1 row 52 don't list.
+  - **Queue:** CODEX2. SYN-1F's request is refreshed to cite SYN-1 r2.

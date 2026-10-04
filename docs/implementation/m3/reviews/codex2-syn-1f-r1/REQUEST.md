@@ -26,7 +26,7 @@ The pins are in `hashes.txt`. Every file is untracked in arch until acceptance.
 
 **Law and companions.**
 - **Law:** `docs/implementation/m3/syntax-e/PROPOSAL-r3.md` (`d71031ff…`). This unit is item 19's SYN-1F row (E1:690).
-- **SYN-1** (`codex2-syn-1-r1`) is its companion: it adds the member to the native owner NES. EXM:851 holds the execution-input copy equal to NES, so the two bind in one commit, SYN-1 first, and neither binds alone.
+- **SYN-1** (now at r2, `codex2-syn-1-r2`, subject `4ed2d9ba…`; r2 changed none of the files this unit reads) is its companion: it adds the member to the native owner NES. EXM:851 holds the execution-input copy equal to NES, so the two bind in one commit, SYN-1 first, and neither binds alone.
 - **CRC-1** is M3-C's closure-role successor, now at **r3** (`docs/implementation/m3/snapshot-plan-c/crc-1/`, `successor.json` `01a995b9…`, subject `e030a1cf…`, in Grok's review at `docs/implementation/m3/reviews/grok-crc-1-r3/`). It puts three JSON Pointer overrides on I1-L's selected identity-schema copy, which is this unit's IDS parent:
   - the `manifestDigest` artifact text;
   - the `closureKinds` note;
