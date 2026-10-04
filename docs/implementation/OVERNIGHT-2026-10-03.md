@@ -463,3 +463,6 @@ Times are local.
   - **Trigger 4:** covers any change to RUST3-LIM's bytes.
 - **CR-1 r3 written.** Only the command-tree checks are gated, and name and alias admission runs for every manifest. A new control, CR-T9, covers a closure-only name collision. It binds 83 → 84, and goes to GROK2 after L r5.
 - **S18 r2 written.** WS:227-228 and WSE:229-230 now define after-settle as "after the settlement point: every required step terminal and, where the final output section applies, the required output returned". It has ten overrides, and binds 83 → 84. It goes to GROK2 after CR-1 r3.
+- **FA-1 and SD-5 accepted by Grok** (ACCEPT-DESIGN-UNIT, no findings) **and bound.** FA-1 is at product `f97c02b` and SD-5 at `052d3cb`, giving 85 contract successors.
+  - **FA-1** resolves H's X-H2.
+  - **SD-5** gives R10a's excluded-form refusal its public route, with `PAYLOAD-NOT-ADMISSIBLE` reuse upheld. D4 now waits only on its own code.
