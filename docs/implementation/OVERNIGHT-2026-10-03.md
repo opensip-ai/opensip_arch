@@ -230,3 +230,8 @@ Times are local.
 - **M3-L r2:** Grok raised one required finding. Item 13's "closed set" of provider-wire identities is wrong: NE's OpenUniverse payloads and HelloAcks carry more members, and J1:192 cites that sentence. Grok also listed exactly which parts depend on O7 and S-M. L r3 follows, together with FA-2 (X-H1) and X-H4.
 - **The M3-D live file now carries its acceptance note** (r3 bytes in `PROPOSAL-r3.md`).
 - **B-S1, B-S2 and B-S9 ready for GROK2.** B-S9 is S9's `CONFIG.INVALID` remedy, as complete successor copies of the two native-model files, so no VD2 is needed. The capability-totality reference selection is the precedent. The three units bind together on the `e093e90` lock: 77 → 80 successors, no conflict. **Residual hazard (B-S9 LD-4):** a later unit could override a superseded copy's other lines, and only review catches that, as with capability-totality's copy. GROK2 is asked to rule on it. B-S1's and B-S2's M3-C citations are pinned to arch `3590205a9`, since C's live file is now the r7 draft.
+- **J-RW r1: Codex raised three P1 findings**, and r2 is being written.
+  - **R1-01, the bare-WAL ledger check.** The current-emptiness test admits a database whose committed history was compacted by VACUUM. A creation-history discriminator such as `schema_version` == 0 is preferred. If none is sound, the state keeps its refusal.
+  - **R1-02, completing a registration.** It wrongly admitted an absent namespace beside a partial marker. That must be closed to the crash table.
+  - **R1-03, a missing trust directory state.** A created-but-not-private predecessor directory, already in the census, was missing.
+- **Reviewer routing.** B-S2 goes to Codex, which was free. B-S1 goes to GROK2 automatically after J1 r4, then B-S9.
