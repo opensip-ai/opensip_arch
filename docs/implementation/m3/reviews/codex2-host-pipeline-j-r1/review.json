@@ -1,0 +1,180 @@
+{
+  "reviewer": "CODEX2",
+  "review": "M3-J1 r1 law and method soundness",
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectSha256": "ff5cb156b4ea5c1771cb62b522ae345865fc6406b3b35eaa2593a7583d0b22f6",
+  "subjectBytes": 75581,
+  "subjectPath": "docs/implementation/m3/host-pipeline-j/PROPOSAL.md",
+  "reviewedSubjectCopy": "/tmp/opensip-implementation/reviews/codex2-host-pipeline-j-r1/subject-r1-pinned.md",
+  "productCommit": "3e64266aa8729160cd22509dcfff95a3bb09fcea",
+  "requiredFindings": [
+    {
+      "id": "J1-R1",
+      "location": "docs/implementation/m3/host-pipeline-j/PROPOSAL.md:405,409-417,521,525",
+      "problem": "The first-applicable precedence rule selects the committed-latched F39 projection from state 3 alone, before considering CommitUndetermined. State 3 does not prove a committed Run.",
+      "evidence": [
+        "Item 8.3 rule 1 at :410 selects X7's F39 row and runId for state 3; rule 2 at :411 handles uncertainty only afterward.",
+        "X3D:170 preserves an undetermined evidence COMMIT even after a latch; X7:100-101 distinguishes Committed with a latch from CommitUndetermined with an ExecutionId and no RunId.",
+        "Pinned product commit_session.rs:943-983 can return CommitUndetermined after FinalGate admission and a latch, without constructing PublishedCommit.",
+        "Phase C at :405, matrix row 38 at :521 and S12-U at :570 require the durability row in that case."
+      ],
+      "fix": "Put CommitUndetermined first, or require the actual Committed(PublishedCommit) outcome in rule 1. Determine the outcome before applying the sampled latch. Make J-C14 and S12-U verify this precedence."
+    },
+    {
+      "id": "J1-R2",
+      "location": "docs/implementation/m3/host-pipeline-j/PROPOSAL.md:260-268,283-288,406-424,571",
+      "problem": "The proposed settlement point precedes required rendering, so it does not satisfy the governing definition of every required step being terminal. S12-D then injects at a point after this boundary but expects phase D.",
+      "evidence": [
+        "The required render step is declared at :261; :421 puts the decision point before SOP2 finalization and before rendering, and :287 declares settlement there.",
+        "WS:224-228 and OPP:337-338 distinguish before/after settlement by actual required-step terminality. X7:85 and pinned finalization.rs:310-318 include rendering and output in required delivery.",
+        "SOP2:623 finalizes after the result is decided and before envelope rendering; it does not prove completed rendering.",
+        "S12-D at :571 holds x7.delivery.required.before. Pinned finalization.rs:283-318 reaches that point in delivery before invoking the renderer; J1 orders delivery after its decision point.",
+        "A required render failure can still change the outcome after the proposed settlement point, despite phase E saying the decided class stands. bootstrap.rs:57-58 independently forbids a replacement envelope after output begins."
+      ],
+      "fix": "Separate actual step terminality from the output decision/emission boundary. If final-envelope emission needs cancellation deferral, explicitly reconcile and successor-gate that exception with WS/OPP rather than declaring unperformed rendering terminal. Move the phase-D control to a genuinely cancellable point and add a post-decision control. Preserve single-envelope delivery."
+    },
+    {
+      "id": "J1-R3",
+      "location": "docs/implementation/m3/host-pipeline-j/PROPOSAL.md:149,162-172,459-469",
+      "problem": "Creation disclosure exists only in the successful DurableEntry, so Published followed by an attempt-B admission failure loses firstUse and backup-status information on the error path.",
+      "evidence": [
+        "The entry at :149 returns Result<DurableEntry, InstallationTermination>; :166 places created metadata only in DurableEntry.",
+        "After Published, :164 runs fresh ordinary producers, gate and rechecks, any of which can fail before R3 succeeds.",
+        "Item 9 at :467 starts durable retentionDisclosure only after R3 succeeds, while :172 promises firstUse:true on later refusals after Published.",
+        "Pinned installation_routing.rs:107-118 already has the corresponding information-loss shape: entered is known, gate failures return only the termination, and entered reaches the caller only on success.",
+        "ENV7:790 excludes retentionDisclosure from the empty-errors interrupted branch, but ordinary gate/budget/barrier failure envelopes do not have that exclusion."
+      ],
+      "fix": "Carry value-only creation metadata on entry failures as well as success, sourced from the actual Published result and conveying no attempt-A authority. Start non-interrupted creation disclosure at publication rather than successful R3. Add Published-to-attempt-B producer, gate and barrier failure controls; retain false firstUse for LostRace/NotPristine and notice-only disclosure for the restricted interrupted branch."
+    },
+    {
+      "id": "J1-R4",
+      "location": "docs/implementation/m3/host-pipeline-j/PROPOSAL.md:121-131,241,277,609-610",
+      "problem": "The law specifies ExecutionId draws but no uniqueness-checked operational reservation before their use, particularly provider use before durable attempt custody.",
+      "evidence": [
+        "IE:77-81 requires pre-use uniqueness reservation for both identities in every mode; :83-88 makes durable attempt custody a separate additional requirement.",
+        "J1 supplies process reservation for RequestId at :121-124 but only draws for the creation, durable, ephemeral and render ExecutionIds at :126-130.",
+        "Providers use the durable ExecutionId at J-ζ before prepare_commit inserts the attempt row.",
+        "Pinned CommitSession::open at commit_session.rs:327-372 draws and stores the identity without identity-registry reservation; request.rs:18-40 reserves RequestIds only.",
+        "One invocation has multiple ExecutionId draws, so the one-request-per-process restriction does not eliminate within-process identity reuse."
+      ],
+      "fix": "Specify and gate the process-custody reservation owner for every ExecutionId before P0, provider frames or operational records use it. Keep it distinct from later attempt_custody and preserve the security-owned durable draw. Update the identity/session successors and affected units, with a collision control that emits no unreserved or caller-selected identity. No permanent identity ledger is required."
+    },
+    {
+      "id": "J1-R5",
+      "location": "docs/implementation/m3/host-pipeline-j/PROPOSAL.md:607-619",
+      "problem": "J3d's durable end-to-end dependency list drops F2 and G3, which both the accepted plan and exact draft-r5 context pin require for J3.",
+      "evidence": [
+        "Accepted M3-PLAN-r4.md:218 requires J2, F2 and G3 for J3.",
+        "The requested M3-PLAN.md draft-r5 pin repeats F2 and G3 at :211 and :303.",
+        "J3d at :611 has J2b, J3a, J3b, X3c-3, S13 and S16; neither F2 nor G3 appears.",
+        "J2b's enumerated J2 set at :607 does not inherit F2 or G3, and J3a/J3b are security/finalization units."
+      ],
+      "fix": "Add F2 and G3 to J3d or an explicit inherited predecessor. Preserve these gates in the conditional critical-path statement alongside J3a/J3b, X3c-3 and serialized lead-set completion. Assumed early finishes do not remove dependencies."
+    },
+    {
+      "id": "J1-R6",
+      "location": "docs/implementation/m3/host-pipeline-j/PROPOSAL.md:276,482-537,606",
+      "problem": "The claimed total outcome matrix lacks reachable native-context, Cargo-adapter and authenticated-release admission refusal families with distinct governing routes.",
+      "evidence": [
+        "NE:3530 routes native-context closure/tool/compiler and universe-binding refusals to request-rejected / REQUEST.PRECONDITION_FAILED before PlanId.",
+        "NE:3531-3532 routes native.prepare-bound-exceeded and native.ambient-cargo-config to operational-failed / HOST.IO_FAILURE; pinned M3-C r4:640 expressly requires the ambient Cargo control.",
+        "NE:3540 and :3574 separately route invalid authenticated release declarations to request-rejected / REQUEST.PRECONDITION_FAILED.",
+        "The listed conditions are not missing-provider indeterminate (row 27), a just-built Plan invariant (29), worker faults (30/32), capability REQUEST errors (26), or capture/discovery I/O (23).",
+        "The law requires one control per reachable matrix row and treats an unmapped detail as a model error. Naming NE's full tables in J2a does not complete the matrix's conditions."
+      ],
+      "fix": "Add these families or explicitly broaden the appropriate rows with the exact NE class, code, fault cause, origin and detail-carrier rules. Keep unregistered internal keys in operational records. Add context/release and Cargo-adapter controls without new public codes."
+    },
+    {
+      "id": "J1-R7",
+      "location": "docs/implementation/m3/host-pipeline-j/PROPOSAL.md:85,88-98,578",
+      "problem": "The future M4 CLI instruction replaces audit's refusal before its comparison/module prerequisite, which is M5.",
+      "evidence": [
+        "Item 1 at :85 explicitly places audit/comparison at M5, but :88 requires the M4 CLI unit to replace all four refusals at once.",
+        "BP:955 assigns audit to M5; BP:895 forbids command delivery before its module prerequisite.",
+        "X11:28 is an earlier prospective all-four replacement sentence whose M3 timing J1 already revises; it cannot override BP's command schedule."
+      ],
+      "fix": "Retain every M3 binary refusal and reconcile X11's prospective sentence with command milestones: default/analyze/fit at M4 after full prerequisites, audit at M5. Alternatively defer collective replacement to the latest prerequisite and stop calling it M4 enablement."
+    }
+  ],
+  "nonBlockingObservations": [
+    {
+      "id": "J1-N1",
+      "location": "docs/implementation/m3/host-pipeline-j/PROPOSAL.md:382-387,441,452",
+      "observation": "A consuming method enforces one use of a token, but cancellation_latch(&self) can mint multiple tokens unless mint-once ownership is separately specified. Window closure also needs one synchronization order with a racing latch and coverage of refused/uncertain returns.",
+      "evidence": [
+        "The proposed getter takes &self and returns a CancellationLatch; no unique take or mint-once failure is specified.",
+        "The window closes at publish's sample, while the pinned product samples the latch in the successful branch and returns uncertainty separately.",
+        "The law requires outside-window calls to change nothing and J-C15 requires a second latch to fail compilation."
+      ],
+      "suggestion": "Specify whether single-use is per token or operation, enforce unique ownership when intended, and require synchronized sample/window closure on every outcome in S10/J3b's evidence."
+    },
+    {
+      "id": "J1-N2",
+      "location": "docs/implementation/m3/host-pipeline-j/PROPOSAL.md:281,362,598,611",
+      "observation": "The pipeline calls SOP2 finalization, but item 14 does not name O1 or a reviewed predecessor that supplies its callable implementation.",
+      "evidence": [
+        "J-κ and the revised X7 order call SOP2's finalizer.",
+        "The plan assigns the S-OP-2 nonpersistent sink/finalization implementation to O1.",
+        "J3d's dependency list omits O1; SOP2's pinned r4 is still in review."
+      ],
+      "suggestion": "Name the O1 dependency or the reviewed callable boundary available before it integrates; optional observability loss does not itself define an absent API."
+    }
+  ],
+  "requestedDecisions": {
+    "x11Successor": "M3 library-only scope and continued binary refusals are sound. Future audit enablement needs J1-R7; identity and first-use termination obligations need J1-R3/R4.",
+    "firstUse": "The charged non-authoritative probe, original-owner rechecks, fresh token-gated attempt B and one-gate rule are sound. Present-to-Absent uses the existing NOT_INITIALIZED row. Error-path creation metadata needs J1-R3.",
+    "firstUseOrderAndStorageChoice": "R0-R12 preserves pinned X12 r4 and M3-B/M3-C ordering; pure S3.1 before project effects is sound. X12 acceptance is not granted here.",
+    "sessionAtHandoff": "Opening at R12 uses the existing draw/getter, gives providers the same identity as the receipt and adds no durability point by itself. Pre-use reservation still needs J1-R4.",
+    "cancellation": "The existing two-bit gate and operator REV preserve the basic stop/settlement rules. Outcome precedence and settlement/control placement require J1-R1/R2; token/window implementation precision is J1-N1.",
+    "backupStatus": "Published-only firstUse, exact three spellings and a separately reviewed prerelease schema append are sound. Non-interrupted failures after publication need J1-R3. The restricted interrupted branch must continue omitting retentionDisclosure.",
+    "outcomeMatrix": "Main governing class/code distinctions are retained, but J1-R6 adds missing native conditions; cancellation precedence is J1-R1/R2. No new public code is needed.",
+    "ephemeral": "458c read entry is the lawful producing route; E-1 to E-4 identify the owed selection, identity and trust joins. J2c remains gated on their separate reviewed dispositions and gains no write authority.",
+    "method": "Separate re-commit/resume ownership and serial pre-transcribed lead sets are appropriate. Restore F2/G3 gates under J1-R5, repair S12-D under J1-R2 and clarify the SOP2 implementation edge under J1-N2. Critical-path figures remain conditional planning assumptions."
+  },
+  "verification": {
+    "pinRowsVerified": 36,
+    "allFrozenPinsMatched": true,
+    "inputEvidence": "input_checks.json",
+    "initialCaptureEvidence": "input_checks-at-capture.json",
+    "recoveredPlanEvidence": "recovered_plan_pin.json",
+    "productEvidence": "product_checks.json",
+    "productSourceFilesVerified": 17,
+    "allProductExportsMatchPinnedGitObjects": true,
+    "draftPlanDrift": {
+      "requestedSha256": "f4833c6033ee5237129273bf6efabf560e619038fa8bb70ccc8333350c935870",
+      "requestedBytes": 77296,
+      "observedSha256": "1dc299b406ad60800ce2bdf9ccc32232d9029d3c0e3ae3226072f34c14045576",
+      "observedBytes": 78074,
+      "recoverySource": "/tmp/opensip-implementation/reviews/codex2-snapshot-plan-c-r4/m3-plan-pinned.md",
+      "handling": "Verified the recovery source against the requested digest and used those exact frozen bytes; preserved the newer observed draft separately."
+    },
+    "m3CDependencyDrift": {
+      "reviewedPath": "docs/implementation/m3/snapshot-plan-c/PROPOSAL-r4.md",
+      "reviewedSha256": "bcf4baa13ac0cca428ae6bd7544a7c9a6c22cb3bac72a056e92222688d28b96c",
+      "laterR5ReviewSubjectSha256": "7f76052d96216388b629f46c6e0d78e8dcf4e2a8c515a60d79e5b8c46857668c",
+      "handling": "Judged J1 against r4 as requested. Separately recorded r5's removal of the oversized shortcut and framing/route/ordering corrections; the four choices J1 answers are retained. No silent substitution or C-law acceptance."
+    },
+    "sop2Dependency": "The frozen r4 bytes match the request. Any subsequent live drift is reported by input_checks.json."
+  },
+  "acceptanceBoundary": {
+    "lawOnly": true,
+    "dependentLawAcceptanceGranted": false,
+    "jBsRequiredReview": "ACCEPT-DESIGN-UNIT",
+    "inventoryUnitsRequireSeparateReviews": "J2a through J3d",
+    "gatedOrPendingDependencies": ["X12 r4", "M3-C", "M3-L", "S-OP-2", "the stated code-unit prerequisites"]
+  },
+  "scope": {
+    "productCodeExecuted": false,
+    "referenceModelExecuted": false,
+    "cargoOrTestsRun": false,
+    "buildsRun": false,
+    "leadSetsRun": false,
+    "delegated": false,
+    "repositoryEdited": false,
+    "committed": false,
+    "pushed": false,
+    "realHomeAccessed": false,
+    "fixture413Read": false,
+    "outputDirectory": "/tmp/opensip-implementation/reviews/codex2-host-pipeline-j-r1"
+  }
+}
