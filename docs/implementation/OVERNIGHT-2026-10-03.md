@@ -211,3 +211,9 @@ Times are local.
     - item 2.3 and 2.5 choices that fix proof bytes, which I1-L's precisions P0–P7 settle;
     - I1-a's `verify_design` needs: a 468a-form record, re-pointed source maps, and the moved line references.
 - **Plan for X-H1:** FA-2 (the provider symbol-census carrier) and M3-L r3 are drafted together once Grok's L r2 verdict is in, so that one L revision answers both.
+- **B-S1 and B-S2 drafted.** B-S2, IE `vcs-observation` schema 3, binds on today's `verify_design`. B-S1 found a tooling gate.
+  - **The gate:** S9's `CONFIG.INVALID` remedy line is already overridden by X12-0, and `verify_design` refuses a second override of the same line. Its supersession mechanism covers only inventory descriptions.
+  - **Lead decision: split S9 out of B-S1 before review.** SX-1 and the D15 passages bind now, and S9 becomes unit B-S9. B-S9's form is checked first as a complete successor copy of the two native-model files, the 468a and I1-L form, which today's tool may admit. VD2, a `verify_design` successor, is the fallback.
+  - **Rejected:** going straight to VD2. Changing `verify_design.py` again would make the generator-closure and lane-registry pins stale and force another F8b-style rebuild.
+  - **Timing:** B1-a needs S9 by day 0, and SX-1 and D15 are needed by B2-a, C1a and B3-b.
+  - **M3-B r2 contradicts itself** on a crossing when the root is inside a repository: item 22 and row 1 say one thing, row 3 another. The drafter follows item 22 and row 1, so projects without D15 keep today's refusal. This is flagged for GROK2.
