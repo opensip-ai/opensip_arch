@@ -240,3 +240,8 @@ Times are local.
 - **B-S1, B-S2 and B-S9 re-verified on the new lock** (`0ceb9ad`, 78 successors). Each binds (78 → 79), with no conflict against I1-L's overrides.
 - **M3-H r1:** Grok raised one finding. The anchor byte checks (ANCHOR_SOURCE, ANCHOR_RANGE, ANCHOR_UTF8) were placed before any view exists, so a bad provider anchor had no check that both calls the owner and takes the producer-boundary row. **Lead direction for r2:** call the owner's view-join check over the provisional view, and route by origin: a provider fact takes MJ row 30, a host-minted fact the host-invariant row. No host copy of the anchor law. r2 is being written.
 - **B-S9 goes to Grok,** which was free. GROK2 has B-S1.
+- **J-RW r2 written,** queued for Codex after B-S2.
+  - **Ledger completion (R1-01):** a ledger is completed only if `schema_version` is 0. CREATE, DROP and VACUUM all raise it, and the product's mandatory defensive mode forbids resetting it. If the real crash points show anything else, C-LEDGER is withdrawn and that state keeps `LEDGER.CORRUPT`.
+  - **Registration (R1-02):** a present marker with an absent namespace always refuses.
+  - **New state RW-T3 (R1-03):** a trust-publication directory created but not yet private. It appears three times in the pinned census, and is completed by C-ACL at `parent_dir`.
+  - **L11** is retired only when J4e's lead set passes every RW row.

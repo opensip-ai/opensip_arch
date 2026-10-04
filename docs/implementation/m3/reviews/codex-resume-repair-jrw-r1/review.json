@@ -1,0 +1,148 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectSha256": "0002c00559085b3852c6256046aee3306b95d895ab3e1500ed0019fe5b895830",
+  "subject": "docs/implementation/m3/resume-repair-jrw/PROPOSAL.md",
+  "reviewer": "Codex",
+  "round": 1,
+  "reviewKind": "law-and-contract-soundness",
+  "requiredFindings": [
+    {
+      "id": "JRW-R1-01",
+      "severity": "P1",
+      "location": "docs/implementation/m3/resume-repair-jrw/PROPOSAL.md:151-163; RW-C5 at :292; X-RW-9 at :423-427",
+      "problem": "L-UNC proves current emptiness, not that the schema transaction never committed or that the file never held evidence. Its admitted set includes databases with committed history, contrary to the stated safety boundary.",
+      "evidence": [
+        "The predicate checks empty whole_schema, page_count=1, freelist_count=0, WAL, UTF-8, user_version=0 and application_id=0. It does not check the schema cookie or another creation-history discriminator. The claim at line 156 that such a file has never held a table does not follow from these observables.",
+        "A counterexample is an ordinary UTF-8 WAL database with default user/application IDs, a committed CREATE TABLE t(x), a committed INSERT, a committed DROP TABLE t, then VACUUM. Repacking an empty database removes its free pages; its current schema is empty and its one remaining page is the schema/header page. All listed L-UNC observables can hold although committed content existed. This is a static counterexample derived from SQLite documentation; no database fixture or test was run.",
+        "SQLite documents that VACUUM repacks to minimal size and removes deleted content, and that CREATE/DROP/VACUUM increment schema_version. Sources: https://www.sqlite.org/lang_vacuum.html and https://www.sqlite.org/pragma.html#pragma_schema_version.",
+        "The cited negative fixture in crates/storage/src/ledger_store/project_ledger_tests.rs:305-311 stops after CREATE/DROP. It does not exercise the compacted-history counterexample. RW-C5 therefore does not establish the stronger exclusion. The stop rule only checks the two positive crash views and does not reject a false positive that also satisfies them.",
+        "Accepted X3c r7 item 2 and item 10 retain LEDGER.CORRUPT for foreign/schema-less footprints outside the expressly resumable creation state. X3b item 3a supplies an empty-database precedent, not the never-held-evidence proof claimed here. The archived two ledger runs show a 4096-byte empty-schema ledger, but record neither all proposed pragmas nor a historical proof."
+      ],
+      "fix": "Narrow L-UNC to an independently specified initial-creation fingerprint, with the exact recovered-view/header invariants needed to distinguish ordinary committed schema history; pin those invariants at both positive crash points before enabling J4c. A schema-cookie discriminator is a relevant missing observable, not by itself an unrestricted provenance proof. Add CREATE/INSERT/DROP/VACUUM and other committed-history neighbours to RW-C5 and the refusal controls. Keep these states LEDGER.CORRUPT. Replace the categorical never-held-evidence argument with the precise threat-model and provenance guarantee actually established, and carry that boundary into RW-S3 and X-RW-9."
+    },
+    {
+      "id": "JRW-R1-02",
+      "severity": "P1",
+      "location": "docs/implementation/m3/resume-repair-jrw/PROPOSAL.md:169-177; states RW-R5/RW-R6 at :201-202; neighbour N-R2 at :221",
+      "problem": "C-REG explicitly allows an absent namespace together with a zero-length or strict-prefix marker. That is not a prefix of the ordinary registration protocol and conflicts with the closed crash-state table.",
+      "evidence": [
+        "Join clause 3 accepts P-PREFIX, clause 4 permits positive absence of N, and clause 5 excludes only an exact marker with N absent. Choose one matching random-kind RESERVED row, agreeing root locator/incarnation, private parents, an absent N, and a private empty marker. Every listed join clause can pass; the action then publishes N, completes the existing marker and activates the row.",
+        "X2 r9 item 6 publishes and confirms the complete namespace in step 3 before even creating the marker in step 5 (PROPOSAL-r9.md:238-247). The product enforces that order in first_registration.rs:2260-2293. A process-death prefix with a present marker must therefore already have the complete published N. Power-loss variants and deletion/repair of missing owners are expressly excluded here.",
+        "REG:76 rejects exact-marker/absent-N because namespace precedes marker, and permits no inference of adoption authority from a marker or RESERVED spelling. The same ordering argument applies to a partially written marker. J-RW RW-R5 and RW-R6 both require N complete; no listed crash state allows the combination admitted by the explicit join.",
+        "The item 5 blanket instruction to refuse states outside item 4 does not resolve the contradictory positive predicate. RW-N2 only names the exact-marker case, leaving the newly admitted partial-marker combination without an explicit guard or control."
+      ],
+      "fix": "Require marker positive absence whenever N is absent. Any present marker, including ACL-omitted zero length, private empty and nonempty strict prefixes, must require the admitted complete N footprint before C-ACL, C-SUFFIX or namespace publication. Add these impossible-order combinations as refused neighbours with their actual existing row/subject and no repair effects, and carry the conditional into RW-S1/RW-S2 and the mutation controls."
+    },
+    {
+      "id": "JRW-R1-03",
+      "severity": "P1",
+      "location": "docs/implementation/m3/resume-repair-jrw/PROPOSAL.md:63, :75-76, :134, :184-189, :208-209, :348-357, :387",
+      "problem": "The all-census-occurrences claim and retirement of L11 omit a lawful created-but-not-private trust directory. The pinned reference census already contains this state, although the sampled 57 refused runs do not.",
+      "evidence": [
+        "The pinned storage census has dependency/create.after#1 through #7. Its trace line 112 is x4t.floor-publication.dependency/create.after#6, between the fifth dependency file and the final publication descriptor. The same occurrence has no matching dependency write: file writes are numbered #1 through #6, with write.before#6 after create.after#7. X9 r16:146-153 explicitly distinguishes directory occurrences from file occurrences and assigns a directory occurrence to the parent-directory step.",
+        "In the pinned product, floor_publication.rs:406-449 permits and creates the by-predecessor bucket, its predecessor directory, and X4B objects collection parents. In this reference publication the intervening creation is the predecessor directory. A kill at its create.after leaves the new empty 0700 directory before prepare_fresh_private_sample adds its zero-rights owner allow.",
+        "A later publication of the unchanged predecessor needs that same parent. parent_dir calls open_private before write_dependency (floor_publication.rs:158-173, :434-438); open_private judges the existing directory private and maps failure to TrustRow::Incomplete. private_access.rs:55 refuses NotReturned. C-TRUST, defined only at write_dependency over a regular leaf, cannot complete this earlier parent failure.",
+        "P-ACL would describe this empty directory, but its Where list does not authorize trust-publication parents; RW-P1/P2/P3 and RW-T1/T2 do not describe it. A lawful publication directory is not N-T1's foreign/non-regular file neighbour. Blanket refusal preserves the residual permanent crash refusal instead of closing it.",
+        "RW-K8/RW-K9 start from file occurrences, J4d and RW-S5 change only leaf completion, and L11 is removed outright. Sampling rules do not excuse an already known census state when item 4 expressly claims every occurrence, not only the 57 sampled runs. The original 57 partition is nevertheless correct."
+      ],
+      "fix": "Specify the trust-publication directory crash state and its qualified writer location, authorization, closed empty-directory predicate, barriers and refusal neighbours. Amend the shared X4T/X4B parent protocol through RW-S5, include it in J4d and its typed results, and add a crash-during-directory-completion start/control covering this census occurrence. Establish that the repair step is reachable without relaxing required trust admission. Alternatively retain an explicit residual limit and narrow the scope/closure claim; do not retire L11 wholesale while a lawful state in its claimed family remains permanently refused."
+    }
+  ],
+  "nonBlockingObservations": [
+    {
+      "id": "JRW-R1-NB-01",
+      "location": "docs/implementation/m3/resume-repair-jrw/PROPOSAL.md:123, :157, :440",
+      "problem": "The global prohibition on rewriting any existing byte should be scoped precisely. C-SUFFIX preserves existing marker/trust bytes, while C-LEDGER intentionally uses SQLite's schema transaction, WAL and eventual checkpoint over an existing header page.",
+      "evidence": "write_schema at project_ledger.rs:452-509 uses a writable connection and configure_engine(false); SQLite materializes the schema into page 1 through its normal transaction/checkpoint machinery. That action is explicitly authorized in item 3.3, so the intended exception is evident, but the global wording obscures it.",
+      "fix": "Apply the byte-preservation prohibition to existing immutable marker/dependency payloads and evidence, while expressly allowing the narrowly selected SQLite creation transaction and its engine-owned metadata changes."
+    },
+    {
+      "id": "JRW-R1-NB-02",
+      "location": "docs/implementation/m3/resume-repair-jrw/PROPOSAL.md:223, :231",
+      "problem": "N-R4 and N-T1 say not a strict prefix, which also describes an exactly complete matching object.",
+      "evidence": "An exact matching marker is RW-R7 and an exact matching private dependency takes the ordinary equality admission in floor_publication.rs:470-481. Neither has the neighbour refusal asserted by the table.",
+      "fix": "Describe mismatching content as neither exactly equal nor a strict prefix, so the negative controls do not overlap ordinary completed-object admission."
+    },
+    {
+      "id": "JRW-R1-NB-03",
+      "location": "docs/implementation/m3/resume-repair-jrw/PROPOSAL.md:63",
+      "problem": "The example says the census has 39 dependency/create.after occurrences, but the pinned EV census reports seven.",
+      "evidence": "Both EV matrix.census.points and its hash-verified storage/census-trace.txt contain #1 through #7. The 57 refused-run arithmetic is correct and does not depend on the 39 example.",
+      "fix": "Correct the example to the pinned census, or identify and pin the different census that supplies 39 before using it as review evidence."
+    }
+  ],
+  "requestAssessments": [
+    {
+      "requestItem": 1,
+      "topic": "Scope and evidence",
+      "result": "Required finding JRW-R1-03. All 381 run-record hashes/lengths in the pinned storage matrix were verified. There are 174 F00 records, exactly 57 with refused R2; their counts match 46 R + 6 P + 2 L + 3 T and every sampled state group in item 4. The registration census window has 54 points: its eight unsampled points leave absent N/unpublished stages or parent-barrier states already covered by RW-R1/RW-R2. Dependency directory occurrence #6 is the additional uncovered lawful state."
+    },
+    {
+      "requestItem": 2,
+      "topic": "Authority and identity contract",
+      "result": "The operation-owner construction is defensible, subject to JRW-R1-02. REG:9 delegates authorization to operation owners; J-RW supplies a separate write-gate-only completion decision under an X1 writer, agreeing root and random-kind row. REG v3 must record it. IE:47-50 does not require a new public command: refusal/classification grants nothing, the separately specified completion chooses no competing identity, and final project writer admission still requires exact marker/ACTIVE agreement. No IE passage successor is required solely by this choice. Adopt, moved/contradictory rows, read paths, creator retry and foreign/staged artifacts remain excluded."
+    },
+    {
+      "requestItem": 3,
+      "topic": "Predicates and owner actions",
+      "result": "C-ACL is a lawful prospective extension of 465 item 5 through the named successors: empty exact-private-shape objects only, omitted ACL distinct from sentinel/unreadability, one zero-rights ACE, no mode change, fresh recapture and qualified barriers. It grants no extra rights and does not authorize nonempty/foreign permission repair. C-SUFFIX preserves a bounded strict prefix and completes only the owner's exact marker/dependency bytes on the same file. X4T/X4B successors can authorize finishing an unadmitted partial leaf without editing an admitted record. Required findings JRW-R1-01 and JRW-R1-02 prevent accepting L-UNC and the C-REG join as written. The two positive L-UNC views remain J4c's explicitly gated native validation obligation; no tests were run in this review."
+    },
+    {
+      "requestItem": 4,
+      "topic": "Safety bias",
+      "result": "The intended procedures create only the selected schema/ACTIVE identity and the request's later ordinary attempt/commit; none declares an old execution committed. Locks, capacity checks, pre-effect reservations, no in-process retry, retained-parent/no-follow checks and excluded admitted/undetermined states preserve the intended safety boundary. The history counterexample and impossible-order registration join need the explicit guards in JRW-R1-01/02 before that boundary is sound."
+    },
+    {
+      "requestItem": 5,
+      "topic": "Rows and crash closure",
+      "result": "RW-F00 correctly restores R4 to UAU at the seven x3c points once R2 can create/admit the ledger; R1 stays UC there and remains read-only. R3 is scored against the killed attempt, not R2's attempt. The three-child RW-K ladder, ExecutionId-dependent R1/R4 reads, mutation labels/R1-R2 exception, fresh unarmed per-start census, .repair scopes, independent pre-run transcription, release absence and serialized both-target lead set conform to X9's existing rules. These are future obligations, not executed evidence. Expand the neighbours/start coverage for JRW-R1-01/02/03 and retain the residual limit until covered; current rows cannot justify wholesale L11 retirement."
+    },
+    {
+      "requestItem": 6,
+      "topic": "Cross-law successors and unread re-commit draft",
+      "result": "RW-S1 through RW-S6 identify the correct changing owners; REG/X3b additions and source-repair command correction are correctly assigned to RW-S7/RW-S8. The X-RW-9 text sequencing is sufficient for the independent laws: accepted r7 is the baseline, J-RW schema-only completion cannot grant re-commit standing, and admitted/undetermined attempts stay with X6. Actual composition must be reviewed on the eventual exact successor bytes, and JRW-R1-01 must be resolved for its no-old-receipt premise to hold. No opinion is given on draft X3c r8."
+    },
+    {
+      "requestItem": 7,
+      "topic": "Units and plan",
+      "result": "The declared J4a/J4c parallel start, then J4b/J4d and J4e, introduces no J3 or X3c-3 code dependency. Owner-law successors gate only their relevant subunits; typed results before O1 avoid an O1 code edge. M+M+S+S plus one serialized lead set is consistent with the plan's L-plus-lead-set allocation as a planning claim, not measured delivery evidence. Reassess J4d scope after JRW-R1-03 and make the shared completion-result interface available without silently serializing J4c behind J4a. All J4 units and RW-S1 to RW-S6 still require their own exact inventory/law reviews."
+    }
+  ],
+  "checks": {
+    "method": "Single-reviewer read-only law and source inspection, pinned-evidence tabulation, and primary SQLite documentation. No product execution.",
+    "initialPinsVerified": 26,
+    "x3cR7": {
+      "source": "git show 925c9c3ca292216dbac63ee5d0236a256a1e9f14:docs/implementation/m2/ledger-blob-x3c/PROPOSAL.md",
+      "sha256": "838916f118681a5c5c8fa4215ad9dbb24a4fc47a1094860301c398a7d895d718",
+      "bytes": 18890
+    },
+    "inputHandlingNote": "All 26 live pins initially matched. A later live X3c-path read returned the changed r8 draft before the change was detected; it was excluded from reasoning. Accepted r7 was recovered and hash-verified from the lead-designated commit. The lead subsequently confirmed this expected path change. X-RW-9 was assessed solely against pinned r7 and P5-2; no draft-r8 comparison or conclusion is claimed.",
+    "productBaseline": "3e64266; reviewed checkout e093e908dd7fe735356a896f3cf4b97e1d93198e. Cited crates unchanged between those commits.",
+    "execution": "Only scratch digest/evidence/artifact scripts, nice -n 19, Python 3.14.6 -I -B, private 0700 TMPDIR under this output directory.",
+    "notRun": [
+      "cargo",
+      "builds",
+      "product tests",
+      "SQLite fixtures",
+      "crash matrix",
+      "lead set",
+      "verify_design"
+    ],
+    "boundaries": [
+      "No repository writes",
+      "No commits or pushes",
+      "No delegation",
+      "No real OpenSIP-home access",
+      "No 413-fixture access"
+    ],
+    "evidenceArtifacts": [
+      "pin-verification.json",
+      "baseline.json",
+      "X3c-r7.pinned.md",
+      "PROPOSAL-r1.pinned.md",
+      "evidence-audit.json",
+      "f00-refused.json",
+      "f00-tabulation.json"
+    ]
+  }
+}
