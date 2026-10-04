@@ -429,3 +429,4 @@ Times are local.
     - **LD-8:** every write or flush failure is final, since `write_all` can't report bytes written.
   - **Checks:** 121 pass, and it binds 82 → 83.
   - **J1 record items:** NB wording, the S-OP-2 r6 re-citations, 5.3's settlement wording, an 8.2 phase label, and 8.3 against WS:226.
+- **RUST3-LIM accepted by GROK2** (ACCEPT-DESIGN-UNIT, no findings). The Rust3 256-file cap is lifted within the major, by a file list by reference behind an optional token. It binds after FA-2, which is in review at r2. **S18 goes to GROK2.**

@@ -2,6 +2,9 @@ CODEX2 review: **S18**, the final-output-section contract successor of the host 
 
 Write only under `/tmp/opensip-implementation/reviews/codex2-s18-r1`.
 
+**Lead note (reviewer change).** This request was written for CODEX2. **GROK2** reviews it, because GROK2 was free. The directory keeps its name, because the unit's builder emits this review path into the unit draft. Write your output under `/tmp/opensip-implementation/reviews/codex2-s18-r1`. Don't run cargo.
+
+
 **Rules:**
 - **Read-only.** No repository edits, commits, pushes or delegation. Run git only read-only.
 - **No builds or tests.** Run no cargo, no tests, no generator and no crash-matrix binary or checker.
