@@ -338,3 +338,7 @@ Times are local.
   - **SYN-NS:** the normalizer spec and levels L0–L3. Every node kind is checked against E0's pinned grammars.
   - **Queue:** SYN-1 and SYN-NS go to CODEX2 after CR-1. SYN-1F is held until CRC-1 is accepted, then rebuilt.
   - **E2s** must land after I1-a.
+- **FA-2 r1:** Codex raised two P2 scoping findings.
+  - The §4.1a census source must be limited to TS/Rust symbol keys, so the in-host syntax census needs no carrier.
+  - The cascade must be limited to bindings that owe the worker's census, which excludes host inventory bindings (X-H3) and syntax universes.
+  - FA-2 r2 follows L r4, from the same drafter.
