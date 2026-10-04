@@ -756,3 +756,6 @@ Times are local.
   - **CRC-2:** two VD2 supersessions of CRC-1's IE:285 and IE:1377, plus two plain overrides on SYN-1F's schema copy. Local verify passes, giving 99 successors and 4 supersessions.
   - **New gap, X-8:** default discovery makes every cell required, and the enumeration contract then refuses a required cell that has no enumerator, which is the case when its provider closure is missing. **Lead decision:** an enumeration-contract successor will admit the unselected enumerator in exactly that case, with the `provider-unavailable` pair. It is owed before C4a and J2c.
   - **Still owed of S7b:** E-1 (M3-B and X2), and E-3's trust half plus E-4 (X4T).
+- **M3-C r8 accepted in review by CODEX2,** with no required findings; like r7, it takes effect with L. **CRC-2 accepted and bound** at product main `1799d3d`, giving 99 contract successors and 4 passage supersessions. C4a's X-H3 prerequisite is met.
+  - **Observation NB-MC8-1** goes to E1 r5: E1's X-C1, its forbidden substitute and E3-T13/T14 must conform to r8's widened core-closure use.
+  - **Still owed before C4a:** X-8's enumeration-contract successor.

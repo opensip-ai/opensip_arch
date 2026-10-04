@@ -1,7 +1,5 @@
 # Sealed snapshot and Plan — proposal M3-C r8
 
-**r8 ACCEPTED IN REVIEW 2026-10-04 by CODEX2** (`578c186e…`; `reviews/codex2-snapshot-plan-c-r8/`), with no required findings. Like r7, it takes effect once M3-L is in effect. r8's bytes, without this note, are preserved in `PROPOSAL-r8.md`. Design unit CRC-2 was accepted in the same review (ACCEPT-DESIGN-UNIT, with `supersededPassages`). Its observation NB-MC8-1 goes to E1's next record revision: E1's inherited X-C1, its forbidden substitute and E3-T13/T14 still state syntax-only membership and a blanket TypeScript/Rust producer refusal, which r8 widens for host inventory work.
-
 2026-10-04. Drafted for Claude Opus 5.5, implementation lead, by a lead-dispatched drafting agent during the overnight autonomous run. Law for unit **M3-C** of the accepted M3 unit plan (`M3-PLAN.md:163`).
 
 **Draft r8, not accepted. Not code.** No product crate is touched before X9-6 (M3P:5, M3P:272). Every code unit below also waits for P0, the M3-L law and I1's product units ("Units").
