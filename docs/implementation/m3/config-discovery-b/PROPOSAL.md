@@ -1,15 +1,34 @@
-# Configuration and discovery (M3-B) — proposal r2
+# Configuration and discovery (M3-B) — proposal r3
 
-**r2 ACCEPTED 2026-10-04 by GROK2** (`92e65825…`). r2's bytes, without this note, are preserved in `PROPOSAL-r2.md`. Its successors (S1 X2 r9, S2 X12 r4, S3–S6, S8, S9) and code units follow.
-
-2026-10-04. Drafted for Claude Opus 5.5, implementation lead, during the overnight autonomous run. Law for unit **M3-B** of the accepted M3 unit plan (M3P:162). It covers three sub-units:
+2026-10-04. Drafted for Claude Opus 5.5, implementation lead, during the overnight autonomous run. Law for unit **M3-B** of the accepted M3 unit plan (M3P:160). It covers three sub-units:
 - **B1, the resolver:** Config2 layers, precedence and provenance (AQ:43-53, AQ:102-173), `resolvedConfigDigest` (IE:518-519) and FW-13 (COV:8104).
 - **B2, discovery:** the S3 boundary (SL:105-332), NE §1.4 U-0 to U-9 (NE:619-948), FW-01 (COV:7852) and the host side of framework recognition (NE:2750-2777).
-- **B3, multi-repository workspaces:** owner decision D15 (AQP:556), with the X2 successor it needs (M3P:162, M3P:376).
+- **B3, multi-repository workspaces:** owner decision D15 (AQP:556), with the X2 successor it needs (M3P:160, M3P:374).
 
-**Draft r2, not accepted. Not code.** Product code waits for M3-P0 (M3P:161) and M3-L's acceptance (M3P:189). Every item below is a lead decision made under the owner's standing direction to proceed on the lead's recommendation. Each names the alternatives it rejects. Item 27 lists the one owner question and the points the reviewer should test hardest.
+**Draft r3, not accepted. Not code.** Product code waits for M3-P0 (M3P:159) and M3-L's acceptance (M3P:187). Every item below is a lead decision made under the owner's standing direction to proceed on the lead's recommendation. Each names the alternatives it rejects. Item 27 lists the one owner question and the points the reviewer should test hardest.
 
 r2 answers GROK2's r1 review (`/tmp/opensip-implementation/reviews/grok2-config-discovery-b-r1/`, copied to `docs/implementation/m3/reviews/grok2-config-discovery-b-r1/`): two required findings and two non-blocking observations. GROK2 confirmed R1 to R7 apart from those findings. The r1 bytes are preserved as `PROPOSAL-r1.md` (sha256 `da014f54…`, 85,905 bytes).
+
+**r3 is a record revision.** GROK2 accepted r2 on 2026-10-04 with no findings (`docs/implementation/m3/reviews/grok2-config-discovery-b-r2/`). The r2 bytes are preserved as `PROPOSAL-r2.md` (sha256 `92e65825…`, 94,762 bytes). The live file carried them with a 2-line acceptance note, which r3 removes. r3 applies only what has since been settled for this law: GROK2's rulings in its review of design unit B-S1, the three bound design units B-S1, B-S2 and B-S9, the acceptance of S1 and S2, and M3-L's cross-law item X10. It also re-pins this law's citations to accepted snapshots. It decides nothing new. The "r3 changes" table comes first, and the "r2 changes" table is kept below it with its reviewed citations. Diff r3 against `PROPOSAL-r2.md`.
+
+## r3 changes
+
+Each row names its source. "RBS1 R2" means ruling R2 in GROK2's review of B-S1, not this law's reviewer question R2 (item 27).
+
+| # | Change | Source |
+|---|---|---|
+| 1 | **Header.** r2's acceptance note is removed. r3 is a record revision. | `reviews/grok2-config-discovery-b-r2/` (ACCEPT, no findings) |
+| 2 | **Item 24 row 3 now agrees with item 22 and row 1.** An explicit or config member when W fails W2 is a crossing into a repository that cannot become a member. It keeps row 1's `PROJECT.EXPLICIT_PATH_INVALID` / `CONFIG.INVALID` with `JOIN_CROSSES_NESTED_REPOSITORY`, so a project that never opts into D15 keeps S3's existing refusal. `workspace-root-inside-repository` is not applied to an explicit or config member. It is row 6's disclosure subject for a reader entry. Item 21's subject list now points to item 24 for when each subject applies. | RBS1 R2; BS1 LD-6; M3-PLAN r9, new-units row "M3-B record revision" and cross-law row "Ruling R2"; ON, "B-S1 accepted by GROK2" |
+| 3 | **Item 24 rows 5 and 6: the member cap, as B-S1 settled it.** n counts the distinct repositories that the active branch's declarations name after placement, before X2 r9 item 6b reads any Git configuration or index. n > 64 refuses in **both** branches, and no member is dropped to fit, so row 6's exclusion no longer reaches the cap. Row 5 cites the subject's remedy, which B-S1 states at SL:1323. Row 6 also records what readers do when W fails W2: they declare nothing, and they disclose a literal entry inside a nested repository as `member-excluded` with subject `workspace-root-inside-repository`. | RBS1 R4, R5 and R2; BS1 LD-7, LD-10 and LD-17, and "Conflicts and reconciliations with accepted laws" |
+| 4 | **The three design units are recorded as accepted and bound:** B-S1, with M3-C's SX-1, at product `9c11c53` (GROK2); B-S2 at `240a795` (Codex); and B-S9 at `8adfe0c` (Grok). Item 25's S3, S4 and S9 rows, its "Law versus contract" paragraph, the units table's gates and rows, and "Not claimed" say so. | ON, "B-S1 accepted by GROK2", "B-S2 accepted by Codex", "B-S9 accepted by Grok"; `reviews/grok2-b-s1-r1/`, `reviews/codex-b-s2-r1/`, `reviews/grok-b-s9-r1/` |
+| 5 | **S9 is design unit B-S9,** split out of B-S1 by lead decision on 2026-10-04. The units table gains a B-S9 row, and B-S1's row no longer names S9. **B1-a depends on B-S9**, not on "B-S1 (S9 text)". B1-a embeds B-S9's string at `configuration.rs:24`, which `doctor_ingress.rs:216` reuses, and repins `configuration_tests.rs:338-343`. Item 4's S9 paragraph and item 25's S9 row point to B-S9. | BS1, "S9 is split out"; BS9, "What it is", "The change", "Binding"; `reviews/grok-b-s9-r1/REVIEW.md`, "Laws"; M3-PLAN r9, new-units row "B-S9" |
+| 6 | **Two findings are settled by B-S1.** F9: B-S1's overrides of SL:286 and NE:4135 name `AdmittedBoundaryInventoryV3`. F10: SX-1 fixes the `.opensip/` rule, and item 22's sentence on a member's own `.opensip/` points to it. | BS1 §1 and §3 ("which also fixes MB finding F9 there"); `b-s1/PASSAGES.md` (SL line 286, NE line 4135) |
+| 7 | **What B-S1 leaves to B's units.** B2-a implements SX-1's anchor and owes the `discovery-defaults.py` reference refresh. B2-a, B2-b and B3-b also owe the controls B-S1 lists for them. | BS1 LD-14, BS1-F3, "Controls owed by the implementing units" |
+| 8 | **S1 and S2 are recorded as accepted:** X2 r9 and X12 r4, both accepted by Grok with no findings. | ON, "X2 r9 and X12 r4 accepted by Grok"; M3-PLAN r9, "Critical path" ("its successors X2 r9 and X12 r4 (**accepted**)") |
+| 9 | **ML is cited by item** (M3-L's X10). r2's ML:494-509 is item 17 of M3-L r1, which r5 keeps. | ML X10 (r2, kept in r5); M3-PLAN r9, cross-law row "X10" |
+| 10 | **Citations are re-pinned to accepted snapshots.** r2 cited live files, which have moved since or move with this revision's companion drafts. M3P lines move by −2 to `M3-PLAN-r4.md`. I1 lines move by −2 to `preview-pack-i1/PROPOSAL-r2.md`. X2 and X12 lines are unchanged in `PROPOSAL-r8.md` and `PROPOSAL-r3.md`, because each acceptance sentence sits inside an existing line. X4's live r7 file has no snapshot and is pinned by sha256. Item 10's quoted S2 passage is X12 r4's accepted text and keeps its own citations. The history tables keep their reviewed citations. | the cited live bytes at arch `6f85fe717` (M3P), `b412bce73` (I1), `bf3007f0f` (X2) and `0f69f15fc` (X12), each diffed against its snapshot |
+
+Nothing else changes. The decisions, units, sizes, order and findings F1 to F14 are r2's, apart from the rows above.
 
 ## r2 changes
 
@@ -20,28 +39,29 @@ r2 answers GROK2's r1 review (`/tmp/opensip-implementation/reviews/grok2-config-
 | GROK2 NBO-1 (the census and the byte cap) | Item 12 now says the census bounds objects and edges only. Bytes are bounded separately by item 19's member cap and X2:272's per-record ceilings. |
 | GROK2 NBO-2 (S3's "U-9 note" had no decision) | Item 22 now states the sentence: U-9 is unchanged, and its one fallback unit is at W's root; a member is never a second fallback site. S3's cell cites item 22. |
 
-Nothing else changes in substance. The units, their sizes and their order are unchanged.
+Nothing else changes in substance. The units, their sizes and their order are unchanged. (The r2 table keeps its reviewed citations. Its I1 lines are the live file's, +2 against `preview-pack-i1/PROPOSAL-r2.md`.)
 
 ## Short names
 
-Line numbers were checked against the files named here on 2026-10-04. A live plan or design file that carries an acceptance note is 2 lines ahead of its `-rN` snapshot; the live file is cited.
+Line numbers were checked against the files named here on 2026-10-04. **r3 cites other laws and the M3 plan by accepted snapshot** (r3 change 10). r2 cited live files, and a live file that carries an acceptance note is 2 lines ahead of its `-rN` snapshot. Plans and designs whose live bytes have not changed since r2 are still cited live.
 
-- **M3P** `docs/implementation/m3/M3-PLAN.md` (r4, accepted). **AQP** `docs/implementation/m3/analysis-quality/PLAN.md` (r6, accepted). **OPP** `docs/implementation/m3/operability/PLAN.md` (r3, accepted; cited by section and line). **HD** `docs/implementation/m3/harness/DESIGN.md` (r13, accepted). **I1** `docs/implementation/m3/preview-pack-i1/PROPOSAL.md` (r2, accepted). **ML** `docs/implementation/m3/provider-protocol-l/PROPOSAL.md` (r1, draft).
+- **M3P** `docs/implementation/m3/M3-PLAN-r4.md` (r4, accepted; `e50f75d3…`). r2 cited the live r4 file (`1526c483…`, arch `6f85fe717`), so each M3P line here is r2's minus 2. The plan is now at r9, which records this law (`M3-PLAN-r9.md`, accepted by GROK2). This law keeps citing r4. **AQP** `docs/implementation/m3/analysis-quality/PLAN.md` (r6, accepted). **OPP** `docs/implementation/m3/operability/PLAN.md` (r3, accepted; cited by section and line). **HD** `docs/implementation/m3/harness/DESIGN.md` (r13, accepted). The live AQP, OPP and HD bytes are unchanged since r2 (`1611014d…`, `4eca344b…`, `1f108399…`). **I1** `docs/implementation/m3/preview-pack-i1/PROPOSAL-r2.md` (r2, accepted; `1eb47d1e…`). r2 cited the live file (`8cb31152…`), so each I1 line here is r2's minus 2. The exception is item 10's quoted S2 passage, which is X12 r4's accepted text and keeps its own citations of that live file. **ML** `docs/implementation/m3/provider-protocol-l/PROPOSAL-r5.md` (M3-L r5, accepted in review by GROK2, `f654ee4e…`; it takes effect only when its gate is met), cited by item. r2 cited the lines of r1 (`PROPOSAL-r1.md`, `5e858c05…`), and r5 keeps r1's item numbers (ML X10).
 - **T2R / T2F / T2M** `docs/implementation/m3/corpus/{README.md, FETCH-SPEC.md, t2-corpus-manifest.draft.json}` (T2b, accepted by GROK2; sha256 `3d355e72…`, `4ebe90a4…`, `c8cc48e1…`).
-- **X2** `docs/implementation/m2/project-root-x2/PROPOSAL.md` (r8, accepted; live sha256 `c3ffc853…`). **X12** `docs/implementation/m2/policy-admission-x12/PROPOSAL.md` (r3, accepted). **X4** `docs/implementation/m2/live-guards-x4/PROPOSAL.md` (r7, accepted).
+- **X2** `docs/implementation/m2/project-root-x2/PROPOSAL-r8.md` (r8, accepted; `c31d9a02…`). r2 cited the live r8 file (`c3ffc853…`), whose acceptance sentence sits inside line 3, so the lines are equal. **X2r9** `docs/implementation/m2/project-root-x2/PROPOSAL-r9.md`, successor S1 (accepted by Grok; `0d68e3a5…`). **X12** `docs/implementation/m2/policy-admission-x12/PROPOSAL-r3.md` (r3, accepted; `11628912…`). Its lines equal those of the live r3 file r2 cited (`c9f0fd1a…`), whose acceptance sentence sits inside line 12. **X12r4** `docs/implementation/m2/policy-admission-x12/PROPOSAL-r4.md`, successor S2 (accepted by Grok; `adc9a88a…`). **X4** `docs/implementation/m2/live-guards-x4/PROPOSAL.md` (r7, accepted). X4 has no snapshot file, and its live bytes (`8eb4223e…`) are unchanged since its acceptance commit, arch `22c969a0f`.
 - **AQ / IE / SL / NE / WS** `docs/v2/contracts/product-v1/{admission-and-qualification, identity-and-evidence, security-and-lifecycle, native-evidence, workflows-and-surfaces}.md`.
 - **CH13** `docs/v2/architecture/13-evidence-workflows-and-product-contracts.md`. **CH14** `docs/v2/architecture/14-repository-and-module-layout.md`. **F03** `docs/v2/architecture/03-configuration-and-security.md`. **COV** `docs/v2/architecture/implementation-coverage.v1.json`.
 - **SMAP** `docs/coop/design-corrections/current-source-map.proposed.md`. **PCS** `docs/coop/design-corrections/foundation/product-configuration.schema.v2.json`. **PCM** `…/foundation/product-configuration-model.py`. **DD** `docs/coop/design-corrections/discovery-defaults.py`. **SLS** `docs/coop/design-corrections/security/security-lifecycle.schemas.v1.json`. **SLM** `…/security/security_lifecycle_model_v1.py`. **CINV** `docs/coop/design-corrections/workflows/command-inventory.v3.json`.
 - **DRC** `docs/coop/completion/distribution-runtime-completion.v2.md`. **HFC** `docs/coop/completion/host-foundation-completion.v2.md` (the applied preview host foundation).
+- **(r3)** **BS1 / BS2 / BS9** are the READMEs of the bound design units B-S1, B-S2 and B-S9: `docs/implementation/m3/config-discovery-b/b-s1/README.md` (`fd4bdcba…`), `b-s2/README.md` (`c1cebaad…`) and `b-s9/README.md` (`766de243…`). **RBS1** is GROK2's review of B-S1, `docs/implementation/m3/reviews/grok2-b-s1-r1/REVIEW.md` (`2a9e48a2…`). Its rulings are cited as RBS1 R2, R4 and R5. **ON** is the overnight log, `docs/implementation/OVERNIGHT-2026-10-03.md`, cited by entry.
 - Product paths are under `opensip/` at main `30c5db1`.
 
-**Citation drift.** M3P:162 cites "AQP:537" for D15's successor clause. In the accepted bytes the D15 row is `PLAN-r4.md:535`, `PLAN-r6.md:554` and live `PLAN.md:556`. This law cites the live line. ML's cross-law finding X8 records the same drift for other AQP citations.
+**Citation drift.** M3P:160 cites "AQP:537" for D15's successor clause. In the accepted bytes the D15 row is `PLAN-r4.md:535`, `PLAN-r6.md:554` and live `PLAN.md:556`. This law cites the live line. ML's cross-law finding X8 records the same drift for other AQP citations.
 
 ## Problem
 
 **The product has a resolver slice, a root selector and nothing else.**
 - `crates/host/src/configuration.rs` is X12's pack admission only. Its header says "Layer merge, discovery, profiles, capabilities, waiver IDs and `resolvedConfigDigest` arrive with M3 in this module" (`configuration.rs:1-4`). The module is `#[allow(dead_code)]` (`crates/host/src/lib.rs:49-52`).
-- `crates/host/src/discovery.rs` is absent (M3P:120), and so is `crates/security/src/grants.rs`, which owns four M3 flags (M3P:128; COV:5277, 5317, 5337, 5377).
+- `crates/host/src/discovery.rs` is absent (M3P:118), and so is `crates/security/src/grants.rs`, which owns four M3 flags (M3P:126; COV:5277, 5317, 5337, 5377).
 - X2b implemented S3's **upward** root selection (`crates/security/src/custody/project_admission.rs:303-384`). It custody-judges `opensip.json` but keeps no descriptor and reads no bytes (`project_admission.rs:240-269`). X2 left unit discovery to M3 (X2:280).
 
 **Four accepted rules stand in the way of D15's shape** ("a workspace assembled from packages that live in separate repositories and refer to each other by path or by version", AQP:225):
@@ -87,7 +107,7 @@ Line numbers were checked against the files named here on 2026-10-04. A live pla
 
 | Layer | Carrier | Read when | Admitted fields |
 |---|---|---|---|
-| 1 compiled defaults | the authenticated release declaration registry and signed install profile | always | `analysis.profileId`, `capabilities` and `budget` (AQ:55-77, AQ:132-134); component defaults; the default policy selection is I1's and C4's (M3P:184), carried here with `DEFAULTED` provenance |
+| 1 compiled defaults | the authenticated release declaration registry and signed install profile | always | `analysis.profileId`, `capabilities` and `budget` (AQ:55-77, AQ:132-134); component defaults; the default policy selection is I1's and C4's (M3P:182), carried here with `DEFAULTED` provenance |
 | 2 user-global | `I/host/settings.json` (lead decision; below) | always; absent is no layer | **semantic:** `analysis.budget` only. **Operational:** `retention.*`, `ui.color`, and whatever S-OP-5 admits (item 7). Any other key refuses `CONFIG.INVALID`; it is never silently ignored |
 | 3 project | `<root>/opensip.json` (`project_admission.rs:34`) | always; absent is no layer | every PCS section |
 | 4 interactive local | `<root>/.opensip/local.json` | interactive invocations only (item 3) | the same fields as layer 3 (HFC:167) |
@@ -152,7 +172,7 @@ Line numbers were checked against the files named here on 2026-10-04. A live pla
 - Carrier custody is `CONFIG.CUSTODY_REFUSED` (SL:1302).
 - An invalid compiled default, environment layer or host-built flags document is the host-invariant row, as X12 row 4 shapes it (`configuration.rs:102-110`).
 
-**Lead decision: the `CONFIG.INVALID` remedy needs a successor.** The one remedy keyed to `CONFIG.INVALID` names only capability and policy selection (`configuration.rs:21-24`; X12-0). A bad path in `opensip.json` would receive that text. This law requires a remedy-text successor, through X12-0's route, that covers configuration documents generally (successor S9). **Rejected:** reusing the misleading text, or minting a new code, which the owner's no-new-codes rule forbids.
+**Lead decision: the `CONFIG.INVALID` remedy needs a successor.** The one remedy keyed to `CONFIG.INVALID` names only capability and policy selection (`configuration.rs:21-24`; X12-0). A bad path in `opensip.json` would receive that text. This law requires a remedy-text successor, through X12-0's route, that covers configuration documents generally (successor S9). **Rejected:** reusing the misleading text, or minting a new code, which the owner's no-new-codes rule forbids. **(r3)** S9 is design unit B-S9, accepted by Grok and bound at product `8adfe0c`. It carries the remedy, through X12-0's route, as complete successor copies of the two native-model files (BS9, "The change" and "The form"). B1-a embeds its string (item 25; units table).
 
 **Basis.** AQ:8-41, AQ:102-173, AQ:330-335; PCM:9-51 (the reference resolver).
 
@@ -276,7 +296,7 @@ Provenance is retained apart from source blobs. It never enters any digest. Doct
 **Rejected.**
 - Honouring `NO_COLOR` for `ui.color: auto`. It is a common convention, but it would be the first environment input. If wanted, S-OP-6 can admit it as a declared operational input.
 
-**Forbidden.** An environment read anywhere on the configuration or discovery path except X2's refusal-only check; a configuration value spelled into an environment variable for a child (that is the D law's, ML:494-509).
+**Forbidden.** An environment read anywhere on the configuration or discovery path except X2's refusal-only check; a configuration value spelled into an environment variable for a child (that is the D law's, ML item 17).
 
 **Controls.** The structural check and its planted negative control. A run with hostile `HOME`, `PATH`, `CI` and `XDG_*` values produces byte-identical resolution and discovery records, except where X2's refusal-only Git check refuses.
 
@@ -290,9 +310,9 @@ Provenance is retained apart from source blobs. It never enters any digest. Doct
 
 **What stands, and what S2 withdraws (r2, RF-2).**
 - Everything else in X12 r3 stands: rows 1 to 4, the `Supplied` refusal of bundled bytes, the `cfg(test)` registry, `check_plan_pack`, X12d, and item 8's rule that admission is pure, with no I/O, no lock and no ledger charge (X12:125).
-- Of I1's M3 amendments to X12 (I1:381-388), the three row-count changes **stand** (I1:383-386).
-- **I1:388's clause that X12 r3's order stands is withdrawn by S2.** I1:388's other clauses stand: rows 1 to 4, the `Supplied` refusal, the `cfg(test)` registry, `check_plan_pack` and X12d.
-- This item never cites I1:381-388 as standing in full.
+- Of I1's M3 amendments to X12 (I1:379-386), the three row-count changes **stand** (I1:381-384).
+- **I1:386's clause that X12 r3's order stands is withdrawn by S2.** I1:386's other clauses stand: rows 1 to 4, the `Supplied` refusal, the `cfg(test)` registry, `check_plan_pack` and X12d.
+- This item never cites I1:379-386 as standing in full.
 
 **S2's text (X12 r4, item 8).** This is the exact passage that replaces X12 r3's "the host runs `admit_policy_selection` first in an analysis request, before: X1 write admission, X2 project admission or any fence; …" (X12:125-130). The rest of item 8 (X12:132-138) stands, including the rule that the Plan builder takes the policy only from an `AdmittedPack` (X12:134), with one reading fixed: X12:136's "it is pure and runs before any custody" now means that admission itself performs no custody, because S3's selection judgment precedes it. X12:136's correction that X12 does not depend on X1 stands.
 
@@ -495,7 +515,7 @@ A missing analysis closure is a prerequisite failure, never a fetch (CH13:47-49)
 
 #### 18. Recommendation evidence for M4
 
-**Decision.** `discovery.rs` exposes one pure function that returns the recommendation evidence CH13:67-73 names: detected evidence, proposed settings, default rationale, unresolved choices and the effect of each choice. Proposed settings are validated by the **actual** resolver of item 4 (CH13:69-71). M4's `recommend` command (BP:952) renders it. M3 wires no command (M3P:303).
+**Decision.** `discovery.rs` exposes one pure function that returns the recommendation evidence CH13:67-73 names: detected evidence, proposed settings, default rationale, unresolved choices and the effect of each choice. Proposed settings are validated by the **actual** resolver of item 4 (CH13:69-71). M4's `recommend` command (BP:952) renders it. M3 wires no command (M3P:301).
 
 **Basis.** CH13:66-75; AQ:345 (metadata discovery and recommend run no hooks or probes).
 
@@ -617,7 +637,7 @@ Nested repositories inside a member (its submodules or clones) stay boundaries. 
 - **The workspace marker:** `W/.opensip/project-id.v1` lies in no member's worktree, by M1 to M3. This is asserted, not observed.
 - **Recheck:** the member evidence is not in the fenced recheck set, because it grants no project admission. C1's per-read custody re-check covers it at snapshot time (SL:313-315).
 
-**Item 8, rows.** No new code. New **subjects** under `PROJECT.ROOT_CUSTODY_REFUSED`: `member-vcs-unsupported:<reason>`, `member-outside-volume` and `workspace-root-inside-repository`. Under `PROJECT.SCOPE_LIMIT`: `members:<n>>64` (item 24).
+**Item 8, rows.** No new code. New **subjects** under `PROJECT.ROOT_CUSTODY_REFUSED`: `member-vcs-unsupported:<reason>`, `member-outside-volume` and `workspace-root-inside-repository`. Under `PROJECT.SCOPE_LIMIT`: `members:<n>>64` (item 24). **(r3)** Item 24 says when each subject applies. Under RBS1 R2, `workspace-root-inside-repository` applies to no explicit or config member. It is the disclosure subject of a reader entry when W fails W2 (item 24, rows 3 and 6).
 
 **Item 10, units.** B3-b owns 6b. B1-b owns 3a.
 
@@ -680,7 +700,7 @@ Each refusal is tested with its subject.
   - treating it as a boundary (ADV-3, SL:146-157). A package configured on its own could then never join a workspace, and the owner's daily use is both;
   - merging member configs into W's. That is a hidden seventh layer (CH13:60).
 
-**A member's own `.opensip/`.** C1 treats it exactly as it treats the root's own `.opensip/`, under one rule that C1 must fix (finding F10).
+**A member's own `.opensip/`.** C1 treats it exactly as it treats the root's own `.opensip/`, under one rule that C1 must fix (finding F10). **(r3)** That rule is now fixed. SX-1, bound with B-S1, makes `.opensip` at the selected root and at each admitted member root an exact anchor: never entered, never source and never inventoried (BS1 §1). F10 is settled.
 
 **The snapshot (contract successor S4, landed by C1).**
 - `vcs-observation` (IE:542-546) is schema version 2 with a single commit. For a project with at least one member, it becomes schema version 3:
@@ -733,12 +753,12 @@ The reviewer is asked to test this (R1).
 - **In scope at M3:** the four authorization records above, their typed constructors, and the pure S3.1 choice function.
 - **Reserved, not built by B:**
   - C4's first-party semantic-grant projection (IE:524-540), if C4 places it here;
-  - X4's planned `admit_repo_execution_grant` (X4:155, X4b), which never landed, and SL S10's repository-execution grant (M5, M5-EX; M3P:347-352);
+  - X4's planned `admit_repo_execution_grant` (X4:155, X4b), which never landed, and SL S10's repository-execution grant (M5, M5-EX; M3P:345-350);
   - SL S10.1's repair authorization (M5);
   - DR-G09 (COV:4631-4651, qualified at M6) and DR-G32 (M5).
 - **Forbidden in `grants.rs` at M3:** any execution, mutation or recovery grant; any constructor from configuration; any I/O.
 
-**Basis.** COV:5268-5407 (verification: "selection never grants execution/custody and configuration never impersonates explicit consent"); CINV `sharedFlags` (each flag's `join` text); SL:127-130; CH14:401; M3P:128, M3P:378.
+**Basis.** COV:5268-5407 (verification: "selection never grants execution/custody and configuration never impersonates explicit consent"); CINV `sharedFlags` (each flag's `join` text); SL:127-130; CH14:401; M3P:126, M3P:376.
 
 **Controls.**
 - `crates/host/tests/discovery_tests.rs` (the COV verification owner): applicability, provenance and precedence for each flag.
@@ -752,10 +772,10 @@ The reviewer is asked to test this (R1).
 |---|---|---|
 | A member path that fails grammar, or a crossing into a repository that cannot become a member | `PROJECT.EXPLICIT_PATH_INVALID` / `CONFIG.INVALID` (SL:1302, SL:1305) | `JOIN_PATH_GRAMMAR`, `JOIN_CROSSES_NESTED_REPOSITORY` |
 | An explicit or config member that fails layout or placement | `PROJECT.ROOT_CUSTODY_REFUSED` / `CONFIG.INVALID` (X2:250-270) | `member-vcs-unsupported:<reason>`, `member-outside-volume` |
-| An explicit or config member when W is inside a repository | as above | `workspace-root-inside-repository` |
+| An explicit or config member when W is inside a repository (W fails W2) | row 1's: `PROJECT.EXPLICIT_PATH_INVALID` / `CONFIG.INVALID` (SL:1302, SL:1305) | `JOIN_CROSSES_NESTED_REPOSITORY`. **(r3, RBS1 R2)** Item 22 and row 1 govern. This is a crossing into a repository that cannot become a member, so a project that never opts into D15 keeps S3's existing refusal. `workspace-root-inside-repository` is not applied to an explicit or config member; row 6 uses it |
 | An explicit or config member that fails directory custody | as above | the existing custody subjects |
-| More than 64 members | `PROJECT.SCOPE_LIMIT` / `REQUEST.UNSATISFIABLE` (SL:1323) | `members:<n>>64` |
-| A member that a reader declared, and that fails any of the above | **not a refusal.** The member is excluded, with the reason in `workspaceDeclarations[].unresolved`; its paths stay `outside-project-boundary` | — |
+| More than 64 members, **in either branch (r3, RBS1 R4)**. n is the number of distinct repositories that the active branch's declarations name after placement (M1 to M3), counted before X2 r9 item 6b reads any Git configuration or index | `PROJECT.SCOPE_LIMIT` / `REQUEST.UNSATISFIABLE` (SL:1323) | `members:<n>>64`. No member is dropped to fit, which would be truncation (item 12). The subject's remedy is the sentence B-S1 adds at SL:1323 (BS1 LD-17) |
+| A member that a reader declared, and that fails any of the above **except row 5 (r3, RBS1 R4: the cap refuses in both branches)** | **not a refusal.** The member is excluded, with the reason in `workspaceDeclarations[].unresolved`; its paths stay `outside-project-boundary`. **(r3, RBS1 R2 and R5)** When W fails W2, the readers declare nothing and derive no link. A literal reader entry inside a nested repository is disclosed as `member-excluded` with subject `workspace-root-inside-repository`, and no other entry is recorded | — |
 | A reader entry that is unresolved: a glob crossing, an ambiguous provider, a name mismatch, a non-path patch | disclosed in `workspaceDeclarations[].unresolved`; no member and no link | — |
 | A reader entry while an admitted `workspaceRoots` array is present (item 20, branch A) that names a repository the array did not admit | disclosed in `workspaceDeclarations[].unresolved` as dropped; no member and no link | — |
 
@@ -769,22 +789,22 @@ Subjects are diagnostic data under S12.1's closed vocabulary, never new codes (S
 
 | # | Successor | Kind | Content | Author | Lands with |
 |---|---|---|---|---|---|
-| S1 | **X2 r9** | **law** amendment (item 21, in this proposal) | premise scope; item 3a capture; item 6b member observation; subjects | lead (this law) | B1-b, B3-b |
-| S2 | **X12 r4, item 8** | **law** amendment (item 10, in this proposal, which gives its exact text) | the order of pack admission. Its text records the withdrawal of I1:388's clause that X12 r3's order stands, and of the ordering sense of X12:136. I1:383-386 stands | lead (this law) | B1-a |
-| S3 | **SL S3 + NE §1.4 (U-8; U-9 unchanged, item 22; the Config2 join, keeping "exactly those roots, never widened", with a present array suppressing reader membership) + SLS** `DiscoveryProvenanceV3` / `AdmittedBoundaryInventoryV3` + the declaration-reader registry | **contract successor** (design unit B-S1; `ACCEPT-DESIGN-UNIT`) | items 19, 20, 22, 24 | this package | B3-b |
-| S4 | **IE `vcs-observation` schema 3** | **contract successor** (design unit B-S2) | per-member VCS rows; version-2 bytes unchanged for single-root projects | this package; implemented by C1 | C1 |
+| S1 | **X2 r9** | **law** amendment (item 21, in this proposal). **(r3) Accepted by Grok with no findings** (X2r9) | premise scope; item 3a capture; item 6b member observation; subjects | lead (this law) | B1-b, B3-b |
+| S2 | **X12 r4, item 8** | **law** amendment (item 10, in this proposal, which gives its exact text). **(r3) Accepted by Grok with no findings** (X12r4). Its item 8 is item 10's text, with the passages X12r4 marks as its own r4 lead decisions | the order of pack admission. Its text records the withdrawal of I1:386's clause that X12 r3's order stands, and of the ordering sense of X12:136. I1:381-384 stands | lead (this law) | B1-a |
+| S3 | **SL S3 + NE §1.4 (U-8; U-9 unchanged, item 22; the Config2 join, keeping "exactly those roots, never widened", with a present array suppressing reader membership) + SLS** `DiscoveryProvenanceV3` / `AdmittedBoundaryInventoryV3` + the declaration-reader registry | **contract successor** (design unit B-S1; `ACCEPT-DESIGN-UNIT`). **(r3) Accepted by GROK2 and bound at product `9c11c53`**, with M3-C's SX-1 | items 19, 20, 22, 24 | this package | B3-b |
+| S4 | **IE `vcs-observation` schema 3** | **contract successor** (design unit B-S2). **(r3) Accepted by Codex and bound at `240a795`** | per-member VCS rows; version-2 bytes unchanged for single-root projects | this package; implemented by C1 | C1 |
 | S5 | **NE §3.3**: admitted Cargo links as projected `[patch]` path entries; the lock carrier for a patched resolution under `--locked` (NE:1786) | **contract successor** | item 22 | C3 / G1b | C3 |
 | S6 | **NE §2.2 / §2.4**: the TS context binds `WorkspaceLinkSetV1`; per-consumer node-semver satisfaction | **contract successor** | item 22 | C2 | C2, F |
 | S7 | **PCS `operability` section** | contract successor | not B's; item 7 leaves the slot | S-OP-5 | M3-O2 |
 | S8 | **T2 record**: T2F §6 npm rendering (item 20) and an optional `git-conventional` member assembly | **harness record** (corpus unit; not a contract) | items 19, 20 | the corpus unit; K1a implements | B3-c |
-| S9 | **`CONFIG.INVALID` remedy text** | contract successor (PUBLIC_ROUTE_REMEDIES, X12-0's route) | item 4 | this package | B1-a |
+| S9 | **`CONFIG.INVALID` remedy text** | contract successor (PUBLIC_ROUTE_REMEDIES, X12-0's route). **(r3) Design unit B-S9**, split out of B-S1 by lead decision on 2026-10-04: complete successor copies of the two native-model files (BS9). **Accepted by Grok and bound at `8adfe0c`** | item 4 | this package | B1-a |
 | — | **SMAP** | **none needed** (lead decision) | SMAP:54 and SMAP:67 name owners and boundaries that already cover D15. D15's change is in S3 and §1.4, which those rows point to. **Rejected:** an SMAP row per shape, which would duplicate the corpus manifest. AQP:556's "SMAP/discovery successor if needed" is met by S3 | — | — |
 | — | **CINV** | none (no new flag, item 23) | | | |
 | — | **NE §8** | none (readers are not recognizers, item 20) | | | |
 | — | **AQ §1.1** | none: B1 implements AQ within its latitude | | | |
 | — | **NE U-6** | **not B's**; finding F4 | | | |
 
-**Law versus contract.** Items 1 to 18 and 23 are law: they implement accepted contracts. S1 and S2 amend existing laws. S3, S4, S5, S6 and S9 are contract successors, each needing an `ACCEPT-DESIGN-UNIT` review. S8 is a harness record.
+**Law versus contract.** Items 1 to 18 and 23 are law: they implement accepted contracts. S1 and S2 amend existing laws. S3, S4, S5, S6 and S9 are contract successors, each needing an `ACCEPT-DESIGN-UNIT` review. S8 is a harness record. **(r3)** S3, S4 and S9 have theirs: B-S1, B-S2 and B-S9 are accepted and bound. S1 and S2 are accepted.
 
 #### 26. Cross-law findings
 
@@ -797,12 +817,12 @@ These are recorded for their owners. None changes an accepted outcome.
 - **F6. X12 order.** Item 10 (S2).
 - **F7. OPP §7's exception list.** It names the resolver as an environment-read owner (OPP:365-367). Item 9 removes it; M3-O records it.
 - **F8. Citation drift.** AQP:537 (see Short names).
-- **F9. Record names.** SL:286 names `AdmittedBoundaryInventoryV1`, while NE:822 and SLS carry V2. This law cites V2. It is a note for the record-hygiene batch.
-- **F10. `.opensip/` in the snapshot.** No contract says whether the root's own `.opensip/` (marker, `local.json`) enters the source inventory. C1 must fix one rule, and item 22 makes members follow it.
+- **F9. Record names.** SL:286 names `AdmittedBoundaryInventoryV1`, while NE:822 and SLS carry V2. This law cites V2. It is a note for the record-hygiene batch. **(r3) Settled by B-S1:** its overrides of SL:286 and NE:4135 name `AdmittedBoundaryInventoryV3` (BS1 §2 and §3; `b-s1/PASSAGES.md`).
+- **F10. `.opensip/` in the snapshot.** No contract says whether the root's own `.opensip/` (marker, `local.json`) enters the source inventory. C1 must fix one rule, and item 22 makes members follow it. **(r3) Settled by SX-1**, bound with B-S1: `.opensip` at the selected root and at each admitted member root is never source (BS1 §1; item 22).
 - **F11. The CI determination** is unspecified in the product contracts, and the preview's `--ci` did not carry over. Item 3 decides it; J1 may add a flag through a CINV successor.
 - **F12. The global carrier's location** is unspecified in the product contracts. Item 2 decides `I/host/settings.json`.
 - **F13. Un-ignoring.** CH13's table makes host ignore conventions "overridable through existing configuration precedence", but PCS has no field that un-ignores. This is a disclosed limitation, and a PCS successor if wanted.
-- **F14. Plan impact.** B is larger than M3P's 2 + 3 + 3 days (M3P:204). By the unit sizes below, B2 finishes about day 8 rather than day 5, so C1, and with it the host chain (M3P:231), starts about 3 days later. B3 keeps slack before M3-X. M3P's next revision should record this, as I1 did for its own size.
+- **F14. Plan impact.** B is larger than M3P's 2 + 3 + 3 days (M3P:202). By the unit sizes below, B2 finishes about day 8 rather than day 5, so C1, and with it the host chain (M3P:229), starts about 3 days later. B3 keeps slack before M3-X. M3P's next revision should record this, as I1 did for its own size.
 
 #### 27. Open questions
 
@@ -819,7 +839,7 @@ These are recorded for their owners. None changes an accepted outcome.
 - **D15 needs no consent flag** (item 23).
 - **A launch inside a member selects that member alone.** S3 is unchanged. The workspace is selected from W, from any directory of W outside every member, or with `--project W`. **Rejected:** continuing the upward walk past a VCS marker to look for a workspace root. That would change the default scope of every repository that sits under a directory holding a manifest (SL:141-144, "default scope does not change with launch directory").
 
-**For the reviewer (test these hardest).** In r1, GROK2 confirmed R1 to R7, subject to RF-1 (R1's minimal further consent: a supplied array is the membership) and RF-2. r2 asks only for confirmation of those fixes.
+**For the reviewer (test these hardest).** In r1, GROK2 confirmed R1 to R7, subject to RF-1 (R1's minimal further consent: a supplied array is the membership) and RF-2. r2 asks only for confirmation of those fixes. **(r3)** GROK2 accepted r2 with no findings. r3 is a record revision, and its review request asks only whether each r3 change is faithful to its source.
 - **R1.** Is a recognized native declaration at W enough intent to cross a repository boundary, with no consent flag (items 20, 23)?
 - **R2.** Is X12's order amendment sound, and is "nothing to clean up" still true after the fence acquisition (item 10)?
 - **R3.** Running discovery after the fence, on its own ledger profile, against X2 item 9's one-ledger rule (item 12).
@@ -831,19 +851,20 @@ These are recorded for their owners. None changes an accepted outcome.
 ## Units after the law
 
 **Gates.**
-- **No product unit starts before M3-P0 is integrated and M3-L is accepted.** M3P:161 and M3P:189-195 make P0 and day 0 the start.
-- Design units B-S1 and B-S2 edit only arch, so they may proceed once this law is accepted.
+- **No product unit starts before M3-P0 is integrated and M3-L is accepted.** M3P:159 and M3P:187-193 make P0 and day 0 the start.
+- Design units B-S1, B-S2 and B-S9 edit only arch, so they may proceed once this law is accepted. **(r3)** All three are accepted and bound: B-S1 at product `9c11c53`, B-S2 at `240a795` and B-S9 at `8adfe0c`.
 - Inventory successor numbers are assigned by the lead at launch, after checking `git ls-files`.
 - **Reviews:** design units need `ACCEPT-DESIGN-UNIT`. Product units with an inventory need `ACCEPT-UNIT` with `inventoryCandidateAssessment`.
 
 | Unit | Kind | Content | Depends on | Size | Gates and cells |
 |---|---|---|---|---|---|
-| **B-S1** | design: contract successor | S3: the SL S3 and NE §1.4 passages, SLS V3 schemas, the reader registry, and S9's remedy text | law | M | D15; SL:3; NE:2 |
-| **B-S2** | design: contract successor | S4: IE `vcs-observation` schema 3, version-2 bytes unchanged | law | S | D15 (snapshot half) |
-| **B1-a** | product | `configuration.rs`: the pipeline (items 1, 4 to 8, 11), the PCS pinned source and its registry row, the generated classification table, the registries' enums, `ResolvedConfigurationV1`, the digest, PCM byte vectors, and the X12 order (item 10). Pure; no I/O | P0, L, B-S1 (S9 text) | M | **FW-13** (COV:8104); AQ:183-187 cases; flags `--workspace-root` (layer 6) |
+| **B-S1** | design: contract successor | S3: the SL S3 and NE §1.4 passages, SLS V3 schemas and the reader registry, with M3-C's SX-1. **(r3)** S9's remedy text moved to B-S9. **Accepted by GROK2 and bound at `9c11c53`** | law | M | D15; SL:3; NE:2 |
+| **B-S2** | design: contract successor | S4: IE `vcs-observation` schema 3, version-2 bytes unchanged. **(r3) Accepted by Codex and bound at `240a795`** | law | S | D15 (snapshot half) |
+| **B-S9** (r3) | design: contract successor | S9: the `CONFIG.INVALID` remedy, as complete successor copies of the two native-model files (BS9). Split out of B-S1 by lead decision on 2026-10-04. **Accepted by Grok and bound at `8adfe0c`** | law | — (inside r2's B-S1 sizing) | S9 (item 4) |
+| **B1-a** | product | `configuration.rs`: the pipeline (items 1, 4 to 8, 11), the PCS pinned source and its registry row, the generated classification table, the registries' enums, `ResolvedConfigurationV1`, the digest, PCM byte vectors, and the X12 order (item 10). **(r3)** B-S9's remedy string, embedded at `configuration.rs:24` (reused at `doctor_ingress.rs:216`), with the pin at `configuration_tests.rs:338-343` repinned (BS9). Pure; no I/O | P0, L, **B-S9** (r3; r2 read "B-S1 (S9 text)") | M | **FW-13** (COV:8104); AQ:183-187 cases; flags `--workspace-root` (layer 6) |
 | **B1-b** | product | Carriers and mode: X2 r9 item 3a (the retained `opensip.json` and `local.json` descriptors); `I/host/settings.json` through installation private access; `InvocationModeV1`; the environment structural check (item 9) | B1-a | M | **FW-01** (no config write); SL:3 (config custody); flag `--project` |
 | **B3-a** | product | `grants.rs`: the four authorization records, typed constructors, the S3.1 choice function, and the `--ephemeral` selection type | P0, L | S | flags `--allow-backup-custody`, `--trust-group`, `--trust-project-owner`, `--yes-policy`, `--ephemeral` (COV:5268, 5308, 5328, 5368, 5348) |
-| **B2-a** | product | `custody/discovery_rule.rs`: the shared rule (U-4a; DD's entry points) | P0, L | M | **NE:2** (U-4a); SL:3 |
+| **B2-a** | product | `custody/discovery_rule.rs`: the shared rule (U-4a; DD's entry points). **(r3)** It implements SX-1's `.opensip` anchor, and its evidence carries the `discovery-defaults.py` reference refresh for that anchor and D15's `memberRepositories` (BS1 LD-14, BS1-F3) | P0, L | M | **NE:2** (U-4a); SL:3 |
 | **B2-b** | product | The S3 downward instrument (item 13), the discovery ledger profile (item 12, a platform change), `DiscoveryProvenanceV2`, the boundary inventory, and the T2 census margin test | B2-a, B1-b, B3-a | L | **SL:3** (COV:6702); FW-01; flags `--project`, `--workspace-root` (COV:5288, 5388) |
 | **B2-c** | product | `discovery.rs`: the native unit instrument U-0 to U-9 (item 14), the JSONC reader shared with C2, the scope descriptor, default selection | B2-b | L | **NE:2** (COV:7066); **6 `inventory/*` cells** (COV:4226-4391), discovery half; FW-01 |
 | **B2-d** | product | Host-side recognition (item 16), the YAML subset reader, and the recommendation evidence (item 18) | B2-c | M | **NE:9** (COV:7245); FW-01 |
@@ -865,6 +886,8 @@ These are recorded for their owners. None changes an accepted outcome.
 - `crates/host/tests/discovery_tests.rs` for the flags (COV verification owner; CH14:498);
 - `crates/host/tests/workflow_tests.rs` for FW-01, FW-13, SL:3, NE:2 and NE:9 section routing (COV:6702-6716, 7066-7080, 7245-7259, 7852-7869, 8104-8121);
 - `tests/qualification/README.md` for FW-14 and the `inventory/*` cells.
+
+**Controls the bound design units add (r3).** B2-a, B2-b and B3-b also owe the controls in B-S1's "Controls owed by the implementing units" (BS1). B1-a repins the remedy test (BS9, "Binding").
 
 ## Forbidden substitutes
 
@@ -900,9 +923,9 @@ Each item lists its own. Across all items:
 ## Not claimed
 
 - No product code, test, measurement or corpus fetch was run for this record. The product was read at `30c5db1` only.
-- No contract, schema, gate, register row or threshold is changed here. S3 to S6 and S9 are named, not written.
+- No contract, schema, gate, register row or threshold is changed here. S3 to S6 and S9 are named, not written. **(r3)** S3, S4 and S9 have since been written and bound as B-S1, B-S2 and B-S9. This law still writes none of them.
 - No command is wired; CLI delivery is M4 (BP:887-888). There is no Linux or AL2023 claim.
-- No confinement claim. No provider launches under this law (ML:494-509; M3P:310).
+- No confinement claim. No provider launches under this law (ML item 17; M3P:308).
 - D15's analysis value at M3 is bounded by findings F2 to F4. There is no cross-unit resolution and no Python link.
 - The member cap (64) and the discovery ledger caps are provisional.
 - T3, the real Amazon instance, waits on OQ-1 and the licence (AQP:217).

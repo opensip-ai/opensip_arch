@@ -500,3 +500,8 @@ Times are local.
 - **J1 r5 written (record), sent to Codex.** It records S19, S20 (row 56) and the S18 adoption, plus FA-1's row 31, L r5's item 13, and re-citations.
   - **LD-r5-1:** a signal after `publish` returns `Refused` or `CommitUndetermined` takes the last phase reached: C if FinalGate admission succeeded, otherwise B.
   - **LD-r5-2:** 8.3's commit-phase rules 1 and 2 stand on IE:1680-1681 and SL:551-554. WS:226's conflicting sentence becomes owed successor **S21**. Until S21 is accepted, these wait: J3d's durable signal wiring, J-C14's rule-1/2 cases, J-C15b's phase-C projections, and rows S12-C and S12-U.
+- **Record revisions M3-B r3, E1 r4 and I1 r3 written.**
+  - **B r3:** item 24 row 3 per GROK2's R2; the member-cap ruling; B-S1/B-S2/B-S9 bound, with S9 split out.
+  - **E1 r4:** E0 T-native, with the T-wasm text inactive unless M4 re-decides; E0's record items; SYN-1/SYN-1F settled; SYN-NS items pending.
+  - **I1 r3:** I1-L's and I1-P's findings; P0–P7 verbatim; I1-a's `verify_design` needs.
+  - **Routing:** B r3 goes to GROK2, I1 r3 to CODEX2, and E1 r4 to Codex after J1 r5.

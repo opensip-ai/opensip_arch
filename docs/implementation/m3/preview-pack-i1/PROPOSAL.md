@@ -1,18 +1,18 @@
-# Preview policy pack (X12c) — proposal M3-I1 r2
+# Preview policy pack (X12c) — proposal M3-I1 r3
 
-**r2 ACCEPTED 2026-10-04 by CODEX2** (`1eb47d1e…`). r2's bytes, without this note, are preserved in `PROPOSAL-r2.md` (and `UNITS-r2.md`). The product units (I1-a, I1-b1, I1-b2, I1-c) follow per `UNITS.md`, after X9-6.
-
-2026-10-04. Claude Opus 5.5, implementation lead. Law for unit M3-I1 of the accepted M3 unit plan (M3P:166). It covers three things:
+2026-10-04. Claude Opus 5.5, implementation lead. Law for unit M3-I1 of the accepted M3 unit plan (M3P:164). It covers three things:
 - the frozen rule IR of the DR-131 preview rule `module-import-cycle`;
 - the policy-language contract successor that X12:191 makes conditional;
 - the contract successor for `opensip.preview.typescript.pack:1` (X12c).
 
-**Draft r2, not accepted. Not code.** No product crate is touched before X9-6 is integrated (M3P:5, M3P:272). The code units are in [UNITS.md](UNITS.md).
+**Draft r3, not accepted. Not code.** No product crate is touched before X9-6 is integrated (M3P:3, M3P:270). The code units are in [UNITS.md](UNITS.md).
 
 r2 answers CODEX2's r1 review (`/tmp/opensip-implementation/reviews/codex2-preview-pack-i1-r1/`): three required findings and three non-blocking observations. The r1 bytes are preserved as `PROPOSAL-r1.md` (sha256 `2226b14f…`) and `UNITS-r1.md` (`8fc877d4…`).
 
-**Short names.** Lines were checked against the files named here, on 2026-10-03 (r1) and 2026-10-04 (r2).
-- **X12** `docs/implementation/m2/policy-admission-x12/PROPOSAL.md` (r3, accepted; X12:12). **M3P** `docs/implementation/m3/M3-PLAN.md` (r4, accepted). **AQP** `docs/implementation/m3/analysis-quality/PLAN.md`.
+**r3 is a record revision.** CODEX2 accepted r2 on 2026-10-04 (`docs/implementation/m3/reviews/codex2-preview-pack-i1-r2/`). The r2 bytes are preserved as `PROPOSAL-r2.md` (sha256 `1eb47d1e…`, 52,522 bytes) and `UNITS-r2.md` (`0c3c0f44…`). The live file carried them with a 2-line acceptance note, which r3 removes. `UNITS.md` keeps its r2 bytes. r3 records what the two bound design units, I1-L and I1-P, settled for this law: I1-L's deviations from item 4, its precisions P0 to P7, and what I1-a needs; and I1-P's findings for item 5. It also re-pins this law's citations to accepted snapshots. It decides nothing new. Lines 88 to 221 of r2, items 2.1 to 2.9, which I1-L's §4a carries verbatim, are unchanged. The "r3 changes" table comes first, and the "r2 changes" table is kept below it. Diff r3 against `PROPOSAL-r2.md`.
+
+**Short names.** Lines were checked against the files named here, on 2026-10-03 (r1) and 2026-10-04 (r2). **(r3)** Other laws and the M3 plan are cited by accepted snapshot (r3 change 8).
+- **X12** `docs/implementation/m2/policy-admission-x12/PROPOSAL-r3.md` (r3, accepted by Grok; `11628912…`). r2 cited the live r3 file (`c9f0fd1a…`), whose acceptance sentence sits inside line 12, so the lines are equal. **(r3)** X12 r4 (`PROPOSAL-r4.md`, `adc9a88a…`), M3-B's successor S2, is accepted by Grok. It amends X12 item 8's order. In its own item 8 it records the withdrawal of "the order" from item 7's last sentence below, and it supersedes item 8's J "Order" bullet below (r2's lines 386 and 402, which X12 r4 cites as I1:388 and I1:404 of the live file). This file is not edited for it, as X12 r4 states. **M3P** `docs/implementation/m3/M3-PLAN-r4.md` (r4, accepted; `e50f75d3…`). r2 cited the live r4 file (`1526c483…`, arch `6f85fe717`), so each M3P line here is r2's minus 2. The plan is now at r9 (`M3-PLAN-r9.md`), which records this law. **AQP** `docs/implementation/m3/analysis-quality/PLAN.md` (live bytes `1611014d…`, unchanged since r2).
 - **AQC** `docs/coop/completion/analysis-quality-completion.v2.md` (sha256 `08fb0806…`, the pin the application manifest carries). **AAM** `docs/coop/completion/architecture-application.v1.json`. **RA** `docs/coop/completion/reference-architecture.v2.md`. **QCM** `docs/coop/completion/quality-corpus-manifest.v1.json`. **LQM** `docs/coop/completion/language-quality-matrix.completed.v2.json`.
 - **PAC** `docs/coop/artifacts/preview-analyze-contract.v2.json`. **REG** `docs/v2/architecture/08-decision-and-readiness-register.md`. **CH13** `docs/v2/architecture/13-evidence-workflows-and-product-contracts.md`. **BP** `docs/v2/architecture/implementation-boundaries-and-build-plan.md`.
 - **WS / IE / NE** `docs/v2/contracts/product-v1/{workflows-and-surfaces,identity-and-evidence,native-evidence}.md`.
@@ -20,6 +20,7 @@ r2 answers CODEX2's r1 review (`/tmp/opensip-implementation/reviews/codex2-previ
 - **PDS** `docs/coop/design-corrections/workflows/schemas/policy-document.v2.schema.json`. **COMMON** `…/workflows/schemas/common.schema.json`. **QP** `…/workflows/query-projection-contract.v3.md`.
 - **EXI** `docs/coop/design-corrections/foundation/execution-inputs-contract.v1.md`. **ENUM** `…/foundation/enumeration-contract.v1.md`. **EPLAN** `…/foundation/enumeration-plan.schema.v1.json`. **FAULT** `…/foundation/evaluator-fault-contract.v3.md`.
 - Product paths are under `opensip/` at main `2967905`. X12a was integrated at `b642c45` and X12b at `6dd7363`.
+- **(r3)** **I1L** `docs/implementation/m3/preview-pack-i1/i1-l/README.md` (`81f4cd91…`), the README of design unit I1-L, accepted by CODEX2 (`reviews/codex2-i1-l-r1/`) and bound at product `0ceb9ad`. **I1P** `i1-p/README.md` (`e6daa7e1…`), design unit I1-P, accepted at r2 by CODEX2 (`reviews/codex2-i1-p-r2/`) and bound at `cd5958b`. **WSE** `docs/implementation/m1/source-selection-v2/reference/effective-workflows-and-surfaces.md`, WS's selected effective copy. **PIDS / PPDS** the selected product source copies `docs/implementation/m1/source-selection-v2/schemas/sources/identity.v3.schema.json` and `policy.v2.schema.json`. **ON** the overnight log, `docs/implementation/OVERNIGHT-2026-10-03.md`, cited by entry.
 
 **Authority.**
 - DR-131 is SATISFIED under D-369, with the "exact preview pack/rule" accepted (REG:320).
@@ -28,6 +29,23 @@ r2 answers CODEX2's r1 review (`/tmp/opensip-implementation/reviews/codex2-previ
 - X12 r3 left the row and the bytes to X12c (X12:191) and forbade inventing a cycle atom outside a successor (X12:73).
 
 Items 1 to 9 are lead decisions, made under the owner's standing direction to proceed on the lead's recommendation. Each one names the alternatives it rejects. Item 9 lists the open points.
+
+## r3 changes
+
+Each row names its source. I1-L's deviations are numbered as in I1L, "Deviations from law r2".
+
+| # | Change | Source |
+|---|---|---|
+| 1 | **Header.** r2's acceptance note is removed. r3 is a record revision. | `reviews/codex2-preview-pack-i1-r2/` (ACCEPT) |
+| 2 | **I1-L and I1-P are recorded as accepted and bound.** I1-L is at product `0ceb9ad` and I1-P at `cd5958b`, both accepted by CODEX2 with ACCEPT-DESIGN-UNIT. | ON, "I1-L accepted by CODEX2", "I1-P accepted at r2"; `reviews/codex2-i1-l-r1/`, `reviews/codex2-i1-p-r2/`; M3-PLAN r9, r7 change 12 |
+| 3 | **Item 4's form and anchors, as I1-L bound them.**<br>- **The form.** I1-L carries the successor as 11 text passage overrides, four complete JSON successor copies (IDS, PDS, PIDS, PPDS) and the appended §4a. `verify_design` refuses line selectors on a JSON parent, and a JSON Pointer override cannot append to an array (deviation 1, LD-L1).<br>- **How a copy treats its parent's bound overrides.** Each copy is its parent's **effective** text: the overrides the lock binds to that parent are applied in place, then I1's edits. IDS's copy carries four bound meanings, PIDS's two, and PDS's and PPDS's none (deviation 6, LD-L2).<br>- **Anchor imprecisions.** WS:598 has no `` `all-covered` `` code span of its own, so the insertion follows the span `` `exists\|none\|count-at-most\|all-covered` ``. "WS:603-604" and "IE:213-214" each change one line, 603 and 214 (deviation 2).<br>- **The IDS enum placement.** The member is appended **last** in every enum, so no existing member moves (deviation 3, LD-L3).<br>- **WS's selected effective copy, WSE,** gets the same two insertions at 602 and 607 (deviation 5, LD-L5). | I1L "Deviations from law r2" 1 to 3, 5 and 6, "Lead decisions" LD-L1 to LD-L3 and LD-L5; ON, "I1-L and I1-P written" ("Lead decision LD-L1"); `reviews/codex2-i1-l-r1/review.json`, `requestedDecisions` |
+| 4 | **Item 4's list of passages was incomplete.** Five more passages enumerate the closed op set, and I1-L amends each by insertion only: IE:1266, IE:1334, IE §4's predicate table (IE:1544), COMP:109's atomic-node list, and PDS's and PPDS's `description`. The "Unchanged" list's "IE changes only by the one passage above" is corrected to match. These passages add no rule (deviation 4, LD-L4). | I1L deviation 4 and LD-L4; M3-PLAN r9 new-units row "I1's record items" |
+| 5 | **The choices items 2.3 and 2.5 left open are settled** by I1-L's precisions P0 to P7, which fix proof bytes and are recorded after item 2.9. Items 2.1 to 2.9 are not edited, because I1-L's §4a carries them verbatim (deviation 7, LD-L6). | I1L "§4a" and deviation 7; `reviews/codex2-i1-l-r1/review.json`, `requestedDecisions.section4a` |
+| 6 | **What I1-a needs for `verify_design`,** beyond UNITS r2: a contract-successor record of 468a's form carrying its new `schemas/admission-registry.json`; the generation and admission source maps re-pointed from PIDS and PPDS to I1-L's two product copies; the atom registry's `fieldFilterSchema` and `scannerIdentitySchema` pins moved; and UNITS r2's line references moved, to `:1221-1232`, `:2782-2793`, `:4986` and `:296-304`. They are recorded under "Units after the law", with item 4's last paragraph pointing there. | I1L "For I1-a" and deviation 9; ON, "I1-L and I1-P written"; M3-PLAN r9 new-units row "I1's record items" |
+| 7 | **I1-P's findings for item 5.**<br>- The three digests of 5.3 recompute exactly with the design encoder and the exact-schema profile's encoder, and bound I1-P pins them.<br>- I1-P fixes the whole `pack-registry.json`, standing text included, so I1-c copies it (LD-P1).<br>- The document is admissible only under I1-L's PDS copies, so S3 passes only after I1-a.<br>- S10's expectations are I1-L's oracle cases `corpus-*` (LD-P5).<br>- **For I1-b2:** its fixtures add the cases CODEX2's I1-L-NB-01 names, which discriminate four precision branches. | I1P "Digests (5.3), recomputed", "Registry (5.4)", "Self-checks (5.6)", "Cross-law notes", LD-P1, LD-P2 and LD-P5; `reviews/codex2-i1-l-r1/review.json`, I1-L-NB-01; M3-PLAN r9 new-units row "I1's record items" ("For I1-b2's fixtures") |
+| 8 | **Citations are re-pinned to accepted snapshots.** M3P lines move by −2 to `M3-PLAN-r4.md`. X12 lines are unchanged in `PROPOSAL-r3.md`. The X12 short name records that X12 r4 is accepted and withdraws "the order" from item 7. | the cited live bytes at arch `6f85fe717` (M3P) and `0f69f15fc` (X12), each diffed against its snapshot; X12 r4 item 8, "Withdrawal recorded" |
+
+Nothing else changes. The pack bytes, the three digests, the decisions and the units' number, order and sizes are r2's.
 
 ## r2 changes
 
@@ -48,7 +66,7 @@ The pack bytes and the three provisional digests are unchanged (CODEX2 recompute
 - The release registry has zero rows (`crates/evaluator/src/pack-registry.json:1-5`), and its documents table is empty (`crates/evaluator/src/policy.rs:716-721`).
 - `opensip.preview.typescript.pack:1` is therefore `NotBundled` (`policy.rs:1086-1088`), and `check_plan_pack` refuses any Plan that names it (`policy.rs:1399-1402`).
 - Both are pinned by tests: `crates/evaluator/src/policy_pack_tests.rs:151-175` and `:580-600`, and `crates/host/src/configuration_tests.rs:102-111`.
-- Every real Plan needs this pack (M3P:184). C4 and J depend on I1 (M3P:163, M3P:170).
+- Every real Plan needs this pack (M3P:182). C4 and J depend on I1 (M3P:161, M3P:168).
 
 **AQC states the rule** (AQC:53-63):
 - Find the directed strongly connected components, over host-admitted `imports` facts at `resolved-target`, that have at least two project files or a self-edge.
@@ -222,6 +240,16 @@ Either way, the third row's condition fails. A partial or unresolved **file** po
 
 **2.9 The algorithm is free.** What is accepted is the cyclic-component set, the representative, the value table, the witness sets and the causes. Any SCC algorithm with identical outputs is an implementation substitution (AQC:80-82). Nothing depends on encounter order.
 
+**(r3) The precisions P0 to P7.** Items 2.3 and 2.5 leave open some choices that fix proof bytes. Item 2.9 accepts "the causes", so the choices belong in the contract. I1-L's §4a settles them after the verbatim items, and each is the behaviour of I1-L's reference model (I1L "§4a"; deviation 7). They are quoted here from `i1-l/atom-section-4a.md` (lines 141 to 148). In them, "§n" is a section of the atom contract and "item N" an item of this law:
+> - **P0. Where it is evaluated.** This atom is evaluated once per rule, over the rule's whole selected population (item 2.3), never by §8's per-subject `evaluate_atom`. §§5 to 9 do not apply to it, except §7's cause registry and its retention of uncertain ids.
+> - **P1. Cause universes on uncertain edges.** `target-kind-unknown` carries the fact's `targetUniverse`. An unplaceable target carries `population-unknown` with the fact's `targetUniverse`; an importer with no unique row carries `population-unknown` with the fact's `sourceUniverse`. An uncertain edge carries every cause that applies to it, its importer's and its target's.
+> - **P2. Order and accumulation of 2.5.** The shared prelude runs once, and its P2 return (`missing-relation-coverage`) is the only return of the whole computation. The universes of V are then accounted in ascending UTF-8 order of their identifiers, each in full, with no return across universes. In a universe with no available owed binding, outgoing step 1's `selector-unbound` ends that universe's account. Within a universe, every exact scope is cited in `scopeIds`, every unpaired scope emits `scope-without-coverage`, and every paired Coverage is evaluated: outgoing step 3's return is not taken. `scopeIds` and `coverageIds` follow §4's selection order.
+> - **P3. Unique rows.** The exact-id lookup of item 2.3 reads every retained `symbol` inventory of the universe. Byte-identical `(nativeSubjectId, path)` observations count once; one `nativeSubjectId` at two paths has no unique row.
+> - **P4. Unplaced unresolved edges.** An `imports` unresolved-edge fact whose referrer maps to no selected vertex is in no witness. It bears on the value only through 2.5(c), whose Coverage RC-2 already counts it (NE:2113-2117).
+> - **P5. Census carriers.** The census's `population-unknown` and `uncovered-expected-source-subject` carry `nativeCause` null, as incoming's do. An incomplete inventory's own typed carrier stays on that retained inventory, which every atomic node cites through `inputRefs` = EI (composition §9.2).
+> - **P6. Member order.** The finding's member list is sorted by item 2.3's representative order: path bytes, then universe bytes.
+> - **P7. The sufficiency answer.** 2.5(c)'s view is the native owner's `sufficiency_v2` answer under the fixed requirement stated there. The atom neither recomputes it nor accepts an answer computed under another requirement. An unsatisfied answer's `DeficiencyV2` values are the result's `nativeDeficiencies`.
+
 ### 3. Versioning: an explicit identity-law successor for one additive member (lead decision, r2)
 
 **The policy side.** `PolicyDocumentV2` stays `schemaMajor` 2 (PDS:692), and `RuleProgramV2` stays `schemaVersion` 2 (PDS:723). Widening a policy input enum is a change to the input language. It is made by item 4's WS §5 and PDS passages.
@@ -265,26 +293,30 @@ That is too wide a cascade for one additive op that reinterprets nothing.
 
 ### 4. The successor's exact content
 
-The successor is one contract-successor record of passage overrides and an appended section, like X12-0's `passageOverrides` (`docs/implementation/m2/config-remedy-x12-0/successor.json:16`). Frozen contract text is never edited.
+The successor is one contract-successor record of passage overrides and an appended section, like X12-0's `passageOverrides` (`docs/implementation/m2/config-remedy-x12-0/successor.json:16`). Frozen contract text is never edited. **(r3)** I1-L binds it as 11 text passage overrides, four complete JSON successor copies (IDS, PDS, PIDS and PPDS) and the appended §4a. `verify_design` refuses line selectors on a JSON parent, and a JSON Pointer override cannot append to an array, so the JSON rows below are carried by the copies (I1L deviation 1, LD-L1). Each copy is its parent's **effective** text: the passage overrides the product lock binds to that parent are applied in place, then I1's edits. So IDS's copy carries its four bound meanings and PIDS's copy its two, and no accepted meaning is reverted (I1L deviation 6, LD-L2).
 
 | Document | Selector | Change |
 |---|---|---|
-| WS | 598 | after "`all-covered`" add: ", the graph atom `cycle-representative` (only as a rule's whole `emitWhen`, only over `imports` at `resolved-target` with no filters, only for subject kind `file`)" |
-| WS | 603-604 | after "`all-covered` indeterminate" add: "; `cycle-representative` is true for the least-path file of a cyclic component of the admitted resolved project import graph, false for its other files, and otherwise false only under complete graph Coverage, else indeterminate (atom contract §4a)" |
-| PDS | 296-303 (`Atom.op`), 937-944 (`AtomSuccessorV1.op`) | append `"cycle-representative"` |
-| IDS | 1221-1231 (`proof-bundle` `predicateProofs[].operation`), 2781-2791 (`program-predicate.operation`) | append `"cycle-representative"` after `"all-covered"` |
+| WS | 598 | after "`all-covered`" (**r3:** after the code span `` `exists\|none\|count-at-most\|all-covered` ``, because WS:598 has no `` `all-covered` `` span of its own; I1L deviation 2) add: ", the graph atom `cycle-representative` (only as a rule's whole `emitWhen`, only over `imports` at `resolved-target` with no filters, only for subject kind `file`)" |
+| WS | 603-604 (**r3:** line 603 alone; I1L deviation 2) | after "`all-covered` indeterminate" add: "; `cycle-representative` is true for the least-path file of a cyclic component of the admitted resolved project import graph, false for its other files, and otherwise false only under complete graph Coverage, else indeterminate (atom contract §4a)" |
+| WSE (r3) | 602, 607 | the same insertions as WS:598 and WS:603, in WS's selected effective copy (I1L deviation 5, LD-L5) |
+| PDS | 296-303 (`Atom.op`), 937-944 (`AtomSuccessorV1.op`) | append `"cycle-representative"` (**r3:** in I1-L's complete copies of PDS and PPDS, LD-L1) |
+| PDS, PPDS (r3) | 5 (`description`) | after "(exists, none, count-at-most, all-covered, and, or, not" add: "; the graph atom cycle-representative of atom contract §4a is admitted only as a rule's whole emitWhen" (consequential; I1L deviation 4, LD-L4) |
+| IDS | 1221-1231 (`proof-bundle` `predicateProofs[].operation`), 2781-2791 (`program-predicate.operation`) | append `"cycle-representative"` after `"all-covered"` (**r3:** as the **last** member of each enum, so that `and`, `or` and `not` keep their places, as item 3.1's "appended" and the IE passage's "changes no ... order" require; carried by I1-L's complete copies of IDS and PIDS; I1L deviation 3, LD-L3) |
 | COMP | 34 | append: "`cycle-representative` with a known cyclic component is true at its representative and false at the component's other members (atom contract §4a)." |
-| IE | 213-214 (r2, I1-RF-2) | after "not a permissive parser." add: "One reviewed exception: the M3-I1 successor appends the single member `cycle-representative` to the closed `operation` vocabularies of proof-bundle `predicateProofs[]` and of `program-predicate`, under their existing majors and without migration. It changes no other field, member, bound, order, recipe or prefix. No record admitted before that successor can carry the member, because the member becomes admissible in a policy only through the same successor. So every existing record keeps its bytes, identity, validity and replay result, and `finding-key2`, whose descriptor names no operation, is unaffected. A reader that selects the successor's schema bytes admits records with or without the member under the same majors. A reader that does not refuses the member as a schema mismatch and never coerces, ignores or drops it. Every other schema or domain change keeps this rule." |
-| IDS | 4978 (`majorLaw`, r2) | append: " The single additive operation member authorized by identity-and-evidence §3's reviewed M3-I1 exception keeps proof3 and the program-predicate schemaVersion; it is not a permissive mixed-version parse." |
-| ATOM | new §4a after §4's last line, before §5 (ATOM:370) | items 2.1 to 2.9 verbatim |
+| COMP (r3) | 109 | §9.2's atomic-node list gains `` / `cycle-representative` `` (consequential; I1L deviation 4) |
+| IE | 213-214 (r2, I1-RF-2; **r3:** line 214 alone, I1L deviation 2) | after "not a permissive parser." add: "One reviewed exception: the M3-I1 successor appends the single member `cycle-representative` to the closed `operation` vocabularies of proof-bundle `predicateProofs[]` and of `program-predicate`, under their existing majors and without migration. It changes no other field, member, bound, order, recipe or prefix. No record admitted before that successor can carry the member, because the member becomes admissible in a policy only through the same successor. So every existing record keeps its bytes, identity, validity and replay result, and `finding-key2`, whose descriptor names no operation, is unaffected. A reader that selects the successor's schema bytes admits records with or without the member under the same majors. A reader that does not refuses the member as a schema mismatch and never coerces, ignores or drops it. Every other schema or domain change keeps this rule." |
+| IE (r3) | 1266, 1334, 1544 | consequential, insertion only (I1L deviation 4, LD-L4): "one of the seven evaluator predicates" (1266) gains "(or `cycle-representative`, under the reviewed M3-I1 exception above)"; "whose seven evaluator" (1334) gains "(eight, with the reviewed M3-I1 exception's `cycle-representative`)"; and the §4 predicate table (1539-1545) gains a `cycle-representative` row after `all-covered` (1544) |
+| IDS | 4978 (`majorLaw`, r2; **r3:** in I1-L's copies of IDS and PIDS) | append: " The single additive operation member authorized by identity-and-evidence §3's reviewed M3-I1 exception keeps proof3 and the program-predicate schemaVersion; it is not a permissive mixed-version parse." |
+| ATOM | new §4a after §4's last line, before §5 (ATOM:370) | items 2.1 to 2.9 verbatim (**r3:** bound as an override of ATOM:366, §4's last line. §4a is a heading, a preamble that resolves this law's internal references, items 2.1 to 2.9 verbatim, and the precisions P0 to P7; I1L "§4a", LD-L6) |
 
 **Unchanged:**
 - EPS: the emission profile stays `declarative-subject-v1`.
 - The atom and projection registries: the op law lives in §4a and the schema enum, so a second op table would be a second authority.
-- RPS and NE. IE changes only by the one passage above (r2).
+- RPS and NE. IE changes only by the one passage above (r2). **(r3)** That was incomplete. IE also gains the three consequential insertions listed above (IE:1266, IE:1334, IE:1544), which restate a count or a table row and add no rule (I1L deviation 4, LD-L4).
 - The policy-test suite schema. It takes `PolicyDocumentV2` by `$ref` (`schemas/sources/policy-test-v2.schema.json:25`). So M5's `policy test` unit must implement the op in the fixture verifier (WS:638-649), or refuse it, before that command ships (X12:229).
 
-The product copies (`schemas/sources/policy-v2.schema.json:296-303`; `identity-v3.schema.json:1221-1231`, `:2781-2791` and the `majorLaw` at `:4984`), their registry pins and the generated enums change in unit I1-a.
+The product copies (`schemas/sources/policy-v2.schema.json:296-303`; `identity-v3.schema.json:1221-1231`, `:2781-2791` and the `majorLaw` at `:4984`), their registry pins and the generated enums change in unit I1-a. **(r3)** I1-a copies I1-L's two product copies byte for byte, as I1-L's materialization map gives them. The moved line references, and the rest of what `verify_design` requires of I1-a, are under "Units after the law".
 
 ### 5. The contract successor for `opensip.preview.typescript.pack:1`
 
@@ -312,7 +344,7 @@ The choices:
 - **`policySha256`** is the raw SHA-256 of C(document), and equals the SHA-256 of the file bytes. That is stricter than X12 item 6.5 (X12:95; `policy.rs:1100-1104`), which canonicalizes the bytes first.
 - **The compiled `RuleProgramV2` digest** (`AdmittedPack::program_digest`, `policy.rs:808-811`) is pinned.
 
-**Provisional values.** They are computed by the drafter with a sorted-key compact encoder. The content is ASCII, so IE:122-125's rules coincide. CODEX2 recomputed all three independently in the r1 review, and r2 changes no byte of the document.
+**Provisional values.** They are computed by the drafter with a sorted-key compact encoder. The content is ASCII, so IE:122-125's rules coincide. CODEX2 recomputed all three independently in the r1 review, and r2 changes no byte of the document. **(r3)** I1-P recomputed all three with the design encoder (IE:134), and cross-checked them with the exact-schema profile's encoder. All three are equal, and the bound I1-P record pins them, so no mismatch blocks acceptance (I1P "Digests (5.3), recomputed").
 
 | Value | Digest |
 |---|---|
@@ -328,7 +360,7 @@ I1-P recomputes them with the design encoder (IE:134), and I1-c with `canonical_
 {"contributions":["opensip.preview.typescript"],"name":"opensip.preview.typescript.pack","packId":"opensip.preview.typescript.pack:1","policyDocument":"preview-typescript-pack.v1.policy.json","policySha256":"96675a5e20fcfd8ba6501f20b9017aa205e300b9f1984d7e74ad534996acdcd1","version":1}
 ```
 
-The `standing` text names this law and states "one row".
+The `standing` text names this law and states "one row". **(r3)** I1-P fixes the whole `pack-registry.json`, its row and this standing text included, so I1-c copies it (I1P "Registry (5.4)", LD-P1). Its bytes are `i1-p/product/crates/evaluator/src/pack-registry.json`.
 
 **5.5 Placement.**
 - The document is `crates/evaluator/src/preview-typescript-pack.v1.policy.json`.
@@ -339,7 +371,7 @@ The `standing` text names this law and states "one row".
 **5.6 Self-checks** (unit I1-c):
 - **S1:** the registry is self-consistent (`policy.rs:930-1023`) with exactly one row.
 - **S2:** the file's bytes equal `canonical_bytes(parse_json(file))`; its SHA-256 equals `policySha256`; and there is no trailing newline.
-- **S3:** X12 item 6's steps 6.1 to 6.7 pass for the release row (X12:87-101).
+- **S3:** X12 item 6's steps 6.1 to 6.7 pass for the release row (X12:87-101). **(r3)** The document is admissible only under I1-L's PDS copies, and PDS and PPDS refuse it. So S3 passes only after I1-a has materialized I1-L's product copy, which is the order I1-a → I1-b1 → I1-c (I1P "Cross-law notes").
 - **S4:** each rule's `programDigest` equals SHA-256(C(`emitWhen`)).
 - **S5:** the packId, `policySha256`, `programDigest` and compiled program digest equal the values the accepted I1-P record pins.
 - **S6:** the source pin:
@@ -362,6 +394,8 @@ The `standing` text names this law and states "one row".
 
   The sources are QCM:7-124 and LQM:232.
 
+  **(r3)** S10's expectations are I1-L's oracle, the `corpus-*` cases of `i1-l/evidence/cases-report.json`, and I1-b2's fixtures reproduce them (I1P "Self-checks (5.6)", LD-P5).
+
 ### 6. Thresholds, severity and outcome
 
 **Gating.** `gate: true`, `severity: error` and `gateSeverityAtLeast: error` make the rule gate (COMP:56).
@@ -372,7 +406,7 @@ The `standing` text names this law and states "one row".
 
 **`policyOutcome`** comes from the pure core, inside CoreCompletion (PAC:119-128). The host maps only existing D9 classes. It derives nothing from a component count (PAC:224-233; REG:373).
 
-**No new D9 code, detail or remedy** (AQC:71-72; X12:220). The indeterminate causes reach D9 through the NE §11 carriers J2 owns (M3P:170), for example `required-relation-missing` at NE:3374.
+**No new D9 code, detail or remedy** (AQC:71-72; X12:220). The indeterminate causes reach D9 through the NE §11 carriers J2 owns (M3P:168), for example `required-relation-missing` at NE:3374.
 
 **Rejected:**
 - **`warning`/`warning`.** It behaves identically today, but reads worse.
@@ -389,26 +423,26 @@ Everything else in X12 r3 stands: rows 1 to 4, the order, the `Supplied` refusal
 
 ### 8. How I1 feeds C4, H, J and I2
 
-**C4 (the Plan builder, with X12d; M3P:163):**
+**C4 (the Plan builder, with X12d; M3P:161):**
 - It takes the policy only from an `AdmittedPack`, writing `analysis-spec.policyPackIds = ["opensip.preview.typescript.pack:1"]` and `plan.policyDigest` (X12:134).
 - It commits the bundled policy bytes, the compiled program, an `EnumerationPlanV1` covering `typescript` file subjects, and an `EvaluatorEmissionPlanV1` row binding the rule to its detector closure (IE:1508-1512; COMP:9). The detector closure is LD-10.
 - It selects capability `typescript.imports` (AQC:90) whenever the pack is selected. A Plan without it is lawful but can only be indeterminate.
 - X12d then applies `check_plan_pack` in replay. Real Plans pass, and the synthetic corpus moves to the test pack (X12:192).
 
-**H (fact admission; M3P:169):**
+**H (fact admission; M3P:167):**
 - I1 adds no admission law.
 - H must admit what items 2.3 and 2.5 read: `imports` facts at `resolved-target`; `unresolved-edge` facts; `TargetAttributionV2` occupancy; the `imports`-cell symbol inventories, with paths; and the exact scopes, with their subjects, and their Coverage.
 - I1-b2's fixtures fix those shapes for H's tests.
 
-**J (M3P:170):**
+**J (M3P:168):**
 - **Order.** J2 calls `admit_policy_selection` first (X12:125-132).
 - **Default selection.** Recommendation for the B configuration law: the zero-config default is `Named("opensip.preview.typescript.pack:1")` through `admit_pack`, never a bypass. CH13:309 says "The preview accepts only its bundled cycle pack".
 - **Evaluation.** J2 evaluates through `derive_evaluation` with I1-b2. `policyOutcome` reaches D9 only through existing classes.
 - **Gates.** DR-G25's missing-rung path is item 2.5 (REG:370). DR-G28 is item 6 (REG:373). DR-G24's corpus names are unchanged (X12:6).
 
-**I2 (the draft catalog; M3P:171):**
+**I2 (the draft catalog; M3P:169):**
 - **Same IR.** The catalog's `module-import-cycle` (AQP:196) uses this op and this semantics, with its own document, whose default is "gating only by declared policy" (AQP:196). It should reuse `ruleStableId` `module-import-cycle` and `semanticsMajor` 1, because the semantics are the same.
-- **Never a release row.** I2 runs only in the harness (AQP:500; M3P:171). The product pack stays at M5 (AQP:542). An I2 document never enters the release registry.
+- **Never a release row.** I2 runs only in the harness (AQP:500; M3P:169). The product pack stays at M5 (AQP:542). An I2 document never enters the release registry.
 - **Other atoms.** Any other new atom a catalog rule needs is its own successor. Item 2.2's restrictions bind I2 until one is accepted.
 - **The oracle.** I1-L's reference model is available as I2's harness oracle for this rule.
 
@@ -435,16 +469,23 @@ Everything else in X12 r3 stands: rows 1 to 4, the order, the `Supplied` refusal
 These are detailed in [UNITS.md](UNITS.md).
 
 **Design only** (arch; allowed before X9-6, with no product edit):
-- I1-L, the policy-language successor record (items 2 to 4), including r2's identity-contract passages (IE:213-214; IDS:4978), with a reference model.
-- I1-P, the pack contract successor (item 5).
+- I1-L, the policy-language successor record (items 2 to 4), including r2's identity-contract passages (IE:213-214; IDS:4978), with a reference model. **(r3) Accepted by CODEX2 (ACCEPT-DESIGN-UNIT) and bound at product `0ceb9ad`.**
+- I1-P, the pack contract successor (item 5). **(r3) Accepted at r2 by CODEX2 and bound at `cd5958b`.**
 
 **Product**, after X9-6, each scheduled by the lead:
 - I1-a: schemas, pins and generated enums.
+  **(r3) What `verify_design` requires of I1-a beyond UNITS r2** (I1L "For I1-a"; deviation 9):
+  - **A contract-successor record of 468a's form,** carrying its new `schemas/admission-registry.json`, beside its inventory successor. `admission_sources` requires the product's admission registry to equal an accepted architecture copy whose rows carry the new source digests.
+  - **Re-pointed source maps.** The generation and admission source maps re-point `architectureSource` from PIDS and PPDS to I1-L's two product copies.
+  - **The atom registry's pins.** `crates/evaluator/src/atom-registry.json`'s `fieldFilterSchema` pin moves to I1-L's design PDS copy, path and digest. `scannerIdentitySchema` moves to the PIDS copy's bytes.
+  - **The moved line references.** UNITS r2's I1-a references move: the identity enums to `:1221-1232` and `:2782-2793`, `majorLaw` to `:4986`, and policy `Atom.op` to `:296-304`. Two descriptions, `program-predicate` and the stage-spec registration law, also change through the carried overrides, so regeneration may move generated doc text as well as the enums.
 - I1-b1: evaluator admission law.
-- I1-b2: evaluator semantics, plus the fixtures for S10.
-- I1-c: the row, the document and the self-checks S1 to S9.
+- I1-b2: evaluator semantics, plus the fixtures for S10. **(r3)** Its fixtures reproduce I1-L's `corpus-*` cases (S10). They also add the cases that discriminate the precision branches I1-L's cases do not: cross-universe target cause attribution; unsatisfied paired Coverage beside an unpaired scope; an unbound first universe before an insufficient later one; and an unresolved referrer outside the selected vertices (CODEX2's I1-L-NB-01).
+- I1-c: the row, the document and the self-checks S1 to S9. **(r3)** It copies I1-P's two data files, the registry file and the document, byte for byte (I1P LD-P1 and LD-P2).
 
 **Order (r2, I1-NB-2):** I1-L → I1-P; I1-L → I1-a → I1-b1 → I1-c; I1-b1 → I1-b2. C4 needs I1-c, and J2 needs I1-b2.
+
+**(r3)** `UNITS.md` keeps its r2 bytes. The (r3) notes above record what the bound design units I1-L and I1-P settled since.
 
 ## Forbidden substitutes
 
