@@ -466,3 +466,10 @@ Times are local.
 - **FA-1 and SD-5 accepted by Grok** (ACCEPT-DESIGN-UNIT, no findings) **and bound.** FA-1 is at product `f97c02b` and SD-5 at `052d3cb`, giving 85 contract successors.
   - **FA-1** resolves H's X-H2.
   - **SD-5** gives R10a's excluded-form refusal its public route, with `PAYLOAD-NOT-ADMISSIBLE` reuse upheld. D4 now waits only on its own code.
+- **M3-L r5 accepted in review by GROK2,** with no findings, after Grok's rounds r2 to r4. The provider-protocol and reuse law takes effect only when every gate item is met:
+  - the owner items O7 (L-G9) and D3/D13 (L-G4, L-G5);
+  - S-M (L-G1);
+  - FA-2 accepted (L-G10);
+  - RUST3-LIM bound (L-G11).
+
+  The `⟨SM-n⟩` values and anything those items force go through a delta round. Day 0 means L is in effect.

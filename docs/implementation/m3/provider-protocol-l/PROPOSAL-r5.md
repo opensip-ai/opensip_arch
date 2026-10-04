@@ -1,7 +1,5 @@
 # The M3 provider-protocol and reuse law — proposal M3-L r5
 
-**r5 ACCEPTED in review 2026-10-04 by GROK2** (`f654ee4e…`; `reviews/grok-provider-protocol-l-r5/`), with no findings, after Grok's r2–r4 rounds. r5's bytes, without this note, are preserved in `PROPOSAL-r5.md`. Under the early-review rule, the law **takes effect only when every gate item is met**: L-G4/L-G5 (D3 and D13 sign-offs, owner), L-G9 (O7, owner), L-G1 (S-M), L-G10 (FA-2 accepted) and L-G11 (RUST3-LIM bound). The `⟨SM-n⟩` values and any change forced by O7, FA-2 or RUST3-LIM go through a delta round.
-
 2026-10-04. Drafted for Claude Opus 5.5, implementation lead, by a lead-dispatched drafting agent during the overnight autonomous run. It is the law for unit **M3-L** of the accepted M3 unit plan (`M3-PLAN-r6.md:207`).
 
 **Draft r5, not accepted. Not code. Reviewable now; effective only when its gate is met.** Under the review rule ("Review and effect"), an ACCEPT is recorded as "accepted in review". The law takes effect only when every gate item, L-G1 to L-G11, is met, as M3-C's pinned gate also works (MC:88-89). Four things go through a delta round:
