@@ -1,8 +1,8 @@
-# Sealed snapshot and Plan — proposal M3-C r4
+# Sealed snapshot and Plan — proposal M3-C r3
 
 2026-10-04. Drafted for Claude Opus 5.5, implementation lead, by a lead-dispatched drafting agent during the overnight autonomous run. Law for unit **M3-C** of the accepted M3 unit plan (`M3-PLAN.md:163`).
 
-**Draft r4, not accepted. Not code.** No product crate is touched before X9-6 (M3P:5, M3P:272). Every code unit below also waits for P0, the M3-L law and I1's product units ("Units").
+**Draft r3, not accepted. Not code.** No product crate is touched before X9-6 (M3P:5, M3P:272). Every code unit below also waits for P0, the M3-L law and I1's product units ("Units").
 
 r2 answered CODEX2's r1 review: four required findings and three non-blocking observations. The r1 bytes are preserved as `PROPOSAL-r1.md` (sha256 `ff9a5e8d…`, 78,037 bytes).
 
@@ -13,19 +13,7 @@ r3 answers CODEX2's r2 review (`/tmp/opensip-implementation/reviews/codex2-snaps
 
 The r2 bytes are preserved as `PROPOSAL-r2.md` (sha256 `bf44ffe2…`, 102,443 bytes).
 
-r4 answers CODEX2's r3 review (`/tmp/opensip-implementation/reviews/codex2-snapshot-plan-c-r3/`): two required findings and three non-blocking observations. The r3 bytes are preserved as `PROPOSAL-r3.md` (sha256 `2e455c70…`, 127,963 bytes).
-
 **Lead decisions.** Items 1 to 20 hold lead decisions dated 2026-10-04. They are made under the owner's standing direction to decide on the lead's recommendation and to block only where no recommendation exists. Each one names the alternatives it rejects. The owner may reverse any of them. Four are flagged to the owner in "Open questions"; none blocks this law. r3's step-order rows 1 to 4 follow X12 r4, which is pending review.
-
-## r4 changes
-
-| Finding | Change |
-|---|---|
-| C3-R1 (carrier presence) | Item 1's rule 2 is now a **two-sided, total join**. B1 hands C1 the carrier **observation**: `absent`, or `present` with digest D. Sealing admits exactly two cases: present with exactly one regular-file row of digest D, or absent with no `opensip.json` entry in the root's listing. Every other case refuses `SnapshotCarrierChanged`, with no retry: `digest`, `present-absent`, `absent-present`, `type` and `excluded`. Excluding a present carrier through `ignorePaths` refuses (cross-law finding X-7, for B1). The local carrier and members' `opensip.json` are placed outside the join. Control C1-T26 covers each case. |
-| C3-R2 (counter population) | Item 12's rule 7 has three bounds, each over its own population:<br>- **Protocol counters** count only the **final admitted set**: activated, non-path, in-profile packages (NEM:1832-1845, :1870-1883). They are checked once, after activation and admission, and before the descriptor, wrapper or transport. Only a proven overflow refuses as `DependencySetBound`.<br>- **Acquisition bounds** cover the candidates before activation. Their owner is C3a, at four times each protocol quantity, with their own refusal `DependencyAcquisitionBound`. A single oversized candidate is decided after activation.<br>- **Decoder counters** D1 to D4 are per archive.<br><br>DS-6's step list adds step 4 (commit, then check). Control C3-T6c covers inactive excess, late rejection, oversized candidates, and an acquisition crossing that does not depend on order. |
-| C3-N1 | Item 2's byte cap is no longer r3's 2^33, which left no room. C1a specifies a **pricing recipe** (`WorkCost.bytes` prices charged storage: `work_reader.rs:26-54`, :158-172, and the metadata and ACL owners), and the cap is derived from it with a 2× margin. The T2 census adds bytes, and C1-T27 is added. |
-| C3-N2 | D3 is reworded as a profile limit, not a universal DEFLATE bound. Its margin for Cargo's compressor is R6 evidence. C3-T6b gets a genuine D1-only crossing (a 10,241-byte end region) and labels the 16,386-byte `L` payload a D2 breach. C3-T6's retained sentence is qualified. |
-| C3-N3 | Capture origin is an **operational side record**. Identity rows stay exactly `{path, sha256, bytes}`. The read prohibition and C1-T2's read-site pin are narrowed to **source** reads. |
 
 ## r3 changes
 
@@ -112,25 +100,8 @@ O7 is **not** a gate item. This law launches nothing except the dependency-featu
 
     C1's own VCS reads (item 4) are operational too. **An operational read never supplies inventory bytes, and it is outside the one-read rule.** X2's rechecks run wherever X2's law requires them. The rule that keeps the two classes apart:
     1. **OpenSIP's own state is never source.** `.opensip/` at the project root, and at each admitted D15 member root, is excluded from the walk and the inventory (item 2; successor SX-1). So the marker and `local.json` are never source reads. In CI, C1 never stats, opens or lists `.opensip/` at all, so it keeps M3-B item 3's rule that the local carrier is never touched in CI (M3-B:116, which cites the preview carrier contract).
-    2. **The project carrier's join is two-sided and total (r3, C2-R2; r4, C3-R1).** `opensip.json` at the project root is a repository file, so it stays in the inventory. It is the only path that is read both operationally (X2 item 3a's carrier capture) and as source (the walk).
-       - **What C1 receives.** B1 hands C1 the carrier **observation**: either `absent`, or `present` with the SHA-256 D of the exact captured bytes, which B1 records in provenance (M3-B items 2 and 5; M3-B:92, M3-B:173). Absent means no project layer (M3-B:92).
-       - **What sealing requires.** The two observations must agree, and every case is decided:
-
-         | X2's capture | The walk at sealing | Outcome |
-         |---|---|---|
-         | present, D | exactly one regular-file row `opensip.json` with sha256 D | **admits** |
-         | present, D | a row with another digest | refuses: `digest` |
-         | present, D | no entry (it disappeared before the walk enumerated the root) | refuses: `present-absent` |
-         | present, D | an entry that is not a regular file (a directory, symlink or special file) | refuses: `type` |
-         | present, D | the entry is excluded by `ignorePaths` | refuses: `excluded` |
-         | absent | no entry named `opensip.json` in the root's listing | **admits** |
-         | absent | any entry named `opensip.json` (created after X2's observation) | refuses: `absent-present` |
-
-         Each refusal is `SnapshotCarrierChanged {transition}` (internal), with **no retry**. A sealed snapshot therefore never binds a configuration B1 resolved from a carrier that the inventory does not hold byte for byte, nor an inventory carrier that B1 never resolved.
-       - **`ignorePaths`.** Exclusion by `ignorePaths` is decided over the walk's extent before the join, and excluding a present carrier refuses (the `excluded` row). It is never resolved by inventorying the carrier anyway, and never by dropping it silently. The root carrier cannot lie under a boundary or a pruned anchor, because it is the root's own file and `.opensip/` is a separate anchor. M3-B's resolver may refuse such an `ignorePaths` entry earlier (cross-law finding X-7).
-       - **Other carriers.** The interactive local carrier is never source (rule 1), so it has no join. A D15 member's `opensip.json` is not a configuration layer (M3-B:676-679). It is an ordinary source row, read through the session.
-       - **Future paths.** The same two-sided rule binds any future path that is both an operational capture and an inventory row. A successor that adds such a path must name it.
-    3. **The capture handoff is an observation, never bytes.** C1 receives no bytes from X2. It receives only the presence-and-digest observation that B1 already holds. X2's types (`MarkerObservation`, `project_admission.rs:536-545`, :612-615) are unchanged.
+    2. **A path read both ways must be byte-identical.** `opensip.json` is a repository file, so it stays in the inventory. It is the only path that is read both operationally (X2 item 3a's carrier capture) and as source (the walk). The walk's own read must produce bytes whose SHA-256 equals the carrier capture's, which B1 records in provenance (M3-B item 5, M3-B:173). Otherwise the snapshot refuses (`SnapshotCarrierChanged`, internal; no retry). The same rule binds any future path that is both an operational capture and an inventory row. A successor that adds such a path must name it.
+    3. **The capture handoff is by digest, never by bytes.** C1 receives no bytes from X2. It receives only the carrier digests B1 already holds. X2's types (`MarkerObservation`, `project_admission.rs:536-545`, :612-615) are unchanged.
   - **The capture session (r2, C-N1; r3, C2-R2).** `snapshot.rs` opens one capture session for the request **after X2's handoff releases the fence** (X2:231-248; M3-B item 12), and before the first source read. Every source read before sealing goes through it, keyed by logical path. Those reads are:
     - B2's marker and manifest content reads (discovery, on the discovery ledger; M3-B item 12);
     - C2's installed-package manifests for the TypeScript layout (item 3);
@@ -144,15 +115,15 @@ O7 is **not** a gate item. This law launches nothing except the dependency-featu
     - **A change refuses.** If the re-observation differs from the capture's, the snapshot refuses. It does not retry (SL:315), and it never re-reads.
     - **One set of bytes.** So discovery and layout are always derived from the bytes the inventory holds, never from an earlier or later version of the file.
     - **Leftover captures refuse.** A captured path that the walk's extent does not reach (it lies under `ignorePaths`, a boundary, or a pruned tree outside the read set) never enters the inventory. If any resolved input depends on such a capture, sealing refuses rather than binding an uninventoried byte (IE:341-351).
-    - **Provenance (r4, C3-N3).** C1 keeps an **operational side record** that maps each inventory path to its capture origin (`walk` or `read-set`). It is outside identity: identity rows stay exactly `Blob {path, sha256, bytes}` (IDS:2737-2745), and the origin never enters `snapshot2` or `sourceInventoryDigest`. C1-T25 tests the side record. No row's bytes originate in an operational read.
+    - **Provenance.** Every inventory row carries its capture origin (`walk` or `read-set`), and C1-T25 pins it. No row's bytes originate in an operational read.
 - **Basis:** CH14:495 ("Capture exact admitted source/read-set bytes through the selected custody boundary"); IE:1399-1415 (a replayable Run retains every source-inventory preimage); NE:2992-2995 (every child receives the sealed snapshot); SL:313-315.
 - **Rejected:**
   - **Hash first, re-read for transfer or retention.** It opens a window between the hashed bytes and the analyzed bytes, which the descriptor discipline (SL:313-315) exists to close.
   - **Memory-only bytes.** A very large repository would exhaust memory, and durable retention would need a second read anyway.
-- **Forbidden substitutes:** any **source** read of project bytes after sealing (r4: X2's and C1's operational reads and rechecks stay permitted, by rule 1); a provider or adapter reading the project filesystem; a "digest only" row whose bytes are not in custody.
+- **Forbidden substitutes:** any read of project bytes after sealing; a provider or adapter reading the project filesystem; a "digest only" row whose bytes are not in custody.
 - **Controls:**
   - C1-T1: bytes delivered to a recording provider sink, and the bytes retained, equal the hashed bytes, row by row.
-  - C1-T2 (r4 wording): a source pin shows that `snapshot.rs` holds the only **source-read** site, and that the read precedes sealing. Operational reads (X2's, and item 4's VCS reads) sit in their owners' modules and never write inventory rows.
+  - C1-T2: a source pin shows that `snapshot.rs` holds the only project-file read site, and that the read precedes sealing.
   - C1-T3: a file rewritten after sealing changes nothing downstream.
   - C1-T24 (r2; r3): a marker file or `package.json` captured by discovery or the layout, and rewritten before the walk reaches it, refuses the snapshot. A source pin shows that B2 and C2 obtain source bytes only from the session, and that no path is source-read twice.
   - C1-T25 (r3, C2-R2): an **already registered project with a present marker**:
@@ -160,17 +131,7 @@ O7 is **not** a gate item. This law launches nothing except the dependency-featu
     - in CI, C1 never opens or lists `.opensip/` (a fixture whose `.opensip/local.json` is mode 000 seals normally);
     - `opensip.json` rewritten between X2's carrier capture and the walk refuses `SnapshotCarrierChanged`, with no retry;
     - the same rewrite of the marker changes nothing in the snapshot. Its detection stays X2's, through the owner rechecks at `project_admission.rs:797` and :818;
-    - every path's capture origin in the side record is `walk` or `read-set`, and none is an X2 read. The identity rows carry no origin member (r4, C3-N3).
-  - C1-T26 (r4, C3-R1): the carrier join, one case per table row:
-    - present and stable admits;
-    - absent and stable admits;
-    - present then removed before the walk refuses `present-absent`;
-    - absent then created before the walk refuses `absent-present`;
-    - present with changed bytes refuses `digest`;
-    - present then replaced by a directory, or a symlink, refuses `type`;
-    - present but covered by an `ignorePaths` entry refuses `excluded`.
-
-    None retries, and no refusal mints a snapshot.
+    - every inventory row's capture origin is `walk` or `read-set`, and none is an X2 read.
 
 **2. The walk: its extent, custody, entry types and names (relation to M2 custody).**
 - **Decision.**
@@ -178,14 +139,9 @@ O7 is **not** a gate item. This law launches nothing except the dependency-featu
   - **Ledger (r3, M3-B F1).** The walk is charged to one **snapshot ledger** per invocation. It is created after discovery and never recreated after a failure (`work_ledger.rs:1-8`). Its profile is the discovery ledger's constructor (M3-B item 12), with caps derived from this law's bounds:
     - objects: 2^20, covering discovery's directories plus at most 100,000 inventory rows;
     - edges: 2^21;
-    - bytes: **derived, not fixed here (r4, C3-N1).** r3's 2^33 was exactly 8 GiB and left no room for anything else. More importantly, `WorkCost.bytes` prices charged storage, not file content. The existing readers charge cumulative buffer growth (`crates/platform/src/work_reader.rs:26-54`, :158-172), and metadata and ACL capture buffers are priced separately (`filesystem/path_binding.rs:117-126`; `descriptor_acl_capture.rs:111-124`). So C1a specifies its **pricing recipe**, and the byte cap is derived from it:
-      - payload is streamed into custody through a fixed, reused chunk buffer, and that buffer's charge follows the reader's own growth rule;
-      - every copy, metadata sample and ACL capture is charged under its existing owner's pricing;
-      - payload volume itself is bounded by item 5's 8 GiB total, not by the ledger.
+    - bytes: 2^33, item 5's 8 GiB total plus the bounded metadata reads.
 
-      The cap is the recipe's charge for item 5's maximum population, with a 2× margin. It is part of C1a's review evidence.
-
-    The M2 session caps of 65,536 objects and 131,072 edges never bound the walk (M3-B:792). Exhaustion is `WORK.BUDGET_EXHAUSTED`, never truncation (NE:871-878). B2-b's T2 census margin test is extended to the snapshot ledger's object, edge **and byte** caps, with the byte census priced by C1a's recipe (r4).
+    The M2 session caps of 65,536 objects and 131,072 edges never bound the walk (M3-B:792). Exhaustion is `WORK.BUDGET_EXHAUSTED`, never truncation (NE:871-878). B2-b's T2 census margin test is extended to the snapshot ledger's object and edge caps.
   - **Extent.** It covers what the one shared discovery rule reaches (IE:548-551):
     - every regular file under the project root;
     - except pruned trees, matched by exact segment: `node_modules`, `.git`, `.hg`, `.svn`, `.jj`, and a Cargo `target` whose parent holds `Cargo.toml` (NE:711-716; SL:190-195);
@@ -224,7 +180,6 @@ O7 is **not** a gate item. This law launches nothing except the dependency-featu
   - C1-T9: `packages/target/x.ts` is inventoried; `target/` under a Cargo root is not.
   - C1-T10: a nested repository's files are not read (the boundary inventory).
   - C1-T11: two copies of one tree, differing only in `target/`, `.git/` contents or unread `node_modules` files, mint the same `snapshot2` (IE:555-557).
-  - C1-T27 (r4, C3-N1): the snapshot ledger at exactly its derived object, edge and byte caps admits, and one unit over refuses `WORK.BUDGET_EXHAUSTED` without truncation. A 4 GiB payload file is charged only its recipe's buffer and metadata, never its content volume.
 
 **3. The read set beyond the walk: installed TypeScript dependencies.**
 - **Decision.**
@@ -526,36 +481,17 @@ O7 is **not** a gate item. This law launches nothing except the dependency-featu
        - a name-field mismatch.
     5. **The effective path** is the long name when one precedes the entry, and otherwise the NUL-trimmed name field. It must be valid UTF-8, begin with exactly `<name>-<version>/` from the lock row, and leave a remainder that is a strict logical path (IE:161-163; `descriptors.rs:31`). Two entries with the same effective path are outside the profile, whatever their content.
     6. **End of archive.** At least two zero blocks follow the last entry. Everything after the first zero block is zero. The decompressed stream ends on a block boundary.
-    7. **Three kinds of bound, each over its own population (r3, C2-R3; r4, C3-R2).**
-       - **Protocol counters: exact and logical, and only over the final admitted set.** The population is the **dependency set itself**. It contains the activated, non-path packages that were admitted: their checksum matched, and their archives are inside the profile. Activation comes from `UnifiedFeaturesV1`, and the reference builds the set from exactly this population (NEM:1832-1845, NEM:1870-1883). Each admitted package commits its logical counts, `fileCount` and `totalBytes` from its own file manifest (NE:1663-1664; NEM:1874). The set's totals are the sums of those committed counts:
+    7. **Two kinds of counter, never mixed (r3, C2-R3).**
+       - **Protocol counters are set-wide, exact and logical.** They count only the regular logical files of admitted packages and those files' content bytes:
          - packages: at most `maxDependencySourcePackages`, 4,096;
          - files (Σ `fileCount`): at most `maxDependencySourceEntries`, 1,000,000;
          - content (Σ `totalBytes`): at most `maxDependencySourceTotalBytes`, 8 GiB.
 
-         These are the quantities the manifest, chunk and seal frames carry (NE:2876-2878), under NE:2931-2932's bounds. **They are checked once, after activation and final package admission, and before the set's descriptor is minted, its import is wrapped, or anything is transported.** Excluded from these counters:
-         - tar framing, long-name records, padding and end blocks;
-         - inactive candidates;
-         - candidates whose archives fell outside the profile, including those rejected late, after their content was decoded (by the gzip trailer, the end-of-archive rule or a decoder counter);
-         - path packages.
-
-         **Only a proven overflow of the admitted set** refuses the import as a set bound: internally `DependencySetBound {field, observed, limit}`, with its public projection by J1 beside item 5's (S-B). The set could not be transported or Plan-bound. Nothing is truncated.
-       - **Acquisition bounds: before activation, over the supplied candidates (r4, C3-R2).** Before activation, C3a decodes and materializes **candidates**: the lock's non-path packages that the named source supplies, processed in lock order. Their population is not the set's, so they get their own bound, separate from `DependencySetBound`.
-         - **Owner:** C3a, the importer.
-         - **Quantities** (a lead decision), each four times the protocol bound, so that an activated set at its protocol bounds can still be acquired when up to three quarters of the supplied candidates are inactive for the target:
-           - candidate archives: at most 16,384;
-           - candidate logical files: at most 4,000,000;
-           - candidate content: at most 32 GiB.
-
-           H-DEP's pin-time report records every T2 Rust entry's candidate totals (item 15). If a T2 entry exceeds a quantity, the quantity returns to this law for amendment. It is never raised silently.
-         - **Disposition.** Crossing a candidate total refuses the import as `DependencyAcquisitionBound {field, observed, limit}` (internal; public projection by J1 beside S-B). It is **never** labelled a set bound. Totals are order-independent, so the refusal does not depend on processing order.
-         - **One oversized candidate.** A single candidate whose own content exceeds 8 GiB, or whose own files exceed 1,000,000, can never fit the set. Its decoding stops there, and it is held as **oversized**. After activation:
-           - if it is activated, the set provably overflows, so the import refuses as `DependencySetBound`;
-           - if it is inactive, it is dropped, with the omission `undecodable:<key>:oversized-inactive`.
-         - **The adapter's scratch.** Materializing candidates for the adapter is also bounded by the D law's adapter scratch bound. A refusal there is the D law's typed refusal.
-       - **Decoder counters: per archive, belonging to CRATE-ARCHIVE-1.** They bound the work of decoding one archive, and they are separate from both of the above. During decoding, **only these and the acquisition bounds apply**:
+         These are the quantities the manifest, chunk and seal frames carry (NE:2876-2878), and that `fileCount` and `totalBytes` define (NE:1663-1664; NEM:1874), under the bounds of NE:2931-2932. Tar headers, long-name records, padding and end blocks **never** count against them. They are counted as content is produced. A content byte or file that would cross a protocol counter stops decoding and **refuses the import as a set bound**: internally `DependencySetBound {field, observed, limit}`, with its public projection by J1 beside item 5's (S-B). The set could not be transported or Plan-bound. Nothing is truncated.
+       - **Decoder counters are per archive and belong to CRATE-ARCHIVE-1.** They bound the work of decoding one archive, and they are separate from the protocol counters:
          - **D1, framing allowance.** Inflated bytes minus regular-file content bytes must stay at or below 18,432 × (regular files so far + 1) + 10,240. The constant follows from the profile: a regular file costs one 512-byte header and less than 512 bytes of padding, plus at most one long-name record, which is a 512-byte header and a payload of at most 16,385 bytes padded to 16,896. The sum is 18,431, rounded up to 18,432. The "+ 1" allows the one pending `L` before its file. The end region holds between 1,024 and 10,240 zero bytes.
          - **D2, control records.** At most one `L` record per regular file (rule 4), and each payload at most 16,385 bytes.
-         - **D3, compressed input (r4 wording, C3-N2).** Compressed bytes consumed must stay at or below 1.01 × inflated bytes produced, plus 1 MiB, checked as the stream proceeds. This is a profile limit, not a universal DEFLATE property: blocks may be of any size (RFC 1951 §§2 and 3.2.4). Its margin for Cargo's actual compressor and settings (`GzBuilder`, `Compression::best()`, cargo_package `mod.rs:871-874`), streaming prefixes included, is part of R6's pinned-producer evidence for C3a. A stream that consumes input without producing output, such as a run of empty blocks, breaches it.
+         - **D3, compressed input.** Compressed bytes consumed must stay at or below 1.01 × inflated bytes produced, plus 1 MiB. Deflate's stored-block overhead is 5 bytes per 65,535, so a valid stream stays far inside this. A stream that consumes input without producing output, such as a run of empty blocks, breaches it.
          - **D4, gzip header fields.** `FNAME` at most 4,096 bytes (rule 1).
 
          A breach of D1 to D4 is an **archive-profile breach**, never a set bound. Its archive is outside the profile, as below, with the reason `archive-bound:<D1|D2|D3|D4>`.
@@ -575,10 +511,9 @@ O7 is **not** a gate item. This law launches nothing except the dependency-featu
   - **DS-4 (path):** in the snapshot; nothing is imported (NE:1687). An in-snapshot `vendor/` tree with source replacement is DS-1 with `in-snapshot-vendored` (NE:1665, NE:1745).
   - **User-named paths** get the user-input custody of NE:4207-4208. Here that means item 2's descriptor discipline and S3 directory custody over the named tree. A custody failure refuses the import.
   - **DS-6, and the launch gate.** Completeness is over the packages that `UnifiedFeaturesV1` activates (NE:1693-1697). Unified features are computed **only** by the bundled `cargo metadata --offline --frozen --locked --format-version 1 --filter-platform <target>`, through `opensip-cargo-adapter` and the CC-1..CC-5 carrier (NE:1724-1741, NE:1785-1791). So the steps are:
-    1. decode the supplied candidates under the decoder counters and acquisition bounds, and materialize those inside the profile read-only in private scratch;
+    1. materialize every supplied package read-only in private scratch;
     2. run the adapter;
-    3. admit the set over the activated, non-path packages, as the reference does (`NEM:1820-1883`);
-    4. **then** commit each admitted package's logical counts and check the protocol counters over the final set (rule 7). Only after that is the descriptor minted or the import wrapped (r4, C3-R2).
+    3. admit the set over the activated packages, as the reference does (`NEM:1820-1883`).
 
     A Cargo failure from a missing package is `completeness.incomplete` (NE:1789-1791), and dependent crates are `input-closure-incomplete` with cause `missing-dependency-source` (NE:1795-1801).
 
@@ -617,18 +552,13 @@ O7 is **not** a gate item. This law launches nothing except the dependency-featu
     - a CRC-32 mismatch;
     - `FCOMMENT`.
 
-    A decoder-counter breach is an archive-profile breach, recorded as above (r4, C3-N2). Only a proven protocol overflow of the final admitted set refuses the import as a set bound. Crossing an acquisition total refuses as `DependencyAcquisitionBound`.
+    The decompression bound, exceeded, refuses the import.
   - C3-T6b (r3, C2-R3): boundary controls run the decoder over generated streams, at the real bounds, without materialized fixtures. Because they are slow, they are `#[ignore]`d and run in C3a's review lane:
-    - an **admitted, activated** set whose logical content is exactly 8 GiB, with full framing, admits. One more admitted content byte refuses as a set bound.
-    - an admitted, activated set of 1,000,000 files, each with an `L` record (2,000,000 entry headers), admits. 1,000,001 admitted files refuse as a set bound.
-    - (r4, C3-N2) an end region of 10,241 zero bytes crosses **D1 alone**, an archive-profile breach recorded as missing, never a set refusal. A 16,386-byte `L` payload crosses **D2** (it pads to the same 16,896 bytes as 16,385), which is also an archive-profile breach.
+    - a set whose logical content is exactly 8 GiB, with full framing, admits. One more content byte refuses as a set bound.
+    - 1,000,000 files, each with an `L` record (2,000,000 entry headers), admit. 1,000,001 files refuse as a set bound.
+    - framing one byte over D1's allowance (for example a 16,386-byte `L` payload) is an archive-profile breach, recorded as missing, never a set refusal.
     - a run of empty deflate blocks breaches D3, also an archive-profile breach.
     - an inactive outside-profile package leaves an activated-complete set complete, with only the `undecodable:` omission.
-  - C3-T6c (r4, C3-R2): population controls.
-    - **Inactive excess.** In-profile inactive candidates with 9 GiB of content and 1,200,000 files in total, beside a small activated set of 10 packages, admit with no `DependencySetBound`. They are within the acquisition bounds, and only the 10 packages count.
-    - **Late rejection.** An activated candidate whose content decodes fully but whose gzip trailer fails CRC-32 is recorded `missing` and `undecodable`. Its decoded bytes count toward no protocol total, and there is no set refusal.
-    - **Oversized candidates.** A single in-profile candidate with 8 GiB + 1 of content is dropped with `oversized-inactive` when it is inactive. When it is activated, it refuses as `DependencySetBound`.
-    - **Acquisition crossing.** 32 GiB + 1 of candidate content refuses as `DependencyAcquisitionBound`, not `DependencySetBound`. The same input given in reverse lock order gives the same refusal.
   - C3-T6a (r2, positive): two archives decode, and each manifest equals the expected file list:
     - one produced by the pinned toolchain's `cargo package --no-verify` from a harness-authored fixture crate with a path longer than 100 bytes, so it carries an `L` record and a gzip `FNAME` (pinned bytes, with their provenance recorded);
     - one with no long names.
@@ -793,7 +723,7 @@ O7 is **not** a gate item. This law launches nothing except the dependency-featu
   | 6 | B2 discovery on the discovery ledger: units, boundaries, pruned trees (with SX-1's `.opensip` anchor), scope descriptor, `UnitMembershipV1`. Source reads go through the session. | 2, 5 | NE:686-863; SL:180-303; M3-B items 12 to 14 |
   | 7 | **Selection precheck** of `requestedCapabilities` (item 17) | 2, 6 | NE:4278's order, applied to that field alone |
   | 8 | Closure admission: providers and tools for the selected modes, plus the core evaluator and detector closures | 7 | IE:1360-1377; items 7 and 9 |
-  | 9 | The TypeScript layout, then C1 sealing on the snapshot ledger. The walk reuses the session's captures and makes item 1's two-sided carrier join (r4). | 5, 6, 8 | IE:548-593; SL:266-279; item 1 |
+  | 9 | The TypeScript layout, then C1 sealing on the snapshot ledger. The walk reuses the session's captures and checks `opensip.json` against its carrier digest. | 5, 6, 8 | IE:548-593; SL:266-279; item 1 |
   | 10 | C3: dependency import, unified features, then any explicit prepared import | 9 (Cargo.lock from the sealed snapshot) | NE:2499-2500 ("after snapshot seal and dependency-source admission, before PlanId"); NE:1785-1791 |
   | 11 | C2: mint, admit and bind the contexts and universes; count the contexts as they are produced | 8, 9, 10 | NE:1460-1462 (before PlanId); NE:1279-1311, NE:1583-1598; NE:4276 (producer boundary) |
   | 12 | **Construct the complete analysis-spec, then admit it** | 6 to 11 | COMP:9; `enumeration-contract.v1.md:13-24`, `:83-96`; NE:4278; IE:1462-1474 |
@@ -971,7 +901,7 @@ O7 is **not** a gate item. This law launches nothing except the dependency-featu
 | **NIJ-1** | native passage successor; native owner | Item 13: null self-references, the identity join, native-input imports in `plan.importIds`, the producer and adapter, the `acquisitionSourcePath` disposition | C3a |
 | **VCS-1** | identity passage successor (IE:542-546) | Item 4's meaning of `dirty` | C1b |
 | **SX-1** (r3) | native and security passage successor (NE U-4a, NE:703-743; SL S3, SL:187-222; IE:548-551); landed with M3-B's B-S1 | Items 1 and 2: `.opensip/` at the project root and each admitted member root is an exact discovery anchor with reason `opensip-custody-state`. It is recorded in `prunedTrees` and `excludedPathPrefixes`, and is never in the inventory. | B2-a; C1a |
-| **S-B** | native passage successor (NE:4276) | Item 5: the snapshot inventory as the eighth bounded field. **r3:** also item 12's three dependency-set protocol counters (`DependencySetBound`). **r4:** and the candidate acquisition bounds (`DependencyAcquisitionBound`), as separate fields | J1's public projection |
+| **S-B** | native passage successor (NE:4276) | Item 5: the snapshot inventory as the eighth bounded field. **r3:** also item 12's three dependency-set protocol counters (`DependencySetBound`) | J1's public projection |
 | **S-R** | identity successor, **conditional** on SM-5/SM-6 | Item 5: the inventory named by reference | T2 TypeScript with `node_modules`; very large T2 |
 | **T2-DEP** | corpus manifest and FETCH-SPEC successor; Q0 §10 amendment | Item 15: dependency pins and the H-DEP and H-NM recipes | H-DEP, H-NM |
 | **X12-A** | record amendment to X12 r3 | X12d's corpus target (item 19) | X12d |
@@ -1086,7 +1016,6 @@ In both variants:
 - **X-4 (for B3 and D15).** FS:120 renders multi-repository Cargo links as config-level `[patch.crates-io]` in `ws/<id>/.cargo/config.toml`. CC-5 replaces that file with the projection, and config-level `patch` is stripped (NE:1748-1751). So the links have no effect on OpenSIP's Rust analysis, and linked crates resolve as registry dependencies. B3's successor must choose a carrier that the projection honours (`[patch]` in `Cargo.toml`, NE:1746) or record the limit.
 - **X-5 (for B2).** Whether the project marker directory `.opensip/` is a discovery exclusion. U-4a does not prune it, so the walk inventories `project-id.v1` (item 2). That is harmless, but it is B2's rule to state.
 - **X-6 (for the native owner).** `baseCfg` has no producing recipe in NE (NE:1438, NE:1268). Item 10 decides that it is closure-shipped data. A passage could state this.
-- **X-7 (for B1, r4).** An `ignorePaths` entry that covers the root's `opensip.json` makes item 1's carrier join refuse at sealing (`excluded`). B1's resolver could refuse such an entry earlier, as `CONFIG.INVALID`, before any snapshot work. That is M3-B's choice. Until then, C1's refusal is the disposition.
 
 ## Forbidden substitutes
 
@@ -1106,9 +1035,6 @@ In addition to each item's list:
 - an operational read supplying inventory bytes; `.opensip/` in the inventory; C1 touching `.opensip/` in CI; or a both-ways path admitted with differing bytes (r3);
 - archive framing, long-name records or padding charged against a protocol counter, or a decoder-counter breach reported as a set bound (r3);
 - pack admission outside X12 r4's order, or after any project-scoped effect on the first-use route (r3).
-- a carrier observation and walk row that disagree in presence, digest, type or exclusion, admitted anyway; or the carrier's bytes handed to C1 (r4);
-- a protocol counter computed over candidates, inactive packages, rejected archives or framing; or an acquisition-bound crossing reported as `DependencySetBound` (r4);
-- a capture origin inside an identity row (r4).
 - policy fields not from an `AdmittedPack`;
 - a cache or regeneration key at M3;
 - an operational value in any identity;
