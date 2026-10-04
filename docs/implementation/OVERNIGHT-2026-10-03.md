@@ -149,3 +149,4 @@ Times are local.
 - **M3-J1 r1:** CODEX2 raised 7 findings. It went back for r2 with lead direction.
 - **F8b execution started:** the generator rebuild, the equivalence probe and the re-pins. X4-F1's lanes and X9 row reruns follow it.
 - **S-OP-2 r5** is queued for Codex.
+- **M3-J1 r2 sent to CODEX2.** Lead decision, reversible by the owner: a signal received during the final required output is recorded and deferred, because the envelope and its exit are already decided. It needs contract successor S18. Rejected: exit 130 beside an already-decided success envelope.
