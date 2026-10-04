@@ -799,3 +799,4 @@ Times are local.
   - **Lead ruling recorded with it:** the T-native receipt's field list is left to E2b's proposal and fixed in E1's next revision, beside A8's range, as a gate before E2b integrates.
   - **Rejected:** fixing the fields now, which the ruling never decided.
 - **E1 r5 accepted by GROK2 at round 2,** with no findings. E2a's rulings, C r8's conformance and SYN-NS's routed items are now in E1. E2b's integration gate holds A8's range and the receipt's field list, both fixed in E1's next revision from E2b's measurement.
+- **I1-b1 started** (evaluator admission for `cycle-representative`, in `crates/evaluator` only), for CODEX2. E2s and X4T-c, which share the generator, follow one at a time.
