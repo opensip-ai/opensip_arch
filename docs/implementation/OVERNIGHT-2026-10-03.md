@@ -162,3 +162,5 @@ Times are local.
   - I1-L and I1-P, the preview pack's contract successors, for CODEX2;
   - J-RW, the resume/repair writer law (P5-1), for Codex;
   - X3c r8, the re-commit law (P5-2), for Codex.
+- **F8b accepted and bound.** Grok gave ACCEPT-DESIGN-UNIT with no findings. It is product main `e093e90`, with 77 contract successors, and `verify_design` passes. I1-a and X4T-c are now unblocked on F8b.
+- **M2 record r2:** GROK2 raised one required finding. §2.2's storage row cites a singular `unit` field, but the run records carry a plural `units` array. r3 follows.

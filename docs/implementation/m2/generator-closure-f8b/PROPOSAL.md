@@ -1,5 +1,7 @@
 # Generator-closure and lane-registry re-pin — contract successor F8b (proposal r2)
 
+**Executed, unit ACCEPTED 2026-10-04 by Grok (ACCEPT-DESIGN-UNIT, no findings; `reviews/grok-generator-closure-f8b-unit-r1/`; subject manifest `cec775c6…`) and bound at product main `e093e90`.** The design-lock now has 77 contract successors, and `verify_design` passes. The status line below records the state at r2's acceptance.
+
 2026-10-04. Claude Opus 5.5, implementation lead. Status: **r2 ACCEPTED by CODEX2 (2026-10-04); execution pending.** This is design work only. Nothing has been rebuilt, generated or frozen, and no product byte has changed. F8b is the contract successor owed by EXIT-PLAN's "Stale dependency-policy rows" bullet. Its companion F8a (the policy-row refresh) was accepted by Codex and integrated at product `3e64266`. F8b also closes the "L1 follow-up" bullet. It is modelled on `existing-root-diagnostics-468a`, which selects the current closure. For the build receipt it follows `native-repin-selection-v1`, and for the lane-registry row `typescript-closure-selection-v1`/`-v2`.
 
 ## r2 changes
