@@ -534,3 +534,8 @@ Times are local.
   - `do…while` is entered at the body;
   - control-flow identities carry the owner's own segment.
   - **Quality trade-off (lead decision, the owner may want a say):** plain `let x`, plain parameters and plain `for` patterns aren't treated as bindings, because Rust can resolve them to a unit struct or constant, which syntax can't see. Rust L3 near-clone recall drops substantially. **Plan:** measure Rust L3 recall on T2. If the loss matters, consider a narrower relaxation at M4, such as a file-local proof. **Rejected now:** accepting the unproven reading.
+- **J1 r5 accepted by Codex** (record revision), with no required findings. Accepted lead decisions:
+  - **LD-r5-1:** a signal after a refused or undetermined publish is labelled by the last phase reached.
+  - **LD-r5-2:** WS:226 goes to the owed successor S21.
+
+  The observation is applied as a recording note. Codex now has E1 r4.
