@@ -284,3 +284,9 @@ Times are local.
     - `forbid(unsafe_code)` on `crates/syntax`. It holds under T-native, through the `tree-sitter` crate's safe API, and E2b may revisit it.
   - Phase 2 (lanes, review request) starts once the confirmation lane on `15c0779` finishes.
 - **Confirmation lane on product main `15c0779`** (X4-F1 integrated): workspace 1749 passed, 0 failed, 3 ignored in 554 s, matching X4-F1's own lanes. **P0 phase 2 started.**
+- **M3-H r2:** Grok raised one consistency finding. Items 10, 14.4 and 22 routed the same keys differently. **Lead direction for r3:**
+  - item 14.4's table is the sole routing authority;
+  - anchors take row 30 only;
+  - Coverage keys take row 30 or 32 by NE cause, with a tie rule;
+  - a provider's terminal Coverage counts as provider-origin;
+  - keys match by prefix token.
