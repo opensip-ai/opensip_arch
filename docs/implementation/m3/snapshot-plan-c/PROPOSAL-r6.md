@@ -1,7 +1,5 @@
 # Sealed snapshot and Plan — proposal M3-C r6
 
-**r6 ACCEPTED in review 2026-10-04 by CODEX2** (`8274bca1…`). r6's bytes, without this note, are preserved in `PROPOSAL-r6.md`. This file differs from them only in recording text: this paragraph, and owner question R1's wording, updated for X-C1 as non-blocking observation C6-NB-01 asks. Under its own gate, the law takes effect once M3-L and X12 r4 are accepted; X12 r4 is accepted.
-
 2026-10-04. Drafted for Claude Opus 5.5, implementation lead, by a lead-dispatched drafting agent during the overnight autonomous run. Law for unit **M3-C** of the accepted M3 unit plan (`M3-PLAN.md:163`).
 
 **Draft r6, not accepted. Not code.** No product crate is touched before X9-6 (M3P:5, M3P:272). Every code unit below also waits for P0, the M3-L law and I1's product units ("Units").
@@ -1198,7 +1196,7 @@ In addition to each item's list:
 - **O-4 (r2; r3).** M3P's conditional host chain moves from 26 days to **28** (variant B, recommended) or 29 (variant A) at M3P's B rows, because of C3's and C4's real unit sizes. With M3-B r2's accepted units it is **b + 23 days**, which is 31 to 33 depending on when B2-c lands ("Units"). The next M3-PLAN revision records it.
 
 **For other owners:**
-- **R1. Identity owner (CRC-1).** Are three core-role projections acceptable, in particular the core provider closure's two admitted uses under one provider identity (r6, item 9): `import.producerClosure`, and the producer of syntax-universe work, with `semanticClosures` membership exactly when a syntax universe is selected? A separate syntax-producer projection is rejected (item 9).
+- **R1. Identity owner (CRC-1).** Are three core-role projections acceptable, in particular the provider projection confined to `import.producerClosure`? Or should a native-import producer kind be added to `closureKinds`?
 - **R2. Security and DR-103 owner (CR-1).** The role-to-kind table of item 7.
 - **R3. Security owner.** Confirm the S10 owner file-manifest recipe used for `inputBinding.ownerFileManifestSha256` for snapshot-member and dependency-closure-member owners (SL:1076-1082). The field is `owner-retained` by security (NES).
 - **R4. Rust protocol owner.** X-3.
