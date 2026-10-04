@@ -804,3 +804,7 @@ Times are local.
   - **X5 r4:** replay runs after evaluation and before `prepare_commit`. A replay refusal ends through `refused()` and `finish`, appending nothing.
   - **§S12:** five host rows. S12-B, -C, -U and -D belong to J3b, and S12-O to J3d. No existing row's expected value changes, and the census is predicted unchanged.
   - **The largest choice, accepted as lead decision LD-S12-4:** the matrix delivers the signal through a `signal SIGINT` control line, and the child acknowledges it. **Rejected:** a real `kill(2)`, because nothing confirms delivery in phases D and O.
+- **X4-F3 implemented and sent to CODEX2.** It fixes D8-1 for sources 1–8 and adds the entry rule. It changes 8 files and adds no new file, with 12 new tests in existing files.
+  - **Results:** workspace 1750/0/3 twice. Both full lead sets ran serially, unniced, under the lock: storage 381/381 and host 98/98, with **0 differences from X9-6** (post-states, traces, censuses 259/218 and kill sets 321/271).
+  - **Lead ruling on its one open reading:** a checkpoint after the operation's own admission refuses with an explicit `FailStop{latched}`, which becomes the first recorded cause. F41's expectation is unchanged, and the ruling goes to X4's next record revision. W-5 and W-8's signal steps are J3b's, as S11.9 assigns them.
+  - **Process note:** lane-lock contention cost X4-F3 about 26 minutes of waiting. The lock is doing its job.

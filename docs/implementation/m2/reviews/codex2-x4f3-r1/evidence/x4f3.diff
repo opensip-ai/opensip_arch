@@ -1,0 +1,1842 @@
+diff --git a/crates/security/src/commit_authority.rs b/crates/security/src/commit_authority.rs
+index 0e6b597..e3e1dd7 100644
+--- a/crates/security/src/commit_authority.rs
++++ b/crates/security/src/commit_authority.rs
+@@ -36,22 +36,61 @@ impl FinalGate {
+             .map(|_| ())
+             .map_err(state)
+     }
+-    // Law X9 r1 G4: `x4.gate.latch.after` follows the fetch-OR.
+-    fn latch(&self) -> AttemptState {
+-        let latched = state(self.0.fetch_or(LATCHED, Ordering::SeqCst) | LATCHED);
++    // Law X9 r1 G4, with law X4 r8 S11.6 and LD8-4 (unit X4-F3):
++    // `x4.gate.latch.after` follows the existing latch's section. A stop
++    // transition's section takes the operation's stop-cause lock, makes the
++    // one fetch-OR, records and reads, and releases the lock before it
++    // returns, so the point follows that release; a bare latch's section is
++    // the fetch-OR alone. The point is reached once per call, set or not.
++    fn latch_within<R>(&self, section: impl FnOnce(Latching<'_>) -> R) -> R {
++        let result = section(Latching(self));
+         opensip_platform::crash_barrier!("x4.gate", "latch.after", step);
+-        latched
++        result
++    }
++    /// The bare latch: the fetch-OR alone, with no record.
++    fn latch(&self) -> AttemptState {
++        self.latch_within(|latching| latching.fetch_latch().state)
+     }
+     fn observe(&self) -> AttemptState {
+         state(self.0.load(Ordering::SeqCst))
+     }
+ }
++/// Law X4 r8 S11.6 (unit X4-F3): the existing latch's one word operation,
++/// lent once to a latch's section (`FinalGate::latch_within`).
++pub(super) struct Latching<'a>(&'a FinalGate);
++impl Latching<'_> {
++    /// The one fetch-OR of `LATCHED` (S11.2): it only adds the bit.
++    pub(super) fn fetch_latch(self) -> Latched {
++        let prior = self.0.0.fetch_or(LATCHED, Ordering::SeqCst);
++        Latched {
++            state: state(prior | LATCHED),
++            first: prior & LATCHED == 0,
++        }
++    }
++}
++/// What one fetch-OR of `LATCHED` did: the decoded state after it, and
++/// whether it set the bit (the word it read had `LATCHED` clear), which
++/// makes it the operation's first stop.
++#[derive(Debug, Clone, Copy, PartialEq, Eq)]
++pub(super) struct Latched {
++    pub(super) state: AttemptState,
++    pub(super) first: bool,
++}
+ #[derive(Clone)]
+ pub(super) struct StopObserver(Arc<FinalGate>);
+ impl StopObserver {
++    /// The bare latch (law X4 r8 S11.6): at the lease-free point, before
++    /// the guard's entry, and in tests. From the guard's entry, every latch
++    /// of the operation's gate is a stop transition (`latch_within`).
+     pub(super) fn latch(&self) -> AttemptState {
+         self.0.latch()
+     }
++    /// Law X4 r8 S11.6 (unit X4-F3): the existing latch inside a stop
++    /// transition's critical section; `x4.gate.latch.after` follows the
++    /// section's return, after its lock is released.
++    pub(super) fn latch_within<R>(&self, section: impl FnOnce(Latching<'_>) -> R) -> R {
++        self.0.latch_within(section)
++    }
+     pub(super) fn observe(&self) -> AttemptState {
+         self.0.observe()
+     }
+@@ -109,7 +148,10 @@ impl OperationGate {
+     pub(crate) fn observe(&self) -> AttemptState {
+         self.0.observe()
+     }
+-    /// The fetch-OR `2`.
++    /// Test seam (law X4 r8 W-12): the bare fetch-OR `2` on the gate itself.
++    /// In production nothing latches through the gate: from the guard's
++    /// entry every latch is a stop transition (S11.6).
++    #[cfg(test)]
+     pub(crate) fn latch(&self) -> AttemptState {
+         self.0.latch()
+     }
+diff --git a/crates/security/src/custody/commit_session.rs b/crates/security/src/custody/commit_session.rs
+index 3353d75..5681db2 100644
+--- a/crates/security/src/custody/commit_session.rs
++++ b/crates/security/src/custody/commit_session.rs
+@@ -97,7 +97,9 @@ impl RevReason {
+             Some(StopCause::Revoked { .. }) => Self::TrustRevoked,
+             Some(StopCause::FailStop { .. }) => Self::ObserverFailStop,
+             Some(StopCause::Stale(_)) => Self::StaleGuard,
+-            None => Self::OperationStopped,
++            // Law X4 r8 LD8-7 (unit X4-F3): a certain refusal's recorded
++            // cause keeps the reason it had with no cause.
++            Some(StopCause::CertainRefusal) | None => Self::OperationStopped,
+         }
+     }
+     fn draft(self) -> RecordDraft {
+@@ -559,7 +561,7 @@ fn refuse(session: CommitSession, row: OperationRow) -> (SessionRefusal, Stopped
+         end_path,
+         ..
+     } = session;
+-    operation.guard().stop();
++    operation.guard().stop(StopCause::CertainRefusal);
+     let stopped = StoppedSession {
+         operation: Box::new(operation),
+         ids: Some(Box::new((execution_id, operation_ref))),
+@@ -574,7 +576,7 @@ fn refused(
+     ids: Option<(String, String)>,
+     row: OperationRow,
+ ) -> (SessionRefusal, StoppedSession) {
+-    operation.guard().stop();
++    operation.guard().stop(StopCause::CertainRefusal);
+     (
+         SessionRefusal(row),
+         StoppedSession {
+@@ -983,7 +985,7 @@ pub fn seal_under_append_lock<A: CommitAdapter>(
+             (SealOutcome::CommitUndetermined { execution_id }, stopped)
+         }
+         Err(failure) => {
+-            operation.guard().stop();
++            operation.guard().stop(StopCause::CertainRefusal);
+             let refusal = match failure {
+                 WorkFailure::Budget(_) => {
+                     SealRefusal::Session(SessionRefusal(OperationRow::BudgetExhausted))
+@@ -1328,6 +1330,11 @@ pub(super) mod end_path_for_tests {
+     pub(in super::super) fn reasons() -> Vec<&'static str> {
+         RevReason::ALL.iter().map(|r| r.spelling()).collect()
+     }
++    /// Law X4 r8 W-6 (unit X4-F3): `finish`'s `REV` reason for a recorded
++    /// first cause.
++    pub(in super::super) fn reason(cause: Option<&StopCause>) -> &'static str {
++        RevReason::of(cause).spelling()
++    }
+ }
+ 
+ #[cfg(test)]
+diff --git a/crates/security/src/custody/commit_session_tests.rs b/crates/security/src/custody/commit_session_tests.rs
+index 5d34c24..3930746 100644
+--- a/crates/security/src/custody/commit_session_tests.rs
++++ b/crates/security/src/custody/commit_session_tests.rs
+@@ -16,6 +16,7 @@ use crate::journal_store::{
+     AppendStep, Fault, RecordDraft, end_path_append_bound, end_path_append_cost, fixtures,
+     plant_committed_tail_for_tests,
+ };
++use crate::commit_authority::AttemptState;
+ use crate::trust::ObservationHook;
+ 
+ /// A started operation with its scripted clock and the writer's trees.
+@@ -1030,3 +1031,137 @@ fn the_store_root_is_the_endpoints_store_and_the_project_is_the_active_rows() {
+         assert!(!end.end_step_entered());
+     });
+ }
++
++// ------------------------- law X4 r8 S11.6 (unit X4-F3): D8-1's schedules
++
++/// The `REV` reason of the one end-path record `finish` appended.
++fn one_rev(fixture: &ReadFixture, n: &str, reason: &str) {
++    let records = records(fixture, n);
++    assert_eq!(records.len(), 1, "{records:?}");
++    assert_eq!(records[0].0, "REV");
++    assert!(
++        records[0].2.contains(&format!(r#""reason":"{reason}""#)),
++        "{records:?}"
++    );
++}
++
++#[test]
++fn a_certain_refusal_then_an_observer_tick_keeps_operation_stopped() {
++    // W-8 (a), D8-1's first schedule: a certain refusal with a settlement
++    // reserve, then an observer tick, then `finish`. The signal after the
++    // closing return (`OutsideWindow`) is J3b's.
++    churned(|| {
++        let (fixture, n, started) = started("x4f3-w8a");
++        let watch = started.operation.guard().watch();
++        let session = CommitSession::open(started.operation)
++            .unwrap()
++            .reserve_end_path()
++            .unwrap();
++        let stopped = session.refused();
++        assert_eq!(watch.cause(), Some(StopCause::CertainRefusal));
++        assert_eq!(watch.state(), AttemptState::LatchedBeforeAdmission);
++        // The tick's read finds the latch and reads the recorded cause: it
++        // records nothing, and the observer stops.
++        assert!(!watch.tick());
++        assert_eq!(watch.cause(), Some(StopCause::CertainRefusal));
++        let end = stopped.finish();
++        assert!(end.revocation_appended() && !end.cleanup_appended());
++        one_rev(&fixture, &n, "operation-stopped");
++    });
++}
++
++#[test]
++fn a_stale_guard_held_after_its_section_keeps_its_row_and_stale_guard() {
++    // W-8 (b), D8-1's second schedule: a stale guard before admission, held
++    // after its stop transition's release (a seam outside the critical
++    // section), then an observer tick, then the checkpoint's return. The
++    // cancellation (`AlreadyStopped`) is J3b's.
++    churned(|| {
++        let (fixture, n, started) = started("x4f3-w8b");
++        let watch = started.operation.guard().watch();
++        let seen = std::sync::Arc::new(std::sync::Mutex::new(None));
++        {
++            let seen = std::sync::Arc::clone(&seen);
++            let tick = started.operation.guard().watch();
++            watch.after_stop(move || {
++                let ticked = tick.tick();
++                *seen.lock().unwrap() = Some((ticked, tick.cause()));
++            });
++        }
++        let adapter = adapter(&started, Stage::Staged, true);
++        let txn = begin_journal_txn(funded(started.operation)).unwrap();
++        // A foreign store endpoint: the store marker replaced, a stale guard at
++        // the checkpoint's step 1.
++        let marker = fixture
++            .installation
++            .join(format!("stores/{}/store-instance.v1", fixture.store));
++        let next = marker.with_file_name("store-instance.x4f3");
++        fs::copy(&marker, &next).unwrap();
++        private(&next);
++        fs::rename(&next, &marker).unwrap();
++        let (outcome, stopped) = seal_under_append_lock(txn, &fixtures::replay(), adapter);
++        let changed = T::Custody {
++            subject: "required-files-changed",
++        };
++        let stale = StopCause::Stale(OperationRow::Installation(changed.clone()));
++        // The tick ran after the stale guard's section and before the
++        // checkpoint returned: it read the stale guard and recorded nothing.
++        assert_eq!(*seen.lock().unwrap(), Some((false, Some(stale.clone()))));
++        match outcome {
++            SealOutcome::Refused(SealRefusal::Session(refusal)) => {
++                assert_eq!(refusal.termination(), changed)
++            }
++            other => panic!("{other:?}"),
++        }
++        assert_eq!(watch.cause(), Some(stale));
++        let end = stopped.finish();
++        assert!(end.revocation_appended() && !end.cleanup_appended());
++        one_rev(&fixture, &n, "stale-guard");
++    });
++}
++
++#[test]
++fn an_observer_revocation_then_a_certain_refusal_keeps_trust_revoked() {
++    // W-8 (d): an observer revocation, then a certain refusal, through
++    // `refused()` and through `publish`, whose checkpoint reports the
++    // revocation's row before its refusal arm stops the operation. The
++    // signal between them (`AlreadyStopped`) is J3b's.
++    churned(|| {
++        for through_publish in [false, true] {
++            let tag = if through_publish {
++                "x4f3-w8d-publish"
++            } else {
++                "x4f3-w8d"
++            };
++            let (fixture, n, started) = started(tag);
++            let watch = started.operation.guard().watch();
++            let closure = started.operation.selected_core().0.to_owned();
++            fixture.swap_trust(vec![("release", closure)], 2);
++            assert!(!watch.tick());
++            let revoked = StopCause::Revoked {
++                subject: "trust-revoked",
++            };
++            assert_eq!(watch.cause(), Some(revoked.clone()));
++            let stopped = if through_publish {
++                let (outcome, stopped) = publish(started, Stage::Staged, true);
++                match outcome {
++                    SealOutcome::Refused(SealRefusal::Session(refusal)) => assert_eq!(
++                        refusal.termination(),
++                        T::RevokedDuringOperation {
++                            subject: "trust-revoked"
++                        }
++                    ),
++                    other => panic!("{other:?}"),
++                }
++                stopped
++            } else {
++                funded(started.operation).refused()
++            };
++            assert_eq!(watch.cause(), Some(revoked));
++            assert_eq!(watch.state(), AttemptState::LatchedBeforeAdmission);
++            let end = stopped.finish();
++            assert!(end.revocation_appended() && !end.cleanup_appended());
++            one_rev(&fixture, &n, "trust-revoked");
++        }
++    });
++}
+diff --git a/crates/security/src/custody/operation_guard.rs b/crates/security/src/custody/operation_guard.rs
+index 1687b33..94a3975 100644
+--- a/crates/security/src/custody/operation_guard.rs
++++ b/crates/security/src/custody/operation_guard.rs
+@@ -19,6 +19,12 @@
+ //   `FinalGate::admit` (the one `AdmissionPermit`) or the effect's own intent
+ //   append. Any failure latches the gate.
+ // - Item 8: every stop names its existing row.
++// Law X4 r8 S11.6 (unit X4-F3): the first-cause rule FC. Every latch of the
++// gate after the guard's entry is a stop transition of the operation's stop
++// handle: its latch and its cause's record are one critical section of the
++// stop-cause lock, and the record is made only by the transition that set
++// `LATCHED` (invariant I1). Readers only read. The guard's entry refuses a
++// gate already latched (LD8-10).
+ // The crash matrix's `x4.*` points (law X9 r1 item 5 and G4) are placed
+ // here: `x4.observer.tick` (a `gate`, replacing the observer's timed wait when
+ // armed) and `x4.observer.after-observation`; `x4.checkpoint.before-
+@@ -41,7 +47,7 @@ use crate::InstallationTermination as T;
+ use crate::RootDetail;
+ use crate::commit_authority::{AdmissionPermit, AttemptState, OperationGate, StopObserver};
+ use crate::journal_store::{JournalAppendHeld, OperationCarrier};
+-use crate::revocation::{FreshnessMonitor, Sample, StopReason, native_clock};
++use crate::revocation::{FreshnessMonitor, MonitorStop, Sample, StopReason, native_clock};
+ use crate::trust::{
+     AdmittedCurrentTrust, LiveObservation, ObservationHook, Observed, RetainedTrustHandles,
+     TrustRow,
+@@ -50,7 +56,7 @@ use opensip_identity::ProjectRegistryEntry;
+ use opensip_platform::{DescriptorFilesystem, WorkFailure, WorkScope};
+ use std::collections::BTreeSet;
+ use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
+-use std::sync::{Arc, Mutex, MutexGuard};
++use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+ use std::thread::JoinHandle;
+ use std::time::Duration;
+ 
+@@ -93,8 +99,9 @@ impl std::fmt::Debug for GuardSeam {
+ 
+ // ------------------------------------------------------------- stopping
+ 
+-/// Why the operation stopped: the first cause recorded wins and is never
+-/// replaced (law X4 r7 items 7 and 8). X3d's end path reads it for its `REV`.
++/// Why the operation stopped: the first stop's cause, recorded with its
++/// latch and never replaced (law X4 r7 items 7 and 8; X4 r8 S11.6's rule
++/// FC). X3d's end path reads it for its `REV`.
+ #[derive(Clone, Debug, PartialEq, Eq)]
+ pub(crate) enum StopCause {
+     /// A revoking observation: `trust-revoked` or `policy`.
+@@ -103,12 +110,17 @@ pub(crate) enum StopCause {
+     FailStop { subject: &'static str },
+     /// A stale guard, with the failing guard's own row.
+     Stale(OperationRow),
++    /// Law X4 r8 LD8-7 (unit X4-F3): a certain refusal, X3d's
++    /// (`OperationGuard::stop`) or the checkpoint's lock mismatch. X3d's
++    /// `REV` reason for it stays `operation-stopped`; its row is the
++    /// invariant row, which no checkpoint reaches.
++    CertainRefusal,
+ }
+ /// A checkpoint refusal. Each names one row (`row`), and every one latched
+ /// the gate before it was returned.
+ #[derive(Clone, Debug, PartialEq, Eq)]
+ pub(crate) enum GuardRefusal {
+-    /// The first recorded stop (a revocation, a fail-stop or a stale guard).
++    /// The first stop's recorded cause.
+     Stopped(StopCause),
+     /// The checkpoint was handed a level-4 borrow that is not this
+     /// operation's append lock: a broken caller.
+@@ -124,6 +136,7 @@ impl StopCause {
+                 OperationRow::Installation(T::ObserverFailStop { subject })
+             }
+             Self::Stale(row) => row.clone(),
++            Self::CertainRefusal => OperationRow::Installation(T::Invariant),
+         }
+     }
+ }
+@@ -136,11 +149,190 @@ impl GuardRefusal {
+     }
+ }
+ 
++/// Law X4 r8 S11.6 (unit X4-F3): the operation's stop handle, its gate's
++/// stop observer bound to its one stop-cause record. From the guard's entry,
++/// every latch of the gate is this handle's stop transition (LD8-6): the
++/// observer's, the checkpoint's, the monitor's (`MonitorStop`) and X3d's
++/// certain refusals. Never serialized; it lives in its guard and its
++/// monitor.
++#[derive(Clone)]
++pub(crate) struct StopHandle(Arc<StopRecord>);
++struct StopRecord {
++    gate: StopObserver,
++    /// The first stop's cause, recorded only by the stop transition that set
++    /// `LATCHED` (invariant I1).
++    cause: Mutex<Option<StopCause>>,
++    /// Test seam (law X4 r8 W-8): run once after the next stop transition's
++    /// release, outside its critical section.
++    #[cfg(test)]
++    after: Mutex<Option<Box<dyn FnOnce() + Send>>>,
++}
++/// What one stop transition did: the decoded state after it, whether it was
++/// the operation's first stop, and the recorded cause, which is the first
++/// stop's.
++#[derive(Clone, Debug, PartialEq, Eq)]
++pub(crate) struct Transition {
++    pub(crate) state: AttemptState,
++    pub(crate) first: bool,
++    pub(crate) cause: Option<StopCause>,
++}
++impl Transition {
++    /// The first stop's cause, as a checkpoint reports it. No cause after a
++    /// stop transition would breach I1: the invariant row (LD8-8).
++    fn refusal(self) -> GuardRefusal {
++        self.cause
++            .map_or(GuardRefusal::Invariant, GuardRefusal::Stopped)
++    }
++}
++/// The stop-cause record's lock.
++fn slot(cause: &Mutex<Option<StopCause>>) -> MutexGuard<'_, Option<StopCause>> {
++    cause.lock().unwrap_or_else(PoisonError::into_inner)
++}
++impl StopHandle {
++    /// The entry rule's step 1: the operation's record, holding no cause.
++    fn new(gate: StopObserver) -> Self {
++        Self(Arc::new(StopRecord {
++            gate,
++            cause: Mutex::new(None),
++            #[cfg(test)]
++            after: Mutex::new(None),
++        }))
++    }
++    /// Law X4 r8 S11.6's stop transition (LD8-6), for every source after the
++    /// guard's entry: (1) take the stop-cause lock; (2) the one fetch-OR of
++    /// `LATCHED`; (3) record `cause` if, and only if, that fetch-OR set
++    /// `LATCHED`; (4) read the recorded cause; (5) release the lock; then
++    /// (6) `x4.gate.latch.after`, outside the lock (LD8-4). The section holds
++    /// only the word's operation and the record's insert and read: no I/O,
++    /// wait, callback or crash point, and never the monitor's mutex.
++    pub(crate) fn stop(&self, cause: StopCause) -> Transition {
++        let StopRecord {
++            gate,
++            cause: record,
++            ..
++        } = &*self.0;
++        let transition = gate.latch_within(|latching| {
++            let mut slot = slot(record);
++            let latched = latching.fetch_latch();
++            if latched.first {
++                slot.get_or_insert(cause);
++            }
++            Transition {
++                state: latched.state,
++                first: latched.first,
++                cause: slot.clone(),
++            }
++        });
++        #[cfg(test)]
++        {
++            let after = slot_after(&self.0.after).take();
++            if let Some(after) = after {
++                after();
++            }
++        }
++        transition
++    }
++    /// A reader that has seen `LATCHED` (S11.6; LD8-8): the first stop's
++    /// recorded cause. It records nothing. None recorded would be a latch
++    /// outside a stop transition after the guard's entry, a breach of I1:
++    /// the invariant row.
++    fn latched(&self) -> GuardRefusal {
++        self.cause()
++            .map_or(GuardRefusal::Invariant, GuardRefusal::Stopped)
++    }
++    /// The first stop's recorded cause, if any.
++    fn cause(&self) -> Option<StopCause> {
++        slot(&self.0.cause).clone()
++    }
++    /// The gate's decoded state (one load; no lock).
++    fn observe(&self) -> AttemptState {
++        self.0.gate.observe()
++    }
++    /// The entry rule's step 3: whether the gate's word has `LATCHED`, read
++    /// under the record's lock.
++    fn entry_latched(&self) -> bool {
++        let _slot = slot(&self.0.cause);
++        matches!(
++            self.0.gate.observe(),
++            AttemptState::LatchedBeforeAdmission | AttemptState::AdmittedThenLatched
++        )
++    }
++}
++#[cfg(test)]
++fn slot_after(
++    after: &Mutex<Option<Box<dyn FnOnce() + Send>>>,
++) -> MutexGuard<'_, Option<Box<dyn FnOnce() + Send>>> {
++    after.lock().unwrap_or_else(PoisonError::into_inner)
++}
++/// From the guard's entry the monitor latches only through the stop handle:
++/// a failed read or boundary check with its caller's subject (sources 2 and
++/// 3), and an unwind with `latched`, the subject the poisoned-mutex path
++/// records (source 4).
++impl MonitorStop for StopHandle {
++    fn state(&self) -> AttemptState {
++        self.observe()
++    }
++    fn fail(&self, subject: &'static str) {
++        self.stop(StopCause::FailStop { subject });
++    }
++    fn unwound(&self) {
++        self.stop(StopCause::FailStop { subject: "latched" });
++    }
++}
++/// One observation's read, for the observer's tick and checkpoint step 2:
++/// continue, with any drift; a revocation, the observer's stop transition
++/// (source 1); or a failed read, whose stop transition the monitor made
++/// (sources 2 and 4), or an earlier stop did, so its cause is read here and
++/// never recorded.
++fn observed(
++    stop: &StopHandle,
++    read: Result<Observed, StopReason>,
++) -> Result<Option<&'static str>, GuardRefusal> {
++    match read {
++        Ok(Observed::Continue { drift }) => Ok(drift),
++        Ok(Observed::Revoke { subject }) => {
++            Err(stop.stop(StopCause::Revoked { subject }).refusal())
++        }
++        Err(_) => Err(stop.latched()),
++    }
++}
++/// The shared monitor's lock. A poisoned mutex is source 5: the stop
++/// transition with `FailStop { latched }`, today's subject.
++fn lock_monitor<'a, M>(
++    monitor: &'a Mutex<M>,
++    stop: &StopHandle,
++) -> Result<MutexGuard<'a, M>, GuardRefusal> {
++    monitor.lock().map_err(|_| {
++        stop.stop(StopCause::FailStop { subject: "latched" })
++            .refusal()
++    })
++}
++/// Checkpoint step 1's stale guard (source 6): its stop transition records
++/// the failing guard's own row.
++fn stale(stop: &StopHandle, row: OperationRow) -> GuardRefusal {
++    stop.stop(StopCause::Stale(row)).refusal()
++}
++/// The checkpoint's trailing latch on every refusal (S11.6): a stop
++/// transition whose cause is the refusal's own, or `CertainRefusal` for the
++/// lock mismatch (source 7, LD8-7). It reports the first stop's cause; the
++/// lock mismatch stays `GuardRefusal::Invariant`.
++fn refuse(stop: &StopHandle, refusal: GuardRefusal) -> GuardRefusal {
++    match refusal {
++        GuardRefusal::Invariant => {
++            stop.stop(StopCause::CertainRefusal);
++            GuardRefusal::Invariant
++        }
++        GuardRefusal::Stopped(cause) => stop.stop(cause).refusal(),
++    }
++}
++
+ // ---------------------------------------------------------- the monitor
+ 
+-/// One monitor history and its clock, behind the guard's one mutex.
+-struct MonitorCell {
+-    monitor: FreshnessMonitor,
++/// One monitor history and its clock, behind the guard's one mutex. At the
++/// lease-free point it latches the bare gate; from the guard's entry,
++/// through the operation's stop handle.
++struct MonitorCell<S = StopObserver> {
++    monitor: FreshnessMonitor<S>,
+     clock: MonitorClock,
+ }
+ /// Law X4 r7 item 2: what the lease-free point creates first, under the
+@@ -177,11 +369,15 @@ impl LeaseFree {
+     ) -> Result<R, FirstRead<E>> {
+         let mut refused = None;
+         let MonitorCell { monitor, clock } = &mut self.cell;
+-        let read = monitor.read_sampled_with(clock, |sample| {
+-            counter(sample).map_err(|e| {
+-                refused = Some(e);
+-            })
+-        });
++        let read = monitor.read_sampled_with(
++            clock,
++            |sample| {
++                counter(sample).map_err(|e| {
++                    refused = Some(e);
++                })
++            },
++            StopReason::subject,
++        );
+         match (read, refused) {
+             (Ok(value), _) => Ok(value),
+             (Err(_), Some(e)) => Err(FirstRead::Counter(e)),
+@@ -191,45 +387,93 @@ impl LeaseFree {
+     pub(crate) fn state(&self) -> AttemptState {
+         self.gate.observe()
+     }
++    /// Test seam (law X4 r8 W-12): a bare latch on one of the lease-free
++    /// point's three handles, outside any critical section.
++    #[cfg(test)]
++    pub(crate) fn latch_bare(&self, handle: BareHandle) -> AttemptState {
++        match handle {
++            BareHandle::Gate => self.gate.latch(),
++            BareHandle::Stop => self.stop.latch(),
++            BareHandle::Monitor => self.cell.monitor.stop().latch(),
++        }
++    }
++}
++/// The lease-free point's three handles that can latch the gate bare.
++#[cfg(test)]
++#[derive(Clone, Copy, Debug)]
++pub(crate) enum BareHandle {
++    Gate,
++    Stop,
++    Monitor,
++}
++
++/// Law X4 r8 S11.6's entry rule, steps 1 to 4 (unit X4-F3; LD8-10): the
++/// operation's parts once its record exists and its monitor is rebound.
++struct Entered {
++    gate: OperationGate,
++    stop: StopHandle,
++    cell: MonitorCell<StopHandle>,
++}
++/// The entry rule. `Err` is a gate already latched before the guard exists
++/// (by `StopOnUnwind` at the first read, or any lease-free handle): its parts
++/// come back untouched, the latch kept, the monitor's history kept and
++/// nothing recorded, and no guard is made.
++fn enter(lease_free: LeaseFree) -> Result<Entered, Entered> {
++    let LeaseFree { gate, stop, cell } = lease_free;
++    // 1. The record: the operation's stop handle, holding no cause.
++    let stop = StopHandle::new(stop);
++    // 2. The rebind: the monitor latches through that handle from now on,
++    // and its bare clone is consumed. No bare latch remains reachable
++    // outside the guard's own stop transitions.
++    let MonitorCell { monitor, clock } = cell;
++    let cell = MonitorCell {
++        monitor: monitor.rebind(stop.clone()),
++        clock,
++    };
++    // 3. The check: the gate's word, under the record's lock.
++    let latched = stop.entry_latched();
++    let entered = Entered { gate, stop, cell };
++    // 4. A latched gate gets no guard.
++    if latched { Err(entered) } else { Ok(entered) }
++}
++/// Why `OperationGuard::start` made no guard.
++#[derive(Debug)]
++pub(crate) enum GuardStart {
++    /// Law X4 r8 LD8-10 (unit X4-F3): the gate was latched before the
++    /// guard's entry. The handoff's existing fail-stop row, subject
++    /// `latched`.
++    Latched,
++    /// The observer thread could not be started: the host I/O row.
++    Observer(std::io::Error),
+ }
+ 
+ // ------------------------------------------------------------ the guard
+ 
+ /// What the observer and the checkpoints share.
+ struct Shared {
+-    monitor: Mutex<MonitorCell>,
+-    stop: StopObserver,
++    monitor: Mutex<MonitorCell<StopHandle>>,
++    /// The operation's stop handle: `LeaseFree`'s stop observer, bound at the
++    /// guard's entry to the operation's stop-cause record.
++    stop: StopHandle,
+     /// The start view: the immutable start epoch, closure and floors.
+     start: AdmittedCurrentTrust,
+     handles: RetainedTrustHandles,
+     core_closure: String,
+     hook: ObservationHook,
+     drift: Mutex<BTreeSet<&'static str>>,
+-    cause: Mutex<Option<StopCause>>,
+ }
+ impl Shared {
+-    /// Record `cause` unless one is already recorded; the recorded one is
+-    /// returned.
+-    fn record(&self, cause: StopCause) -> StopCause {
+-        let mut slot = self.cause.lock().unwrap_or_else(|p| p.into_inner());
+-        slot.get_or_insert(cause).clone()
+-    }
+-    /// The gate was latched elsewhere: its recorded cause, or a fail-stop.
+-    fn latched(&self) -> StopCause {
+-        self.record(StopCause::FailStop { subject: "latched" })
+-    }
+-    fn lock(&self) -> Result<MutexGuard<'_, MonitorCell>, StopCause> {
+-        self.monitor.lock().map_err(|_| {
+-            self.stop.latch();
+-            self.record(StopCause::FailStop { subject: "latched" })
+-        })
++    fn lock(&self) -> Result<MutexGuard<'_, MonitorCell<StopHandle>>, GuardRefusal> {
++        lock_monitor(&self.monitor, &self.stop)
+     }
+     /// One observation through the shared monitor (law X4 r7 item 5): one
+     /// `read` whose counter is the whole two-attempt observation. The read's
+     /// own opening sample is the observation's clock (law X4T r11 item 6,
+-    /// unit X4-F1); no other sample is taken.
+-    fn observe(&self, cell: &mut MonitorCell) -> Result<(), StopCause> {
+-        let mut failure = None;
++    /// unit X4-F1); no other sample is taken. A failed read's stop
++    /// transition is the monitor's, with the observation's own failure
++    /// subject, else the stop reason's (law X4 r8 S11.6, source 2).
++    fn observe(&self, cell: &mut MonitorCell<StopHandle>) -> Result<(), GuardRefusal> {
++        let failure = std::cell::Cell::new(None);
+         let observation = LiveObservation {
+             handles: &self.handles,
+             start: &self.start,
+@@ -237,30 +481,22 @@ impl Shared {
+             hook: &self.hook,
+         };
+         let MonitorCell { monitor, clock } = cell;
+-        let read = monitor.read_sampled_with(clock, |opening| {
+-            observation.observe(opening).map_err(|f| {
+-                failure = Some(f);
+-            })
+-        });
+-        match read {
+-            Ok(Observed::Continue { drift }) => {
+-                if let Some(drift) = drift {
+-                    self.drift
+-                        .lock()
+-                        .unwrap_or_else(|p| p.into_inner())
+-                        .insert(drift);
+-                }
+-                Ok(())
+-            }
+-            Ok(Observed::Revoke { subject }) => {
+-                self.stop.latch();
+-                Err(self.record(StopCause::Revoked { subject }))
+-            }
+-            Err(StopReason::AlreadyStopped) => Err(self.latched()),
+-            Err(reason) => Err(self.record(StopCause::FailStop {
+-                subject: failure.map_or(reason.subject(), |f| f.subject()),
+-            })),
++        let read = monitor.read_sampled_with(
++            clock,
++            |opening| {
++                observation.observe(opening).map_err(|f| {
++                    failure.set(Some(f.subject()));
++                })
++            },
++            |reason| failure.get().unwrap_or_else(|| reason.subject()),
++        );
++        if let Some(drift) = observed(&self.stop, read)? {
++            self.drift
++                .lock()
++                .unwrap_or_else(|p| p.into_inner())
++                .insert(drift);
+         }
++        Ok(())
+     }
+ }
+ 
+@@ -368,7 +604,11 @@ impl std::fmt::Debug for OperationGuard {
+ }
+ impl OperationGuard {
+     /// Build the guard from the lease-free point's products and start its
+-    /// observer thread. A thread that cannot be started is the host I/O row.
++    /// observer thread. Law X4 r8 S11.6's entry rule (unit X4-F3; LD8-10)
++    /// comes first: the record, the monitor's rebind and the gate's check,
++    /// and only then (step 5) the observer, so I1 holds at the guard's entry.
++    /// A gate already latched gets no guard and no observer; a thread that
++    /// cannot be started is the host I/O row.
+     pub(crate) fn start(
+         lease_free: LeaseFree,
+         view: AdmittedCurrentTrust,
+@@ -377,8 +617,8 @@ impl OperationGuard {
+         trust_groups: BTreeSet<u32>,
+         cadence: Cadence,
+         hook: ObservationHook,
+-    ) -> Result<Self, std::io::Error> {
+-        let LeaseFree { gate, stop, cell } = lease_free;
++    ) -> Result<Self, GuardStart> {
++        let Entered { gate, stop, cell } = enter(lease_free).map_err(|_| GuardStart::Latched)?;
+         let shared = Arc::new(Shared {
+             monitor: Mutex::new(cell),
+             stop,
+@@ -387,7 +627,6 @@ impl OperationGuard {
+             core_closure,
+             hook,
+             drift: Mutex::new(BTreeSet::new()),
+-            cause: Mutex::new(None),
+         });
+         let (signals, receiver) = mpsc::channel();
+         let thread = std::thread::Builder::new()
+@@ -395,7 +634,8 @@ impl OperationGuard {
+             .spawn({
+                 let shared = Arc::clone(&shared);
+                 move || observe_loop(shared, receiver, cadence)
+-            })?;
++            })
++            .map_err(GuardStart::Observer)?;
+         Ok(Self {
+             observer: Some(Observer {
+                 signals,
+@@ -413,19 +653,16 @@ impl OperationGuard {
+     /// Law X3d r6 item 3 (unit X3d-1): a certain refusal stops the
+     /// operation before admission, so its one gate latches (the fetch-OR
+     /// `2`, X4 r7 item 7: `0` to `2`, and no `RA`, intent, commit or `SEAL`
+-    /// follows). No cause is recorded; a stop already recorded stays. Never
+-    /// resets; after admission it is the `1` to `3` latch, which never
+-    /// relabels the admitted outcome.
+-    pub(crate) fn stop(&self) -> AttemptState {
+-        self.gate.latch()
++    /// follows). Law X4 r8 S11.6 (unit X4-F3): it is the stop transition
++    /// with X3d's `cause`, `CertainRefusal`, recorded only if it is the first
++    /// stop; a stop already recorded stays. Never resets; after admission it
++    /// is the `1` to `3` latch, which never relabels the admitted outcome.
++    pub(crate) fn stop(&self, cause: StopCause) -> AttemptState {
++        self.shared.stop.stop(cause).state
+     }
+-    /// The first recorded stop, if any.
++    /// The first stop's recorded cause, if any.
+     pub(crate) fn cause(&self) -> Option<StopCause> {
+-        self.shared
+-            .cause
+-            .lock()
+-            .unwrap_or_else(|p| p.into_inner())
+-            .clone()
++        self.shared.stop.cause()
+     }
+     /// S6's drift recorded under the operation.
+     pub(crate) fn drift(&self) -> Vec<&'static str> {
+@@ -446,17 +683,83 @@ impl OperationGuard {
+     /// observer had already stopped.
+     #[cfg(test)]
+     pub(crate) fn tick(&self) -> bool {
+-        let Some(observer) = &self.observer else {
+-            return false;
+-        };
+-        let (ack, done) = mpsc::channel();
+-        observer.signals.send(Signal::Tick(ack)).is_ok() && done.recv().unwrap_or(false)
++        self.watch().tick()
+     }
+     /// Test seam: hold the shared monitor (as a checkpoint or tick does).
+     #[cfg(test)]
+     pub(crate) fn hold_monitor(&self) -> impl Drop + '_ {
+         self.shared.monitor.lock().unwrap()
+     }
++    /// Test seam (law X4 r8 W-8): the guard as a test sees it after the
++    /// operation has moved into a session.
++    #[cfg(test)]
++    pub(crate) fn watch(&self) -> Watch {
++        Watch {
++            signals: self.observer.as_ref().map(|observer| observer.signals.clone()),
++            stop: self.shared.stop.clone(),
++        }
++    }
++    /// Test seam (law X4 r8 W-10 (c)): hold the stop-cause lock on a thread
++    /// of its own, outside any stop transition, until the value is dropped.
++    #[cfg(test)]
++    pub(crate) fn hold_cause(&self) -> impl Drop + use<> {
++        struct Held {
++            release: Option<Sender<()>>,
++            thread: Option<JoinHandle<()>>,
++        }
++        impl Drop for Held {
++            fn drop(&mut self) {
++                drop(self.release.take());
++                if let Some(thread) = self.thread.take() {
++                    let _ = thread.join();
++                }
++            }
++        }
++        let stop = self.shared.stop.clone();
++        let (locked, held) = mpsc::channel();
++        let (release, wait) = mpsc::channel::<()>();
++        let thread = std::thread::spawn(move || {
++            let _slot = slot(&stop.0.cause);
++            let _ = locked.send(());
++            let _ = wait.recv();
++        });
++        let _ = held.recv();
++        Held {
++            release: Some(release),
++            thread: Some(thread),
++        }
++    }
++}
++/// Test seam (law X4 r8 W-8): one observer tick on request, the recorded
++/// cause and the gate's state, and a hook after the next stop transition's
++/// release. Reads only; it latches nothing.
++#[cfg(test)]
++pub(crate) struct Watch {
++    signals: Option<Sender<Signal>>,
++    stop: StopHandle,
++}
++#[cfg(test)]
++impl Watch {
++    /// Run one observer tick now and wait for it. True if the observation
++    /// continued; false if it stopped the observer, or if the observer had
++    /// already stopped.
++    pub(crate) fn tick(&self) -> bool {
++        let Some(signals) = &self.signals else {
++            return false;
++        };
++        let (ack, done) = mpsc::channel();
++        signals.send(Signal::Tick(ack)).is_ok() && done.recv().unwrap_or(false)
++    }
++    pub(crate) fn cause(&self) -> Option<StopCause> {
++        self.stop.cause()
++    }
++    pub(crate) fn state(&self) -> AttemptState {
++        self.stop.observe()
++    }
++    /// Run `hook` once, after the next stop transition's release.
++    pub(crate) fn after_stop(&self, hook: impl FnOnce() + Send + 'static) {
++        *slot_after(&self.stop.0.after) = Some(Box::new(hook));
++    }
+ }
+ 
+ // ------------------------------------------------------- the checkpoint
+@@ -513,7 +816,7 @@ impl Checkpoint<'_> {
+             let value = prepared.take().expect("admitted once");
+             self.guard.gate.admit(value).map_err(|(value, _)| {
+                 prepared = Some(value);
+-                GuardRefusal::Stopped(self.guard.shared.latched())
++                self.guard.shared.stop.latched()
+             })
+         });
+         result.map_err(|(refusal, ())| (refusal, prepared.take().expect("returned on refusal")))
+@@ -535,42 +838,59 @@ impl Checkpoint<'_> {
+         finish: impl FnOnce() -> Result<R, GuardRefusal>,
+     ) -> Result<R, (GuardRefusal, ())> {
+         let shared = &self.guard.shared;
+-        let stop = |refusal: GuardRefusal| {
+-            shared.stop.latch();
+-            Err((refusal, ()))
+-        };
++        // Every refusal ends with the trailing latch, a stop transition that
++        // reports the first stop's cause (law X4 r8 S11.6).
++        let stop = |refusal: GuardRefusal| Err((refuse(&shared.stop, refusal), ()));
+         if !held.holds(self.carrier.lock()) {
++            // Source 7: a broken caller, recorded as `CertainRefusal`.
+             return stop(GuardRefusal::Invariant);
+         }
+         // Step 1: the guard rechecks, charged to the attempt ledger. They may
+         // block; nothing observed before this checkpoint is authority.
+         if let Err(row) = self.guards(work) {
+-            shared.stop.latch();
+-            return stop(GuardRefusal::Stopped(shared.record(StopCause::Stale(row))));
++            return stop(stale(&shared.stop, row));
+         }
+         opensip_platform::crash_barrier!("x4.checkpoint", "before-observation", step);
+         // Steps 2 to 4 hold the shared monitor: no other read, wait or
+         // callback runs between the final observation and admission.
+         let mut cell = match shared.lock() {
+             Ok(cell) => cell,
+-            Err(cause) => return stop(GuardRefusal::Stopped(cause)),
++            Err(refusal) => return stop(refusal),
+         };
+         // Step 2: the final monitored observation and S6's predicate.
+-        if let Err(cause) = shared.observe(&mut cell) {
+-            return stop(GuardRefusal::Stopped(cause));
++        if let Err(refusal) = shared.observe(&mut cell) {
++            return stop(refusal);
+         }
+         opensip_platform::crash_barrier!("x4.checkpoint", "after-observation", step);
+         // Step 3: the latch.
+-        if self.guard.gate.observe() != AttemptState::Preparing {
+-            return stop(GuardRefusal::Stopped(shared.latched()));
++        match self.guard.gate.observe() {
++            AttemptState::Preparing => {}
++            // A checkpoint after this operation's admission (F41's second
++            // admission): nothing has latched, so the trailing stop
++            // transition is the first stop (1 to 3), with today's cause.
++            AttemptState::Admitted => {
++                return stop(GuardRefusal::Stopped(StopCause::FailStop {
++                    subject: "latched",
++                }));
++            }
++            // A stop came first: its recorded cause.
++            AttemptState::LatchedBeforeAdmission | AttemptState::AdmittedThenLatched => {
++                return stop(shared.stop.latched());
++            }
+         }
+         opensip_platform::crash_barrier!("x4.checkpoint", "before-admit", step);
+-        // Step 4: one clock sample, no I/O, then admission at once.
++        // Step 4: one clock sample, no I/O, then admission at once. The
++        // boundary's own failure is its stop transition (source 3); after it,
++        // or after an `AlreadyStopped`, the trailing stop transition with
++        // `admission-boundary` records nothing and reports the first cause.
+         let MonitorCell { monitor, clock } = &mut *cell;
+-        if monitor.boundary_with(clock).is_err() {
+-            return stop(GuardRefusal::Stopped(shared.record(StopCause::FailStop {
++        if monitor
++            .boundary_with(clock, "admission-boundary")
++            .is_err()
++        {
++            return stop(GuardRefusal::Stopped(StopCause::FailStop {
+                 subject: "admission-boundary",
+-            })));
++            }));
+         }
+         let admitted = finish();
+         drop(cell);
+@@ -737,6 +1057,26 @@ pub(crate) mod scripted {
+             hook,
+         }
+     }
++    /// Run `f` in a destructor while its thread unwinds from an unrelated panic
++    /// (`resume_unwind`, so no panic message is printed): whether the thread was
++    /// panicking there, and `f`'s value. `f` must not panic.
++    pub(crate) fn unwinding<R>(f: impl FnOnce() -> R) -> (bool, R) {
++        struct OnDrop<F: FnOnce()>(Option<F>);
++        impl<F: FnOnce()> Drop for OnDrop<F> {
++            fn drop(&mut self) {
++                if let Some(f) = self.0.take() {
++                    f();
++                }
++            }
++        }
++        let mut out = None;
++        let unwound = std::panic::catch_unwind::<_, ()>(std::panic::AssertUnwindSafe(|| {
++            let _on_drop = OnDrop(Some(|| out = Some((std::thread::panicking(), f()))));
++            std::panic::resume_unwind(Box::new("an unrelated panic"))
++        }));
++        assert!(unwound.is_err());
++        out.expect("the destructor ran")
++    }
+     pub(crate) fn invocation() -> crate::trust::TrustInvocation {
+         crate::trust::TrustInvocation::new(
+             &format!("req1_{}", "a".repeat(32)),
+diff --git a/crates/security/src/custody/operation_guard_tests.rs b/crates/security/src/custody/operation_guard_tests.rs
+index 553a3f1..ba07523 100644
+--- a/crates/security/src/custody/operation_guard_tests.rs
++++ b/crates/security/src/custody/operation_guard_tests.rs
+@@ -1,6 +1,6 @@
+ // Law X4 r7 (unit X4a): the guard's own pieces, with scripted clocks only.
+ // The end-to-end cases run through the handoff (`operation_live_tests.rs`).
+-use super::scripted::Clock;
++use super::scripted::{Clock, unwinding};
+ use super::*;
+ use crate::trust::TrustRow;
+ 
+@@ -159,10 +159,14 @@ fn the_admission_boundary_admits_exactly_ten_seconds_and_refuses_one_nanosecond_
+         let base = Duration::from_secs(100);
+         let mut samples = vec![sample(base, "b"), sample(base, "b")].into_iter();
+         monitor
+-            .read_sampled_with(|| Ok(samples.next().unwrap()), |_| Ok::<_, ()>(()))
++            .read_sampled_with(
++                || Ok(samples.next().unwrap()),
++                |_| Ok::<_, ()>(()),
++                StopReason::subject,
++            )
+             .unwrap();
+         let now = base + Duration::from_secs(10) + extra;
+-        let result = monitor.boundary_with(|| Ok(sample(now, "b")));
++        let result = monitor.boundary_with(|| Ok(sample(now, "b")), "admission-boundary");
+         assert_eq!(result.is_ok(), admitted);
+         assert_eq!(
+             stop.observe(),
+@@ -188,11 +192,15 @@ fn the_admission_boundary_admits_exactly_ten_seconds_and_refuses_one_nanosecond_
+             ]
+             .into_iter();
+             monitor
+-                .read_sampled_with(|| Ok(samples.next().unwrap()), |_| Ok::<_, ()>(()))
++                .read_sampled_with(
++                    || Ok(samples.next().unwrap()),
++                    |_| Ok::<_, ()>(()),
++                    StopReason::subject,
++                )
+                 .unwrap();
+         }
+         assert_eq!(
+-            monitor.boundary_with(|| Ok(sample(now, boot))),
++            monitor.boundary_with(|| Ok(sample(now, boot)), "admission-boundary"),
+             Err(StopReason::MalformedClock)
+         );
+         assert_eq!(stop.observe(), AttemptState::LatchedBeforeAdmission);
+@@ -282,3 +290,493 @@ fn the_crash_points_are_the_laws_names_in_registered_scopes() {
+         assert!(source.contains(point), "{point}");
+     }
+ }
++
++// ------------------------------------- law X4 r8 S11.6 (unit X4-F3)
++
++#[test]
++fn a_certain_refusal_is_the_invariant_row() {
++    // LD8-7: `CertainRefusal`'s row is the invariant row; X3d's `REV` reason
++    // for it stays `operation-stopped`, the reason it had with no cause.
++    assert_eq!(
++        StopCause::CertainRefusal.row(),
++        OperationRow::Installation(T::Invariant)
++    );
++    use super::super::commit_session::end_path_for_tests::reason;
++    assert_eq!(reason(Some(&StopCause::CertainRefusal)), "operation-stopped");
++    assert_eq!(reason(None), "operation-stopped");
++}
++
++/// W-11 and W-12: a first read that succeeded, and its start sample.
++fn read_lease_free(clock: &Clock) -> (LeaseFree, Duration) {
++    let mut lease_free = LeaseFree::create(clock.monitor());
++    let before = lease_free
++        .first_read(|sample| Ok::<_, ()>(sample.before))
++        .unwrap();
++    (lease_free, before)
++}
++/// The entry rule's refusal: no guard, the gate still latched, nothing
++/// recorded, and the monitor's history the successful read's.
++fn assert_refused_at_entry(lease_free: LeaseFree, before: Duration) {
++    let refused = match enter(lease_free) {
++        Err(refused) => refused,
++        Ok(_) => panic!("a guard on a latched gate with no cause"),
++    };
++    assert_eq!(refused.stop.observe(), AttemptState::LatchedBeforeAdmission);
++    assert_eq!(refused.gate.observe(), AttemptState::LatchedBeforeAdmission);
++    assert_eq!(refused.stop.cause(), None);
++    assert_eq!(refused.cell.monitor.last_before(), Some(before));
++}
++
++#[test]
++fn a_successful_lease_free_read_during_unrelated_unwinding_gets_no_guard() {
++    // W-11 (RF-X4R8-R2-1): inside a destructor during an unrelated unwind,
++    // the first read succeeds, and `StopOnUnwind` latches the gate bare.
++    let clock = Clock::new();
++    let mut lease_free = LeaseFree::create(clock.monitor());
++    let (panicking, read) = unwinding(|| lease_free.first_read(|sample| Ok::<_, ()>(sample.before)));
++    assert!(panicking);
++    let before = read.unwrap();
++    assert_eq!(lease_free.state(), AttemptState::LatchedBeforeAdmission);
++    // The entry rule refuses it: no guard, so no observer; the latch and the
++    // history are kept; nothing is recorded (no `CertainRefusal`, no
++    // invariant row). The handoff maps the refusal to `Live(FailStop
++    // { latched })` (`operation_live_tests.rs`).
++    assert_refused_at_entry(lease_free, before);
++}
++
++#[test]
++fn the_same_read_after_the_guards_entry_records_its_fail_stop() {
++    // W-11's second half, source 4: after the entry, the same read through
++    // the rebound monitor latches through the stop handle and records
++    // `FailStop { latched }`; a later reader gets it.
++    let clock = Clock::new();
++    let (lease_free, _) = read_lease_free(&clock);
++    let Ok(mut entered) = enter(lease_free) else {
++        panic!("a clear gate is refused")
++    };
++    assert_eq!(entered.stop.cause(), None);
++    let MonitorCell { monitor, clock } = &mut entered.cell;
++    let (panicking, read) = unwinding(|| {
++        monitor.read_sampled_with(&mut *clock, |_| Ok::<_, ()>(()), StopReason::subject)
++    });
++    assert!(panicking);
++    assert_eq!(read, Ok(()));
++    let latched = StopCause::FailStop { subject: "latched" };
++    assert_eq!(entered.stop.cause(), Some(latched.clone()));
++    assert_eq!(entered.stop.observe(), AttemptState::LatchedBeforeAdmission);
++    // The next read, an observer tick's or checkpoint step 2's, finds the
++    // latch and reads that cause; it records nothing.
++    let read = monitor.read_sampled_with(&mut *clock, |_| Ok::<_, ()>(()), StopReason::subject);
++    assert_eq!(read, Err(StopReason::AlreadyStopped));
++    assert_eq!(
++        observed(&entered.stop, read.map(|()| Observed::Continue { drift: None })),
++        Err(GuardRefusal::Stopped(latched.clone()))
++    );
++    assert_eq!(entered.stop.cause(), Some(latched));
++}
++
++#[test]
++fn a_bare_latch_on_any_lease_free_handle_before_the_entry_gets_no_guard() {
++    // W-12: after a successful first read and just before `start`, a bare
++    // latch on each lease-free handle in turn, through a test seam outside
++    // any critical section. Each is W-11's refusal.
++    for handle in [BareHandle::Gate, BareHandle::Stop, BareHandle::Monitor] {
++        let clock = Clock::new();
++        let (lease_free, before) = read_lease_free(&clock);
++        assert_eq!(
++            lease_free.latch_bare(handle),
++            AttemptState::LatchedBeforeAdmission,
++            "{handle:?}"
++        );
++        assert_refused_at_entry(lease_free, before);
++    }
++    // The control: with no latch, the entry installs the guard's parts in
++    // state 0 with no cause recorded, and its first stop transition records
++    // its cause.
++    let clock = Clock::new();
++    let (lease_free, before) = read_lease_free(&clock);
++    let Ok(entered) = enter(lease_free) else {
++        panic!("a clear gate is refused")
++    };
++    assert_eq!(entered.stop.observe(), AttemptState::Preparing);
++    assert_eq!(entered.stop.cause(), None);
++    assert_eq!(entered.cell.monitor.last_before(), Some(before));
++    let stopped = entered.stop.stop(StopCause::CertainRefusal);
++    assert_eq!(
++        stopped,
++        Transition {
++            state: AttemptState::LatchedBeforeAdmission,
++            first: true,
++            cause: Some(StopCause::CertainRefusal),
++        }
++    );
++}
++
++/// The eight sources of law X4 r8 S11.6's table that unit X4-F3 carries.
++#[derive(Clone, Copy, Debug, PartialEq, Eq)]
++enum Source {
++    /// 1: the observer's revoking observation.
++    Revoked,
++    /// 2: a monitor read's failure (here a stall).
++    Read,
++    /// 3: the admission-boundary check's own failure.
++    Boundary,
++    /// 4: `StopOnUnwind`: a read that ends while its thread unwinds.
++    Unwind,
++    /// 5: the shared monitor's mutex poisoned.
++    Poisoned,
++    /// 6: a stale guard at checkpoint step 1.
++    Stale,
++    /// 7: a level-4 borrow that is not this operation's lock.
++    LockMismatch,
++    /// 8: X3d's certain refusal (`OperationGuard::stop`).
++    CertainRefusal,
++}
++const SOURCES: [Source; 8] = [
++    Source::Revoked,
++    Source::Read,
++    Source::Boundary,
++    Source::Unwind,
++    Source::Poisoned,
++    Source::Stale,
++    Source::LockMismatch,
++    Source::CertainRefusal,
++];
++fn stale_row() -> OperationRow {
++    OperationRow::Installation(T::Custody {
++        subject: "required-files-changed",
++    })
++}
++impl Source {
++    /// The cause the source records in its own stop transition.
++    fn cause(self) -> StopCause {
++        match self {
++            Self::Revoked => StopCause::Revoked {
++                subject: "trust-revoked",
++            },
++            Self::Read => StopCause::FailStop { subject: "stalled" },
++            Self::Boundary => StopCause::FailStop {
++                subject: "admission-boundary",
++            },
++            Self::Unwind | Self::Poisoned => StopCause::FailStop { subject: "latched" },
++            Self::Stale => StopCause::Stale(stale_row()),
++            Self::LockMismatch | Self::CertainRefusal => StopCause::CertainRefusal,
++        }
++    }
++    /// `finish`'s `REV` reason when the source is the first stop.
++    fn reason(self) -> &'static str {
++        match self {
++            Self::Revoked => "trust-revoked",
++            Self::Read | Self::Boundary | Self::Unwind | Self::Poisoned => "observer-fail-stop",
++            Self::Stale => "stale-guard",
++            Self::LockMismatch | Self::CertainRefusal => "operation-stopped",
++        }
++    }
++}
++/// What a source's path reports: a checkpoint's refusal after its trailing
++/// latch (sources 1 to 7; none if the path did not refuse), or the stop
++/// transition `OperationGuard::stop` makes (8).
++#[derive(Debug, PartialEq, Eq)]
++enum Report {
++    Refusal(Option<GuardRefusal>),
++    Stop(Transition),
++}
++/// One operation at its guard's entry: its stop handle, the scripted clock,
++/// a monitor on the stop handle for each of sources 2 to 4 (as the entry
++/// rebinds it, each after one successful read, made here, so that no source
++/// reads while another's destructor unwinds), and a poisoned mutex standing
++/// for the shared monitor's.
++struct Rig {
++    stop: StopHandle,
++    clock: Clock,
++    monitors: [std::cell::RefCell<FreshnessMonitor<StopHandle>>; 3],
++    poisoned: Mutex<()>,
++}
++impl Rig {
++    fn new() -> Self {
++        let clock = Clock::new();
++        let (lease_free, _) = read_lease_free(&clock);
++        let Ok(Entered { stop, .. }) = enter(lease_free) else {
++            panic!("a clear gate is refused")
++        };
++        let monitors = [(); 3].map(|()| {
++            let mut monitor = FreshnessMonitor::new(stop.clone());
++            monitor
++                .read_sampled_with(clock.monitor(), |_| Ok::<_, ()>(()), StopReason::subject)
++                .unwrap();
++            std::cell::RefCell::new(monitor)
++        });
++        let poisoned = Mutex::new(());
++        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
++            let _held = poisoned.lock();
++            std::panic::resume_unwind(Box::new("poison"))
++        }));
++        assert!(poisoned.is_poisoned());
++        assert_eq!(stop.observe(), AttemptState::Preparing);
++        Self {
++            stop,
++            clock,
++            monitors,
++            poisoned,
++        }
++    }
++    /// Drive `source` through the production path that makes its stop
++    /// transition, with the scripted clock and counter seams. `first` runs at
++    /// the path's last point before that transition: inside the read's
++    /// counter (sources 2 and 4) or the boundary's clock (3), else just
++    /// before the path. Never panics, since `first` may run in a destructor
++    /// during unwinding.
++    fn drive(&self, source: Source, first: &mut dyn FnMut()) -> Report {
++        let stop = &self.stop;
++        let continued = || Observed::Continue { drift: None };
++        let refused = match source {
++            Source::Revoked => {
++                first();
++                // The observer's tick and checkpoint step 2 alike.
++                observed(stop, Ok(Observed::Revoke { subject: "trust-revoked" })).err()
++            }
++            Source::Read => {
++                let mut monitor = self.monitors[0].borrow_mut();
++                let read = monitor.read_sampled_with(
++                    self.clock.monitor(),
++                    |_| {
++                        first();
++                        self.clock.advance(Duration::from_secs(11));
++                        Ok::<_, ()>(continued())
++                    },
++                    StopReason::subject,
++                );
++                observed(stop, read).err()
++            }
++            Source::Boundary => {
++                let mut monitor = self.monitors[1].borrow_mut();
++                let mut sampled = self.clock.monitor();
++                let _ = monitor.boundary_with(
++                    || {
++                        first();
++                        self.clock.advance(Duration::from_secs(11));
++                        sampled()
++                    },
++                    "admission-boundary",
++                );
++                // Checkpoint step 4's refusal.
++                Some(GuardRefusal::Stopped(StopCause::FailStop {
++                    subject: "admission-boundary",
++                }))
++            }
++            Source::Unwind => {
++                let mut monitor = self.monitors[2].borrow_mut();
++                let (_, read) = unwinding(|| {
++                    monitor.read_sampled_with(
++                        self.clock.monitor(),
++                        |_| {
++                            first();
++                            Ok::<_, ()>(continued())
++                        },
++                        StopReason::subject,
++                    )
++                });
++                // A successful read on a latched gate: step 3 reads the latch.
++                match observed(stop, read) {
++                    Ok(_) => Some(stop.latched()),
++                    Err(refusal) => Some(refusal),
++                }
++            }
++            Source::Poisoned => {
++                first();
++                lock_monitor(&self.poisoned, stop).err()
++            }
++            Source::Stale => {
++                first();
++                Some(stale(stop, stale_row()))
++            }
++            Source::LockMismatch => {
++                first();
++                Some(GuardRefusal::Invariant)
++            }
++            Source::CertainRefusal => {
++                first();
++                return Report::Stop(stop.stop(StopCause::CertainRefusal));
++            }
++        };
++        // The checkpoint's trailing latch.
++        Report::Refusal(refused.map(|refusal| refuse(stop, refusal)))
++    }
++}
++/// What a source's own path reports when the cause `first` is recorded.
++fn reported(source: Source, first: &StopCause, set: bool) -> Report {
++    match source {
++        Source::LockMismatch => Report::Refusal(Some(GuardRefusal::Invariant)),
++        Source::CertainRefusal => Report::Stop(Transition {
++            state: AttemptState::LatchedBeforeAdmission,
++            first: set,
++            cause: Some(first.clone()),
++        }),
++        _ => Report::Refusal(Some(GuardRefusal::Stopped(first.clone()))),
++    }
++}
++
++#[test]
++fn every_ordered_pair_of_sources_keeps_the_first_stops_cause() {
++    // W-6 (RF-X4R8-1) over sources 1 to 8, at the guard level: A's stop
++    // transition completes, then B's runs. B's pairs with source 9 are J3b's.
++    for a in SOURCES {
++        for b in SOURCES.into_iter().filter(|b| *b != a) {
++            let rig = Rig::new();
++            let mut first = None;
++            let second = rig.drive(b, &mut || {
++                let report = rig.drive(a, &mut || {});
++                first = Some((report, rig.stop.cause(), rig.stop.observe()));
++            });
++            let (first, recorded, state) = first.expect("A ran");
++            let cause = a.cause();
++            // A was the first stop: its transition set `LATCHED` and recorded
++            // its cause in the same critical section (I1).
++            assert_eq!(recorded.as_ref(), Some(&cause), "{a:?} then {b:?}");
++            assert_eq!(state, AttemptState::LatchedBeforeAdmission);
++            assert_eq!(first, reported(a, &cause, true), "{a:?} then {b:?}");
++            // B recorded nothing, and its call returned A's cause; a
++            // checkpoint path reports A's cause's row, except the lock
++            // mismatch, which reports `GuardRefusal::Invariant`.
++            assert_eq!(rig.stop.cause(), Some(cause.clone()), "{a:?} then {b:?}");
++            assert_eq!(second, reported(b, &cause, false), "{a:?} then {b:?}");
++            if let Report::Refusal(Some(refusal)) = &second {
++                let row = match b {
++                    Source::LockMismatch => OperationRow::Installation(T::Invariant),
++                    _ => cause.row(),
++                };
++                assert_eq!(refusal.row(), row, "{a:?} then {b:?}");
++            }
++            // `finish`'s `REV` reason is A's.
++            use super::super::commit_session::end_path_for_tests::reason;
++            assert_eq!(reason(rig.stop.cause().as_ref()), a.reason(), "{a:?} then {b:?}");
++            assert_eq!(rig.stop.observe(), AttemptState::LatchedBeforeAdmission);
++        }
++    }
++}
++
++/// Production text: everything before `end`, with comment lines dropped
++/// (the X8 r3 source-pin convention).
++fn production(source: &str, end: &str) -> String {
++    source[..source.find(end).expect("the test boundary")]
++        .lines()
++        .filter(|line| !line.trim_start().starts_with("//"))
++        .collect::<Vec<_>>()
++        .join("\n")
++}
++/// The body of the first `fn` whose signature starts with `signature`, to its
++/// closing brace at the same indentation.
++fn body<'a>(code: &'a str, signature: &str) -> &'a str {
++    let start = code.find(signature).unwrap_or_else(|| panic!("{signature}"));
++    let indent = code[..start].rsplit('\n').next().unwrap_or("");
++    let close = format!("\n{indent}}}");
++    let end = code[start..].find(&close).expect("the closing brace");
++    &code[start..start + end + close.len()]
++}
++
++#[test]
++fn the_stop_transition_is_the_only_latch_after_the_guards_entry() {
++    // W-9 (round 2; round 3's entry order), over production code under
++    // `crates/security/src`.
++    let guard = production(
++        include_str!("operation_guard.rs"),
++        "#[cfg(test)]\npub(crate) mod scripted",
++    );
++    let gate = production(include_str!("../commit_authority.rs"), "#[cfg(test)]\nmod tests");
++    let monitor = production(include_str!("../revocation.rs"), "#[cfg(test)]\nmod tests");
++    // The word: one fetch-OR of `LATCHED`, in the section's word operation;
++    // nothing clears, stores or swaps the word.
++    assert_eq!(gate.matches("fetch_or(").count(), 1);
++    assert!(body(&gate, "pub(super) fn fetch_latch(self)").contains("fetch_or(LATCHED,"));
++    for forbidden in ["fetch_and(", ".store(", ".swap(", "Mutex", ".lock("] {
++        assert!(!gate.contains(forbidden), "{forbidden}");
++    }
++    // `x4.gate.latch.after` follows the section's return (LD8-4), once.
++    assert_eq!(gate.matches(r#"crash_barrier!("x4.gate", "latch.after", step)"#).count(), 1);
++    assert!(body(&gate, "fn latch_within<R>").contains(
++        "let result = section(Latching(self));\n        \
++         opensip_platform::crash_barrier!(\"x4.gate\", \"latch.after\", step);"
++    ));
++    // Every latch of an operation's gate after the guard's entry is the stop
++    // transition: `latch_within` is called in exactly one place, the stop
++    // transition. The other latches are bare: the monitor's at the
++    // lease-free point, and the gate's own, which is test code only.
++    assert_eq!(guard.matches("latch_within(").count(), 1);
++    assert!(body(&guard, "pub(crate) fn stop(&self, cause: StopCause) -> Transition").contains("latch_within("));
++    let bare = body(&guard, "pub(crate) fn latch_bare(");
++    assert_eq!(guard.matches(".latch()").count(), bare.matches(".latch()").count());
++    assert!(guard.contains("    #[cfg(test)]\n    pub(crate) fn latch_bare("));
++    assert!(gate.contains("    #[cfg(test)]\n    pub(crate) fn latch(&self) -> AttemptState {\n        self.0.latch()"));
++    assert_eq!(monitor.matches(".latch()").count(), 2);
++    assert_eq!(
++        body(&monitor, "impl MonitorStop for StopObserver").matches(".latch()").count(),
++        2
++    );
++    assert!(!monitor.contains("latch_within("));
++    for (name, code) in [
++        ("commit_session.rs", production(include_str!("commit_session.rs"), "#[cfg(test)]\nimpl SessionEnd")),
++        ("operation_handoff.rs", production(include_str!("operation_handoff.rs"), "#[cfg(test)]\nmod tests")),
++    ] {
++        for forbidden in [".latch()", "latch_within(", "StopObserver", "OperationGate"] {
++            assert!(!code.contains(forbidden), "{name}: {forbidden}");
++        }
++    }
++    // The record's one insert is inside the stop transition, which records
++    // only when its own fetch-OR set `LATCHED`. `Shared::record` is gone, and
++    // a reader (`latched`) records nothing.
++    assert!(!guard.contains("fn record("));
++    assert_eq!(guard.matches("get_or_insert(").count(), 1);
++    assert_eq!(guard.matches("insert(").count(), 2); // the drift's `insert` too
++    assert!(body(&guard, "fn observe(&self, cell: &mut MonitorCell<StopHandle>)").contains(".insert(drift)"));
++    let reader = body(&guard, "fn latched(&self) -> GuardRefusal");
++    for forbidden in ["insert", ".stop(", "latch"] {
++        assert!(!reader.replace("fn latched", "").contains(forbidden), "{forbidden}");
++    }
++    // The critical section holds only the word's operation and the record's
++    // insert and read: no I/O, wait, callback, crash point or monitor.
++    let stop = body(&guard, "pub(crate) fn stop(&self, cause: StopCause) -> Transition");
++    assert!(stop.contains(
++        "        let transition = gate.latch_within(|latching| {
++            let mut slot = slot(record);
++            let latched = latching.fetch_latch();
++            if latched.first {
++                slot.get_or_insert(cause);
++            }
++            Transition {
++                state: latched.state,
++                first: latched.first,
++                cause: slot.clone(),
++            }
++        });"
++    ));
++    assert!(!stop.contains("monitor"));
++    assert!(body(&guard, "fn slot(").contains("cause.lock().unwrap_or_else(PoisonError::into_inner)"));
++    // The cause lock is taken only by the transition, the reader, the entry
++    // check and the test seam that holds it.
++    assert_eq!(guard.matches("slot(&").count() + guard.matches("slot(record)").count(), 4);
++    // `admit`'s success path takes no stop-cause lock: the gate takes no lock
++    // (above), and the checkpoint reads a cause only on admit's refusal.
++    let admit = body(&guard, "pub(crate) fn admit<P>(");
++    assert_eq!(admit.matches("latched()").count(), 1);
++    assert!(admit.find(".map_err(|(value, _)|").unwrap() < admit.find("latched()").unwrap());
++    assert!(body(&guard, "fn steps<R>(").contains("Ok(value) => Ok(value),"));
++    // The entry order (round 3): the record, the monitor's rebind, the check
++    // under the record's lock, then the observer's spawn. Nothing bare
++    // survives into the guard but behind the stop handle.
++    let enter = body(&guard, "fn enter(lease_free: LeaseFree)");
++    let order = [
++        "StopHandle::new(stop)",
++        "monitor.rebind(stop.clone())",
++        "stop.entry_latched()",
++        "if latched { Err(entered) } else { Ok(entered) }",
++    ]
++    .map(|step| enter.find(step).unwrap_or_else(|| panic!("{step}")));
++    assert!(order.is_sorted(), "{order:?}");
++    let start = body(&guard, "pub(crate) fn start(");
++    assert!(start.find("enter(lease_free)").unwrap() < start.find(".spawn(").unwrap());
++    assert!(body(&guard, "fn entry_latched(&self)").contains("let _slot = slot(&self.0.cause);"));
++    let shared = body(&guard, "struct Shared {");
++    assert!(shared.contains("monitor: Mutex<MonitorCell<StopHandle>>,"));
++    assert!(shared.contains("stop: StopHandle,"));
++    assert!(!shared.contains("StopObserver"));
++}
+diff --git a/crates/security/src/custody/operation_handoff.rs b/crates/security/src/custody/operation_handoff.rs
+index 5cf3736..3480a4c 100644
+--- a/crates/security/src/custody/operation_handoff.rs
++++ b/crates/security/src/custody/operation_handoff.rs
+@@ -56,7 +56,8 @@ use super::namespace_lease::{
+     recheck_subject, required_directory,
+ };
+ use super::operation_guard::{
+-    Checkpoint, GuardSeam, LeaseFree, MonitorClock, OperationGuard, StopCause, trust_termination,
++    Checkpoint, GuardSeam, GuardStart, LeaseFree, MonitorClock, OperationGuard, StopCause,
++    trust_termination,
+ };
+ use super::ordinary_writer::{GateStep, OrdinaryWriteAdmission};
+ use super::read_premise::WritePlatformReceipt;
+@@ -1230,7 +1231,15 @@ pub(super) fn begin(
+         cadence,
+         hook,
+     )
+-    .map_err(OperationRefusal::Observer)?;
++    .map_err(|refusal| match refusal {
++        // Law X4 r8 LD8-10 (unit X4-F3): a gate latched before the guard's
++        // entry is the fail-stop row a first read returning `AlreadyStopped`
++        // takes, subject `latched`. No guard or observer exists.
++        GuardStart::Latched => OperationRefusal::Live(StopCause::FailStop {
++            subject: crate::revocation::StopReason::AlreadyStopped.subject(),
++        }),
++        GuardStart::Observer(error) => OperationRefusal::Observer(error),
++    })?;
+     // Steps 2 and 4: the writer's owners move into the operation, the gate
+     // and its ledger end (the unbound `_`), and only then is the fence
+     // released. A failed unlock closes the fence descriptor anyway; the
+diff --git a/crates/security/src/custody/operation_live_tests.rs b/crates/security/src/custody/operation_live_tests.rs
+index 20739c9..abd641e 100644
+--- a/crates/security/src/custody/operation_live_tests.rs
++++ b/crates/security/src/custody/operation_live_tests.rs
+@@ -1003,3 +1003,89 @@ fn a_read_waiting_on_the_shared_monitor_counts_its_wait() {
+         assert_eq!(live.operation.guard().cause(), Some(fail_stop("stalled")));
+     });
+ }
++
++// ------------------------------------- law X4 r8 S11.6 (unit X4-F3)
++
++#[test]
++fn a_first_read_succeeding_during_unrelated_unwinding_is_refused_at_the_guards_entry() {
++    // W-11 (RF-X4R8-R2-1) through the real handoff: inside a destructor
++    // during an unrelated unwind, the lease-free first read succeeds, with a
++    // scripted clock, and `StopOnUnwind` latches the gate bare. The guard's
++    // entry refuses it on the existing fail-stop row, subject `latched`, as
++    // a first read returning `AlreadyStopped` is refused; no guard exists,
++    // so no observer runs, and the handoff releases what it held.
++    churned(|| {
++        let (fixture, project, n) = eligible("x4f3-unwind");
++        let (mut writer, _trees) = new_writer(&fixture, "x4f3-unwind");
++        let subject = admitted(&mut writer, &project);
++        let clock = scripted::Clock::new();
++        let seam = scripted::seam(&clock, ObservationHook::live());
++        // Only the handoff runs in the destructor; nothing there can panic.
++        let mut parts = Some((writer, subject, seam));
++        let (panicking, begun) = scripted::unwinding(|| {
++            parts.take().map(|(writer, subject, seam)| {
++                writer.begin_operation_with(
++                    subject,
++                    WriterLease::AppendWrite,
++                    &inputs(),
++                    &scripted::invocation(),
++                    seam,
++                )
++            })
++        });
++        assert!(panicking);
++        let refusal = match begun.expect("the handoff ran") {
++            Err(refusal) => refusal,
++            Ok(operation) => panic!("a guard on a latched gate: {:?}", operation.guard()),
++        };
++        assert!(
++            matches!(
++                refusal,
++                OperationRefusal::Live(StopCause::FailStop { subject: "latched" })
++            ),
++            "{refusal:?}"
++        );
++        assert_eq!(
++            refusal.row(),
++            OperationRow::Installation(T::ObserverFailStop { subject: "latched" })
++        );
++        assert!(fence_free(&fixture) && unlocked(&fixture, &n));
++    });
++}
++
++#[test]
++fn a_certain_refusal_completes_while_an_observation_holds_the_monitor() {
++    // W-10 (a), the certain refusal's half: its stop transition never takes
++    // the monitor's mutex. (No timing bound is asserted.)
++    churned(|| {
++        let (_fixture, _project, _n, live) = eligible_live("x4f3-no-wait");
++        let guard = live.operation.guard();
++        std::thread::scope(|scope| {
++            let held = guard.hold_monitor();
++            let stopped = scope
++                .spawn(|| guard.stop(StopCause::CertainRefusal))
++                .join()
++                .unwrap();
++            assert_eq!(stopped, AttemptState::LatchedBeforeAdmission);
++            assert_eq!(guard.cause(), Some(StopCause::CertainRefusal));
++            drop(held);
++        });
++    });
++}
++
++#[test]
++fn a_successful_admission_takes_no_stop_cause_lock() {
++    // W-10 (c): a test thread holds the stop-cause lock, outside any stop
++    // transition, while the final admission succeeds.
++    churned(|| {
++        let (_fixture, _project, _n, mut live) = eligible_live("x4f3-admit-free");
++        let held = live.operation.guard().hold_cause();
++        assert!(matches!(
++            checkpoint(&mut live.operation, true),
++            Ok(Checked::Permit("prepared-commit"))
++        ));
++        drop(held);
++        assert_eq!(live.operation.guard().state(), AttemptState::Admitted);
++        assert_eq!(live.operation.guard().cause(), None);
++    });
++}
+diff --git a/crates/security/src/revocation.rs b/crates/security/src/revocation.rs
+index c9df6d9..33e5ea8 100644
+--- a/crates/security/src/revocation.rs
++++ b/crates/security/src/revocation.rs
+@@ -1,7 +1,10 @@
+ //! Private fail-stop freshness monitor. A caller-supplied counter reader remains
+ //! a custody/authentication obligation. No polling thread, journal append,
+ //! cancellation or operational authority is supplied by this module; law X4
+-//! r7 (unit X4a) shares one monitor per operation behind its own mutex.
++//! r7 (unit X4a) shares one monitor per operation behind its own mutex. Law X4
++//! r8 S11.6 (unit X4-F3): from the guard's entry the monitor latches only
++//! through the operation's stop handle (`MonitorStop`), with the fail-stop
++//! subject its caller supplies.
+ use crate::commit_authority::{AttemptState, StopObserver};
+ use std::time::Duration;
+ /// S6's freshness bound.
+@@ -77,32 +80,76 @@ fn bounded_read(
+     }
+     Ok(())
+ }
++/// Law X4 r8 S11.6 (unit X4-F3): what a monitor latches through. At the
++/// lease-free point, before the guard exists, it is the gate's bare
++/// `StopObserver`; from the guard's entry, the operation's stop handle, on
++/// which every latch is a stop transition that records the fail-stop the
++/// monitor names if it is the operation's first stop. The monitor calls these
++/// only after its clock and counter callbacks have returned, and holds no
++/// lock of its own.
++pub(crate) trait MonitorStop {
++    /// The gate's decoded state.
++    fn state(&self) -> AttemptState;
++    /// A failed read or boundary check (sources 2 and 3), with the fail-stop
++    /// subject its caller supplies for that read.
++    fn fail(&self, subject: &'static str);
++    /// A read or boundary check that ends while its thread is panicking
++    /// (source 4).
++    fn unwound(&self);
++}
++/// The bare latch at the lease-free point: it records nothing, and the
++/// guard's entry refuses a gate it latched (law X4 r8 LD8-10).
++impl MonitorStop for StopObserver {
++    fn state(&self) -> AttemptState {
++        self.observe()
++    }
++    fn fail(&self, _: &'static str) {
++        self.latch();
++    }
++    fn unwound(&self) {
++        self.latch();
++    }
++}
+ // Counter and clock callbacks may unwind. A caller that catches that panic
+ // must still observe the stop latch; aborting panics terminate the process.
+ // A successful read made from a destructor during unrelated unwinding also
+ // latches conservatively: thread::panicking() remains true on that return.
+-struct StopOnUnwind(StopObserver);
+-impl Drop for StopOnUnwind {
++struct StopOnUnwind<'a, S: MonitorStop>(&'a S);
++impl<S: MonitorStop> Drop for StopOnUnwind<'_, S> {
+     fn drop(&mut self) {
+         if std::thread::panicking() {
+-            self.0.latch();
++            self.0.unwound();
+         }
+     }
+ }
+-fn stopped(stop: &StopObserver) -> bool {
++fn stopped(stop: &impl MonitorStop) -> bool {
+     matches!(
+-        stop.observe(),
++        stop.state(),
+         AttemptState::LatchedBeforeAdmission | AttemptState::AdmittedThenLatched
+     )
+ }
+-pub(crate) struct FreshnessMonitor {
+-    stop: StopObserver,
++pub(crate) struct FreshnessMonitor<S = StopObserver> {
++    stop: S,
+     last: Option<Sample>,
+ }
+-impl FreshnessMonitor {
+-    pub(crate) fn new(stop: StopObserver) -> Self {
++impl<S: MonitorStop> FreshnessMonitor<S> {
++    pub(crate) fn new(stop: S) -> Self {
+         Self { stop, last: None }
+     }
++    /// Law X4 r8 S11.6's entry rule, step 2 (unit X4-F3): the same history,
++    /// latching through `stop` from now on. The previous stop is consumed,
++    /// so no bare clone of the gate survives in the monitor.
++    pub(crate) fn rebind<T: MonitorStop>(self, stop: T) -> FreshnessMonitor<T> {
++        FreshnessMonitor {
++            stop,
++            last: self.last,
++        }
++    }
++    /// Test seam (law X4 r8 W-12): what this monitor latches through.
++    #[cfg(test)]
++    pub(crate) fn stop(&self) -> &S {
++        &self.stop
++    }
+     #[cfg(test)]
+     fn read<T, E>(&mut self, counter: impl FnOnce() -> Result<T, E>) -> Result<T, StopReason> {
+         self.read_with(native_clock, counter)
+@@ -113,20 +160,23 @@ impl FreshnessMonitor {
+         clock: impl FnMut() -> Result<Sample, StopReason>,
+         counter: impl FnOnce() -> Result<T, E>,
+     ) -> Result<T, StopReason> {
+-        self.read_sampled_with(clock, |_| counter())
++        self.read_sampled_with(clock, |_| counter(), StopReason::subject)
+     }
+     /// One monitored read whose counter receives the read's own opening
+-    /// sample (law X4B r5 item 1). Any failure latches the gate; the history
+-    /// is replaced only by a successful read.
++    /// sample (law X4B r5 item 1). Any failure latches the gate, through the
++    /// monitor's stop with the fail-stop subject `subject` gives for it (law
++    /// X4 r8 S11.6, source 2); the history is replaced only by a successful
++    /// read.
+     pub(crate) fn read_sampled_with<T, E>(
+         &mut self,
+         mut clock: impl FnMut() -> Result<Sample, StopReason>,
+         counter: impl FnOnce(&Sample) -> Result<T, E>,
++        subject: impl FnOnce(&StopReason) -> &'static str,
+     ) -> Result<T, StopReason> {
+         if stopped(&self.stop) {
+             return Err(StopReason::AlreadyStopped);
+         }
+-        let _unwind_stop = StopOnUnwind(self.stop.clone());
++        let _unwind_stop = StopOnUnwind(&self.stop);
+         let outcome = (|| {
+             let start = clock()?;
+             let value = counter(&start);
+@@ -146,8 +196,8 @@ impl FreshnessMonitor {
+             });
+             value.map_err(|_| StopReason::CounterUnreadable)
+         })();
+-        if outcome.is_err() {
+-            self.stop.latch();
++        if let Err(reason) = &outcome {
++            self.stop.fail(subject(reason));
+         }
+         outcome
+     }
+@@ -155,15 +205,17 @@ impl FreshnessMonitor {
+     /// sample and no I/O. The boot must be the last read's, the sample may
+     /// not precede that read's end, and the time since that read's earliest
+     /// instant must be within the bound. The history is not refreshed; any
+-    /// failure latches.
++    /// failure latches, with the caller's fail-stop `subject` (law X4 r8
++    /// S11.6, source 3).
+     pub(crate) fn boundary_with(
+         &mut self,
+         mut clock: impl FnMut() -> Result<Sample, StopReason>,
++        subject: &'static str,
+     ) -> Result<(), StopReason> {
+         if stopped(&self.stop) {
+             return Err(StopReason::AlreadyStopped);
+         }
+-        let _unwind_stop = StopOnUnwind(self.stop.clone());
++        let _unwind_stop = StopOnUnwind(&self.stop);
+         let outcome = (|| {
+             let now = clock()?;
+             let last = self.last.as_ref().ok_or(StopReason::MalformedClock)?;
+@@ -187,7 +239,7 @@ impl FreshnessMonitor {
+             Ok(())
+         })();
+         if outcome.is_err() {
+-            self.stop.latch();
++            self.stop.fail(subject);
+         }
+         outcome
+     }
