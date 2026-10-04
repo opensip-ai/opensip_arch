@@ -688,3 +688,4 @@ Times are local.
     - **464 LD3-1:** J1 item 2 overrides r2's "uniqueness by construction". The prelude's ExecutionId is reserved under X3d r9's S10.1 registry.
     - **X1 LD2-2:** `Creator` enters only through J1's durable entry.
   - **Record:** my X1 `PROPOSAL-r1.md` copy keeps r1's acceptance sentence, unlike other snapshots. X1 r2's header records the difference, and J-RW r4's pin is unaffected.
+- **X4 r8 round 3 written and sent to CODEX2,** with entry rule LD8-10. `start` first rebinds the monitor's stop to the new guard's stop handle, then checks the gate under the cause lock. If the gate is already `LATCHED`, it refuses on the existing `FailStop{latched}` row with no guard and no observer. So a bare lease-free latch, including `StopOnUnwind` firing on a successful read during unrelated unwinding, can never yield a guard without a cause. New controls W-11 and W-12 cover it. NB-R2-1's "no wait" wording is narrowed.

@@ -43,6 +43,7 @@ r1 bytes are preserved in PROPOSAL-r1.md. r3 answers Grok X4 r2 RF-1 (the mixed-
     - one latch source;
     - two stop causes: `Operator`, recorded from X3d r9, and `CertainRefusal`, for the sources that are cause-less today (round 2; LD8-7);
     - one discipline for every latch, the stop transition (round 2; S11.6);
+    - one entry check, which refuses a gate already latched before the guard exists (round 3; LD8-10);
     - three in-memory operations on the word: the cancellation latch, the opening and the close.
   - **What it does not add or change.** It adds no public code, class, exit, detail, row, crash point, lock, ledger or budget, and it changes no lock order.
   - **r7's text.** Every accepted r7 sentence stays in place.
@@ -62,7 +63,7 @@ r1 bytes are preserved in PROPOSAL-r1.md. r3 answers Grok X4 r2 RF-1 (the mixed-
 | 8 | **`StopCause::Operator { signal }` on X4's type,** recorded from X3d r9 LD9-4. Its `REV` reason and its row are X3d r9's. **(Round 2)** `StopCause::CertainRefusal` too (LD8-7). | S11.6; item 8 | X3D9 S10.4, S10.5, LD9-4 |
 | 9 | **Controls:** J-C15's and J-C15b's gate halves, an exhaustive word trace, and tests for LD8-2 to LD8-4. **(Round 2)** The first-stop matrix, D8-1's regressions, a source pin and a no-wait test (W-6, W-8 to W-10). | S11.8; item 10 | J1:684-691; X3D9 S10.8 |
 | 10 | **Units:** X4's part of J3b. **(Round 2)** X4-F3, a code unit under this law, gated before J3b (LD8-9). | S11.9; item 11 | J1:882; X3D9 LD9-5; RF-X4R8-1 |
-| 11 | **(Round 2) The total first-cause rule.** Every source's latch and its cause's record form one stop transition (I1). The placeholder record is withdrawn. D8-1 is resolved. | S11.6, S11.11; LD8-6 to LD8-8 | J1:598, :684; X3D9 S10.4; RF-X4R8-1 |
+| 11 | **(Round 2) The total first-cause rule.** Every source's latch and its cause's record form one stop transition (I1). The placeholder record is withdrawn. D8-1 is resolved. **(Round 3)** The guard's entry refuses a gate that is already latched, so I1 holds from entry. | S11.6, S11.11; LD8-6 to LD8-8 | J1:598, :684; X3D9 S10.4; RF-X4R8-1 |
 
 **Round 2 (2026-10-04).** Round 1 (`ee758471…`, 59,840 bytes) is preserved in PROPOSAL-r8-round1.md.
 - **Its review.** CODEX2 reviewed round 1 (`reviews/codex2-x4-r8`) and returned REQUIRED-FINDINGS:
@@ -88,6 +89,28 @@ r1 bytes are preserved in PROPOSAL-r1.md. r3 answers Grok X4 r2 RF-1 (the mixed-
 | R2-7 | RF-X4R8-1 | **The existing latch's crash point** moves outside the lock, on the same calls and in the same order. X9 r17 gets one record note. | LD8-4; S11.7; S11.12 |
 | R2-8 | NB-X4R8-1 | **W-5 names all four readers,** including the boundary check, both its own failure and its `AlreadyStopped`. Seams sit outside the critical section. | S11.8 |
 | R2-9 | — | **Records.** D8-1 is now resolved. Cross-law records are added for X3d's next revision and for X9 r17. X7 r7 is cited as accepted. | S11.11; S11.12; the r8 header; forbidden substitutes; Not claimed |
+
+**Round 3 (2026-10-04).** Round 2 (`eb3bd04c…`, 84,067 bytes) is preserved in PROPOSAL-r8-round2.md.
+- **Its review.** CODEX2 reviewed round 2 (`reviews/codex2-x4-r8-round2`) and returned REQUIRED-FINDINGS:
+  - **RF-X4R8-R2-1 (high):** I1 is not established at the guard's entry;
+  - **NB-X4R8-R2-1:** the no-wait wording is too broad.
+
+  CODEX2 closed RF-X4R8-1 and NB-X4R8-1. It passed FC once I1 holds, `CertainRefusal`, X4-F3's scope (including X3d's call sites, with the X3d record note) and the lock order.
+- **The lead's decision.** A gate that is already latched when the guard would be created is refused before any guard exists, on the existing `Live(FailStop { latched })` row (LD8-10).
+- **The diff base.** Diff PROPOSAL-r8-round2.md against PROPOSAL.md.
+
+**Round 3 changes.**
+
+| # | Finding | Change | Where |
+|---|---|---|---|
+| R3-1 | RF-X4R8-R2-1 | **The guard's entry.** `OperationGuard::start` creates the empty record, rebinds the monitor to the stop handle bound to it, then reads the gate under that record's lock.<br>- **`LATCHED` set:** it refuses on the existing `OperationRefusal::Live(FailStop { latched })` row. No guard and no observer are created, and nothing is cleared or recorded.<br>- **`LATCHED` clear:** it installs the guard, and I1 holds at entry. | S11.6 ("The guard's entry"); LD8-10 |
+| R3-2 | RF-X4R8-R2-1 | **I1's base case** is now proved at the guard's actual entry, not assumed from the first read. | S11.6 (I1) |
+| R3-3 | RF-X4R8-R2-1 | **Source 4** now covers every `StopOnUnwind` trigger, including a monitored read that succeeds during unrelated unwinding. The lease-free case is bare, and the entry check refuses it. | S11.6 (source 4) |
+| R3-4 | RF-X4R8-R2-1 | **The placeholder-withdrawal text** rests on the entry rule: a guard exists only with I1 true. | S11.6; LD8-8 |
+| R3-5 | RF-X4R8-R2-1 | **X4-F3's scope** gains the entry check in `start`, and one mapping arm in the handoff (`operation_handoff.rs:1224-1233`) onto the existing `Live` row. | S11.9; S11.12 |
+| R3-6 | RF-X4R8-R2-1 | **Controls.** W-11: a successful lease-free first read during unrelated unwinding refuses on `FailStop { latched }`, with no guard. W-12: the entry race, where a bare latch just before `start` never yields a cause-less guard. W-9 gains the entry order. | S11.8 |
+| R3-7 | NB-X4R8-R2-1 | **"No wait" now means three things:**<br>- no wait for the monitor's mutex;<br>- no I/O or wait while the cause lock is held;<br>- no added cause-lock wait on a successful admission.<br><br>The cause lock's acquisition can contend. Native scheduling stays excluded. | S11.6 (lock order); LD8-2; LD8-6; W-10 |
+| R3-8 | RF-X4R8-R2-1 | **The rejected alternatives,** among them carrying a pre-creation cause into the guard, and the forbidden substitutes for the entry | LD8-10; forbidden substitutes |
 
 ## Problem
 
@@ -120,7 +143,7 @@ M2 exits on a real crash, lock and revocation matrix. Its revocation half needs 
    - There is one persistent monitor history per operation. Ticks and checkpoints share it behind one private mutex, so their reads serialize, and a read waiting on the mutex counts that wait inside its own bracket. No ledger, tick or checkpoint resets the history or the latch.
    - A gap between the capture and any later effect is caught by the next read's bound, which runs from the earliest instant of the previous read. No effect happens without such a read (items 3 and 5).
    - **Rejected:** a fresh timestamp attached to bytes read earlier, and a separate unmonitored capture followed by a later "first" read.
-   - **r8 (S11):** the one `FinalGate` created here is one `AtomicU8`, whose word now also carries the cancellation latch's two window bits (S11.1). It is still created first, at the lease-free point, and never reset.
+   - **r8 (S11):** the one `FinalGate` created here is one `AtomicU8`, whose word now also carries the cancellation latch's two window bits (S11.1). It is still created first, at the lease-free point, and never reset. **(Round 3)** A first read that returns `Ok` on a gate already latched, by `StopOnUnwind` during unrelated unwinding, does not reach a guard. The guard's entry refuses it on the existing `Live(FailStop { latched })` row (S11.6, LD8-10).
 3. **The authority checkpoint (RF-5).** Every brokered effect request, and the final commit admission, runs this sequence under X3b's `JournalAppendLock` (level 4). The checkpoint receives a borrow of that lock, which proves level 4 is held.
    1. **Guard rechecks** (item 4). These may block, and they run first.
    2. **The final monitored observation** (item 5's bracketed X4T observation through the shared monitor), then the S6 predicate against the immutable start epoch.
@@ -377,8 +400,33 @@ With three latch sources and a window, F41 still holds: at most one permit per o
 
   **What the section may contain.** The critical section holds only the word's atomic operations and one insert or read. It never holds I/O, a wait, a callback or a crash point. The lock is never held across a monitor read: the monitor's latch comes after its clock and counter callbacks have returned (`revocation.rs:130-151`, `:167-191`).
 - **Invariant I1.** Outside the lock, `LATCHED` is set if, and only if, a cause is recorded, and the recorded cause is the first stop's.
-  - **At the guard's creation.** I1 holds then. The gate is in state 0 with nothing recorded, because item 2's first read either succeeded without a latch, or ended the operation before any guard existed (`operation_guard.rs:161-191`, `:372-406`).
+  - **At the guard's entry (round 3).** I1 holds then, proved by the entry rule below and not assumed from the first read. `start` installs a guard only after it has read `LATCHED` clear under the new record's lock, with nothing recorded, and once no bare latch remains reachable. A gate that is already latched gets no guard: it is refused on the existing `Live(FailStop { latched })` row (LD8-10).
   - **Afterwards.** Every stop transition sets `LATCHED` and records in one critical section, and the lock serializes them. So no source sets `LATCHED` without recording, and no later source records.
+- **The guard's entry (round 3; RF-X4R8-R2-1; LD8-10).** I1 is established where the guard comes into being, not assumed from the first read.
+  - **Why the first read cannot be trusted for this.** Before the guard exists, the lease-free point's gate can be latched bare, with no cause. Three handles can do it:
+    - `LeaseFree`'s `OperationGate`;
+    - its `StopObserver`;
+    - the monitor's clone of it (og:148-171).
+
+    One trigger is lawful even when the first read succeeds. `StopOnUnwind` latches whenever a monitored read ends while its thread is panicking, and that includes a read that succeeds inside a destructor during unrelated unwinding (rv:80-91, :129-152). So `first_read` can return `Ok` on a latched gate (og:174-189), and the handoff would carry it into `OperationGuard::start` (operation_handoff.rs:1015-1044, :1218-1233).
+  - **The entry rule.** `OperationGuard::start` (og:372-406) does the following, in this order:
+    1. **Create the record.** The new stop-cause record holds no cause.
+    2. **Rebind the monitor.** It takes `LeaseFree` apart and rebinds the monitor's stop to the operation's stop handle, bound to that record. After this step, no bare `StopObserver` or `OperationGate` latch is reachable outside the guard's own stop transitions. `LeaseFree`'s `StopObserver` becomes `Shared.stop`, and the gate is the guard's.
+    3. **Check the gate.** It takes that record's lock and reads the gate's word (`SeqCst`).
+    4. **If `LATCHED` is set, refuse.** It releases the lock and returns a refusal, which the handoff maps to the existing `OperationRefusal::Live(StopCause::FailStop { subject: "latched" })` row (operation_handoff.rs:110, :139):
+       - that is `OBSERVER.FAIL_STOP`, operational-failed 4, subject `latched`;
+       - it is the row that a first read returning `AlreadyStopped` already takes (operation_handoff.rs:1085-1088).
+
+       No guard is created and no observer thread is spawned. The gate stays latched, the monitor history is kept, and nothing is recorded. The refusal is made at the same point as `start`'s existing thread-spawn refusal (`OperationRefusal::Observer`, :1233), and is handled the same way: there is no session yet, so there is no end-path `REV` (X3d item 7).
+    5. **If `LATCHED` is clear, install.** It releases the lock, spawns the observer, and returns the guard.
+  - **I1 at the guard's actual entry.** At step 5, `LATCHED` is clear and no cause is recorded, so I1 holds.
+    - **Nothing can latch bare after the check.** After step 2 no bare latch exists. Step 2 comes before step 3, and the observer thread, the monitor's only other user, starts only at step 5.
+    - **A bare latch before the check is caught.** One from the first read's unwind latch, or any lease-free handle, is caught at step 3, because the handoff makes no other monitor call between the first read's return and `start` (operation_handoff.rs:1044-1233).
+    - **From step 5 on,** every latch is a stop transition.
+  - **What the rule preserves.**
+    - **`StopOnUnwind`'s conservative latch** is unchanged before the guard (bare) and after it (through the stop handle; source 4).
+    - **The latch is never cleared,** and the monitor's history is never reset (item 2).
+    - **The refusal's vocabulary is the existing one.** It is the `Live` row with `FailStop { latched }`. It is not `CertainRefusal`, and it is not the invariant row.
 - **Readers.** Three readers can see `LATCHED`:
   - checkpoint step 3's `observe` (`:563-566`);
   - `admit`'s refusal (`:512-518`);
@@ -386,8 +434,8 @@ With three latch sources and a window, F41 still holds: at most one permit per o
 
   A reader that has seen `LATCHED` takes the lock and reads the recorded cause. The setter held the lock from before its transition until after its record. So the reader always finds the first stop's cause.
 - **The placeholder record is withdrawn (LD8-8).**
-  - **What changes.** `latched()` (`operation_guard.rs:218-220`) reads, and no longer records. Under I1 it always finds a cause.
-  - **A breach.** If it ever found none, because something latched outside a stop transition, it returns `GuardRefusal::Invariant` and records nothing.
+  - **What changes.** `latched()` (`operation_guard.rs:218-220`) reads, and no longer records. Under I1 it always finds a cause, because a guard exists only when the entry rule found I1 true (round 3; LD8-10).
+  - **A breach.** If it ever found none, because something latched outside a stop transition after entry, it returns `GuardRefusal::Invariant` and records nothing. A bare latch before entry is not a breach: the entry rule refuses it.
   - **What it was.** The placeholder `FailStop { subject: "latched" }` survives only as the true cause of sources 4 and 5 below, whose subject it already is today.
 
 **Every source, and how its cause is recorded.** These are the code obligations on X4-F3 (sources 1 to 8) and J3b (source 9). Product lines are at `cca4fe4`. "og" is `crates/security/src/custody/operation_guard.rs`, "rv" is `crates/security/src/revocation.rs`, and "cs" is `crates/security/src/custody/commit_session.rs`.
@@ -397,7 +445,7 @@ With three latch sources and a window, F41 still holds: at most one permit per o
 | 1 | The observer: a revoking observation | og:255-257: `fetch_or`, then a separate `record(Revoked)` | `Revoked { subject }` | X4-F3 |
 | 2 | A monitor read's failure, in an observer tick or checkpoint step 2: clock, stall, regression, boot change, an unreadable counter, or the observation's own failure | rv:149-151 latches inside the read, then og:260-262 records `FailStop` | `FailStop { subject }`, with today's subject: the observation's own failure subject, else the stop reason's (og:260-262). From the guard's creation, the monitor latches only through the operation's stop handle, with the cause its caller supplies for that read | X4-F3 |
 | 3 | The boundary check's own failure, at checkpoint step 4 | rv:189-191 latches, then og:570-574 records `FailStop { admission-boundary }` | `FailStop { subject: "admission-boundary" }`, as today, through the stop handle | X4-F3 |
-| 4 | A panic inside a monitor read or boundary check | rv:84-91 (`StopOnUnwind`) latches, with no cause | `FailStop { subject: "latched" }`: the subject that today's poisoned-mutex path records for a dead observer (og:221-226), through the stop handle | X4-F3 |
+| 4 | `StopOnUnwind` (rv:80-91): a monitored read or boundary check that ends while its thread is panicking. It has two triggers: a panic raised in the read's own clock or counter callbacks, and (round 3) a read or check that succeeds while the thread is already unwinding from an unrelated panic, such as a read made in a destructor (rv:80-83, :129-152) | rv:84-91 latches bare, with no cause, whether the read failed or succeeded | **After the guard's entry:** `FailStop { subject: "latched" }`, through the stop handle. That is the subject today's poisoned-mutex path records for a dead observer (og:221-226). A successful read then returns `Ok` on a gate whose cause is recorded. **Before entry,** at the lease-free first read: the latch stays bare, and the entry rule refuses the gate on `Live(FailStop { latched })`, with no guard (LD8-10) | X4-F3 |
 | 5 | The monitor's mutex is poisoned | og:221-226: `fetch_or`, then a separate `record` | `FailStop { subject: "latched" }`, unchanged | X4-F3 |
 | 6 | A stale guard, at checkpoint step 1 | og:547-549: `fetch_or`, then a separate `record(Stale(row))`, outside the monitor's mutex | `Stale(row)` | X4-F3 |
 | 7 | The checkpoint is handed a level-4 borrow that is not this operation's lock | og:538-543: latches with no cause; the refusal is `GuardRefusal::Invariant` | `CertainRefusal` (LD8-7). The refusal stays `GuardRefusal::Invariant`, on the invariant row | X4-F3 |
@@ -412,6 +460,12 @@ With three latch sources and a window, F41 still holds: at most one permit per o
   - **Where the lock is taken.** The stop-cause lock is taken either alone, or while the monitor's mutex is held. The second case covers sources 2 to 5, and the checkpoint's steps 2 to 4, which hold the monitor's mutex (og:551-575).
   - **The order.** That is monitor then cause, today's order (og:221-226). No path takes the monitor's mutex while it holds the cause lock. The cancellation latch takes the cause lock alone.
   - **Successful admissions.** Only refusal paths and the cancellation latch take the lock. A successful admission does not, so no wait is added between item 3's steps 2 and 4.
+  - **What "no wait" means (round 3; NB-X4R8-R2-1).** It means three things, and no more:
+    - **no wait for the monitor's mutex:** no stop transition takes it, and the cancellation latch and the certain refusal never wait behind an observation;
+    - **no I/O or wait while the cause lock is held:** the section is in-memory only;
+    - **no added cause-lock wait on a successful admission:** success never takes the cause lock.
+
+    Taking the cause lock can still contend, with another stop transition, a reader or the entry check. That wait is bounded by the other holder's in-memory section, and it is not qualified natively. Native scheduling remains a qualification obligation ("Not claimed").
 
 **What each cause maps to.**
 - **Unchanged.** For `Revoked`, `FailStop` and `Stale`, the rows (`StopCause::row()`, og:118-129) and the `REV` reasons (`RevReason::of`, cs:94-101) do not change.
@@ -505,7 +559,25 @@ Item 8's rows are unchanged.
   - `latched()` contains no insert;
   - the stop transition's critical section contains no call except the word's atomic operations and the record's insert and read;
   - `admit`'s success path never takes the stop-cause lock.
-- **W-10. No new wait (round 2).** A cancellation latch while the monitor's mutex is held (`hold_monitor`, og:457) completes without waiting. A certain refusal's stop transition does the same while an observation holds the monitor's mutex.
+  - **(Round 3) The entry order in `start`:** create the record, then rebind the monitor to the stop handle bound to it, then check the gate under the record's lock, then spawn the observer. No `StopObserver` or bare `OperationGate` latch survives into the guard except behind the stop handle.
+- **W-10. "No new wait", as qualified (round 2; round 3: NB-X4R8-R2-1).** It tests the three properties of S11.6's "What 'no wait' means":
+  - **(a)** A cancellation latch, and a certain refusal's stop transition, each complete while an observation holds the monitor's mutex (`hold_monitor`, og:457). Neither takes the monitor's mutex.
+  - **(b)** No I/O or wait occurs inside the cause lock. This is checked by W-9's source pin.
+  - **(c)** A successful admission completes while a test thread holds the cause lock through a test-only seam, outside any stop transition, so success takes no cause lock.
+
+  It asserts no timing bound. Native scheduling is excluded.
+- **W-11. A lease-free first read during unrelated unwinding (round 3; RF-X4R8-R2-1).**
+  - **Setup.** Inside a destructor that runs while its thread unwinds from an unrelated panic, the handoff's first read succeeds, with a scripted clock and counter. `StopOnUnwind` latches the gate bare, and `first_read` returns `Ok`.
+  - **Expected:**
+    - the handoff refuses on `OperationRefusal::Live(FailStop { latched })`: `OBSERVER.FAIL_STOP`, subject `latched`;
+    - `start` creates no guard and spawns no observer thread;
+    - the gate stays latched (state 2), and the monitor's history is the successful read's;
+    - nothing is recorded, and no `CertainRefusal` or invariant row appears.
+  - **The same read after the guard's entry,** through an observer tick or a checkpoint, records `FailStop { latched }` through the stop handle, and a later reader gets it (source 4).
+- **W-12. The entry race (round 3).**
+  - **Setup.** A bare latch on each lease-free handle in turn (the `OperationGate`, `LeaseFree`'s `StopObserver`, and the monitor's clone) lands after a successful first read and just before `start`, through a test seam outside any critical section.
+  - **Expected:** each gives the same refusal as W-11, and no guard is ever created on a latched gate with no cause.
+  - **The control case.** With no latch, `start` creates a guard in state 0 with no cause recorded, and its first stop transition records its cause.
 
 **S11.9 Item 11: units (round 2: two code units under this law; LD8-9).**
 - **X4-F3** is a security code unit under X4 r8, not a separate law. It carries the first-cause rule for the existing sources, 1 to 8 of S11.6:
@@ -515,7 +587,9 @@ Item 8's rows are unchanged.
     - the stop-transition form of sources 1, 5, 6 and 7, and of `OperationGuard::stop` (source 8);
     - `StopCause::CertainRefusal` and its `row()` arm;
     - the placeholder's withdrawal from `latched()`;
+    - **(round 3)** the entry rule in `OperationGuard::start` (og:372-406): the record, the rebind, the check under the record's lock, then the spawn (LD8-10);
   - in `revocation.rs`: sources 2 to 4. The monitor's failure latches and its unwind latch go through the stop handle, with the caller's cause;
+  - **(round 3)** in `operation_handoff.rs`, X2e's handoff code: one mapping arm at `:1224-1233`. `start`'s latched-entry refusal maps to the existing `OperationRefusal::Live(StopCause::FailStop { subject: "latched" })` (`:110`, `:139`; the same value as `:1085-1088`). No row is added;
   - in `commit_authority.rs`: the existing latch's `x4.gate.latch.after` moves outside the lock;
   - in `commit_session.rs`, X3d's code:
     - the three call sites (cs:562, :577, :986) pass `CertainRefusal`;
@@ -523,6 +597,7 @@ Item 8's rows are unchanged.
   - **Tests:**
     - W-6's pairs among sources 1 to 8;
     - W-8 (a), (b) and (d);
+    - **(round 3)** W-11 and W-12;
     - W-9;
     - W-10's certain-refusal half;
     - F41's existing tests, kept.
@@ -562,11 +637,11 @@ Item 8's rows are unchanged.
     - **`admit`** stops at once when a state bit is set. It can fail only for `WINDOW_OPEN` and `WINDOW_CLOSED`, so it makes at most three exchanges.
     - **The cancellation latch** stops at once when `WINDOW_CLOSED` or `LATCHED` is set. It can fail and go on only for `ADMITTED`, so it makes at most two exchanges.
 
-    Neither loop spins or waits.
+    Neither loop spins. The `admit` loop takes no lock. The cancellation loop runs inside the stop-cause lock, so taking that lock can contend, as S11.6's "What 'no wait' means" qualifies (round 3; NB-X4R8-R2-1). Neither loop waits for the monitor's mutex, I/O or a callback.
   - **Rejected:**
     - **`compare_exchange_weak` or `fetch_update`.** A spurious failure is not caused by a set bit, so the count of retries is not bounded in principle.
     - **`admit` as a `fetch_or`.** It would turn state 2 into 3, which is an admission after a latch (F18, F41).
-    - **A lock around the word.** The observer's latch and the close must stay single read-modify-writes that never wait.
+    - **A lock around the word.** It would put a lock on `admit`'s success path and on the close, and these must stay single read-modify-writes on the word. **(Round 3)** The stop-cause lock is not a lock around the word: success paths never take it (S11.6).
 - **LD8-3. The cancellation latch's exchange and its record form one critical section.** J1 and X3d r9 say the latch records `Operator` "only if it is the operation's first stop" (J1:537; X3D9 S10.2). They do not say how that holds against the record's other writers.
   - **The race.** The latch runs on the host's watcher thread, outside the monitor's mutex. A checkpoint on the session thread can run between the latch's exchange and its record:
     - step 3 reads the latch and records the placeholder (`operation_guard.rs:563-566`);
@@ -614,7 +689,7 @@ Item 8's rows are unchanged.
     - **Protecting only the cancellation latch's successful exchange (round 1).** The existing sources keep both schedules. RF-X4R8-1 found that this does not meet J1:598, J-C15 or X3d r9 S10.4.
     - **An ungated follow-up (round 1's D8-1 route).** J3b's controls would assert a guarantee that the tree does not keep.
     - **A replaceable placeholder, where a later real cause displaces it.** "First" would then mean first real cause, not first stop. A certain refusal followed by an observer revocation would take `REV(trust-revoked)`.
-    - **Holding the stop-cause lock across a monitor read.** CODEX2's fix excludes it. A read can block up to the stall bound, and the cancellation latch must not wait. The monitor's latch comes after its callbacks return, so it needs no lock across I/O.
+    - **Holding the stop-cause lock across a monitor read.** CODEX2's fix excludes it. A read can block up to the stall bound, and the cancellation latch must not wait for a monitor read. The monitor's latch comes after its callbacks return, so it needs no lock across I/O.
     - **Recording under the monitor's mutex instead.** The certain refusal, the stale-guard path and the cancellation latch all run outside it, and the cancellation latch must not wait behind an observation.
     - **Changing the reasons or rows as an exception.** CODEX2's fix forbids it, and no reason or row changes here.
 - **LD8-7. `CertainRefusal`, the cause of a source that has none today.** X3d's certain refusals (source 8) and the checkpoint's lock mismatch (source 7) latch with no cause (og:419-421, :538-543). Their `REV` reason, `operation-stopped`, comes from the absence of a cause (cs:100). Under I1 a latch must record its cause with its transition, so these need one.
@@ -628,7 +703,7 @@ Item 8's rows are unchanged.
     - **A new `REV` reason.** X3d's closed set and its reserve pin would change, and no consumer asks for one.
 - **LD8-8. The placeholder record is withdrawn.** X4a's `latched()` records `FailStop { latched }` when it finds the gate latched with no cause (og:218-220). That is the vehicle of both D8-1 schedules.
   - **Decision:**
-    - `latched()` reads the recorded cause and records nothing. Under I1 it always finds one.
+    - `latched()` reads the recorded cause and records nothing. Under I1 it always finds one, because a guard exists only when the entry rule found I1 true (round 3; LD8-10).
     - If it finds none, which can only be a latch outside a stop transition, it returns `GuardRefusal::Invariant`, records nothing, and fails W-9 in test.
     - The subject `latched` stays the true cause of sources 4 and 5 (og:221-226).
   - **Rejected:**
@@ -644,6 +719,22 @@ Item 8's rows are unchanged.
     - **Folding X4-F3 into J3b.** That ties an M2 correctness fix to J3a and J1's other successors, which J3b waits for.
     - **Renumbering to X4 r9.** Every citation of "X4 r8" would need a record note.
 
+- **LD8-10. The guard's entry: refuse a latched gate before any guard exists (round 3; RF-X4R8-R2-1).** I1 must hold when the guard comes into being. But a lease-free first read can lawfully return `Ok` on a gate that `StopOnUnwind` latched bare during unrelated unwinding (rv:80-91), and today `start` installs whatever it is given with no cause (og:372-406).
+  - **Decision:** S11.6's entry rule.
+    - **Where the check runs.** `start` creates the empty record, rebinds the monitor to the stop handle bound to it, and reads the gate under that record's lock.
+    - **A latched gate** is refused on the existing `OperationRefusal::Live(FailStop { latched })` row (operation_handoff.rs:1085-1088, :139). No guard is created.
+    - **A clear gate** gets the guard, and I1 holds at entry.
+  - **Rejected:**
+
+    | Alternative | Why it is rejected |
+    |---|---|
+    | Carrying a pre-creation first cause into the guard | It adds a second transition rule, one that records a cause for a latch no stop transition made, for a case that already has a row. |
+    | Clearing the latch, or re-arming the gate | It breaks never-reset (S11.3) and `StopOnUnwind`'s conservative stop. |
+    | Recording the bare latch as `CertainRefusal` | A latch at the first read is a monitor fail-stop, not a certain refusal. It would change the existing vocabulary (`Live`, `latched`). |
+    | Creating the guard and letting the first reader find no cause, using the invariant row | It is an invariant-row exception for a lawful, reachable state. |
+    | Checking only at `first_read`'s return | It leaves the interval up to `start` unchecked, and puts the check away from the record whose invariant it establishes. The bare handles live until `start` consumes them. |
+    | Removing `StopOnUnwind`'s latch on a successful read during unwinding | It weakens a conservative stop that rv:80-83 documents on purpose. |
+
 **S11.11 D8-1, resolved in round 2.** Round 1 disclosed two races in X4a's existing sources and routed them to an ungated follow-up. CODEX2 required them fixed before J3b's latch code (RF-X4R8-1).
 - **The races.** In both, X4a's placeholder record (og:218-220) could win:
   - **against X3d's cause-less certain refusal** (og:419-421; cs:562, :577, :986), turning `REV(operation-stopped)` into `REV(observer-fail-stop)`;
@@ -656,6 +747,10 @@ Item 8's rows are unchanged.
 - **The schedules as regressions.** W-8 runs both schedules, and W-6 checks every ordered pair of sources.
 - **What does not change.** No gate state, permit, outcome, row or `REV` reason.
 - **The other monitor-side gaps.** The same discipline closes them: the monitor's failure latch before its caller's record (sources 2 and 3), and the unwind latch with no cause (source 4).
+- **Round 3: the entry gap (RF-X4R8-R2-1).**
+  - **The gap.** A bare unwind latch at the lease-free first read could reach the guard with no cause, and round 2's I1 assumed it could not.
+  - **Where it is closed.** The entry rule (S11.6; LD8-10) refuses that gate before any guard exists, on the existing `Live(FailStop { latched })` row.
+  - **The tests.** W-11 and W-12.
 
 **S11.12 Cross-law items (S11).**
 - **X3d r9.** No change to its law is required: it assumes exactly S11.1 to S11.6. Three readings may go into its next revision as record notes:
@@ -668,6 +763,9 @@ Item 8's rows are unchanged.
   - **No crash point is added.** W-7's census is a unit test, not a row.
   - **One record note.** X9 r1 G4's "`x4.gate.latch.after` follows the fetch-OR" now reads "follows the stop transition's release". The point is reached on the same calls, in the same thread order.
   - **Re-transcription.** X4-F3's lead-set rerun shows whether any transcribed value moves. One that moves is re-transcribed by X9 r17 before X4-F3's review (J1 item 12).
+- **X2 (X2e's handoff, round 3).** No change to its law.
+  - **The code change.** X4-F3 adds one mapping arm to the handoff (operation_handoff.rs:1224-1233), from `start`'s latched-entry refusal to the existing `OperationRefusal::Live(FailStop { latched })`. That is the value the handoff already gives a first read returning `AlreadyStopped` (:1085-1088), through X4 item 8's fail-stop row.
+  - **What it does not change.** The handoff's order, its owners and its other refusals.
 - **X8.** None. The word, its operations and `StopCause` are crate-private, and the token's fixtures are X3d r9's (X3D9 S10.7).
 - **X4-F3.** It is a code unit under this law (S11.9), not a successor of J1 and not a separate law.
 
@@ -709,6 +807,12 @@ Item 8's rows are unchanged.
   - the stop-cause lock held across a monitor read, I/O, a wait, a callback or a crash point;
   - a reason or row changed to fit the rule;
   - J3b's cancellation code, J-C15 or J-C15b integrated without X4-F3.
+- **The guard's entry (r8 round 3, LD8-10):**
+  - a guard created on a gate whose `LATCHED` is set;
+  - a pre-creation cause carried into the guard;
+  - the entry check made before the monitor's rebind, or after the observer starts;
+  - the latch cleared at entry;
+  - the entry refusal taking `CertainRefusal`, the invariant row or any row but `Live(FailStop { latched })`.
 
 ## Not claimed
 
