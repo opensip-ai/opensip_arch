@@ -283,3 +283,4 @@ Times are local.
     - no checker for the new policy until C3a links the crate;
     - `forbid(unsafe_code)` on `crates/syntax`. It holds under T-native, through the `tree-sitter` crate's safe API, and E2b may revisit it.
   - Phase 2 (lanes, review request) starts once the confirmation lane on `15c0779` finishes.
+- **Confirmation lane on product main `15c0779`** (X4-F1 integrated): workspace 1749 passed, 0 failed, 3 ignored in 554 s, matching X4-F1's own lanes. **P0 phase 2 started.**
