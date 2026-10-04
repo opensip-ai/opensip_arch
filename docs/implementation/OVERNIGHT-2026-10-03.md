@@ -712,3 +712,4 @@ Times are local.
   - **X4T r13:** RW-S5's X4T part, now pinning the accepted X4B r6.
 
   **Still owed:** J1's S7b, an M3-B and X2 successor that gates J2c, and RW-S6, X9 r17's §RW round.
+- **X9 r17 round 1 (the frame and §RC) accepted by Grok,** with no required findings. The 22 RC rows and LD-RC-6's kill-set shift stand. **X3c-3**, the storage re-commit code with its serialized lead set, is now unblocked and starts.
