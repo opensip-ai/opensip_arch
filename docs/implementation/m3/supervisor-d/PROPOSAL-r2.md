@@ -1,12 +1,12 @@
-# The supervisor and common control law — proposal M3-D r3
+# The supervisor and common control law — proposal M3-D r2
 
-**DRAFT r3, not accepted. Not code.** This is a law with a unit breakdown. Its gate, CF-P, is now met (see "Acceptance gate"). Section F is an **O7 placeholder**: it is written against the lead's O7 recommendation and is **binding only once O7 is decided as recommended**. Everything outside section F is ordinary law.
+**DRAFT r2, not accepted. Not code.** This is a law with a unit breakdown. Its gate, CF-P, is now met (see "Acceptance gate"). Section F is an **O7 placeholder**: it is written against the lead's O7 recommendation and is **binding only once O7 is decided as recommended**. Everything outside section F is ordinary law.
 
 2026-10-04. Drafted for Claude Opus 5.5, implementation lead, by a lead-dispatched drafting agent during the overnight autonomous run. It is the law for unit **M3-D** of the accepted M3 unit plan (M3P:213). It covers:
 - **D1**, `crates/platform/src/process.rs`: the spawn primitive (items 1-8), and the confinement primitive under O7 (section F);
 - **D2**, `crates/components/src/control_protocol.rs` and `provider_protocol.rs`: the codecs that own NE §9's dispatch (COV `native-evidence:10`, NE:2781-3316) with no translation (items 9-11);
 - **D3**, `crates/components/src/supervisor.rs`: supervision, single settlement, liveness, bounds, stderr, tree kill, cancellation and candidate discard (items 12-23);
-- **D4**, `crates/components/src/manifest.rs`, `session_factory.rs` and the request-validation predicates: DR-G29's excluded forms, refused **before any analysis-attempt ExecutionId is drawn or reserved** (items 24-25; item 25's R1 checks run before any draw at all, and on the first-use route the creation prelude's own reservation, which names the creation act only, may already exist at R10a), and represented post-admission substitutions, refused **after the draw and before any stage** (item 26);
+- **D4**, `crates/components/src/manifest.rs`, `session_factory.rs` and the request-validation predicates: DR-G29's excluded forms, refused **before any ExecutionId is drawn or reserved** (items 24-25), and represented post-admission substitutions, refused **after the draw and before any stage** (item 26);
 - **D5**, the DR-G21 controls (item 27), with the O7 escape controls in section F (F-7).
 
 **Standing direction.** Every item marked "lead decision" is made under the owner's standing direction to proceed on the lead's recommendation, and names the alternatives it rejects. The owner may reverse any of them. The one owner decision this law depends on, O7, is pending (M3P:534, B1); section F is written so that nothing outside it depends on O7's outcome.
@@ -14,18 +14,6 @@
 **Naming note.** The brief and M3P call NE's provider-protocol section "NE:10". That is COV's section id `native-evidence:10` (COV:7270-7292), whose heading is NE "§9. Provider protocol successors (wire)" at NE:2781-3316. NE's own §10 (NE:3317 onward) is the D9 mapping, which this law cites separately.
 
 **Review history.** r1 (`PROPOSAL-r1.md`, sha256 `c6ae10de…`, 128,473 bytes) was reviewed by GROK2 (`/tmp/opensip-implementation/reviews/grok2-supervisor-d-r1/`, copied to `docs/implementation/m3/reviews/grok2-supervisor-d-r1/`): REQUIRED-FINDINGS, RF-1 to RF-5, with seven non-blocking observations. GROK2 confirmed R2, R3, R4, R7 and R8 apart from RF-5, and the WS:1375 half of R5. r2 answers the five findings, records CF-P's outcome, and changes nothing else of substance.
-
-r2 (`PROPOSAL-r2.md`, sha256 `1f5367dc…`, 167,305 bytes) was reviewed by GROK2 (`reviews/grok2-supervisor-d-r2/`): REQUIRED-FINDINGS, one finding (RF-1), with RF-1 to RF-5 of r1 resolved and four non-blocking observations. r3 answers them and changes nothing else.
-
-## r3 changes and review responses
-
-| Finding | Where | Change |
-|---|---|---|
-| **GROK2 r2 RF-1** (absolute "no ExecutionId" wording) | preamble (D4 bullet); item 24's heading and forbidden substitutes; the global admission substitute | The prohibition now reads **no analysis-attempt ExecutionId**, matching item 24's decision paragraph and D4-T1. On the first-use route the creation prelude's reservation (J1:161, :172) may already exist at R10a, and the prelude's id is never bound to the analysis attempt. Item 25 stays absolute, since R1 is before any draw. R10a does not move. |
-| NBO-1 | D5-T2c | Adds the root case: a root still alive at the reap ceiling records `exit: unreaped`, and the group is not signalled again. |
-| NBO-2 | item 6 | The sentence that `/var/tmp` is on disk on both distributions is marked desk-checked and unmeasured, matching LX-5. |
-| NBO-3 | D4-T1 | The census bullet is scoped to the durable path's session draw (J1:179, :428); the registry bullet is the proof on every path. |
-| NBO-4 | request pins | The r3 request pins the overnight log's live bytes. The law cites the B1 entry, not the file hash. |
 
 ## r2 changes and review responses
 
@@ -254,7 +242,7 @@ Line numbers were checked on 2026-10-04 against the files named here. A live pla
     - the SDK hands TS provider code no scratch path (DRC:541-542).
   - **Where scratch lives (lead decision).** A per-invocation directory `opensip-scratch-<128-bit random hex>`, mode 0700, under the platform's per-user temporary root, which `platform` obtains **without the environment**:
     - **macOS:** `confstr(_CS_DARWIN_USER_TEMP_DIR)`;
-    - **Linux:** `/var/tmp` (r2; LX-5). CF-P found that AL2023's `/tmp` is a tmpfs limited to half of RAM and a million inodes (CFP:282), which cannot hold a 2 GiB Rust scratch or a tool's materialization without consuming memory. `/var/tmp` is on disk on both distributions: desk-checked, not measured by CF-P (r3; LX-5).
+    - **Linux:** `/var/tmp` (r2; LX-5). CF-P found that AL2023's `/tmp` is a tmpfs limited to half of RAM and a million inodes (CFP:282), which cannot hold a 2 GiB Rust scratch or a tool's materialization without consuming memory. `/var/tmp` is on disk on both distributions.
 
     The host creates it with `mkdirat` under a held descriptor of the root, verifies owner and mode with `fstat`, and performs every later operation relative to held descriptors, with no-follow opens. Each child's scratch is a subdirectory. A test seam may supply the parent explicitly; production never reads `TMPDIR`.
   - **Stale scratch.** Each per-invocation directory holds a lock file held with `flock` for the invocation's life (LX-22). When a supervisor is constructed, it sweeps sibling `opensip-scratch-*` directories whose lock it can take without waiting, because their owner is dead, and removes them under the same no-follow discipline. This is how "Host crash mid-step: scratch reclaimed" (NE:2548) is met at M3.
@@ -573,7 +561,7 @@ Line numbers were checked on 2026-10-04 against the files named here. A live pla
   - D5-T1 a child that forks a grandchild in the group: both killed, both platforms;
   - D5-T2 a grandchild that `setsid`s while its parent lives, before the snapshot: Linux swept (`tree: complete`); **macOS: best effort, expected removed by the identity-checked kill** after the recursive walk finds it, as CF-P observed (CFP:229), with the settlement still `platform-limited` and the test's own out-of-band check confirming the outcome;
   - D5-T2b (r2) a group member forks a child that calls `setsid` **after the snapshot and before the group `SIGKILL`** (a test seam pauses the supervisor between steps 1 and 2): Linux swept; **macOS expected not killed**, `platform-limited`, observed alive out-of-band and cleaned up by the test;
-  - D5-T2c (r2) macOS confirm: an injected `proc_listpids` failure, and a member held past the ceiling, each record `tree: incomplete`; a root held alive past the ceiling records `exit: unreaped`, and the group is not signalled again (r3, NBO-1); a `killpg(pg, 0)` `EPERM` is never read as empty;
+  - D5-T2c (r2) macOS confirm: an injected `proc_listpids` failure, and a member held past the ceiling, each record `tree: incomplete`; a `killpg(pg, 0)` `EPERM` is never read as empty;
   - D5-T3 **a double-forked daemon orphaned before teardown**: Linux swept as the subreaper's child; **macOS expected `platform-limited`, with the daemon observed alive by the test's own out-of-band check and then cleaned up by the test**;
   - D5-T4 a fork loop at the bound: Linux `tree: incomplete`, disclosed;
   - D5-T5 a root that ignores `SIGTERM`: `SIGKILL` at 1 s.
@@ -705,7 +693,7 @@ Line numbers were checked on 2026-10-04 against the files named here. A live pla
 
 ### D. D4, `manifest.rs` and `session_factory.rs`: DR-G29's refusals
 
-#### 24. Manifest-class refusals before any analysis-attempt ExecutionId is drawn
+#### 24. Manifest-class refusals before any ExecutionId is drawn
 
 - **Decision (law; r2, RF-4).**
   - **Where ExecutionIds are drawn.** WS:81 gives "each admitted attempt" a fresh ExecutionId; it does not say where the id is drawn. Accepted J1 r3 fixes that, under IE:77-81's reservation rule:
@@ -739,10 +727,10 @@ Line numbers were checked on 2026-10-04 against the files named here. A live pla
   - **Moving R12 after the Plan.** Accepted J1 fixes the open at the handoff, so that providers carry the attempt's ExecutionId and the writer holds the lease through admission (J1:424-427; IE:1657-1658). D does not reopen an accepted law's order.
   - **Admitting before R12 only the manifests the Plan will select.** Impossible, because selection needs discovery after R12.
   - **A second manifest parser in components.** CH14:288 gives components no security dependency, so D4 consumes security's validated value through the host.
-- **Forbidden substitutes:** an excluded form admitted with a warning ("no waiver for silent admission", QG:589); an analysis-attempt ExecutionId drawn or reserved before these checks, or the creation prelude's ExecutionId bound to the analysis attempt (r3); a closure admitted at MC row 8 that R10a did not admit; a new public code.
+- **Forbidden substitutes:** an excluded form admitted with a warning ("no waiver for silent admission", QG:589); an ExecutionId drawn or reserved before these checks; a closure admitted at MC row 8 that R10a did not admit; a new public code.
 - **Controls:** D4-T1, DR-G29's hostile but well-formed corpus for EE-1, EE-3b, EE-4 and EE-5a, on the durable path, the first-use path and the ephemeral path. **For each, the assertion is on the reservation registry's state (r2):**
   - after the refusal, the process's `ExecutionIdReservations` holds **no analysis-attempt reservation**. Its set equals its set at R10a's entry: empty, or the creation prelude's alone on first use;
-  - on the durable path, the census point `x3d.session.execution-draw` (J1:179), the session draw right after the handoff to `CommitSession::open` (J1:428), is never reached. The ephemeral and render draws are not that point (J1:163-164, :174); the registry bullet above is the proof on every path (r3, NBO-3);
+  - the census point `x3d.session.execution-draw` (J1:179) is never reached;
   - no capture session opens, nothing is spawned and no source byte moves.
 
 #### 25. Request-class refusals in request validation
@@ -1177,7 +1165,7 @@ Each item lists its own. Across all items:
 - **Codecs:** a seventeenth control message; any translation, normalization, re-encoding, merge or reordering of a provider frame; a host-authored provider frame; serde over wire bytes; a negotiated protocol choice.
 - **Supervision:** two settlements; a restart; an unbounded or silent wait; progress from asserted counters, stderr or traffic; a ceiling, deadline or bound from configuration or the environment; `BudgetExhausted` manufactured from a safety bound.
 - **Diagnostics:** stderr text or a stderr digest anywhere; a RequestId, RunId or log path given to a child; a record outside S-OP-2's registry.
-- **Admission:** a candidate admitted from a non-clean settlement; an excluded form admitted silently, or refused after an analysis-attempt ExecutionId is drawn or reserved (r3); a host-observed refusal routed as a provider fault.
+- **Admission:** a candidate admitted from a non-clean settlement; an excluded form admitted silently, or refused after an ExecutionId is drawn or reserved; a host-observed refusal routed as a provider fault.
 - **Harness:** any cgroup write or migration.
 - **Confinement:** any confinement claim before O7 and CF-1; "sandbox" wording; a switch that disables confinement; a launch after a failed apply step; repository code at M3; either mode of `sandbox_init`; a link-time import of `sandbox_init_with_parameters`; a non-canonical profile parameter; a failed apply read from `errno` or fd 2.
 

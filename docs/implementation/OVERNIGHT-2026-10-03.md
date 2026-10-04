@@ -177,3 +177,4 @@ Times are local.
   - **A group `SIGSTOP` before the macOS snapshot is deferred to CF-1,** because CF-P didn't measure it.
   - **SD-6:** D's manifest refusals before the ExecutionId draw need a new J1 row, R10a. That amends the accepted J1 r3, so it goes to a J1 r4 delta for CODEX2 once GROK2 has ruled on D r2.
 - **The M2 completion record was accepted at r3 by GROK2,** with no required findings. Its two observations, both status cells, are applied as recording text. M2 is complete and the record is final.
+- **M3-D r2:** GROK2 resolved all five r1 findings and raised one wording finding. The prohibition must say "no analysis-attempt ExecutionId", because on first use the creation prelude's id already exists. Lead-written r3 fixes that and the four observations, and goes back to GROK2.
