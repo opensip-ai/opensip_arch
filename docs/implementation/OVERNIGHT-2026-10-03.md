@@ -117,3 +117,7 @@ Times are local.
   - **New follow-ups, lead decisions:**
     - **X4-F2:** the fenced read has the same unapplied-expiry gap.
     - **F9:** test fixture dates expire on 2026-12-30.
+- **M3-E1 r1 drafted,** queued for Codex.
+  - **Backend lead decision:** tree-sitter grammars compiled to Wasm and run in-host by `wasmi`, with fuel-metered, typed parse failures. Native tree-sitter is the fallback if probe E0 fails.
+  - **Owner FYI:** the Wasm route needs a pinned wasi-sdk build toolchain.
+- **M3-C r3 sent to CODEX2.** The host chain is now about 31 days at M3-B's estimates; M3-PLAN r5 will carry it.
