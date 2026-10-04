@@ -727,3 +727,14 @@ Times are local.
   - **Schedule:** still 33 days. J3a's set moves to day 6 and J3b to 9.
   - **New edge:** X4-F3 → J3b.
   - **Questions put to Codex:** stale "not yet sent" notes in some status files, and why S-M hasn't run. S-M needs D13, which is owner-gated, so it can't run yet.
+- **E2a implemented and sent to GROK2.** It is the syntax lane, `tools/grammar/`.
+  - **What it does:** the eight definition records over the crate archives, checked against crates.io checksums in memory; four `SymbolTableV1` tables, byte-identical to E0's from both the native and wasm legs; and SYN-NS's six members, byte for byte.
+  - **What it leaves out:** no Rust change, no dependency, no contract successor.
+  - **Lanes:** all pass. Workspace 1738/0/3, twice.
+  - **Inventory:** v138, on J2a's v137 candidate.
+  - **Lead rulings on E1's gaps, for E1 r5:**
+    1. **The bundle manifest and receipt go to E2b.** E1 r5 rules on the limits, with the operation budget measured natively by E2b under P6's rule; a lane-assigned `-dev.N` `parserVersion`; and a T-native receipt listing the archives and compile models with null toolchain fields. **Rejected:** a null receipt.
+    3. **An omitted licence** is retained from the pinned tag, by sha256 and blob.
+    4. **The `SyntaxTreeV1` layout** goes to E2b's `parser.rs`.
+    5. **`shim` is null** under T-native.
+  - **Process change:** reviewers now take the shared lane lock for cargo runs, so a review rerun can't disturb an X9 lead set.
