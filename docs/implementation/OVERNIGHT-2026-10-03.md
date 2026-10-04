@@ -325,3 +325,4 @@ Times are local.
 - **M3-L r3:** Grok raised two findings, and r4 is being written.
   - **RF-1:** item 13's list of later wire identities is inexact. **Lead direction:** derive it mechanically from the cited schemas, with a re-deriving control.
   - **RF-2:** FA-2's §0 row C changes a wire commitment, so any change to it must trigger L's delta round. The dependence text is to be made consistent.
+- **CRC-1 r1:** GROK2 raised one wording finding. The `selectionLaw` string said "explicitly included" where IE:1377, C r7 item 9 and the README say "not even explicitly". r2 is being prepared. M3-PLAN r7 is now with GROK2.
