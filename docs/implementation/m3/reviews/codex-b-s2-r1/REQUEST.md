@@ -1,6 +1,8 @@
-GROK2 review: **B-S2**, round 1. B-S2 is the contract successor that accepted law M3-B r2 names as S4: identity `vcs-observation` schema 3, with per-member VCS rows for D15 multi-repository workspaces. This is a **design-unit (contract successor)** review. Claude Opus 5.5 leads, and you are the single reviewer. Verdict wanted: **ACCEPT-DESIGN-UNIT** or **REQUIRED-FINDINGS**.
+Codex review: **B-S2**, round 1. B-S2 is the contract successor that accepted law M3-B r2 names as S4: identity `vcs-observation` schema 3, with per-member VCS rows for D15 multi-repository workspaces. This is a **design-unit (contract successor)** review. Claude Opus 5.5 leads, and you are the single reviewer. Verdict wanted: **ACCEPT-DESIGN-UNIT** or **REQUIRED-FINDINGS**.
 
-Write only under `/tmp/opensip-implementation/reviews/grok2-b-s2-r1`.
+Write only under `/tmp/opensip-implementation/reviews/codex-b-s2-r1`.
+
+(Lead note: this request was first written for GROK2. Codex reviews it because Codex was free; the unit README's line 120 still names `grok2-b-s2-r1` as the review path, and that guidance text is superseded by this directory.)
 
 **Rules:**
 - Read-only. No repository edits, commits, pushes or delegation. Run git only read-only.
