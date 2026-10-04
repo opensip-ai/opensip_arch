@@ -1,0 +1,118 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "reviewer": "Codex",
+  "reviewKind": "law and contract-soundness",
+  "round": 3,
+  "subject": "docs/implementation/m3/resume-repair-jrw/PROPOSAL.md",
+  "subjectSha256": "9aa304106bfe7926cee4f43ed5c51dadcc906c0920ed97751c7cd78f4d2b6dee",
+  "subjectBytes": 103333,
+  "productBaseline": "cd5958b3608f44a0035566c9d4500e5005c62e91",
+  "observedProductHead": "d2c00a96c3136fe45b901bc067b6d0ca51f0c9c1",
+  "requiredFindings": [
+    {
+      "id": "JRW-R3-01",
+      "priority": "P2",
+      "location": "docs/implementation/m3/resume-repair-jrw/PROPOSAL.md:248; :512 (RW-C17); :15 (r3 response table)",
+      "problem": "RW-C17 requires an incorrect DDL breakdown: 6 tables, 1 explicit index and 19 triggers. The pinned selected_ddl() actually contains 7 tables, 1 explicit index and 18 triggers. The total remains 26, so the lifetime-bound argument survives, but the mandatory census assertion cannot pass on the declared baseline.",
+      "evidence": [
+        "At cd5958b, crates/storage/src/ledger_store/project_ledger.rs:33-43 selects exactly the six fragments cited by the proposal.",
+        "ATTEMPT_DDL (ledger_store.rs:441-469): 1 table + 3 triggers. PAIR_DDL (:476-503): 2 tables, commit_receipts and commit_associations, + 6 triggers. AVAILABILITY_DDL (:761-774): 1 table + 1 explicit index + 3 triggers.",
+        "recovery_material::DDL (ledger_store/recovery_material.rs:13-26): 1 table + 3 triggers. recovery_pins::DDL (recovery_pins.rs:14-23): 1 table + 0 triggers. pin_transactions::DDL (pin_transactions.rs:16-31): 1 table + 3 triggers.",
+        "Independent text-only enumeration of all 26 named CREATE statements is saved in sql-source-census.json. Summing those fragments gives 7 TABLE, 1 INDEX and 18 TRIGGER; no SQLite engine was invoked.",
+        "PROPOSAL.md:512 makes the incorrect 6/1/19 split an assertion of the required RW-C17 control, rather than an incidental explanatory count."
+      ],
+      "fix": "Correct every subject occurrence of the breakdown to 7 tables, 1 explicit index and 18 triggers, including the response table, item 3.3 and RW-C17. Keep k = 26 and the correctly listed per-fragment totals. Have the future census enumerate the statements actually selected; do not change the product DDL to fit the prose. Keep RW-C5 and its stop rule/fallback."
+    },
+    {
+      "id": "JRW-R3-02",
+      "priority": "P2",
+      "location": "docs/implementation/m3/resume-repair-jrw/PROPOSAL.md:147-155 (item 2); :336 (C-TRUST); :347, :365 (C-TDIR); :504 (RW-C15); :624 (RW-S5)",
+      "problem": "The trust-completion authorization and controls still assume that publication follows a successfully admitted current-trust view. Integrated X4-F2 changes that routing: a fenced read can reach the same publication steps with a deferred clocked refusal and never return an admitted view. J-RW does not state whether C-TRUST/C-TDIR are authorized on that required write-ahead path, or its terminal/refusal expectations. Keeping a successful-view gate would leave those repairable publication objects blocking the mandatory write-ahead; applying completion there would exceed the stated successful-admission premise. RW-S5 also still names the already-used X4T r12 revision without composing with its new rule.",
+      "evidence": [
+        "The request explicitly requires a finding if X4-F2 changes routing J-RW relies on. At cd5958b, floor_publication.rs:958-995 obtains an AdmittedCurrentTrust before publish and returns Ok(view). The proposal relies on that order at :336, :365 and RW-C15 :504.",
+        "At d2c00a9, crates/security/src/trust/current_trust_admission.rs:243-259 distinguishes Admission::View from Admission::Clocked; :1113-1125 retains pending write-ahead with a clocked continuation refusal. :283-289 converts Clocked into Err(refusal), never an AdmittedCurrentTrust.",
+        "At d2c00a9, floor_publication.rs:961-995 carries either admission through check 3, takes its pending write, and calls publish at :993 before into_view at :995. Thus parent_dir and write_dependency can run for a clock-refused request as well as for a successful view.",
+        "Static routing example, not executed: an authenticated store has an RW-T3 ACL-omitted empty predecessor directory, time admission proposes a floor advance, and EV-CLOCK yields core:stale-revocation or core:expired. The required publication reaches that directory before the continuation refusal. Successful C-TDIR would finish publication and then return that continuation refusal; it does not cause an admitted view or a committed request.",
+        "X4T PROPOSAL-r12.md:170-175 expressly requires the same write-ahead and owner advance before a clocked refusal, with no view returned; :205 puts that refusal before every lease and later operation effect. The accepted r11 snapshot alone cannot describe this route.",
+        "The integrated test source floor_publication_tests.rs:801-849 describes a confirmed write-ahead followed by CONTINUE-CORE-NOT-TRUSTED and no view. This source was inspected only; no test was run.",
+        "X4-F2 does not change open_private or its lift mapping: the N-T2a/N-T2b native-open/custody split itself remains correct. The finding concerns the enclosing admission/publication route."
+      ],
+      "fix": "Compose J-RW explicitly with integrated X4T r12. State whether and on what authenticated-closure/pending-write authority C-TRUST and C-TDIR complete the required floor publication before a deferred clock refusal, without manufacturing an admitted view or granting a lease. Preserve the closure non-reference proof, fence and existing refusal precedence. Update item 2, items 3.5/3.6, relevant terminal wording and RW-C14/RW-C15; require future controls for completion followed by the unchanged clocked continuation refusal and for native/custody/budget failures on that path. Place RW-S5 on the next X4T successor of r12, retaining r12’s clock and write-ahead rules. Keep earlier authentication/time refusals and report-only reads effect-free. No test or matrix run is requested for this law revision."
+    }
+  ],
+  "nonBlockingObservations": [],
+  "priorReviewDisposition": [
+    {
+      "id": "JRW-R2-01",
+      "status": "History overclaim resolved; required census needs JRW-R3-01.",
+      "evidence": "The guarantee is explicitly conditional on exclusive creation and OpenSIP-only history. The counter wraps, foreign writers are excluded, and the source supports k = 26. RW-C17 has an owner and RW-C5 pins 26; its required type breakdown is incorrect."
+    },
+    {
+      "id": "JRW-R2-02",
+      "status": "Resolved.",
+      "evidence": "N-T2a preserves HOST.IO_FAILURE before custody; N-T2b preserves CONFIG.CUSTODY_REFUSED / installation-incomplete after a successful native open. Budget remains distinct. C-TDIR requires a retained opened directory, RW-C15 agrees and RW-N12 is unchanged. X4-F2 leaves these helper mappings unchanged."
+    },
+    {
+      "id": "JRW-R2-NB-01",
+      "status": "Resolved, including correction of the reviewer’s count.",
+      "evidence": "Host -a has 11 create.after bases, -b has 7, and they share 3: union 15. My r2 union count of 14 was incorrect. Storage #6 appears at lines 112 (commit) and 1256 (refused-end); host -a/-b #5 at line 40. Three trace/point selections yield four physical directory events. RW-D1 explicitly arms the commit child."
+    }
+  ],
+  "requestItemAssessments": [
+    {
+      "item": 1,
+      "result": "Bound supported; control correction required.",
+      "detail": "All six per-fragment totals sum to 26. SQLite source implements one cookie increment per selected CREATE and a wrapping 32-bit counter. The single atomic DDL transaction and existing-schema path exclude a second committed schema creation within the stated producer history; no additional production ledger schema SQL or non-defensive file opener was found. The stop rule/N-L0 fallback remain. JRW-R3-01 corrects the wrong table/trigger split."
+    },
+    {
+      "item": 2,
+      "result": "Satisfied at cd5958b; enclosing current route needs JRW-R3-02.",
+      "detail": "Native open, custody judgment and budget rows remain distinct. C-ACL requires the retained handle after native success. X4-F2 changes the successful-view premise surrounding publication, not these local failure mappings."
+    },
+    {
+      "item": 3,
+      "result": "Satisfied.",
+      "detail": "Recounted all four pinned traces as data: storage 1379 records/22 bases; host -a 1009/11, -b 165/7, -c 21/0; host union 15; four directory records. No new matrix run was performed."
+    },
+    {
+      "item": 4,
+      "result": "Satisfied.",
+      "detail": "All 22 r2-to-r3 diff hunks fit the r3 response table or product-base/line re-pins. No unrelated substantive change found. The extra X4-F2 composition finding is required by the request’s lead note."
+    }
+  ],
+  "validation": {
+    "suppliedPins": 38,
+    "bundledSqlitePin": "matched",
+    "all39PinsMatchedInitiallyAndFinally": true,
+    "ddlStatements": 26,
+    "ddlBreakdown": {
+      "tables": 7,
+      "explicitIndexes": 1,
+      "triggers": 18
+    },
+    "method": "Read-only source/diff/trace inspection; scratch Python text/hash analysis at nice -n 19, -I -B, isolated HOME and TMPDIR.",
+    "cargoRuns": 0,
+    "productBuilds": 0,
+    "productTestRuns": 0,
+    "sqliteFixtureRuns": 0,
+    "wraparoundLoops": 0,
+    "crashMatrixRuns": 0,
+    "repositoryEdits": false,
+    "commits": false,
+    "delegation": false,
+    "realHomeUsed": false,
+    "private413FixtureRead": false,
+    "reviewWritesOnlyUnder": "/tmp/opensip-implementation/reviews/codex-resume-repair-jrw-r3"
+  },
+  "acceptanceBoundary": "Law review only. No J4 sub-unit, RW-S1 to RW-S6 successor, inventory unit, runtime pin or L11 retirement is accepted by this review.",
+  "evidenceArtifacts": [
+    "pin-verification-initial.json",
+    "pin-verification-final.json",
+    "r2-to-r3.diff",
+    "sql-source-census.json",
+    "census-audit.json",
+    "product-source-pins.json",
+    "additional-source-pins.json",
+    "product-base.json"
+  ]
+}

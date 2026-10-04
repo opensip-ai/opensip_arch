@@ -644,3 +644,8 @@ Times are local.
 - **X4 r8: CODEX2 raised one high-severity finding.** The D8-1 first-cause race can't be an ungated follow-up: J3b must preserve the first cause's row and REV reason, including for `AlreadyStopped` and after a certain refusal whose window is closed.
   - **Lead decision:** fold the D8-1 fix into X4 r8 as review round 2, keeping the revision name "X4 r8", which J1 and X3d r9 cite for S11.
   - **Rejected:** a separate X4-F3 law, which leaves J3b gated on an unwritten unit, and renumbering to r9, which would make every "X4 r8" citation stale.
+- **J-RW r3: Codex raised two P2 findings.**
+  - **JRW-R3-01:** RW-C17's DDL split is wrong. It is 7 tables, 1 index and 18 triggers, not 6, 1 and 19; k = 26 stands.
+  - **JRW-R3-02:** C-TRUST and C-TDIR must compose with X4-F2 and X4T r12, where a clock-refused read still runs the mandatory floor write-ahead and returns no view.
+  - **Lead decision for r4:** completion is authorized on that path by the same authenticated closure and pending write that authorize the publication, and manufactures no view and no lease. The unchanged clocked continuation refusal follows, and RW-S5 moves to X4T's next successor after r12.
+  - **Rejected:** a successful-view gate. It would leave repairable OpenSIP-owned objects blocking a mandatory write-ahead.
