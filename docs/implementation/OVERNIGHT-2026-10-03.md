@@ -254,3 +254,4 @@ Times are local.
 
   Its X9 regression covers 64 storage rows and 4 host rows, two sets each. Every run is byte-identical to the accepted X9-6 evidence, and the census and kill sets are identical. Release absence passes.
 - **E0 phase 2 started** on the now-quiet machine, with the lead's rulings on the probe's ambiguities.
+- **M3-C r7 accepted in review by CODEX2,** with no findings. It narrows row 8 to manifests admitted at R10a, and takes effect once L is accepted. The live J1 file now carries its r4 acceptance note.

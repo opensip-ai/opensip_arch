@@ -1,5 +1,7 @@
 # The guarded durable host pipeline — proposal M3-J1 r4
 
+**r4 ACCEPTED 2026-10-04 by GROK2** (`c18c0d3c…`; `reviews/grok2-host-pipeline-j-r4/`), with no required findings. r4's bytes, without this note, are preserved in `PROPOSAL-r4.md`. Recording note for GROK2's observation NBO-1: the M3D short name's statement that the live `supervisor-d/PROPOSAL.md` equals `PROPOSAL-r3.md` no longer holds, because the live file now carries D's acceptance note. D is cited by its `PROPOSAL-r3.md` snapshot.
+
 2026-10-04. Drafted for Claude Opus 5.5, implementation lead, by a lead-dispatched drafting agent during the overnight autonomous run. Law for unit **M3-J1** of the accepted M3 unit plan (`M3-PLAN-r6.md:217`).
 
 **Draft r4, not accepted. Not code.** M2 is complete: its crash-matrix gate was met by Grok's accepted rerun on C = `3d2d5b5` (`m2/M2-COMPLETE.md`; M3P:5). J's code units still wait for P0, for the B, C, D and H laws and the units named in item 14, and for I1's product units.
