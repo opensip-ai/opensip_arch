@@ -722,3 +722,8 @@ Times are local.
   - **Rejected:** starting J3a now and rebasing afterwards.
 - **REG v3 r2 written and sent to CODEX2.** REG:9 is now a passage supersession of initial-root-binding-owner-selection-v1's override, keeping all of its text and appending J-RW's. A local `verify_design` run with the entry appended passes: 98 contract successors, 2 supersessions. r1's bytes refuse with the conflict the review predicted.
 - **REG v3 accepted by CODEX2 at r2** (ACCEPT-DESIGN-UNIT, with `supersededPassages`) **and bound** at product main `21e428d` as the second contract passage supersession. That gives 98 contract successors. All of J-RW's successors except RW-S6 (X9 r17 §RW) are now accepted, so J4b's REG prerequisite is met.
+- **M3-PLAN r10 written and sent to Codex.** It is a record revision from r9's real cut-off ("M3-H r3 written") to arch `17584e1f5`, and makes no new plan decision.
+  - **Owner gating:** day 0, and with it the whole host chain, waits on O7, D3 and D13.
+  - **Schedule:** still 33 days. J3a's set moves to day 6 and J3b to 9.
+  - **New edge:** X4-F3 → J3b.
+  - **Questions put to Codex:** stale "not yet sent" notes in some status files, and why S-M hasn't run. S-M needs D13, which is owner-gated, so it can't run yet.
