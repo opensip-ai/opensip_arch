@@ -2,6 +2,37 @@
 
 The owner asked the lead to run autonomously overnight: "if you get blocked, move to the next item and we can discuss any blockers tomorrow morning." This file is the running log, kept by Claude Opus 5.5 as lead.
 
+## Morning summary (updated 2026-10-04 06:10 PDT)
+
+**Where things stand.** M2 is complete and its record is accepted. M3's law layer is now mostly in place:
+- **Laws accepted overnight:** B r2, I1 r2, E1 r3, J1 r4, S-OP-2 r6, D r3, H r3 and X3c r8. M3-C r7 is accepted in review and takes effect with L.
+- **Product main is `cd5958b`,** with 82 contract successors. Six design units were bound tonight: F8b, I1-L, I1-P, B-S1, B-S2 and B-S9.
+- **X4-F1 fixed M2's last known defect** and is integrated. Its confirmation lane passed 1749/0.
+- **P0, the M3 crate scaffolds,** passed every lane and is in Codex review.
+
+**What needs you** (details in "Blockers for the owner" below):
+1. **B1, O7 confinement.** The CF-P evidence supports the recommendation.
+2. **B2, the gating precision bar.** Today's accepted floor needs 299 independent families, and only 10 held-out ones exist. My proposal needs about 59.
+3. **B3, signing off D3 (the T2 corpus) and D13 (the envelope).**
+4. **B4, OQ-1:** your real workspace layout.
+
+Items 1 and 3 gate M3-L *taking effect*. L's review continues meanwhile, under the early-review rule.
+
+**Worth knowing:**
+- **The syntax backend is native tree-sitter (E0, T-native).** The Wasm route was correct on all 8,351 files, but ran at 0.818 MiB/s against a 1.0 floor. Parser defects are a declared residual risk, and I re-decide placement at M4, before untrusted input.
+- **Rust3 caps a request at 256 files.** That would block tokio, axum and 7 more of our 22 Rust corpus repositories. A limit successor is being drafted, with the recommendation to raise it before the Rust provider ships.
+- **The night's reversible lead decisions** are listed in M3-PLAN r7 (in review). The main ones:
+  - early review of M3-L;
+  - J1's deferred signal during final output;
+  - J-RW auto-completing crashed first registrations, with in-place ledger and trust completion;
+  - closure-only manifest roles (CR-1);
+  - Linux provider scratch in `/var/tmp`;
+  - provider stderr is counted, never held.
+
+**Housekeeping** (yours, at leisure):
+- delete 5 crash reports in `~/Library/Logs/DiagnosticReports/` (`cfp-2026-10-04-*`, `t_named-*`);
+- delete the 4 GB stale Codex scratch at `/tmp/opensip-implementation/reviews/codex-read-cli-x10a-r1`.
+
 ## Blockers for the owner
 
 | # | Decision | What it blocks | Lead recommendation |
