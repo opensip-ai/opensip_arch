@@ -1,19 +1,29 @@
-# The resume/repair writer — proposal J-RW r3
+# The resume/repair writer — proposal J-RW r4
 
 2026-10-04. Drafted for Claude Opus 5.5, implementation lead, by a lead-dispatched drafting agent during the overnight autonomous run. Law **J-RW** of the accepted M3 unit plan, owned by M3-J under lead decision P5-1 (M3P:217, :236, :572-575).
 
-**Draft r3, not accepted. Not code.** It must be accepted before M3 day 0, which is M3-L's acceptance (M3P:236, :259). Its code unit J4 follows it and does not wait for J3 (M3P:251, :311, :574).
+**Draft r4, not accepted. Not code.** It must be accepted before M3 day 0, which is M3-L's acceptance (M3P:236, :259). Its code unit J4 follows it and does not wait for J3 (M3P:251, :311, :574).
 
 r1 (`PROPOSAL-r1.md`, sha256 `0002c005…`, 61,626 bytes) was reviewed by Codex (`reviews/codex-resume-repair-jrw-r1`; REQUIRED-FINDINGS, 3 required, 3 non-blocking). r2 answered all six, and re-pinned X3c at its accepted r8 bytes and every law at its snapshot.
 
 r2 (`PROPOSAL-r2.md`, sha256 `7bff3d55…`, 87,080 bytes) was reviewed by Codex (`reviews/codex-resume-repair-jrw-r2`; REQUIRED-FINDINGS, 2 required at P2, 1 non-blocking). Codex closed JRW-R1-02 and the three r1 observations, and left JRW-R1-01 and JRW-R1-03 to the new findings. r3 answers all three r2 items. Beyond those answers it changes only product line pins: main is now `cd5958b`, and every line it cites in X4-F1's changed files is re-checked there.
 
+r3 (`PROPOSAL-r3.md`, sha256 `9aa30410…`, 103,333 bytes) was reviewed by Codex (`reviews/codex-resume-repair-jrw-r3`; REQUIRED-FINDINGS, 2 required at P2, no new observations). Codex closed JRW-R2-01, JRW-R2-02 and JRW-R2-NB-01; its union recount agrees: 15. r4 answers both r3 findings. Beyond those answers it changes only pins: the product base for the X4-F2 code is now `d2c00a9`, X4T is cited at its accepted r12 snapshot, and two RW-S7/RW-S8 records are noted as landed.
+
+## r4 changes and review responses
+
+| Finding | Change |
+|---|---|
+| **JRW-R3-01** (the DDL breakdown is wrong) | **Accepted.** `selected_ddl()` holds **7 tables, 1 explicit index and 18 triggers**; r3's 6/1/19 was a miscount. `PAIR_DDL` creates two tables, `commit_receipts` and `commit_associations`.<br>Corrected everywhere: the r3 response row below, item 3.3 (now with a per-fragment table) and RW-C17.<br>- **k = 26 is unchanged**, as are the per-fragment totals, RW-C5, its stop rule and the N-L0 fallback.<br>- **RW-C17's census** now enumerates, by kind and name, the statements `selected_ddl()` actually selects. The product DDL is never changed to fit the text.<br>Codex's text-only enumeration is at `reviews/codex-resume-repair-jrw-r3/sql-source-census.json`. |
+| **JRW-R3-02** (compose with X4-F2's clocked refusal) | **Accepted, as lead decision LD-16.**<br>**The route.** Under accepted X4T r12, integrated as X4-F2, a fenced read whose `EV-CLOCK` refuses still performs the mandatory floor write-ahead before returning the clocked continuation refusal (X4T:170-175, :205). In the product, `publish` at `floor_publication.rs:993` runs before `into_view` at `:995`; see also `current_trust_admission.rs:243-289` and `:1113-1125` (all at `d2c00a9`).<br>**The decision.** C-TRUST and C-TDIR are authorized on that path. They rest on the same authority as the publication: the closure the read authenticated, and the pending write the admission carries. They manufacture no view and grant no lease. The completed publication returns exactly X4T r12's unchanged clocked refusal, at the same precedence.<br>**Unchanged:** earlier authentication and time refusals, and report-only reads, stay effect-free; the non-reference proof, the fence and the N-T2a/N-T2b mappings stand.<br>**Rejected:** a successful-view gate.<br>**Updated:** item 2 (the T row and a new authorization bullet), items 3.5 and 3.6, item 4's terminals for RW-T1 to RW-T3, RW-C14, RW-C15, J4d, the forbidden substitutes, and new X-RW-13.<br>**New controls:** RW-C18 (completion, then the unchanged clocked refusal) and RW-C19 (native, custody, non-prefix and budget failures on that path each keep their own row; early refusals and report-only reads stay effect-free).<br>**RW-S5** becomes X4T r13, the next successor after the accepted r12, keeping r12's clock and write-ahead rules. |
+| **Context** | **Pins.**<br>- **Product:** main is now `d2c00a9`. Of the files J-RW cites, only `floor_publication.rs` (after line 944), `current_trust_admission.rs` and `Cargo.lock` changed since `cd5958b`. Every r3 line cited in them holds or is re-pinned, and r4's new X4-F2 cites are read at `d2c00a9`.<br>- **X4T:** now cited at the accepted r12 snapshot (`cf566db7…`). Its r11 lines are re-mapped to the same r12 passages (short names).<br>**Records.**<br>- **RW-S7** (P5-1's owner list) has landed: M3-PLAN r7, current at r9, `M3-PLAN-r9.md:284`.<br>- **RW-S8's `repair recover` correction** has landed: J1 r4, carried in accepted r5, `PROPOSAL-r5.md:815`. Replacing item 11's recommendation is still owed.<br>J-RW's other J1 and M3P cites stay on their r3 and r6 snapshots. |
+
 ## r3 changes and review responses
 
 | Finding | Change |
 |---|---|
-| **JRW-R2-01** (the schema cookie wraps, so cookie 0 does not prove no history) | **Accepted. C-LEDGER is kept, and its guarantee is now stated exactly** (item 3.3).<br>**The wrap.** In the bundled engine, SQLite 3.53.2, the cookie is a wrapping 32-bit counter. It gains 1 per schema statement and 1 per VACUUM, and the engine's own comment allows that it can "be set back to prior value" (`sqlite3.c:128440-128455`, `:161652-161670`).<br>**The bound.** The guarantee rests on **k = 26**: the most cookie increments OpenSIP's writers can commit in a ledger's lifetime. That is X3c item 2's one DDL transaction of 26 `CREATE` statements (6 tables, 1 index, 19 triggers; `project_ledger.rs:33-43` and the six fragments it names). The transaction commits at most once (`project_ledger.rs:537-564`), each statement increments exactly once (`sqlite3.c:129318`, `:130875-130877`, `:158430`), and no other product SQL changes a ledger's schema (the census in item 3.3, list item 4). So for every OpenSIP writer, cookie 0 means no schema change committed.<br>**Foreign writers.** A non-OpenSIP same-uid writer that commits 2³² − k or more schema changes joins raw-byte forgery under "Not established". r2's "not reachable", and its coverage of "any writer that changes the schema only by SQL schema statements or VACUUM", are withdrawn.<br>**Unchanged:** the stop rule and the N-L0 fallback.<br>**New:** control RW-C17, a census of product SQL with its owner, and RW-C5's pin of cookie 26 after creation. Carried into RW-S3, X-RW-9 and the forbidden substitutes. Withdrawing C-LEDGER now is rejected. |
-| **JRW-R2-02** (N-T2's routing) | **Accepted. N-T2 is split at the existing failure boundary** (item 3.6, item 5).<br>- **N-T2a.** A symlink or non-directory at a publication-parent name fails `open_private`'s native open (`O_DIRECTORY`, `O_NOFOLLOW`; `crates/platform/src/filesystem/directory_open.rs:61-73`, `:134-150`). It keeps the host I/O row, `HOST.IO_FAILURE` (`floor_publication.rs:164-166`; `current_trust_admission.rs:100` at `cd5958b`).<br>- **N-T2b.** Only a directory that is opened and reaches the custody judgment takes `installation-incomplete` (`floor_publication.rs:170`; `current_trust_admission.rs:107`), as RW-N12's case does.<br>- **Budget.** A budget failure keeps the budget row (`floor_publication.rs:58-69`). X4T r11 item 10's preserved host I/O and budget rows are unchanged (X4T:153).<br>C-ACL runs only on the retained directory that `open_private` returned, never after a native failure. RW-C15 is fixed to match. RW-N12 is unchanged. |
+| **JRW-R2-01** (the schema cookie wraps, so cookie 0 does not prove no history) | **Accepted. C-LEDGER is kept, and its guarantee is now stated exactly** (item 3.3).<br>**The wrap.** In the bundled engine, SQLite 3.53.2, the cookie is a wrapping 32-bit counter. It gains 1 per schema statement and 1 per VACUUM, and the engine's own comment allows that it can "be set back to prior value" (`sqlite3.c:128440-128455`, `:161652-161670`).<br>**The bound.** The guarantee rests on **k = 26**: the most cookie increments OpenSIP's writers can commit in a ledger's lifetime. That is X3c item 2's one DDL transaction of 26 `CREATE` statements (7 tables, 1 index, 18 triggers, as corrected in r4; `project_ledger.rs:33-43` and the six fragments it names). The transaction commits at most once (`project_ledger.rs:537-564`), each statement increments exactly once (`sqlite3.c:129318`, `:130875-130877`, `:158430`), and no other product SQL changes a ledger's schema (the census in item 3.3, list item 4). So for every OpenSIP writer, cookie 0 means no schema change committed.<br>**Foreign writers.** A non-OpenSIP same-uid writer that commits 2³² − k or more schema changes joins raw-byte forgery under "Not established". r2's "not reachable", and its coverage of "any writer that changes the schema only by SQL schema statements or VACUUM", are withdrawn.<br>**Unchanged:** the stop rule and the N-L0 fallback.<br>**New:** control RW-C17, a census of product SQL with its owner, and RW-C5's pin of cookie 26 after creation. Carried into RW-S3, X-RW-9 and the forbidden substitutes. Withdrawing C-LEDGER now is rejected. |
+| **JRW-R2-02** (N-T2's routing) | **Accepted. N-T2 is split at the existing failure boundary** (item 3.6, item 5).<br>- **N-T2a.** A symlink or non-directory at a publication-parent name fails `open_private`'s native open (`O_DIRECTORY`, `O_NOFOLLOW`; `crates/platform/src/filesystem/directory_open.rs:61-73`, `:134-150`). It keeps the host I/O row, `HOST.IO_FAILURE` (`floor_publication.rs:164-166`; `current_trust_admission.rs:100` at `cd5958b`).<br>- **N-T2b.** Only a directory that is opened and reaches the custody judgment takes `installation-incomplete` (`floor_publication.rs:170`; `current_trust_admission.rs:107`), as RW-N12's case does.<br>- **Budget.** A budget failure keeps the budget row (`floor_publication.rs:58-69`). X4T r11 item 10's preserved host I/O and budget rows are unchanged (X4T:233).<br>C-ACL runs only on the retained directory that `open_private` returned, never after a native failure. RW-C15 is fixed to match. RW-N12 is unchanged. |
 | **JRW-R2-NB-01** (point identities and physical records) | Taken (item 1, item 3.6, item 4, RW-D1).<br>- **Host traces.** `-a` (1009 records, 11 `create.after` bases) and `-b` (165 records, 7 bases) share only three bases, so their union has 15. The bases are listed in item 1. Codex counted 14; r3's recount lists them so the count can be checked.<br>- **Physical events.** Storage's `dependency/create.after#6` is one point identity with two physical records: the commit child at `census-trace.txt:112` and the refused-end child at `:1256`. So there are three trace/point selections (storage #6, host `-a` #5, host `-b` #5) and four physical directory events.<br>RW-D1 selects the commit child explicitly, and the refused-end occurrence leaves the same RW-T3 state. |
 | **Context** | Product main is now `cd5958b`. After `e093e90`, crates changed only in X4-F1's ten files (`15c0779`). Of these, r3 cites only `current_trust_admission.rs`, read at `cd5958b`: its rows are 4 lines lower than at `e093e90`. `floor_publication.rs`, `private_access.rs`, the storage crate and the platform crate are unchanged since `e093e90`. |
 
@@ -41,7 +51,7 @@ r2 (`PROPOSAL-r2.md`, sha256 `7bff3d55…`, 87,080 bytes) was reviewed by Codex 
 
 **Standing direction.** Every item that says "lead decision" is made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation. Each names the alternatives it rejects. The owner may reverse any of them. No item blocks on an owner decision ("Open questions").
 
-**The owners' assent.** The laws this one amends are the lead's: X2 r9, X3c r8, X3b r10, X4T r11 and X4B r5, and the registry owner selection v2. Their amendments are written here as successors RW-S1 to RW-S5 (item 12), as lead decisions under the standing direction. None of them changes before J-RW is accepted, and each is reviewed with J-RW or right after it.
+**The owners' assent.** The laws this one amends are the lead's: X2 r9, X3c r8, X3b r10, X4T r12 (r4; r11 until r3) and X4B r5, and the registry owner selection v2. Their amendments are written here as successors RW-S1 to RW-S5 (item 12), as lead decisions under the standing direction. None of them changes before J-RW is accepted, and each is reviewed with J-RW or right after it.
 
 ## Short names
 
@@ -56,11 +66,11 @@ Arch paths are under `docs/`. The sha256 prefixes are of the bytes read for this
 | **X2** | `implementation/m2/project-root-x2/PROPOSAL-r9.md`, the r9 bytes Grok accepted | `0d68e3a5…` |
 | **X3C** | `implementation/m2/ledger-blob-x3c/PROPOSAL-r8.md`, the r8 bytes GROK2 accepted | `ba638efb…` |
 | **X3B** | `implementation/m2/journal-x3b/PROPOSAL-r10.md`, the accepted r10 bytes | `25a60824…` |
-| **X4T** | `implementation/m2/trust-admission-x4t/PROPOSAL-r11.md`, the accepted r11 bytes | `7fe098fd…` |
+| **X4T** | **(r4)** `implementation/m2/trust-admission-x4t/PROPOSAL-r12.md`, the r12 bytes Codex accepted (`reviews/grok2-x4t-f2-r1`). X4T r12 carries X4-F2's clock rule. Every X4T line J-RW cites is r12's: r3's r11 cites `:97-102`, `:102`, `:120`, `:141` and `:153` are now `:164-169`, `:169`, `:193`, `:216` and `:233`, the same passages. | `cf566db7…` |
 | **X4B** | `implementation/m2/trust-bootstrap-x4b/PROPOSAL-r5.md`, the accepted r5 bytes | `97c2eef3…` |
 | **X3D** | `implementation/m2/commit-session-x3d/PROPOSAL-r8.md`, the r8 bytes | `5e491b92…` |
 | **X6** | `implementation/m2/carrier-recovery-x6/PROPOSAL-r4.md`, the r4 bytes | `20df341c…` |
-| **X1** | `implementation/m2/ordinary-platform-x1/PROPOSAL.md` (r1, the only revision) | `d747adf0…` |
+| **X1** | `implementation/m2/ordinary-platform-x1/PROPOSAL-r1.md` (r1, the accepted bytes; the live file is being amended to r2 by J1's S3) | `d747adf0…` |
 | **X9** | `implementation/m2/crash-matrix-x9/PROPOSAL-r16.md`, the accepted r16 bytes | `f08efe95…` |
 | **EV** | X9's evidence record at C = `3d2d5b5`, `crash-matrix-x9/evidence/3d2d5b5a…/` (its `hashes.txt` is `97f8367e…`):<br>- `storage/matrix.json`;<br>- the storage census `storage/census-trace.txt` (`c82cf452…`);<br>- the host censuses `host/census-trace-a.txt` (`15a580b8…`) and `-b.txt` (`a85e8fe9…`) | `5585bc42…` (matrix) |
 | **L465** | `implementation/m2/initial-parent-preparation-465/PROPOSAL.md` (the only revision) | `b34eae39…` |
@@ -71,10 +81,18 @@ Arch paths are under `docs/`. The sha256 prefixes are of the bytes read for this
 | **SL, IE** | `v2/contracts/product-v1/{security-and-lifecycle, identity-and-evidence}.md` | `a319da39…`, `c82404f3…` |
 | **BP** | `v2/architecture/implementation-boundaries-and-build-plan.md` | `8e6e8bab…` |
 | **CINV** | `coop/design-corrections/workflows/command-inventory.v3.json` | `d303cc64…` |
-| **SQ-SRC (r3)** | The bundled engine's own source, the `libsqlite3-sys` 0.38.2 amalgamation that `rusqlite` 0.40.2 builds (`Cargo.lock:168-169`, `:314-315`): `~/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libsqlite3-sys-0.38.2/sqlite3/sqlite3.c`, 9,507,037 bytes. It declares `SQLITE_VERSION "3.53.2"` (`sqlite3.c:470`). It is outside both repositories, so it is cited by hash. | `0a409f16…` |
+| **SQ-SRC (r3)** | The bundled engine's own source, the `libsqlite3-sys` 0.38.2 amalgamation that `rusqlite` 0.40.2 builds (`Cargo.lock:168-169`, `:322-323` at `d2c00a9`): `~/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libsqlite3-sys-0.38.2/sqlite3/sqlite3.c`, 9,507,037 bytes. It declares `SQLITE_VERSION "3.53.2"` (`sqlite3.c:470`). It is outside both repositories, so it is cited by hash. | `0a409f16…` |
 | **SQ-PRAGMA, SQ-FORMAT, SQ-DEFENSIVE, SQ-VACUUM** | SQLite's own documentation, fetched 2026-10-04:<br>- <https://www.sqlite.org/pragma.html#pragma_schema_version>;<br>- <https://www.sqlite.org/fileformat2.html> (§1.3.6, §1.3.9);<br>- <https://www.sqlite.org/c3ref/c_dbconfig_defensive.html>;<br>- <https://www.sqlite.org/lang_vacuum.html>.<br>The engine is the SQLite that `rusqlite` 0.40.2 bundles (`crates/storage/Cargo.toml:13`). J4c pins what this law relies on against that engine (RW-C5). | web; not pinned by hash |
 
-Product paths are under `opensip/` at main `cd5958b` (r3). They were read, not run.
+Product paths are under `opensip/` at main **`d2c00a9`** (r4). They were read, not run.
+- **(r4)** From `cd5958b` to `d2c00a9`, the product integrated X4-F2 (`988f6ed`), X3a-2 and other units. Of the files J-RW cites, only three changed:
+  - `crates/security/src/trust/floor_publication.rs` changed only after line 944, so every r3 cite in it holds. Its new cites (`:938-1001`, `fenced_first_read`) are read at `d2c00a9`;
+  - `crates/security/src/trust/current_trust_admission.rs`: `:95`, `:100`, `:101` and `:107` are unchanged. Its new cites (`:243-289`, `:1113-1125`) are read at `d2c00a9`;
+  - `Cargo.lock`: `rusqlite` 0.40.2 is now at `:322-323`. `libsqlite3-sys` 0.38.2 is unchanged at `:168-169`.
+
+  Every other cited product line is the same at `cd5958b` and `d2c00a9`.
+
+r3's pins, for the record:
 - From `3e64266` to `e093e90`, no file under `crates/` changed.
 - After `e093e90`, crates changed only in X4-F1's ten files (`15c0779`), all in `crates/security/src/`: `custody/operation_guard.rs`, `custody/operation_live_tests.rs`, `trust_time.rs`, and, under `trust/`, `current_trust_admission.rs`, `current_trust_admission_tests.rs`, `floor_publication_tests.rs`, `live_observation.rs`, `live_observation_tests.rs`, `role_machine.rs` and `trust_bootstrap_tests.rs`.
 - r3 cites only `current_trust_admission.rs` among these, and reads it at `cd5958b`.
@@ -82,7 +100,7 @@ Product paths are under `opensip/` at main `cd5958b` (r3). They were read, not r
 
 ## Problem
 
-**What exists at `cd5958b`.** Each owner fails closed on its own interrupted act, and nothing completes it.
+**What exists at `d2c00a9`.** Each owner fails closed on its own interrupted act, and nothing completes it.
 - **First registration** (X2 item 6). The RESERVED row is durable before the namespace, `.opensip` and marker exist, and ACTIVE comes last (X2:236-248).
   - Admission classifies a matching RESERVED row as `RecoveryNeeded` and grants nothing (X2:177, :184; `crates/security/src/custody/project_admission.rs:678-719`). The row is `PROJECT.ROOT_CUSTODY_REFUSED` / `identity-recovery-required` (X2:366; `custody/first_registration.rs:214-222`).
   - A marker that exists but is not judged private refuses earlier, as `marker-custody` (`project_admission.rs:602-603`). An empty or partial private marker is `Malformed`, so `Contradiction` (`project_admission.rs:616`, `:684-685`).
@@ -95,7 +113,7 @@ Product paths are under `opensip/` at main `cd5958b` (r3). They were read, not r
   - **(r2)** a trust-publication directory: `installation-incomplete` at the next publication's `parent_dir` (`trust/floor_publication.rs:416-451`, `open_private` at `:158-172`), installation-wide (item 3.6);
   - an X4T dependency leaf, below.
 - **The ledger WAL** (X3c item 2). WAL is selected, then one DDL transaction commits (`project_ledger.rs:452-509`; barriers `wal` at `:491` and `ddl.commit.before` at `:499`). On the next open, only an empty file with no `-wal` resumes (`project_ledger.rs:540-552`). Any other stored state is `LEDGER.CORRUPT` (`:425-432`, `:438-449`; X3C:85, :216).
-- **An X4T dependency leaf** (X4T item 7). Each dependency is created only when its content-addressed name is absent. An existing name is admitted only when it is private and holds exactly the bytes (`floor_publication.rs:455-488`). A leaf left empty, or torn, is never named by the unchanged pointer, so it is harmless until a later publication writes **that same name**. Then it refuses `CONFIG.CUSTODY_REFUSED` / `installation-incomplete` (X4T:141; `floor_publication.rs:470`, `:479`), installation-wide.
+- **An X4T dependency leaf** (X4T item 7). Each dependency is created only when its content-addressed name is absent. An existing name is admitted only when it is private and holds exactly the bytes (`floor_publication.rs:455-488`). A leaf left empty, or torn, is never named by the unchanged pointer, so it is harmless until a later publication writes **that same name**. Then it refuses `CONFIG.CUSTODY_REFUSED` / `installation-incomplete` (X4T:216; `floor_publication.rs:470`, `:479`), installation-wide.
 
 **What X9 measured.** In X9-2's kill set, 57 F00 kill points leave the next writer refused on these rows (X9:136-161; EV, F00 runs). They are tabulated in item 4. The census holds more occurrences of the same windows than the sampled kill set, which samples the first, a middle and the last occurrence of a repeated protocol (X9:920).
 - **(r2, JRW-R1-NB-03)** For example, the pinned storage census has **seven** `x4t.floor-publication.dependency/create.after` occurrences (`census-trace.txt:72-118`), and the kill set samples #1, #4 and #7.
@@ -114,7 +132,7 @@ Product paths are under `opensip/` at main `cd5958b` (r3). They were read, not r
 | **R** interrupted first registration | RW-R1 to RW-R7 | X2 item 6, under REG's explicit reservation recovery (REG:72-78) | `custody/first_registration.rs`, `custody/project_admission.rs` | `x2.fence.register.reserved/rename.after` through `x2.fence.register.active/rename.before` |
 | **P** created, not yet private | RW-P1 to RW-P3; also inside R (RW-R2, RW-R5) and T (RW-T1, **RW-T3**) | X3c items 1 and 2; X3b item 2 (X3B:52); X2 item 6 step 3; **(r2)** X4T item 7's parent directories | `store_custody.rs`, `ledger_store/project_ledger.rs`, `journal_store/carrier_floor.rs`, `trust/floor_publication.rs` | every `…/create.after` of a private create, before its allow |
 | **L** partial ledger WAL | RW-L1 | X3c item 2 (X3C:78-85) | `ledger_store/project_ledger.rs` | `x3c.ledger-create.wal` and `x3c.ledger-create.ddl.commit.before` |
-| **T** an X4T publication's interrupted dependency | RW-T1, RW-T2 (a leaf at a re-written name); **(r2)** RW-T3 (a parent directory) | X4T item 7 (X4T:97-102), shared with X4B item 5 | `trust/floor_publication.rs` | `x4t.floor-publication.dependency/create.after` and `/write.before` |
+| **T** an X4T publication's interrupted dependency | RW-T1, RW-T2 (a leaf at a re-written name); **(r2)** RW-T3 (a parent directory) | X4T item 7 (X4T:164-169), shared with X4B item 5 | `trust/floor_publication.rs` | `x4t.floor-publication.dependency/create.after` and `/write.before` |
 
 - **Owner list (cross-law item X-RW-7).** P5-1 names X2, X3c and X4T (M3P:573). Family P also has X3b's floor directory (X3B:52), and family R has REG as the recovery owner. Both are added here; M3P's next revision records it (RW-S7).
 - **The full enumeration (r2, JRW-R1-03).** r2 classified every `/create.after` occurrence in both pinned censuses against item 4 and item 5.
@@ -150,12 +168,24 @@ Product paths are under `opensip/` at main `cd5958b` (r3). They were read, not r
   |---|---|---|---|
   | R (and RW-R2's parents, RW-R5's marker) | R9, in place of X2 item 6 when the classification is item 3.4's join | installation fence (write gate) | the gate's ledger (X2 item 9) |
   | RW-P3 (`carrier-floors`) | R10, X3b's floor step | fence, no project lock (X3B:59) | the gate's ledger |
-  | T (RW-T1 to RW-T3) | R10, X4T's floor write-ahead, or X4B's acceptance publication (same protocol). RW-T3 is completed at `parent_dir`, RW-T1 and RW-T2 at `write_dependency`. | fence, no project lock (X4T:102) | the gate's ledger |
+  | T (RW-T1 to RW-T3) | R10, X4T's floor write-ahead, or X4B's acceptance publication (same protocol). **(r4)** The write-ahead runs on both ends of the fenced read: an admitted view, or X4T r12's clocked continuation refusal (X4T:170-175, :205; `floor_publication.rs:977-995` at `d2c00a9`). RW-T3 is completed at `parent_dir`, RW-T1 and RW-T2 at `write_dependency`. | fence, no project lock (X4T:169) | the gate's ledger |
   | RW-P1, RW-P2, RW-L1 | inside `prepare_commit`, at `admit_layout` (`crates/storage/src/commit.rs:370-375`), before the attempt row, so J1's phase A | namespace writer lease (X3C:76, :196) | the operation's attempt ledger (X3C item 9) |
 
   - **Who.** The writer is an X1 ordinary writer reached through J1 item 3's durable entry, never the creator act (J1:689). Matrix children and tests reach the same owners through their existing drivers.
   - **Never** on a read path: not the 458c read session, `doctor`, the read-only recovery selector (X2:336), the sweep, or the ephemeral entry (J1 item 6). These keep today's refusals byte for byte.
   - **Never in the crashed process.** A failed or uncertain step still latches its owner's ledger, with no later step and no retry (X2:212; X3C item 7). Completion is a later, separately admitted operation.
+- **Authorization for family T on X4T r12's clocked path (r4, JRW-R3-02, lead decision).** X4-F2 (integrated; X4T r12, accepted) lets the fenced read end in a clocked continuation refusal instead of a view.
+  - **The route.** After items 2 to 5 have authenticated the closure and S4 has admitted tEval, item 6's `EV-CLOCK` may refuse. The admission is then `Admission::Clocked`, carrying the read's floors, its time admission and its pending write-ahead (`current_trust_admission.rs:249-259`, `:1113-1125` at `d2c00a9`). `fenced_first_read` still runs check 3 and, when S4 proposes a change, the mandatory floor write-ahead: `publish` at `floor_publication.rs:993`. Only after that does `into_view` return the refusal (`:995`; `current_trust_admission.rs:286-289`). X4T r12 states this order (X4T:170-175) and places the refusal before every lease and later operation effect (X4T:205).
+  - **The decision.** C-TRUST and C-TDIR are authorized on that publication too.
+    - **On whose authority.** The same as the publication's own: the closure the read authenticated, and the pending write the admission carries. Completion is a step of that mandatory publication, under the same fence, at the same lease-free point.
+    - **What it is not.** It is not a view. Completion manufactures no admitted view, grants no lease and starts no later step.
+  - **What follows completion.** The completed publication confirms, and the owner advances, as X4T r12 item 7 requires. `into_view` then returns **exactly X4T r12's clocked continuation refusal, unchanged**: request-rejected, exit 2, `EXTENSION.ADMISSION_REJECTED`, detail `CONTINUE-CORE-NOT-TRUSTED`, with its role subject such as `core:expired` (X4T:218-221; `current_trust_admission.rs:95` at `d2c00a9`). It takes the same precedence, before every lease and later operation effect (X4T:205). That refusal is sticky by X4T r12's own rule (X4T:174).
+  - **What is unchanged:**
+    - **Earlier refusals stay effect-free.** A refusal raised before time is admitted writes nothing and completes nothing: items 2 to 5, the stored-state join of item 1, and S4's steps 1 to 4 (X4T:172).
+    - **Report-only reads stay effect-free.** They write and complete nothing (X4T:172).
+    - **The non-reference proof** (items 3.5, 3.6), the fence, check 3 and the closing rechecks run where they run today.
+    - **The N-T2a and N-T2b mappings.** A completion or publication failure on this path ends on its own row, which `publish` returns before `into_view` runs: `HOST.IO_FAILURE`, `installation-incomplete` or the budget row (`floor_publication.rs:993`).
+  - **Rejected:** a successful-view gate, which completes only when the read admits a view. A repairable, OpenSIP-owned leaf or directory would then block a mandatory write-ahead that X4T r12 requires before the clocked refusal. That publication would fail on `installation-incomplete` instead of confirming the floor, and the sticky refusal X4T r12 relies on would never be written.
 - **Authorization for family R (lead decision).** REG requires that "existing operation owners must supply authorization for … explicit recovery" (REG:9), and that recovery be "an independently authorized local operation, not the constructor's fallback" (REG:74). This law is that operation owner.
   - **The authorization:** an `OrdinaryWriteAdmission` (X1 item 2), for a durable request on the same root, whose locator and incarnation agree with the row, authorizes completion of an `allocationKind: random` reservation.
   - **Why it suffices.** That is the same authorization class, on the same root, that created the reservation (OWN:21, the durable commands' first-write effect).
@@ -245,7 +275,17 @@ It acts only when the object satisfies its predicate below. Anything else keeps 
      - `recovery_pins::DDL`: 1 (`ledger_store/recovery_pins.rs:14-23`);
      - `pin_transactions::DDL`: 4 (`ledger_store/pin_transactions.rs:16-31`).
 
-     That is 6 `CREATE TABLE`, 1 `CREATE INDEX` and 19 `CREATE TRIGGER`.
+     That is 7 `CREATE TABLE`, 1 `CREATE INDEX` and 18 `CREATE TRIGGER`: `PAIR_DDL` creates two tables, `commit_receipts` and `commit_associations` (r4, JRW-R3-01; r3 said 6 and 19 in error). The per-fragment totals and k are unchanged.
+
+     | Fragment | Tables | Explicit indexes | Triggers | Total |
+     |---|---:|---:|---:|---:|
+     | `ATTEMPT_DDL` | 1 | 0 | 3 | 4 |
+     | `PAIR_DDL` | 2 | 0 | 6 | 8 |
+     | `AVAILABILITY_DDL` | 1 | 1 | 3 | 5 |
+     | `recovery_material::DDL` | 1 | 0 | 3 | 4 |
+     | `recovery_pins::DDL` | 1 | 0 | 0 | 1 |
+     | `pin_transactions::DDL` | 1 | 0 | 3 | 4 |
+     | **Total** | **7** | **1** | **18** | **26** |
   2. **One increment per statement.** Each statement increments the cookie exactly once in the bundled engine:
      - `sqlite3EndTable` for a table (`sqlite3.c:129318`);
      - `sqlite3CreateIndex` only for an explicit `CREATE INDEX` (`:130875-130877`). A table's own constraint indexes add none;
@@ -333,9 +373,10 @@ It acts only when the object satisfies its predicate below. Anything else keeps 
 **3.5 C-TRUST: completing a dependency leaf at a re-written name.** At `write_dependency` (`floor_publication.rs:459-488`), when the name is present:
 - **The predicate.** The leaf satisfies P-PREFIX against `bytes`, and its ACL is omitted or private.
 - **Action.** C-ACL if the ACL is omitted, then C-SUFFIX.
-- **Why the leaf cannot be referenced.** The fenced first read admitted a closure that does not name it: a named, torn leaf would have refused that read as incomplete (X4T:141). The publication writes only its own determined list of names (X9:146-153). J4d asserts this and adds no read (control RW-C14).
+- **Why the leaf cannot be referenced.** The fenced first read admitted a closure that does not name it: a named, torn leaf would have refused that read as incomplete (X4T:216). **(r4)** That holds on both of the read's ends. The closure is read and authenticated by items 1 to 5, before item 6's clock decision, so a clocked refusal comes only after the same closure has been admitted (X4T:170-171). The publication writes only its own determined list of names (X9:146-153). J4d asserts this and adds no read (control RW-C14).
 - **What is never visited.** A torn leaf at a name no later publication writes stays unreferenced and harmless, as today (X4B:127; `floor_publication.rs:513-517`).
-- **The shared protocol.** X4B's acceptance publication uses the same protocol, with one owner (X4T:102), and gains the same completion. Nothing is deleted, so X4B:130's "no deletion" holds unchanged.
+- **The shared protocol.** X4B's acceptance publication uses the same protocol, with one owner (X4T:169), and gains the same completion. Nothing is deleted, so X4B:130's "no deletion" holds unchanged.
+- **(r4) On the clocked path.** C-TRUST also runs when the publication is X4T r12's write-ahead before a clocked refusal (item 2). The completed publication is followed by that refusal, unchanged, and never by a view.
 
 **3.6 C-TDIR: completing a trust-publication directory (r2, JRW-R1-03).** At `parent_dir` (`floor_publication.rs:416-451`), before `write_dependency`:
 - **The state.** A publication creates a missing parent only where `may_create` permits it (`floor_publication.rs:406-414`):
@@ -344,7 +385,7 @@ It acts only when the object satisfies its predicate below. Anything else keeps 
   - `trust/objects`, which X4B-a's first acceptance creates.
 
   Each is created by `create_private_directory` (`private_access.rs:209-238`): `mkdirat 0700`, then the zero-rights owner allow. A kill at the census point `x4t.floor-publication.dependency/create.after` on a directory occurrence leaves the directory empty, `0700`, with its ACL omitted. The pointer was never replaced, so `state.v1` and its admitted closure are unchanged.
-- **Today.** The next fenced first read admits the unchanged view. It never opens the current capsule's successor bucket: X4T rejects probing `trust/publications/by-predecessor/<sha256 of this state.v1>` (X4T:120), and its read set is reference-directed (X4T item 2).
+- **Today.** The next fenced first read admits the unchanged closure. **(r4)** It ends either in a view or in X4T r12's clocked refusal, and either end performs the write-ahead when S4 proposes a change. It never opens the current capsule's successor bucket: X4T rejects probing `trust/publications/by-predecessor/<sha256 of this state.v1>` (X4T:193), and its read set is reference-directed (X4T item 2).
   - The next publication from the same pointer needs the same directories (X9:146-153). Every floor write-ahead from that pointer writes its descriptor under the same `<P>`.
   - So `parent_dir` calls `open_private` (`:434`). It judges the existing directory (`:158-172`), and the omitted ACL refuses `TrustRow::Incomplete`, that is `installation-incomplete` (`:170`; `private_access.rs:55`).
   - That happens at every later publication from that pointer: at every later durable request whose fenced read must advance the floor (X4T item 7). It is installation-wide.
@@ -358,16 +399,16 @@ It acts only when the object satisfies its predicate below. Anything else keeps 
   - the name is one that `may_create` permits at that depth;
   - **(r3, JRW-R2-02)** `open_private`'s native open has succeeded, returning the retained directory (`floor_publication.rs:164-166`);
   - P-ACL holds, observed on that retained handle: an empty directory, owned by the invoking user, `0700`, ACL omitted, on its parent's filesystem;
-  - the publication has reached that parent step under the held fence.
+  - the publication has reached that parent step under the held fence, whichever end the fenced read will take: an admitted view, or **(r4)** X4T r12's clocked refusal, which is returned unchanged after the publication confirms (item 2).
 
   A native open failure is never reclassified or completed. That includes a symlink (`O_NOFOLLOW`) or a non-directory (`O_DIRECTORY`) at the name (`crates/platform/src/filesystem/directory_open.rs:61-73`, `:134-150`).
 - **Action.** C-ACL. Then the creation path's own barrier and its parent's (`floor_publication.rs:439-446`). Then the publication continues, to `write_dependency` and the pointer.
-- **Why trust admission is not relaxed.** The fenced read admits exactly what it admits today. The completion runs after that admission, inside the publication protocol's own step, under the fence (X4T:102). It touches a directory that the admitted closure does not name, and skips no trust check. **(r3, JRW-R2-02) Every other outcome keeps its row today:**
+- **Why trust admission is not relaxed.** The fenced read admits exactly what it admits today, and **(r4)** refuses exactly what it refuses today. The completion runs after that read's authentication and time admission, inside the publication protocol's own step, under the fence (X4T:169). On the clocked path the read's own refusal follows, unchanged (item 2). It touches a directory that the admitted closure does not name, and skips no trust check. **(r3, JRW-R2-02) Every other outcome keeps its row today:**
   - a native open failure keeps the host I/O row, `HOST.IO_FAILURE` (`floor_publication.rs:164-166`; `current_trust_admission.rs:100` at `cd5958b`). That covers a symlink or a non-directory at the name (N-T2a);
   - an opened directory whose judgment fails other than by P-ACL keeps `installation-incomplete` (`floor_publication.rs:170`; `current_trust_admission.rs:107`) (N-T2b);
   - a budget failure keeps the budget row (`floor_publication.rs:58-69`).
 
-  These are X4T r11 item 10's preserved rows (X4T:141, :153).
+  These are X4T item 10's preserved rows, unchanged from r11 to r12 (X4T:216, :233).
 - **Rejected:**
   - **retaining the state as a residual L11 limit.** That leaves an installation-wide permanent refusal in a family this law claims;
   - **completing any parent directory.** Every parent outside `may_create` must already exist, from P0 or from a completed publication (`floor_publication.rs:406-409`);
@@ -375,7 +416,7 @@ It acts only when the object satisfies its predicate below. Anything else keeps 
 
 ### 4. The crash states, the writer's action and the terminal state
 
-The counts are of X9-2's sampled F00 kill set (EV), 57 in all. Each state covers every census occurrence in its window, not only the sampled ones (item 1). "Today" is the next writer's row at `cd5958b`, the same as at `e093e90`. "Terminal" is what the next admitted durable write reaches.
+The counts are of X9-2's sampled F00 kill set (EV), 57 in all. Each state covers every census occurrence in its window, not only the sampled ones (item 1). "Today" is the next writer's row at `d2c00a9`, the same as at `e093e90`. "Terminal" is what the next admitted durable write reaches.
 
 | State | Window and the object it leaves | Kill points in the kill set | Today | Writer action | Terminal |
 |---|---|---|---|---|---|
@@ -390,9 +431,9 @@ The counts are of X9-2's sampled F00 kill set (EV), 57 in all. Each state covers
 | **RW-P2** | `ledger.sqlite` created, length 0, ACL omitted, no `-wal` | 1: `x3c.ledger-create/create.after` | custody `private` | C-ACL, then X3c item 2's resumable-empty path | ledger created; Committed |
 | **RW-P3** | `I/trust/carrier-floors/` created, empty, ACL omitted. Installation-wide. | 1: `x3b.floor.directory/create.after` | X3b's host I/O row | C-ACL under the fence, then the floor write | floor written; Committed |
 | **RW-L1** | `ledger.sqlite` private, WAL header only, schema cookie 0, no committed schema. At `ddl.commit.before`, uncommitted frames are in `-wal`. | 2: `x3c.ledger-create.wal`, `x3c.ledger-create.ddl.commit.before` | `LEDGER.CORRUPT` | C-LEDGER, only if J4c's pins hold (item 3.3); otherwise none (N-L0) | ledger with the selected schema; Committed |
-| **RW-T1** | A dependency leaf at a name the next publication writes: zero-length, ACL omitted | 1: `x4t.floor-publication.dependency/create.after#1` | `installation-incomplete` | C-ACL, then C-SUFFIX | publication confirmed; Committed |
+| **RW-T1** | A dependency leaf at a name the next publication writes: zero-length, ACL omitted | 1: `x4t.floor-publication.dependency/create.after#1` | `installation-incomplete` | C-ACL, then C-SUFFIX | publication confirmed; then Committed, or **(r4)** X4T r12's unchanged clocked refusal if the read clock-refuses (item 2) |
 | **RW-T2** | The same leaf private and torn (a strict prefix) | 2: `dependency/write.before#1`, `#3` | `installation-incomplete` | C-SUFFIX | as RW-T1 |
-| **RW-T3 (r2)** | A trust-publication directory that `may_create` permits, created, empty, ACL omitted; the pointer unchanged. Installation-wide. | 0 sampled. Three trace/point selections: storage `dependency/create.after#6`, host `#5` in traces `-a` and `-b`. Four physical events, because storage's #6 recurs in the refused-end child (r3, NB-01). | `installation-incomplete` at the next publication | C-TDIR: C-ACL at `parent_dir`, then its barriers | publication confirmed; Committed |
+| **RW-T3 (r2)** | A trust-publication directory that `may_create` permits, created, empty, ACL omitted; the pointer unchanged. Installation-wide. | 0 sampled. Three trace/point selections: storage `dependency/create.after#6`, host `#5` in traces `-a` and `-b`. Four physical events, because storage's #6 recurs in the refused-end child (r3, NB-01). | `installation-incomplete` at the next publication | C-TDIR: C-ACL at `parent_dir`, then its barriers | publication confirmed; then Committed, or **(r4)** X4T r12's unchanged clocked refusal (item 2) |
 
 46 R + 6 P + 2 L + 3 T = 57 sampled points, plus RW-T3's three unsampled trace/point selections (four physical events). Leaves at names the next publication does not write (for example `dependency/write.before#6`) are already Committed and are not visited.
 
@@ -416,8 +457,8 @@ When a state is not exactly one of item 4's, the writer does nothing, and the re
 | **N-L0 (r2, conditional)** RW-L1, if J4c's pins fail (item 3.3) | `LEDGER.CORRUPT` | C-LEDGER withdrawn; L11 stays open, narrowed to this state |
 | **N-L1** Any committed schema object; a freelist page; more than one page; another journal mode or encoding; a nonzero `user_version` or `application_id`; not a database | `LEDGER.CORRUPT` | committed history, or not OpenSIP's creation (`project_ledger_tests.rs:292-340`) |
 | **N-L2 (r2)** Any schema cookie other than 0, including an empty, one-page, free-page-less database whose history was compacted (CREATE, INSERT, DROP, VACUUM) | `LEDGER.CORRUPT` | committed schema history (JRW-R1-01; SQ-PRAGMA) |
-| **N-T1** A leaf whose bytes are **neither exactly equal to nor a strict prefix of** the publication's bytes (r2, NB-02); a non-regular leaf; the wrong owner, mode or links | `installation-incomplete` | foreign or corrupt content (X4T:141). An exactly equal private leaf is today's ordinary admission (`floor_publication.rs:470-481`) |
-| **N-T2a (r3, JRW-R2-02)** A symlink or a non-directory at a publication-parent name. `open_private`'s native open fails (`O_NOFOLLOW`, `O_DIRECTORY`; `crates/platform/src/filesystem/directory_open.rs:61-73`, `:134-150`). | the host I/O row, `HOST.IO_FAILURE` (`floor_publication.rs:164-166`; `current_trust_admission.rs:100` at `cd5958b`) | never reaches the custody judgment, so it is never reclassified or completed (X4T:153) |
+| **N-T1** A leaf whose bytes are **neither exactly equal to nor a strict prefix of** the publication's bytes (r2, NB-02); a non-regular leaf; the wrong owner, mode or links | `installation-incomplete` | foreign or corrupt content (X4T:216). An exactly equal private leaf is today's ordinary admission (`floor_publication.rs:470-481`) |
+| **N-T2a (r3, JRW-R2-02)** A symlink or a non-directory at a publication-parent name. `open_private`'s native open fails (`O_NOFOLLOW`, `O_DIRECTORY`; `crates/platform/src/filesystem/directory_open.rs:61-73`, `:134-150`). | the host I/O row, `HOST.IO_FAILURE` (`floor_publication.rs:164-166`; `current_trust_admission.rs:100` at `cd5958b`) | never reaches the custody judgment, so it is never reclassified or completed (X4T:233) |
 | **N-T2b (r2; r3 scope)** A directory that opens and reaches the custody judgment, but fails it other than by P-ACL: it holds any entry with its ACL omitted; it has the wrong owner or mode; its ACL is present and not private; or it is ACL-omitted at a name `may_create` does not permit (for example `trust/records`) | `installation-incomplete` (`floor_publication.rs:170`; `current_trust_admission.rs:107` at `cd5958b`) | not a publication's own interrupted creation |
 | **N-X1** An active transition slot | the incomplete row | S9.2's transition recovery |
 
@@ -467,7 +508,7 @@ The X9 rows of item 10 cover each rule.
   - X3b's host I/O row no longer arises from RW-P3;
   - `LEDGER.CORRUPT` no longer arises from RW-L1, unless N-L0 applies;
   - `installation-incomplete` no longer arises from RW-T1, RW-T2 or RW-T3.
-  - **(r3)** X4T r11 item 10's host I/O and budget rows are unchanged (X4T:153). N-T2a keeps `HOST.IO_FAILURE`.
+  - **(r3)** X4T item 10's host I/O and budget rows are unchanged (X4T:233; r11's rows, kept in r12). N-T2a keeps `HOST.IO_FAILURE`.
 
   Each row's text, class and exit are unchanged.
 - **Budget.** Each completion is charged to its owner's ledger before it runs, and reserves its post-effect confirmations, as the owner's own step does (X2 item 9; X3C item 9; X4T item 11). Its read of an existing prefix is bounded by the expected length plus one. If the reservation cannot be taken, the request refuses `WORK.BUDGET_EXHAUSTED` before the completion's first effect.
@@ -500,8 +541,8 @@ All of these run on scratch installations with labelled synthetic signed profile
 - **RW-C11, cancellation.** A phase-A signal during each completion ends `interrupted`, and the next request completes the state. CR-5.
 - **RW-C12, budget.** An unreservable completion refuses on the budget row before its first effect.
 - **RW-C13, the record.** Each completion emits exactly one `host.repair.completed`, with no path or identity in it.
-- **RW-C14, trust names.** C-TRUST and C-TDIR create no new name in any trust collection. After a killed C-TRUST, the structural name scan sees only canonical names. A leaf the admitted closure names is never a strict prefix at publication time.
-- **RW-C15, trust directories (r2; r3, JRW-R2-02).** C-TDIR completes each of the three `may_create` directories: the bucket, the predecessor directory, and `trust/objects` on an X4B-a acceptance. The fenced read before it admits exactly today's view. Each neighbour keeps its row today:
+- **RW-C14, trust names.** C-TRUST and C-TDIR create no new name in any trust collection. After a killed C-TRUST, the structural name scan sees only canonical names. A leaf the admitted closure names is never a strict prefix at publication time. **(r4)** That holds on the clocked path too.
+- **RW-C15, trust directories (r2; r3, JRW-R2-02).** C-TDIR completes each of the three `may_create` directories: the bucket, the predecessor directory, and `trust/objects` on an X4B-a acceptance. The fenced read before it ends exactly as today: an admitted view, or **(r4)** X4T r12's clocked refusal. Each neighbour keeps its row today, on either end:
   - N-T2a (a symlink, or a regular file, at the name) keeps `HOST.IO_FAILURE`;
   - N-T2b's opened directories keep `installation-incomplete`;
   - a budget failure at the step keeps `WORK.BUDGET_EXHAUSTED`.
@@ -509,12 +550,30 @@ All of these run on scratch installations with labelled synthetic signed profile
   C-ACL is never applied after a native open failure.
 - **RW-C16, join order (r2).** Before any effect, C-REG refuses each case of N-R2 and N-R9 on its existing row: an exact, zero-length, strict-prefix, ACL-omitted or private marker with N absent. The installation is byte-unchanged afterwards.
 - **RW-C17, the product-SQL census (r3, JRW-R2-01).** This is a code-inspection lint in storage's ordinary test lanes, with no 2³² loop. **Owner:** J4c authors it; X3c's law owner (storage) keeps it. It asserts three things:
-  1. **The DDL.** The six `selected_ddl()` fragments parse to exactly 26 schema statements: 6 tables, 1 explicit index, 19 triggers. That is k.
+  1. **The DDL (r4, JRW-R3-01).** The census enumerates, by kind and name, the `CREATE` statements that `selected_ddl()` actually selects. It asserts exactly 26: 7 tables, 1 explicit index and 18 triggers. That is k.
+     - The expected list is item 3.3's table, with every statement named: the tables `attempt_custody`, `commit_receipts`, `commit_associations`, `evidence_availability`, `commit_run_material`, `active_run_pins` and `pin_change_facts`; the index `availability_latest`; and the 18 named triggers.
+     - A mismatch fails the census. The product DDL is never changed to fit this text.
   2. **No other schema SQL.** No product source under `crates/*/src` issues `VACUUM`, `DROP`, `ALTER`, `ANALYZE`, `REINDEX`, `PRAGMA optimize`, `auto_vacuum`, `incremental_vacuum`, `PRAGMA schema_version=` or `writable_schema`, nor any `CREATE` outside those fragments, on a ledger path. Excluded from the scan: `#[cfg(test)]` modules, `cfg(any(test, feature = …))` test support, and `generated/` code.
   3. **Only defensive openers.** The only production openers of a ledger file are `open_existing` and `write_schema`, and both run `configure_engine` with defensive mode.
 
   A unit that makes any of these fail must re-establish k and L-UNC in its own review (item 3.3, "Keeping k true").
-- **J-C22 (J3d's, answering J1:691).** One host durable request over an RW-R5 fixture ends Committed, with one receipt and an ordinary envelope (`firstUse: false`). One over an N-R2 fixture ends on `identity-recovery-required`, with nothing written.
+- **RW-C18, completion before X4T r12's clocked refusal (r4, JRW-R3-02).** Build each of RW-T1, RW-T2 and RW-T3 in an authenticated store where S4 proposes a floor advance and `EV-CLOCK` at tEval refuses, for example `core:expired` or `core:stale-revocation`. In each case:
+  - the completion runs and the floor publication confirms, and the owner advances (X4T:171, :173);
+  - the read then returns X4T r12's clocked continuation refusal, unchanged: request-rejected, exit 2, `CONTINUE-CORE-NOT-TRUSTED`, with its role subject (X4T:218-221);
+  - no view is returned, and no lease, X3b floor step, carrier start or later operation effect follows (X4T:205);
+  - a second fenced read refuses again at tEval′ ≥ tEval (X4T:174).
+
+  This mirrors the integrated X4-F2 test `a_clocked_refusal_comes_after_its_confirmed_write_ahead_and_is_sticky` (`floor_publication_tests.rs:801-852` at `d2c00a9`), which was inspected, not run.
+- **RW-C19, the clocked path's failures and its effect-free reads (r4, JRW-R3-02).** On the same clocked route, each failure keeps its own row, which `publish` returns before `into_view` (`floor_publication.rs:993`):
+  - N-T2a, a symlink or non-directory at a parent name: `HOST.IO_FAILURE`;
+  - N-T2b, a failed custody judgment: `installation-incomplete`;
+  - N-T1, a non-prefix leaf: `installation-incomplete`;
+  - an unreservable step: `WORK.BUDGET_EXHAUSTED`.
+
+  None of them becomes the clocked refusal, and none completes anything. Two kinds of read stay effect-free, writing nothing and completing nothing (X4T:172):
+  - a refusal raised before time is admitted: items 2 to 5, the stored-state join, and S4's steps 1 to 4;
+  - a report-only read over the same store.
+- **J-C22 (J3d's, answering J1:691). One host durable request over an RW-R5 fixture ends Committed, with one receipt and an ordinary envelope (`firstUse: false`). One over an N-R2 fixture ends on `identity-recovery-required`, with nothing written.
 
 ### 10. X9 r17 rows (record)
 
@@ -603,7 +662,7 @@ Each is reviewed on its own, with an inventory successor numbered at build time 
 | **J4a** | **The shared primitives:** C-ACL over P-ACL in `security::private_access`, used through `store_custody`, and C-SUFFIX over P-PREFIX. **Their X3c and X3b uses:** the store directories (RW-P1), the length-0 ledger file (RW-P2), and `trust/carrier-floors/` (RW-P3). Also the typed completion result these uses return, and `host.repair.completed` once O1 has landed (item 7). Tests RW-C1, C2, C3, C6, C7, C10 and C12 for these states. | J-RW, RW-S3, RW-S4 | M |
 | **J4b** | **Registration.** `project_admission`'s marker observation and the join classification, on the write gate only. `first_registration`'s C-REG (item 3.4), steps 3 to 6 from the found state, with the join decided before any effect. Tests RW-C1 to C4, RW-C8 and RW-C16 for RW-R1 to RW-R7 and N-R1 to N-R9. | J4a, RW-S1, RW-S2 | M |
 | **J4c** | **The ledger.** L-UNC with its schema cookie, and C-LEDGER, in `project_ledger`, with disposition `Completed`. Tests RW-C5 (the pins and negative fixtures, first), RW-C9 and **(r3)** RW-C17 (the product-SQL census for k). **(r2)** It needs nothing from J4a: it reports through its owner's own `LedgerDisposition`. Under item 3.3's fallback, J4c lands only RW-C5's negative controls. | J-RW, RW-S3 | S |
-| **J4d** | **Trust.** RW-T1 and RW-T2 at `write_dependency`. **(r2)** RW-T3's C-TDIR at `parent_dir`, with the X4B-a acceptance-path directories. Tests RW-C14 and RW-C15. | J4a, RW-S5 | S |
+| **J4d** | **Trust.** RW-T1 and RW-T2 at `write_dependency`. **(r2)** RW-T3's C-TDIR at `parent_dir`, with the X4B-a acceptance-path directories. Tests RW-C14, RW-C15 and **(r4)** RW-C18 and RW-C19, the clocked path. | J4a, RW-S5 | S |
 | **J4e** | **The rows.** X9 r17's section: RW-F00, RW-D1, RW-K1 to K10, RW-N1 to N12 and RW-B, transcribed; J4's census; the checker's limit list, conditionally (item 10); release absence for the `.repair` scope names. It joins every unit's typed completion result. Then **one serialized lead set** on both targets (item 10). | J4a to J4d, RW-S6 | the lead set |
 
 - **Size.** M + M + S + S, plus the lead set. That is P5-1's "L plus one serialized lead set" (M3P:574). C-TDIR reuses J4a's C-ACL at one more step.
@@ -621,10 +680,10 @@ Each is reviewed on its own, with an inventory successor numbered at build time 
 | RW-S2 | **Registry owner selection v3** (record) | the registry owner (security) | J-RW is the operation owner that authorizes ordinary, random-kind reservation completion (REG:9, :74). Completing a strict-prefix marker in place is the reservation's own interrupted step, not an overwrite (REG:60). **(r2)** It is lawful only with the complete namespace present; REG:76's order covers every present-marker form, not only the exact one. Adoption, move and abandonment are unchanged. | J4b |
 | RW-S3 | **X3c r9**, on X3c r8's accepted bytes (X3C:356) | storage | Item 1: C-ACL for the store directories. Item 2: the length-0 ACL-omitted file and **(r2)** L-UNC become resumable creation states, with L-UNC's schema-cookie clause, **(r3)** its bound k = 26 and its threat model as item 3.3 states them. **(r3)** A new forbidden substitute: schema-changing SQL on a ledger path, or a non-defensive ledger connection, without re-establishing k and L-UNC (RW-C17). Item 10: `LEDGER.CORRUPT` narrowed. The forbidden substitute "adopting a partial or schema-less ledger" (X3C:362) excludes L-UNC. Also item 12a's tests and item 13's units (J4a, J4c). r8's CL-3 constraint is kept (X3C:355). | J4a, J4c |
 | RW-S4 | **X3b r11** | security, journal | Item 2: C-ACL for `trust/carrier-floors/` under the fence (X3B:52). Item 12: unit J4a. | J4a |
-| RW-S5 | **X4T r12**, plus a record note in **X4B r6** (shared with J1's S6, J1:726) | trust | X4T item 7's dependency rule gains:<br>- "complete a strict-prefix leaf at a name this publication writes" (item 3.5);<br>- **(r2)** "complete a `may_create` parent directory left without its allow" (item 3.6).<br>X4T item 10's incomplete row is narrowed. X4T items 12 and 13 gain the tests and unit J4d. X4B r6 records that the shared protocol completes such a leaf and such a directory, and deletes nothing (X4B:125-130). | J4d |
+| RW-S5 | **(r4) X4T r13, the next X4T successor after the accepted r12,** plus a record note in **X4B r6** (shared with J1's S6, J1:726) | trust | **(r4)** It retains r12's clock and write-ahead rules unchanged: item 6's `EV-CLOCK`; item 7's write-ahead before a clocked refusal; item 9's refusal before every lease (X4T:170-175, :205). It records that C-TRUST and C-TDIR run on both ends of the read (item 2). X4T item 7's dependency rule gains:<br>- "complete a strict-prefix leaf at a name this publication writes" (item 3.5);<br>- **(r2)** "complete a `may_create` parent directory left without its allow" (item 3.6).<br>X4T item 10's incomplete row is narrowed. X4T items 12 and 13 gain the tests and unit J4d. X4B r6 records that the shared protocol completes such a leaf and such a directory, and deletes nothing (X4B:125-130). | J4d |
 | RW-S6 | **X9 r17** (record and rows), shared with J1's S12 (J1:733) and X3c r8's RC section (X3C:354), as J-RW's own section | lead | item 10 | J4e |
-| RW-S7 | **M3-PLAN's next revision** (record) | lead | P5-1's owner list gains X3b and REG. J4's sub-units J4a to J4e. J-RW's cross-law items. | — |
-| RW-S8 | **J1's next revision** (record) | lead | Item 11's recommendation is replaced by this law's decisions. Its "`repair recover` command is M5 (BP:973)" is corrected (item 14). J-C22 is defined in item 9. | — |
+| RW-S7 | **M3-PLAN's next revision** (record) | lead | P5-1's owner list gains X3b and REG. J4's sub-units J4a to J4e. J-RW's cross-law items. **(r4, record)** The owner list has landed: M3-PLAN r7 names "the X2, X3c, X4T, X3b and registry owners", accepted and current at r9 (`m3/M3-PLAN-r9.md:284`, `72bc7a13…`). | — |
+| RW-S8 | **J1's next revision** (record) | lead | Item 11's recommendation is replaced by this law's decisions. Its "`repair recover` command is M5 (BP:973)" is corrected (item 14). J-C22 is defined in item 9. **(r4, record)** The correction has landed in J1 r4 and is carried in the accepted r5 (`m3/host-pipeline-j/PROPOSAL-r5.md:815`, `4ccb2320…`). Replacing item 11's recommendation is still owed. | — |
 
 **Not successors:**
 - L465. Its item 5 is the precedent C-ACL extends, by successors RW-S3, RW-S4 and RW-S5. 465's own creator rules are unchanged.
@@ -643,9 +702,10 @@ Each is reviewed on its own, with an inventory successor numbered at build time 
 - **X-RW-3. The schema-less ledger (X3C:85, :216, :362). Law that must change: X3c (RW-S3).**
   - X3c item 2 treats only a length-0 file as "creation not begun", while X3b item 3a already reuses an empty database (X3B:86). r8 left item 2 unchanged (X3C:45, :357).
   - RW-S3 aligns X3c with X3b under L-UNC, which r2 makes stricter than X3b's rule by the schema cookie.
-- **X-RW-4. The dependency rule (X4T:102; `floor_publication.rs:455-458`). Laws that must change: X4T (RW-S5), with an X4B record.**
+- **X-RW-4. The dependency rule (X4T:169; `floor_publication.rs:455-458`). Laws that must change: X4T (RW-S5), with an X4B record.**
   - X4B:125 rejects "writing records in place". That bullet concerns publishing new trust state by updating existing records. A strict-prefix completion changes no record's content. Codex found that X4T/X4B successors can authorize it without editing an admitted record (Codex r1 review, request item 3).
   - **(r2)** The parent-directory completion, C-TDIR, joins the same successor.
+  - **(r4)** That successor is X4T r13, after the accepted r12 (RW-S5).
 - **X-RW-5. Leftovers (X2:256, :421, :433; `first_registration.rs:18-21`). Law that must change: X2 (RW-S1).**
 - **X-RW-6. L465 item 5's reach.** It was an owner decision for `OpenSIP` alone (L465:19). C-ACL applies the same rule, a lead decision, to more names in X3c, X3b, X2 and X4T:
   - nine fixed names;
@@ -668,6 +728,10 @@ Each is reviewed on its own, with an inventory successor numbered at build time 
   4. **Matrix.** X3c r8's `RC-` section and J-RW's `RW-` section of X9 r17 are independent (X3C:354). Whichever of X3c-3 and J4 integrates second reruns both (X3C:261). J4's code does not depend on X3c-3.
 - **X-RW-10. X9 r17 is shared.** J1's `S12-` rows, X3c r8's `RC-` rows and J-RW's `RW-` rows are separate sections of one record revision. Each section's rows are transcribed when its unit is ready. **Law that must change:** X9 (RW-S6).
 - **X-RW-11. OWN:119** ("Present I missing … required trust dependency → no inferred pristine creation, reset or repair"). **No conflict.** C-TRUST and C-TDIR complete only a leaf or directory that the admitted closure does not name, so neither is a required dependency.
+- **X-RW-13 (r4). X4T r12 and X4-F2, the clocked write-ahead (X4T:170-175, :205). No conflict, after r4's composition.** Accepted X4T r12 runs the mandatory floor write-ahead before a clocked continuation refusal, and integrated X4-F2 implements it (`floor_publication.rs:977-995` at `d2c00a9`).
+  - **J-RW r3 assumed** that every publication follows an admitted view.
+  - **r4 authorizes** C-TRUST and C-TDIR on that publication too (item 2, LD-16). The refusal that follows is unchanged, so X4T r12 needs no change.
+  - **RW-S5's text** goes to the next X4T successor, r13, and keeps r12's clock and write-ahead rules.
 - **X-RW-12 (r2). X9 r16's own note on directory occurrences** (X9:146-153: "A directory occurrence is not in X9-2's kill set at this census … A later census that puts one there transcribes it by the same reference, under X4T's parent-directory step"). **No conflict.** RW-D1 and RW-K10 name the directory occurrence explicitly, and C-TDIR is that parent-directory step's completion.
 
 ### 14. Record corrections (record only)
@@ -689,6 +753,12 @@ Each is reviewed on its own, with an inventory successor numbered at build time 
 - Changing classification or rows on any path other than item 3.4's step.
 - A new public code, class, exit, detail, subject, envelope member or remedy text. A new CLI word, flag or library entry for repair. Using logs or crash records as recovery input.
 - A completion effect outside a `.repair` scope during a matrix run. A matrix expectation read back from a run. Retiring L11 before item 10's evidence holds.
+- **(r4) On X4T r12's clocked path:**
+  - completing anything but the mandatory write-ahead publication on the authenticated closure and pending write;
+  - returning anything but X4T r12's unchanged clocked refusal after such a completion;
+  - treating that refusal as a view, or granting a lease or later effect after it;
+  - completing on a read refused before time admission, or on a report-only read;
+  - a successful-view gate that leaves a repairable OpenSIP-owned leaf or directory blocking the mandatory write-ahead.
 
 ## Lead decisions
 
@@ -710,6 +780,7 @@ Each is dated 2026-10-04 and made under the owner's standing direction. The owne
 | **LD-12** | P5-1's owner list gains X3b and REG | leaving RW-P3 (installation-wide) and REG's authorization unowned | 1, 13 |
 | **LD-13 (r2)** | The join requires a positively absent marker whenever N is absent, decided before any effect | r1's join, which admitted a non-exact marker with N absent | 3.4 |
 | **LD-14 (r2)** | C-TDIR completes a `may_create` trust directory at `parent_dir` | a residual L11 limit for it; completing any parent directory; renaming it aside | 3.6 |
+| **LD-16 (r4)** | C-TRUST and C-TDIR are authorized on X4T r12's clocked path. They rest on the authenticated closure and the pending write the admission carries, and the unchanged clocked refusal follows them. | **a successful-view gate**, which would leave repairable, OpenSIP-owned objects blocking the mandatory write-ahead X4T r12 requires before that refusal (JRW-R3-02) | 2, 3.5, 3.6 |
 | **LD-15 (r3)** | N-T2 is split at the existing failure boundary. A native open failure keeps `HOST.IO_FAILURE`, a failed custody judgment keeps `installation-incomplete`, and C-ACL runs only on a retained, opened directory. | one row for every directory-shaped failure, which would change an existing public row (JRW-R2-02) | 3.6, 5 |
 
 ## Open questions
@@ -724,10 +795,14 @@ Each is dated 2026-10-04 and made under the owner's standing direction. The owne
    - X4T dependency leaves.
 3. **LD-4 and LD-5.** An interrupted trust record and an interrupted ledger creation are completed in place, never replaced or deleted.
 
-**For the reviewer (r3):**
+**For the reviewer (r4):**
+- **R10 (r4).** Is the 7/1/18 breakdown now correct everywhere, with k = 26, RW-C5 and the fallback unchanged? Does RW-C17 enumerate the selected statements by name?
+- **R11 (r4).** Does item 2's clocked-path authorization compose with X4T r12 exactly (X4T:170-175, :205; `floor_publication.rs:961-1000` and `current_trust_admission.rs:243-289`, `:1113-1125` at `d2c00a9`)? That means completion on the authenticated closure and pending write; then the unchanged clocked refusal at the same precedence; no view and no lease. Are the earlier refusals and report-only reads still effect-free? Do RW-C18 and RW-C19 cover the route?
+
+**For the reviewer (r3, answered in r3's review):**
 - **R1 (closed in r2).** IE needs no passage successor (X-RW-1).
 - **R2 (r3).** Is the guarantee now stated exactly? It is scoped to OpenSIP's writers by the bound k = 26, with foreign SQL writers, wraparound and forgery under "Not established". Is k established by item 3.3's five steps and the bundled engine's source? Do RW-C5's pin of 26 and RW-C17's census, with its owner, keep k true? Are the stop rule and fallback unchanged?
-- **R9 (r3).** Does the N-T2a/N-T2b split leave every existing row unchanged (X4T:141, :153)? Does C-TDIR run only on a retained, opened directory?
+- **R9 (r3).** Does the N-T2a/N-T2b split leave every existing row unchanged (X4T:216, :233)? Does C-TDIR run only on a retained, opened directory?
 - **R3.** Is C-SUFFIX on a trust leaf consistent with X4T item 7, X4B:125 and X4B:130, and OWN §6 (X-RW-4, X-RW-11)? Is item 3.5's argument that the leaf cannot be referenced sound?
 - **R4.** Is C-ACL a lawful generalization of L465 item 5 to non-creator owners under the writer lease and the fence (X-RW-6)? Is P-ACL's clause 4 (empty) the right bound?
 - **R5.** Does C-REG's join, now closed by clause 3, meet REG:70-76 exactly, and is every non-join combination in item 5 with its actual row?
@@ -742,4 +817,4 @@ Each is dated 2026-10-04 and made under the owner's standing direction. The owne
 - No recovery of power-loss variants (L1), migrations (L5), orphans (L6), `admitted` attempts, undetermined commits, quarantines, adopt-kind reservations, or moved or re-cloned roots.
 - No defence against a same-uid actor who writes a ledger outside OpenSIP: by raw bytes, through a non-defensive connection, or with 2³² − k or more schema changes by ordinary SQL (item 3.3's threat model).
 - No deletion or cleanup of stages, temporary files or unreferenced trust leaves.
-- J-RW r3 was written from the product at `cd5958b` and the snapshots named above. Every cited product line is the same at `3e64266`, `e093e90` and `0ceb9ad`, except `current_trust_admission.rs`, which r3 cites at `cd5958b` only.
+- J-RW r4 was written from the product at `d2c00a9` and the snapshots named above. r4's X4-F2 cites (`floor_publication.rs:938-1001`, `current_trust_admission.rs:243-289`, `:1113-1125`, `floor_publication_tests.rs:801-852`) hold at `d2c00a9` only. Every other cited product line is the same at `cd5958b` and `d2c00a9`.

@@ -664,3 +664,7 @@ Times are local.
   - **X9 r17's RC section,** for Grok, which X3c-3 needs before its code. **Lead decision:** X9 r17 is accepted section by section. §RC goes now, while §S12 (J1) and §RW (J-RW) are reserved headings filled in later rounds of the same r17. **Rejected:**
     - r17, r18 and r19 as separate revisions, which would make the "X9 r17" citations in four laws stale;
     - waiting for all three sections, which blocks X3c-3 on J-RW and J3b.
+- **J-RW r4 written and sent to Codex.** Both r3 findings are fixed:
+  - **JRW-R3-01:** the DDL split is 7 tables, 1 index and 18 triggers, and RW-C17 enumerates what `selected_ddl()` actually selects.
+  - **JRW-R3-02, LD-16:** C-TRUST and C-TDIR also run before X4T r12's clocked refusal, on the closure and the pending write the publication itself uses. Two new controls follow, RW-C18 and RW-C19. RW-S5 now targets X4T r13.
+  - **Pin fix before sending:** J-RW pinned X1's live file, which S2–S6's drafter is about to amend. X1 r1's bytes are now snapshotted as `PROPOSAL-r1.md`, and J-RW cites that.
