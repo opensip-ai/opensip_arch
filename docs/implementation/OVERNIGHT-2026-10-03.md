@@ -775,3 +775,8 @@ Times are local.
 - **E2a accepted by GROK2** (ACCEPT-UNIT; inventory v138 ACCEPT), with no findings. **It integrates right after J2a,** because v138's parent is J2a's v137, which is still in review with Grok. E1 r5 follows: it records the four E2a rulings, NB-MC8-1 and E0's items.
 - **J1 r6 accepted by Codex,** with no findings and no observations. Row 57, row 58 (the syntax backend fault), E-3's no-detail form and the SD-8 ruling are now recorded in J1.
 - **X5 r4 (J1's S8) and X9 r17 round 2 (§S12, plus X4 r8's `latch.after` record note) drafting started,** for Grok. They are J3b's last law prerequisites.
+- **ENUM-1 and SD-8 written and sent to CODEX2.** Each passes `verify_design` alone and together: 101 successors and 5 supersessions.
+  - **ENUM-1:** 11 plain overrides across the enumeration and execution-inputs contracts, their schema copies and the composition contract. A required cell may carry the unselected binding only when the closure its mode needs is not admitted, with `provider-unavailable` and a null cause.
+    - **The fix needed a second part,** confirmed as lead decision LD-5. Default `clones-near` would otherwise refuse every such Plan at `EXECUTION_INPUTS_CANDIDATE_REQUIRED`.
+  - **SD-8:** a supersession of SD-7's NE:3540 override that drops the detail on every ephemeral request, per §7.4 (LD-S8-2, confirmed).
+  - **Effect:** no code changes. C4a and J2c lift the product's refusals when they land.
