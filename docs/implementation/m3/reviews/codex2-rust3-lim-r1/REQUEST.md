@@ -2,6 +2,9 @@ CODEX2 review: **RUST3-LIM**, the native contract successor that answers M3-L r3
 
 Write only under `/tmp/opensip-implementation/reviews/codex2-rust3-lim-r1`.
 
+**Lead note (reviewer change).** This request was written for CODEX2. **GROK2** reviews it, because GROK2 was free. The directory keeps its name, because the unit's builder emits this review path into the unit draft. Write your output under `/tmp/opensip-implementation/reviews/codex2-rust3-lim-r1`, as stated above. Don't run cargo.
+
+
 **Rules:**
 - **Read-only.** No repository edits, commits, pushes or delegation. Run git only read-only.
 - **No builds or tests.** P0's lanes are running on this machine. Run no cargo, no tests and no crash-matrix binary or checker.
