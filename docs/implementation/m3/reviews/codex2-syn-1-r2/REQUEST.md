@@ -17,7 +17,7 @@ The pins are in `hashes.txt`. The SYN-1 files are still untracked in arch until 
 - **Its 12 members** are r1's eleven plus one new evidence file, `syn-1/evidence/key-forms.json`.
 - **Not part of the subject:** `syn-1-unit.json`, the lead's DRAFT-PENDING-REVIEW record. It now carries the r2 pins and the review path `docs/implementation/m3/reviews/codex2-syn-1-r2/review.json`.
 
-**Product.** Main is `cd5958b` (`cd5958b3608f44a0035566c9d4500e5005c62e91`), read-only, with 82 contract successors. r2 is built and checked against `design-lock.json@cd5958b`, read with `git show`, as r1 was.
+**Product.** Main is now `392499e` (`392499e3a42ab9f45d517b8c267a83031abf3863`), read-only, with 83 contract successors: CRC-1 r4 was bound on top of `cd5958b`, and that commit changes only `design-lock.json`. r2's record is built against `design-lock.json@cd5958b`, as r1 was; its generated members record that base. Nothing SYN-1 reads changed at `392499e`: CRC-1 binds no NE, NES or PNES selector, and the product native source is unchanged. So the subject stands, the build check still reads `cd5958b`, and the scratch verify runs on `392499e`.
 
 **Law.** `docs/implementation/m3/syntax-e/PROPOSAL-r3.md` (`d71031ff…`), M3-E1 r3. This unit is still item 19's SYN-1 row, parts (a) to (f). E0 chose T-native (`E0-REPORT.md`, `c1011e83…`).
 
@@ -79,9 +79,9 @@ Use `/opt/homebrew/Cellar/python@3.14/3.14.6/bin/python3.14 -I -B` at `nice -n 1
 1. **Build check.** `syn-1/evidence/build_syn_1.py --check`.
 2. **Content checks.** `syn-1/evidence/check_syn_1.py --product /Users/sb/code/opensip-ai/opensip`, without `--write`.
 3. **verify_design.** `syn-1/evidence/verify_scratch.py`:
-   - `--rev cd5958b` binds SYN-1 alone, 82 → 83;
-   - `--rev cd5958b --chain` binds SYN-1, CRC-1 r3 (`01a995b9…`, which SYN-1F needs first), SYN-1F and SYN-NS, 82 → 86;
-   - `--rev 15c0779` binds, 81 → 82;
+   - `--rev 392499e` binds SYN-1 alone, 83 → 84;
+   - `--rev 392499e --chain` binds SYN-1, SYN-1F and SYN-NS, 83 → 86 (CRC-1 r4 is bound, so it is not appended);
+   - `--rev cd5958b` binds, 82 → 83 (the build base);
    - without `--rev`, on the checkout, it also verifies the 40 generation and 48 admission sources.
 
 The lead ran each of these, and each passed. The builds were byte-identical across two `--check` runs.
@@ -97,4 +97,4 @@ Write REVIEW.md and review.json. review.json must contain:
 
 This is a contract successor, so it has no `inventoryCandidateAssessment`.
 
-SYN-1F binds with this unit; its request is `codex2-syn-1f-r1`, and it waits for CRC-1. SYN-NS (`codex2-syn-ns-r1`) is queued after this. Neither unit's subject changed with r2. Do not commit.
+SYN-1F binds with this unit; its request is `codex2-syn-1f-r1`, rebuilt on the bound CRC-1 r4. SYN-NS (`codex2-syn-ns-r1`) is queued after this. Neither unit's subject changed with r2. Do not commit.

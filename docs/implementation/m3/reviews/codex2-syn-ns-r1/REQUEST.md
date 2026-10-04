@@ -25,7 +25,7 @@ The pins are in `hashes.txt`. Every file is untracked in arch until acceptance.
   - `evidence/spec_syn_ns.py` (the documents as data), `build_syn_ns.py`, `check_syn_ns.py`, `verify_scratch.py` and `kinds-report.json`.
 - **Not part of the subject:** `syn-ns-unit.json`, the lead's DRAFT-PENDING-REVIEW record.
 
-**Product.** Main is `cd5958b`, read-only, with 82 contract successors. SYN-NS changes no product byte. E2a places the bytes in the grammar closure, and E2c implements them.
+**Product.** Main is `392499e` (`392499e3a42ab9f45d517b8c267a83031abf3863`), read-only, with 83 contract successors: CRC-1 r4 was bound on top of `cd5958b`, a lock-only commit. The record is built against `design-lock.json@cd5958b`, and its generated `materialization-map.json` records that base. Every parent is accepted and unchanged at `392499e`: CRC-1 binds IE lines 285 and 1377, which SYN-NS names as a parent but does not override. So the subject stands, and the scratch verify runs on `392499e`. SYN-NS changes no product byte. E2a places the bytes in the grammar closure, and E2c implements them.
 
 **Law and grammars.**
 - **Law:** `docs/implementation/m3/syntax-e/PROPOSAL-r3.md` (`d71031ff…`). This unit is item 19's SYN-NS row (E1:693), and it fixes items 13 and 14.
@@ -99,7 +99,7 @@ Use `/opt/homebrew/Cellar/python@3.14/3.14.6/bin/python3.14 -I -B` at `nice -n 1
    - compares the parameters with NE §6.2;
    - compares its report with `kinds-report.json`. Leave out `--write`.
 3. **Build check.** `syn-ns/evidence/build_syn_ns.py --check`.
-4. **verify_design.** `syn-ns/evidence/verify_scratch.py --rev cd5958b` binds, 82 → 83. `--chain` appends SYN-1, CRC-1, SYN-1F and SYN-NS, 82 → 86.
+4. **verify_design.** `syn-ns/evidence/verify_scratch.py --rev 392499e` binds, 83 → 84. `--chain` appends SYN-1, SYN-1F and SYN-NS, 83 → 86 (CRC-1 r4 is bound). `--rev cd5958b`, the build base, binds 82 → 83.
 
 The lead ran each of these, and each passed. The lead also ran negative probes, and the checker refused:
 - a wrong kind;
