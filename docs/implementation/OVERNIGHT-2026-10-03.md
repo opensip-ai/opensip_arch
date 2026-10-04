@@ -307,3 +307,9 @@ Times are local.
   - **Lead decisions:**
     - **X-H3 goes to M3-C r8 and CRC-2,** before C4a. CRC-1 carries C's law and doesn't amend it.
     - **CR-1 LD-3:** the four roles other than `analyzer` (`toolchain`, `stdlib`, `rust-dev-llvm`, `grammar`) are closure-only. They have no capabilities or permissions, and their entrypoint is never executed.
+- **M3-H r3 written,** queued for Grok after L r3.
+  - **One routing authority:** item 14.4, with keys matched by their prefix token.
+  - **Rows:** anchors take row 30. The prerequisite and totality keys take row 32 (lead decision: they refuse a false `complete` or a wrong cause). `COVERAGE_PRODUCER_ADMISSION` takes row 32 if any row-32 cause is joined, otherwise row 30.
+  - **Origin:** a provider's terminal Coverage counts as provider-return origin.
+  - **New control:** H-C25.
+  - **Successor label:** the lead renamed X-H3's successor to "M3-C r8 / CRC-2", to match CRC-1's routing.
