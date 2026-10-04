@@ -256,3 +256,6 @@ Times are local.
 - **E0 phase 2 started** on the now-quiet machine, with the lead's rulings on the probe's ambiguities.
 - **M3-C r7 accepted in review by CODEX2,** with no findings. It narrows row 8 to manifests admitted at R10a, and takes effect once L is accepted. The live J1 file now carries its r4 acceptance note.
 - **B-S9 accepted by Grok** (ACCEPT-DESIGN-UNIT, no findings) **and bound** at product main `8adfe0c`, giving 81 contract successors. All of M3-B's design units (B-S1, B-S2, B-S9) are now bound. B1-a, B2-a, B3-b, C1a and C1b are unblocked on their successors and wait for P0 and L.
+- **X4-F1 accepted by GROK2 and integrated** at product main `15c0779`, on top of the binding commits. The integrated diff is byte-identical to the reviewed subject (`63eef2ab…`), and `verify_design` passes. M2's known defect X4 F-1 is fixed: observer rereads now evaluate expiry at the handoff instant plus elapsed monotonic time.
+  - **Lead decision:** no full two-target matrix run at integration. The rows the change can move were rerun and match X9-6 byte for byte, and no crate reads `design-lock.json`, the only other delta from the tested base. A confirmation workspace lane on `15c0779` runs after E0 frees the machine.
+  - **GROK2's rulings:** the evaluation instant is tEval + elapsed, not max(T, F′). The fenced read's own `EV-CLOCK` is outside this unit.
