@@ -68,3 +68,9 @@ Times are local.
 - **F8a accepted by Codex and merged.** Product main is now `3e64266`. Both dependency checks pass again.
 - **F8b proposal r1:** CODEX2 raised 1 finding. The comparison against rebuild-01 needs a separate equivalence probe, because the selected pipeline refuses any other executable. Sent back for r2.
 - **Started drafting M3-B** (configuration and discovery, including the X2 successor for D15 multi-repo workspaces; for GROK2) **and M3-C** (sealed snapshot and Plan; for CODEX2).
+- **M2 crash matrix: `matrixPass: true` on clean commit C (`3d2d5b5`).**
+  - **Lead sets:** both pass all 479 runs; storage took 1959 s and 1921 s, host 811 s and 801 s.
+  - **Kill set:** all 383 union kill-set points are killed, and the two repetitions agree.
+  - **Release absence:** byte-identical to the earlier records.
+  - **Evidence record:** committed at arch `5c703071d` (`crash-matrix-x9/evidence/3d2d5b5…/`; 490 files, 23 MB).
+  - **Next:** Grok's rerun on C (r2, sent). When it agrees, M2's crash/lock/revocation matrix gate is met.
