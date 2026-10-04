@@ -202,3 +202,12 @@ Times are local.
   - **X-H3:** inventory records in TS and Rust universes have no lawful producer closure. This goes to C's next revision and CRC-1.
   - **X-H4:** M3-L's no-host-minted-facts rule needs an exception for syntax and inventory facts.
   - **X-H5 and X-H6:** the inventory unit owner, and a typed refusal for the scope bound.
+- **I1-L and I1-P written.** These are the preview pack's contract successors. I1-L is with CODEX2 and I1-P follows it. The reference model passes 41 cases and 5 op-law refusals. I1-P's digests, recomputed with the design encoder, equal the law's provisional values.
+  - **Lead decision LD-L1:** the four JSON schema changes ship as complete successor copies, carrying their parents' bound overrides, as 468a did. They are not passage overrides, because `verify_design` refuses line selectors on JSON and a pointer override can't append to an enum.
+  - **Record items for I1's next revision:**
+    - the anchor imprecisions;
+    - five more passages that enumerate the closed op set;
+    - WS's selected effective copy;
+    - item 2.3 and 2.5 choices that fix proof bytes, which I1-L's precisions P0–P7 settle;
+    - I1-a's `verify_design` needs: a 468a-form record, re-pointed source maps, and the moved line references.
+- **Plan for X-H1:** FA-2 (the provider symbol-census carrier) and M3-L r3 are drafted together once Grok's L r2 verdict is in, so that one L revision answers both.
