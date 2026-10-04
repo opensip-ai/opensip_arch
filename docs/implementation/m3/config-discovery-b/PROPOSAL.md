@@ -7,7 +7,7 @@
 - **B2, discovery:** the S3 boundary (SL:105-332), NE §1.4 U-0 to U-9 (NE:619-948), FW-01 (COV:7852) and the host side of framework recognition (NE:2750-2777).
 - **B3, multi-repository workspaces:** owner decision D15 (AQP:556), with the X2 successor it needs (M3P:160, M3P:374).
 
-**Draft r3, not accepted. Not code.** Product code waits for M3-P0 (M3P:159) and M3-L's acceptance (M3P:187). Every item below is a lead decision made under the owner's standing direction to proceed on the lead's recommendation. Each names the alternatives it rejects. Item 27 lists the one owner question and the points the reviewer should test hardest.
+**r4, accepted (see the note above). Not code.** Product code waits for M3-P0 (M3P:159) and M3-L's acceptance (M3P:187). Every item below is a lead decision made under the owner's standing direction to proceed on the lead's recommendation. Each names the alternatives it rejects. Item 27 lists the one owner question and the points the reviewer should test hardest.
 
 r2 answers GROK2's r1 review (`/tmp/opensip-implementation/reviews/grok2-config-discovery-b-r1/`, copied to `docs/implementation/m3/reviews/grok2-config-discovery-b-r1/`): two required findings and two non-blocking observations. GROK2 confirmed R1 to R7 apart from those findings. The r1 bytes are preserved as `PROPOSAL-r1.md` (sha256 `da014f54…`, 85,905 bytes).
 
@@ -408,7 +408,7 @@ The instrument's obligations:
 | Native custody (SL:313-315) | ACL reads, reuse of the O_NOFOLLOW handle, and the `st_dev`/`st_ino` re-check |
 | Backup custody before the first source-derived write (SL:317-331) | the admission function is in `grants.rs` (item 23). J3 calls it at the first source-derived write. Law 464's constant-UNKNOWN classifier admits with `unknown-disclosed` |
 
-**Output.** The closed `DiscoveryProvenanceV2` (SLS `schemas.DiscoveryProvenanceV2`), or V3 under D15.
+**Output.** The closed `DiscoveryProvenanceV3` (SLS `schemas.DiscoveryProvenanceV3`) for every project (B-S1 LD-4).
 
 **Basis.** SL:105-332; COV:6702-6716.
 
