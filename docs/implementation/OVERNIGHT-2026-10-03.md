@@ -348,3 +348,8 @@ Times are local.
   - the CR-T4 symlink rule is scoped or aligned.
 
   **Rejected:** an "inert tree" reading, which leaves a claim-shaped object at every consumer. SYN-1 now goes to CODEX2.
+- **M3-L r4 and FA-2 r2 written.**
+  - **L r4:** item 13's wire-identity ceiling is now derived mechanically from the cited schemas: 51 payload rows and 235 identity-bearing member paths. New control L-C1 re-derives the list and fails on any difference.
+  - **Delta rounds:** any FA-2 change that touches a wire member, a commitment, the admission point or reuse reopens L, and none of FA-2's §0 rows is exempt.
+  - **FA-2 r2:** applies Codex's exact text for both scoping fixes. Only three members changed.
+  - **Review:** FA-2 r2 goes to Codex now; L r4 goes to Grok after CRC-1 r2.

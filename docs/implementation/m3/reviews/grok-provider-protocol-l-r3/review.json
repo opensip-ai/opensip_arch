@@ -1,0 +1,61 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectSha256": "6df524a46461b9be784427d48bc821ee05b91c0f6d74d91596567a98c3e20971",
+  "actualModel": "Grok",
+  "realOpenSipAbsent": true,
+  "requiredFindings": [
+    {
+      "id": "RF-1",
+      "location": "PROPOSAL.md:547, :554-557, :563-566, :570 and :594 (item 13 later members and the ceiling)",
+      "problem": "The handshake and OpenUniverse inventory closes r2 RF-1, and the later-member ceiling does not match the payloads it cites. The item says it names every identity-bearing member exactly and forbids any identity beyond the list. It attributes subjectScopeCommitment to FactCandidateV1, which has no such field. It omits stageId on Analyze stage requests and on FactBatch and Coverage wrappers, omits Rust Analyze subjectId, and omits factId on fact-ref anchors. It says every custody frame carries snapshotId, dependencySourceSetId and the prepared set's id, while those ids sit on different frame families. Cancel, Cancelled and ProviderFaultV2 are described as echoing executionId, and those payloads also require analysisOrdinal.",
+      "evidence": "FactCandidateV1 required fields are DLV:770-787 and include sourceUniverseId, targetUniverseId, producer and producerVersion, and no subjectScopeCommitment. CoverageKeyV1 requires subjectScopeCommitment (DLV:804-817). AnchorRefV1 requires snapshotId and factId (DLV:760-766). AnalyzeV1 requires stageRequests (DLV:854); StageRequestV1 requires stageId (DLV:715-727). Rust AnalyzeV2 requires analysisOrdinal, executionId, snapshotId, planId and stages, with no universeKey (RPP:405-409). subjectsAlgorithm emits subjectId (RPP:226-231). DependencySourceManifest, Chunk and Seal carry dependencySourceSetId and no snapshotId (NE:2876-2878). Snapshot payloads carry snapshotId (RPP:357-379). Prepared payloads carry planId (RPP:381-403). CancelV1 requires executionId and analysisOrdinal (DLV:860). CancelV2, CancelledV2 and ProviderFaultV2 require executionId and analysisOrdinal, and ProviderFaultV2 also requires phase (RPP:441-457). Hello and HelloAck required members match the handshake schema, and the four OpenUniverse payloads match NE:3166-3189. RequestId is absent from both OpenUniverse payloads.",
+      "fix": "Keep the four correlation identities, the Hello and HelloAck members, the OpenUniverse members, and FA-2's two members. Name later identity-bearing members per payload. CoverageKeyV1 carries subjectScopeCommitment. FactCandidateV1 carries the universe ids, producer and producerVersion, and its anchors carry snapshotId and, for a fact-ref, factId. TS AnalyzeV1 carries the four echoes and stageRequests, each with stageId. Rust AnalyzeV2 carries executionId, snapshotId, planId and stages, and each stage's subjects carry subjectId. Snapshot frames carry snapshotId; dependency-source frames carry dependencySourceSetId; prepared frames carry planId. On Cancel, Cancelled and ProviderFaultV2, name analysisOrdinal beside executionId, and name phase on the fault. Keep RequestId, RunId, ProjectId, a log path, a pid and a record key off the wire."
+    },
+    {
+      "id": "RF-2",
+      "location": "PROPOSAL.md:80 (delta-round trigger 3), :150 and :160 (FA-2 dependence), :850-851 (X15)",
+      "problem": "The third delta-round trigger reopens this law when FA-2's acceptance changes what crosses the wire. The dependence section then says a change confined to FA-2's §0 rows needs no delta round. §0 row C is the row that changes the commitment every key carries, which is a wire value, and item 1 and X15 adopt that row. A Codex change to row C would change items 1 and 22's request commitment with no delta round recorded.",
+      "evidence": "Line 80 limits the trigger to a change to what crosses the wire, when the census is admitted, or how reuse treats it. Line 150 says a change confined to schema layout, §0 rows or vectors needs none. FA-2 LD-F7 decides that §0 row C supersedes DLV coverageDomain.keyConstruction.subjectScopeCommitment, DLV RequestedCoverageDomainV1.workerRule and RPP coverageDomainAlgorithm[3] for every key, with or without the token. DLV:758 requires every key.subjectScopeCommitment to equal the one SubjectScopeV1 commitment. DLV:984 sets that commitment to the reconstructed file-set. NE:1927-1945 requires each key's own scope2. X15 says item 1 reads TS2 and Rust3 with row C once FA-2 is accepted.",
+      "fix": "Keep schema layout and vectors as internals. A change to §0 row C, or to any §0 row that changes a wire member, the commitment a key carries, the admission point, or the reuse treatment, takes the third delta round. State that in the trigger, the dependence paragraph and the summary table. Item 10's census sentence follows item 22, so a reuse-treatment change that moves it is part of the same round."
+    }
+  ],
+  "nonBlockingObservations": [
+    {
+      "id": "NBO-1",
+      "location": "PROPOSAL.md:358 and :801",
+      "observation": "Both citations point at ME:477 for the sentence \"The crate never mints fact2\". That sentence is ME:478, in the same admission bullet. ME:477 is the data-document constraint. The rule item 5 states is the one ME states."
+    },
+    {
+      "id": "NBO-2",
+      "location": "PROPOSAL.md:209 and :730",
+      "observation": "The re-pin says git diff --name-only e093e90 15c0779 lists none of the product files this law cites. That range includes design-lock.json, and line 730 cites design-lock.json as a pin of the register. Cargo.toml, providers/rust/src/main.rs, crates/contracts/src/generated/protocol.rs, schemas/wire/native-carriers-v1.json and crates/lifecycle/src/installation.rs are unchanged from e093e90 through cd5958b. 15c0779..cd5958b is design-lock.json only. On the next touch, name that pin base."
+    },
+    {
+      "id": "NBO-3",
+      "location": "PROPOSAL.md:22.3 (item 22, INC-3)",
+      "observation": "Item 22.3 invalidates a census on the enumeration class, with configuration and native context. Item 6 also names dependency source sets and prepared outputs, and both can change the symbols a worker attests. On the next touch, say the census key covers every class item 6 names, and that per-file dirtiness is never sufficient by itself."
+    }
+  ],
+  "gateDependence": {
+    "o7": [
+      "G9",
+      "item 17",
+      "delta round if the outcome requires repository execution, a new wire member, or a resident or pooled helper"
+    ],
+    "sm": [
+      "item 9",
+      "O3",
+      "O4",
+      "the joint (B) and (C) case",
+      "X6",
+      "SM-6 TS2 limit successor",
+      "MC S-R via SM-5 and SM-6"
+    ],
+    "fa2": [
+      "G10",
+      "items 1, 13 and 22",
+      "item 10's census sentence, which follows item 22",
+      "delta round if acceptance changes a wire member, the commitment a key carries (including §0 row C), the admission point, or the reuse treatment"
+    ]
+  }
+}

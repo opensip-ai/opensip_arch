@@ -1,14 +1,13 @@
-# The M3 provider-protocol and reuse law — proposal M3-L r4
+# The M3 provider-protocol and reuse law — proposal M3-L r3
 
 2026-10-04. Drafted for Claude Opus 5.5, implementation lead, by a lead-dispatched drafting agent during the overnight autonomous run. It is the law for unit **M3-L** of the accepted M3 unit plan (`M3-PLAN-r6.md:207`).
 
-**Draft r4, not accepted. Not code. Reviewable now; effective only when its gate is met.** Under the review rule ("Review and effect"), an ACCEPT is recorded as "accepted in review". The law takes effect only when every gate item is met, as M3-C's pinned gate also works (MC:88-89). Three things go through a delta round: filling the `⟨SM-n⟩` values, any change that O7's decision forces, and any change that FA-2's acceptance forces.
+**Draft r3, not accepted. Not code. Reviewable now; effective only when its gate is met.** Under the review rule ("Review and effect"), an ACCEPT is recorded as "accepted in review". The law takes effect only when every gate item is met, as M3-C's pinned gate also works (MC:88-89). Three things go through a delta round: filling the `⟨SM-n⟩` values, any change that O7's decision forces, and any change that FA-2's acceptance forces.
 
 **History.**
 - **r1** (`PROPOSAL-r1.md`, sha256 `5e858c05…`, 59,109 bytes) was drafted on 2026-10-03 and never sent. Its draft request is superseded (`reviews/grok-provider-protocol-l-r1/status.json`, `SUPERSEDED-UNSENT`). r1 cited M3-PLAN r4 and predated T2b's acceptance, S-OP-2, CF-P, M3-C r6, M3-E1 r3 and M3-J1 r3.
 - **r2** (`PROPOSAL-r2.md`, sha256 `5bd4025e…`, 91,126 bytes) refreshed those joins and the gate, adopted the review rule, and otherwise kept r1's substance. It was the first revision reviewed. Grok returned **REQUIRED-FINDINGS** (`reviews/grok-provider-protocol-l-r2`): one required finding, RF-1 (item 13's closed list of wire identities), and three non-blocking observations, NBO-1 to NBO-3.
-- **r3** (`PROPOSAL-r3.md`, sha256 `6df524a4…`, 121,776 bytes) answered all four. It also joined FA-2, the native successor that answers M3-H's X-H1 (the provider symbol census has no carrier), and answered M3-H's X-H4 (item 5's "no host-minted facts"). Grok returned **REQUIRED-FINDINGS** (`reviews/grok-provider-protocol-l-r3`): RF-1 (item 13's later members and its ceiling still mis-stated the cited payloads), RF-2 (FA-2's §0 row C against the third delta-round trigger), and three non-blocking observations.
-- **r4** answers all five. Item 13's inventory is now **derived mechanically** from the cited schemas, and control L-C1 re-derives it. The third delta-round trigger now names exactly which FA-2 changes reopen this law. Every item, X, R and O number of r1 to r3 is kept, and r3's substance is otherwise unchanged.
+- **r3** answers all four. It also joins FA-2, the native successor that answers M3-H's X-H1 (the provider symbol census has no carrier), and answers M3-H's X-H4 (item 5's "no host-minted facts"). It keeps every item, X, R and O number of r1 and r2, and otherwise keeps r2's substance.
 
 It is written under:
 - the M3-L row (`M3-PLAN-r6.md:207`), the M3-S row (`:205`), the M3-D row (`:211`), the M3-J row (`:217`), "M3-L gate status" (`:429-445`), the "O7" section (`:474-525`) and the critical path (`:253-427`);
@@ -24,24 +23,7 @@ It is written under:
   - I1-L, the preview pack's accepted policy-language successor, whose cycle atom needs symbol scopes;
 - the product contracts in `docs/v2/contracts/product-v1/` and the protocol artifacts they select.
 
-## r4 changes
-
-| # | Change | Where | Source |
-|---|---|---|---|
-| 1 | **r3 is preserved** as `PROPOSAL-r3.md` (`6df524a4…`). | header | — |
-| 2 | **RF-1. Item 13's wire inventory is generated, not written (lead decision).** `evidence/wire_identities.py` reads every payload each frame carries from the cited schemas, walks every nested record, and classifies each member by a closed rule set (R1 to R6). Its output is item 13's table, inserted verbatim. The ceiling is "exactly these members". This corrects every point Grok raised: `subjectScopeCommitment` sits on `CoverageKeyV1`, not `FactCandidateV1`; `stageId` is on Analyze stage requests and on the FactBatch and Coverage wrappers; the Rust `subjectId` and anchor `factId` are included; snapshot, dependency-source and prepared frames carry `snapshotId`, `dependencySourceSetId` and `planId` respectively; `analysisOrdinal` and `phase` are listed as non-identity members. It also lists members neither r3 nor the review named, among them `relationSchemaId`, anchor `contentSha256`, `dependsOn`, the request-domain commitments, the prepared `planRow`, and the `target-attribution-v2` companion ids. **Rejected:** another hand-written list, which RF-1 showed drifts from the payloads. | item 13 | `reviews/grok-provider-protocol-l-r3` RF-1; lead direction |
-| 3 | **Control L-C1.** `evidence/wire_identities.py --check` re-derives the inventory from the pinned bytes and fails on any difference from item 13's table or from `evidence/wire-identities.json`, which records each source's sha256. | item 13 | lead direction |
-| 4 | **FA-2 needs no extra member.** The derived FA-2 rows are exactly §9.8's two members. No cross-law item for FA-2 arises. | item 13 | RF-1 check |
-| 5 | **RF-2. The third delta-round trigger is exact.** Any change Codex's review forces in a part of FA-2 that sets a wire member, the commitment a key carries, the admission point or the reuse treatment reopens this law. That includes **every one of FA-2's four §0 rows (A to D)**, because each sets a wire value: A and B the Analyze and Complete payloads, C every key's commitment, D the Hello token arrays. What needs none is named exactly: FA-2's NE:93 header sentence, its schema layout, its vectors and evidence, its README prose and its materialization map. "Review and effect", G10, the dependence section, its summary table and X15 now agree. | "Review and effect"; gate; "What depends"; X15 | RF-2 |
-| 6 | **NBO-1.** "The crate never mints `fact2`" is ME:478. | item 5; joins | NBO-1 |
-| 7 | **NBO-2. Pin base.** Product main is now `cd5958b`. From `e093e90` to `cd5958b` the product changed `design-lock.json` (the I1-L, B-S1, B-S2, B-S9 and I1-P bindings; 77 to 82 contract successors) and X4-F1's `crates/security` files. Neither is a source this law reads for a rule. The lock's pin of the register (REG, `de21a7e0…`), which items 19-21 rely on, is unchanged. | short names | `git diff --name-only e093e90 cd5958b` |
-| 8 | **NBO-3.** Item 22.3: a census's invalidation key covers every class item 6 names, including dependency source sets and prepared outputs. Per-file dirtiness is never sufficient by itself. | item 22.3 | NBO-3 |
-| 9 | **Snapshots.** Every law is cited at a snapshot. J1 r4 (`PROPOSAL-r4.md`, `c18c0d3c…`) is re-checked: it changes nothing this law cites. M3-C r7 is in review (`PROPOSAL-r7.md`) and is not cited. M3-H r3 is in review and is not cited; only H r1's snapshot is (H1). | short names | coordinator direction |
-| 10 | **FA-2 r2 joined (trigger 3 applied).** Codex's r1 findings forced two scoping changes in FA-2. FA2-R1-01: the NE:1927 insertion, §4.1a step 1's census source, applies only to symbol keys of a TypeScript or Rust universe. FA2-R1-02: X-FA2-C is narrowed to TS and Rust bindings that owe the worker's symbol census. NE:1927 is on trigger 3's reopen list, so this round takes it in: X16 and the M3-C joins row now state the narrowed cascade. Items 1, 13 and 22 and G10 need no change, because item 22 already concerns TS and Rust workers only, and the census schema bytes that L-C1 pins are unchanged. | X16; joins (MC); G10 and the FA2 short name (r2 in review) | `reviews/codex-fa-2-r1`; FA-2 r2 |
-
-Nothing else changes in substance.
-
-## r3 changes (kept for the record)
+## r3 changes
 
 | # | Change | Where | Source |
 |---|---|---|---|
@@ -85,7 +67,7 @@ Nothing else changes in substance.
 
 Nothing else changes in substance.
 
-**Standing direction.** Lead decisions are made under the owner's standing direction to decide on the lead's recommendation and to block only where no recommendation exists. r1's are dated 2026-10-03. r2's new ones (the review rule, item 12.1 and item 16b), r3's (G10 and item 22, item 5's in-core exception, and the third delta-round trigger) and r4's (item 13's derived inventory with L-C1, and the exact scope of the third trigger) are dated 2026-10-04. Each names the alternatives it rejects. The owner may reverse any of them.
+**Standing direction.** Lead decisions are made under the owner's standing direction to decide on the lead's recommendation and to block only where no recommendation exists. r1's are dated 2026-10-03. r2's new ones (the review rule, item 12.1 and item 16b) and r3's (G10 and item 22, item 5's in-core exception, and the third delta-round trigger) are dated 2026-10-04. Each names the alternatives it rejects. The owner may reverse any of them.
 
 ## Review and effect (lead decision, r2)
 
@@ -95,7 +77,7 @@ Nothing else changes in substance.
   - **What reopens it.** Three things go through a **delta round**, with the same reviewer, on the diff only:
     1. filling every `⟨SM-n⟩` from S-M's report, with every outcome item 9 records, and any owner answer to O3 or O4 that those outcomes trigger;
     2. any change that O7's decision forces (see "What depends on O7, S-M and FA-2");
-    3. **(r3; exact in r4, RF-2)** any change Codex's review forces in a part of FA-2 that sets a wire member, the commitment a key carries, the admission point or the reuse treatment. Such a change reaches items 1, 13 or 22, and item 10's census sentence, which follows item 22. It **includes every change to any of FA-2's four NE §0 rows**: each touches a wire value or commitment (A and B, the Analyze and Complete payloads; C, the commitment every key carries; D, the Hello and HelloAck token arrays). A §0 change confined to rows that touch no wire value or commitment would need no delta round, **but FA-2 has no such row.** The parts of FA-2 whose change needs none are named exactly in "What depends on O7, S-M and FA-2".
+    3. **(r3)** any change to items 1, 13 or 22 that FA-2's acceptance forces, if Codex accepts FA-2 with a change to what crosses the wire, when the census is admitted, or how reuse treats it.
 
     The S-M delta round also refreshes the gate rows. A gate item met after that round (a sign-off, or O7 decided as recommended) is recorded as recording text in the live file's header note, unless it forces a change. A forced change takes its own delta round.
   - **What dependents may rely on.** Wherever another law or record names "M3-L accepted" or "L's acceptance" as a gate or as day 0, it means **L in effect**: accepted in review, every gate item met, and every delta round accepted. That covers MC's gate, `M3-PLAN-r6.md:255` and `:378`, and the D law draft's gate note. An ACCEPT in review alone satisfies no dependent's gate.
@@ -126,7 +108,7 @@ Status on 2026-10-04. The gate is the M3-L row: "S-M, complete T2 (T2b), Q0, D3,
 | G7 | **S-OP-2 drafted** | **MET, and exceeded.** Codex accepted S-OP-2 at r6, ACCEPT-DESIGN-UNIT with no required findings (`ce8d3a4b…`). Item 14 checks that it registers every event this law needs. It does. | SOP2; `reviews/codex-s-op-2-r6/status.json` (`ACCEPTED`); ON, "S-OP-2 accepted at r6 by Codex" |
 | G8 | **O1** | **DECIDED IN THIS LAW** (item 11), as a lead decision. Accepted S-OP-2 r6 is written within it (SOP2 item 19), and the plan records it (`M3-PLAN-r6.md:463`). It becomes final when this law takes effect. | `M3-PLAN-r6.md:442`, `:463`; OPP:394 |
 | G9 | **O7 decided** | **OPEN: an owner decision**, blocker B1. **CF-P has run.** It is evidence for O7, not a decision, and it claims nothing as enforced (CFP:3):<br>- **macOS 27:** programmatic Seatbelt confinement through `sandbox_init_with_parameters` is feasible, provided the profile adds a `kern.procargs` sysctl denial (one of five amendments CF-P asks of the D law's profile draft). Deprecation risk is high, so each macOS major needs its own check (CFP:231-264).<br>- **AL2023, by desk check only:** feasible on kernels 6.1.147, 6.12.40, 6.18 and later. Earlier kernel builds lack Landlock and disclose (CFP:309-315).<br>The lead's recommendation is in ON B1 and `M3-PLAN-r6.md:478-485`. This law neither decides O7 nor assumes its outcome (item 17). | ON B1; CFP:3, CFP:231-264, CFP:309-315; `M3-PLAN-r6.md:476`, `:532` |
-| G10 | **(r3) FA-2 accepted**: the provider symbol-census carrier, a native contract successor (M3-H X-H1) | **OPEN: in review with Codex.** r1 (`reviews/codex-fa-2-r1`) returned REQUIRED-FINDINGS on two scoping points, and r2 is in review (`reviews/codex-fa-2-r2`; ACCEPT-DESIGN-UNIT wanted). Item 22 joins it as proposed. **(r4)** A change Codex requires to any part of FA-2 that sets a wire member, a key's commitment, the admission point or the reuse treatment, including any of its four §0 rows, takes this law's third delta round ("What depends on O7, S-M and FA-2"). | FA2 README and §9.8; H1:724-732; item 22 |
+| G10 | **(r3) FA-2 accepted**: the provider symbol-census carrier, a native contract successor (M3-H X-H1) | **OPEN: in review with Codex** (`reviews/codex-fa-2-r1`; ACCEPT-DESIGN-UNIT wanted). Item 22 joins it as proposed. A change Codex requires that reaches items 1, 13 or 22 takes this law's third delta round. | FA2 README and §9.8; H1:724-732; item 22 |
 
 **Before L takes effect:**
 - S-M runs (G1), and its delta round fills every `⟨SM-n⟩`, records every outcome item 9 names and refreshes these rows;
@@ -165,29 +147,7 @@ r2 stated its own reading here so that the reviewer could test it. Grok's r2 rev
 
 **FA-2 (r3).**
 - **G10 depends on it,** and items 1, 13 and 22 cite its proposed content: the token, the census member on Analyze and `Complete`, the census-free request commitment, and admission at clean settlement.
-- **A delta round is needed (r4, RF-2)** whenever Codex's review forces a change in a part of FA-2 that sets a wire member, the commitment a key carries, the admission point or the reuse treatment. Item 10's census sentence follows item 22, so a reuse-treatment change that moves it belongs to the same round. Mapped to FA-2's parts (FA2 README, "What changes"):
-  - **Reopens this law:**
-    - every NE §0 row FA-2 adds (the override of NE:138), because each touches a wire value or commitment:
-      - **A** and **B** replace the Analyze and Complete payloads;
-      - **C** sets the commitment every key carries, with or without the token (FA2 LD-F7; X15);
-      - **D** extends the Hello and HelloAck token arrays;
-    - NE:1913 and NE:1927 (§4.1a: a symbol scope's subjects, the input to every symbol key's commitment);
-    - NE:2791 and NE:2814 (the token);
-    - NE:2884 and NE:2990 (the payload versions);
-    - NE:3235, NE:3279 and NE:3292 (the commitments the pre-Analyze, returned and terminal symbol entries carry);
-    - NE:3313 (§9.8 itself);
-    - NE:4195 (join H-9, the census's ownership and admission law);
-    - the three provider-startup pointer overrides (commitments);
-    - the handshake copies (the token and the `symbolCensus` wire law);
-    - every record and every law entry of the census schema.
-  - **Needs none:**
-    - FA-2's NE:93 header sentence, while §9.8 is unchanged;
-    - a change to the census schema's layout (key order, descriptions, `$defs` names) that leaves every member, bound and law entry unchanged;
-    - FA-2's vectors and evidence script;
-    - its README prose;
-    - its materialization map.
-
-  **No FA-2 §0 row is in the second list.** A §0 change confined to rows that touch no wire value or commitment would need no delta round, but FA-2 has no such row.
+- **A delta round is needed only if** Codex accepts FA-2 with a change to what crosses the wire (item 13's FA-2 entry; item 22.1), to when the census is admitted (22.2), or to its reuse treatment (22.3). A change confined to FA-2's internals (its schema layout, §0 rows or vectors) needs none.
 - **If FA-2 is rejected outright,** item 22 joins nothing and G10 cannot be met. The next revision of this law follows FA-2's successor.
 - **X13 does not depend on FA-2,** and FA-2 does not decide it.
 
@@ -197,7 +157,7 @@ r2 stated its own reading here so that the reviewer could test it. Grok's r2 rev
 |---|---|
 | O7 | G9; item 17; a delta round only if the outcome lets a provider execute repository code, needs a new wire signal or member for confinement, or makes the provider resident or pooled |
 | S-M | item 9: every `⟨SM-n⟩`, F, T, and every outcome; O3; O4; X6, through SM-8; a TS2 limit question that only a successor can answer, through SM-6 (item 1); MC's conditional S-R, through SM-5 and SM-6 |
-| FA-2 | G10; items 1, 13 and 22, and item 10's census sentence (which follows item 22); a delta round for any forced change to a wire member, a key's commitment (**including every FA-2 §0 row, A to D**), the admission point or the reuse treatment. None for FA-2's NE:93 header sentence, schema layout, vectors, evidence, README prose or materialization map |
+| FA-2 | G10; items 1, 13 and 22; a delta round only for a changed wire member, admission point or reuse treatment |
 | No text change under any outcome above | items 2-8, 10-12, 14-16 and 18-21. Item 12.4 names SM-8 but states no number. Item 10's census line follows item 22. |
 
 ## Short names
@@ -219,9 +179,8 @@ Line numbers are those of the cited files on 2026-10-04. A live plan or design f
 - **I1** `docs/implementation/m3/preview-pack-i1/PROPOSAL-r2.md` (M3-I1 r2, accepted by CODEX2)
 - **X12r4, X2r9** `docs/implementation/m2/policy-admission-x12/PROPOSAL-r4.md` and `docs/implementation/m2/project-root-x2/PROPOSAL-r9.md` (accepted by Grok)
 - **The D law (MD)** `docs/implementation/m3/supervisor-d/PROPOSAL-r3.md`: M3-D r3, **accepted by GROK2** with no required findings (`9679dbc4…`; `reviews/grok2-supervisor-d-r3`) **(r3, NBO-3)**. The live `PROPOSAL.md` differs only in recording text. **It is still cited by role** ("the D law's stderr item", "its constants table"). Its section F is still an O7 placeholder. r2 pinned exactly these bytes as a draft, so wherever kept r2 text says "the D law's draft", it now means the accepted r3.
-- **(r4) Other laws in review, not cited:** M3-C r7 (`snapshot-plan-c/PROPOSAL-r7.md`, `a1ee9386…`, in review with CODEX2; it narrows only item 16's row 8), and M3-H r3 (in review with Grok; its live file and its r2 snapshot are not cited). **J1 r4 re-checked (r4):** its only changes against r3 are R10a, ER10a, J-β's range, SD-6's rows S19 and S20 and their controls, and the M3D short name. None is a provision this law cites.
 - **H1 (r3)** `docs/implementation/m3/fact-admission-h/PROPOSAL-r1.md`, M3-H r1 (`69f50bb1…`). Grok reviewed it (`reviews/grok-fact-admission-h-r1`) and returned REQUIRED-FINDINGS on RF-1, the anchor routing, which this law does not touch. **Not accepted, and not authority.** It is cited only as the source of X-H1 and X-H4. H's r2 is being drafted in the live file and is not cited.
-- **FA2 (r3)** `docs/implementation/m3/native-successors-fa/fa-2/`: FA-2, the native contract successor for X-H1, in review with Codex. r1's review (`reviews/codex-fa-2-r1`) is REQUIRED-FINDINGS; **r2** is in review (`reviews/codex-fa-2-r2`, subject `dca02900…`). Its subject manifest is `native-successors-fa/fa-2-subject.json` and its record `fa-2/successor.json`. NE §9.8 as FA-2 proposes it is `fa-2/section-9-8.md`, and its design record is `fa-2/README.md`, cited as "FA-2 LD-Fn". **Proposed, not accepted** (G10).
+- **FA2 (r3)** `docs/implementation/m3/native-successors-fa/fa-2/`: FA-2, the native contract successor for X-H1, in review with Codex (`reviews/codex-fa-2-r1`). Its subject manifest is `native-successors-fa/fa-2-subject.json` and its record `fa-2/successor.json`. NE §9.8 as FA-2 proposes it is `fa-2/section-9-8.md`, and its design record is `fa-2/README.md`, cited as "FA-2 LD-Fn". **Proposed, not accepted** (G10).
 - **I1L (r3)** `docs/implementation/m3/preview-pack-i1/i1-l/`: I1-L, accepted by CODEX2 (ACCEPT-DESIGN-UNIT) and bound at product `0ceb9ad`.
 - **ENC / EXC / SIS / RPS (r3)** `docs/coop/design-corrections/foundation/{enumeration-contract.v1.md, execution-inputs-contract.v1.md, subject-inventory.schema.v1.json, relation-payload-schemas.v2.json}`
 - **NCM (r3)** `docs/coop/design-corrections/native/native-capability-matrix.v2.json`
@@ -247,9 +206,7 @@ Line numbers are those of the cited files on 2026-10-04. A live plan or design f
 
 None of the contract, architecture or protocol files above has changed since r1.
 
-Product paths are under `opensip/`, at main `e093e90`. Every product file this law cites is unchanged since r1's `2967905`: `git diff --name-only 2967905 e093e90` lists none of them. They were read, not run. **(r3)** Main has since moved to `15c0779`: the I1-L, B-S1, B-S2 and B-S9 bindings, and X4-F1. **(r4, NBO-2) Pin base.** Main is now `cd5958b` (the I1-P binding, after `15c0779`). `git diff --name-only e093e90 cd5958b` lists `design-lock.json` (the five bindings; 77 to 82 contract successors) and X4-F1's `crates/security` files.
-- No source this law reads for a rule changed: `Cargo.toml`, `providers/rust/src/main.rs`, `crates/contracts/src/generated/protocol.rs`, `schemas/wire/native-carriers-v1.json` and `crates/lifecycle/src/installation.rs` are unchanged.
-- `design-lock.json` is cited only as the register's pin (items 19-21; RH:29-31). Its input pin of the register (`08-decision-and-readiness-register.md`, `de21a7e0…`) is the same at `e093e90` and `cd5958b`.
+Product paths are under `opensip/`, at main `e093e90`. Every product file this law cites is unchanged since r1's `2967905`: `git diff --name-only 2967905 e093e90` lists none of them. They were read, not run. **(r3)** Main has since moved to `15c0779`: the I1-L, B-S1, B-S2 and B-S9 bindings, and X4-F1. `git diff --name-only e093e90 15c0779` lists none of the product files this law cites.
 
 ## Problem
 
@@ -280,7 +237,7 @@ So no implementation constrains this law. The accepted contracts, plans and laws
 
 ## Decisions
 
-Lead decisions are dated 2026-10-03 unless marked r2, r3 or r4 (2026-10-04). They are recorded under the owner's standing direction to decide on the lead's recommendation and to block only where no recommendation exists. The owner may reverse any of them.
+Lead decisions are dated 2026-10-03 unless marked r2 or r3 (2026-10-04). They are recorded under the owner's standing direction to decide on the lead's recommendation and to block only where no recommendation exists. The owner may reverse any of them.
 
 ### A. Protocols and process lifetime
 
@@ -398,7 +355,7 @@ Lead decisions are dated 2026-10-03 unless marked r2, r3 or r4 (2026-10-04). The
   - **At M3** this holds by construction (item 3).
   - **For any later reuse.** The INC-1 successor must define how a reused producer candidate is re-admitted under the new snapshot, including anchors and producer attestation. The host must never construct a fact that **neither an admitted provider frame nor a Plan-selected in-core producer stage** produced **(r3, X-H4)**. A faulted or cancelled worker "contributes **no facts, no Coverage entries and no Run**" (NE:3837-3843), and framing grants no fact authority (`M3-PLAN-r6.md:216`).
   - **(r3, M3-H X-H4) The in-core producer stages.** r2's wording, read literally, forbade two lawful M3 producers (H1:741). Exactly two exist at M3. Each is an execution-plan stage whose stage spec names its producer, and H admits its records like any other:
-    - **E1's in-host syntax stage.** Its producer is the core provider closure, on syntax-universe records only (ME item 14b; MC:422-432). "The crate never mints `fact2`": H's syntax join admits its candidates (ME:478; r4, NBO-1).
+    - **E1's in-host syntax stage.** Its producer is the core provider closure, on syntax-universe records only (ME item 14b; MC:422-432). "The crate never mints `fact2`": H's syntax join admits its candidates (ME:477).
     - **The host inventory derivation that H r1 item 18 designs.** It produces the file and package `SubjectInventoryV1` outcomes and the `file@enumerated` and `package@manifest-declared` facts, which are "Produced by host discovery and enumeration, not by a language provider" (NCM:949). In a syntax universe its producer is the core provider closure (MC:424-429). In a TypeScript or Rust universe it has no lawful producer until M3-C's next revision and CRC-1 answer H's X-H3 (MC:432, MC:453). Until then that leg stays gated, as H holds it.
 
     Neither is a provider fallback (item 2) or a reuse route. **Host projections of an admitted provider frame are not host-minted:** `TargetAttributionV2` (NE §9.6) and FA-2's census inventories (item 22) are produced by the frame they project.
@@ -587,90 +544,30 @@ Lead decisions are dated 2026-10-03 unless marked r2, r3 or r4 (2026-10-04). The
 - **Decision.**
   - **The correlator.** `RequestId` (`req1_` plus 32 hex; WS:78-79; IE:61-63) is the universal correlator of every provider-attributed record (OPP:148). J1 mints one per invocation at ingress (J1 item 2).
   - **It never reaches a provider.** It is not a wire member (neither TS2 nor Rust3 has one, and adding one breaches item 1), not an argv element and not an environment variable. The predecessor's `OPENSIP_RUN_ID` child-environment tag (OPP:121) is not inherited.
-  - **What is on the wire (r4, RF-1; lead decision: derived, not hand-written).** r2 said "only" four identities; r3 named more by hand and still mis-stated later payloads (`reviews/grok-provider-protocol-l-r3` RF-1). r4 does not write the list. It is generated from the cited schemas, and control L-C1 re-derives it.
-    - **The correlation identities** stay as before: `executionId`, `snapshotId` (`snapshot2` text), `planId` (`plan2` text) and the universe coordinate, the native semantic-universe identity (NE:3158-3164). They are what records correlate on (below). `executionId` and `planIntentCommitment` keep their owners (NE:3159).
-    - **The method.** `evidence/wire_identities.py` reads every payload each protocol puts on the wire:
-      - **Which payload each frame carries.** NE §9 and §0's supersessions select it; the script's frame map cites the selecting line for each. The sources are the native handshake and startup schemas, `delivery.v2` and `rust-provider-protocol.v2` for the inherited payloads, NE §9.2's table for the dependency-source frames, `fact-batch.schema.v3.json` and the occupancy companion under `target-attribution-v2`, and FA-2's census schema under `symbol-census-v1`.
-      - **The walk.** It reads each payload's own members, including optional ones, and descends into every nested record the payload names. Where an inherited record is typed only by its id, a cited map supplies the record: fact candidates and anchors are the fact-plane records `delivery.v2` implements field for field, and Rust stage requests reach C-2's stage and coverage key.
-      - **The rules.** It classifies every member by a closed rule set. A member is identity-bearing iff:
-        - **R1:** its name ends in `Id`, `Ids`, `Key`, `Commitment`, `Sha256`, `Digest`, `Hash`, `MerkleRoot`, `Closure` or `Universe`; or
-        - **R2:** a contract's machine-readable identity list names it, on the payload that list governs (the handshake schema's `typescriptDescriptorBinding` and `rustIdentityBinding`); or
-        - **R3:** it is the universe descriptor, whose hash is the universe coordinate (NE:3161-3163), or a row copied from that descriptor. R3 members are listed whole and not descended into; or
-        - **R4:** its published description names an identity type, or an identity member, as its value or part of it; or
-        - **R5:** its description fixes the same constant as an R1 member of the same artifact; or
-        - **R6:** it is a JSON Schema string whose pattern requires a digest or a typed identity prefix.
-      - **What is not enumerated.** Opaque bytes (chunks, `canonicalRelationPayload`) carry no member-level identity. A relation payload's own subject ids are the relation registry's (RPS), are provider-attested, and are not host identities.
-    - **The inventory, exactly.** The table below is the script's output, inserted verbatim. Each row gives the frame, the payload with the source line that defines it, when that payload is on the wire, every identity-bearing member with the rule that admits it, and the top-level members that carry no identity at any depth.
-
-<!-- wire-identities:begin (generated by evidence/wire_identities.py; do not edit) -->
-
-**TS2 (`typescript-semantic` major 2)**
-
-| Frame | Payload (source line) | When | Identity-bearing members (rule) | Top-level members with no identity at any depth |
-|---|---|---|---|---|
-| Hello (h→w) | `TypeScriptHelloV2` (HS:424) | always | `hostBuildId` (R1); `expectedProviderDescriptorSha256` (R1); `expectedRuntimeDescriptorSha256` (R1) | `limits`, `expectedCapabilities`, `identityVersions` |
-| HelloAck (w→h) | `TypeScriptHelloAckV2` (HS:463) | always | `protocolMajor` (R2); `providerBuildId` (R2); `providerDescriptorSha256` (R1); `runtimeDescriptorSha256` (R1); `nodeVersion` (R2); `v8Version` (R2); `modulesAbi` (R2); `typescriptVersion` (R2); `typescriptCompilerSha256` (R2); `typescriptStdlibMerkleRoot` (R2); `defaultWorkBudgetProfileId` (R2); `defaultWorkBudgetProfileSha256` (R2); `platformId` (R2) | `capabilities`, `identityVersions` |
-| OpenUniverse (h→w) | `TypeScriptOpenUniverseV2` (ST:332) | always | `executionId` (R1); `snapshotId` (R1); `planId` (R1); `planIntentCommitment` (R1); `providerId` (R1); `universe` (R3); `universeKey` (R1) | — |
-| UniverseAccepted (w→h) | `TypeScriptUniverseAcceptedV2` (ST:369) | always | `executionId` (R1); `snapshotId` (R1); `planId` (R1); `universeKey` (R1) | — |
-| SnapshotManifest (h→w) | `SnapshotManifestV1` (DLV:850) | always | `snapshotId` (R1); `manifestSha256` (R1); `entries[].contentSha256` (R1) | — |
-| SnapshotFileChunk (h→w) | `SnapshotFileChunkV1` (DLV:851) | always | `snapshotId` (R1) | `path`, `chunkIndex`, `byteOffset`, `bytes` |
-| SnapshotSeal (h→w) | `SnapshotSealV1` (DLV:852) | always | `snapshotId` (R1); `manifestSha256` (R1) | `entryCount`, `totalFileBytes`, `totalChunkCount` |
-| SnapshotAccepted (w→h) | `SnapshotAcceptedV1` (DLV:853) | always | `snapshotId` (R1); `manifestSha256` (R1) | `entryCount`, `totalFileBytes`, `totalChunkCount` |
-| NativeContextVerified (w→h) | `NativeContextVerifiedV1` (ST:464) | always | `nativeContextId` (R1); `recomputedNativeContextId` (R1) | `equal` |
-| Unavailable (pre-Analyze) (w→h) | `PreAnalyzeUnavailableV1` (ST:485) | always | `executionId` (R1); `snapshotId` (R1); `planId` (R1); `nativeContextId` (R1); `recomputedNativeContextId` (R1) | `reason` |
-| Analyze (h→w) | `AnalyzeV1` (DLV:854) | always | `executionId` (R1); `snapshotId` (R1); `planId` (R1); `universeKey` (R1); `stageRequests[].stageId` (R1); `stageRequests[].providerId` (R1); `stageRequests[].dependsOn` (R4); `stageRequests[].requestedCoverageDomain.subjectScope.snapshotId` (R1); `stageRequests[].requestedCoverageDomain.subjectScope.subjectScopeCommitment` (R1); `stageRequests[].requestedCoverageDomain.keys[].sourceUniverseId` (R1); `stageRequests[].requestedCoverageDomain.keys[].targetUniverseId` (R1); `stageRequests[].requestedCoverageDomain.keys[].subjectScopeCommitment` (R1); `stageRequests[].requestedCoverageDomain.keys[].producer` (R5); `stageRequests[].requestedCoverageDomain.keys[].producerVersion` (R4); `stageRequests[].requestedCoverageDomain.domainCommitment` (R1) | `analysisOrdinal` |
-| Analyze (h→w) | `TypeScriptAnalyzeV2` (FA2:211) | under symbol-census-v1 (FA-2, proposed) | `symbolCensus.enumeratorClosure` (R1) | — |
-| FactBatch (w→h) | `FactBatchV1` (DLV:855) | always | `stageId` (R1); `facts[].producer` (R4); `facts[].producerVersion` (R4); `facts[].sourceUniverseId` (R1); `facts[].targetUniverseId` (R1); `facts[].relationSchemaId` (R1); `facts[].anchors[].snapshotId` (R1); `facts[].anchors[].contentSha256` (R1); `facts[].anchors[].factId` (R1); `batchCommitment` (R1) | `analysisOrdinal`, `batchIndex` |
-| FactBatch (w→h) | `FactBatchV3` (FB3:1) | under target-attribution-v2 | `stageId` (R1); `candidates[].producer` (R4); `candidates[].producerVersion` (R4); `candidates[].sourceUniverseId` (R1); `candidates[].targetUniverseId` (R1); `candidates[].relationSchemaId` (R1); `candidates[].anchors[].snapshotId` (R1); `candidates[].anchors[].contentSha256` (R1); `candidates[].anchors[].factId` (R1); `occupancyCompanions[].targetUniverseId` (R1); `occupancyCompanions[].targetNativeId` (R1); `occupancyCompanions[].evaluationNativeId` (R1) | `schemaVersion`, `analysisOrdinal`, `batchIndex` |
-| Coverage (w→h) | `TypeScriptCoverageV2` (ST:518) | always | `stageId` (R1); `entries[].key.sourceUniverse` (R1); `entries[].key.targetUniverse` (R1); `entries[].key.subjectScopeCommitment` (R1); `entries[].entry.examinedUniverse.subjectScopeCommitment` (R1); `coverageCommitment` (R1) | `analysisOrdinal` |
-| Unavailable (post-Analyze) (w→h) | `TypeScriptUnavailableV2` (ST:582) | always | `affectedStageIds` (R1); `coverage[].key.sourceUniverse` (R1); `coverage[].key.targetUniverse` (R1); `coverage[].key.subjectScopeCommitment` (R1); `coverage[].entry.examinedUniverse.subjectScopeCommitment` (R1); `coverageCommitment` (R1) | `analysisOrdinal`, `reason` |
-| BudgetExhausted (w→h) | `TypeScriptBudgetExhaustedV2` (ST:683) | always | `triggerStageId` (R1); `coverage[].key.sourceUniverse` (R1); `coverage[].key.targetUniverse` (R1); `coverage[].key.subjectScopeCommitment` (R1); `coverage[].entry.examinedUniverse.subjectScopeCommitment` (R1); `coverageCommitment` (R1) | `analysisOrdinal`, `dimension`, `limit`, `observed` |
-| Complete (w→h) | `CompleteV1` (DLV:859) | always | `stageResults[].stageId` (R1); `stageResults[].factCommitment` (R1); `stageResults[].coverageCommitment` (R1); `factStreamCommitment` (R1); `coverageStreamCommitment` (R1) | `analysisOrdinal` |
-| Complete (w→h) | `TypeScriptCompleteV2` (FA2:377) | under symbol-census-v1 (FA-2, proposed) | `symbolCensus.rows[].nativeSubjectId` (R1) | — |
-| Cancel (h→w) | `CancelV1` (DLV:860) | always | `executionId` (R1) | `analysisOrdinal`, `reason` |
-| Cancelled (w→h) | `CancelledV1` (DLV:861) | always | `executionId` (R1) | `analysisOrdinal`, `observedPhase` |
-
-**Rust3 (`rust-semantic` major 3)**
-
-| Frame | Payload (source line) | When | Identity-bearing members (rule) | Top-level members with no identity at any depth |
-|---|---|---|---|---|
-| Hello (h→w) | `HelloV3` (HS:586) | always | `hostBuildId` (R1); `expectedProtocolContractSha256` (R1); `expectedIdentity.protocolMajor` (R2); `expectedIdentity.providerBuildId` (R2); `expectedIdentity.rustCommitHash` (R2); `expectedIdentity.hostTriple` (R2); `expectedIdentity.targetTriple` (R2); `expectedIdentity.sysrootDigest` (R2) | `protocolMajor`, `expectedCapabilities`, `identityVersions`, `limits` |
-| HelloAck (w→h) | `HelloAckV3` (HS:630) | always | `protocolMajor` (R2); `providerBuildId` (R2); `rustCommitHash` (R2); `hostTriple` (R2); `targetTriple` (R2); `sysrootDigest` (R2) | `capabilities`, `identityVersions` |
-| OpenUniverse (h→w) | `OpenUniverseV3` (ST:394) | always | `executionId` (R1); `snapshotId` (R1); `planId` (R1); `planIntentCommitment` (R1); `providerId` (R1); `universe` (R3); `repositoryResolution.dependencySourceSetId` (R1); `repositoryResolution.preparedOutputSetId` (R1); `repositoryResolution.authorizationId` (R1) | — |
-| UniverseAccepted (w→h) | `UniverseAcceptedV3` (ST:431) | always | `executionId` (R1); `snapshotId` (R1); `planId` (R1); `providerId` (R1); `universe` (R3); `repositoryResolution.dependencySourceSetId` (R1); `repositoryResolution.preparedOutputSetId` (R1); `repositoryResolution.authorizationId` (R1) | — |
-| SnapshotManifest (h→w) | `SnapshotManifestV2` (RPP:357) | always | `snapshotId` (R1); `manifestSha256` (R1); `entries[].contentSha256` (R1) | — |
-| SnapshotFileChunk (h→w) | `SnapshotFileChunkV2` (RPP:363) | always | `snapshotId` (R1) | `path`, `chunkIndex`, `byteOffset`, `bytes` |
-| SnapshotSeal (h→w) | `SnapshotSealV2` (RPP:369) | always | `snapshotId` (R1); `manifestSha256` (R1) | `entryCount`, `totalFileBytes`, `totalChunkCount` |
-| SnapshotAccepted (w→h) | `SnapshotAcceptedV2` (RPP:375) | always | `snapshotId` (R1); `manifestSha256` (R1) | `entryCount`, `totalFileBytes`, `totalChunkCount` |
-| DependencySourceManifest (h→w) | `DependencySourceManifest` (NE:2876) | always | `dependencySourceSetId` (R1); `manifestSha256` (R1); `entries[].packageKey` (R1); `entries[].contentSha256` (R1) | — |
-| DependencySourceChunk (h→w) | `DependencySourceChunk` (NE:2877) | always | `dependencySourceSetId` (R1); `packageKey` (R1) | `path`, `chunkIndex`, `byteOffset`, `bytes` |
-| DependencySourceSeal (h→w) | `DependencySourceSeal` (NE:2878) | always | `dependencySourceSetId` (R1); `manifestSha256` (R1) | `entryCount`, `totalBytes`, `totalChunkCount` |
-| DependencySourceAccepted (w→h) | `DependencySourceAccepted` (NE:2879) | always | `dependencySourceSetId` (R1); `manifestSha256` (R1) | `entryCount`, `totalBytes`, `totalChunkCount` |
-| PreparedOutputManifest (h→w) | `PreparedOutputManifestV2` (RPP:381) | always | `planId` (R1); `manifestSha256` (R1); `entries[].planRow` (R3); `entries[].logicalPath` (R4); `entries[].blobSha256` (R1); `entries[].contentSha256` (R1) | — |
-| PreparedOutputChunk (h→w) | `PreparedOutputChunkV2` (RPP:387) | always | `planId` (R1) | `outputOrdinal`, `chunkIndex`, `byteOffset`, `bytes` |
-| PreparedOutputSeal (h→w) | `PreparedOutputSealV2` (RPP:393) | always | `planId` (R1); `manifestSha256` (R1) | `entryCount`, `totalBlobBytes`, `totalChunkCount` |
-| PreparedOutputAccepted (w→h) | `PreparedOutputAcceptedV2` (RPP:399) | always | `planId` (R1); `manifestSha256` (R1) | `entryCount`, `totalBlobBytes`, `totalChunkCount` |
-| NativeContextVerified (w→h) | `NativeContextVerifiedV1` (ST:464) | always | `nativeContextId` (R1); `recomputedNativeContextId` (R1) | `equal` |
-| Unavailable (pre-Analyze) (w→h) | `PreAnalyzeUnavailableV1` (ST:485) | always | `executionId` (R1); `snapshotId` (R1); `planId` (R1); `nativeContextId` (R1); `recomputedNativeContextId` (R1) | `reason` |
-| Analyze (h→w) | `AnalyzeV2` (RPP:405) | always | `executionId` (R1); `snapshotId` (R1); `planId` (R1); `stages[].planStage.stageId` (R1); `stages[].planStage.dependsOn` (R4); `stages[].planStage.providerId` (R1); `stages[].analysisDomain.subjects[].subjectId` (R1); `stages[].analysisDomain.requestedCoverageDomain[].sourceUniverseId` (R1); `stages[].analysisDomain.requestedCoverageDomain[].targetUniverseId` (R1); `stages[].analysisDomain.requestedCoverageDomain[].subjectScopeCommitment` (R1); `stages[].analysisDomain.requestedCoverageDomain[].producer` (R5); `stages[].analysisDomain.requestedCoverageDomain[].producerVersion` (R4); `stages[].analysisDomain.domainCommitment` (R1) | `analysisOrdinal` |
-| Analyze (h→w) | `AnalyzeV3` (FA2:263) | under symbol-census-v1 (FA-2, proposed) | `symbolCensus.enumeratorClosure` (R1) | — |
-| FactBatch (w→h) | `FactBatchV2` (RPP:411) | always | `stageId` (R1); `candidates[].producer` (R4); `candidates[].producerVersion` (R4); `candidates[].sourceUniverseId` (R1); `candidates[].targetUniverseId` (R1); `candidates[].relationSchemaId` (R1); `candidates[].anchors[].snapshotId` (R1); `candidates[].anchors[].contentSha256` (R1); `candidates[].anchors[].factId` (R1) | `analysisOrdinal`, `batchIndex` |
-| FactBatch (w→h) | `FactBatchV3` (FB3:1) | under target-attribution-v2 | `stageId` (R1); `candidates[].producer` (R4); `candidates[].producerVersion` (R4); `candidates[].sourceUniverseId` (R1); `candidates[].targetUniverseId` (R1); `candidates[].relationSchemaId` (R1); `candidates[].anchors[].snapshotId` (R1); `candidates[].anchors[].contentSha256` (R1); `candidates[].anchors[].factId` (R1); `occupancyCompanions[].targetUniverseId` (R1); `occupancyCompanions[].targetNativeId` (R1); `occupancyCompanions[].evaluationNativeId` (R1) | `schemaVersion`, `analysisOrdinal`, `batchIndex` |
-| CoverageV3 (w→h) | `CoverageV3` (ST:550) | always | `stageId` (R1); `entries[].key.sourceUniverse` (R1); `entries[].key.targetUniverse` (R1); `entries[].key.subjectScopeCommitment` (R1); `entries[].entry.examinedUniverse.subjectScopeCommitment` (R1); `coverageCommitment` (R1) | `analysisOrdinal` |
-| Unavailable (post-Analyze) (w→h) | `UnavailableV3` (ST:631) | always | `affectedStageIds` (R1); `coverage[].key.sourceUniverse` (R1); `coverage[].key.targetUniverse` (R1); `coverage[].key.subjectScopeCommitment` (R1); `coverage[].entry.examinedUniverse.subjectScopeCommitment` (R1); `coverageCommitment` (R1) | `analysisOrdinal`, `reason` |
-| BudgetExhausted (w→h) | `BudgetExhaustedV3` (ST:734) | always | `triggerStageId` (R1); `coverage[].key.sourceUniverse` (R1); `coverage[].key.targetUniverse` (R1); `coverage[].key.subjectScopeCommitment` (R1); `coverage[].entry.examinedUniverse.subjectScopeCommitment` (R1); `coverageCommitment` (R1) | `analysisOrdinal`, `unit`, `limit`, `observed` |
-| Complete (w→h) | `CompleteV2` (RPP:435) | always | `stageResults[].stageId` (R1); `stageResults[].factCommitment` (R1); `stageResults[].coverageCommitment` (R1); `factStreamCommitment` (R1); `coverageStreamCommitment` (R1) | `analysisOrdinal` |
-| Complete (w→h) | `CompleteV3` (FA2:419) | under symbol-census-v1 (FA-2, proposed) | `symbolCensus.rows[].nativeSubjectId` (R1) | — |
-| ProviderFault (w→h) | `ProviderFaultV2` (RPP:441) | always | `executionId` (R1) | `analysisOrdinal`, `phase`, `faultKind`, `detailCode` |
-| Cancel (h→w) | `CancelV2` (RPP:447) | always | `executionId` (R1) | `analysisOrdinal`, `reason` |
-| Cancelled (w→h) | `CancelledV2` (RPP:453) | always | `executionId` (R1) | `analysisOrdinal`, `observedPhase` |
-
-<!-- wire-identities:end -->
-
-    - **The ceiling.** The identity-bearing members on a provider's wire are **exactly** the members listed above, under the condition each row states. No RequestId, RunId, ProjectId, log path, pid or record key is on the wire, and nothing beyond this list. A row marked "FA-2, proposed" is on the wire only once FA-2 is accepted and its token negotiated (G10; item 22). A row marked `target-attribution-v2` is on the wire only when that token is negotiated (NE:2797-2814).
-    - **Control L-C1 (r4).** `python3 evidence/wire_identities.py --check` re-derives the inventory from the pinned schema bytes. It fails if the table above or `evidence/wire-identities.json` (which records each source's sha256) differs by one member, rule or line. It runs with no product code, build or network. A schema successor that changes a payload changes the derived table, and so needs a delta round of this item.
-    - **FA-2 needs no further member (r4 check).** The derived FA-2 rows hold exactly the two members FA-2's §9.8 and this law's item 22 name: `symbolCensus.enumeratorClosure` on Analyze, and the census rows' `nativeSubjectId` on `Complete`. No cross-law item for FA-2 arises from RF-1.
-    - **r1:377** is the historical closed sentence that J1 still cites (X14).
+  - **What is on the wire (r3, RF-1).** r2 said "only" four identities and cited lines that carry more. The contracts put further identity-bearing members on the wire, and this item now names them exactly, per protocol. It adds none.
+    - **The correlation identities,** bound before spawn: `executionId`, `snapshotId` (`snapshot2` text), `planId` (`plan2` text) and the universe coordinate, the native semantic-universe identity (NE:3158-3164). These four are what records correlate on (below). `executionId` and `planIntentCommitment` keep their owners (NE:3159).
+    - **TS2 (`typescript-semantic` major 2):**
+      - `TypeScriptHelloV2`: `hostBuildId`, `expectedProviderDescriptorSha256`, `expectedRuntimeDescriptorSha256`, `limits`, `expectedCapabilities`, `identityVersions` (NE:2955-2960).
+      - `TypeScriptHelloAckV2`, whose identity members item 15 checks: `providerDescriptorSha256`, `runtimeDescriptorSha256`, `providerBuildId`, `protocolMajor`, `typescriptVersion`, `typescriptCompilerSha256`, `typescriptStdlibMerkleRoot`, `defaultWorkBudgetProfileId`, `defaultWorkBudgetProfileSha256`, `nodeVersion`, `v8Version`, `modulesAbi` and `platformId`, with the `capabilities` and `identityVersions` echoes (NE:2968-2981).
+      - `TypeScriptOpenUniverseV2` = `{executionId, snapshotId, planId, planIntentCommitment, providerId, universe, universeKey}` (NE:3166-3175). The `universe` descriptor repeats the provider and runtime members that equal HelloAck's (NE:3171-3174) and carries `resolvedInputs.nativeContextId` (NE:3190-3191). `TypeScriptUniverseAcceptedV2` echoes `{executionId, snapshotId, planId, universeKey}` (NE:3176-3177).
+      - Later members:
+        - `Analyze` echoes `executionId`, `snapshotId`, `planId` and `universeKey` (DLV `AnalyzeV1`);
+        - `NativeContextVerified` and the pre-Analyze `Unavailable` carry `nativeContextId` and the worker's recomputation (NE:2881, NE:3206-3207);
+        - candidates and Coverage keys carry the universe ids, `producer`, `producerVersion` and `subjectScopeCommitment` (DLV `FactCandidateV1`, `CoverageKeyV1`);
+        - `Cancel` and `Cancelled` echo `executionId` (DLV:860-861).
+    - **Rust3 (`rust-semantic` major 3):**
+      - `HelloV3`: `protocolMajor`, `hostBuildId`, `expectedProtocolContractSha256`, `expectedIdentity`, `expectedCapabilities`, `identityVersions`, `limits` (NE:2816-2829). `expectedIdentity` is `ExpectedRustIdentityV3` `{protocolMajor, providerBuildId, rustCommitHash, hostTriple, targetTriple, sysrootDigest}`.
+      - `HelloAckV3`, whose five identity members item 15 checks against `expectedIdentity`: `providerBuildId`, `rustCommitHash`, `hostTriple`, `targetTriple` and `sysrootDigest`, with `protocolMajor` and the `capabilities` and `identityVersions` echoes (NE:2830-2835).
+      - `OpenUniverseV3` = `{executionId, snapshotId, planId, planIntentCommitment, providerId, universe, repositoryResolution}` (NE:3178-3187). `repositoryResolution` is `RepositoryResolutionV3` `{dependencySourceSetId, preparedOutputSetId, authorizationId, workerExecutesRepositoryCode: false, effects}` (NE:2886-2888). `UniverseAcceptedV3` echoes the whole payload except `planIntentCommitment` (NE:3188-3189).
+      - Later members:
+        - the custody frames carry `snapshotId`, `dependencySourceSetId` and the prepared set's id (NE §9.2; RPP);
+        - `NativeContextVerified` and the pre-Analyze `Unavailable`, as for TS2;
+        - candidates and Coverage keys, as for TS2;
+        - `CancelV2`, `CancelledV2` and `ProviderFaultV2` echo `executionId` (RPP:441-457).
+    - **FA-2, once accepted, when `symbol-census-v1` is negotiated (r3; item 22):**
+      - host to worker, on Analyze: `symbolCensus.enumeratorClosure`, the enumerator's `closure2` text;
+      - worker to host, on `Complete`: the census, whose rows carry provider-attested `SubjectIdV1`s. Those are native subject identifiers, not host identities.
+    - **Nothing else.** No RequestId, RunId, ProjectId, log path, pid or record key, and no identity the two protocols (with FA-2) do not already carry. r1:377 is the historical closed sentence that J1 still cites (X14).
   - **Phase (r2: J1's reading).** A provider exists only after its attempt's ExecutionId is reserved and after Plan sealing (item 2). J1 item 2 fixes where that ExecutionId comes from:
     - for a durable attempt, `CommitSession::open` at row R12, reserved in the process's `ExecutionIdReservations` before any provider frame;
     - for an ephemeral attempt, a host draw at the attempt's start (J1:160-174).
@@ -878,7 +775,7 @@ Each correction below is recorded here as current law for M3 and later units. It
      - Frame acceptance is still not admission (item 12.3), and a census is not progress.
   3. **How reuse treats it (INC).**
      - **INC-1 and INC-2 (items 4, 5).** Every projected record names the current `planId` and `parameterDigest`, and every scope built from it binds the current `snapshot2`. A census is never carried across Plans, and no M3 path reuses one (item 3). It is a provider attestation admitted in one Run, never authority beyond it.
-     - **INC-3 (item 6).** A census depends on its universe's whole program. **(r4, NBO-3)** Its invalidation key covers **every class item 6 names**: enumeration, incoming references, negative dependencies, configuration and native context, tool and rule closures, dependency source sets, and prepared outputs (AQP:391-399). The last two can change the symbols a worker attests as surely as an edit can. Per-file dirtiness is never sufficient by itself.
+     - **INC-3 (item 6).** A census depends on its universe's whole program. Any change to that universe's input closure invalidates it: AQP:391-399's enumeration class, with configuration and native context. The INC-1 successor's key must cover that whole class. Per-file dirtiness can never invalidate a census.
      - **INC-4 (item 7).** A paired full and incremental sequence compares census rows, and the scopes built from them, like any semantic payload.
      - **INC-8 (item 10).** The census is recomputed every Run and covered by `host.reuse.disclosed` per stage and universe. No census-specific record exists.
   4. **Records.** No S-OP-2 event is added. Census bytes are semantic evidence, and no operational record carries them (item 14).
@@ -900,8 +797,8 @@ Every join this law makes to a law accepted since r1 was read on 2026-10-04, as 
 |---|---|---|
 | **S-OP-2 r6** (accepted) | Items 10, 12, 13 and 14: the record join, the reductions, correlation and the events | **Consistent.** Every event need is registered (item 14). SM-10's unit now follows SOP2:910 (item 9; S-OP-2's R9, SOP2:1041). The `detailCode` row matches item 12.2 (SOP2:844). Counting stderr fits `Reduced::from_capture` (SOP2:837). S-OP-2's two rows beyond r1 (reduced `refusal` detail, unrecorded nonces; SOP2:850) are adopted in items 12.2 and 12.4. |
 | **J1 r3** (accepted) | RequestId and ExecutionId phase (J1 item 2); where a child starts (J-ε, J-ζ; J1 item 5.2); the commit-phase join (J1 item 8); the second stage (J1 8.5); outcome rows 30 and 46 | **Consistent, with r1's phase scope corrected.** Item 13 adopts J1 item 2's reading. Item 2 cites J-ε and J-ζ. Item 16f narrows r1's scope to phase A (J1:500) and defers to J1 item 8. J1 8.5 adopts item 16c's grace, which answers X3 for S-OP-12. Row 30 (worker fault: `PROVIDER.PROTOCOL_VIOLATION`, no facts, Coverage or Run) matches item 5. Row 46 (signal in A or B: `interrupted` 130, no runId) matches item 16e. **(r3)** J1 r4 is accepted (GROK2). It changes none of these provisions: it adds R10a, ER10a and SD-6's rows. Its line 207, like r3's line 192, forbids "any identity on a provider's wire beyond M3L:377's". Item 13 now lists those identities exactly, and J1's next revision re-cites item 13 (X14). |
-| **MC r6** (accepted in review) | MC item 20's INC consistency; MC's uses of items 2, 13 and 17 (MC:93, MC:642); MC X-1 and X-3 | **Consistent.** MC item 20's claims hold against r3 unchanged. X-1 is taken into SM-5 and SM-6. X-3 is recorded as X12 and R10. MC's gate (MC:88-89), "M3-L is accepted", means L in effect ("Review and effect"). **(r3)** C r7, in review with CODEX2, narrows only item 16's row 8 and has no join here. FA-2's C follow-ups go to C's next revision (X16), as FA-2 r2 narrows them: the enumerator of a TS or Rust binding that owes a symbol inventory (not host-derived inventories, X-H3; not syntax universes); a worker for every TS or Rust universe such an inventory binds; and the Plan-time token need. |
-| **ME r3** (accepted) | In-host syntax with no child (ME §G); "no in-process fallback" (ME item 16, reason 5); no producer cache (item 3); **(r3)** the syntax stage as an in-core producer (item 5) | **Consistent.** Item 2 states the syntax scope, and keeps the fallback bullet ME relies on. **(r3)** Item 5's exception names E1's syntax stage exactly as ME item 14b and ME:478 define it (r4, NBO-1). E3's in-host census needs no carrier (item 22). |
+| **MC r6** (accepted in review) | MC item 20's INC consistency; MC's uses of items 2, 13 and 17 (MC:93, MC:642); MC X-1 and X-3 | **Consistent.** MC item 20's claims hold against r3 unchanged. X-1 is taken into SM-5 and SM-6. X-3 is recorded as X12 and R10. MC's gate (MC:88-89), "M3-L is accepted", means L in effect ("Review and effect"). **(r3)** C r7, in review with CODEX2, narrows only item 16's row 8 and has no join here. FA-2's C follow-ups (the TS and Rust enumerator, a worker for every bound universe, the Plan-time token need) go to C's next revision (X16). |
+| **ME r3** (accepted) | In-host syntax with no child (ME §G); "no in-process fallback" (ME item 16, reason 5); no producer cache (item 3); **(r3)** the syntax stage as an in-core producer (item 5) | **Consistent.** Item 2 states the syntax scope, and keeps the fallback bullet ME relies on. **(r3)** Item 5's exception names E1's syntax stage exactly as ME item 14b and ME:477 define it. E3's in-host census needs no carrier (item 22). |
 | **I1 r2** (accepted), **I1-L** (accepted, bound at `0ceb9ad`) | **(r3)** The cycle atom's census and exact scopes (MI:113, MI:155-165) | **No text join; a delivery join.** I1 cites nothing in this law, and its product chain does not wait for it (`M3-PLAN-r6.md:355`). Its atom decides on a real TS or Rust Run only through retained symbol inventories and symbol scopes. Item 22, with FA-2, H and F2, is what makes those producible. Until then every such answer is indeterminate, which fails closed (H1:582). |
 | **M3-H r1** (reviewed draft; r2 being drafted) | **(r3)** X-H1, X-H4 | **Answered.** X-H1 is answered by item 22 with FA-2 (G10). X-H4 is answered by item 5's in-core exception. H's other cross-law items (X-H2, X-H3, X-H5, X-H6) are other owners'. H depends on this law, not the reverse. |
 | **FA-2** (design unit, in review with Codex) | **(r3)** Items 1, 13 and 22; G10 | **Joined as proposed.** FA-2 adds no frame, phase, terminal, limit member, identity version or major (FA2 "Within the current majors"). Its wire members are item 13's FA-2 entry. Its admission point is H's clean settlement (item 22.2). Its finding F-1 is X15, and F-2 is X13. |
@@ -951,14 +848,10 @@ These are recorded for their owners. None changes an accepted outcome. Each name
 - **X15 (r3; FA-2 F-1). The inherited request-key commitment rules.**
   - **The conflict.** DLV `coverageDomain.keyConstruction.subjectScopeCommitment`, DLV `RequestedCoverageDomainV1.workerRule` and RPP `planAndDomainProjection.coverageDomainAlgorithm[3]` give every key of a stage one file-set commitment. NE §4.1a requires each key's own scope2 (NE:1927-1945), and NE:3279 requires the entry to equal the request. NE §0 names none of the three as superseded, although its C-2 row makes §4.1a the field's recipe (NE:136). So the two rules conflict for **every** key.
   - **The resolution.** FA-2's §0 row C closes it in both languages, with or without the token, keeping the inherited file-set proofs. This law's item 1 reads TS2 and Rust3 with that row once FA-2 is accepted.
-  - **(r4, RF-2)** Row C sets a wire value: the commitment every requested key carries. So a change Codex's review forces in row C reopens this law through the third delta-round trigger, like any change to rows A, B or D.
   - **Owner:** the native owner, through FA-2.
 - **X16 (r3). FA-2's follow-ups for other laws** (FA2 "Cascade and cross-law items"):
   - **M3-H's next revision:** item 17's provider leg; symbol `D` from the census, or D∅; item 11's pre-Analyze symbol entries; H-C17's new cases.
-  - **M3-C's next revision** (as FA-2 r2 narrows it, FA2-R1-02):
-    - the enumerator of every available TS or Rust binding **that owes a symbol inventory** is the universe's worker provider closure. Host-derived file and package inventories and the inventory relations are excluded; they are H's X-H3, routed to M3-C r8 and CRC-2. Syntax universes have no child;
-    - every TS or Rust universe that an expected symbol inventory binds has a worker;
-    - the Plan-time token need.
+  - **M3-C's next revision:** the TS and Rust enumerator is the universe's provider closure; every universe an expected symbol inventory binds has a worker; the Plan-time token need.
   - **D2b:** the four payload versions.
   - **F2 and G3:** the emission duty and the signed capability rows.
   - **M3-PLAN (X9):** G10 and the pre-day-0 round.
@@ -1031,10 +924,6 @@ These are SM-1 to SM-10 (item 9). Each decides or informs the following:
 - **R10 (r2). Rust protocol owner.** X12: does `maxPreparedOutputEntries` 256 (RPP:102, RPP:385) govern a prepared manifest's entries in transport, beside NE's 1,000,000-row bounds? This is MC's R4, asked from this law's side.
 - **R11 (r2). The reviewer.** Is "Review and effect" lawful: an ACCEPT in review, effect only when the gate is met, delta rounds for S-M and O7, and dependents reading "M3-L accepted" as L in effect? Is "What depends on O7 and S-M" complete? **(r3)** Grok answered yes, apart from the joint case, which r3 adds (NBO-2).
 - **R12 (r3). Rust protocol owner.** X13: should Rust3's request subject list stay "every non-empty `.rs` file of the snapshot" under a cap of 256, which refuses two of S-M's seven Rust medium workloads before spawn? Or does a Rust protocol successor replace it, for example with a binding-scoped or uncapped transport list? This law changes no limit.
-- **R14 (r4). The reviewer.**
-  - Is item 13's derived inventory right? In particular: the frame-to-payload map, the record identities and the `CHILD` map in `evidence/wire_identities.py`, and the closed rules R1 to R6, including what R4 and R5 admit.
-  - Does control L-C1 re-derive it from the pinned bytes?
-  - Is the third trigger's map of FA-2's parts complete and exact?
 - **R13 (r3). The reviewer.**
   - Is item 13's inventory now exactly the contracts' (NE:2816-2835, NE:2955-2981, NE:3158-3191, with the later echoes)?
   - Is item 22's join complete and lawful against FA-2: what crosses, when it is admitted, and INC?
@@ -1050,5 +939,5 @@ These are SM-1 to SM-10 (item 9). Each decides or informs the following:
 - **Registration.** This law registers no event and no code table. Item 14 names S-OP-2's events and relies on them.
 - **Other laws.** No accepted law is changed by this revision. Cross-law items X3, X5 and X9 to X16 name the records that should change, for their owners. J1's re-citation (X14) is not folded into J1 r4.
 - **FA-2.** This law joins FA-2 and decides none of its content. FA-2's protocol change is the native owner's successor, under its own review (G10).
-- **This revision.** No product code, cargo command, test or lead run set was run for it. Product facts come from reading main `e093e90` with `git show` and `git diff`, re-checked against `cd5958b`. **(r4)** The only script run is control L-C1 (`evidence/wire_identities.py`), which reads arch documents.
+- **This revision.** No product code, cargo command, test or lead run set was run for it. Product facts come from reading main `e093e90` with `git show` and `git diff`, re-checked against `15c0779`.
 - **Effect.** An ACCEPT of this revision is "accepted in review". The law takes effect only when gate items G1, G4, G5, G9 and G10 are met and S-M's delta round is accepted.
