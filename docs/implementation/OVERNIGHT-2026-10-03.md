@@ -739,3 +739,4 @@ Times are local.
     5. **`shim` is null** under T-native.
   - **Process change:** reviewers now take the shared lane lock for cargo runs, so a review rerun can't disturb an X9 lead set.
 - **M3-PLAN r10 accepted by Codex,** with no required findings. Its two P3 observations go to r11.
+- **M3-C r8 and CRC-2 drafting started,** for CODEX2. They carry H's X-H3 (the core closure as producer of host inventory records) and the M3-C parts of J1's S7b (E-2, and E-3's C half). CRC-2 uses VD2 supersession wherever a line already has a selected override. This is critical-path law that C4a needs. It is authored now so it is ready when L takes effect.
