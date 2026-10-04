@@ -26,3 +26,8 @@ Times are local.
 - **M3-L r1 drafted and committed, not sent.** Acceptance is gated on S-M, T2b, D3/D13 sign-off, S-OP-2 and O7.
   - **Key finding:** the identity contract binds cache keys to the Plan, and any source edit changes the Plan. So changed-scope reuse (INC-1) needs an identity-contract successor before it can ship. This is consistent with the staged D5 plan; nothing ships at M3.
   - **Rust cancel grace:** 5,000 ms, fixed by Rust3, which differs from the operability plan's provisional 2 s.
+- **M3-I1 r1 sent to CODEX2** (arch `bf555155a`). This is the preview pack.
+  - **Finding:** the current four predicate ops can't express import cycles, so X12:191's policy-language successor is needed. It adds one atom, `cycle-representative`, with exactly one finding per cyclic component.
+  - **The riskiest call (LD-3):** widening the op enums without a new identifier major.
+  - **Plan impact:** I1 is larger than M3-PLAN's "M". It splits so that I1-c sits on C4's path and I1-b2 on J2's; this fits the critical path and is to be recorded in the plan.
+- **S-OP-2** (safe event vocabulary) is being drafted, for Codex.
