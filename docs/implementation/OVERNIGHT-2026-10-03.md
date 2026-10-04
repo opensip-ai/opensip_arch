@@ -585,3 +585,7 @@ Times are local.
   - **F8c:** no generator rebuild. Seven outputs are byte-identical, and `report.ts` changed only in lines 2–3.
   - **Remaining checks:** drift check `changed: []`, staged `verify_design` 94 → 95.
   - **Next:** SD-7 r2 as a clean supersession.
+- **SD-7 r2 written** in the clean VD2 form and sent to GROK2.
+  - **Content:** one supersession of SD-5's NE:3540 row, carrying D r5's predicate; a fresh NE:3539 override for item 25; the remedy overrides on B-S9's two copies. NE7 is dropped, and the folded NE text equals r1's NE7 byte for byte.
+  - **Checks:** it binds 95 → 96 under the VD2-a tool, and today's tool refuses it, so it fails closed.
+  - **Binding:** after VD2-a + F8c.
