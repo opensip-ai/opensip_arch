@@ -236,3 +236,5 @@ Times are local.
   - **R1-03, a missing trust directory state.** A created-but-not-private predecessor directory, already in the census, was missing.
 - **Reviewer routing.** B-S2 goes to Codex, which was free. B-S1 goes to GROK2 automatically after J1 r4, then B-S9.
 - **I1-L accepted by CODEX2** (ACCEPT-DESIGN-UNIT, no findings) **and bound** at product main `0ceb9ad`: a binding-only commit, 78 contract successors, `verify_design` passes. Its one observation is carried to I1-b2's fixtures: the reference cases don't yet discriminate a few precision branches. I1-P is with CODEX2. I1-a can start once P0 lands and the machine is free; it needs I1-L and F8b, both bound.
+- **J1 r4 accepted by GROK2,** with no required findings. It adds row R10a, from SD-6, and the `repair recover` record correction. The accepted bytes are `host-pipeline-j/PROPOSAL-r4.md`. The live file's acceptance note waits for CODEX2's C r7 review, which pins J1 r4's live bytes as its companion.
+- **B-S1, B-S2 and B-S9 re-verified on the new lock** (`0ceb9ad`, 78 successors). Each binds (78 → 79), with no conflict against I1-L's overrides.
