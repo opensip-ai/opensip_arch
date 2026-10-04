@@ -1,0 +1,396 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "Codex",
+  "unit": "S-OP-2",
+  "round": 1,
+  "verdict": "REQUIRED-FINDINGS",
+  "requiredFindings": [
+    {
+      "id": "SOP2-R1-01",
+      "priority": "P1",
+      "title": "Admit code tables by provenance; constness alone does not close K1",
+      "location": {
+        "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/operability/s-op-2/PROPOSAL.md",
+        "line": 212,
+        "endLine": 241,
+        "section": "items 5/K1 and 8; C-1/C-2"
+      },
+      "problem": "K1 accepts any CodeEnum implemented by any crate. An associated const prevents a runtime String from becoming TEXT, but it does not prove that the table contains approved release codes rather than source, environment values or other P3 text. For example, a one-variant implementation can set TEXT to &[include_str!(\"short_source.txt\")]; a short UTF-8 source fragment satisfies the stated 64-byte bound and the shown type constraints. An ordinary registry entry using Code<ThatEnum> then has a P0 SafeField without a new kind or a new constructor. C-1 only rejects a non-const table, so it misses this provenance bypass. The claimed construction guarantee needs a table-admission boundary as well as const evaluation.",
+      "evidence": [
+        {
+          "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/operability/s-op-2/PROPOSAL.md",
+          "line": 156,
+          "note": "K1 allows any E: CodeEnum and attributes safety to compile-time constants."
+        },
+        {
+          "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/operability/s-op-2/PROPOSAL.md",
+          "line": 212,
+          "note": "The trait is explicitly open to any crate."
+        },
+        {
+          "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/operability/s-op-2/PROPOSAL.md",
+          "line": 236,
+          "note": "The proof addresses runtime text, not provenance of const data."
+        },
+        {
+          "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/operability/s-op-2/PROPOSAL.md",
+          "line": 534,
+          "note": "The only CodeEnum negative case is a table that is not const."
+        },
+        {
+          "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/operability/PLAN.md",
+          "line": 168,
+          "note": "The accepted vocabulary distinguishes permitted codes from source/free-text data."
+        },
+        {
+          "url": "https://doc.rust-lang.org/std/macro.include_str.html",
+          "note": "Rust documents include_str! as embedding file contents in an expression of type &static str at compile time."
+        }
+      ],
+      "fix": "Require Code<E> to use a host-admitted, registered code table, with a sealed registration token or equivalent closed implementation boundary. Define approval/provenance rules for those tables and static templates; constness remains a bound on runtime substitution, not their privacy classification. Cover a const table populated from P3 input, arbitrary generic CodeEnum adapters, and unapproved table implementations in C-1/C-2. Retain the express exclusion for deliberate covert signalling; this finding does not demand general information-flow confinement."
+    },
+    {
+      "id": "SOP2-R1-02",
+      "priority": "P1",
+      "title": "Re-admit serialized bundle fields before re-encoding them",
+      "location": {
+        "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/operability/s-op-2/PROPOSAL.md",
+        "line": 317,
+        "endLine": 322,
+        "section": "item 13 support bundle; item 2 retirement"
+      },
+      "problem": "Using the running registry to assign classes is necessary, but a registered event name does not prove that serialized field values are lawful SafeField encodings. A record named provider.process.spawned can contain arbitrary text in its P0 role field; class projection alone includes it in a default bundle. Unknown fields, mismatched field types, invalid code members, and malformed identity/path encodings have no disposition. Retired names are accepted, while item 2 only promises to reserve their names, not retain the schema needed to classify their fields. The parser is expressly outside SafeField, so the construction guarantee is lost at this boundary unless serialized values are re-admitted.",
+      "evidence": [
+        {
+          "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/operability/s-op-2/PROPOSAL.md",
+          "line": 102,
+          "note": "Retired names remain reserved; full retired schemas are not required."
+        },
+        {
+          "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/operability/s-op-2/PROPOSAL.md",
+          "line": 317,
+          "note": "Bundle projection classes records using the current registry and permits registered or retired names.",
+          "endLine": 322
+        },
+        {
+          "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/operability/s-op-2/PROPOSAL.md",
+          "line": 150,
+          "note": "P3 is promised absent from every record/sink."
+        },
+        {
+          "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/operability/PLAN.md",
+          "line": 357,
+          "note": "Support bundles may not include free text."
+        },
+        {
+          "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/coop/artifacts/doctor-contract.v4.json",
+          "line": 1086,
+          "note": "A projection must consume already-redacted data rather than reintroduce unsafe values."
+        }
+      ],
+      "fix": "Specify bounded, closed record admission for bundle inputs: only known fields with valid encodings of their registered kinds may be re-encoded; unknown fields, invalid values and unavailable schemas must be omitted or cause the record to be dropped with a bounded disclosure. Retain complete descriptors for supported retired names, or drop retired records lacking one. Never pass through raw serialized values or trust their class claims. Add C-4/C-12 cases with a known event name but a poisoned P0 field, extra fields, malformed values and retired/older schemas. Leave file custody and the consent UI with S-OP-9."
+    },
+    {
+      "id": "SOP2-R1-03",
+      "priority": "P1",
+      "title": "Align the gate guarantee with its admission linearization point",
+      "location": {
+        "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/operability/s-op-2/PROPOSAL.md",
+        "line": 388,
+        "endLine": 392,
+        "section": "item 17 sink gate; C-7"
+      },
+      "problem": "The atomic load can linearize admission, but it cannot also ensure that only syscalls already issued before closure run afterward. A writer can read open, be descheduled, observe gate closure on another thread, then issue write. Item 17 only permits completion of an already-issued write and C-7 requires no new write to be issued. Those stronger claims are not implemented by the stated load-before-write mechanism. The same race applies to the direct marker path.",
+      "evidence": [
+        {
+          "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/operability/s-op-2/PROPOSAL.md",
+          "line": 389,
+          "note": "The gate read is the declared linearization point."
+        },
+        {
+          "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/operability/s-op-2/PROPOSAL.md",
+          "line": 390,
+          "note": "The exception covers a write already issued."
+        },
+        {
+          "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/operability/s-op-2/PROPOSAL.md",
+          "line": 540,
+          "note": "C-7 expects no new syscall after gate closure."
+        },
+        {
+          "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/operability/reviews/codex-operability-plan-r3/review.json",
+          "line": 1,
+          "note": "OP-R3-NB-02 specifically asks to distinguish prior write admission from later effect completion."
+        },
+        {
+          "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/operability/PLAN.md",
+          "line": 312,
+          "note": "Persistent-write suppression remains S-OP-7/X3D-owner policy."
+        }
+      ],
+      "fix": "State one achievable boundary consistently. If the load is admission, expressly account for writes admitted before closure but issued or completed afterward; prohibit admissions after closure and make that residual subject to S-OP-7/X3D assent. If the intended rule is no syscall issued after closure, define a coordinated issuance mechanism that proves it. Extend C-7 with a pause between the successful gate read and syscall, and apply the rule to markers and every write/retry. Do not choose S-OP-7 suppression policy in this unit."
+    },
+    {
+      "id": "SOP2-R1-04",
+      "priority": "P1",
+      "title": "Bound the caller drain wait independently of blocking sink I/O",
+      "location": {
+        "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/operability/s-op-2/PROPOSAL.md",
+        "line": 361,
+        "endLine": 386,
+        "section": "items 16-17 drain and marker; C-7"
+      },
+      "problem": "The writer is told to drain until a deadline and then directly write the marker using a 20 ms reserve. A blocking write to a full FIFO or stalled filesystem does not return merely because that deadline expires; the marker write can block too. No bounded caller wait, nonblocking admitted path, or abandonment of a blocked writer is specified. Thus the proposed stalled-sink control cannot establish the promised normal/cancellation drain deadline. Also, C-7 says exactly one marker per sink even though item 17 correctly forbids a marker when the gate is closed.",
+      "evidence": [
+        {
+          "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/operability/s-op-2/PROPOSAL.md",
+          "line": 361,
+          "note": "Writer-controlled deadline and 20 ms marker reserve.",
+          "endLine": 366
+        },
+        {
+          "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/operability/s-op-2/PROPOSAL.md",
+          "line": 385,
+          "note": "Marker is written directly by the writer."
+        },
+        {
+          "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/operability/s-op-2/PROPOSAL.md",
+          "line": 391,
+          "note": "Gate closure suppresses the marker."
+        },
+        {
+          "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/operability/s-op-2/PROPOSAL.md",
+          "line": 540,
+          "note": "C-7 requires the deadline with a stalled sink and exactly one marker per sink."
+        },
+        {
+          "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/operability/PLAN.md",
+          "line": 197,
+          "note": "Normal/cancellation drain budgets must leave exit unchanged.",
+          "endLine": 203
+        },
+        {
+          "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/operability/PLAN.md",
+          "line": 310,
+          "note": "The accepted plan already acknowledges that regular-file I/O can stall in the kernel."
+        }
+      ],
+      "fix": "Define the deadline on the command/termination path waiting for optional logging, independently of a sink syscall. Choose a mechanism under which a blocked writer cannot hold command completion past that budget, and state any in-flight I/O limitation honestly. The reserved marker is a bounded best-effort attempt, skipped when stopped or when it cannot be attempted within the allowed wait; a time reserve is not a syscall-time bound. Define the final producer/counter cutoff and disposition of unwritten records. Make C-7 observe caller completion under a permanently blocked write and distinguish an attempted/successful marker from a suppressed or failed one. Keep descriptor/custody choices with S-OP-1."
+    },
+    {
+      "id": "SOP2-R1-05",
+      "priority": "P1",
+      "title": "Include the entire encoding in the static size proof",
+      "location": {
+        "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/operability/s-op-2/PROPOSAL.md",
+        "line": 207,
+        "endLine": 231,
+        "section": "items 5, 8 and 14 encoded bounds"
+      },
+      "problem": "The reference MAX_ENCODED formula reserves the header and sums per-kind bounds, without bounding field-key text or including its delimiters. Item 14 repeats the sum as the record assertion. An otherwise ordinary one-field registry entry with a very long Rust field identifier can therefore satisfy the displayed count/value formula while its JSON key alone exceeds 4 KiB. The declared per-kind bounds also need an actual wire representation: K8 claims 24 bytes per variant but a named entry such as \"drain-abandoned.error\":18446744073709551615, needs 45 bytes. K3 allows a 64-byte code while a JSON string adds quotes; its unrecognized reduction wrapper also needs its own bound. A static assertion proves nothing if these constants omit legal output bytes.",
+      "evidence": [
+        {
+          "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/operability/s-op-2/PROPOSAL.md",
+          "line": 209,
+          "note": "Per-kind MAX_ENCODED is the size input."
+        },
+        {
+          "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/operability/s-op-2/PROPOSAL.md",
+          "line": 221,
+          "note": "Event size is header reserve plus the sum of field bounds."
+        },
+        {
+          "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/operability/s-op-2/PROPOSAL.md",
+          "line": 158,
+          "note": "K3 combines a 64-byte code bound with a reduction wrapper."
+        },
+        {
+          "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/operability/s-op-2/PROPOSAL.md",
+          "line": 163,
+          "note": "K8 claims 24 bytes per variant without selecting a compact encoding."
+        },
+        {
+          "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/operability/s-op-2/PROPOSAL.md",
+          "line": 335,
+          "note": "The whole-record check is described as a sum of MAX_ENCODED."
+        },
+        {
+          "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/operability/PLAN.md",
+          "line": 191,
+          "note": "The accepted limit is on the encoded record and encoded string fields, not only payload values."
+        }
+      ],
+      "fix": "Define per-form bounds on the full encoding: field names and syntax, escaping/elision, wrapper objects, separators, maximum numeric widths, static template and all lawful headers. Have registry! compute or statically prove that total; alternatively give field keys a proved reserve and bound their lengths. Specify K8 as a compact fixed-index representation if 24 bytes/variant is retained, or count named-key bytes. Correct K3 bounds for all variants. Add long-key, maximally escaped string, saturated counter and full-header boundary controls; do not rely only on one oversized payload example."
+    },
+    {
+      "id": "SOP2-R1-06",
+      "priority": "P2",
+      "title": "Use one complete control-escaping rule for both encodings",
+      "location": {
+        "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/operability/s-op-2/PROPOSAL.md",
+        "line": 309,
+        "endLine": 312,
+        "section": "items 1 and 13; C-5"
+      },
+      "problem": "The human path rule calls two ranges \"bidirectional controls\" but omits U+061C and U+200E-U+200F. The file/bundle JSON rule lists C0/C1, DEL and U+2028/U+2029 but does not require bidi escaping at all, while C-5 requires bidi controls escaped in both encodings. Conversely, the human rule does not name U+2028/U+2029. This leaves the terminal-safety claim and the positive control inconsistent, and valid admitted path names can contain the omitted characters.",
+      "evidence": [
+        {
+          "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/operability/s-op-2/PROPOSAL.md",
+          "line": 89,
+          "note": "JSON escape set omits the bidi-control property."
+        },
+        {
+          "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/operability/s-op-2/PROPOSAL.md",
+          "line": 312,
+          "note": "Human escape set contains only U+202A-U+202E and U+2066-U+2069."
+        },
+        {
+          "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/operability/s-op-2/PROPOSAL.md",
+          "line": 538,
+          "note": "C-5 requires bidi escaping in both forms."
+        },
+        {
+          "url": "https://www.unicode.org/Public/17.0.0/ucd/PropList.txt",
+          "note": "Bidi_Control includes 061C, 200E-200F, 202A-202E and 2066-2069; 2028 and 2029 are line/paragraph separators."
+        }
+      ],
+      "fix": "Define a common escaping policy covering the complete Unicode Bidi_Control set and the named control/line-separator characters, apply it in both forms to every relevant string-bearing kind, and reconcile items 1/13 with C-5. Add explicit cases for U+061C, U+200E, U+200F, U+2028 and U+2029 and account for expansion in the static byte bounds."
+    },
+    {
+      "id": "SOP2-R1-07",
+      "priority": "P2",
+      "title": "Keep reaped maximum RSS in the promised native unit",
+      "location": {
+        "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/operability/s-op-2/PROPOSAL.md",
+        "line": 502,
+        "endLine": 502,
+        "section": "item 23 provider.process.reaped"
+      },
+      "problem": "The registry specifies max_rss as K2 Bytes alongside rss_unit, but M3-L requires the raw wait4 ru_maxrss value in its platform-native unit, labelled. A native unit is not necessarily bytes. Either treating that raw quantity as Bytes or normalizing it while retaining the native label misstates the measurement. The field schema must choose an unambiguous representation before this row is frozen.",
+      "evidence": [
+        {
+          "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/operability/s-op-2/PROPOSAL.md",
+          "line": 502,
+          "note": "max_rss is typed Bytes and paired with rss_unit."
+        },
+        {
+          "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/provider-protocol-l/PROPOSAL.md",
+          "line": 405,
+          "note": "The required operational record uses platform-native ru_maxrss with its native unit labelled."
+        },
+        {
+          "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/operability/s-op-2/PROPOSAL.md",
+          "line": 514,
+          "note": "The proposal claims coverage of the provider-boundary record."
+        }
+      ],
+      "fix": "Use a Count for max_rss_native with a closed native-unit code, preserving the sampled value. A separate normalized max_rss_bytes may be added with checked conversion, without relabelling the raw value. State the interpretation of each duration/resource field explicitly and add a C-12/control fixture for both byte and non-byte RSS units."
+    }
+  ],
+  "nonBlockingObservations": [
+    {
+      "id": "SOP2-R1-NB-01",
+      "priority": "P2",
+      "title": "Keep the P0 definition consistent with provider-asserted resources",
+      "location": {
+        "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/operability/s-op-2/PROPOSAL.md",
+        "line": 145,
+        "endLine": 145,
+        "section": "item 4 compared with items 22-23"
+      },
+      "observation": "P0 defines counts/sizes/durations as host-measured, but items 22 and 23 correctly identify resourceReport quantities as provider-asserted P0. These are different provenance claims. The closed numeric carrier can remain a nonsemantic measurement under the express covert-channel exclusion; it must not be described as a host-measured fact or used as progress.",
+      "recommendation": "Name the approved asserted-numeric category explicitly in P0, retain provider-asserted labels, and let C-12 verify that resource assertions never become admitted progress."
+    },
+    {
+      "id": "SOP2-R1-NB-02",
+      "priority": "P2",
+      "title": "Distinguish valid P2-name scrubber matches from vocabulary defects",
+      "location": {
+        "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/operability/s-op-2/PROPOSAL.md",
+        "line": 282,
+        "endLine": 285,
+        "section": "item 11; C-4/C-6"
+      },
+      "observation": "A lawful admitted filename can contain a known credential-shaped substring, for example password=CANARY. DC4 expressly permits sensitive operator-chosen names. A final byte scrubber may match that valid P2 value even though no forbidden secret value entered a field. Calling every such match a vocabulary defect conflates provenance with pattern matching.",
+      "recommendation": "Specify whether the guard excludes permitted P2-name spans from credential matching or reports legitimate disclosure-tier matches separately. Include a known credential-shaped filename in C-4 and state its expected guard result; do not count expected escaping as a defect."
+    },
+    {
+      "id": "SOP2-R1-NB-03",
+      "priority": "P2",
+      "title": "Make the outcome-dependent Run header an owned constructor join",
+      "location": {
+        "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/operability/s-op-2/PROPOSAL.md",
+        "line": 512,
+        "endLine": 512,
+        "section": "item 23; item 9"
+      },
+      "observation": "The normative phase rules are correct, but a fixed Event::Requires set does not by itself tie a runtime outcome Code to the optional Run header. The code unit must not expose a free struct/outcome pairing that allows CommitUndetermined to be emitted through a Run-bearing scope.",
+      "recommendation": "Use an outcome/receipt-aware private constructor or equivalent checked scope transition for storage.commit.classified; exercise both wrong pairings in C-1/C-8. Seal scope/marker implementations and keep generic From or mint adapters on the audited owner list."
+    },
+    {
+      "id": "SOP2-R1-NB-04",
+      "priority": "P2",
+      "title": "Retain member-specific P2 consent in the later bundle unit",
+      "location": {
+        "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/operability/s-op-2/PROPOSAL.md",
+        "line": 317,
+        "endLine": 322,
+        "section": "item 13; open R3"
+      },
+      "observation": "A bundle-wide P2 ceiling is a necessary bound, not a substitute for the accepted plan requirement that P2 members need their own consent. The draft leaves the flow with S-OP-9/O5, which is the right owner boundary.",
+      "recommendation": "Carry OPP:356 into S-OP-9; an approval for one P2 member or class must not implicitly authorize another. r1 need not decide that UI."
+    },
+    {
+      "id": "SOP2-R1-NB-05",
+      "priority": "P3",
+      "title": "Preserve exact recording text and its operational scope",
+      "location": {
+        "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/operability/s-op-2/PROPOSAL.md",
+        "line": 519,
+        "endLine": 526,
+        "section": "item 24"
+      },
+      "observation": "The SDK4 pointer and DRC line-576 target are correct, and recording with M3-O plus its own manifest/review is appropriate. The DRC after text changes meaning. to meaning;, so it is not literally insertion-only. Also, free text reaches no sink should stay explicitly scoped to operational records, since the doctor report retains its accepted disclosure tier.",
+      "recommendation": "Preserve the original punctuation when inserting the reduction sentence and qualify the appended SDK4 sentence as operational-record sink law. The later recording review must verify exact selectors/parents, include the accepted proposal bytes in its subject manifest and preserve the DR-114 report split."
+    },
+    {
+      "id": "SOP2-R1-NB-06",
+      "priority": "P2",
+      "title": "Specify sink-local final loss snapshots and typed capture summaries",
+      "location": {
+        "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/operability/s-op-2/PROPOSAL.md",
+        "line": 355,
+        "endLine": 387,
+        "section": "items 16-17; K7"
+      },
+      "observation": "The marker has a sink field, while the counter description names 40 counters plus first errors per sink; sink-local versus invocation-global totals should be explicit. A once-only marker also needs a producer/counter cutoff. Reduced::of(text, truncated) must obtain the total observed count from capture metadata if text contains only the bounded prefix.",
+      "recommendation": "In the code-unit design, define counter ownership, one disposition per lost sink projection, the final snapshot after producer admission closes, and a capture-owner summary carrying observed bytes/truncation. Clarify envelope routing: item 12 every sink does not make ordinary events eligible for diagnostics, whose row permits only the loss summary."
+    }
+  ],
+  "subjectSha256": "e3b117f0cc2d73b06f8d0276ae01c551fc1503542bdf0e4c493ad15b0698e532",
+  "subjectBytes": 60424,
+  "subjectPath": "docs/implementation/m3/operability/s-op-2/PROPOSAL.md",
+  "productBase": "3d2d5b5a5e5cabd1768b02e29eb3c0928264fb4f",
+  "reviewScope": "Law and contract soundness of the successor text, not implementation or recording acceptance",
+  "verification": {
+    "suppliedPinsMatched": 29,
+    "registryNamesMatchGrammar": true,
+    "registryEvents": 26,
+    "applicationInheritancePinsMatch": true,
+    "method": "Read-only document/source inspection and scratch digest scripts only",
+    "cargoRun": false,
+    "testsRun": false,
+    "productCodeExecuted": false,
+    "repositoryEdits": false,
+    "committed": false,
+    "delegated": false,
+    "realOpenSIPHomeAccessed": false,
+    "fixture413Read": false,
+    "evidenceFiles": [
+      "pin-check.json",
+      "document-audit.json",
+      "subject-reviewed.md"
+    ]
+  },
+  "recordingAssessment": "Two intended parent joins are appropriate; recording is deferred and requires its own exact-byte manifest and ACCEPT-DESIGN-UNIT. No subject manifest or inventory assessment applies to r1."
+}
