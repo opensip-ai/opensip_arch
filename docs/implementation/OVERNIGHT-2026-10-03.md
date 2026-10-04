@@ -58,3 +58,9 @@ Times are local.
   - the pack contract.
 
   The product units I1-a, I1-b1, I1-b2 and I1-c are next, after X9-6 finishes.
+- **F8 split:**
+  - **F8a,** the policy-row refresh, went to Codex. Both dependency checks and both test suites now pass, and every new row was audited.
+  - **F8b,** the generator-closure plus TS-lane-registry successor, went to CODEX2 as a proposal. F8b found that `tools/typescript-lanes.json` also pins the `verify_design.py` from before VD1.
+  - **The policies went stale on 2026-09-21,** because no unit ran these checks for two weeks. F8a's request recommends adding them to the Python lanes of any unit that touches `crates/contracts` or `crates/identity`.
+  - **I1-a regenerates contract code,** so it needs F8b first. Order: F8b, then I1-a.
+- **S-OP-2 r1:** Codex raised 7 findings, and it went back for r2 with lead decisions on each.
