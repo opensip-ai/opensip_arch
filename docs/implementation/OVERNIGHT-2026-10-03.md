@@ -692,3 +692,4 @@ Times are local.
 - **X4 r8 accepted by CODEX2 at round 3,** with no required findings. J1's S11 is now law.
   - **What it settles:** the gate word, rule FC (one first stop, recorded with its transition and never replaced), `StopCause::CertainRefusal`, and the entry rule LD8-10.
   - **Next:** code unit **X4-F3** fixes the pre-existing first-cause race D8-1 and must land before J3b, or with it. It starts now, writing code first and running lanes and its X9 lead-set rerun when the machine is free.
+- **X4-F3 code unit started** (worktree `opensip-x4f3`), for CODEX2. It adds no new file if it can, so as not to race J2a's and E2a's inventory versions. Its X9 lead-set rerun holds the shared lane lock with nothing else running.
