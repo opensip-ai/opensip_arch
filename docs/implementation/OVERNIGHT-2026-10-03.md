@@ -721,3 +721,4 @@ Times are local.
   - **Lead decision: J3a waits for X4-F3 to integrate.** Both edit `commit_session.rs`, and the X3d r9 reservation at `open` would otherwise be written on a base about to change.
   - **Rejected:** starting J3a now and rebasing afterwards.
 - **REG v3 r2 written and sent to CODEX2.** REG:9 is now a passage supersession of initial-root-binding-owner-selection-v1's override, keeping all of its text and appending J-RW's. A local `verify_design` run with the entry appended passes: 98 contract successors, 2 supersessions. r1's bytes refuse with the conflict the review predicted.
+- **REG v3 accepted by CODEX2 at r2** (ACCEPT-DESIGN-UNIT, with `supersededPassages`) **and bound** at product main `21e428d` as the second contract passage supersession. That gives 98 contract successors. All of J-RW's successors except RW-S6 (X9 r17 §RW) are now accepted, so J4b's REG prerequisite is met.
