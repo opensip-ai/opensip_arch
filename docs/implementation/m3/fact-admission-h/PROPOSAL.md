@@ -1,5 +1,7 @@
 # Fact admission — proposal M3-H r3
 
+**r3 ACCEPTED 2026-10-04 by Grok** (`7a562720…`; `reviews/grok-fact-admission-h-r3/`), with no required findings. r3's bytes are preserved in `PROPOSAL-r3.md`. This file differs from them only in recording text, for Grok's observations: this paragraph; X-H3's audience at the cross-law item (M3-C r8 and CRC-2, NBO-2); and the row-30 citation (`coverage.rs:358-376` and `:401-404`, NBO-3). Per NBO-1, MC line citations are r7's, shifted 11 lines from r6, apart from item 16 row 8, which r7 replaced. The successor table's kind cell for the X-H3 row (ACCEPT-DESIGN-UNIT) applies to CRC-2.
+
 2026-10-04. Drafted for Claude Opus 5.5, implementation lead, by a lead-dispatched drafting agent during the overnight autonomous run. Law for unit **M3-H** of the accepted M3 unit plan (M3P:216). It fixes H's scope, its joins, its hand-off to J2 and its code units H1 to H5.
 
 **Draft r3, not accepted. Not code.** This law touches no product file. H's code units wait for P0, for the codec and supervisor units they consume (D2b, D3) and for the gates in item 25.
@@ -512,7 +514,7 @@ Each candidate of a settled return, and each in-host syntax candidate (item 16),
   - a refusal beginning `native.coverage-cause-`: the cause-carrier registry (NE:3541; `coverage.rs:106-157`);
   - a refusal beginning `native.coverage-source-variant-`: the source-variant carrier law (NE:3802-3806; `coverage.rs:389-399`);
   - a bijection fault whose `fault` member begins `RC-6:`: contradictory completeness (NE:3538; `coverage.rs:192`). The key renders it as `'fault': 'RC-6:` (`view_joins.rs:141-146`).
-- **Row-30 causes:** every other cause. These are NE §4.1a's key, commitment, count, entry-key and schema-digest refusals, and the bijection faults labelled `RC-0:`, `RC-1:` and `RC-2:` (NE:1945-1947, NE:3529; `coverage.rs:183-260`, `:358-404`).
+- **Row-30 causes:** every other cause. These are NE §4.1a's key, commitment, count, entry-key and schema-digest refusals, and the bijection faults labelled `RC-0:`, `RC-1:` and `RC-2:` (NE:1945-1947, NE:3529; `coverage.rs:183-260`, `:358-376`, `:401-404`).
 
 **The rule:** row 32 when any row-32 cause is present; otherwise row 30.
 - Rows 30 and 32 share the public termination, and item 3 discards the return either way. So the rule decides only which condition is recorded (r2 review, NBO-3).
@@ -857,7 +859,7 @@ Each item names the law that must change. None is decided by this law beyond its
     - I1's rule can never decide on a real Run (item 20).
   - The recommendation is FA-2's row.
 - **X-H2. Clean non-Complete terminals.** It is for the **native owner (FA-1)**. NE:3849-3850's "facts before the terminal are admitted" contradicts the retained candidate dispositions (DLV:1140-1141, DLV:1152, DLV:1164; RPP:597-598), which NE §0 does not supersede (NE:126, NE:129). M3 applies the retained selectors (item 4). MD's F7 (MD:623, MD:1107) is answered here. MD's next revision cites item 4.
-- **X-H3. No lawful producer for host-produced inventory records in TS and Rust universes.** It is for **M3-C's next revision and CRC-1**.
+- **X-H3. No lawful producer for host-produced inventory records in TS and Rust universes.** It is for **M3-C r8 and CRC-2**.
   - NCM:949 says the host produces inventory records in every mode.
   - MC r7 forbids the core provider closure on any TypeScript or Rust record (MC:443, MC:464).
   - MC:458 forbids attributing a record to a provider that did not produce it.

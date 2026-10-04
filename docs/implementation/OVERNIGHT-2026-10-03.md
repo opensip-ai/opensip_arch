@@ -401,3 +401,9 @@ Times are local.
   - **Lead decision:** RUST3-LIM becomes L's gate item G11, entering at L's next revision. Without it, L in effect fixes a protocol that refuses two of S-M's seven medium workloads.
   - **Review:** queued for CODEX2.
 - **CRC-1 r2:** Grok raised one finding, and it was the lead's own slip. Renaming the review directory left the builder emitting the old path, so `--check` failed. The lead wrote r3: only the builder's path text and the README change, and the passage overrides are byte-identical. It still binds 82 → 83. SYN-1F's parent pin on CRC-1's record moves again, so SYN-1F needs a parent-only rebuild before it is sent.
+- **M3-PLAN r7:** GROK2 raised two consistency findings.
+  - Two lines named CRC-1 instead of M3-C r8 / CRC-2 for the X-H3 widening.
+  - One Risks bullet still called X4-F1's confirmation lane pending.
+
+  The lead wrote r8 (three rows) for GROK2. **NBO-1, the G10 name collision:** M3-L's next revision renames its gate items L-G1..L-G11.
+- **M3-H's live file now carries its acceptance note,** with Grok's observations applied.

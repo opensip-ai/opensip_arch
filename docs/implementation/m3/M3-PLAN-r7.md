@@ -1,6 +1,6 @@
 # M3 unit plan
 
-Draft r8, not accepted. Claude Opus 5.5, implementation lead; drafted for the lead by a lead-dispatched drafting agent during the overnight autonomous run. **Planning record: not law, not code, not a contract successor.** It is the M3 counterpart of [m2/EXIT-PLAN.md](../m2/EXIT-PLAN.md). It orders M3's obligations into reviewable units and changes no accepted contract, gate, threshold or register row.
+Draft r7, not accepted. Claude Opus 5.5, implementation lead; drafted for the lead by a lead-dispatched drafting agent during the overnight autonomous run. **Planning record: not law, not code, not a contract successor.** It is the M3 counterpart of [m2/EXIT-PLAN.md](../m2/EXIT-PLAN.md). It orders M3's obligations into reviewable units and changes no accepted contract, gate, threshold or register row.
 
 **r7 is a record revision.** It brings the plan up to date with the laws, lead decisions and cross-law items of the night of 2026-10-03 to 2026-10-04. It moves no gate or threshold the owner set. Durations and edges move only where an accepted law moved them. It adds one lead gate item to M3-L's own row (G10, FA-2; P7-2).
 
@@ -49,16 +49,6 @@ Draft r8, not accepted. Claude Opus 5.5, implementation lead; drafted for the le
   - **X3C** `docs/implementation/m2/ledger-blob-x3c/PROPOSAL-r8.md` (X3c r8, accepted by GROK2; `ba638efb…`).
 - **The overnight log, ON:** `docs/implementation/OVERNIGHT-2026-10-03.md`, cited by entry.
 - Product paths are under `opensip/`.
-
-## r8 changes
-
-r8 answers GROK2's r7 review (`reviews/grok2-m3-plan-r7/`) and changes nothing else. r7's bytes are preserved in `M3-PLAN-r7.md`.
-
-| Finding | Change |
-|---|---|
-| RF-1 | The day-0 assumption ("Critical path") and the Unsized list now name the X-H3 widening as M3-C r8 with CRC-2, matching the widening row, the cross-law route and the reversible-decision row. CRC-1 stays the day-5 successor for C's existing law. |
-| RF-2 | The Risks bullet now records X4-F1's confirmation lane as passed: 1749/0/3 on `15c0779`. |
-| NBO-1 | Recorded, not changed. In the units table, "G10" means the DR-G10 gate (line 140); in the M3-L gate table, item G10 is "FA-2 accepted". Both are defined where they appear. M3-L r4 is to rename its gate items with an `L-` prefix (L-G1..L-G11) at its next revision, which removes the collision at the source. |
 
 ## r7 changes
 
@@ -380,7 +370,7 @@ Each item from tonight's laws is routed once. "Here" means this record takes it 
   - the D law (**accepted**, r3; its gate, CF-P, met), the E law (**accepted**, r3), the J law (**accepted**, J1 r4), X3c r8 (**accepted**), the H law (in review; r3 queued) and J-RW (in review; r3 being written);
   - the B law (accepted) and its successors X2 r9 and X12 r4 (**accepted**), and B-S1 with SX-1, B-S2 and B-S9 (**all bound**; B1-a needed B-S9 on day 0);
   - **FA-2**, with L r3 (gate item G10); both are in review (Codex and Grok);
-  - **the X-H3 widening of C (M3-C r8) and CRC-2** (MH item 25; MH r3 accepted): before day 0, or at the latest before C4a starts on day 16.
+  - **the X-H3 widening of C and CRC-1** (MH item 25, in review): before day 0, or at the latest before C4a starts on day 16.
   - X12 r4 lands with B1-a (MB item 25), which starts on day 0; it is accepted, so this is met.
 - **P0 landed.**
 - **I1's product units,** or at least I1-c by day 16 and I1-b2 by day 19 (below). Both I1 design units are bound.
@@ -798,7 +788,7 @@ These units could not be sized from the records:
 - **X4-F2 and F9.** No draft exists. They are sized provisionally, as M plus a lead set and as S, and neither is on the host chain.
 - **The INC-1 successor.** It is an M4 decision (ML item 4).
 - **M3-L's in-effect date.** It depends on O7, S-M, the two sign-offs and FA-2 (G10).
-- **r7:** FA-1, FA-2, the X-H3 C revision (M3-C r8) with CRC-2, SD-5 with S20, X3d r9, X3c r9, X9 r17's sections, SYN-1F, SD-2, SD-3, and J1's and J-RW's other successors. No source states a size. Each is a successor or a record, so the successor-law bound (about 3 rounds, at most 5 days) applies, and each reaches the host chain only through the conditions in "Critical path".
+- **r7:** FA-1, FA-2, the X-H3 C revision with CRC-1, SD-5 with S20, X3d r9, X3c r9, X9 r17's sections, SYN-1F, SD-2, SD-3, and J1's and J-RW's other successors. No source states a size. Each is a successor or a record, so the successor-law bound (about 3 rounds, at most 5 days) applies, and each reaches the host chain only through the conditions in "Critical path".
 - **The Rust3 limit successor** (ML3 X13, in review; ON). It is recommended before G3 ships, and it has no draft.
 - **H's and J4's sub-units** are sized by their drafts, which are in review (P7-5).
 
@@ -820,7 +810,7 @@ These units could not be sized from the records:
   - `lifecycle/installation.rs` owns DR-G14 (BP:1018), but its first milestone is M5.
   - `platform/process.rs` is the M6 DR-G22 owner (BP:1026); D1a builds it early.
   - **r7:** nobody produced the inventory capability's host records. H r1 gives them to H3 (X-H5, in review). What M3 says for `vcs-change@vcs-reported` is still open, with C and the native owner.
-- **Known M2 defects.** X4-F1 (observer reread expiry) is fixed and integrated at `15c0779`, without a full two-target matrix run (lead decision; its confirmation workspace lane then passed, 1749/0/3 on `15c0779`). X4-F2 (the fenced read) has no draft, and it gates J2b (P5-4).
+- **Known M2 defects.** X4-F1 (observer reread expiry) is fixed and integrated at `15c0779`, without a full two-target matrix run (lead decision; its confirmation workspace lane is pending). X4-F2 (the fenced read) has no draft, and it gates J2b (P5-4).
 - **Calendar.** The test fixtures expire on 2026-12-30 (F9; P5-5).
 - **Held-out scale.** There are 10 held-out families (T2R:296), so Q2 PASS on T2 is INSUFFICIENT-EVIDENCE by design (HD OI-3; B2).
 - **Cancellation goal.** Rust3's 5,000 ms grace can miss OPP's p95 ≤ 2 s without a second signal (ML item 16c).
