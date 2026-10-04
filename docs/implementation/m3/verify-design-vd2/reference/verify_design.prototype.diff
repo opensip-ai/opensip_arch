@@ -1,0 +1,85 @@
+--- a/tools/verify_design.py
++++ b/tools/verify_design.py
+@@ -271,6 +271,10 @@
+         if not isinstance(before, str) or not isinstance(after, str) or not after or before == after:
+             raise DesignError("passage supersession must change one text value")
+         selected_passage(parent_bytes[parent["path"]], entry["selector"])
++    # VD2: a review that lists superseded passages lists exactly the record's,
++    # in record order; successor_chain requires the list for a contract passage.
++    if "supersededPassages" in review and review["supersededPassages"] != [entry["supersedes"] for entry in supersessions]:
++        raise DesignError("contract review superseded passages differ from the record")
+     return {"selected": binding["record"]["path"], "sha256": binding["record"]["sha256"],
+             "inputs": candidates, "passageOverrides": overrides, "passageSupersessions": supersessions}
+ 
+@@ -282,6 +286,8 @@
+     overwrite earlier selected bytes, and conflicting passage meanings refuse.
+     Inventory description inheritance is explicit in the lock and checked by
+     stable inventory file path, since sorted additions can change row indexes.
++    VD2: any other passage meaning changes only by an explicit, reviewed and
++    linear supersession of the same physical passage; it is never projected.
+     """
+     inventories, contracts = lock['inventorySuccessors'], lock['contractSuccessors']
+     if not isinstance(inventories, list) or not inventories or not isinstance(contracts, list) or not contracts:
+@@ -333,13 +339,44 @@
+     # VD1: published entries by (record path, parent path, selector JSON);
+     # earlier record pins; and each superseded file path's current chain tail.
+     published, earlier_records, tails, supersession_rows = {}, {}, {}, []
++    # VD2: each superseded contract passage (parent path, selector JSON) maps
++    # to its chain tail's published key; links counts every contract link.
++    contract_tails, links = {}, 0
+     for binding in contracts:
+         result = contract_successor(architecture, binding, accepted)
+         members = [binding['record'], *result['inputs']]
+         if any(row['path'] in accepted or row['path'] in seen for row in members):
+             raise DesignError('contract candidate reuses an accepted path')
+         record_path = binding['record']['path']
++        listed = False
+         for entry in result['passageSupersessions']:
++            if entry['parent']['path'] not in chain_index:
++                # VD2: a contract passage. The link names the current meaning of
++                # the same physical passage, in a strictly earlier record.
++                named = entry['supersedes']
++                if earlier_records.get(object_value(named['record'], 'superseded record').get('path')) != named['record']:
++                    raise DesignError('superseded record is not an earlier contract successor')
++                target_key = (named['record']['path'], object_value(named['parent'], 'superseded parent').get('path'),
++                              json.dumps(named['selector'], sort_keys=True))
++                kind, target = published.get(target_key, (None, None))
++                if target is None or target['parent'] != named['parent']:
++                    raise DesignError('superseded passage is not in the named record')
++                key = (entry['parent']['path'], json.dumps(entry['selector'], sort_keys=True))
++                if entry['parent'] != target['parent'] or key[1] != target_key[2]:
++                    raise DesignError('contract passage supersession selects a different passage')
++                if entry['before'] != target['after']:
++                    raise DesignError('passage supersession before text differs from the superseded meaning')
++                tail = contract_tails.get(key)
++                if (tail is None and kind != 'override') or (tail is not None and tail != target_key):
++                    raise DesignError('double supersession: the named passage is not the current meaning')
++                contract_tails[key] = (record_path, *key)
++                if not listed:
++                    review = object_value(decode(pinned_bytes(architecture, binding['review'])), 'contract review')
++                    if 'supersededPassages' not in review:
++                        raise DesignError('contract passage supersession is not listed by its review')
++                    listed = True
++                links += 1
++                continue
+             here = inventory_row(entry['parent'], entry['selector'])
+             if here is None:
+                 raise DesignError('passage supersession must select an inventory row description')
+@@ -381,6 +418,8 @@
+             key = (override['parent']['path'], json.dumps(override['selector'], sort_keys=True))
+             if key in overrides and overrides[key] != override:
+                 raise DesignError('conflicting contract passage overrides')
++            if key in contract_tails:
++                raise DesignError('passage override restates a superseded contract meaning')
+             overrides[key] = override
+         for row in members:
+             accepted[row['path']] = row
+@@ -449,7 +488,7 @@
+         raise DesignError('inventory passage inheritance differs from reviewed ancestor meaning')
+     return {'inventorySuccessors': inventory_results, 'contractSuccessors': contract_results,
+             'selectedInventory': final_pin, 'inventoryPassageInheritance': expected_inheritance,
+-            'inventoryPassageSupersessions': len(supersession_rows)}
++            'inventoryPassageSupersessions': len(supersession_rows), 'contractPassageSupersessions': links}
+ 
+ 
+ def generation_sources(architecture, implementation, accepted):

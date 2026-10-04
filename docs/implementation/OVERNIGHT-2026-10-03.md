@@ -566,3 +566,9 @@ Times are local.
 - **M3-B r4 accepted by GROK2,** with no required findings. Its three wording observations are applied as recording text.
 - **S21 accepted at r2 by Grok and bound** at product main `3f6f9a5`, giving 93 contract successors. J3d's durable signal wiring, J-C14's rule-1/2 cases, J-C15b's phase-C projections and rows S12-C/S12-U are now unblocked on S21.
 - **X4T r12 accepted by Codex** (the X4-F2 law), with no required findings. The X4-F2 code unit starts in two phases: code now, then lanes plus the 54-row X9 regression after X3a-2's lanes.
+- **VD2 written and sent to Codex.**
+  - **Mechanism:** VD1's `passageSupersessions` shape, extended to contract passages. A supersession must name a strictly earlier bound record's override by exact pin, on the same passage, chaining its `before` to that override's `after`. There is one line of succession per passage, no restating after supersession, and the review lists the supersessions.
+  - **Prototype results:** the current lock passes unchanged; 40 of 40 fixture controls and 17 of 17 real-lock probes behave as expected. SD-7's clean supersession reproduces NE7's text byte for byte.
+  - **Correction to the earlier estimate:** F8c needs **no generator rebuild**, because `verify_design.py` is not a build input. It is a few pin moves, about 1–2 hours.
+  - **Lead decision:** VD2-a and F8c land in one product commit.
+  - **SD-7 r1's request is withdrawn unsent.** SD-7 r2, as a supersession, follows VD2-a and F8c.
