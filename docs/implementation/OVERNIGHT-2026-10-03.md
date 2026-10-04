@@ -418,3 +418,14 @@ Times are local.
 - **M3-PLAN r9 accepted by GROK2,** with no findings. It is the record revision covering tonight's laws, new units, cross-law routing and reversible lead decisions. The critical path is still 33 days.
 - **M3-L r4:** Grok raised one finding. The derived ceiling omits the required constituents of composite keys: `relation`, `resolution` and `schemaVersion` in CoverageKeyV1/V2, `coverageKey.key` and ViewEntryV3. **Lead direction for r5:** add rule R7, so that every required member of a contract-defined key record is identity-bearing. RUST3-LIM is added as gate item L-G11, and the gate items take the L- prefix. CRC-1 r3 now goes to Grok.
 - **SYN-1 r1:** CODEX2 raised one finding. The new route row claimed every key carries a subject suffix, but three existing native-model emissions are bare keys. **Lead direction for r2:** an exact per-key table matching the model's literal emissions, keeping LD-6 (the native model is unchanged), and an audit of each emitted form. CR-1 r2 is now with CODEX2.
+- **S18 written** (J1's final-output-section successor). It is queued for CODEX2.
+  - **Content:**
+    - six line overrides on WS and its effective copy, covering the before-settle narrowing, the new "Final output section" paragraph and the SIGINT golden row;
+    - a complete copy of the operability plan with §5.5 row O;
+    - CODEX2's J1-R3-NB-01 and NB-02, carried in. An O-phase event is admitted, drain-abandoned or lost post-freeze, by S-OP-2's actual timing.
+  - **Lead decisions to note:**
+    - **LD-4:** settlement comes when the output returns, including for interrupted envelopes.
+    - **LD-5:** an O signal never enters the envelope or the invocation record.
+    - **LD-8:** every write or flush failure is final, since `write_all` can't report bytes written.
+  - **Checks:** 121 pass, and it binds 82 → 83.
+  - **J1 record items:** NB wording, the S-OP-2 r6 re-citations, 5.3's settlement wording, an 8.2 phase label, and 8.3 against WS:226.
