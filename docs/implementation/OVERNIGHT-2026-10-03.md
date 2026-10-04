@@ -2,25 +2,30 @@
 
 The owner asked the lead to run autonomously overnight: "if you get blocked, move to the next item and we can discuss any blockers tomorrow morning." This file is the running log, kept by Claude Opus 5.5 as lead.
 
-## Morning summary (updated 2026-10-04 08:15 PDT)
+## Morning summary (updated 2026-10-04 09:25 PDT)
 
-**Where things stand.** M2 is complete. M3's law and design layer is now largely in place.
-- **Laws accepted:**
-  - M3-B r4, I1 r3, E1 r4, J1 r5, S-OP-2 r6, D r5, H r3 and X3c r8;
-  - M3-C r7 and M3-L r5, both accepted in review and taking effect with L's gate;
-  - M3-PLAN r9.
-- **Bound in the product lock:** main `3f6f9a5`, with 93 contract successors and inventory v135. The bound successors are:
-  - F8b, I1-L, I1-P, B-S1, B-S2, B-S9, CRC-1, CR-1, FA-1, SD-5, FA-2, RUST3-LIM, S18, SYN-1, SYN-1F, SYN-NS and S21.
+**Where things stand.** M2 is complete. M3's law and design layer is largely in place, and the first M3 code units have landed.
+
+**Laws accepted:**
+- M3-B r4, I1 r3, E1 r4, J1 r5, S-OP-2 r6, D r5, H r3, X3c r8, X4T r12 and VD2;
+- M3-C r7 and M3-L r5, both accepted in review and taking effect when L's gate is met;
+- M3-PLAN r9.
+
+**Product main `cca4fe4`:** 95 contract successors, 96 inventory successors, v136 selected.
+- **Bound successors:** F8b, I1-L, I1-P, B-S1, B-S2, B-S9, CRC-1, CR-1, FA-1, SD-5, FA-2, RUST3-LIM, S18, SYN-1, SYN-1F, SYN-NS, S21 and X3a-2's description successor.
 - **Code integrated:**
-  - X4-F1, which fixes M2's last known defect;
-  - P0, the `crates/components` and `crates/syntax` scaffolds.
-- **In review:**
-  - I1-a, the first preview-pack code unit (CODEX2);
-  - X4T r12, the X4-F2 fenced-read expiry law (Codex).
-- **Being drafted or built:**
-  - X3a-2, J-RW r3 and VD2;
-  - SD-7, held for VD2.
-- **M3-L's gate:** FA-2 and RUST3-LIM are met. It now waits only on your O7 and D3/D13 decisions, and on S-M, which needs D13.
+  - X4-F1 (M2's last known defect);
+  - P0 (M3 crate scaffolds);
+  - I1-a (preview-pack schemas and enums);
+  - X3a-2 (read-side endpoint adoption).
+- **Confirmation lane:** a workspace lane on the combined tree runs once the machine is quiet.
+
+**In flight:**
+- VD2-a + F8c, the `verify_design` supersession tool, is in review with Codex. SD-7 r2, already accepted, binds right after it.
+- X4-F2's code unit is running its lanes and X9 regression.
+- J-RW r3 and the X3d r9 record are being drafted.
+
+**M3-L's gate:** FA-2 and RUST3-LIM are met. It waits only on your O7 and D3/D13 decisions, and on S-M, which needs D13.
 
 **What needs you** (details under "Blockers for the owner" below):
 1. **B1, O7 confinement.** The CF-P evidence supports the recommendation.
