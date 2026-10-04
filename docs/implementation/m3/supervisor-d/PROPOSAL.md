@@ -1,5 +1,7 @@
 # The supervisor and common control law — proposal M3-D r3
 
+**r3 ACCEPTED 2026-10-04 by GROK2** (`9679dbc4…`; `reviews/grok2-supervisor-d-r3/`), with no required findings. r3's bytes are preserved in `PROPOSAL-r3.md`. This file differs from them only in recording text: this paragraph, and the review-history sentence about r1's RF-4, corrected per GROK2's r3 observation. Section F stays an O7 placeholder. D4 also waits for SD-6 (J1 r4) and SD-5.
+
 **DRAFT r3, not accepted. Not code.** This is a law with a unit breakdown. Its gate, CF-P, is now met (see "Acceptance gate"). Section F is an **O7 placeholder**: it is written against the lead's O7 recommendation and is **binding only once O7 is decided as recommended**. Everything outside section F is ordinary law.
 
 2026-10-04. Drafted for Claude Opus 5.5, implementation lead, by a lead-dispatched drafting agent during the overnight autonomous run. It is the law for unit **M3-D** of the accepted M3 unit plan (M3P:213). It covers:
@@ -15,7 +17,7 @@
 
 **Review history.** r1 (`PROPOSAL-r1.md`, sha256 `c6ae10de…`, 128,473 bytes) was reviewed by GROK2 (`/tmp/opensip-implementation/reviews/grok2-supervisor-d-r1/`, copied to `docs/implementation/m3/reviews/grok2-supervisor-d-r1/`): REQUIRED-FINDINGS, RF-1 to RF-5, with seven non-blocking observations. GROK2 confirmed R2, R3, R4, R7 and R8 apart from RF-5, and the WS:1375 half of R5. r2 answers the five findings, records CF-P's outcome, and changes nothing else of substance.
 
-r2 (`PROPOSAL-r2.md`, sha256 `1f5367dc…`, 167,305 bytes) was reviewed by GROK2 (`reviews/grok2-supervisor-d-r2/`): REQUIRED-FINDINGS, one finding (RF-1), with RF-1 to RF-5 of r1 resolved and four non-blocking observations. r3 answers them and changes nothing else.
+r2 (`PROPOSAL-r2.md`, sha256 `1f5367dc…`, 167,305 bytes) was reviewed by GROK2 (`reviews/grok2-supervisor-d-r2/`): REQUIRED-FINDINGS, one finding (RF-1), with r1's RF-1 to RF-5 resolved except RF-4, which GROK2 recorded as partly resolved and whose remainder was r2's RF-1, and four non-blocking observations. r3 answers them and changes nothing else.
 
 ## r3 changes and review responses
 

@@ -227,3 +227,5 @@ Times are local.
     - **SD-5,** the public route for R10a's `ExcludedForm` refusal, is not yet written. It must stay distinct from matrix row 27.
 - **Pin drift handled.** J-RW (Codex) and X3c r8 (GROK2) pinned live files that later moved to drafts. Both reviewers are told which commits hold the pinned bytes, and the queued M3-H request carries the same note. **Lesson:** requests pin accepted snapshots (`PROPOSAL-rN.md`), not live files.
 - **X3c r8 accepted by GROK2,** with no findings or observations. This is the re-commit law, P5-2. X3c-3, the storage code, and its X9 lead set are next, and must land by day 25. X3d r9's record restatement (CL-1) is owed.
+- **M3-L r2:** Grok raised one required finding. Item 13's "closed set" of provider-wire identities is wrong: NE's OpenUniverse payloads and HelloAcks carry more members, and J1:192 cites that sentence. Grok also listed exactly which parts depend on O7 and S-M. L r3 follows, together with FA-2 (X-H1) and X-H4.
+- **The M3-D live file now carries its acceptance note** (r3 bytes in `PROPOSAL-r3.md`).
