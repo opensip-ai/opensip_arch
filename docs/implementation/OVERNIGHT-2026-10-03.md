@@ -618,3 +618,4 @@ Times are local.
     - `StopCause::Operator`, the REV reason `operator`, and the "operator stop" row (exit 130).
   - **Lead decisions:** LD9-1 to LD9-6. LD9-3, a new `StoppedSession::admitted_at_close()` accessor, is for the reviewer to rule on.
   - **Owed:** X4 r8 (S11, the gate word) and X7 r7 (S9, the row projection). J3b can't land before X4 r8 is accepted.
+- **X4-F2 accepted by GROK2 and integrated** at product main `988f6ed`. The integrated diff is byte-identical to the reviewed subject. M2's carry-in X4-F2 is closed, so both observer-expiry gaps are fixed. A confirmation workspace lane on the combined tree follows.
