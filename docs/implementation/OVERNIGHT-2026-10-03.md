@@ -693,3 +693,13 @@ Times are local.
   - **What it settles:** the gate word, rule FC (one first stop, recorded with its transition and never replaced), `StopCause::CertainRefusal`, and the entry rule LD8-10.
   - **Next:** code unit **X4-F3** fixes the pre-existing first-cause race D8-1 and must land before J3b, or with it. It starts now, writing code first and running lanes and its X9 lead-set rerun when the machine is free.
 - **X4-F3 code unit started** (worktree `opensip-x4f3`), for CODEX2. It adds no new file if it can, so as not to race J2a's and E2a's inventory versions. Its X9 lead-set rerun holds the shared lane lock with nothing else running.
+- **X9 r17, round 1 (the frame and §RC), written and sent to Grok.**
+  - **Rows:** 22 RC rows across F04, F11, F12, F13, F14, F15, F23, F29, F33 and F52, taking storage's required runs from 381 to 403.
+  - **The 19-run record:** 18 runs now end `Committed`, all unscored, so no expected value is re-transcribed.
+  - **Problem the drafter found (LD-RC-6),** missed by both X3c r8 and its review: a confirmed object takes two file barriers. That moves item 5's selection for those barrier names from #41 to #164, and the union kill set grows from 383 to 389 points.
+  - **Lead decision:** F03's two #41 rows stay byte for byte, and `check` lists them as killed outside the kill set.
+  - **Rejected:**
+    - deleting the rows;
+    - adding a named exception list to the checker;
+    - leaving E2 out of the union.
+  - **Caveat:** the numbers are predictions. §RC tells X3c-3 to stop if its census-only run differs.

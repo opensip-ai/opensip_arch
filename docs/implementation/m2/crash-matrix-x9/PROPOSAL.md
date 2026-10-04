@@ -1,4 +1,4 @@
-# The crash, lock and revocation matrix — proposal X9 r16
+# The crash, lock and revocation matrix — proposal X9 r17
 
 2026-10-01. Claude Opus 5.5, implementation lead. Law for unit X9 of `EXIT-PLAN.md`, the unit that gates M2 completion. It is written under:
 - the build plan's M2 row (`docs/v2/architecture/implementation-boundaries-and-build-plan.md` line 886: "actual crash/lock/revocation matrix pass; synthetic fixtures remain labelled"), its ordered failure matrix F00–F53 (lines 524–587), its required API and fault-injection checks (lines 591–613; the test owner `crates/storage/tests/commit_tests.rs`, line 594), and the tooling row for storage and process faults (line 1072: "deterministic synchronization and crash barriers against actual storage/processes … Record platform/filesystem/profile, actual state bytes and exact outcomes; inject before/after each durability step, without sleep-and-hope synchronization");
@@ -265,7 +265,7 @@ r2 (2026-10-01) is an amendment made as lead decisions under the owner's standin
     - **Where R2 keeps the candidate.** Every other ladder's R2 commits the candidate as before. That includes X9-2's rows, which are unchanged, and F36's, whose R2 must commit the same semantic RunId.
   - **Rejected:**
     - **R2 expected on X3c item 10's invariant row.** "The next writer proceeds" would then be untestable in exactly the rows where the attempt committed.
-    - **Re-committing the same Run.** It stays X3d-2's known limit, and no M2 law decides it.
+    - **Re-committing the same Run.** It stays X3d-2's known limit, and no M2 law decides it. **r17 (record):** X3c r8 decides it (X3c r8 item 6a), and §RC carries its rows. The distinct variant stays where r12 and r13 put it.
 - **F14's `x3d.finish.settle.before` moves to X9-4 (items 9 and 12).**
   - **What X9-3 found.** `finish` reaches that point only when a REV or a CLN is owed (`commit_session.rs`, `finish`). A lawful commit owes neither. So no X9-3 run reaches it, and it is in no census. The kill was "armed point not reached".
   - **Decision.** F14's second kill moves to an owed-end-record run under X9-4's latch context: F39's script, then a kill at `x3d.finish.settle.before`, with F13's expectations. It is an X9-4 row, and X9-4's census must reach the point. X9-3's F14 keeps its `x3d.publish.published` kill only.
@@ -819,6 +819,46 @@ It changes the following and nothing else.
 
 No accepted outcome of any other law changes. No new public code, row detail or product file.
 
+**r17 (2026-10-04) is a record revision in three sections, accepted section by section (lead decision LD-17-1).** r16 bytes are preserved in PROPOSAL-r16.md (sha256 `f08efe95…`, 185,750 bytes). r16's acceptance note above is r16's own and stays. Drafted for Claude Opus 5.5, implementation lead, by a lead-dispatched drafting agent during the overnight autonomous run. **Round 1 (this round) is this header, the section frame and §RC. Not accepted.**
+
+- **Citations.** r17 cites pinned snapshots:
+  - X9:n is `PROPOSAL-r16.md`;
+  - X3C:n is `m2/ledger-blob-x3c/PROPOSAL-r8.md` (X3c r8, accepted by GROK2, `ba638efb…`);
+  - J1:n is `m3/host-pipeline-j/PROPOSAL-r5.md` (J1 r5, accepted by Codex, `4ccb2320…`);
+  - JRW:n is `m3/resume-repair-jrw/PROPOSAL-r3.md` (J-RW r3, in review, `9aa30410…`);
+  - M3P:n is `m3/M3-PLAN-r9.md` (accepted by GROK2, `72bc7a13…`);
+  - OVERNIGHT:n is `OVERNIGHT-2026-10-03.md`.
+
+  Product lines are at main `d2c00a9`.
+- **Why r17 exists.** Three laws name "X9 r17" as the record that carries their rows:
+  - X3c r8's CL-2: "X9 r17 carries item 14 as its own section, with the prefix `RC-`" (X3C:354). X3c-3 needs it before its code (X3C:257, :259).
+  - J1's successor S12, "X9 r17 (record and rows)" (J1:858), for J3b and J3d.
+  - J-RW's X-RW-10 and RW-S6 (JRW:669, :625), for J4e.
+
+  M3-PLAN r9's "X9 r17 record" row makes these one record revision with three sections. Each is transcribed when its unit is ready, and none changes another's rows (M3P:319).
+- **Lead decision LD-17-1: r17 is accepted section by section.**
+  - This round writes the r17 header, the section frame and §RC in full.
+  - §S12 and §RW are reserved headings. Each states its owner and the condition that fills it. Neither carries a row.
+  - Later rounds append §S12 and §RW to this same r17. Each is reviewed on its own, and none changes another's rows.
+  - So every citation of "X9 r17" in J1, X3c r8, J-RW and M3-PLAN stays valid.
+  - **Rejected: r17 as §RC only, with §S12 in r18 and §RW in r19.** Four laws cite "X9 r17" for their rows, and each of those citations would go stale.
+  - **Rejected: waiting for all three sections.** §RW waits on J-RW, which is still in review, and §S12 waits on J3b. Waiting would block X3c-3 on both.
+- **What round 1 changes outside its sections:**
+  - the title;
+  - six in-place "r17" notes, each pointing to §RC: r12's re-commit rejection, and items 5, 7, 8, 9 and 12;
+  - one forbidden substitute.
+
+  The sections themselves follow "Not claimed", under "X9 r17 sections".
+- **Unchanged from r16:**
+  - every injection mechanism, point placement, kind, scope, label, run-record member, limit, and the timing guard's limit, clock, member, exclusion and end point;
+  - every forbidden substitute, apart from the one r17 adds;
+  - every existing row and expected value of both required-runs files;
+  - r14's trace rule;
+  - X9-5's runners, host order, required-runs file and census;
+  - X9-4's census.
+
+  No accepted outcome of any other law changes. No new public code, row detail or product file. §RC.7 lists what §RC adds to the matrix target and the checker.
+
 Product baseline: main `f1b8321` (X3d-0 integrated). Every item contains a lead decision made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation; each names the alternative it rejects. Not product code. No new public code, row or detail.
 
 ## Problem
@@ -919,6 +959,7 @@ At `f1b8321` the product has the following, and nothing more:
 5. **The points the matrix needs, and who places them.**
    - **The census.** The required points are not a hand list. X9-0 runs a lawful commit, recovery and sweep with nothing armed, and records every point reached: the census trace. The kill matrix is then every durability point in the census, at `#1` and, for repeated protocols (objects, appends), at the first, a middle and the last occurrence.
      **r16:** X9-6's union census (storage 259 points, host 218, union 321, kill set 383) left 50 kill-set points without a row; each gets a process-death row by its crash window, and none is exempted (see the r16 header).
+     **r17 (§RC):** storage's census gains the `recommit` part, a lawful re-commit. It adds `x3c.object/reopen-confirm.before` and `.after`, and raises `x3c.object/file-barrier.before` and `.after` to 164 occurrences, so their selection becomes `#1`, `#82` and `#164`. F03's two `#41` rows stay (see §RC.3).
      - A durability primitive reached outside any scope is a `HARNESS-ERROR`, so no unnamed step can hide.
      - A census point that a later product change removes, or a new unarmed durability point, fails the coverage check (item 7).
      - (r2) The census runs under item 3's scripted clock, so its points, including each `x4t.floor-publication` occurrence, are a function of the script and the product only. Two census runs on one commit must be equal point for point; a difference is a `HARNESS-ERROR`, never a smaller kill set.
@@ -1039,6 +1080,7 @@ At `f1b8321` the product has the following, and nothing more:
      - (r2) every run's labels include `scripted-clock`, and every child's ordinal follows spawn order.
    - **r10:** the reviewed required runs are two files: storage's, and `crates/host/tests/fixtures/crash-matrix/required-runs.v1.json` for X9-5's rows. X9-6's `check` takes both files and both pairs of run sets, and checks the union census (see the r10 header).
      **r16:** a row's `unit` member may name `"X9-6"`; such a row is in no unit's `check-unit` subset and is required by `check` (see the r16 header).
+     **r17 (§RC):** a row's `unit` member may also name `"X3c-3"`, with the same reading. X3c-3's `check` lists `x3c.object/file-barrier.before#41` and `.after#41` in `killedOutsideKillSet` (see §RC.3).
    - **The per-unit check (r4; lead decision).** Before X9-6, each of X9-2 to X9-5 checks its own run sets with a subset mode of the checker.
      - **Who adds it.** X9-2 adds it to `tools/check_crash_matrix.py` as the `check-unit` command, with its tests.
      - **The unit's rows.** `check-unit` names the unit (X9-2, X9-3, X9-4 or X9-5). It takes that unit's subset of the reviewed `required-runs.v1.json`: the rows whose case is in the unit's list in item 12.
@@ -1074,6 +1116,7 @@ At `f1b8321` the product has the following, and nothing more:
    - **R4:** `recover(executionId)` again.
 
    **r12:** F36 adds **R5**: `recover` of R2's own ExecutionId, and whether the orphan SEAL and R2's SEAL name one RunId. In F13, F14 and F15, R2 commits the distinct candidate variant (see the r12 header).
+   **r17 (§RC):** in re-commit rows, R2 commits the same candidate (`{"r2": "same"}`), and a row may recover its first commit after the ladder (`e1-recover`). R5's one-RunId check holds when every SEAL of the carrier names one RunId (see §RC.2 and §RC.7).
 
    **Exceptions.**
    - **Mutation rows** run R1 and R2 only, because the injected condition persists.
@@ -1087,6 +1130,7 @@ At `f1b8321` the product has the following, and nothing more:
 9. **The matrix.** Every row runs on this macOS 27 host under item 6's synthetic fixture.
    - **Status values.** "exec" means executed here. "exec (inj)" means executed with an injected stand-in (item 4). "exec (mut)" means executed over a parent mutation. "elsewhere" means it is covered by an accepted law's in-process test and is not a process-level case. "LIMIT" means recorded and not executed (item 10).
    - **Expected values.** They come from the build plan's row and the owning law. X9-a units transcribe each row into `required-runs.v1.json` before any run. An expected value is never read back from a run.
+   - **r17 (§RC):** X3c r8's re-commit rows are `recommit-` variants of F04, F11 to F15, F23, F29, F33 and F52, with `"unit": "X3c-3"`. They are §RC's rows. No row of this table changes (see §RC.4 and §RC.5).
 
    | Case | Owner | Injection | Status | Expected |
    |---|---|---|---|---|
@@ -1208,6 +1252,7 @@ At `f1b8321` the product has the following, and nothing more:
     - **X9-6 (record; the M2 exit).** Two full lead runs on one integrated commit, the checker, release absence, the reviewer's rerun, and the arch evidence record. **Dependencies:** all of the above, and VD1 (EXIT-PLAN, "lands before the X9 exit").
       **r10:** X9-6's `check` covers both required-runs files and both targets' run sets, with the union census and kill-set coverage across both (see the r10 header).
       **r16:** X9-6 also adds the storage driver over every storage row with its union census, the checker's two-target `check` and `coverage`, the `"X9-6"` unit value, item 8's release-order verdict condition, and the 50 kill rows of the r16 header (storage 381 rows, host 98) (see the r16 header).
+    - **X3c-3 (r17, §RC; X3c r8 item 13; not an X9 unit).** It transcribes §RC's 22 rows into storage's file, adds the `recommit` census part and the harness and checker members of §RC.7, and runs one serialized lead set on both targets (see §RC.6).
 
 ## Cross-law corrections found while drafting
 
@@ -1249,7 +1294,497 @@ These are recorded for the owning laws' next revisions. None changes an accepted
 - (r2) A `recover` call inside F34's injected writer run.
 - Raw state bytes committed to arch in place of the run records.
 - A matrix pass on a dirty worktree, or on a commit other than the reviewed one. **r4:** a unit's `check-unit` (item 7) is not a matrix pass.
+- (r17) A section of r17 that changes another section's rows, or that re-transcribes a row of r16 or earlier which its owning law does not require (the r17 section frame, rule 2).
 
 ## Not claimed
 
 Power-loss and media qualification, native S6 scheduling bounds and the residual admission window (M6); store and carrier migration and restore; orphan object collection; a measured platform profile row; Linux and non-APFS hosts; X8's compile-fail suite; CLI enablement (X10, X11); any new public code, row or detail; closing X4T r9's whole-file restore limit.
+
+## X9 r17 sections
+
+### The section frame (r17 round 1; LD-17-1)
+
+Each section of r17 is the X9 record of one owning law's rows. These rules apply to every section.
+
+| Section | Owning law and items | Unit that transcribes and runs it | Needed before | Status |
+|---|---|---|---|---|
+| §RC | X3c r8, items 13 and 14, CL-2 (X3C:252-261, :262-325, :354) | X3c-3 | X3c-3's code (X3C:259; M3P:319) | Round 1, this round |
+| §S12 | J1 r5, item 12 and successor S12 (J1:832-841, :858) | J3b (S12-B, -C, -U, -D) and J3d (S12-O) | J3b's review; S12-O before J3d's O wiring (M3P:319) | Reserved |
+| §RW | J-RW, item 10, X-RW-10 and RW-S6 (JRW:519-596, :625, :669) | J4e | J4e (JRW:607; M3P:319) | Reserved; J-RW in review |
+
+1. **Transcription.** A section's code unit transcribes the section's rows into the reviewed required-runs files before any run of that unit. It works from the section and the census only (X9:717). An expected value is never read back from a run (X9:1089, :1233).
+2. **No section changes another's rows.** A section adds its own rows and changes no row of another section (X3C:354; M3P:319).
+   - A section re-transcribes a row of r16 or earlier only where its owning law requires it. It lists each such row by case and variant, with the old and the new value. J1's host drivers (J1:832) and J-RW's RW-F00 (JRW:519-596) are such re-transcriptions. §RC has none (§RC.5).
+   - If two sections would re-transcribe one row, the later round stops and reports.
+   - Where a section's census part moves an existing row's place in the kill set, the section records the move and leaves the row as it is (§RC.3).
+3. **Selection.** Each row a section adds carries a `unit` member naming the section's code unit. Such a row is in no X9 unit's `check-unit` subset, and `check` requires it. That is r16's reading of `"X9-6"` (X9:725-732). Each section names its value, and the checker admits it. A re-transcribed row keeps its own selection.
+4. **Census parts.** A section that adds a census part names it and states its composition and its checks. It records every kill-set point the part adds or removes. The union is r10's: each name at its largest occurrence count (X9:234).
+5. **Lead sets.** `check` requires every row of both files (X9:1032), so a lead set on a commit runs every row of both files at that commit, whatever its section. Whichever of two section units integrates second reruns both sections' rows (X3C:261; JRW:668).
+6. **Rounds and snapshots.**
+   - Each round is reviewed on its own. Its acceptance is recorded beside its section's heading.
+   - A round's accepted bytes are preserved, without the acceptance note, as `PROPOSAL-r17-<section>.md`: `-rc` first, then `-s12` and `-rw` in the order they are accepted. When the third section is accepted, its snapshot is also preserved as `PROPOSAL-r17.md`.
+   - Each later round's diff base is the previous round's snapshot.
+   - While r17 is open, a correction to an accepted section is a new round of that section. Once all three sections are accepted, a correction is r18.
+
+### §RC. The re-commit section (X3c r8 item 14; unit X3c-3)
+
+**Round 1, 2026-10-04. Not accepted.**
+
+#### RC.1 What §RC carries and what it decides
+
+- **Its law.** X3c r8 decides what r12 left undecided (X9:268). A Run already committed in (S, N) is committed again by a new attempt, which ends `Committed` (X3C:105-109). Item 14 names the windows where a re-commit differs from a first commit: its objects are confirmed, staging takes the re-commit branch, and its landed `COMMIT` adds attempt rows only. It also names the rows RC-1 to RC-9, the census child and the record of 19 runs (X3C:262-325). CL-2 puts them here (X3C:354).
+- **What §RC fixes,** as item 14 asks (X3C:263):
+  - the rows' `case` and `variant` spellings (RC.2, RC.4);
+  - their scripts and expected values, each derived from X3c r8's row text and the owning X9 row, never from a run (RC.4);
+  - the census part for RC-1's census child, and its effect on the kill set under item 5 and r10 (RC.3);
+  - the record of the 19 runs, with each run's outcome under X3c r8 (RC.5);
+  - X3c-3's lead-set duty (RC.6), and what X3c-3 adds to transcribe and run the rows (RC.7).
+- **What §RC does not decide.** It changes no X3c, X3d, X6 or X7 outcome. Where X3c r8 states an expectation, §RC spells it. Where X3c r8 leaves a spelling open, §RC takes it from X9's existing rows and records a lead decision (LD-RC-1 to LD-RC-7).
+- **Its basis.**
+  - Product main `d2c00a9`, read only. X3c-3's code does not exist yet, so no census or run has re-committed a Run.
+  - Every census figure below is C's: `3d2d5b5`, `evidence/3d2d5b5…/storage/census-trace.txt` (`c82cf452…`) and `matrix.json`.
+  - X4-F1's and X4-F2's X9 regressions found both censuses unchanged since C: storage 259 points, host 218 (OVERNIGHT:312, :612). X3a-2 (`cca4fe4`), a read-side change, has had no census run.
+  - Where §RC predicts a census or a run, the prediction is the code's and the law's. X3c-3's census-only run checks it before any row runs (RC.6).
+
+#### RC.2 Spellings and conventions
+
+| Member | RC rows | Basis |
+|---|---|---|
+| `case` | The F-case each row extends. X3c r8's parenthesis names one case for RC-3, RC-6, RC-8 and RC-9, and two or three for RC-2, RC-4 and RC-5. LD-RC-1 fixes RC-1, RC-2 and RC-7, and splits RC-4 and RC-5 | X3C:263; the checker's case grammar `F[0-5][0-9]` (`tools/check_crash_matrix.py:257`) |
+| `variant` | `recommit-` followed by X9's existing spelling for the same kind of run: `kill-<point slug>-<k>` (X9:698), `fail-before-evidence-commit` and `fail-after-evidence-commit` (F12), or the mutation's name (F33, F52). A short name is used where no row of that kind exists | X3C:263 |
+| `units` | `["X3c"]`: the law whose item 14 owns the row | `units` names owning laws (X9:532) |
+| `unit` | `"X3c-3"` (LD-RC-3) | frame rule 3 |
+| `labels` | Item 4's labels: `process-death` for a kill, `injected` for `fail-*`, `mutation` for a parent mutation. Every row also carries `scripted-clock` and `synthetic`. They are sorted, as the file sorts them | X9:915, :879 |
+| `script` | X9-3's step form for every row (LD-RC-2) | `commit_tests.rs:1775-1817` |
+| Expected spellings | Each outcome, standing and end as X9's existing rows spell it: `Committed(latched=false)`, `CommitUndetermined`, `Refused(Invariant)`, `Refused(LedgerCorrupt)`, `killed`, `unknown-attempt-open`, `terminal-not-committed`, `committed-historically:pendingSettlement:*`, `committed-historically:settled:*`, `committed-historically:*`. A `:*` suffix matches any further detail (`meets`, `commit_tests.rs:1112-1123`) | the F11 to F15, F29 and F36 rows |
+
+**Notation** (X3C:264). These child names are used in every RC script:
+- `e1` is E1, the candidate's first commit in (S, N).
+- `e2` is E2, the re-commit under test, of the same candidate.
+- The ladder's R2 is E3, a next writer that commits the same candidate. Its ladder step carries `"r2": "same"`, beside r12's `"r2": "distinct"` (X9:264).
+- `e1-recover` is X3c r8's extra read-only step "recover(E1)": a `recover` child `for` `e1` after the ladder. Like r12's R5 (X9:1076), it is its own process with a plain request.
+- `d` is RC-7(b)'s commit of r12's distinct variant.
+
+**Lead decision LD-RC-1: the case of RC-1, RC-2 and RC-7.** X3c r8 names the F-case for the other rows. RC-4's two rows are F12's, because F40's no-latch rows run F12's scripts (X9:626), and RC-4 has no latch. RC-5's rows take F13, F14 or F15 by kill point, as r16 placed `x3c.evidence.commit.after#1` under F13 (X9:708).
+- **RC-1 is F15.** F15 is the committed, acknowledged Run whose later process must not create "a second receipt for the same attempt" (X9:1108). RC-1's E2 is that later process. It has its own receipt, and E1 still has one.
+  - **Rejected: F36.** F36 is an orphan SEAL's later commit, which RC-3's R5 already extends.
+  - **Rejected: F34.** F34 is a request for the same ExecutionId, which a re-commit never reuses (X3C:113).
+- **RC-2 is F04.** X3c r8 says "F02 to F05". Every RC-2 point lies in the confirm branch, which is F04's "verify existing collisions by exact digest/length" (X9:1097). **Rejected:** a case by step name, such as F03 for the barrier. The barrier killed is the confirm branch's own, not the staging file's.
+- **RC-7 is F23.** F23 is the build plan's one-sided case, and RC-7 is its per-Run counterpart (X3C:121; X9:1116).
+  - **Rejected: F33.** F33 is a changed join, which RC-6 extends.
+  - **Rejected: F52.** F52 is the attempt-row matrix.
+
+**Lead decision LD-RC-2: every RC row uses the step form.** Every RC row commits E1 before the child under test, and several add a child after the ladder. X9-2's form has one scripted child (`commit_tests.rs:1659-1768`). The step form names each child (`:1818-2160`). **Rejected:** a new X9-2-form directive for a leading commit, which would add a second way to write the same script.
+
+**Lead decision LD-RC-3: `"unit": "X3c-3"`.**
+- **Why a `unit` member.** Every RC row's case is in an X9 unit's case list. Without the member, X9-2's, X9-3's or X9-4's `check-unit` would demand the row. r10 and r15 avoid that (X9:218, :523).
+- **Why this value.** It names the unit that transcribes and runs the rows. The checker adds it to `UNIT_VALUES` (`tools/check_crash_matrix.py:105`) with r16's reading of `"X9-6"` (frame rule 3).
+- **Rejected: `"X9-6"`.** It would name the M2 exit unit as the owner of an M3 unit's rows.
+- **Rejected: no `unit` member,** for the reason above.
+
+**Lead decision LD-RC-4: `"r2": "same"`.**
+- **What it does.** The harness's R2 already commits the candidate unless the directive says `distinct` (`commit_tests.rs:1753`, `:2122`). §RC spells the same-Run next writer explicitly, as X3c r8 does, so each row that tests it shows it.
+- **The guard.** X3c-3 makes any `r2` value other than `same` or `distinct` a `HARNESS-ERROR`. No existing row carries another value.
+- **Rejected:** leaving the directive out, which hides the property the RC rows test.
+
+**Lead decision LD-RC-5: new observed values.** X3c r8's expectations name state the harness does not observe yet: availability rows, Run-material rows, commit sequences, linked objects, staged tables and kept rows. RC.7 defines each value X3c-3 adds.
+- The verdict compares a value only where a row's `expected` names it (`verdict`, `commit_tests.rs:2973-3000`). No existing row names one.
+- None is a run-record member.
+- **Rejected:** leaving those expectations unscored, because they are item 14's content.
+
+#### RC.3 RC-1's census child: the `recommit` census part
+
+- **Composition (X3C:280).** Storage's census (X9:743-751) gains a fifth part, `recommit`, after X9-4's refused end. It runs:
+  - on its own fresh root, after its own fixture child;
+  - first an unarmed lawful commit E1 of the candidate, which is not part of the census, as r11's (c) does not count the (a) before it (X9:231);
+  - then, in a fresh process, an unarmed lawful commit E2 of the same candidate. E2's trace is the part.
+- **Checks.** The part is a `HARNESS-ERROR` unless all of these hold:
+  - E1 and E2 are both `Committed(latched=false)`;
+  - E2's trace reaches `x3c.object/reopen-confirm.after` and no `x3c.object/link.after`;
+  - E2's trace reaches `x3c.evidence.stage-recovery_pair` and `stage-run_material`, and neither `stage-availability` nor `stage-pins` (X3C:185).
+- **The usual rules.** The part runs twice, and the two runs must be equal point for point (X9:924).
+  - The storage census trace digest hashes the five parts' normalized lines in order: commit, recover, sweep, refused end, recommit.
+  - `census-trace.txt` prefixes the part's lines with `recommit|`.
+  - Host's census is unchanged.
+
+**The predicted effect.**
+- **Why most counts stay.** A confirmed object takes the steps `create, write, file-barrier, link.before, file-barrier, directory-barrier, reopen-confirm` (X9:446; the confirm path, `crates/platform/src/filesystem.rs:681-738`). So E2 reaches each `x3c.object/` name as often as E1 does, 82 objects at C, except these:
+
+  | Name | E1 (C's census) | E2 | Union | Selected at r16 | Selected at r17 |
+  |---|---|---|---|---|---|
+  | `x3c.object/reopen-confirm.before` | 0 | 82 | 82 | none | `#1`, `#41`, `#82` |
+  | `x3c.object/reopen-confirm.after` | 0 | 82 | 82 | none | `#1`, `#41`, `#82` |
+  | `x3c.object/file-barrier.before` | 82 | 164 | 164 | `#1`, `#41`, `#82` | `#1`, `#82`, `#164` |
+  | `x3c.object/file-barrier.after` | 82 | 164 | 164 | `#1`, `#41`, `#82` | `#1`, `#82`, `#164` |
+  | `x3c.object/link.after` | 82 | 0 | 82 | unchanged | unchanged |
+
+- **Why nothing else moves.** Every other point E2 reaches is a name the union already holds, at a count no smaller than E2's:
+  - E2 admits its store directories and opens its ledger through the same `create` and `directory-barrier` names, and reaches no `x3c.ledger-create/` file point (`crates/security/src/store_custody.rs:111-170`, `:229-247`; `crates/storage/src/ledger_store/project_ledger.rs:516-560`);
+  - its root, carrier and trust steps are those of host's `finalize` child, which also follows an earlier process on its root (X9:205-209, :736-741);
+  - its staging reaches two of the four `stage-` names (X3C:185).
+- **The totals this predicts:**
+  - storage census 259 to 261 points; storage kill set 321 to 327;
+  - union census 321 to 323 points; union kill set 383 to 389;
+  - kill-set points the part adds: 8 (the six `reopen-confirm` points, `file-barrier.before#164` and `file-barrier.after#164`);
+  - points the part removes from item 5's selection: 2 (`file-barrier.before#41` and `file-barrier.after#41`).
+
+**Lead decision LD-RC-6: F03's two `#41` rows stay, outside the selected kill set.**
+- **The move.** Under r10's union rule the two `file-barrier` names reach 164 occurrences, so item 5's selection for them is `#1`, `#82` and `#164` (`(n + 1) / 2`; `crates/platform/src/crash_barrier/driver.rs:571-582`; `tools/check_crash_matrix.py:172-179`). F03's rows `kill-x3c-object-file-barrier-before-41` and `kill-x3c-object-file-barrier-after-41` now kill census points that the selection no longer names.
+- **The decision.** Both rows stay byte for byte.
+  - Each still kills a real durability point of the census (41 is at most 164), on a first commit.
+  - `check` lists them in `killedOutsideKillSet` and does not refuse (`tools/check_crash_matrix.py:481-489`).
+  - Only `check-unit` refuses a kill outside the kill set (`:375-377`). No unit's subset is affected: X9-2's own census has no re-commit part, so 82 occurrences and `#41` still stand there.
+  - So X3c-3's lead `check` lists exactly these two points in `killedOutsideKillSet`. Any other point there is a stop.
+- **Coverage.** F03's rows still cover `#1` and `#82`. Only a re-commit reaches `#164`, so RC-2 covers it.
+- **r16's count-shift sentence** (X9:741) re-transcribes rows when a shift leaves a kill-set point unreachable by them. Here every selected point stays covered, and F03's `#41` stays reachable and killed. Re-transcribing would delete two accepted X9-2 rows, which frame rule 2 forbids.
+- **Rejected:**
+  - **Deleting or moving F03's `#41` rows.** No first commit reaches `#164`, and deleting changes X9-2's accepted rows.
+  - **Keeping r16's selected points by a named list in the checker.** It adds a rule and code to keep two points that F03 kills anyway.
+  - **Leaving the part out of the union for names other parts reach.** The census would then understate E2's trace. Item 5 makes the census what the unarmed runs reached (X9:920).
+- **Stop rule.** X3c-3 stops and reports before transcription if its census-only run shows any other added or removed kill-set point, or other counts, as X9-2 to X9-6 did (X9:662). The correction is a new round of §RC (frame rule 6).
+
+#### RC.4 The rows
+
+There are 22 rows. X3c-3 appends them to storage's `required-runs.v1.json` after its 381 rows, so the file holds 403. Every expected value below comes from X3c r8's row text (X3C:277-307), and the clause is cited beside it. The spelling comes from the owning X9 row.
+
+**Script templates.** Keys are sorted, as the file's canonical JSON sorts them. `P` is the armed point, `A` its action, `M` a mutation, `L` the ladder's steps.
+
+```
+T-L  [{"name":"e1","spawn":"commit"},{"finish":"e1"},
+      {"name":"e2","spawn":"commit","unchanged":true},{"finish":"e2"},
+      {"ladder":"R1,R2,R3,R4","of":"e2","r2":"same"},
+      {"for":"e1","name":"e1-recover","spawn":"recover"},{"finish":"e1-recover"}]
+
+T-K  [{"name":"e1","spawn":"commit"},{"finish":"e1"},
+      {"arm":"P=hold","name":"e2","spawn":"commit","unchanged":true},
+      {"await":"P","on":"e2","then":"kill"},
+      {"ladder":"L","of":"e2","r2":"same"}]
+     followed, where the row says "+ recover(E1)", by
+      {"for":"e1","name":"e1-recover","spawn":"recover"},{"finish":"e1-recover"}
+
+T-I  [{"name":"e1","spawn":"commit"},{"finish":"e1"},
+      {"arm":"P=A","name":"e2","spawn":"commit","unchanged":true},{"finish":"e2"},
+      {"ladder":"R1,R2,R3,R4","of":"e2","r2":"same"},
+      {"for":"e1","name":"e1-recover","spawn":"recover"},{"finish":"e1-recover"}]
+
+T-M  [{"name":"e1","spawn":"commit"},{"finish":"e1"},
+      {"mutate":"M","of":"e1"},
+      {"name":"e2","spawn":"commit","unchanged":true},{"finish":"e2"},
+      {"ladder":"L","of":"e2"}]
+     followed, where the row says "+ recover(E1)", by
+      {"for":"e1","name":"e1-recover","spawn":"recover"},{"finish":"e1-recover"}
+
+T-P  [{"distinct":true,"name":"d","spawn":"commit"},{"finish":"d"},
+      {"mutate":"plant-availability","of":"d"},
+      {"name":"e2","spawn":"commit","unchanged":true},{"finish":"e2"},
+      {"ladder":"R1,R3,R4","of":"e2"}]
+
+T-R  [{"name":"e1","spawn":"commit"},{"finish":"e1"},
+      {"arm":"x3d.publish.after-staging#1=hold,x3d.publish.commit-returned#1=hold","name":"e2","spawn":"commit"},
+      {"await":"x3d.publish.after-staging#1","on":"e2","then":"hold"},
+      {"for":"e1","name":"e1-at-staging","spawn":"reader"},{"finish":"e1-at-staging"},
+      {"for":"e2","name":"e2-at-staging","spawn":"reader"},{"finish":"e2-at-staging"},
+      {"on":"e2","resume":"x3d.publish.after-staging#1"},
+      {"await":"x3d.publish.commit-returned#1","on":"e2","then":"hold"},
+      {"for":"e1","name":"e1-at-returned","spawn":"reader"},{"finish":"e1-at-returned"},
+      {"for":"e2","name":"e2-at-returned","spawn":"reader"},{"finish":"e2-at-returned"},
+      {"on":"e2","resume":"x3d.publish.commit-returned#1"},
+      {"finish":"e2"}]
+```
+
+**The rows.** Every row has `"units": ["X3c"]` and `"unit": "X3c-3"`. In the labels column, "death" means `["process-death", "scripted-clock", "synthetic"]`, "injected" means `["injected", "scripted-clock", "synthetic"]`, "mutation" means `["mutation", "scripted-clock", "synthetic"]` and "plain" means `["scripted-clock", "synthetic"]`.
+
+| Row | Case | Variant | Script | Labels |
+|---|---|---|---|---|
+| RC-1 | F15 | `recommit-lawful` | T-L | plain |
+| RC-2 | F04 | `recommit-kill-x3c-object-reopen-confirm-before-1` | T-K, P `x3c.object/reopen-confirm.before#1`, L `R1,R2,R3,R4`, + recover(E1) | death |
+| RC-2 | F04 | `recommit-kill-x3c-object-reopen-confirm-before-41` | as above, P `…reopen-confirm.before#41` | death |
+| RC-2 | F04 | `recommit-kill-x3c-object-reopen-confirm-before-82` | as above, P `…reopen-confirm.before#82` | death |
+| RC-2 | F04 | `recommit-kill-x3c-object-reopen-confirm-after-1` | as above, P `x3c.object/reopen-confirm.after#1` | death |
+| RC-2 | F04 | `recommit-kill-x3c-object-reopen-confirm-after-41` | as above, P `…reopen-confirm.after#41` | death |
+| RC-2 | F04 | `recommit-kill-x3c-object-reopen-confirm-after-82` | as above, P `…reopen-confirm.after#82` | death |
+| RC-2 | F04 | `recommit-kill-x3c-object-file-barrier-before-164` | as above, P `x3c.object/file-barrier.before#164` | death |
+| RC-2 | F04 | `recommit-kill-x3c-object-file-barrier-after-164` | as above, P `x3c.object/file-barrier.after#164` | death |
+| RC-3 | F11 | `recommit-kill-x3c-evidence-stage-recovery-pair-1` | T-K, P `x3c.evidence.stage-recovery_pair#1`, L `R1,R2,R3,R4,R5`, + recover(E1) | death |
+| RC-3 | F11 | `recommit-kill-x3c-evidence-stage-run-material-1` | as above, P `x3c.evidence.stage-run_material#1` | death |
+| RC-4 | F12 | `recommit-fail-before-evidence-commit` | T-I, P `x3c.evidence.commit.before#1`, A `fail-before` | injected |
+| RC-4 | F12 | `recommit-fail-after-evidence-commit` | T-I, P `x3c.evidence.commit.after#1`, A `fail-after` | injected |
+| RC-5 | F13 | `recommit-kill-x3c-evidence-commit-after-1` | T-K, P `x3c.evidence.commit.after#1`, L `R1,R2,R3,R4` | death |
+| RC-5 | F13 | `recommit-kill-x3d-publish-commit-returned-1` | T-K, P `x3d.publish.commit-returned#1`, L as above | death |
+| RC-5 | F14 | `recommit-kill-x3d-publish-published-1` | T-K, P `x3d.publish.published#1`, L as above | death |
+| RC-5 | F15 | `recommit-kill-x3d-finish-end-step-after-1` | T-K, P `x3d.finish.end-step.after#1`, L as above | death |
+| RC-6 | F33 | `recommit-run-material-inventory` | T-M, M `run-material-inventory`, L `R1,R3,R4` | mutation |
+| RC-7 | F23 | `recommit-one-sided-material-only` | T-M, M `delete-availability`, L `R1,R3,R4` | mutation |
+| RC-7 | F23 | `recommit-one-sided-availability-only` | T-P | mutation |
+| RC-8 | F29 | `recommit-readers-across-publish` | T-R | plain |
+| RC-9 | F52 | `recommit-purged` | T-M, M `availability-purged`, L `R1`, + recover(E1) | mutation |
+
+Each RC row's killed point is a kill-set point at r17: RC-2's eight are the points the `recommit` part adds (RC.3), and RC-3's and RC-5's six are the `#1` points F11, F13, F14 and F15 already kill. A point's occurrence counts within E2's own process (X9:852).
+
+**Expected values.** The post-state values (`attemptRows`, `receipts`, `seals`, `revs`, `commitSequences`, `materialRows`, `materialIdentical`, `availabilityRows`, `pinRows`) are read at the ladder's capture, after the scripted children and before R1 (`commit_tests.rs:2103-2111`). RC-8 has no ladder, so its values come at the end. RC.7 defines each new value.
+
+**RC-1. A lawful re-commit** (X3C:277-280). Case F15, `recommit-lawful`.
+
+| Key | Expected | X3c r8 |
+|---|---|---|
+| `e1`, `e2` | `Committed(latched=false)` | "both `Committed(latched=false)`" |
+| `e1.stages` | `recovery_pair,run_material,availability,pins` | E1 is a first commit, staged as r7 stages it (X3C:119); point order `project_commit.rs:472-530` |
+| `e2.stages` | `recovery_pair,run_material` | X3C:185 |
+| `e2.objectsLinked` | `0` | "E2's trace has no `x3c.object/link.after`" |
+| `e2.ledgerRowsKept` | `true` | "E1's rows are byte-equal before and after E2" |
+| `attemptRows`, `receipts`, `materialRows` | `2` each | "2 attempt rows, 2 receipts … 2 Run-material rows" |
+| `commitSequences` | `1,2` | "E2's `commitSequence` is 2"; 2 associations |
+| `materialIdentical` | `true` | "with equal manifest and inventory" |
+| `availabilityRows` | `1` | "1 availability row" |
+| `pinRows` | `0` | "the pin tables are empty" |
+| `R1` | `committed-historically:pendingSettlement:*` | R1(E2) CH `pendingSettlement` |
+| `R2.outcome` | `Committed(latched=false)` | R2 (E3) `Committed` |
+| `R3`, `R3.others` | `committed`; `next-writer=committed` | "R3 settles every attempt `committed`" (E2; E3) |
+| `R4` | `committed-historically:settled:*` | R4(E2) CH `settled` |
+| `e1-recover` | `committed-historically:settled:*` | recover(E1) CH, after R3 settled E1 |
+
+**RC-2. Kills in the confirm branch** (X3C:281-283). Case F04, the eight variants above, one expected set.
+
+| Key | Expected | X3c r8 |
+|---|---|---|
+| `e1` | `Committed(latched=false)` | RC-2 follows E1's commit |
+| `e2` | `killed` | the kill |
+| `e2.ledgerRowsKept` | `true` | "E1's rows are unchanged" |
+| `e2.objectsKept` | `true` | "No object name or bytes changed" |
+| `R1` | `unknown-attempt-open` | R1(E2) UAO |
+| `R2.outcome` | `Committed(latched=false)` | R2 (E3) `Committed` |
+| `R2.objectsLinked` | `0` | "with every object confirmed"; E2's staging file is never adopted |
+| `R3`, `R3.others` | `refused`; `next-writer=committed` | "R3 settles E2 `refused` and E3 `committed`" |
+| `R4` | `terminal-not-committed` | R4(E2) TNC |
+| `e1-recover` | `committed-historically:settled:*` | recover(E1) CH, after R3 |
+
+**RC-3. Staging kills** (X3C:284-286). Case F11, two variants, one expected set.
+
+| Key | Expected | X3c r8 |
+|---|---|---|
+| `e1` | `Committed(latched=false)` | |
+| `e2` | `killed` | |
+| `e2.ledgerRowsKept` | `true` | the transaction rolls back |
+| `seals`, `revs` | `2`; `0` | "E2's `SEAL` is durable with no `REV`" (E1's SEAL and E2's) |
+| `receipts`, `materialRows` | `1` each | "E2 has no receipt or material" |
+| `availabilityRows` | `1` | "there is still 1 availability row" |
+| `R1` | `unknown-attempt-open` | R1(E2) UAO |
+| `R2.outcome`, `R2.witnessAction` | `Committed(latched=false)`; `OK` | "R2 (E3) `Committed`, witness action OK" |
+| `R3` | `refused` | "R3 settles E2 `refused`" |
+| `R4` | `terminal-not-committed` | R4(E2) TNC |
+| `R5` | `committed-historically:settled:*` | "R5 recover(E3) CH", after R3, as F36's R5 |
+| `R5.sameRunId` | `true` | "E2's orphan `SEAL` and E3's `SEAL` name one RunId" (with RC.7's R5 rule) |
+| `e1-recover` | `committed-historically:settled:*` | recover(E1) CH, after R3 |
+
+**RC-4. The undetermined `COMMIT`** (X3C:287-289). Case F12, two variants.
+
+| Key | `recommit-fail-before-evidence-commit` | `recommit-fail-after-evidence-commit` | X3c r8 |
+|---|---|---|---|
+| `e1` | `Committed(latched=false)` | `Committed(latched=false)` | |
+| `e2` | `CommitUndetermined` | `CommitUndetermined` | `CommitUndetermined`, with E2's ExecutionId and no RunId |
+| `e2.end` | `end(rev=false,cln=false,settlement=None,step=false,stepFailure=None)` | the same | "`end(rev=false, cln=false, …)`, and the reserve forfeited", spelled as F12's `scripted.end` |
+| `e2.ledgerRowsKept` | `true` | `true` | 6a.6's earlier rows (X3C:170) |
+| `receipts`, `materialRows` | `1` each | `2` each | "with `fail-after` … receipt, association and material exist; with `fail-before`, none" |
+| `commitSequences` | `1` | `1,2` | the association |
+| `availabilityRows` | `1` | `1` | "Either way there is 1 availability row" |
+| `R1` | `unknown-attempt-open` | `committed-historically:pendingSettlement:*` | UAO (not landed) or CH `pendingSettlement` (landed) |
+| `R2.outcome` | `Committed(latched=false)` | `Committed(latched=false)` | R2 (E3) `Committed` |
+| `R3` | `refused` | `committed` | |
+| `R4` | `terminal-not-committed` | `committed-historically:settled:*` | R4 TNC or CH |
+| `e1-recover` | `committed-historically:settled:*` | `committed-historically:settled:*` | recover(E1) CH, after R3 |
+
+**RC-5. The lost acknowledgement, with a same-Run next writer** (X3C:290-292). Cases F13, F14 and F15, four variants.
+
+| Key | Expected | X3c r8 |
+|---|---|---|
+| `e1` | `Committed(latched=false)` | |
+| `e2` | `killed` | |
+| `e2.ledgerRowsKept` | `true` | 6a.6's earlier rows (X3C:170) |
+| `availabilityRows` | `1` | "1 availability row throughout" |
+| `R1` | F13 and F14: `committed-historically:pendingSettlement:*`; F15: `committed-historically:*` | "R1(E2) CH, with `pendingSettlement` as F13 to F15 give it" (X9's F13, F14 and F15 spellings) |
+| `R2.outcome` | `Committed(latched=false)` | R2 (E3) `Committed` |
+| `R2.commitSequence` | `3` | "with `commitSequence` 3" |
+| `R2.receipts` | `1` | "no second receipt for E2" (F15's `R2.receipts`) |
+| `R2.availabilityRows` | `1` | "1 availability row throughout" |
+| `R3` | `committed` | |
+| `R4` | `committed-historically:settled:*` | R4(E2) CH `settled` |
+
+**RC-6. A regeneration mismatch** (X3C:293-295). Case F33, `recommit-run-material-inventory`. The mutation is F33's own: one digest in E1's stored inventory changed, with `run_material_no_update` lifted and reinstalled (`commit_tests.rs:2581-2587`).
+
+| Key | Expected | X3c r8 |
+|---|---|---|
+| `e1` | `Committed(latched=false)` | |
+| `e2` | `Refused(Invariant)` | "E2 `Refused(Invariant)` at staging" |
+| `e2.rev`, `e2.cln` | `true`; `true` | "`end(rev=true, cln=true, …)`" |
+| `e2.stages` | the empty string | refused before any insert (X3C:134, :184) |
+| `e2.ledgerRowsKept` | `true` | "E2 does not change E1's rows" |
+| `receipts`, `materialRows` | `1` each | "no receipt, association or material" |
+| `commitSequences` | `1` | no association |
+| `availabilityRows` | `1` | "still 1 availability row" |
+| `R1`, `R3`, `R4` | `unknown-attempt-open`; `refused`; `terminal-not-committed` | the ladder R1, R3, R4 |
+
+**RC-7. A one-sided Run** (X3C:296-302). Case F23, two variants. Mutations `delete-availability` and `plant-availability` are RC.7's.
+
+| Key | `recommit-one-sided-material-only` (a) | `recommit-one-sided-availability-only` (b) | X3c r8 |
+|---|---|---|---|
+| `e1` or `d` | `e1`: `Committed(latched=false)` | `d`: `Committed(latched=false)` | (a) after E1 commits; (b) after the distinct variant's commit |
+| `e2` | `Refused(LedgerCorrupt)` | `Refused(LedgerCorrupt)` | "`Refused(LedgerCorrupt)`" |
+| `e2.rev`, `e2.cln` | `true`; `true` | `true`; `true` | "`end(rev=true, cln=true, …)`" |
+| `e2.stages` | the empty string | the empty string | "nothing inserted" (X3C:121, :184) |
+| `e2.ledgerRowsKept` | `true` | `true` | "nothing inserted" |
+| `receipts`, `materialRows` | `1` each | `1` each | E1's, or `d`'s |
+| `availabilityRows` | `0` | `2` | (a) R's row deleted; (b) `d`'s row and R's planted row |
+| `R1`, `R3`, `R4` | `unknown-attempt-open`; `refused`; `terminal-not-committed` | the same | "R1 UAO; R3 `refused`; R4 TNC" |
+
+**RC-8. Reader isolation** (X3C:303-304). Case F29, `recommit-readers-across-publish`. No ladder, as F29 has none.
+
+| Key | Expected | X3c r8 |
+|---|---|---|
+| `e1`, `e2` | `Committed(latched=false)` | E2 is resumed to its end |
+| `e1-at-staging`, `e1-at-returned` | `committed-historically:pendingSettlement:*` | "E1 is CH both times"; E1 is not settled, because no sweep runs |
+| `e2-at-staging` | `unknown-attempt-open` | "E2 is UAO", as F29 at `x3d.publish.after-staging#1` |
+| `e2-at-returned` | `committed-historically:pendingSettlement:*` | "then CH `pendingSettlement`", as F29 at `x3d.publish.commit-returned#1` |
+
+**RC-9. A non-retained record** (X3C:305-307). Case F52, `recommit-purged`. The mutation is F52's own `availability-purged`: a generation-1 `purged` record, and the largest object deleted (`commit_tests.rs:2624-2654`).
+
+| Key | Expected | X3c r8 |
+|---|---|---|
+| `e1`, `e2` | `Committed(latched=false)` | "E2 `Committed(latched=false)`" |
+| `e2.objectsLinked` | `1` | "E2 publishes the deleted object new and confirms the rest" |
+| `e2.stages` | `recovery_pair,run_material` | "No availability row is added" |
+| `e2.ledgerRowsKept` | `true` | the generation-1 record "stays current" |
+| `availabilityRows` | `2` | generation 0 and generation 1; none added |
+| `R1` | `committed-historically:pendingSettlement:*` | "R1(E2) CH `pendingSettlement`, because every object is present again" |
+| `e1-recover` | `committed-historically:pendingSettlement:*` | recover(E1) CH; no sweep has run |
+
+**Repetition.** Each RC row's two lead repetitions must agree on `normalizedSha256` and on every child's trace digest (item 7).
+- X9-3's normalizer orders the rows of every table without rowid by shape, and ties by normalized content (`crates/security/src/crash_matrix_support/post_state.rs:196-205`, `:225-282`). So two receipts or two material rows of one Run compare between repetitions.
+- r14's group order makes a child that confirms some objects and creates others repeatable (X9:440-466). RC-9's E2 is such a child.
+
+#### RC.5 The record of the 19 runs
+
+- **The record** (X3C:309-322). In 19 runs of the accepted storage set at C, an unscored next writer, or F49's scripted second writer, commits the candidate after the candidate was committed. Each ends `Refused(Invariant)` at C (X3C:311).
+- **How each new outcome is derived.**
+  - **Standing** (X3C:114-133): both of R's per-Run rows exist (a re-commit), neither exists (a first commit), or one exists (`LEDGER.CORRUPT`).
+  - **Material** (X3C:134-142): a re-commit's manifest and inventory must equal R's committed material, or the invariant row applies.
+  - **What each mutation touches:** read from its code (`commit_tests.rs:2488-2657`).
+
+| # | Run | Child | What the run leaves before that child | Standing | Material | Under X3c r8 |
+|---|---|---|---|---|---|---|
+| 1 | F12 `fail-after-evidence-commit` | R2 | E1's `COMMIT` landed and was reported undetermined | re-commit | identical | `Committed(latched=false)` |
+| 2 | F23 `delete-receipt` | R2 | E1 killed at `x3d.publish.commit-returned#1`, so its `COMMIT` landed; then E1's receipt deleted (`:2505`) | re-commit | identical | `Committed(latched=false)` |
+| 3 | F23 `delete-association` | R2 | as row 2, with E1's association deleted (`:2506`) | re-commit | identical | `Committed(latched=false)` |
+| 4 to 7 | F27 `association-store-generation`, `association-namespace`, `association-operation`, `association-execution` | R2 | one member of E1's association body rewritten; its key columns unchanged (`:2559-2573`) | re-commit | identical | `Committed(latched=false)` |
+| 8 | F28 `pruned-generations` | R2 | carrier generations pruned and planted; ledger untouched (`:2655`) | re-commit | identical | `Committed(latched=false)` |
+| 9, 10 | F33 `receipt-assurance`, `receipt-signer` | R2 | E1's receipt body rewritten (`:2575-2580`) | re-commit | identical | `Committed(latched=false)` |
+| 11 | F33 `association-seal-digest` | R2 | E1's association body rewritten (`:2588`) | re-commit | identical | `Committed(latched=false)` |
+| 12 | F33 `run-material-inventory` | R2 | one digest of E1's stored inventory changed (`:2581-2587`) | re-commit | **differs** | **`Refused(Invariant)`**, by RC-6's rule (X3C:134) |
+| 13 | F40 `fail-after-evidence-commit` | R2 | as row 1 | re-commit | identical | `Committed(latched=false)` |
+| 14 | F49 `reader-skewed-by-append` | `second` | `first` committed, nothing mutated | re-commit | identical | `Committed(latched=false)` |
+| 15 | F52 `association-only` | R2 | E1's receipt deleted (`delete-receipt`) | re-commit | identical | `Committed(latched=false)` |
+| 16 | F52 `no-row-both` | R2 | E1's attempt row deleted (`:2507`) | re-commit | identical | `Committed(latched=false)` |
+| 17 | F52 `purged` | R2 | a generation-1 `purged` record added and the largest object deleted (`:2624-2654`) | re-commit | identical | `Committed(latched=false)`, publishing the deleted object new, as RC-9 |
+| 18 | F52 `receipt-only` | R2 | E1's association deleted (`delete-association`) | re-commit | identical | `Committed(latched=false)` |
+| 19 | F52 `settled-refused-both` | R2 | E1's attempt row settled `refused` (`:2510`) | re-commit | identical | `Committed(latched=false)` |
+
+- **18 of the 19 change outcome; one does not.** No mutation deletes R's availability row or R's material row, so no run leaves R one-sided. Only `run-material-inventory` changes R's material. This is X3c r8's count (X3C:320).
+- **Sequences after a deleted association** (rows 3 and 18). `next_commit_sequence` reads the association table's key columns (`crates/storage/src/ledger_store.rs:732-753`), so E3's association takes sequence 1. No association holds it any more, and no DDL or X3c rule compares it with E1's receipt body. The F27 and F33 mutations rewrite the body only, so E3 takes sequence 2 there. Neither is scored.
+- **No existing expected value names those outcomes.**
+  - None of the 19 rows' `expected` names the child whose outcome changes: R2's members, or F49's `second`. They score R1, the scripted child, and, where the row runs them, `R3`, F23's `R3.left` and `R4`, each for E1. F49 scores `first` and `reader`. Each of those values is E1's, or is taken before R2, and none changes.
+  - F49's `reader` keeps `committed-historically:pendingSettlement:*`. r12's reading holds with the second writer now committed: "a lawful writer appends and exits", and the one fresh capture confirms the earlier attempt (X9:280-281).
+  - No expected value in either file names `Refused(Invariant)`. Host's two invariant expectations, F01 `substituted-target` and `substituted-inventory` (`finalize1`), are refusals at X3d item 3 step 1, before any attempt row, so staging never runs.
+  - **So nothing is re-transcribed.**
+- **What changes in those runs' records,** all unscored:
+  - the child's outcome;
+  - `R3`'s `nextWriter` in rows 1, 2, 3 and 13: `next-writer=refused` becomes `next-writer=committed`;
+  - trace digests of that child and of later ladder children;
+  - `normalizedSha256` of F49 only. X9-2's form captures the post state before the ladder (`commit_tests.rs:1730`), so the 17 runs in that form keep it. F49's step form has no ladder and captures after its children (`:2137-2147`).
+- **r16's release-order verdict now applies** to the 18 children, because each ends `Committed` (`commit_tests.rs:620-624`; X9:753-769). A re-commit runs the same journal, level-3, level-4, lease and fence steps as a first commit (X3C:262; X3C:182-187), so the order is expected to hold. A violation is a FAIL and a stop.
+- **Rows that stay first commits under X3c r8:**
+  - F24 `wrong-store-generation`'s scored R2 `Committed` commits under the admitted digest, which holds no per-Run row (X3C:128);
+  - F36's R2 follows an orphan SEAL, which leaves no per-Run row (X3C:124);
+  - F04 `kill-link-after-1-unequal-collision`'s R2 refuses at the object, before staging;
+  - every R2 that r12 and r13 give the distinct variant commits another Run (X9:264, :356). Those rows stay as they are (X3C:322).
+
+**Lead decision LD-RC-7: the 18 changed outcomes stay unscored.** RC-1 to RC-9 score the same-Run commit directly.
+- **Rejected: scoring them in their rows.** It re-transcribes 18 accepted rows of X9-3 and X9-4 for coverage the RC rows already give. X3c r8 records "no transcribed expected value changes" (X3C:310), and frame rule 2 forbids it.
+
+#### RC.6 The lead-set duty
+
+- **Before the lead set.** On its integration candidate, X3c-3:
+  1. runs the census-only step of both targets (`OPENSIP_X9_CENSUS_ONLY`) and the checker's `coverage` (X9:647-648);
+  2. compares the result with RC.3;
+  3. transcribes the 22 rows from §RC and that census only;
+  4. makes development runs of the RC rows and the 19 runs of RC.5.
+
+  If any step contradicts RC.3, RC.4 or RC.5, X3c-3 stops and reports, as X9-2 to X9-6 did (X9:662). The correction is a new round of §RC.
+- **The lead set** (X3C:260). Two repetitions of both targets on X3c-3's integration commit:
+  - storage's 381 rows and the 22 RC rows, 403 in all;
+  - host's 98 rows.
+
+  That is 501 runs per repetition. `check` must pass over both targets (item 7, X9:1031-1041; r10, X9:222). It requires every row of both files, the union census and full kill-set coverage. The record states the union totals and `killedOutsideKillSet` (RC.3).
+- **Why host reruns.** Every host commit passes the changed staging (X3C:260). No host outcome is predicted to change, because no host child re-commits a committed Run (RC.5).
+- **Serialized** with every other lead set. The 5,000 ms timing guard (X9:391) fails under a concurrent set (M3P:567).
+- **Integration order with J4** (X3C:261; JRW:668). X3c-3 and J4 are independent. Whichever integrates second reruns both sections' rows:
+  - if J4 integrates first, X3c-3's set covers storage's rows, §RC's, §RW's and host's;
+  - if X3c-3 integrates first, J4e's set covers §RC's rows as well as its own.
+- **J3b and later units.** By frame rule 5, any lead set after X3c-3 integrates runs §RC's rows too.
+
+#### RC.7 What X3c-3 adds
+
+These are X3c-3's additions to the matrix target and the checker, beside X3c r8 item 13's storage code (X3C:252-259). The harness is `crates/storage/tests/commit_tests.rs`. X3c-3 makes each change, with a test where the checker or harness has one for its neighbours. §RC edits no product file.
+
+1. **Rows.** The 22 rows of RC.4, appended to `crates/storage/tests/fixtures/crash-matrix/required-runs.v1.json` after its 381 rows. No existing row changes. The file holds 403 rows.
+2. **The `recommit` census part** (RC.3), in `x96_parts` (`:3143-3147`), with its checks.
+3. **Observed values.** The verdict compares each value only where a row's `expected` names it.
+   - **Post-state values,** read beside `seals`, `receipts` and `orphansPresent` at the step form's capture (`post_values`, `:1412-1423`):
+     - `availabilityRows`: rows of `evidence_availability`;
+     - `materialRows`: rows of `commit_run_material`;
+     - `materialIdentical`: `true` when every `commit_run_material` row has the same `manifest` bytes and the same `inventory` bytes;
+     - `commitSequences`: every `commit_associations` row's `commit_sequence`, in numeric order, comma-joined;
+     - `pinRows`: rows of `active_run_pins` plus rows of `pin_change_facts`;
+     - `revs`: `REV` records in N's carrier, counted as `seals` counts SEALs (`seal_runs`, `:1425-1439`).
+   - **Commit-child values,** for every commit child `n`, finished or killed (`trace_values`, `:1331-1370`):
+     - `n.objectsLinked`: its `x3c.object/link.after` records;
+     - `n.stages`: the `<table>` of each `x3c.evidence.stage-<table>` point it reached, in trace order, comma-joined. It is the empty string when there is none.
+   - **Kept-state values,** for a child spawned `"unchanged": true` (`:1915-1917`, `:2028-2061`). They are computed when the child finishes, and now also when it is killed:
+     - `n.ledgerRowsKept`: `true` when every ledger row present before the child is present after it, byte for byte;
+     - `n.objectsKept`: `true` when every digest-named object present before the child is present after it with the same sha256. Staging names are not objects.
+
+     No existing row kills a child spawned `unchanged` (F30 and F34 finish theirs), so no existing value changes.
+   - **R2 values** (`ladder_steps`, `:1528-1568`), from R2's exit and the capture R2 already takes for `R2.receipts`:
+     - `R2.objectsLinked`;
+     - `R2.commitSequence`: the `commit_sequence` of R2's own association;
+     - `R2.availabilityRows`.
+4. **R5's one-RunId check** (`:1611-1628`). `R5.sameRunId` is `true` when the carrier holds at least two SEALs and every SEAL names one RunId. F36's runs hold exactly two, so their value is unchanged.
+5. **`"r2": "same"`** (LD-RC-4). The harness reads it as the candidate, the default. Any `r2` value other than `same` or `distinct` is a `HARNESS-ERROR`.
+6. **Two mutations** (`apply_x93`, `:2488-2657`). Each run that uses one is labelled `mutation`.
+   - **`delete-availability`.** It deletes the one `evidence_availability` row of N, with `availability_no_delete` lifted and reinstalled from its own stored SQL (item 6's reserved-slot technique, as `lifted` does, `:2324-2343`). Any other row count is a `HARNESS-ERROR`.
+   - **`plant-availability`.** It inserts one row, with the triggers in place, for the candidate's RunId R. The row is a copy of the `of` child's generation-0 `retained` row, with its RunId replaced by R.
+     - **How the parent learns R.** R is the RunId of X3d-3's candidate (X9 r7), built from the `of` child's own session. That child writes R to a file under the run's scratch root, outside the installation and outside its trace, as r12's commit child writes its core closure (X9:293).
+     - R is an input and is never scored.
+7. **The checker** (`tools/check_crash_matrix.py:105`). `UNIT_VALUES` admits `"X3c-3"` with r16's reading of `"X9-6"`, with a test. `check-unit` admits no `--unit X3c-3`.
+8. **Nothing else.** There is no new crash point, scope, kind, label, run-record member or limit (X3C:182-191).
+
+### §S12. J1's section (reserved)
+
+**Reserved. It carries no rows.**
+- **Owner.** J1 r5, item 12 and successor S12 (J1:832-841, :858). The lead transcribes it. J3b runs S12-B, -C, -U and -D, and J3d runs S12-O (J1:882-883).
+- **What it will carry.**
+  - Rows S12-B, S12-C, S12-U, S12-D and S12-O.
+  - The host drivers J1 item 12 re-transcribes: F01, F12, F16, F17, F32, F39 and F40, host halves (J1:832; M3P:319).
+- **What fills it.** A later round of r17, reviewed on its own, before J3b's review (M3P:319).
+  - S12-C and S12-U are transcribed only once S21 is accepted (J1:833).
+  - S12-O waits for S18, which J1 r5 records as accepted and bound at product `5214350` (J1:865).
+
+### §RW. J-RW's section (reserved)
+
+**Reserved. It carries no rows.**
+- **Owner.** J-RW, item 10, X-RW-10 and its successor RW-S6 (JRW:519-596, :625, :669). J4e transcribes and runs it (JRW:607).
+- **What it will carry.**
+  - RW-F00, which re-transcribes F00's L11 cells.
+  - RW-D1, RW-K1 to RW-K10, RW-N1 to RW-N12 and RW-B.
+  - J4's census.
+  - L11's retirement, only on the evidence J-RW item 10 names (JRW:588).
+- **What fills it.** A later round of r17, reviewed on its own, once J-RW is accepted and before J4e. J-RW r3 is in review with Codex, which recorded two required findings, JRW-R3-01 and JRW-R3-02 (`m3/reviews/codex-resume-repair-jrw-r3`).
+- **Its tie to §RC.** Whichever of X3c-3 and J4 integrates second reruns both sections' rows (X3C:261; JRW:668; §RC.6).
