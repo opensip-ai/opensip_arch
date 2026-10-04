@@ -1,0 +1,78 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectSha256": "c6ae10de47ede503ceebdbcd6407b0df0e650f1fe9627ef91e4bec1fd6fa7dfa",
+  "requiredFindings": [
+    {
+      "id": "RF-1",
+      "location": "PROPOSAL.md:509-521 (item 18 macOS table and escalation); PROPOSAL.md:511 and :259 (proc_listchildpids); PROPOSAL.md:532 (D5-T2)",
+      "claim": "On macOS the Guaranteed cell says every member of the child's process group at the group SIGKILL is killed and the root is reaped, and the best-effort cell plus D5-T2 say a setsid grandchild still in the tree at the snapshot is killed.",
+      "evidence": "The same item's escalation paragraph records exit: unreaped when the root is still alive at the reap ceiling after SIGKILL, and the host then stops signalling. Linux's own guarantee records tree: incomplete for an uninterruptible wait past that ceiling. The macOS Guaranteed cell has no such carve-out, and the proc_listpids(PROC_PGRP_ONLY) confirm has no stated result when the call fails or the group is not empty. SDK27 usr/include/libproc.h:95 declares proc_listchildpids(pid_t ppid, void *buffer, int buffersize): one parent pid, one flat buffer. Item 18 says the host snapshots the live descendant tree with that call and never says to call it again on each returned pid. A grandchild's parent is the intermediate child, so one call on the root does not return it; after setsid the group SIGKILL does not kill it either. That is D5-T2, which expects the snapshot path to kill it, and the Not guaranteed row does not list it. Not guaranteed (c) covers a process created after the snapshot by an already escaped process. A process still in the group can fork and setsid after the snapshot and before the group SIGKILL; that child is outside the group at the kill, absent from the snapshot, and its parent had not escaped. The Consequence row does refuse macOS tree settlement (tree: group-killed, platform-limited; HD:877). The over-claim is the Guaranteed cell and the snapshot procedure. The Linux subreaper sweep is conditional on LX-7 and LX-8, records tree: incomplete for a fork loop or an uninterruptible wait, and is not this finding.",
+      "fix": "Take the root, and any group member still alive at the reap ceiling, out of Guaranteed, and let the existing exit: unreaped sentence govern that cell. State what a failed or non-empty proc_listpids confirm records. Require the snapshot to walk every live descendant: call proc_listchildpids on each returned pid, not once on the root. Put the in-group fork-and-setsid window on the Not guaranteed row, or define a second observation that closes it. Keep D5-T2's expected macOS result aligned with that walk."
+    },
+    {
+      "id": "RF-2",
+      "location": "PROPOSAL.md:621 (item 22 spawn-refused row); PROPOSAL.md:704-709 (item 26)",
+      "claim": "Every spawn-refused settlement, including D4's pre-spawn closure recheck, is operational-failed 4 with PROVIDER.PROTOCOL_VIOLATION, cited to NE:3529 as a capability or identity mismatch before any stage.",
+      "evidence": "NE:3529 is capability or identity mismatch at HelloAck, OpenUniverse before negotiation, coverage bijection faults, and worker fault. It is a provider-spoken failure. Item 26's closure recheck runs in the session factory before handover to D3, before any provider frame. WS:1375 maps installed closure bytes corrupt or unspawnable to operational-failed 4, HOST.IO_FAILURE, and DELIVERY.CLOSURE_BYTES_CORRUPT or DELIVERY.CLOSURE_UNSPAWNABLE. J1 r1 row 28 (PROPOSAL-r1.md:511) is the same pair of details. The spawn-failed row already chooses WS:1375 over DLV:1170 for ENOENT, EACCES, ENOEXEC, and a loader failure, and records that choice as F4. The closure-byte mismatch is the other half of that same WS cell and is sent to a different public code. HelloAck identity, an in-protocol RF3 echo, and effectRequest can stay on PROVIDER.PROTOCOL_VIOLATION: the control-refusal row already uses that code, and NE:3529 covers HelloAck.",
+      "fix": "Route the pre-spawn closure recheck to J1 row 28: HOST.IO_FAILURE and DELIVERY.CLOSURE_BYTES_CORRUPT. Keep provider-spoken HelloAck, RF3 echo, and effectRequest on PROVIDER.PROTOCOL_VIOLATION. A tuple mismatch the provider has not spoken is a host-side refusal on its existing host row, not NE:3529."
+    },
+    {
+      "id": "RF-3",
+      "location": "PROPOSAL.md:553 (item 19) and PROPOSAL.md:622 (item 22 revoked row)",
+      "claim": "Revocation and observer fail-stop share one settlement cause, revoked, and that cause takes the revocation owner's route, named as SL S12's OBSERVER.FAIL_STOP at SL:1311.",
+      "evidence": "SL:1311 is only OBSERVER.FAIL_STOP and I/O failure: operational-failed 4, HOST.IO_FAILURE. SL:1306 is revoked-during-operation: request-rejected 2, EXTENSION.ADMISSION_REJECTED. J1 r1 row 18 (PROPOSAL-r1.md:501) is revocation during the operation, with detail TRUST.COMPONENT_REVOKED_DURING_OPERATION. J1 r1 row 19 (PROPOSAL-r1.md:502) is observer or monitor fail-stop, with OBSERVER.FAIL_STOP. Item 19's kill ladder can still follow SL S6 for both events. The public route cannot: one cause published only through SL:1311 turns a revocation into a fail-stop.",
+      "fix": "Split the settlement. Revocation during the operation takes J1 row 18. Observer fail-stop takes J1 row 19. Cite SL:1306 for the revocation and SL:1311 for the fail-stop."
+    },
+    {
+      "id": "RF-4",
+      "location": "PROPOSAL.md:9; PROPOSAL.md:655-676 (item 24, including the rejected spawn bullet and D4-T1)",
+      "claim": "Manifest-class refusals run before attempt admission, inside C4a Plan construction, and therefore mint no ExecutionId. The preamble assigns that property to items 24-26. D4-T1 treats an unchanged attempt-admission counter as proof that no ExecutionId was minted.",
+      "evidence": "WS:81 says each admitted attempt receives a fresh ExecutionId. It does not say the id is drawn at the attempt row. J1 r1 draws it at CommitSession::open, row R12 (PROPOSAL-r1.md:241, :344-345). J-γ is that open (PROPOSAL-r1.md:274). J-ε, the Plan, is C4a and is the next analysis join (PROPOSAL-r1.md:276). J1 r1 item 7 also says the open precedes the attempt row, and that item 8 uses attempt admitted for the attempt row only (PROPOSAL-r1.md:131). Phase A, before attempt admission, runs from R0 until prepare_commit commits that row and includes the whole analysis (PROPOSAL-r1.md:403). C4a is inside that interval and after the draw. REG:374 and QG:588 require admission-time excluded forms to be refused with no ExecutionId; they separately require represented post-admission substitutions to be rejected before any stage. Item 26 already follows the second sentence and says the ExecutionId exists. Item 25's request-validation placement can still precede R12. The preamble's items 24-26 and item 24's therefore do not.",
+      "fix": "Run EE-1, EE-3b, EE-4's manifest part, and EE-5a before R12, so CommitSession::open has not drawn an ExecutionId. Point D4-T1 at that open, not at the later attempt-admission counter. Keep item 26 as a post-draw, pre-stage refusal. Stop line 9 from covering items 24-26 with one no-ExecutionId claim."
+    },
+    {
+      "id": "RF-5",
+      "location": "PROPOSAL.md:65; PROPOSAL.md:807 and :851 (F-2, F-4); PROPOSAL.md:914-931 (F-8, LX-1..LX-14)",
+      "claim": "Every Linux fact this law relies on is listed in F-8 as LX-n, and F-8's desk check is that closed list.",
+      "evidence": "F-2 applies PR_SET_NO_NEW_PRIVS before Landlock and seccomp. F-4's Linux availability probe is Landlock ABI, seccomp filter mode, and no_new_privs. LX-10 covers the Landlock ABI. LX-14's text is seccomp filter arguments for clone flags and glibc's clone3 fallback. No row covers PR_SET_NO_NEW_PRIVS or seccomp filter-mode availability. Those are Linux facts the launcher and the availability probe both use, and CF-P's checklist as written does not ask for them. Ordinary items outside section F cite LX ids for the Linux facts they use.",
+      "fix": "Add the missing desk-check rows, at least PR_SET_NO_NEW_PRIVS and seccomp filter-mode availability, and cite those ids from F-2 and F-4. Keep them non-established until CF-P confirms them."
+    }
+  ],
+  "nonBlockingObservations": [
+    {
+      "id": "NBO-1",
+      "location": "PROPOSAL.md:483-493 (item 17, R2)",
+      "observation": "Count-only stderr is a lawful M3 reading of DLV:1133. The host reads the stream to EOF, counts saturating bytes, and sets truncated when the count passes 262144. K7 Reduced::from_capture (S-OP-2 r4:254) keeps only that pair, and P3 has no SafeField (S-OP-2 r4:238-240). OPP:401 leaves a consented raw capture at O9, not at M3. Accepted OPP:171 and draft ML item 12.1 still say the host holds the bounded text until settlement. Item 17 rejects that hold and says the lawful record is the same. The phrase that items 15 and 17 follow ML item 12 is false for the hold. ML is not accepted, and the law already says it will be amended if accepted L text differs. No finding."
+    },
+    {
+      "id": "NBO-2",
+      "location": "PROPOSAL.md item 13 (R3)",
+      "observation": "Holding an fd1 EOF that arrives after the participant terminal until the exit is observed, then delivering exit and then that EOF, is the host join F02:171-177 permits for EOF and process death. F02:168-169 forbids reordering semantic frames. CPC racesAndJoins permits the same EOF and process-death join and requires byte-for-byte frame comparison. Frames are not reordered. No finding."
+    },
+    {
+      "id": "NBO-3",
+      "location": "PROPOSAL.md item 16 TS2 aggregate (R4)",
+      "observation": "A host-only 1 GiB aggregate over TS2 responses adds no wire member. TS2's ten limit members (NE:2961-2967) include no aggregate. ML item 1 forbids an extra wire member, phase, or negotiation choice. DLV:1163 already maps a host wall-clock backstop to a provider-protocol fault, and RPP:152 says a safety-bound failure cannot manufacture BudgetExhausted. The same mapping for this aggregate is lawful. No finding."
+    },
+    {
+      "id": "NBO-4",
+      "location": "PROPOSAL.md:635-651 (item 23, R7)",
+      "observation": "Item 23 matches HD §9.3: no cgroup interface, children stay in the harness leaf, nested subreapers, the harness no-leaf drain signalling only the root group, settlement-failed disclosed after abnormal host death, and no macOS tree settlement (HD:844-910, including HD:872, HD:877, HD:879). No incompatibility found."
+    },
+    {
+      "id": "NBO-5",
+      "location": "PROPOSAL.md section F (R8, apart from RF-5)",
+      "observation": "F-0 alternative C says items 1-27 are unchanged because no ordinary item depends on the confinement primitive. Ordinary references to section F are conditional (under O7, where the launcher exists, confinement-refused only under O7). Item 5's fresh pipes are ordinary law that F-2 consumes. F-4 matches the recommendation: unavailable discloses and continues; a failed apply refuses with confinement-refused, operational-failed 4, HOST.IO_FAILURE. F-7 is E-NET, E-WRITE, and E-ENV plus E-PROC and E-TREE. Nothing in D says sandbox. CF-P not having run is the acceptance gate (M3P:85, M3P:213, M3P:261), not a finding in this round."
+    },
+    {
+      "id": "NBO-6",
+      "location": "PROPOSAL.md:665 (EE-3b)",
+      "observation": "EE-3b is represented as a commands entry for role analyzer, or a capability outside the native capability matrix's provider capabilities. The generated manifest shape also requires permissions, configuration, stateMigration, and updateData. This review did not open a schema body in which those objects claim policy, persistence, rendering, termination, or host-lifecycle authority, so incompleteness is not shown."
+    },
+    {
+      "id": "NBO-7",
+      "location": "hashes.txt subject, syntax-e, and overnight rows",
+      "observation": "Subject bytes match the pin: 128473 bytes, sha256 c6ae10de47ede503ceebdbcd6407b0df0e650f1fe9627ef91e4bec1fd6fa7dfa. The file is tracked at arch 839018434; the request said it stayed untracked until acceptance. Live syntax-e PROPOSAL.md is 117273 bytes, sha256 d71031ff1aee01ba20b471e9db1891f4a0e976751741ffa10a783585eedd7c46. The pin is the r2 blob c9287db9d6ba508fdd22d66d71a298ef3a31dc337b96c963238932128cb4a5ef, 104394 bytes, still at a06042ee. Live OVERNIGHT-2026-10-03.md is 16375 bytes, sha256 6fbeb2c17b4ca163a9ff2e22bdc9d2792f2ca61773363b874fe32a2568760f52, against pin 35ed8a5d2049548a13e3b2b3153329ee09fa33f466ac6fbf3870ee1269ff9510, 15045 bytes. Overnight line 9 is still B1, O7. The no-sandbox rule the law attributes to ME item 17 is present in syntax-e PROPOSAL-r1.md and in the live file. Judged against the pins. Arch HEAD at review was 68be36dc0fbe1229e2097a4fea7f57878a3ff91f. ~/Library/Application Support/OpenSIP was absent."
+    }
+  ]
+}
