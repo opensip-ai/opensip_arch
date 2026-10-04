@@ -1,19 +1,14 @@
-# The M3 provider-protocol and reuse law — proposal M3-L r5
+# The M3 provider-protocol and reuse law — proposal M3-L r4
 
 2026-10-04. Drafted for Claude Opus 5.5, implementation lead, by a lead-dispatched drafting agent during the overnight autonomous run. It is the law for unit **M3-L** of the accepted M3 unit plan (`M3-PLAN-r6.md:207`).
 
-**Draft r5, not accepted. Not code. Reviewable now; effective only when its gate is met.** Under the review rule ("Review and effect"), an ACCEPT is recorded as "accepted in review". The law takes effect only when every gate item, L-G1 to L-G11, is met, as M3-C's pinned gate also works (MC:88-89). Four things go through a delta round:
-- filling the `⟨SM-n⟩` values;
-- any change that O7's decision forces;
-- any change Codex's review forces in a part of FA-2 that sets a wire member, the commitment a key carries, the admission point or the reuse treatment. That includes every one of FA-2's NE §0 rows, but not its NE:93 header sentence, schema layout, vectors and evidence, README prose or materialization map ("What depends on O7, S-M, FA-2 and RUST3-LIM");
-- **(r5)** the same for RUST3-LIM, which GROK2 has accepted with no change forced: any later change to its accepted bytes in a part that sets a wire member or a commitment, including a rebuild forced by a change to FA-2's handshake copies, its parents.
+**Draft r4, not accepted. Not code. Reviewable now; effective only when its gate is met.** Under the review rule ("Review and effect"), an ACCEPT is recorded as "accepted in review". The law takes effect only when every gate item is met, as M3-C's pinned gate also works (MC:88-89). Three things go through a delta round: filling the `⟨SM-n⟩` values, any change that O7's decision forces, and any change that FA-2's acceptance forces.
 
 **History.**
 - **r1** (`PROPOSAL-r1.md`, sha256 `5e858c05…`, 59,109 bytes) was drafted on 2026-10-03 and never sent. Its draft request is superseded (`reviews/grok-provider-protocol-l-r1/status.json`, `SUPERSEDED-UNSENT`). r1 cited M3-PLAN r4 and predated T2b's acceptance, S-OP-2, CF-P, M3-C r6, M3-E1 r3 and M3-J1 r3.
 - **r2** (`PROPOSAL-r2.md`, sha256 `5bd4025e…`, 91,126 bytes) refreshed those joins and the gate, adopted the review rule, and otherwise kept r1's substance. It was the first revision reviewed. Grok returned **REQUIRED-FINDINGS** (`reviews/grok-provider-protocol-l-r2`): one required finding, RF-1 (item 13's closed list of wire identities), and three non-blocking observations, NBO-1 to NBO-3.
 - **r3** (`PROPOSAL-r3.md`, sha256 `6df524a4…`, 121,776 bytes) answered all four. It also joined FA-2, the native successor that answers M3-H's X-H1 (the provider symbol census has no carrier), and answered M3-H's X-H4 (item 5's "no host-minted facts"). Grok returned **REQUIRED-FINDINGS** (`reviews/grok-provider-protocol-l-r3`): RF-1 (item 13's later members and its ceiling still mis-stated the cited payloads), RF-2 (FA-2's §0 row C against the third delta-round trigger), and three non-blocking observations.
-- **r4** (`PROPOSAL-r4.md`, sha256 `261db4b9…`, 145,405 bytes) answered all five. Item 13's inventory became **derived mechanically** from the cited schemas, with control L-C1 re-deriving it. The third delta-round trigger named exactly which FA-2 changes reopen this law. Grok returned **REQUIRED-FINDINGS** (`reviews/grok-provider-protocol-l-r4`): RF-1 (the derived ceiling omits required constituents of the coverage keys) and NBO-1 (the opening paragraph's trigger wording).
-- **r5** answers both. It adds rule **R7** (identity-key constituents) and re-derives the inventory. It gates on **RUST3-LIM**, the Rust3 subject-list successor, as **L-G11**, closes X13 and R12 with it, and adds SM-11 to SM-14. It renames the gate items **L-G1 to L-G11**, so that "G10" no longer collides with the register's DR-G10 (M3-PLAN r9 NBO-1). Every item, X, R and O number of r1 to r4 is kept.
+- **r4** answers all five. Item 13's inventory is now **derived mechanically** from the cited schemas, and control L-C1 re-derives it. The third delta-round trigger now names exactly which FA-2 changes reopen this law. Every item, X, R and O number of r1 to r3 is kept, and r3's substance is otherwise unchanged.
 
 It is written under:
 - the M3-L row (`M3-PLAN-r6.md:207`), the M3-S row (`:205`), the M3-D row (`:211`), the M3-J row (`:217`), "M3-L gate status" (`:429-445`), the "O7" section (`:474-525`) and the critical path (`:253-427`);
@@ -27,33 +22,9 @@ It is written under:
   - M3-H r1's cross-law items X-H1 and X-H4 (a reviewed draft, not authority);
   - FA-2, the native contract successor for X-H1, in review with Codex;
   - I1-L, the preview pack's accepted policy-language successor, whose cycle atom needs symbol scopes;
-- **new in r5:**
-  - M3-H r3, now accepted (`fact-admission-h/PROPOSAL-r3.md`, cited as H3; it replaces r3's and r4's H1 citations);
-  - M3-PLAN r9, now accepted (`M3-PLAN-r9.md`), which records the review rule, day 0 as "L in effect", and L-G10 (FA-2) in the M3-L row;
-  - RUST3-LIM, the Rust3 subject-list successor, accepted by GROK2 at r1 and binding after FA-2;
-  - FA-2 r2, in review with Codex;
 - the product contracts in `docs/v2/contracts/product-v1/` and the protocol artifacts they select.
 
-## r5 changes
-
-| # | Change | Where | Source |
-|---|---|---|---|
-| 1 | **r4 is preserved** as `PROPOSAL-r4.md` (`261db4b9…`). | header | — |
-| 2 | **RF-1. Rule R7: identity-key constituents (lead decision).** Every **required** member of a record that a cited contract defines as an identity key, or as a key's field-for-field copy, is identity-bearing. So is every member a cited contract requires to equal a key's member. The script names those records in `KEY_RECORDS` and `KEY_COPY`, each with its sentence: DLV `CoverageKeyV1` (DLV:804-817), C-2 `coverageKey.key` (with RPP:544-548), the returned `CoverageKeyV2` (NE:3277-3282; NE:1927-1932), and `ViewEntryV3`'s `relation` and `resolution` (NE:3529 `native.coverage-entry-key-mismatch`; NEM:1566-1567). R1 to R6 keep their admissions and labels; R7 applies only to members they do not admit. L-C1 now covers R7. | item 13; `evidence/wire_identities.py` | `reviews/grok-provider-protocol-l-r4` RF-1; lead direction |
-| 3 | **The other composite keys checked.** Item 13 now records each one the walk passes and why it is or is not a key: the request key (R7), the returned key and entry (R7), the fact identity (a host-only record), commitment preimages (content, not keys), view and occupancy keys (only the entry's key-field copies are), correlation tuples (exchange ordinals compared with host records), and scope summaries (counts). | item 13 | lead direction |
-| 4 | **The derived counts.** r4: 51 payload rows, 235 identity-bearing member paths (TS2 106, Rust3 129). r5: 52 rows, 278 paths (TS2 121, Rust3 157). The +43, with none removed, are 30 R7 additions to existing rows (15 per language: `relation`, `resolution` and `schemaVersion` on each request key; `relation` and `resolution` on each returned key and entry, in the Coverage, post-Analyze `Unavailable` and `BudgetExhausted` rows), plus the new RUST3-LIM row's 13 paths, of which 3 are R7. By rule: R1 200, R2 23, R3 4, R4 15, R5 3, R7 33. | item 13 | L-C1 report |
-| 5 | **Rust3 limit gate: L-G11, RUST3-LIM accepted (lead decision).** This law does not take effect on a Rust3 that refuses two of S-M's seven Rust medium workloads, and nine of T2's 22 Rust entries, before spawn. RUST3-LIM is the native successor that names the subject array by reference under `subject-scope-reference-v1`. **Rejected:** taking effect with X13 open. A fourth delta-round trigger covers later changes to RUST3-LIM's accepted bytes (row 11). X13 and R12 are closed by pointing at it. Item 1 names it beside FA-2. | gate; "Review and effect"; item 1; X13; R12 | RUST3-LIM README (X-RL-L1) |
-| 6 | **Item 13: the Rust per-file `subjectId`.** It is on the wire only without `subject-scope-reference-v1`. Under the token each stage carries `analysisDomain.subjectScope.subjectScopeCommitment` instead (a commitment, R1). This is pending RUST3-LIM's acceptance, as FA-2's members are. The derived table gains that row. | item 13 | X-RL-L2 |
-| 7 | **Item 9: SM-11 to SM-14**, as RUST3-LIM's README proposes: Rust cost per subject, rebuilding the subject scope, response volume per subject (with FA-2's census), and work-unit tuples, with the large Rust workloads and the S_eff derivation. | item 9 | X-RL-L3 |
-| 8 | **Gate rename.** L's gate items are **L-G1 to L-G11** wherever they are operative, because "G10" collided with the register's DR-G10 (M3-PLAN r9 NBO-1). The kept r2 to r4 change tables keep the old names: G1 to G10 there are L-G1 to L-G10. | throughout | M3-PLAN r9 NBO-1 |
-| 9 | **NBO-1.** The opening paragraph now states the delta-round triggers as the operative text does. | header | NBO-1 |
-| 10 | **Re-pins.** M3-H is cited at its accepted r3 snapshot (H3), not r1; every H1 line is re-mapped. M3-PLAN r9 is accepted and recorded beside r6, whose lines this law keeps citing. The gate row is also cited at `M3-PLAN-r9.md:255`, and X9 is marked done there except for L-G11 and the rename. | short names; gate; X9 | coordinator direction |
-| 11 | **RUST3-LIM accepted.** GROK2 accepted RUST3-LIM r1 while r5 was being drafted: ACCEPT-DESIGN-UNIT, no required findings, two non-blocking observations, on subject `5dfd3cd9…` and successor `70f494d9…`, the bytes this law pins. L-G11 is **met in review, held on FA-2**: it opens again if Codex's review changes FA-2's handshake copies, RUST3-LIM's parents. Both statements of the fourth trigger now name later changes to the accepted bytes, and the operative one maps the review's two NBOs. Item 13's condition and RUST3-LIM row, the RL short name, the joins row, X13 and the Effect clause say so. | header; gate; "Review and effect"; item 13; short names; joins; X13; Effect | `reviews/codex2-rust3-lim-r1/review.json` (status `ACCEPTED`) |
-| 12 | **Pin base.** Product main moved to `392499e`, which binds CRC-1, M3-C's core role closure successor, as the 83rd contract successor. Only `design-lock.json` changed. CRC-1 overrides no passage this law cites, agrees with items 1 and 5 on the core provider closure, and shares no parent with FA-2 or RUST3-LIM. The register pin is unchanged. | Product paths | `git diff cd5958b 392499e`; `crc-1/successor.json` (`29df5f5e…`) |
-
-Nothing else changes in substance.
-
-## r4 changes (kept for the record; G1 to G10 here are L-G1 to L-G10)
+## r4 changes
 
 | # | Change | Where | Source |
 |---|---|---|---|
@@ -70,7 +41,7 @@ Nothing else changes in substance.
 
 Nothing else changes in substance.
 
-## r3 changes (kept for the record; G-numbers are L-G)
+## r3 changes (kept for the record)
 
 | # | Change | Where | Source |
 |---|---|---|---|
@@ -90,7 +61,7 @@ Nothing else changes in substance.
 
 Nothing else changes in substance.
 
-## r2 changes (kept for the record; G-numbers are L-G)
+## r2 changes (kept for the record)
 
 | # | Change | Where | Source |
 |---|---|---|---|
@@ -114,18 +85,17 @@ Nothing else changes in substance.
 
 Nothing else changes in substance.
 
-**Standing direction.** Lead decisions are made under the owner's standing direction to decide on the lead's recommendation and to block only where no recommendation exists. r1's are dated 2026-10-03. r2's new ones (the review rule, item 12.1 and item 16b), r3's (G10 and item 22, item 5's in-core exception, and the third delta-round trigger) r4's (item 13's derived inventory with L-C1, and the exact scope of the third trigger) and r5's (rule R7, L-G11 with the fourth trigger, and the `L-G` rename) are dated 2026-10-04. Each names the alternatives it rejects. The owner may reverse any of them.
+**Standing direction.** Lead decisions are made under the owner's standing direction to decide on the lead's recommendation and to block only where no recommendation exists. r1's are dated 2026-10-03. r2's new ones (the review rule, item 12.1 and item 16b), r3's (G10 and item 22, item 5's in-core exception, and the third delta-round trigger) and r4's (item 13's derived inventory with L-C1, and the exact scope of the third trigger) are dated 2026-10-04. Each names the alternatives it rejects. The owner may reverse any of them.
 
 ## Review and effect (lead decision, r2)
 
 - **Decision.**
   - **Early review is allowed.** A law and contract-soundness review round may run now, before the gate is met.
-  - **What an ACCEPT means.** It is recorded as "accepted in review". The law takes effect only when every gate item, L-G1 to L-G11, is met. M3-C's pinned gate works the same way: "This law may be reviewed now. It can be accepted when: **M3-L is accepted** … An unchanged draft is not acceptance" (MC:88-89). **(r3, NBO-1)** r2 quoted the live MC file's recording paragraph here. MC:88-89 is the pinned text.
-  - **What reopens it.** Four things go through a **delta round**, with the same reviewer, on the diff only:
+  - **What an ACCEPT means.** It is recorded as "accepted in review". The law takes effect only when every gate item, G1 to G10, is met. M3-C's pinned gate works the same way: "This law may be reviewed now. It can be accepted when: **M3-L is accepted** … An unchanged draft is not acceptance" (MC:88-89). **(r3, NBO-1)** r2 quoted the live MC file's recording paragraph here. MC:88-89 is the pinned text.
+  - **What reopens it.** Three things go through a **delta round**, with the same reviewer, on the diff only:
     1. filling every `⟨SM-n⟩` from S-M's report, with every outcome item 9 records, and any owner answer to O3 or O4 that those outcomes trigger;
-    2. any change that O7's decision forces (see "What depends on O7, S-M, FA-2 and RUST3-LIM");
-    3. **(r3; exact in r4, RF-2)** any change Codex's review forces in a part of FA-2 that sets a wire member, the commitment a key carries, the admission point or the reuse treatment. Such a change reaches items 1, 13 or 22, and item 10's census sentence, which follows item 22. It **includes every change to any of FA-2's four NE §0 rows**: each touches a wire value or commitment (A and B, the Analyze and Complete payloads; C, the commitment every key carries; D, the Hello and HelloAck token arrays). A §0 change confined to rows that touch no wire value or commitment would need no delta round, **but FA-2 has no such row.** The parts of FA-2 whose change needs none are named exactly in "What depends on O7, S-M, FA-2 and RUST3-LIM".
-    4. **(r5)** any later change to RUST3-LIM's accepted bytes in a part that sets a wire member or a commitment. GROK2 accepted r1 with no change forced. Such a change can still come from a rebuild forced by a change Codex requires in FA-2's handshake copies, RUST3-LIM's parents, or from a later RUST3-LIM revision. It reaches items 1, 9 and 13 and L-G11. The parts are its token (its NE:2790 override and the handshake copies' `subjectScope` wire-law entry and enum), its NE §0 rows **E** and **F**, its §9.2, §9.6 and §9.3a overrides (NE:2883, NE:3028, NE:3070, NE:2942), and every record and law entry of its subject-scope schema. Its README prose, subject-count evidence, vectors, scratch verify and materialization map need none. **Its review's two NBOs:** NBO-1 corrects two copy-line annotations in its evidence, and needs none. NBO-2 would close a description census in one of two ways. Adding `RustFactBatchV2Vector.stageId` to the reading-rule list edits §9.3a's reading rule, and the schema's copy of it, so it takes this round. Giving that description NE:3070's parenthetical instead edits a handshake-copy description outside the `subjectScope` entry and enum, and needs none.
+    2. any change that O7's decision forces (see "What depends on O7, S-M and FA-2");
+    3. **(r3; exact in r4, RF-2)** any change Codex's review forces in a part of FA-2 that sets a wire member, the commitment a key carries, the admission point or the reuse treatment. Such a change reaches items 1, 13 or 22, and item 10's census sentence, which follows item 22. It **includes every change to any of FA-2's four NE §0 rows**: each touches a wire value or commitment (A and B, the Analyze and Complete payloads; C, the commitment every key carries; D, the Hello and HelloAck token arrays). A §0 change confined to rows that touch no wire value or commitment would need no delta round, **but FA-2 has no such row.** The parts of FA-2 whose change needs none are named exactly in "What depends on O7, S-M and FA-2".
 
     The S-M delta round also refreshes the gate rows. A gate item met after that round (a sign-off, or O7 decided as recommended) is recorded as recording text in the live file's header note, unless it forces a change. A forced change takes its own delta round.
   - **What dependents may rely on.** Wherever another law or record names "M3-L accepted" or "L's acceptance" as a gate or as day 0, it means **L in effect**: accepted in review, every gate item met, and every delta round accepted. That covers MC's gate, `M3-PLAN-r6.md:255` and `:378`, and the D law draft's gate note. An ACCEPT in review alone satisfies no dependent's gate.
@@ -135,48 +105,44 @@ Nothing else changes in substance.
   - `M3-PLAN-r6.md:255`: "Day 0 is M3-L's acceptance. Because O7 and S-M are in L's gate, both are done by then."
 - **Rejected:**
   - **Waiting for the gate before any review.** That was r1's rule, and its draft request said "Send this only once the M3-L acceptance gate permits". It serializes the day-0 law behind three owner items (O7, D3, D13) and a lead run set (S-M), and leaves the law's soundness unknown until all four close.
-  - **Letting "accepted in review" satisfy dependents' gates.** A delta round under S-M, O7, FA-2 or RUST3-LIM could still change what they rely on, and day 0 would then start before O7 is decided, against `M3-PLAN-r6.md:476`.
+  - **Letting "accepted in review" satisfy dependents' gates.** A delta round under S-M, O7 or FA-2 could still change what they rely on, and day 0 would then start before O7 is decided, against `M3-PLAN-r6.md:476`.
   - **A full re-review when S-M lands.** Only the values and the outcome change. A delta round on the diff is enough, as M3-C r6's narrow amendment showed.
-- **Consequence.** `M3-PLAN-r6.md:445` ("Before L can be sent: S-M, the two sign-offs and O7") and `:426` (r2 "fills ⟨SM-n⟩ after S-M") no longer describe the order. Cross-law item X9 routed the change to M3-PLAN's next revision. **(r5)** M3-PLAN r9, accepted, has made it: day 0 is "L in effect" (`M3-PLAN-r9.md:385`), and the M3-L row records the review rule and L-G10 (`M3-PLAN-r9.md:255`; P7-1, P7-2).
+- **Consequence.** `M3-PLAN-r6.md:445` ("Before L can be sent: S-M, the two sign-offs and O7") and `:426` (r2 "fills ⟨SM-n⟩ after S-M") no longer describe the order. Cross-law item X9 routes the change to M3-PLAN's next revision. The gate itself is unchanged.
 
 ## Acceptance gate
 
-Status on 2026-10-04. The gate is the M3-L row: "S-M, complete T2 (T2b), Q0, D3, D13 and the D2 draft, S-OP-2 drafted, O1 and **O7 decided**" (`M3-PLAN-r6.md:207`). **(r5)** M3-PLAN r9, accepted, adds "and **FA-2 accepted (G10, P7-2)**" (`M3-PLAN-r9.md:255`), which is L-G10 here. The same row says "The S-OP-4 join is the law's content, not a gate item", so S-OP-4 is item 12, not a gate row. Under "Review and effect", the gate decides when L takes effect, not when it may be reviewed.
+Status on 2026-10-04. The gate is the M3-L row: "S-M, complete T2 (T2b), Q0, D3, D13 and the D2 draft, S-OP-2 drafted, O1 and **O7 decided**" (`M3-PLAN-r6.md:207`). The same row says "The S-OP-4 join is the law's content, not a gate item", so S-OP-4 is item 12, not a gate row. Under "Review and effect", the gate decides when L takes effect, not when it may be reviewed.
 
-**(r5, lead decision) L-G11 is this law's second addition.** L in effect fixes Rust3 for M3. Without RUST3-LIM, Rust3 refuses before spawn every snapshot with more than 256 non-empty `.rs` files: nine of T2's 22 Rust entries, including two of S-M's seven Rust medium workloads, `rs-medium-axum` (301) and `rs-medium-tokio` (808) (X13; RUST3-LIM's own count agrees in 21 of 22 entries). **Rejected:** taking effect with X13 open. That would fix for M3 a Rust protocol that cannot serve the workloads its own spike measures. The plan's next revision records L-G11 (X9).
-
-**(r3, lead decision) L-G10 is this law's addition to the plan's row.** Item 22 joins FA-2's carrier, and L in effect fixes TS2 and Rust3 for M3. Without FA-2, no TypeScript or Rust symbol-kind Coverage can be admitted, which covers nine of the thirteen relations (NE:403), so F2 and G3 could not deliver their symbols lawfully (H3:850-858). **Rejected:** leaving FA-2 out of the gate. L would then take effect on a protocol that cannot carry what its dependents need, and item 22 would join nothing. The plan's next revision records L-G10 (X9).
+**(r3, lead decision) G10 is this law's addition to the plan's row.** Item 22 joins FA-2's carrier, and L in effect fixes TS2 and Rust3 for M3. Without FA-2, no TypeScript or Rust symbol-kind Coverage can be admitted, which covers nine of the thirteen relations (NE:403), so F2 and G3 could not deliver their symbols lawfully (H1:724-732). **Rejected:** leaving FA-2 out of the gate. L would then take effect on a protocol that cannot carry what its dependents need, and item 22 would join nothing. The plan's next revision records G10 (X9).
 
 | # | Gate item | Status | Evidence |
 |---|---|---|---|
-| L-G1 | **S-M**, the INC-7 spike, measured | **NOT STARTED.** It is a lead run set (`M3-PLAN-r6.md:205`). P5-8's machine order puts it after Grok's rerun on C (done), F8b's cargo steps (done: F8b is bound at product main `e093e90`) and X4-F1's lanes and reruns (`M3-PLAN-r6.md:593`). **(r3)** X4-F1 has since been accepted by GROK2 and integrated at product main `15c0779` (ON, "X4-F1 accepted by GROK2 and integrated"). This law does not record whether P5-8's other reruns after it have run. If O7 is decided while both wait, S-M moves ahead of X4-F1 (`:594`). Its report also waits for the D13 sign-off (L-G5). Its Q6-labelled samples wait for D12 (`:205`). Item 9 lists the figures it must deliver. Every number that depends on it is a placeholder `⟨SM-n⟩`. | `M3-PLAN-r6.md:205`, `:371`, `:435`, `:593`; ON, "Grok's X9-6 rerun on C was accepted" and "F8b accepted and bound"; no S-M report exists |
-| L-G2 | **T2 complete (T2b)** | **MET.** GROK2 accepted T2b with no findings. The T2 manifest holds 49 repositories, 5 multi-repo workspaces and 33 independence families. | `reviews/grok2-corpus-t2b-r1/status.json` (`ACCEPTED`); T2R:24; `M3-PLAN-r6.md:203`, `:436`; ON, "M3-T2b accepted by GROK2" |
-| L-G3 | **Q0** | **MET.** CODEX2 accepted the harness design record r13 (sha256 `37438317…`; envelope schema `71f682d1…`). | HD:3; `M3-PLAN-r6.md:204`, `:437` |
-| L-G4 | **D3**, the T2 selection | **OPEN: an owner item** (blocker B3). It is lead work with owner sign-off, status `proposed` (AQP:543). No sign-off is recorded. The lead recommends approval as reviewed. | AQP:543; ON B3; `M3-PLAN-r6.md:438`, `:534` |
-| L-G5 | **D13**, the exploratory envelope | **OPEN: an owner item** (blocker B3). ENV's mechanisms were accepted within Q0 r13 (HD:1141-1158), but the sign-off is open (HD:1245, OI-1; AQP:554). D13 also gates S-M's report (L-G1). D13's second half, the DR-G13 successor, is M6 work and is not in this gate. | AQP:554; HD:1245; ON B3; `M3-PLAN-r6.md:439`, `:534` |
-| L-G6 | **D2 drafted** | **MET, on the lead's reading.** The rule-catalog draft specs are Q0 §2 (HD:276-300), accepted in r13. D2's placement decision (a first-party `PolicyDocumentV2` pack through a WS/pack successor) is still `proposed`, with owner sign-off (AQP:542; HD:1259, OI-15). The gate asks for the draft, not the sign-off. A reviewer may read it otherwise (open question R7). | AQP:542; `M3-PLAN-r6.md:440` |
-| L-G7 | **S-OP-2 drafted** | **MET, and exceeded.** Codex accepted S-OP-2 at r6, ACCEPT-DESIGN-UNIT with no required findings (`ce8d3a4b…`). Item 14 checks that it registers every event this law needs. It does. | SOP2; `reviews/codex-s-op-2-r6/status.json` (`ACCEPTED`); ON, "S-OP-2 accepted at r6 by Codex" |
-| L-G8 | **O1** | **DECIDED IN THIS LAW** (item 11), as a lead decision. Accepted S-OP-2 r6 is written within it (SOP2 item 19), and the plan records it (`M3-PLAN-r6.md:463`). It becomes final when this law takes effect. | `M3-PLAN-r6.md:442`, `:463`; OPP:394 |
-| L-G9 | **O7 decided** | **OPEN: an owner decision**, blocker B1. **CF-P has run.** It is evidence for O7, not a decision, and it claims nothing as enforced (CFP:3):<br>- **macOS 27:** programmatic Seatbelt confinement through `sandbox_init_with_parameters` is feasible, provided the profile adds a `kern.procargs` sysctl denial (one of five amendments CF-P asks of the D law's profile draft). Deprecation risk is high, so each macOS major needs its own check (CFP:231-264).<br>- **AL2023, by desk check only:** feasible on kernels 6.1.147, 6.12.40, 6.18 and later. Earlier kernel builds lack Landlock and disclose (CFP:309-315).<br>The lead's recommendation is in ON B1 and `M3-PLAN-r6.md:478-485`. This law neither decides O7 nor assumes its outcome (item 17). | ON B1; CFP:3, CFP:231-264, CFP:309-315; `M3-PLAN-r6.md:476`, `:532` |
-| L-G10 | **(r3) FA-2 accepted**: the provider symbol-census carrier, a native contract successor (M3-H X-H1) | **OPEN: in review with Codex.** r1 (`reviews/codex-fa-2-r1`) returned REQUIRED-FINDINGS on two scoping points, and r2 is in review (`reviews/codex-fa-2-r2`; ACCEPT-DESIGN-UNIT wanted). Item 22 joins it as proposed. **(r4)** A change Codex requires to any part of FA-2 that sets a wire member, a key's commitment, the admission point or the reuse treatment, including any of its four §0 rows, takes this law's third delta round ("What depends on O7, S-M, FA-2 and RUST3-LIM"). | FA2 README and §9.8; H3:850-858; item 22 |
-| L-G11 | **(r5) RUST3-LIM accepted**: the Rust3 request subject list by reference, a native contract successor (this law's X13; R12) | **MET IN REVIEW, held on FA-2.** GROK2 accepted RUST3-LIM r1 (`reviews/codex2-rust3-lim-r1`, a directory name kept from the CODEX2 assignment; status `ACCEPTED`): ACCEPT-DESIGN-UNIT, no required findings, two non-blocking observations, on subject `5dfd3cd9…` and successor `70f494d9…`, the bytes this law pins. Its unit record (`rust3-lim-unit.json`) is the lead's to complete. Its parents are FA-2 r2's two handshake copies, still in review with Codex. If Codex's review changes them, RUST3-LIM is rebuilt on the new copies, and L-G11 is open again until the rebuild is accepted. It binds in `design-lock.json` only after FA-2 is bound (RL LD-R8). A later change in a part that sets a wire member or a commitment takes this law's fourth delta round. | RUST3-LIM README (X-RL-L1, LD-R8); `rust3-lim/section-9-3a.md`; `reviews/codex2-rust3-lim-r1/review.json`; X13 |
+| G1 | **S-M**, the INC-7 spike, measured | **NOT STARTED.** It is a lead run set (`M3-PLAN-r6.md:205`). P5-8's machine order puts it after Grok's rerun on C (done), F8b's cargo steps (done: F8b is bound at product main `e093e90`) and X4-F1's lanes and reruns (`M3-PLAN-r6.md:593`). **(r3)** X4-F1 has since been accepted by GROK2 and integrated at product main `15c0779` (ON, "X4-F1 accepted by GROK2 and integrated"). This law does not record whether P5-8's other reruns after it have run. If O7 is decided while both wait, S-M moves ahead of X4-F1 (`:594`). Its report also waits for the D13 sign-off (G5). Its Q6-labelled samples wait for D12 (`:205`). Item 9 lists the figures it must deliver. Every number that depends on it is a placeholder `⟨SM-n⟩`. | `M3-PLAN-r6.md:205`, `:371`, `:435`, `:593`; ON, "Grok's X9-6 rerun on C was accepted" and "F8b accepted and bound"; no S-M report exists |
+| G2 | **T2 complete (T2b)** | **MET.** GROK2 accepted T2b with no findings. The T2 manifest holds 49 repositories, 5 multi-repo workspaces and 33 independence families. | `reviews/grok2-corpus-t2b-r1/status.json` (`ACCEPTED`); T2R:24; `M3-PLAN-r6.md:203`, `:436`; ON, "M3-T2b accepted by GROK2" |
+| G3 | **Q0** | **MET.** CODEX2 accepted the harness design record r13 (sha256 `37438317…`; envelope schema `71f682d1…`). | HD:3; `M3-PLAN-r6.md:204`, `:437` |
+| G4 | **D3**, the T2 selection | **OPEN: an owner item** (blocker B3). It is lead work with owner sign-off, status `proposed` (AQP:543). No sign-off is recorded. The lead recommends approval as reviewed. | AQP:543; ON B3; `M3-PLAN-r6.md:438`, `:534` |
+| G5 | **D13**, the exploratory envelope | **OPEN: an owner item** (blocker B3). ENV's mechanisms were accepted within Q0 r13 (HD:1141-1158), but the sign-off is open (HD:1245, OI-1; AQP:554). D13 also gates S-M's report (G1). D13's second half, the DR-G13 successor, is M6 work and is not in this gate. | AQP:554; HD:1245; ON B3; `M3-PLAN-r6.md:439`, `:534` |
+| G6 | **D2 drafted** | **MET, on the lead's reading.** The rule-catalog draft specs are Q0 §2 (HD:276-300), accepted in r13. D2's placement decision (a first-party `PolicyDocumentV2` pack through a WS/pack successor) is still `proposed`, with owner sign-off (AQP:542; HD:1259, OI-15). The gate asks for the draft, not the sign-off. A reviewer may read it otherwise (open question R7). | AQP:542; `M3-PLAN-r6.md:440` |
+| G7 | **S-OP-2 drafted** | **MET, and exceeded.** Codex accepted S-OP-2 at r6, ACCEPT-DESIGN-UNIT with no required findings (`ce8d3a4b…`). Item 14 checks that it registers every event this law needs. It does. | SOP2; `reviews/codex-s-op-2-r6/status.json` (`ACCEPTED`); ON, "S-OP-2 accepted at r6 by Codex" |
+| G8 | **O1** | **DECIDED IN THIS LAW** (item 11), as a lead decision. Accepted S-OP-2 r6 is written within it (SOP2 item 19), and the plan records it (`M3-PLAN-r6.md:463`). It becomes final when this law takes effect. | `M3-PLAN-r6.md:442`, `:463`; OPP:394 |
+| G9 | **O7 decided** | **OPEN: an owner decision**, blocker B1. **CF-P has run.** It is evidence for O7, not a decision, and it claims nothing as enforced (CFP:3):<br>- **macOS 27:** programmatic Seatbelt confinement through `sandbox_init_with_parameters` is feasible, provided the profile adds a `kern.procargs` sysctl denial (one of five amendments CF-P asks of the D law's profile draft). Deprecation risk is high, so each macOS major needs its own check (CFP:231-264).<br>- **AL2023, by desk check only:** feasible on kernels 6.1.147, 6.12.40, 6.18 and later. Earlier kernel builds lack Landlock and disclose (CFP:309-315).<br>The lead's recommendation is in ON B1 and `M3-PLAN-r6.md:478-485`. This law neither decides O7 nor assumes its outcome (item 17). | ON B1; CFP:3, CFP:231-264, CFP:309-315; `M3-PLAN-r6.md:476`, `:532` |
+| G10 | **(r3) FA-2 accepted**: the provider symbol-census carrier, a native contract successor (M3-H X-H1) | **OPEN: in review with Codex.** r1 (`reviews/codex-fa-2-r1`) returned REQUIRED-FINDINGS on two scoping points, and r2 is in review (`reviews/codex-fa-2-r2`; ACCEPT-DESIGN-UNIT wanted). Item 22 joins it as proposed. **(r4)** A change Codex requires to any part of FA-2 that sets a wire member, a key's commitment, the admission point or the reuse treatment, including any of its four §0 rows, takes this law's third delta round ("What depends on O7, S-M and FA-2"). | FA2 README and §9.8; H1:724-732; item 22 |
 
 **Before L takes effect:**
-- S-M runs (L-G1), and its delta round fills every `⟨SM-n⟩`, records every outcome item 9 names and refreshes these rows;
-- the owner signs off D3 and D13 (L-G4, L-G5) and decides O7 (L-G9);
-- Codex accepts FA-2 (L-G10);
-- **(r5)** RUST3-LIM stays accepted (L-G11). GROK2 has accepted it, and the acceptance holds unless Codex's review changes FA-2's handshake copies;
-- any change that O7 or FA-2's acceptance forces, or that a later change to RUST3-LIM's accepted bytes makes, passes its own delta round.
+- S-M runs (G1), and its delta round fills every `⟨SM-n⟩`, records every outcome item 9 names and refreshes these rows;
+- the owner signs off D3 and D13 (G4, G5) and decides O7 (G9);
+- Codex accepts FA-2 (G10);
+- any change that O7 or FA-2's acceptance forces passes its own delta round.
 
 **Not in this gate:**
-- CF-P, which gates the D law, not this one (`M3-PLAN-r6.md:211`). It has run, and L-G9 cites it as evidence.
+- CF-P, which gates the D law, not this one (`M3-PLAN-r6.md:211`). It has run, and G9 cites it as evidence.
 - D12, which gates only S-M's Q6-labelled samples (`M3-PLAN-r6.md:205`).
 - Every D5a successor. Item 3's table explains why none is needed for M3.
 - The D law, now accepted at r3 (NBO-3). This law cites it by role (item 17). The D law names this law as one of its inputs, not the reverse.
-- **(r3)** M3-H. H depends on this law and on FA-2, not the reverse. The H code legs that FA-2 gates are H's (H3 item 25).
-- **(r5)** X13 is no longer listed here: r3 and r4 kept it out of the gate, and r5 gates it as L-G11.
+- **(r3)** M3-H. H depends on this law and on FA-2, not the reverse. The H code legs that FA-2 gates are H's (H1 item 25).
+- **(r3)** X13, Rust3's 256-subject request cap. It bounds which repositories a Rust provider can serve; it does not stop this law taking effect (R12).
 
-## What depends on O7, S-M, FA-2 and RUST3-LIM
+## What depends on O7, S-M and FA-2
 
 r2 stated its own reading here so that the reviewer could test it. Grok's r2 review found it complete for the outcomes it named, apart from the joint case (NBO-2). r3 adds that case and FA-2.
 
@@ -190,7 +156,7 @@ r2 stated its own reading here so that the reviewer could test it. Grok's r2 rev
 - **No other item depends on S-M's values.** Under every outcome, items 1 and 2 keep TS2 and Rust3 one-shot for M3 (item 9's outcome text). If the owner's answer to O3 or O4 changes D5's staging, that is the owner's decision, outside this law. This law would then need a delta round only to change M3's protocol, which item 1 forbids without a successor.
 
 **O7.**
-- **No item's text depends on O7's outcome.** O7 decides when L takes effect (L-G9) and when a provider may launch (item 17; `M3-PLAN-r6.md:476`).
+- **No item's text depends on O7's outcome.** O7 decides when L takes effect (G9) and when a provider may launch (item 17; `M3-PLAN-r6.md:476`).
 - **A delta round is needed only if O7 is decided in a way that:**
   - lets a provider execute repository code at M3. That contradicts item 17's third requirement and NE:2534-2535, and would need contract successors as well;
   - needs a wire signal or wire member at the provider boundary for confinement. Item 1 forbids that, and CF-2's disclosure carrier sits "beside Coverage and never inside it" (`M3-PLAN-r6.md:504`);
@@ -198,7 +164,7 @@ r2 stated its own reading here so that the reviewer could test it. Grok's r2 rev
 - **Under the lead's recommendation, none of these arises.** The confinement records are the D law's own registrations (its records item), not needs of item 14.
 
 **FA-2 (r3).**
-- **L-G10 depends on it,** and items 1, 13 and 22 cite its proposed content: the token, the census member on Analyze and `Complete`, the census-free request commitment, and admission at clean settlement.
+- **G10 depends on it,** and items 1, 13 and 22 cite its proposed content: the token, the census member on Analyze and `Complete`, the census-free request commitment, and admission at clean settlement.
 - **A delta round is needed (r4, RF-2)** whenever Codex's review forces a change in a part of FA-2 that sets a wire member, the commitment a key carries, the admission point or the reuse treatment. Item 10's census sentence follows item 22, so a reuse-treatment change that moves it belongs to the same round. Mapped to FA-2's parts (FA2 README, "What changes"):
   - **Reopens this law:**
     - every NE §0 row FA-2 adds (the override of NE:138), because each touches a wire value or commitment:
@@ -222,27 +188,16 @@ r2 stated its own reading here so that the reviewer could test it. Grok's r2 rev
     - its materialization map.
 
   **No FA-2 §0 row is in the second list.** A §0 change confined to rows that touch no wire value or commitment would need no delta round, but FA-2 has no such row.
-- **If FA-2 is rejected outright,** item 22 joins nothing and L-G10 cannot be met. The next revision of this law follows FA-2's successor.
-- **X13 does not depend on FA-2,** and FA-2 does not decide it; RUST3-LIM does (below).
+- **If FA-2 is rejected outright,** item 22 joins nothing and G10 cannot be met. The next revision of this law follows FA-2's successor.
+- **X13 does not depend on FA-2,** and FA-2 does not decide it.
 
-**RUST3-LIM (r5).**
-- **L-G11 depends on it**, and so do:
-  - item 13's RUST3-LIM row, and the AnalyzeV2 row's condition on its `stages[]` members;
-  - item 9's SM-11 to SM-14, which it proposes;
-  - item 1's naming of it;
-  - X13 and R12, which it closes.
-- **A delta round is needed** whenever a later change to RUST3-LIM's accepted bytes, including a rebuild forced through FA-2's handshake copies, changes a part that sets a wire member or a commitment. GROK2's r1 acceptance forced none. The full map of reopening parts, and of the parts that need none, is the fourth trigger ("Review and effect").
-- **If a rebuild of RUST3-LIM is refused,** which can arise only if FA-2's review changes its parents, L-G11 is open again, X13 reopens, and this law's next revision follows RUST3-LIM's successor.
-- **No item's text depends on S-M's figures through RUST3-LIM:** SM-11 to SM-14 set budgets and the effective subject ceiling, not a protocol constant (RUST3-LIM "What S-M must measure").
-
-**Summary (r3; Grok's `gateDependence`, extended; RUST3-LIM row r5).**
+**Summary (r3; Grok's `gateDependence`, extended).**
 
 | Depends on | What |
 |---|---|
-| O7 | L-G9; item 17; a delta round only if the outcome lets a provider execute repository code, needs a new wire signal or member for confinement, or makes the provider resident or pooled |
+| O7 | G9; item 17; a delta round only if the outcome lets a provider execute repository code, needs a new wire signal or member for confinement, or makes the provider resident or pooled |
 | S-M | item 9: every `⟨SM-n⟩`, F, T, and every outcome; O3; O4; X6, through SM-8; a TS2 limit question that only a successor can answer, through SM-6 (item 1); MC's conditional S-R, through SM-5 and SM-6 |
-| FA-2 | L-G10; items 1, 13 and 22, and item 10's census sentence (which follows item 22); a delta round for any forced change to a wire member, a key's commitment (**including every FA-2 §0 row, A to D**), the admission point or the reuse treatment. None for FA-2's NE:93 header sentence, schema layout, vectors, evidence, README prose or materialization map |
-| RUST3-LIM | L-G11; items 1 and 13 (its row, and the AnalyzeV2 row's condition); item 9's SM-11 to SM-14; X13 and R12; a delta round for any later change to a part that sets a wire member or a commitment, including a rebuild forced through FA-2's handshake copies (its token, §0 rows E and F, §9.3a and its §9.2 and §9.6 overrides, the subject-scope schema). None for its README prose, evidence, vectors, scratch verify or materialization map |
+| FA-2 | G10; items 1, 13 and 22, and item 10's census sentence (which follows item 22); a delta round for any forced change to a wire member, a key's commitment (**including every FA-2 §0 row, A to D**), the admission point or the reuse treatment. None for FA-2's NE:93 header sentence, schema layout, vectors, evidence, README prose or materialization map |
 | No text change under any outcome above | items 2-8, 10-12, 14-16 and 18-21. Item 12.4 names SM-8 but states no number. Item 10's census line follows item 22. |
 
 ## Short names
@@ -250,8 +205,7 @@ r2 stated its own reading here so that the reviewer could test it. Grok's r2 rev
 Line numbers are those of the cited files on 2026-10-04. A live plan or design file that carries a two-line acceptance note is 2 lines ahead of its `-rN` snapshot. AQP, OPP, Q0 and ENV have not changed since r1, so r1's lines for them stand.
 
 **(r3) Pinning.** Every other **law** is cited at an accepted snapshot, never at a live `PROPOSAL.md`, because a live file can move to a new draft mid-review. AQP, OPP and Q0 are accepted **plans**, still cited by their live files as r1 and r2 cited them. Each live file is exactly its snapshot (`analysis-quality/PLAN-r6.md`, `operability/PLAN-r3.md`, `harness/DESIGN-r13.md`) plus a two-line note inserted after line 1, checked byte for byte. So live line n ≥ 3 is snapshot line n − 2. The review request pins both.
-- **M3P** `docs/implementation/m3/M3-PLAN-r6.md`, the accepted r6 bytes (sha256 `a6956e88…`). The live `M3-PLAN.md` carries the acceptance note and is 2 lines ahead. **Every plan citation here is `M3-PLAN-r6.md`:n**, except where `M3-PLAN-r9.md` is named.
-- **M3P9 (r5)** `docs/implementation/m3/M3-PLAN-r9.md`, M3-PLAN r9, **accepted** (`72bc7a13…`; `reviews/grok2-m3-plan-r9`). It records L's review rule, day 0 as "L in effect" (`:385`) and L-G10 in the M3-L row (`:255`; P7-1, P7-2). Its NBO-1 asks for the `L-G` rename, which r5 makes. r6's lines stay this law's general plan citations: r9 changes none of the rows this law relies on except those three records.
+- **M3P** `docs/implementation/m3/M3-PLAN-r6.md`, the accepted r6 bytes (sha256 `a6956e88…`). The live `M3-PLAN.md` carries the acceptance note and is 2 lines ahead. **Every plan citation here is `M3-PLAN-r6.md`:n.**
 - **AQP** `docs/implementation/m3/analysis-quality/PLAN.md` (r6, accepted; live file, sha256 `1611014d…`)
 - **OPP** `docs/implementation/m3/operability/PLAN.md` (r3, accepted; live file, sha256 `4eca344b…`; the r3 bytes are `PLAN-r3.md`)
 - **Q0, HD** `docs/implementation/m3/harness/DESIGN.md` (r13, accepted; live file, sha256 `1f108399…`)
@@ -265,17 +219,9 @@ Line numbers are those of the cited files on 2026-10-04. A live plan or design f
 - **I1** `docs/implementation/m3/preview-pack-i1/PROPOSAL-r2.md` (M3-I1 r2, accepted by CODEX2)
 - **X12r4, X2r9** `docs/implementation/m2/policy-admission-x12/PROPOSAL-r4.md` and `docs/implementation/m2/project-root-x2/PROPOSAL-r9.md` (accepted by Grok)
 - **The D law (MD)** `docs/implementation/m3/supervisor-d/PROPOSAL-r3.md`: M3-D r3, **accepted by GROK2** with no required findings (`9679dbc4…`; `reviews/grok2-supervisor-d-r3`) **(r3, NBO-3)**. The live `PROPOSAL.md` differs only in recording text. **It is still cited by role** ("the D law's stderr item", "its constants table"). Its section F is still an O7 placeholder. r2 pinned exactly these bytes as a draft, so wherever kept r2 text says "the D law's draft", it now means the accepted r3.
-- **(r4; r5) Other laws in review, not cited:** M3-C r7 (`snapshot-plan-c/PROPOSAL-r7.md`, `a1ee9386…`, accepted in review with CODEX2; it narrows only item 16's row 8). M3-H r3 is now accepted and is cited (H3, below). **J1 r4 re-checked (r4):** its only changes against r3 are R10a, ER10a, J-β's range, SD-6's rows S19 and S20 and their controls, and the M3D short name. None is a provision this law cites.
-- **H3 (r5)** `docs/implementation/m3/fact-admission-h/PROPOSAL-r3.md`, M3-H r3, **accepted** (`7a562720…`). r3 and r4 cited H r1 (`PROPOSAL-r1.md`, `69f50bb1…`) as H1, a reviewed draft. r5 re-maps every H1 citation to H3:
-  - X-H1 (H1:724-732) is H3:850-858;
-  - X-H4 (H1:741) is H3:867;
-  - item 17 (H1:490-519) is H3:613-643;
-  - "Without FA-2" (H1:582) is H3:705;
-  - the round-timing line (H1:715) is H3:841.
-
-  Item numbers 3, 4, 17, 18 and 25 are unchanged. The kept change tables keep their H1 citations.
-- **RL (r5)** `docs/implementation/m3/native-successors-fa/rust3-lim/`: RUST3-LIM, the native contract successor for this law's X13 (R12), accepted by GROK2 at r1 with no required findings (`reviews/codex2-rust3-lim-r1`; subject `rust3-lim-subject.json`, `5dfd3cd9…`; successor `rust3-lim/successor.json`, `70f494d9…`). §9.3a as it proposes it is `rust3-lim/section-9-3a.md`, its subject-scope schema `rust3-lim/design/native/rust-subject-scope.schemas.v1.json` (an L-C1 source), and its design record `rust3-lim/README.md`. **Accepted, not yet bound:** it binds after FA-2 (RL LD-R8; L-G11).
-- **FA2 (r3)** `docs/implementation/m3/native-successors-fa/fa-2/`: FA-2, the native contract successor for X-H1, in review with Codex. r1's review (`reviews/codex-fa-2-r1`) is REQUIRED-FINDINGS; **r2** is in review (`reviews/codex-fa-2-r2`, subject `dca02900…`). Its subject manifest is `native-successors-fa/fa-2-subject.json` and its record `fa-2/successor.json`. NE §9.8 as FA-2 proposes it is `fa-2/section-9-8.md`, and its design record is `fa-2/README.md`, cited as "FA-2 LD-Fn". **Proposed, not accepted** (L-G10).
+- **(r4) Other laws in review, not cited:** M3-C r7 (`snapshot-plan-c/PROPOSAL-r7.md`, `a1ee9386…`, in review with CODEX2; it narrows only item 16's row 8), and M3-H r3 (in review with Grok; its live file and its r2 snapshot are not cited). **J1 r4 re-checked (r4):** its only changes against r3 are R10a, ER10a, J-β's range, SD-6's rows S19 and S20 and their controls, and the M3D short name. None is a provision this law cites.
+- **H1 (r3)** `docs/implementation/m3/fact-admission-h/PROPOSAL-r1.md`, M3-H r1 (`69f50bb1…`). Grok reviewed it (`reviews/grok-fact-admission-h-r1`) and returned REQUIRED-FINDINGS on RF-1, the anchor routing, which this law does not touch. **Not accepted, and not authority.** It is cited only as the source of X-H1 and X-H4. H's r2 is being drafted in the live file and is not cited.
+- **FA2 (r3)** `docs/implementation/m3/native-successors-fa/fa-2/`: FA-2, the native contract successor for X-H1, in review with Codex. r1's review (`reviews/codex-fa-2-r1`) is REQUIRED-FINDINGS; **r2** is in review (`reviews/codex-fa-2-r2`, subject `dca02900…`). Its subject manifest is `native-successors-fa/fa-2-subject.json` and its record `fa-2/successor.json`. NE §9.8 as FA-2 proposes it is `fa-2/section-9-8.md`, and its design record is `fa-2/README.md`, cited as "FA-2 LD-Fn". **Proposed, not accepted** (G10).
 - **I1L (r3)** `docs/implementation/m3/preview-pack-i1/i1-l/`: I1-L, accepted by CODEX2 (ACCEPT-DESIGN-UNIT) and bound at product `0ceb9ad`.
 - **ENC / EXC / SIS / RPS (r3)** `docs/coop/design-corrections/foundation/{enumeration-contract.v1.md, execution-inputs-contract.v1.md, subject-inventory.schema.v1.json, relation-payload-schemas.v2.json}`
 - **NCM (r3)** `docs/coop/design-corrections/native/native-capability-matrix.v2.json`
@@ -301,9 +247,9 @@ Line numbers are those of the cited files on 2026-10-04. A live plan or design f
 
 None of the contract, architecture or protocol files above has changed since r1.
 
-Product paths are under `opensip/`, at main `e093e90`. Every product file this law cites is unchanged since r1's `2967905`: `git diff --name-only 2967905 e093e90` lists none of them. They were read, not run. **(r3)** Main has since moved to `15c0779`: the I1-L, B-S1, B-S2 and B-S9 bindings, and X4-F1. **(r4, NBO-2) Pin base.** Main is now `cd5958b` (the I1-P binding, after `15c0779`). `git diff --name-only e093e90 cd5958b` lists `design-lock.json` (the five bindings; 77 to 82 contract successors) and X4-F1's `crates/security` files. **(r5) Pin base.** Main is now `392499e`, CRC-1's binding after `cd5958b`. `git diff --name-only cd5958b 392499e` lists only `design-lock.json`, which appends CRC-1, M3-C's core role closure successor, as the 83rd contract successor. CRC-1 overrides IE:285, IE:1377, WS:308, the evaluator-composition contract's line 9, the effective workflows reference's line 312, three pointers of I1-L's identity schemas and the detector-manifest schema's description. This law cites none of them. Its IE:1377 rule agrees with item 1's syntax-universe sentence and with item 5's forbidden substitute: the core provider closure is a direct `semanticClosures` member exactly when the Plan selects a `native.semantic-universe.syntax.v2` universe, and is never selected otherwise. It shares no parent or overridden passage with FA-2 or RUST3-LIM.
+Product paths are under `opensip/`, at main `e093e90`. Every product file this law cites is unchanged since r1's `2967905`: `git diff --name-only 2967905 e093e90` lists none of them. They were read, not run. **(r3)** Main has since moved to `15c0779`: the I1-L, B-S1, B-S2 and B-S9 bindings, and X4-F1. **(r4, NBO-2) Pin base.** Main is now `cd5958b` (the I1-P binding, after `15c0779`). `git diff --name-only e093e90 cd5958b` lists `design-lock.json` (the five bindings; 77 to 82 contract successors) and X4-F1's `crates/security` files.
 - No source this law reads for a rule changed: `Cargo.toml`, `providers/rust/src/main.rs`, `crates/contracts/src/generated/protocol.rs`, `schemas/wire/native-carriers-v1.json` and `crates/lifecycle/src/installation.rs` are unchanged.
-- `design-lock.json` is cited only as the register's pin (items 19-21; RH:29-31). Its input pin of the register (`08-decision-and-readiness-register.md`, `de21a7e0…`) is the same at `e093e90`, `cd5958b` and **(r5)** `392499e`.
+- `design-lock.json` is cited only as the register's pin (items 19-21; RH:29-31). Its input pin of the register (`08-decision-and-readiness-register.md`, `de21a7e0…`) is the same at `e093e90` and `cd5958b`.
 
 ## Problem
 
@@ -334,7 +280,7 @@ So no implementation constrains this law. The accepted contracts, plans and laws
 
 ## Decisions
 
-Lead decisions are dated 2026-10-03 unless marked r2, r3, r4 or r5 (2026-10-04). They are recorded under the owner's standing direction to decide on the lead's recommendation and to block only where no recommendation exists. The owner may reverse any of them.
+Lead decisions are dated 2026-10-03 unless marked r2, r3 or r4 (2026-10-04). They are recorded under the owner's standing direction to decide on the lead's recommendation and to block only where no recommendation exists. The owner may reverse any of them.
 
 ### A. Protocols and process lifetime
 
@@ -345,8 +291,7 @@ Lead decisions are dated 2026-10-03 unless marked r2, r3, r4 or r5 (2026-10-04).
 
   Each is as NE §9 defines it (NE:2781-3313), over its inherited base: DLV for TypeScript, and the RPP v2 / v4 merge for Rust (F02:259-269). This law adds nothing to either protocol: no frame, member, phase, terminal kind, capability token, limit, identity version or negotiation choice. Handshakes stay per language: `TypeScriptHelloV2`/`TypeScriptHelloAckV2` and `HelloV3`/`HelloAckV3` (BP:718-719). Both still require exact token-array and identity-version echo (NE:2792-2796, NE:2837-2844).
   - **The optional `target-attribution-v2` token.** Whether a signed capability row carries it stays a matter for that row and for the provider units (F, G). This law changes neither branch of NE:2799-2814.
-  - **(r3) FA-2, the one protocol change M3 makes, is not this law's.** FA-2 is a native contract successor reviewed on its own (ACCEPT-DESIGN-UNIT; L-G10). It adds the optional, non-identity token `symbol-census-v1` and, under it, one member, `symbolCensus`, on the existing `Analyze` and `Complete` payloads of both protocols (FA2 §9.8). It adds no frame, phase, terminal kind, limit member, identity version or major, as NE did for `target-attribution-v2` ("Protocol major stays 3 / TypeScript major 2", NE:2811). AQP:402 requires exactly this for a wire change: "a reviewed successor; the protocols are not unselected". Once FA-2 is accepted, "TS2 and Rust3" in this law means NE §9 with FA-2's successor. Item 22 joins it.
-  - **(r5) RUST3-LIM, the second, is not this law's either.** It is a native contract successor reviewed on its own (L-G11). It adds the optional, non-identity `rust-semantic` token `subject-scope-reference-v1` and, under it, one stage-record version in the existing Rust `Analyze` `stages` array: `StageRequestV3`, whose analysis domain names the subject array by reference (`RustSubjectScopeV1`) instead of inline (RL §9.3a). It adds no frame, phase, terminal, limit member or value, identity version or major, and `ProtocolLimitsV3` keeps every value. It is accepted, and it binds after FA-2. From then, "TS2 and Rust3" in this law also includes it.
+  - **(r3) FA-2, the one protocol change M3 makes, is not this law's.** FA-2 is a native contract successor reviewed on its own (ACCEPT-DESIGN-UNIT; G10). It adds the optional, non-identity token `symbol-census-v1` and, under it, one member, `symbolCensus`, on the existing `Analyze` and `Complete` payloads of both protocols (FA2 §9.8). It adds no frame, phase, terminal kind, limit member, identity version or major, as NE did for `target-attribution-v2` ("Protocol major stays 3 / TypeScript major 2", NE:2811). AQP:402 requires exactly this for a wire change: "a reviewed successor; the protocols are not unselected". Once FA-2 is accepted, "TS2 and Rust3" in this law means NE §9 with FA-2's successor. Item 22 joins it.
 - **Basis:**
   - AQP:402: "Changing an accepted wire contract needs a reviewed successor; the protocols are not unselected";
   - BP:717: "Current worker protocols are TS2/Rust3";
@@ -357,7 +302,7 @@ Lead decisions are dated 2026-10-03 unless marked r2, r3, r4 or r5 (2026-10-04).
   - **A TS3/Rust4 successor now, to carry reuse or residency.** S-M has not measured anything (INC-7). D5 stages residency to M5 (AQP:385). INC-5 keeps the protocols selected.
   - **A shared provider SDK that hides the two handshakes.** BP:720 forbids it: "No additional provider SDK is selected merely to hide their distinct protocol obligations."
 - **Forbidden substitutes:**
-  - any extra wire member or frame, for example for progress, diagnostics, correlation or reuse. **(r3; r5)** The members FA-2 and RUST3-LIM add, each reviewed as a native successor, are the only ones M3 adds (items 13 and 22);
+  - any extra wire member or frame, for example for progress, diagnostics, correlation or reuse. **(r3)** FA-2's census member, reviewed as a native successor, is the one member M3 adds (item 22);
   - a negotiated "extension" that changes frame meaning;
   - citing F02:220 ("major is **1**") or F02:259 ("**major 2**") as the current majors (item 20).
 
@@ -415,7 +360,7 @@ Lead decisions are dated 2026-10-03 unless marked r2, r3, r4 or r5 (2026-10-04).
 | INC-4 | 7 | The suite is authored on the determinism base. | **Pure law** (a harness obligation). |
 | INC-5 | 1 | TS2 and Rust3 are unchanged. | **Pure law.** Any change is a successor by definition. |
 | INC-6 | 8 | Forbidden. | **Needs D5a successors** at M5: protocol-lifetime successors for both languages, and a DR-G10 acceptance successor. |
-| INC-7 | 9 | Gate item L-G1. | **Pure law.** |
+| INC-7 | 9 | Gate item G1. | **Pure law.** |
 | INC-8 | 10 | The operational record says `recomputed`, cause `no-reuse-path`. | **Pure law.** The public carrier at M4 is S-OP-6, an operability successor, not D5a. A semantic Coverage successor is forbidden. |
 
 ### B. The reuse law: INC-1 to INC-8
@@ -452,12 +397,12 @@ Lead decisions are dated 2026-10-03 unless marked r2, r3, r4 or r5 (2026-10-04).
   Provider frames carry the verified Plan's `snapshot2` and `plan2` texts, and every echo must equal them (NE:3158-3161, NE:3216-3219).
   - **At M3** this holds by construction (item 3).
   - **For any later reuse.** The INC-1 successor must define how a reused producer candidate is re-admitted under the new snapshot, including anchors and producer attestation. The host must never construct a fact that **neither an admitted provider frame nor a Plan-selected in-core producer stage** produced **(r3, X-H4)**. A faulted or cancelled worker "contributes **no facts, no Coverage entries and no Run**" (NE:3837-3843), and framing grants no fact authority (`M3-PLAN-r6.md:216`).
-  - **(r3, M3-H X-H4) The in-core producer stages.** r2's wording, read literally, forbade two lawful M3 producers (H3:867). Exactly two exist at M3. Each is an execution-plan stage whose stage spec names its producer, and H admits its records like any other:
+  - **(r3, M3-H X-H4) The in-core producer stages.** r2's wording, read literally, forbade two lawful M3 producers (H1:741). Exactly two exist at M3. Each is an execution-plan stage whose stage spec names its producer, and H admits its records like any other:
     - **E1's in-host syntax stage.** Its producer is the core provider closure, on syntax-universe records only (ME item 14b; MC:422-432). "The crate never mints `fact2`": H's syntax join admits its candidates (ME:478; r4, NBO-1).
-    - **The host inventory derivation that H3 item 18 designs.** It produces the file and package `SubjectInventoryV1` outcomes and the `file@enumerated` and `package@manifest-declared` facts, which are "Produced by host discovery and enumeration, not by a language provider" (NCM:949). In a syntax universe its producer is the core provider closure (MC:424-429). In a TypeScript or Rust universe it has no lawful producer until M3-C r8 and CRC-2 answer H's X-H3 (MC:432, MC:453; H3 routes it there). Until then that leg stays gated, as H holds it.
+    - **The host inventory derivation that H r1 item 18 designs.** It produces the file and package `SubjectInventoryV1` outcomes and the `file@enumerated` and `package@manifest-declared` facts, which are "Produced by host discovery and enumeration, not by a language provider" (NCM:949). In a syntax universe its producer is the core provider closure (MC:424-429). In a TypeScript or Rust universe it has no lawful producer until M3-C's next revision and CRC-1 answer H's X-H3 (MC:432, MC:453). Until then that leg stays gated, as H holds it.
 
     Neither is a provider fallback (item 2) or a reuse route. **Host projections of an admitted provider frame are not host-minted:** `TargetAttributionV2` (NE §9.6) and FA-2's census inventories (item 22) are produced by the frame they project.
-- **Basis:** AQP:390; **(r3)** H3:867 (X-H4); ME item 14b; MC item 9; NCM:949.
+- **Basis:** AQP:390; **(r3)** H1:741 (X-H4); ME item 14b; MC item 9; NCM:949.
 - **Rejected:** carrying forward a standing such as "already admitted" from an earlier Run. **(r3)** Also rejected: an open-ended "host-produced records are lawful". It would admit host fabrication. The two stages are named, and each has a Plan-selected producer.
 - **Forbidden substitutes:**
   - host-minted facts with neither a producing frame nor a Plan-selected in-core producer stage **(r3)**;
@@ -513,8 +458,8 @@ Lead decisions are dated 2026-10-03 unless marked r2, r3, r4 or r5 (2026-10-04).
 - **Rejected:** residency at M3, which D5 stages to M5.
 - **Forbidden substitutes:** at M3, any long-lived provider or host process that serves more than one request.
 
-**9. INC-7: the spike first, and what its numbers decide (law; gate item L-G1).**
-- **Decision.** This law fixes the protocol (items 1-2) only when it takes effect. That needs S-M's measured report (L-G1), entered through a delta round ("Review and effect"). An ACCEPT in review before S-M fixes nothing. S-M is the M3-S unit's lead run set:
+**9. INC-7: the spike first, and what its numbers decide (law; gate item G1).**
+- **Decision.** This law fixes the protocol (items 1-2) only when it takes effect. That needs S-M's measured report (G1), entered through a delta round ("Review and effect"). An ACCEPT in review before S-M fixes nothing. S-M is the M3-S unit's lead run set:
   - it is a throwaway harness outside the product;
   - it runs over public, pinned T2 bytes;
   - it executes no repository code;
@@ -538,19 +483,6 @@ Lead decisions are dated 2026-10-03 unless marked r2, r3, r4 or r5 (2026-10-04).
 | SM-8 | The longest single synchronous compiler call inside SM-2 (the event-loop block) | ms | `⟨SM-8⟩` |
 | SM-9 | Complete replay, IE:1580-1592, over a fact and finding graph of the size SM-2 and SM-4 imply. Synthetic and labelled. | ms | `⟨SM-9⟩` |
 | SM-10 | Per-process `wait4` `ru_maxrss`, information only (AQP:343). **(r2)** In the platform's native unit, labelled as S-OP-2's `rss_unit` labels it (`bytes` on macOS, `kib` on Linux), with the checked conversion to bytes beside it (SOP2:881, SOP2:910; Q0:889) | native unit, labelled; bytes | `⟨SM-10⟩` |
-| SM-11 | **(r5; RUST3-LIM)** Rust analysis cost per subject: SM-4's time, SM-10's peak RSS and the worker's peak scratch bytes, each divided by the measured subject count | ms/subject; bytes/subject | `⟨SM-11⟩` |
-| SM-12 | **(r5; RUST3-LIM)** Rebuilding the Rust subject scope: time and peak memory to derive the array, `commitments.subjectScope` and `domainCommitment` from the accepted manifest, on the host (both independent derivations) and on the worker | ms; bytes | `⟨SM-12⟩` |
-| SM-13 | **(r5; RUST3-LIM)** Response volume per subject, per Rust stage: (a) fact candidates, (b) spool bytes under RPP `candidateSpoolAccounting`, (c) response payload bytes, (d) response frames, (e) FA-2 census rows and census CBOR bytes | count/subject; bytes/subject | `⟨SM-13⟩` |
-| SM-14 | **(r5; RUST3-LIM)** Work-unit tuples per run: Σ over the workload's Rust stages of subjects × requested keys | work-units | `⟨SM-14⟩` |
-
-  **SM-11 to SM-14 (r5; RUST3-LIM, X-RL-L3).**
-  - **Workloads.** The Rust medium workloads above, with axum (301 non-empty `.rs` files) and tokio (808) now servable under `subject-scope-reference-v1`. Also the large dev Rust entries smithy-rs (1,084), rspack (1,384) and deno (1,052), and sui (3,318) if S-P permits. Held-out entries (tauri, ripgrep, rust-analyzer) are excluded, as above. The counts are RUST3-LIM's (`rust3-lim/evidence/rust-subject-counts.json`).
-  - **What they set.** None of them is a protocol constant. The S-M delta round records:
-    - the M3 Rust provider's effective subject ceiling, `S_eff = min(snapshot2's admitted rows, ⌊1,000,000 / ⟨SM-13a⟩⌋, ⌊2^30 / ⟨SM-13b⟩⌋, ⌊2^30 / ⟨SM-13c⟩⌋, ⌊1,000,000 / ⟨SM-13d⟩⌋, ⌊2^31 / ⟨SM-11 scratch⟩⌋)`;
-    - the Rust stage budget that G's budget profile and C's Plan carry, at or below `⟨SM-14⟩`-derived values, so that a large repository ends in `BudgetExhausted` or the scope-limit route, never in a response safety-bound fault (RUST3-LIM F-4; X-RL-C2, X-RL-G2);
-    - whether rebuilding the scope (SM-12) costs anything material, which would be a finding for G and D, not a reason for a cap;
-    - where FA-2's census `over-bound` route starts to bind (SM-13e).
-  - **No outcome (A) to (C) depends on them.** They feed the D, C and G units' constants. RUST3-LIM is in this law's gate (L-G11), but SM-11 to SM-14 are measured, not decided, here.
 
   **Derived figures:**
   - the one-shot fixed floor **F** = start (SM-1 or SM-3) + SM-5 + SM-7 + SM-9;
@@ -660,31 +592,14 @@ Lead decisions are dated 2026-10-03 unless marked r2, r3, r4 or r5 (2026-10-04).
     - **The method.** `evidence/wire_identities.py` reads every payload each protocol puts on the wire:
       - **Which payload each frame carries.** NE §9 and §0's supersessions select it; the script's frame map cites the selecting line for each. The sources are the native handshake and startup schemas, `delivery.v2` and `rust-provider-protocol.v2` for the inherited payloads, NE §9.2's table for the dependency-source frames, `fact-batch.schema.v3.json` and the occupancy companion under `target-attribution-v2`, and FA-2's census schema under `symbol-census-v1`.
       - **The walk.** It reads each payload's own members, including optional ones, and descends into every nested record the payload names. Where an inherited record is typed only by its id, a cited map supplies the record: fact candidates and anchors are the fact-plane records `delivery.v2` implements field for field, and Rust stage requests reach C-2's stage and coverage key.
-      - **The rules.** It classifies every member by a closed rule set (R7 added in r5). A member is identity-bearing iff:
+      - **The rules.** It classifies every member by a closed rule set. A member is identity-bearing iff:
         - **R1:** its name ends in `Id`, `Ids`, `Key`, `Commitment`, `Sha256`, `Digest`, `Hash`, `MerkleRoot`, `Closure` or `Universe`; or
         - **R2:** a contract's machine-readable identity list names it, on the payload that list governs (the handshake schema's `typescriptDescriptorBinding` and `rustIdentityBinding`); or
         - **R3:** it is the universe descriptor, whose hash is the universe coordinate (NE:3161-3163), or a row copied from that descriptor. R3 members are listed whole and not descended into; or
         - **R4:** its published description names an identity type, or an identity member, as its value or part of it; or
         - **R5:** its description fixes the same constant as an R1 member of the same artifact; or
-        - **R6:** it is a JSON Schema string whose pattern requires a digest or a typed identity prefix; or
-        - **R7 (r5, RF-1; lead decision):** it is a **required** member of a record that a cited contract defines as an identity key, or as a key's field-for-field copy, or a member a cited contract requires to equal a key's member. R7 applies only where R1 to R6 do not, so their labels are unchanged. The records are closed in the script (`KEY_RECORDS`, `KEY_COPY`), each with its sentence:
-          - DLV `CoverageKeyV1`, the requested key: "Field-for-field exact implementation of c2-plan-stage-schema.v3.json#coverageKey.key" (DLV:804-817; "full requested key", DLV:726);
-          - C-2 `coverageKey.key` itself (`c2-plan-stage-schema.v3.json`), which RPP's `CoverageKeyV2` takes as its external (RPP:544-548);
-          - the returned key `CoverageKeyV2`: `entries[i]` answers `requestedCoverageDomain.keys[i]`, and its relation, resolution and both universes must equal the host's `D` (NE:3277-3282; NE:1927-1932);
-          - `ViewEntryV3`'s `relation` and `resolution`, which must equal the key's (`native.coverage-entry-key-mismatch`, NE:3529; NEM:1566-1567).
-      - **(r5) Every other composite key the walk passes, checked.** Each is listed with why it is, or is not, an R7 record:
-        - **Request keys:** the TS2 `RequestedCoverageDomainV1.keys[]` and the Rust `analysisDomain.requestedCoverageDomain[]` are the C-2 key, so they are R7.
-        - **Returned keys and entries:** `CoverageResultV3.key` (R7) and `.entry`'s `relation` and `resolution` (R7 copies) in every Coverage wrapper and terminal coverage array.
-        - **The fact identity:** FACT-ID-V1 is a host-only identity over the admitted record ("owner": "Rust host only", fact-plane `factIdContract`; DLV:802 `hostJoin`: the candidate "is never an admitted fact"). The wire candidate is a claim, not a key. Its identity-bearing members are those R1 to R6 admit.
-        - **Commitment preimages:** `domainCommitment`'s `{subjectScope, keys}`, the stage, stream and batch commitments over candidates and entries, and `manifestSha256` over manifest entries. A commitment binds content, and its preimage's members are content, not identities, unless a contract names the record a key: the keys inside `requestedCoverageDomain` are R7.
-        - **View and occupancy keys:** a view is host-minted and never on the wire. `OccupancyCompanionV1` is "associated by candidateOrdinal in that batch" (its schema), and the projected `TargetAttributionV2` is a host record. Only the entry's key-field copies are R7.
-        - **Correlation tuples:** a FactBatch's `stageId`, `analysisOrdinal` and `batchIndex` are compared with the host's `DispatchBindingV1` (NE:3039-3041), a host record not on the wire. `stageOrdinal`, `candidateOrdinal` and entry positions order frames within one exchange. They name nothing outside it, so they are listed as non-identity members (`stageId` is R1).
-        - **Scope summaries:** TS2 `SubjectScopeV1`, RUST3-LIM's `RustSubjectScopeV1` and `ExaminedUniverseV1` are not keys. Their commitments are R1. `scopeKind` and `subjectCount` are a label and a count, checked against the host's reconstruction.
+        - **R6:** it is a JSON Schema string whose pattern requires a digest or a typed identity prefix.
       - **What is not enumerated.** Opaque bytes (chunks, `canonicalRelationPayload`) carry no member-level identity. A relation payload's own subject ids are the relation registry's (RPS), are provider-attested, and are not host identities.
-    - **(r5) The counts.** r4 derived 51 payload rows and 235 identity-bearing member paths. r5 derives 52 and 278: TS2 21 and 121, Rust3 31 and 157. By rule: R1 200, R2 23, R3 4, R4 15, R5 3, R7 33. The 43 added paths, with none removed, are:
-      - **30 R7 paths on existing rows, 15 per language:** `relation`, `resolution` and `schemaVersion` on each Analyze request key, and `relation` and `resolution` on each returned key and each entry, in the Coverage, post-Analyze `Unavailable` and `BudgetExhausted` rows;
-      - **the new RUST3-LIM row's 13 paths**, of which 3 are R7.
-    - **(r5) Rust's per-file `subjectId`, pending RUST3-LIM's acceptance.** GROK2 has since given it, so the condition now waits on RUST3-LIM's binding after FA-2. `stages[].analysisDomain.subjects[].subjectId` is on the wire only when `subject-scope-reference-v1` is absent (the AnalyzeV2 row's condition). Under the token, each stage is a `StageRequestV3` and carries `analysisDomain.subjectScope.subjectScopeCommitment` instead: a commitment (R1), and no per-file identity (the RUST3-LIM row). That row is on the wire only once RUST3-LIM is bound, after FA-2 (L-G11; RL LD-R8), and its token is negotiated, as FA-2's rows depend on FA-2.
     - **The inventory, exactly.** The table below is the script's output, inserted verbatim. Each row gives the frame, the payload with the source line that defines it, when that payload is on the wire, every identity-bearing member with the rule that admits it, and the top-level members that carry no identity at any depth.
 
 <!-- wire-identities:begin (generated by evidence/wire_identities.py; do not edit) -->
@@ -703,13 +618,13 @@ Lead decisions are dated 2026-10-03 unless marked r2, r3, r4 or r5 (2026-10-04).
 | SnapshotAccepted (w→h) | `SnapshotAcceptedV1` (DLV:853) | always | `snapshotId` (R1); `manifestSha256` (R1) | `entryCount`, `totalFileBytes`, `totalChunkCount` |
 | NativeContextVerified (w→h) | `NativeContextVerifiedV1` (ST:464) | always | `nativeContextId` (R1); `recomputedNativeContextId` (R1) | `equal` |
 | Unavailable (pre-Analyze) (w→h) | `PreAnalyzeUnavailableV1` (ST:485) | always | `executionId` (R1); `snapshotId` (R1); `planId` (R1); `nativeContextId` (R1); `recomputedNativeContextId` (R1) | `reason` |
-| Analyze (h→w) | `AnalyzeV1` (DLV:854) | always | `executionId` (R1); `snapshotId` (R1); `planId` (R1); `universeKey` (R1); `stageRequests[].stageId` (R1); `stageRequests[].providerId` (R1); `stageRequests[].dependsOn` (R4); `stageRequests[].requestedCoverageDomain.subjectScope.snapshotId` (R1); `stageRequests[].requestedCoverageDomain.subjectScope.subjectScopeCommitment` (R1); `stageRequests[].requestedCoverageDomain.keys[].relation` (R7); `stageRequests[].requestedCoverageDomain.keys[].resolution` (R7); `stageRequests[].requestedCoverageDomain.keys[].sourceUniverseId` (R1); `stageRequests[].requestedCoverageDomain.keys[].targetUniverseId` (R1); `stageRequests[].requestedCoverageDomain.keys[].subjectScopeCommitment` (R1); `stageRequests[].requestedCoverageDomain.keys[].producer` (R5); `stageRequests[].requestedCoverageDomain.keys[].producerVersion` (R4); `stageRequests[].requestedCoverageDomain.keys[].schemaVersion` (R7); `stageRequests[].requestedCoverageDomain.domainCommitment` (R1) | `analysisOrdinal` |
+| Analyze (h→w) | `AnalyzeV1` (DLV:854) | always | `executionId` (R1); `snapshotId` (R1); `planId` (R1); `universeKey` (R1); `stageRequests[].stageId` (R1); `stageRequests[].providerId` (R1); `stageRequests[].dependsOn` (R4); `stageRequests[].requestedCoverageDomain.subjectScope.snapshotId` (R1); `stageRequests[].requestedCoverageDomain.subjectScope.subjectScopeCommitment` (R1); `stageRequests[].requestedCoverageDomain.keys[].sourceUniverseId` (R1); `stageRequests[].requestedCoverageDomain.keys[].targetUniverseId` (R1); `stageRequests[].requestedCoverageDomain.keys[].subjectScopeCommitment` (R1); `stageRequests[].requestedCoverageDomain.keys[].producer` (R5); `stageRequests[].requestedCoverageDomain.keys[].producerVersion` (R4); `stageRequests[].requestedCoverageDomain.domainCommitment` (R1) | `analysisOrdinal` |
 | Analyze (h→w) | `TypeScriptAnalyzeV2` (FA2:211) | under symbol-census-v1 (FA-2, proposed) | `symbolCensus.enumeratorClosure` (R1) | — |
 | FactBatch (w→h) | `FactBatchV1` (DLV:855) | always | `stageId` (R1); `facts[].producer` (R4); `facts[].producerVersion` (R4); `facts[].sourceUniverseId` (R1); `facts[].targetUniverseId` (R1); `facts[].relationSchemaId` (R1); `facts[].anchors[].snapshotId` (R1); `facts[].anchors[].contentSha256` (R1); `facts[].anchors[].factId` (R1); `batchCommitment` (R1) | `analysisOrdinal`, `batchIndex` |
 | FactBatch (w→h) | `FactBatchV3` (FB3:1) | under target-attribution-v2 | `stageId` (R1); `candidates[].producer` (R4); `candidates[].producerVersion` (R4); `candidates[].sourceUniverseId` (R1); `candidates[].targetUniverseId` (R1); `candidates[].relationSchemaId` (R1); `candidates[].anchors[].snapshotId` (R1); `candidates[].anchors[].contentSha256` (R1); `candidates[].anchors[].factId` (R1); `occupancyCompanions[].targetUniverseId` (R1); `occupancyCompanions[].targetNativeId` (R1); `occupancyCompanions[].evaluationNativeId` (R1) | `schemaVersion`, `analysisOrdinal`, `batchIndex` |
-| Coverage (w→h) | `TypeScriptCoverageV2` (ST:518) | always | `stageId` (R1); `entries[].key.relation` (R7); `entries[].key.resolution` (R7); `entries[].key.sourceUniverse` (R1); `entries[].key.targetUniverse` (R1); `entries[].key.subjectScopeCommitment` (R1); `entries[].entry.relation` (R7); `entries[].entry.resolution` (R7); `entries[].entry.examinedUniverse.subjectScopeCommitment` (R1); `coverageCommitment` (R1) | `analysisOrdinal` |
-| Unavailable (post-Analyze) (w→h) | `TypeScriptUnavailableV2` (ST:582) | always | `affectedStageIds` (R1); `coverage[].key.relation` (R7); `coverage[].key.resolution` (R7); `coverage[].key.sourceUniverse` (R1); `coverage[].key.targetUniverse` (R1); `coverage[].key.subjectScopeCommitment` (R1); `coverage[].entry.relation` (R7); `coverage[].entry.resolution` (R7); `coverage[].entry.examinedUniverse.subjectScopeCommitment` (R1); `coverageCommitment` (R1) | `analysisOrdinal`, `reason` |
-| BudgetExhausted (w→h) | `TypeScriptBudgetExhaustedV2` (ST:683) | always | `triggerStageId` (R1); `coverage[].key.relation` (R7); `coverage[].key.resolution` (R7); `coverage[].key.sourceUniverse` (R1); `coverage[].key.targetUniverse` (R1); `coverage[].key.subjectScopeCommitment` (R1); `coverage[].entry.relation` (R7); `coverage[].entry.resolution` (R7); `coverage[].entry.examinedUniverse.subjectScopeCommitment` (R1); `coverageCommitment` (R1) | `analysisOrdinal`, `dimension`, `limit`, `observed` |
+| Coverage (w→h) | `TypeScriptCoverageV2` (ST:518) | always | `stageId` (R1); `entries[].key.sourceUniverse` (R1); `entries[].key.targetUniverse` (R1); `entries[].key.subjectScopeCommitment` (R1); `entries[].entry.examinedUniverse.subjectScopeCommitment` (R1); `coverageCommitment` (R1) | `analysisOrdinal` |
+| Unavailable (post-Analyze) (w→h) | `TypeScriptUnavailableV2` (ST:582) | always | `affectedStageIds` (R1); `coverage[].key.sourceUniverse` (R1); `coverage[].key.targetUniverse` (R1); `coverage[].key.subjectScopeCommitment` (R1); `coverage[].entry.examinedUniverse.subjectScopeCommitment` (R1); `coverageCommitment` (R1) | `analysisOrdinal`, `reason` |
+| BudgetExhausted (w→h) | `TypeScriptBudgetExhaustedV2` (ST:683) | always | `triggerStageId` (R1); `coverage[].key.sourceUniverse` (R1); `coverage[].key.targetUniverse` (R1); `coverage[].key.subjectScopeCommitment` (R1); `coverage[].entry.examinedUniverse.subjectScopeCommitment` (R1); `coverageCommitment` (R1) | `analysisOrdinal`, `dimension`, `limit`, `observed` |
 | Complete (w→h) | `CompleteV1` (DLV:859) | always | `stageResults[].stageId` (R1); `stageResults[].factCommitment` (R1); `stageResults[].coverageCommitment` (R1); `factStreamCommitment` (R1); `coverageStreamCommitment` (R1) | `analysisOrdinal` |
 | Complete (w→h) | `TypeScriptCompleteV2` (FA2:377) | under symbol-census-v1 (FA-2, proposed) | `symbolCensus.rows[].nativeSubjectId` (R1) | — |
 | Cancel (h→w) | `CancelV1` (DLV:860) | always | `executionId` (R1) | `analysisOrdinal`, `reason` |
@@ -737,14 +652,13 @@ Lead decisions are dated 2026-10-03 unless marked r2, r3, r4 or r5 (2026-10-04).
 | PreparedOutputAccepted (w→h) | `PreparedOutputAcceptedV2` (RPP:399) | always | `planId` (R1); `manifestSha256` (R1) | `entryCount`, `totalBlobBytes`, `totalChunkCount` |
 | NativeContextVerified (w→h) | `NativeContextVerifiedV1` (ST:464) | always | `nativeContextId` (R1); `recomputedNativeContextId` (R1) | `equal` |
 | Unavailable (pre-Analyze) (w→h) | `PreAnalyzeUnavailableV1` (ST:485) | always | `executionId` (R1); `snapshotId` (R1); `planId` (R1); `nativeContextId` (R1); `recomputedNativeContextId` (R1) | `reason` |
-| Analyze (h→w) | `AnalyzeV2` (RPP:405) | always; once RUST3-LIM is bound (after FA-2), its `stages[]` members only without subject-scope-reference-v1 | `executionId` (R1); `snapshotId` (R1); `planId` (R1); `stages[].planStage.stageId` (R1); `stages[].planStage.dependsOn` (R4); `stages[].planStage.providerId` (R1); `stages[].analysisDomain.subjects[].subjectId` (R1); `stages[].analysisDomain.requestedCoverageDomain[].relation` (R7); `stages[].analysisDomain.requestedCoverageDomain[].resolution` (R7); `stages[].analysisDomain.requestedCoverageDomain[].sourceUniverseId` (R1); `stages[].analysisDomain.requestedCoverageDomain[].targetUniverseId` (R1); `stages[].analysisDomain.requestedCoverageDomain[].subjectScopeCommitment` (R1); `stages[].analysisDomain.requestedCoverageDomain[].producer` (R5); `stages[].analysisDomain.requestedCoverageDomain[].producerVersion` (R4); `stages[].analysisDomain.requestedCoverageDomain[].schemaVersion` (R7); `stages[].analysisDomain.domainCommitment` (R1) | `analysisOrdinal` |
-| Analyze (h→w) | `StageRequestV3 (each stages[] member of AnalyzeV2 or AnalyzeV3)` (RL:93) | under subject-scope-reference-v1 (RUST3-LIM, accepted; binds after FA-2) | `stages[].planStage.stageId` (R1); `stages[].planStage.dependsOn` (R4); `stages[].planStage.providerId` (R1); `stages[].analysisDomain.subjectScope.subjectScopeCommitment` (R1); `stages[].analysisDomain.requestedCoverageDomain[].relation` (R7); `stages[].analysisDomain.requestedCoverageDomain[].resolution` (R7); `stages[].analysisDomain.requestedCoverageDomain[].sourceUniverseId` (R1); `stages[].analysisDomain.requestedCoverageDomain[].targetUniverseId` (R1); `stages[].analysisDomain.requestedCoverageDomain[].subjectScopeCommitment` (R1); `stages[].analysisDomain.requestedCoverageDomain[].producer` (R5); `stages[].analysisDomain.requestedCoverageDomain[].producerVersion` (R4); `stages[].analysisDomain.requestedCoverageDomain[].schemaVersion` (R7); `stages[].analysisDomain.domainCommitment` (R1) | — |
+| Analyze (h→w) | `AnalyzeV2` (RPP:405) | always | `executionId` (R1); `snapshotId` (R1); `planId` (R1); `stages[].planStage.stageId` (R1); `stages[].planStage.dependsOn` (R4); `stages[].planStage.providerId` (R1); `stages[].analysisDomain.subjects[].subjectId` (R1); `stages[].analysisDomain.requestedCoverageDomain[].sourceUniverseId` (R1); `stages[].analysisDomain.requestedCoverageDomain[].targetUniverseId` (R1); `stages[].analysisDomain.requestedCoverageDomain[].subjectScopeCommitment` (R1); `stages[].analysisDomain.requestedCoverageDomain[].producer` (R5); `stages[].analysisDomain.requestedCoverageDomain[].producerVersion` (R4); `stages[].analysisDomain.domainCommitment` (R1) | `analysisOrdinal` |
 | Analyze (h→w) | `AnalyzeV3` (FA2:263) | under symbol-census-v1 (FA-2, proposed) | `symbolCensus.enumeratorClosure` (R1) | — |
 | FactBatch (w→h) | `FactBatchV2` (RPP:411) | always | `stageId` (R1); `candidates[].producer` (R4); `candidates[].producerVersion` (R4); `candidates[].sourceUniverseId` (R1); `candidates[].targetUniverseId` (R1); `candidates[].relationSchemaId` (R1); `candidates[].anchors[].snapshotId` (R1); `candidates[].anchors[].contentSha256` (R1); `candidates[].anchors[].factId` (R1) | `analysisOrdinal`, `batchIndex` |
 | FactBatch (w→h) | `FactBatchV3` (FB3:1) | under target-attribution-v2 | `stageId` (R1); `candidates[].producer` (R4); `candidates[].producerVersion` (R4); `candidates[].sourceUniverseId` (R1); `candidates[].targetUniverseId` (R1); `candidates[].relationSchemaId` (R1); `candidates[].anchors[].snapshotId` (R1); `candidates[].anchors[].contentSha256` (R1); `candidates[].anchors[].factId` (R1); `occupancyCompanions[].targetUniverseId` (R1); `occupancyCompanions[].targetNativeId` (R1); `occupancyCompanions[].evaluationNativeId` (R1) | `schemaVersion`, `analysisOrdinal`, `batchIndex` |
-| CoverageV3 (w→h) | `CoverageV3` (ST:550) | always | `stageId` (R1); `entries[].key.relation` (R7); `entries[].key.resolution` (R7); `entries[].key.sourceUniverse` (R1); `entries[].key.targetUniverse` (R1); `entries[].key.subjectScopeCommitment` (R1); `entries[].entry.relation` (R7); `entries[].entry.resolution` (R7); `entries[].entry.examinedUniverse.subjectScopeCommitment` (R1); `coverageCommitment` (R1) | `analysisOrdinal` |
-| Unavailable (post-Analyze) (w→h) | `UnavailableV3` (ST:631) | always | `affectedStageIds` (R1); `coverage[].key.relation` (R7); `coverage[].key.resolution` (R7); `coverage[].key.sourceUniverse` (R1); `coverage[].key.targetUniverse` (R1); `coverage[].key.subjectScopeCommitment` (R1); `coverage[].entry.relation` (R7); `coverage[].entry.resolution` (R7); `coverage[].entry.examinedUniverse.subjectScopeCommitment` (R1); `coverageCommitment` (R1) | `analysisOrdinal`, `reason` |
-| BudgetExhausted (w→h) | `BudgetExhaustedV3` (ST:734) | always | `triggerStageId` (R1); `coverage[].key.relation` (R7); `coverage[].key.resolution` (R7); `coverage[].key.sourceUniverse` (R1); `coverage[].key.targetUniverse` (R1); `coverage[].key.subjectScopeCommitment` (R1); `coverage[].entry.relation` (R7); `coverage[].entry.resolution` (R7); `coverage[].entry.examinedUniverse.subjectScopeCommitment` (R1); `coverageCommitment` (R1) | `analysisOrdinal`, `unit`, `limit`, `observed` |
+| CoverageV3 (w→h) | `CoverageV3` (ST:550) | always | `stageId` (R1); `entries[].key.sourceUniverse` (R1); `entries[].key.targetUniverse` (R1); `entries[].key.subjectScopeCommitment` (R1); `entries[].entry.examinedUniverse.subjectScopeCommitment` (R1); `coverageCommitment` (R1) | `analysisOrdinal` |
+| Unavailable (post-Analyze) (w→h) | `UnavailableV3` (ST:631) | always | `affectedStageIds` (R1); `coverage[].key.sourceUniverse` (R1); `coverage[].key.targetUniverse` (R1); `coverage[].key.subjectScopeCommitment` (R1); `coverage[].entry.examinedUniverse.subjectScopeCommitment` (R1); `coverageCommitment` (R1) | `analysisOrdinal`, `reason` |
+| BudgetExhausted (w→h) | `BudgetExhaustedV3` (ST:734) | always | `triggerStageId` (R1); `coverage[].key.sourceUniverse` (R1); `coverage[].key.targetUniverse` (R1); `coverage[].key.subjectScopeCommitment` (R1); `coverage[].entry.examinedUniverse.subjectScopeCommitment` (R1); `coverageCommitment` (R1) | `analysisOrdinal`, `unit`, `limit`, `observed` |
 | Complete (w→h) | `CompleteV2` (RPP:435) | always | `stageResults[].stageId` (R1); `stageResults[].factCommitment` (R1); `stageResults[].coverageCommitment` (R1); `factStreamCommitment` (R1); `coverageStreamCommitment` (R1) | `analysisOrdinal` |
 | Complete (w→h) | `CompleteV3` (FA2:419) | under symbol-census-v1 (FA-2, proposed) | `symbolCensus.rows[].nativeSubjectId` (R1) | — |
 | ProviderFault (w→h) | `ProviderFaultV2` (RPP:441) | always | `executionId` (R1) | `analysisOrdinal`, `phase`, `faultKind`, `detailCode` |
@@ -753,8 +667,8 @@ Lead decisions are dated 2026-10-03 unless marked r2, r3, r4 or r5 (2026-10-04).
 
 <!-- wire-identities:end -->
 
-    - **The ceiling.** The identity-bearing members on a provider's wire are **exactly** the members listed above, under the condition each row states. No RequestId, RunId, ProjectId, log path, pid or record key is on the wire, and nothing beyond this list. A row marked "FA-2, proposed" is on the wire only once FA-2 is accepted and its token negotiated (L-G10; item 22). **(r5)** A row marked "RUST3-LIM, accepted; binds after FA-2" is on the wire only once RUST3-LIM is bound, after FA-2, and its token is negotiated (L-G11; RL LD-R8). A row marked `target-attribution-v2` is on the wire only when that token is negotiated (NE:2797-2814).
-    - **Control L-C1 (r4; covers R7 and the RUST3-LIM source from r5).** `python3 evidence/wire_identities.py --check` re-derives the inventory from the pinned schema bytes. It fails if the table above or `evidence/wire-identities.json` (which records each source's sha256) differs by one member, rule or line. It runs with no product code, build or network. A schema successor that changes a payload changes the derived table, and so needs a delta round of this item.
+    - **The ceiling.** The identity-bearing members on a provider's wire are **exactly** the members listed above, under the condition each row states. No RequestId, RunId, ProjectId, log path, pid or record key is on the wire, and nothing beyond this list. A row marked "FA-2, proposed" is on the wire only once FA-2 is accepted and its token negotiated (G10; item 22). A row marked `target-attribution-v2` is on the wire only when that token is negotiated (NE:2797-2814).
+    - **Control L-C1 (r4).** `python3 evidence/wire_identities.py --check` re-derives the inventory from the pinned schema bytes. It fails if the table above or `evidence/wire-identities.json` (which records each source's sha256) differs by one member, rule or line. It runs with no product code, build or network. A schema successor that changes a payload changes the derived table, and so needs a delta round of this item.
     - **FA-2 needs no further member (r4 check).** The derived FA-2 rows hold exactly the two members FA-2's §9.8 and this law's item 22 name: `symbolCensus.enumeratorClosure` on Analyze, and the census rows' `nativeSubjectId` on `Complete`. No cross-law item for FA-2 arises from RF-1.
     - **r1:377** is the historical closed sentence that J1 still cites (X14).
   - **Phase (r2: J1's reading).** A provider exists only after its attempt's ExecutionId is reserved and after Plan sealing (item 2). J1 item 2 fixes where that ExecutionId comes from:
@@ -796,7 +710,7 @@ Lead decisions are dated 2026-10-03 unless marked r2, r3, r4 or r5 (2026-10-04).
   - **The reuse disclosure** (item 10).
 
   The record exists for every invocation that spawns a provider, so the harness can set `carriesReuseDisclosure` and `carriesProcessMaxRss` (ENV:660-666). A missing record is the harness's `record-missing` (Q0:994).
-- **The events (r2).** S-OP-2 is accepted (L-G7), and it owns the names, field schemas and allowlists. This law names each need exactly as S-OP-2 r6 registers it. **Every need is registered; there is no gap.**
+- **The events (r2).** S-OP-2 is accepted (G7), and it owns the names, field schemas and allowlists. This law names each need exactly as S-OP-2 r6 registers it. **Every need is registered; there is no gap.**
 
 | Need | S-OP-2 r6 event (line) | Fields this law relies on | Class |
 |---|---|---|---|
@@ -947,8 +861,8 @@ Each correction below is recorded here as current law for M3 and later units. It
 
 ### G. The provider symbol census (r3)
 
-**22. FA-2's carrier, joined (lead decision, r3; M3-H X-H1; gate item L-G10).**
-- **The obligation.** A TypeScript or Rust provider's symbol census is its "explicit population assertion" (NE:88-91), and symbol-scope subjects are its rows (RPS:15; ENC:93). r2 left it without a carrier. No TS2 or Rust3 frame carries it, EXC forbids a new frame name (EXC:270), and item 1 forbade this law to add one. The request key would also have needed the census before spawn (H3:850-858). Without it, no TS or Rust symbol-kind Coverage is admissible, and I1's cycle rule cannot decide on a real Run (H3:705).
+**22. FA-2's carrier, joined (lead decision, r3; M3-H X-H1; gate item G10).**
+- **The obligation.** A TypeScript or Rust provider's symbol census is its "explicit population assertion" (NE:88-91), and symbol-scope subjects are its rows (RPS:15; ENC:93). r2 left it without a carrier. No TS2 or Rust3 frame carries it, EXC forbids a new frame name (EXC:270), and item 1 forbade this law to add one. The request key would also have needed the census before spawn (H1:724-732). Without it, no TS or Rust symbol-kind Coverage is admissible, and I1's cycle rule cannot decide on a real Run (H1:582).
 - **Decision.** This law adopts FA-2's carrier **as proposed**. It decides none of FA-2's content. Where they differ, FA-2's accepted bytes govern, and this item takes a delta round ("Review and effect").
   1. **What crosses the wire.** Only under `symbol-census-v1`, which is negotiated by the existing exact echo (FA2 §9.1 paragraph; FA2 LD-F1):
      - **host to worker, on `Analyze`:** `symbolCensus` = `{enumeratorClosure}`, or `null` when no census is owed;
@@ -957,10 +871,10 @@ Each correction below is recorded here as current law for M3 and later units. It
      - **nothing** on `BudgetExhausted`, `Unavailable`, `Cancelled` or `ProviderFault`.
 
      There is no new frame, phase, terminal, limit member, identity version or major. Item 1 holds, and item 13 lists the two members.
-  2. **When it is admitted.** Only at D3's clean settlement of `Complete`, atomically with that Analyze's facts and Coverage, in H's order: facts, then the census, then `D` and Coverage (H3 item 3).
+  2. **When it is admitted.** Only at D3's clean settlement of `Complete`, atomically with that Analyze's facts and Coverage, in H's order: facts, then the census, then `D` and Coverage (H1 item 3).
      - The host projects the census into `SubjectInventoryV1` records. They are host-derived typed inputs under their admission owners, never stage outputs (EXC:59, EXC:259, EXC:265-272).
      - The host owner-admits them against the Plan's locators and the symbol extent (ENC:115-123, ENC:166), then runs NE §4.1a on each `symbol`-kind entry.
-     - A fault, a cancellation or a non-`Complete` terminal admits no census (NE:3837-3843; item 16e). On a clean `BudgetExhausted` or `Unavailable`, the owed inventories are host-derived outcomes (H3 item 4).
+     - A fault, a cancellation or a non-`Complete` terminal admits no census (NE:3837-3843; item 16e). On a clean `BudgetExhausted` or `Unavailable`, the owed inventories are host-derived outcomes (H1 item 4).
      - Frame acceptance is still not admission (item 12.3), and a census is not progress.
   3. **How reuse treats it (INC).**
      - **INC-1 and INC-2 (items 4, 5).** Every projected record names the current `planId` and `parameterDigest`, and every scope built from it binds the current `snapshot2`. A census is never carried across Plans, and no M3 path reuses one (item 3). It is a provider attestation admitted in one Run, never authority beyond it.
@@ -968,7 +882,7 @@ Each correction below is recorded here as current law for M3 and later units. It
      - **INC-4 (item 7).** A paired full and incremental sequence compares census rows, and the scopes built from them, like any semantic payload.
      - **INC-8 (item 10).** The census is recomputed every Run and covered by `host.reuse.disclosed` per stage and universe. No census-specific record exists.
   4. **Records.** No S-OP-2 event is added. Census bytes are semantic evidence, and no operational record carries them (item 14).
-- **Basis:** H3:613-643 (item 17), H3:850-858 (X-H1); FA2 LD-F1 to LD-F7 and §9.8; NE:88-96; IE:1462-1470; ENC:115-123; EXC:259, EXC:265-272; RPS:15.
+- **Basis:** H1:490-519 (item 17), H1:724-732 (X-H1); FA2 LD-F1 to LD-F7 and §9.8; NE:88-96; IE:1462-1470; ENC:115-123; EXC:259, EXC:265-272; RPS:15.
 - **Rejected:**
   - **Leaving FA-2 out of this law's gate.** L in effect would fix TS2 and Rust3 for M3 with no lawful symbol Coverage, so F2, G3 and I1 could not deliver.
   - **Drafting the carrier in this law.** Item 1 keeps protocol changes in reviewed native successors; this law only joins them.
@@ -988,10 +902,9 @@ Every join this law makes to a law accepted since r1 was read on 2026-10-04, as 
 | **J1 r3** (accepted) | RequestId and ExecutionId phase (J1 item 2); where a child starts (J-ε, J-ζ; J1 item 5.2); the commit-phase join (J1 item 8); the second stage (J1 8.5); outcome rows 30 and 46 | **Consistent, with r1's phase scope corrected.** Item 13 adopts J1 item 2's reading. Item 2 cites J-ε and J-ζ. Item 16f narrows r1's scope to phase A (J1:500) and defers to J1 item 8. J1 8.5 adopts item 16c's grace, which answers X3 for S-OP-12. Row 30 (worker fault: `PROVIDER.PROTOCOL_VIOLATION`, no facts, Coverage or Run) matches item 5. Row 46 (signal in A or B: `interrupted` 130, no runId) matches item 16e. **(r3)** J1 r4 is accepted (GROK2). It changes none of these provisions: it adds R10a, ER10a and SD-6's rows. Its line 207, like r3's line 192, forbids "any identity on a provider's wire beyond M3L:377's". Item 13 now lists those identities exactly, and J1's next revision re-cites item 13 (X14). |
 | **MC r6** (accepted in review) | MC item 20's INC consistency; MC's uses of items 2, 13 and 17 (MC:93, MC:642); MC X-1 and X-3 | **Consistent.** MC item 20's claims hold against r3 unchanged. X-1 is taken into SM-5 and SM-6. X-3 is recorded as X12 and R10. MC's gate (MC:88-89), "M3-L is accepted", means L in effect ("Review and effect"). **(r3)** C r7, in review with CODEX2, narrows only item 16's row 8 and has no join here. FA-2's C follow-ups go to C's next revision (X16), as FA-2 r2 narrows them: the enumerator of a TS or Rust binding that owes a symbol inventory (not host-derived inventories, X-H3; not syntax universes); a worker for every TS or Rust universe such an inventory binds; and the Plan-time token need. |
 | **ME r3** (accepted) | In-host syntax with no child (ME §G); "no in-process fallback" (ME item 16, reason 5); no producer cache (item 3); **(r3)** the syntax stage as an in-core producer (item 5) | **Consistent.** Item 2 states the syntax scope, and keeps the fallback bullet ME relies on. **(r3)** Item 5's exception names E1's syntax stage exactly as ME item 14b and ME:478 define it (r4, NBO-1). E3's in-host census needs no carrier (item 22). |
-| **I1 r2** (accepted), **I1-L** (accepted, bound at `0ceb9ad`) | **(r3)** The cycle atom's census and exact scopes (MI:113, MI:155-165) | **No text join; a delivery join.** I1 cites nothing in this law, and its product chain does not wait for it (`M3-PLAN-r6.md:355`). Its atom decides on a real TS or Rust Run only through retained symbol inventories and symbol scopes. Item 22, with FA-2, H and F2, is what makes those producible. Until then every such answer is indeterminate, which fails closed (H3:705). |
-| **M3-H r3** (**accepted**; r5 re-pins from r1) | **(r3)** X-H1, X-H4 | **Answered.** X-H1 is answered by item 22 with FA-2 (L-G10). X-H4 is answered by item 5's in-core exception. H's other cross-law items (X-H2, X-H3, X-H5, X-H6) are other owners'. H depends on this law, not the reverse. |
-| **FA-2** (design unit; r2 in review with Codex) | **(r3)** Items 1, 13 and 22; L-G10 | **Joined as proposed.** FA-2 adds no frame, phase, terminal, limit member, identity version or major (FA2 "Within the current majors"). Its wire members are item 13's FA-2 entry. Its admission point is H's clean settlement (item 22.2). Its finding F-1 is X15, and F-2 is X13. |
-| **RUST3-LIM** (design unit, accepted by GROK2 at r1; binds after FA-2) | **(r5)** Items 1, 9 and 13; L-G11; X13, R12 | **Joined as accepted.** It adds no frame, phase, terminal, limit member or value, identity version or major (RL "Within the current majors"). Item 13's derived table carries its stage record, and the AnalyzeV2 row's condition. Item 9 carries SM-11 to SM-14. It binds after FA-2, whose handshake copies are its parents (RL LD-R8). Its X-RL-C1, C2, D and G items are its own owners'. |
+| **I1 r2** (accepted), **I1-L** (accepted, bound at `0ceb9ad`) | **(r3)** The cycle atom's census and exact scopes (MI:113, MI:155-165) | **No text join; a delivery join.** I1 cites nothing in this law, and its product chain does not wait for it (`M3-PLAN-r6.md:355`). Its atom decides on a real TS or Rust Run only through retained symbol inventories and symbol scopes. Item 22, with FA-2, H and F2, is what makes those producible. Until then every such answer is indeterminate, which fails closed (H1:582). |
+| **M3-H r1** (reviewed draft; r2 being drafted) | **(r3)** X-H1, X-H4 | **Answered.** X-H1 is answered by item 22 with FA-2 (G10). X-H4 is answered by item 5's in-core exception. H's other cross-law items (X-H2, X-H3, X-H5, X-H6) are other owners'. H depends on this law, not the reverse. |
+| **FA-2** (design unit, in review with Codex) | **(r3)** Items 1, 13 and 22; G10 | **Joined as proposed.** FA-2 adds no frame, phase, terminal, limit member, identity version or major (FA2 "Within the current majors"). Its wire members are item 13's FA-2 entry. Its admission point is H's clean settlement (item 22.2). Its finding F-1 is X15, and F-2 is X13. |
 | **MB r2** (accepted) | Item 17 (MB cites it at r1's lines 494-509) | **Consistent.** Item 17 is kept. |
 | **X12 r4** (accepted) | Pack refusals "reach no evaluation, provider, facts, Coverage or custody call" (X12r4:244) | **Consistent** with item 2: a pack refusal precedes the Plan, so it precedes any child. |
 | **X2 r9** (accepted) | Project admission, the phase from which ProjectId is lawful (OPP:154) | **Consistent.** Item 13 uses only that phase. |
@@ -1011,8 +924,7 @@ These are recorded for their owners. None changes an accepted outcome. Each name
 - **X9 (r2). M3-PLAN's sending order and day 0.** The plan says "**Before L can be sent:** S-M, the two sign-offs and O7" (`M3-PLAN-r6.md:445`), and schedules r2 to fill ⟨SM-n⟩ after S-M (`:426`). r2's review rule sends L before both. The gate is unchanged.
   - **Must change:** M3-PLAN's next revision (a lead record). It should replace `:445` and `:426` with the review rule, and should state that day 0 (`:255`) and "L acceptance" (`:378`) mean L in effect.
   - **Also stale there:** its O7 risk line (`:524`, Seatbelt "unverified") predates CF-P.
-  - **(r3) Also to record there:** L-G10 (FA-2 accepted) in the M3-L row; FA-2 among the pre-day-0 law rounds, accepted before D2b starts (H3:841).
-  - **(r5) Done in M3-PLAN r9 (accepted),** except two items. r9 replaces `:445` and `:426` with the review rule, states day 0 as "L in effect" (`M3-PLAN-r9.md:385`), and records L-G10 (`:255`; P7-1, P7-2). **Still to record in its next revision:** L-G11 (RUST3-LIM accepted), RUST3-LIM among the pre-day-0 rounds, and the `L-G` rename its own NBO-1 asks for.
+  - **(r3) Also to record there:** G10 (FA-2 accepted) in the M3-L row; FA-2 among the pre-day-0 law rounds, accepted before D2b starts (H1:715).
   - **Until then,** this law's "Review and effect" governs L's own review, and day 0 is unchanged.
 - **X10 (r2). Citations of r1 by line.** These laws and drafts cite r1 by line:
   - MC r6 (`L:n`);
@@ -1031,8 +943,7 @@ These are recorded for their owners. None changes an accepted outcome. Each name
   - **The effect.** The T2 manifest records more than 256 Rust files for 9 of its 22 Rust entries. Two are in S-M's seven Rust medium workloads (item 9): `rs-medium-axum` (301) and `rs-medium-tokio` (808). The lead has not recounted non-empty `.rs` entries. A product Rust provider could not be spawned for those repositories.
   - **What it does not affect.** S-M's throwaway harness is not bound by the request rule, so SM-3 and SM-4 can still be measured.
   - **This law changes no limit (item 1).** A change to the subject list or the limit changes the Hello-checked limits map, which is a Rust protocol successor.
-  - **Owner:** the Rust protocol owner (R12).
-  - **(r5) Closed by RUST3-LIM, and gated as L-G11.** RUST3-LIM names the subject array by reference under the optional token `subject-scope-reference-v1` (RL §9.3a). Host and worker rebuild the array from the accepted `SnapshotManifest`, the commitment recipes and `ProtocolLimitsV3` are unchanged, and the token is needed exactly when a snapshot has more than 256 subjects. Its own count agrees with T2's in 21 of 22 entries (rust-analyzer has two empty files). axum and tokio become servable, and aws-sdk-rust (242,187 subjects) stays beyond `snapshot2`'s bounds and takes the scope-limit route. GROK2 has accepted it (L-G11). What remains is its binding after FA-2, not X13.
+  - **Owner:** the Rust protocol owner (R12). It is not a gate item of this law.
 - **X14 (r3; RF-1). J1 re-cites item 13.**
   - **What changes.** J1's next revision replaces "beyond M3L:377's" (J1 r3:192; J1r4:207) with a citation of this law's item 13. It is **not** folded into J1 r4, which GROK2 accepted.
   - **Until then,** J1's forbidden substitute reads against r1's narrower list. Nothing J1 permits is wider than item 13, so no outcome changes in the meantime.
@@ -1050,7 +961,7 @@ These are recorded for their owners. None changes an accepted outcome. Each name
     - the Plan-time token need.
   - **D2b:** the four payload versions.
   - **F2 and G3:** the emission duty and the signed capability rows.
-  - **M3-PLAN (X9):** L-G10 and the pre-day-0 round.
+  - **M3-PLAN (X9):** G10 and the pre-day-0 round.
 
   None of these is decided here.
 
@@ -1081,20 +992,16 @@ These are recorded for their owners. None changes an accepted outcome. Each name
 
 ### For the owner
 
-- **O1. O7, hostile-input confinement.** Gate item L-G9 and blocker B1. The lead's recommendation is in ON B1 and at `M3-PLAN-r6.md:478-485`. **r2:** CF-P's evidence is in, and it is summarized in L-G9. This law is drafted so that it does not depend on the outcome ("What depends on O7, S-M, FA-2 and RUST3-LIM").
-- **O2. Sign-off on D3 (the T2 selection) and D13 (the exploratory envelope).** These are gate items L-G4 and L-G5 (AQP:543, AQP:554) and blocker B3. They are lead work that needs the owner's sign-off. D13 also gates S-M's report. D2's placement sign-off (AQP:542) stays `proposed`. It is not a gate item here (L-G6).
+- **O1. O7, hostile-input confinement.** Gate item G9 and blocker B1. The lead's recommendation is in ON B1 and at `M3-PLAN-r6.md:478-485`. **r2:** CF-P's evidence is in, and it is summarized in G9. This law is drafted so that it does not depend on the outcome ("What depends on O7 and S-M").
+- **O2. Sign-off on D3 (the T2 selection) and D13 (the exploratory envelope).** These are gate items G4 and G5 (AQP:543, AQP:554) and blocker B3. They are lead work that needs the owner's sign-off. D13 also gates S-M's report. D2's placement sign-off (AQP:542) stays `proposed`. It is not a gate item here (G6).
 - **O3. Conditional on S-M outcome (B).** If the one-shot fixed floor F exceeds the 2 s edit target, M4's changed-scope cannot meet that target under TS2/Rust3. The owner would confirm one of two things:
   - the edit target waits for M5 residency, as D5's staging implies;
   - or D5's staging changes.
 - **O4. Conditional on S-M outcome (C).** If one-shot full analysis misses a medium budget (30 s cold or 8 s warm), that is the D4 revisit AQP:372 names. The owner decides whether to revisit the budgets or the staging.
   - **(r3, NBO-2)** O3 and O4 can arise together: under (B) and (C) at once, the owner answers both.
 - **Flagged for possible reversal (r2):** r2's three new lead decisions: the review rule, counting stderr without holding it (item 12.1), and never sending TypeScript's `host-shutdown` (item 16b). None blocks.
-- **Flagged for possible reversal (r5):** none blocks.
-  - L-G11: RUST3-LIM accepted is a condition of this law taking effect.
-  - Rule R7, which widens item 13's ceiling to every required member of an identity key.
-  - **A consequence worth knowing:** a Rust release without `subject-scope-reference-v1` still serves repositories of 256 subject files or fewer, but never more (RUST3-LIM owner note 1).
 - **Flagged for possible reversal (r3):** none blocks.
-  - L-G10 and item 22: FA-2 accepted is a condition of this law taking effect.
+  - G10 and item 22: FA-2 accepted is a condition of this law taking effect.
   - Item 5's in-core exception, limited to exactly two named stages.
   - The third delta-round trigger.
   - **A consequence worth knowing:** TypeScript and Rust semantic analysis needs FA-2's token wherever a symbol census is owed, which is almost every semantic cell. A provider release without it is never spawned for such a Plan (FA2, owner note 1).
@@ -1109,7 +1016,6 @@ These are SM-1 to SM-10 (item 9). Each decides or informs the following:
 - **SM-1 and SM-3** also inform the D law's handshake deadline.
 - **SM-3 and SM-4** depend on S-P. If S-P fails, the Rust rows are `incomplete`. Whether the law can take effect with Rust rows incomplete is a question for the delta round's reviewer. The lead's recommendation is no, unless S-P's failure is itself accepted as a finding with a G2 plan.
 - **SM-10** informs OPP §5.2's concurrency ceiling (information only).
-- **(r5) SM-11 to SM-14** set the M3 Rust provider's effective subject ceiling (S_eff), the Rust stage budget for G's budget profile and C's Plan, and where FA-2's census `over-bound` route starts to bind. None of them is a protocol constant (item 9; RUST3-LIM).
 
 ### For other owners and reviewers
 
@@ -1119,16 +1025,12 @@ These are SM-1 to SM-10 (item 9). Each decides or informs the following:
 - **R4. Identity owner (D5a).** Is a cache-key domain without `planId` admissible under IE §4's no-hidden-input rule (IE:1296-1298)? What re-admission evidence does a reused candidate need under a new snapshot (items 4 and 5)? This is needed before M4 ships changed-scope, not for M3.
 - **R5. The record-hygiene batch.** Add the notes in items 19 and 20 to its re-pinning successor (RH §2).
 - **R6. The lead.** Did the read scope of `claude-independent-design.v45` cover NE §14 (item 21)?
-- **R7. The reviewer.** Is L-G6 met by Q0 §2's draft specs, or does "the D2 draft" mean a drafted WS/pack successor (AQP:542)?
+- **R7. The reviewer.** Is G6 met by Q0 §2's draft specs, or does "the D2 draft" mean a drafted WS/pack successor (AQP:542)?
 - **R8. The D law (supervisor).** Fix the TS2 cleanup grace, the health window, and the TERM-to-KILL escalation and reaping ceiling. Items 12.4 and 16c set their constraints. **r2: answered in the D law's draft** (its constants table): the TS2 grace is 2 s, provisional; the liveness window is 5 s, raised to at least 2 × SM-8; TERM to KILL is 1 s; the reap ceiling is 10 s, or 5 s under revocation. R8 closes when the D law is accepted. **(r3) Closed:** M3-D r3 is accepted with that constants table (NBO-3).
 - **R9. Rust protocol owner.** Item 16c reads `cancellationGraceMilliseconds` (RPP:119) as the host's stage-1 wait before a forced kill on automatic expiry, not only as a ceiling. The drafting read found the member in the v4 guard context list (`rust-provider-protocol.v4.json:966`) but not the guard that uses it. Confirm the reading. **r2:** the D law's draft and J1 8.5 adopt it, pending this confirmation.
 - **R10 (r2). Rust protocol owner.** X12: does `maxPreparedOutputEntries` 256 (RPP:102, RPP:385) govern a prepared manifest's entries in transport, beside NE's 1,000,000-row bounds? This is MC's R4, asked from this law's side.
 - **R11 (r2). The reviewer.** Is "Review and effect" lawful: an ACCEPT in review, effect only when the gate is met, delta rounds for S-M and O7, and dependents reading "M3-L accepted" as L in effect? Is "What depends on O7 and S-M" complete? **(r3)** Grok answered yes, apart from the joint case, which r3 adds (NBO-2).
-- **R12 (r3). Rust protocol owner.** X13: should Rust3's request subject list stay "every non-empty `.rs` file of the snapshot" under a cap of 256, which refuses two of S-M's seven Rust medium workloads before spawn? Or does a Rust protocol successor replace it, for example with a binding-scoped or uncapped transport list? This law changes no limit. **(r5) Closed:** RUST3-LIM is that successor, by reference under a token, with no limit value changed. Its acceptance is L-G11.
-- **R15 (r5). The reviewer.**
-  - Is R7's record list complete: every record a cited contract defines as an identity key or as a key's field-for-field copy, and every member required to equal a key's? Is the checked list of other composite keys right in excluding the fact identity, commitment preimages, view and occupancy records, correlation tuples and scope summaries?
-  - Do the derived counts and the RUST3-LIM row match the schemas?
-  - Is L-G11 a lawful second addition to the plan's gate row, and is the fourth trigger's map of RUST3-LIM's parts exact?
+- **R12 (r3). Rust protocol owner.** X13: should Rust3's request subject list stay "every non-empty `.rs` file of the snapshot" under a cap of 256, which refuses two of S-M's seven Rust medium workloads before spawn? Or does a Rust protocol successor replace it, for example with a binding-scoped or uncapped transport list? This law changes no limit.
 - **R14 (r4). The reviewer.**
   - Is item 13's derived inventory right? In particular: the frame-to-payload map, the record identities and the `CHILD` map in `evidence/wire_identities.py`, and the closed rules R1 to R6, including what R4 and R5 admit.
   - Does control L-C1 re-derive it from the pinned bytes?
@@ -1136,7 +1038,7 @@ These are SM-1 to SM-10 (item 9). Each decides or informs the following:
 - **R13 (r3). The reviewer.**
   - Is item 13's inventory now exactly the contracts' (NE:2816-2835, NE:2955-2981, NE:3158-3191, with the later echoes)?
   - Is item 22's join complete and lawful against FA-2: what crosses, when it is admitted, and INC?
-  - Is L-G10 a lawful addition to the plan's gate row?
+  - Is G10 a lawful addition to the plan's gate row?
   - Is item 5's in-core exception exactly two stages, and no wider?
 
 ## Not claimed
@@ -1147,7 +1049,6 @@ These are SM-1 to SM-10 (item 9). Each decides or informs the following:
 - **Shipped features.** No changed-scope path, cache or resident host ships at M3. No D5a successor is drafted.
 - **Registration.** This law registers no event and no code table. Item 14 names S-OP-2's events and relies on them.
 - **Other laws.** No accepted law is changed by this revision. Cross-law items X3, X5 and X9 to X16 name the records that should change, for their owners. J1's re-citation (X14) is not folded into J1 r4.
-- **FA-2.** This law joins FA-2 and decides none of its content. FA-2's protocol change is the native owner's successor, under its own review (L-G10).
-- **This revision.** No product code, cargo command, test or lead run set was run for it. Product facts come from reading main `e093e90` with `git show` and `git diff`, re-checked against `cd5958b` and **(r5)** `392499e`. **(r4)** The only script run is control L-C1 (`evidence/wire_identities.py`), which reads arch documents.
-- **Effect.** An ACCEPT of this revision is "accepted in review". The law takes effect only when gate items L-G1, L-G4, L-G5, L-G9 and L-G10 are met, L-G11 still holds (it is met in review unless Codex's review changes FA-2's handshake copies), and S-M's delta round is accepted.
-- **RUST3-LIM.** This law joins RUST3-LIM and decides none of its content (L-G11).
+- **FA-2.** This law joins FA-2 and decides none of its content. FA-2's protocol change is the native owner's successor, under its own review (G10).
+- **This revision.** No product code, cargo command, test or lead run set was run for it. Product facts come from reading main `e093e90` with `git show` and `git diff`, re-checked against `cd5958b`. **(r4)** The only script run is control L-C1 (`evidence/wire_identities.py`), which reads arch documents.
+- **Effect.** An ACCEPT of this revision is "accepted in review". The law takes effect only when gate items G1, G4, G5, G9 and G10 are met and S-M's delta round is accepted.

@@ -443,3 +443,8 @@ Times are local.
 - **CRC-1 accepted at r4 by Grok and bound** at product main `392499e`, giving 83 contract successors.
 - **CR-1 r2:** CODEX2 raised one finding. The C2a plan gated all of `command_checks` on commands being present, which would skip the name and alias collision checks for closure-only manifests. **Direction for r3:** gate only the command-tree checks; name and alias admission runs for every manifest.
 - **S18 r1:** GROK2 raised one finding. WS:227-228 and WSE:229-230 still define after-settle by step terminality, while an interrupted render is "cancelled", and so terminal, at the decision point. **Direction for r2:** after-settle is defined by the settlement point (terminality plus the required output's return). The invocation-v5 phase wording becomes a record item for its owner.
+- **M3-L r5 written and sent to GROK2** (Grok is busy).
+  - **R7:** adds every required constituent of contract-defined key records. The derived ceiling is now 52 rows and 278 paths, 43 more, none removed.
+  - **L-G11 = RUST3-LIM:** "met in review, held on FA-2".
+  - **Rename:** gate items are now L-G1..L-G11.
+  - **Trigger 4:** covers any change to RUST3-LIM's bytes.

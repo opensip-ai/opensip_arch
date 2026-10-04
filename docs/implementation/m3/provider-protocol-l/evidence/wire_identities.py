@@ -1,6 +1,6 @@
 """Derive M3-L item 13's provider-wire identity inventory mechanically from the pinned contract bytes.
 
-Control L-C1 of M3-L r4. Nothing here is hand-listed except the frame -> payload selection (FRAMES), which
+Control L-C1 of M3-L (r4; R7 and the RUST3-LIM row added in r5). Nothing here is hand-listed except the frame -> payload selection (FRAMES), which
 restates which payload NE section 9 (and section 0's supersessions) selects for each frame, with the line that
 says so, and the record identities (SAME_RECORD), each quoting the sentence that makes two published records
 one record. Every member, every nested record and every classification is read from the schemas.
@@ -22,7 +22,11 @@ Classification (closed). A member is identity-bearing iff one rule holds:
                artifact (CoverageKeyV1.producer and StageRequestV1.providerId are both "exact text
                typescript-semantic");
   R6 pattern   a JSON Schema string whose pattern requires a 64-hex digest or a typed identity prefix
-               (sha256:, snapshot2:, plan2:, closure2:, scope2:).
+               (sha256:, snapshot2:, plan2:, closure2:, scope2:);
+  R7 key       (r5) every required member of a record that a cited contract defines as an identity key, or as
+               a key's field-for-field copy (KEY_RECORDS), and every member a cited contract requires to equal
+               a key's member (KEY_COPY). Each entry quotes its sentence. R7 is applied after R1-R6, which
+               keep their labels.
 Containers are descended into; only leaves (and R3's descriptor) are classified. A description that begins
 with a scalar type (SCALAR_START) describes a scalar even when it names a record it is computed over. Opaque
 byte strings (chunk bytes, canonicalRelationPayload) are leaves and carry no member-level identity.
@@ -60,6 +64,7 @@ SRC = {
     'FB3': 'docs/coop/design-corrections/native/fact-batch.schema.v3.json',
     'OC': 'docs/coop/design-corrections/native/occupancy-companion.schema.v1.json',
     'FA2': 'docs/implementation/m3/native-successors-fa/fa-2/design/native/symbol-census.schemas.v1.json',
+    'RL': 'docs/implementation/m3/native-successors-fa/rust3-lim/design/native/rust-subject-scope.schemas.v1.json',
 }
 
 R1_SUFFIXES = ('Id', 'Ids', 'Key', 'Commitment', 'Sha256', 'Digest', 'Hash', 'MerkleRoot', 'Closure', 'Universe')
@@ -73,6 +78,8 @@ IDENTITY_PATTERN = re.compile(r'\[0-9a-f\]\{64\}|\^(sha256|snapshot2|plan2|closu
 
 # Frame -> payload, per protocol. (frame, direction, payload locator, condition, the line that selects it.)
 ALWAYS, TA, SC = 'always', 'under target-attribution-v2', 'under symbol-census-v1 (FA-2, proposed)'
+RL = 'under subject-scope-reference-v1 (RUST3-LIM, accepted; binds after FA-2)'
+RL_ABSENT = 'always; once RUST3-LIM is bound (after FA-2), its `stages[]` members only without subject-scope-reference-v1'
 FRAMES = {
     'typescript-semantic': [
         ('Hello', 'h→w', ('HS', 'TypeScriptHelloV2'), ALWAYS, 'NE:2955-2960'),
@@ -116,7 +123,8 @@ FRAMES = {
         ('PreparedOutputAccepted', 'w→h', ('RPP', 'PreparedOutputAcceptedV2'), ALWAYS, 'NE:2880'),
         ('NativeContextVerified', 'w→h', ('ST', 'NativeContextVerifiedV1'), ALWAYS, 'NE:2881'),
         ('Unavailable (pre-Analyze)', 'w→h', ('ST', 'PreAnalyzeUnavailableV1'), ALWAYS, 'NE:2882'),
-        ('Analyze', 'h→w', ('RPP', 'AnalyzeV2'), ALWAYS, 'NE:2863-2866'),
+        ('Analyze', 'h→w', ('RPP', 'AnalyzeV2'), RL_ABSENT, 'NE:2863-2866'),
+        ('Analyze', 'h→w', ('RL', 'StageRequestV3', 'stages[].'), RL, 'RUST3-LIM section 9.3a'),
         ('Analyze', 'h→w', ('FA2', 'AnalyzeV3', 'symbolCensus'), SC, 'FA-2 section 9.8'),
         ('FactBatch', 'w→h', ('RPP', 'FactBatchV2'), ALWAYS, 'NE:2883'),
         ('FactBatch', 'w→h', ('FB3', '#'), TA, 'NE:2883'),
@@ -152,6 +160,23 @@ CHILD = {
     ('RPP', 'StageRequestV2', 'analysisDomain'): (('RPP', 'StageAnalysisDomainV2'), False),
     ('RPP', 'StageAnalysisDomainV2', 'subjects'): (('RPP', 'SubjectV2'), True),          # subjectsAlgorithm, RPP:226-231
     ('RPP', 'StageAnalysisDomainV2', 'requestedCoverageDomain'): ('c2-coverage-key', True),  # coverageDomainAlgorithm, RPP:233-239
+}
+# The same cited by-reference typing for the JSON records that name an inherited record only by selector.
+JSON_CHILD = {
+    ('RL', 'StageRequestV3', 'planStage'): ('c2-stage', False),                       # "StageRequestV2.planStage, unchanged"
+    ('RL', 'StageAnalysisDomainV3', 'requestedCoverageDomain'): ('c2-coverage-key', True),  # "StageAnalysisDomainV2.requestedCoverageDomain, unchanged"
+}
+# R7 (r5): records a cited contract defines as an identity key, or as a key's field-for-field copy.
+KEY_RECORDS = {
+    ('DLV', 'CoverageKeyV1'): 'DLV:804-817: "Field-for-field exact implementation of c2-plan-stage-schema.v3.json#coverageKey.key"; DLV:726 "full requested key"',
+    ('C2', 'coverageKey.key'): 'c2-plan-stage-schema.v3.json coverageKey.key: the coverage key; RPP:544-548 CoverageKeyV2 external',
+    ('REG', 'CoverageKeyV2'): 'NE:3277-3282: entries[i].key answers requestedCoverageDomain.keys[i]; NE:1927-1932: key.relation, key.resolution, key.sourceUniverse, key.targetUniverse must equal D',
+}
+KEY_GROUPS = {'c2-coverage-key'}   # SAME_RECORD group of DLV CoverageKeyV1 and C-2 coverageKey.key
+# R7 (r5): members a cited contract requires to equal a key's member.
+KEY_COPY = {
+    ('REG', 'ViewEntryV3'): ({'relation', 'resolution'},
+                             'NE:3529 native.coverage-entry-key-mismatch; NEM:1566-1567: entry relation and resolution equal the key'),
 }
 # A description that begins with a scalar type describes a scalar, even when it names a record it is computed over.
 SCALAR_START = re.compile(r'^(uint64|Sha256Text|DigestHex|IdentityText|enum |exact text|text matching|non-empty NFC|'
@@ -278,13 +303,17 @@ class Walker:
         return self.classify_prose(member, descs, designated)
 
     def walk_closed(self, art, rec, prefix, out, designated=frozenset(), seen=()):
+        required = set(self.s.closed[art][rec].get('required') or [])
         for member, d in self.s.closed_members(art, rec):
             path = prefix + member
             child = self.child_of(art, rec, member, d[0])
             if child is not None and child[0] not in seen:
                 self.walk_child(child[0], path + ('[].' if child[1] else '.'), out, seen + (child[0],))
                 continue
-            out.append((path, self.classify_leaf(art, member, [(art, x) for x in d], member in designated)))
+            rule = self.classify_leaf(art, member, [(art, x) for x in d], member in designated)
+            if rule is None and (art, rec) in KEY_RECORDS and member in required:
+                rule = 'R7'
+            out.append((path, rule))
 
     def walk_child(self, child, prefix, out, seen):
         if isinstance(child, tuple):
@@ -296,7 +325,10 @@ class Walker:
             if sub is not None and sub[0] not in seen:
                 self.walk_child(sub[0], prefix + member + ('[].' if sub[1] else '.'), out, seen + (sub[0],))
                 continue
-            out.append((prefix + member, self.classify_leaf(None, member, descs, False)))
+            rule = self.classify_leaf(None, member, descs, False)
+            if rule is None and child in KEY_GROUPS:
+                rule = 'R7'
+            out.append((prefix + member, rule))
 
     # ---- JSON Schema records ------------------------------------------------------------------------
     def resolve(self, doc_key, schema):
@@ -316,7 +348,14 @@ class Walker:
             schema = {**node, **{k: v for k, v in schema.items() if k != '$ref'}}
         return doc_key, schema
 
-    def walk_json(self, doc_key, schema, prefix, out, payload_key, depth=0):
+    @staticmethod
+    def ref_name(schema):
+        """The $defs name a schema's $ref names (every $ref in these sources is one hop), or None."""
+        ref = schema.get('$ref') if isinstance(schema, dict) else None
+        return ref.rsplit('/', 1)[-1] if isinstance(ref, str) and '#/$defs/' in ref else None
+
+    def walk_json(self, doc_key, schema, prefix, out, payload_key, depth=0, rec=None):
+        rec = self.ref_name(schema) or rec
         doc_key, schema = self.resolve(doc_key, schema)
         if depth > 12:
             raise SystemExit('schema too deep')
@@ -324,7 +363,7 @@ class Walker:
         if branches:
             sub = []
             for b in branches:
-                self.walk_json(doc_key, b, prefix, sub, payload_key, depth + 1)
+                self.walk_json(doc_key, b, prefix, sub, payload_key, depth + 1, rec)
             seen = set()
             for path, rule in sub:
                 if path not in seen:
@@ -334,7 +373,12 @@ class Walker:
         props = schema.get('properties')
         if props is not None:
             designated = self.s.designated.get(payload_key, set())
+            required = set(schema.get('required') or [])
             for member, sub in props.items():
+                if (doc_key, rec, member) in JSON_CHILD:
+                    target, is_array = JSON_CHILD[(doc_key, rec, member)]
+                    self.walk_child(target, prefix + member + ('[].' if is_array else '.'), out, (target,))
+                    continue
                 if payload_key == ('FB3', '#') and member == 'candidates':
                     # NE:2883: "Candidates remain closed FactCandidateV1"
                     self.walk_child('fact-candidate', prefix + 'candidates[].', out, ('fact-candidate',))
@@ -351,7 +395,8 @@ class Walker:
                     sub_key = ('HS', 'ExpectedRustIdentityV3')
                 k2, s2 = self.resolve(doc_key, sub)
                 if self.container(k2, s2):
-                    self.walk_json(doc_key, sub, path + ('[].' if self.arrayish(k2, s2) else '.'), out, sub_key, depth + 1)
+                    self.walk_json(doc_key, sub, path + ('[].' if self.arrayish(k2, s2) else '.'), out, sub_key,
+                                   depth + 1, self.ref_name(sub) or self.ref_name(sub.get('items', {})))
                     continue
                 if member in designated:
                     out.append((path, 'R2'))
@@ -359,11 +404,15 @@ class Walker:
                     out.append((path, 'R1'))
                 elif self.patterned(k2, s2):
                     out.append((path, 'R6'))
+                elif ((doc_key, rec) in KEY_RECORDS and member in required) or \
+                        member in KEY_COPY.get((doc_key, rec), (set(), ''))[0]:
+                    out.append((path, 'R7'))
                 else:
                     out.append((path, None))
             return
         if schema.get('type') == 'array' and isinstance(schema.get('items'), dict):
-            self.walk_json(doc_key, schema['items'], prefix, out, payload_key, depth + 1)
+            self.walk_json(doc_key, schema['items'], prefix, out, payload_key, depth + 1,
+                           self.ref_name(schema['items']) or rec)
             return
 
     def container(self, doc_key, schema):
@@ -443,6 +492,8 @@ def derive():
                 w.walk_closed(art, name, '', out, s.designated.get(loc[:2], frozenset()))
             elif art == 'NE':
                 w.walk_ne_row(name, out)
+            elif art == 'RL':   # RUST3-LIM: the stage record that replaces StageRequestV2 in stages[]
+                w.walk_json('RL', s.json['RL']['$defs'][name], loc[2], out, loc[:2], rec=name)
             else:
                 schema = s.json[art] if name == '#' else s.json[art]['$defs'][name]
                 if len(loc) == 3:   # FA-2: only the member FA-2 adds
@@ -456,16 +507,21 @@ def derive():
                 if top not in tops:
                     tops.append(top)
             other = [t for t in tops if not any(re.split(r'[.\[]', p)[0] == t for p in idset)]
-            rows.append({'frame': frame, 'direction': direction, 'payload': name if name != '#' else 'FactBatchV3',
+            label = {'#': 'FactBatchV3', 'StageRequestV3': 'StageRequestV3 (each stages[] member of AnalyzeV2 or AnalyzeV3)'}.get(name, name)
+            rows.append({'frame': frame, 'direction': direction, 'payload': label,
                          'source': payload_line(loc), 'condition': cond, 'selectedBy': selected_by,
                          'identityBearing': ident, 'otherTopLevelMembers': other})
         report[proto] = rows
     pins = {k: {'path': v, 'sha256': hashlib.sha256((ARCH / v).read_bytes()).hexdigest()} for k, v in SRC.items()}
-    return {'standing': 'Generated by evidence/wire_identities.py (M3-L r4, control L-C1). Do not edit.',
+    return {'standing': 'Generated by evidence/wire_identities.py (M3-L r5, control L-C1). Do not edit.',
             'rules': {'R1': 'name ends in ' + ', '.join(R1_SUFFIXES), 'R2': 'contract identity list',
                       'R3': 'universe descriptor (preimage of the universe coordinate)',
                       'R4': 'description names an identity type or an identity member as the value',
-                      'R5': 'description fixes the constant of an R1 member', 'R6': 'identity pattern'},
+                      'R5': 'description fixes the constant of an R1 member', 'R6': 'identity pattern',
+                      'R7': 'required member of a contract-defined identity key or its field-for-field copy, or a member required to equal a key member'},
+            'keyRecords': {f'{a}:{n}': why for (a, n), why in KEY_RECORDS.items()},
+            'keyGroups': {g: [f'{a}:{n}' for a, n in SAME_RECORD[g]] for g in sorted(KEY_GROUPS)},
+            'keyCopies': {f'{a}:{n}': {'members': sorted(m), 'basis': why} for (a, n), (m, why) in KEY_COPY.items()},
             'sources': pins, 'protocols': report}
 
 
