@@ -65,3 +65,6 @@ Times are local.
   - **I1-a regenerates contract code,** so it needs F8b first. Order: F8b, then I1-a.
 - **S-OP-2 r1:** Codex raised 7 findings, and it went back for r2 with lead decisions on each.
 - **M3-T2b accepted by GROK2,** with no findings. The T2 corpus is complete: 49 repositories, 33 families and 5 workspaces. M3-L's gate item "T2 complete" is met; the owner's D3 sign-off is B3.
+- **F8a accepted by Codex and merged.** Product main is now `3e64266`. Both dependency checks pass again.
+- **F8b proposal r1:** CODEX2 raised 1 finding. The comparison against rebuild-01 needs a separate equivalence probe, because the selected pipeline refuses any other executable. Sent back for r2.
+- **Started drafting M3-B** (configuration and discovery, including the X2 successor for D15 multi-repo workspaces; for GROK2) **and M3-C** (sealed snapshot and Plan; for CODEX2).
