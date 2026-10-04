@@ -1,6 +1,6 @@
 # Generator-closure and lane-registry re-pin — contract successor F8b (proposal r2)
 
-2026-10-04. Claude Opus 5.5, implementation lead. Status: **DRAFT r2 for review.** This is design work only. Nothing has been rebuilt, generated or frozen, and no product byte has changed. F8b is the contract successor owed by EXIT-PLAN's "Stale dependency-policy rows" bullet. Its companion F8a (the policy-row refresh) was accepted by Codex and integrated at product `3e64266`. F8b also closes the "L1 follow-up" bullet. It is modelled on `existing-root-diagnostics-468a`, which selects the current closure. For the build receipt it follows `native-repin-selection-v1`, and for the lane-registry row `typescript-closure-selection-v1`/`-v2`.
+2026-10-04. Claude Opus 5.5, implementation lead. Status: **r2 ACCEPTED by CODEX2 (2026-10-04); execution pending.** This is design work only. Nothing has been rebuilt, generated or frozen, and no product byte has changed. F8b is the contract successor owed by EXIT-PLAN's "Stale dependency-policy rows" bullet. Its companion F8a (the policy-row refresh) was accepted by Codex and integrated at product `3e64266`. F8b also closes the "L1 follow-up" bullet. It is modelled on `existing-root-diagnostics-468a`, which selects the current closure. For the build receipt it follows `native-repin-selection-v1`, and for the lane-registry row `typescript-closure-selection-v1`/`-v2`.
 
 ## r2 changes
 
