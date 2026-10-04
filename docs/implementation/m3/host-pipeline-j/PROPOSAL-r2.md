@@ -1,21 +1,10 @@
-# The guarded durable host pipeline — proposal M3-J1 r3
+# The guarded durable host pipeline — proposal M3-J1 r2
 
 2026-10-04. Drafted for Claude Opus 5.5, implementation lead, by a lead-dispatched drafting agent during the overnight autonomous run. Law for unit **M3-J1** of the accepted M3 unit plan (`M3-PLAN-r6.md:217`).
 
-**Draft r3, not accepted. Not code.** M2 is complete: its crash-matrix gate was met by Grok's accepted rerun on C = `3d2d5b5` (`m2/M2-COMPLETE.md`; M3P:5). J's code units still wait for P0, for the B, C, D and H laws and the units named in item 14, and for I1's product units.
+**Draft r2, not accepted. Not code.** M2 is complete: its crash-matrix gate was met by Grok's accepted rerun on C = `3d2d5b5` (`m2/M2-COMPLETE.md`; M3P:5). J's code units still wait for P0, for the B, C, D and H laws and the units named in item 14, and for I1's product units.
 
-r1 (`PROPOSAL-r1.md`, sha256 `ff5cb156…`, 75,581 bytes) was reviewed by CODEX2 (`reviews/codex2-host-pipeline-j-r1`; REQUIRED-FINDINGS, 7 required, 2 non-blocking). r2 answered all nine.
-
-r2 (`PROPOSAL-r2.md`, sha256 `f7efb87a…`, 100,981 bytes) was reviewed by CODEX2 (`reviews/codex2-host-pipeline-j-r2`; REQUIRED-FINDINGS, 3 required, 1 non-blocking). CODEX2 closed J1-R1 and J1-R3 to R7 and J1-N2. r3 answers all four r2 findings and changes nothing else of substance.
-
-## r3 changes and review responses
-
-| Finding | Change |
-|---|---|
-| J1-R2-01 (the window and publication) | 8.1: `Ok(PreparedCommit)` is a continuing result and leaves the window **open**. The window closes only on `prepare_commit`'s error returns and on every return of `publish`, the successful sample included. Put simply, it closes in the step that produces the operation's `StoppedSession`, and only there. The CAS loops keep the word's window bits. 8.6, S10, S11 and J-C15 follow. New control J-C15b cancels during `publish` after a successful preparation. r2's J1-N1 sentence, "closed on every return of `prepare_commit` and `publish`", is withdrawn. |
-| J1-R2-02 (the renderer-failure route in phase O) | 8.2's phase O, 8.4, S18 and matrix rows 43 and 44 make the route depend on committed evidence. When a `PublishedCommit` exists, F16 applies (X7:99; WS:1376). Otherwise (ephemeral results, pre-commit refusals, undetermined commits, an interrupt with no Run) the route is WS:1377, row 44's `DELIVERY.REQUIRED_PROJECTION_FAILED`, with no runId, under WS:233-240's aggregate. An uncertain step 0 keeps its ExecutionId disclosure. New control J-C14b. |
-| J1-R2-03 (the ephemeral path and S18) | One common rule (5.3, item 6). **Before S18 is accepted:** no output path that uses phase O is wired, neither J2c's nor J3d's. Item 6's ephemeral rule stays as written: phase A only, under WS's before-settle rule. **Once S18 is accepted:** both paths use A (D only where a Run committed), then the output decision point, then O, then E. J2c is gated on S18 exactly as J3d is. New ephemeral controls go before the decision point, inside O and after settlement (J-C14c). |
-| J1-R2-NB-01 (recording a signal in phase O) | Adopted. "Recorded with arrival phase O" means: the host cancellation source classifies the signal in memory, and the SOP2 event is attempted with the new `CancelPhase` member `O` (an ordinary registration, SOP2:205-208). After the freeze it counts as post-freeze loss (SOP2:663). No sink is reopened, and the frozen diagnostics do not change. S12-O and J-C14 check the in-memory classification, never a persisted record. |
+r1 (`PROPOSAL-r1.md`, sha256 `ff5cb156…`, 75,581 bytes) was reviewed by CODEX2 (`reviews/codex2-host-pipeline-j-r1`; REQUIRED-FINDINGS, 7 required, 2 non-blocking). r2 answers all nine. Every other r1 decision stands, and CODEX2 found the rest sound.
 
 ## r2 changes and review responses
 
@@ -28,7 +17,7 @@ r2 (`PROPOSAL-r2.md`, sha256 `f7efb87a…`, 100,981 bytes) was reviewed by CODEX
 | J1-R5 (J3d's dependencies) | J3d depends on F2 and G3 again (M3P:217, :309). The critical path is restated (item 14). |
 | J1-R6 (refusal families) | Matrix rows 52 to 55 cover native contexts and universe binding (NE:3530), the preparation bound (NE:3531), ambient Cargo configuration (NE:3532; M3C:674) and the authenticated release declaration (NE:3540, :3574). The new control is J-C20b. |
 | J1-R7 (audit at M4) | Item 1: the M4 CLI unit replaces the `opensip`, `analyze` and `fit` refusals. `audit`'s refusal stays until its M5 comparison prerequisite exists (BP:955). X11:28's "all four at once" is reconciled per command. |
-| J1-N1 (latch minting and window) | Adopted: the latch is minted once per operation, and its window is two bits of the gate's own atomic word. The window is closed on every return of `prepare_commit` and `publish` (8.1). **r3:** that close is withdrawn for `Ok(PreparedCommit)` (J1-R2-01). |
+| J1-N1 (latch minting and window) | Adopted: the latch is minted once per operation, and its window is two bits of the gate's own atomic word. The window is closed on every return of `prepare_commit` and `publish` (8.1). |
 | J1-N2 (SOP2's implementation) | Adopted: J3d depends on O1 (M3P:221, :314). |
 | Context | M3-PLAN r6 is accepted (`a6956e88…`). M3-C r5 is accepted in review (`7f76052d…`) and takes effect once M3-L and X12 r4 are accepted. X12 r4 and X2 r9 are accepted by Grok. S-OP-2 is cited by its r4 bytes while r5 is in progress. M2 is complete. Every citation and pin is renewed. |
 
@@ -359,11 +348,8 @@ The durable request runs this order. Each row ends with a typed value the next r
   - **Step 1** is terminal only when its required work is done: projection, rendering and the output of the required envelope (X7:85; `finalization.rs:310-318`). It completes when `deliver_required` returns `Ok`. It fails when the renderer, the output or the flush fails.
 - **The settlement point** is the moment step 1 becomes terminal. The invocation is settled there, and not earlier (WS:224-228; OPP:337-338).
 - **The output decision point** (8.4) comes before settlement. It fixes which envelope is rendered: the decided class, or `interrupted` for a signal observed in D. It does not make step 1 terminal.
-- **The final output section, phase O,** runs from the decision point to the settlement point. A signal observed there is deferred: it is recorded with arrival phase O (8.2) and never changes the envelope already decided. This is a cancellation-deferral exception to WS's before-settle rule (WS:224-226), forced by the single required envelope (`bootstrap.rs:57-58`; L464:32).
-  - J1 does not claim the existing rule covers it. Successor **S18** reconciles it with the WS and OPP owners (item 13).
-- **One common rule, and one gate (r3, J1-R2-03).** The durable and ephemeral step lists share the same required render step (5.1), so the rule is the same for both:
-  - **Before S18 is accepted,** no unit wires an output path that uses phase O. That means neither J3d's durable output nor J2c's ephemeral output. Every rule stands as WS:224-228 writes it. Authoring and testing the pure state models, and every part of J2c and J3d short of output wiring, may go ahead.
-  - **Once S18 is accepted,** both paths use the same phases: A (and D, only where a Run committed), the output decision point, O, then E (8.2). J2c and J3d are gated on S18 alike (item 14).
+- **The final output section, phase O,** runs from the decision point to the settlement point. A signal observed there is deferred: it is recorded with arrival phase O and never changes the envelope already decided. This is a cancellation-deferral exception to WS's before-settle rule (WS:224-226), forced by the single required envelope (`bootstrap.rs:57-58`; L464:32).
+  - J1 does not claim the existing rule covers it. Successor **S18** reconciles it with the WS and OPP owners (item 13), and J3d's output code is gated on S18's acceptance.
 - Interruption follows item 8 (WS:224-231).
 
 **5.4 The choices M3-C hands J1.**
@@ -398,8 +384,7 @@ The durable request runs this order. Each row ends with a typed value the next r
     It reads no store and takes no lease. Then the read session's equivalent release (M3B:336; X2:84) comes before the capture session.
   - **I positively absent.** There is no session. Layer 2 is absent: "absent is no layer" (M3B:91). Joins E-1 to E-3 then apply.
   - **I present but incomplete.** The request refuses on the read path's row (L468:46). It never degrades to the absent shape.
-  - **The projection.** X7 item 2's ephemeral projection: authority `ephemeral`, no runId (DR-G27; X7:87-93). A failing verdict is policy-failed 1 with `authority: ephemeral` (WS:247-248). Custody is temporary (5.4a).
-  - **Cancellation (r3, J1-R2-03).** Before S18 is accepted, cancellation has phase A only, under WS's before-settle rule, and J2c wires no output (5.3). Once S18 is accepted, the common rule applies: A runs through step 1's projection to the output decision point, with cooperative cancellation and no commit gate; then O, the deferred final output; then E, after actual required-step terminality. Phases B, C and D never occur, because an ephemeral request has no commit.
+  - **The projection.** X7 item 2's ephemeral projection: authority `ephemeral`, no runId (DR-G27; X7:87-93). A failing verdict is policy-failed 1 with `authority: ephemeral` (WS:247-248). Custody is temporary (5.4a). Cancellation has phase A only (item 8).
 - **Joins owed by other laws.** J2c, the ephemeral entry end to end, waits on all four. J2a and J2b do not.
 
 | Join | Owner | Need | Lead recommendation |
@@ -463,20 +448,16 @@ The operation's one `FinalGate` (X4:44, :115-116; `commit_authority.rs:26-48`) a
 - **The type, minted once per operation (r2, J1-N1).** `CommitSession::take_cancellation_latch(&mut self) -> Option<CancellationLatch>` returns `Some` once per operation and `None` after that. The latch is security-owned and `Send`. It is not `Clone` or `Default`, not serializable and not constructible. Its one-use method is `latch(self, signal: D9Signal) -> LatchOutcome`. So single use holds per operation, not only per token.
 - **Its window, in the gate's own atomic word (r2, J1-N1).** The `FinalGate`'s `AtomicU8` (`commit_authority.rs:26-48`) gains two window bits, beside the two state bits that X4's law already fixes. They are `WINDOW_OPEN` and `WINDOW_CLOSED`, and only the cancellation latch reads them.
   - **Opening.** `WINDOW_OPEN` is set, with one `fetch_or`, when `prepare_commit`'s attempt row commits (X3D:130-133).
-  - **Closing (r3, J1-R2-01).** `WINDOW_CLOSED` is set, with one `fetch_or` whose returned prior value is the sample, **exactly in the step that produces the operation's `StoppedSession`**. That is every terminal return and no continuing one:
-    - **`prepare_commit`'s error returns** (`Refused`, `CommitUndetermined`, `CarrierCapacityExhausted`, `ExistingAttempt`). Each comes with a `StoppedSession` (X3D:174-180; `crates/storage/src/commit.rs:465-557`). The window may never have opened: `ExistingAttempt` and an undetermined attempt-row `COMMIT` precede it. The close is still set, so a later latch is a no-op.
-    - **Every return of `publish`** (`crates/storage/src/commit.rs:571`; X3D:141-156):
-      - `Committed`, where the returned state bits are the `latchedAfterAdmission` sample (`commit_session.rs:953-954`);
-      - `Refused`;
-      - `CommitUndetermined`.
-    - **`CommitSession::refused()` and `undetermined()`** (`commit_session.rs:529-545`). An A-phase session whose window never opened is closed too.
-    - **`Ok(PreparedCommit)` is not a return that closes.** It is a continuing result, and the window stays open from the attempt row's commit through `publish`. That is the span phases B and C need (8.2), and the span S12-B, S12-C and S12-U hold in.
-    - **A `PreparedCommit` dropped without `publish`** (a panic or abort) leaves the window open on an operation that admits no further effect. Its only consequence is recovery evidence (X3D:213), and no permit can follow, because `publish` consumes the only path to the permit.
+  - **Closing.** `WINDOW_CLOSED` is set, with one `fetch_or` whose returned prior value is the sample, on every return of `prepare_commit` and `publish`:
+    - `Committed`, where the returned state bits are the `latchedAfterAdmission` sample (`commit_session.rs:953-954`);
+    - `Refused`;
+    - `CommitUndetermined`;
+    - `CarrierCapacityExhausted`;
+    - `ExistingAttempt`.
 
     The close is ordered before any later effect of the return path.
   - **The synchronization order.** `latch` is one compare-exchange loop on the same word. It succeeds only while `WINDOW_OPEN` is set and `WINDOW_CLOSED` is clear, and then it sets the latch bit (`commit_authority.rs:40-44`) in the same exchange. The `x4.gate.latch.after` point fires after it.
-    - All of `admit`'s compare-exchange, the latch, the opening and the close are on one atomic, in one total order (SeqCst).
-    - Every compare-exchange loop (`admit`, the cancellation latch) matches and changes only the two state bits, and it carries the window bits through unchanged. The opening and the close are `fetch_or`s, so they cannot clear a state bit. No step resets either kind of bit.
+    - All of `admit`'s compare-exchange, the latch and the close are on one atomic, in one total order (SeqCst).
     - A latch is therefore either before the close, and so seen by the sample, or after it, and so a no-op returning `OutsideWindow`.
     - Outside the window, `latch` changes nothing.
   - **Results inside the window.** `latch` records `StopCause::Operator { signal }` only if it is the operation's first stop (`operation_guard.rs:99-106`). It returns `BeforeAdmission` (0→2), `AfterAdmission` (1→3) or `AlreadyStopped`.
@@ -493,7 +474,7 @@ The operation's one `FinalGate` (X4:44, :115-116; `commit_authority.rs:26-48`) a
 
 **8.2 The five phases, and the final output section.**
 
-A phase is fixed by the operation's state when the host **observes** the signal: at once by the latch watcher in B and C, or at the main thread's next decision point in A and D. SOP2's `host.signal.received` record keeps the arrival phase (SOP2:815). Phase O (r2) lies between OPP's D and E. It is the deferral exception of 5.3, and it is not one of OPP's five. **(r3)** The table is the durable path's. An ephemeral request has A, which runs to the output decision point, then O and E, and never B, C or D (item 6). It uses O only once S18 is accepted (5.3).
+A phase is fixed by the operation's state when the host **observes** the signal: at once by the latch watcher in B and C, or at the main thread's next decision point in A and D. SOP2's `host.signal.received` record keeps the arrival phase (SOP2:815). Phase O (r2) lies between OPP's D and E. It is the deferral exception of 5.3, and it is not one of OPP's five.
 
 | Phase | Interval (code anchor) | What the signal does | Projection | Durable effect |
 |---|---|---|---|---|
@@ -501,7 +482,7 @@ A phase is fixed by the operation's state when the host **observes** the signal:
 | **B.** Attempt admitted, before FinalGate admission | From the committed attempt row until the compare-exchange at `publish` step 3.9 (`commit_session.rs:930`) | The latch takes the gate 0→2 and records `Operator`. The next checkpoint (3.2, 3.7 or 3.9) refuses: no permit, the staged transaction rolls back, and a durable SEAL stays history (F36, F38). `finish` appends `REV(operator)`, plus `CLN` if a SEAL exists, from the settlement reserve. | per 8.3: `interrupted` 130, as A, unless an uncertain journal commit or barrier came first, which takes rule 1. | The attempt row stays `admitted` until X6's sweep settles it `refused` (X6 item 7). Orphan objects remain. |
 | **C.** FinalGate admitted | From state 1 until `publish`'s sample (`commit_session.rs:953-954`) | The latch takes the gate 1→3. The evidence `COMMIT`'s own outcome stands (X3D:170; F39, F40). `finish` appends `REV(operator)` only after `Committed`, because an undetermined outcome forfeits the reserve (X3D:253-258). | per 8.3, matched on the outcome `publish` returned, never on the gate's state: **`CommitUndetermined`** is operational-failed 4, `DURABILITY.COMMIT_FAILED`, `durability-commit`, the ExecutionId as subject, the namespace disclosed, and no runId (X7:101, :120); **`Committed(PublishedCommit)` with `latchedAfterAdmission`** is X7's F39 row (X7:100): operational-failed 4, `DELIVERY.REQUIRED_FAILED`, `delivery-required`, detail `DELIVERY.RENDERER_FAILED_AFTER_COMMIT`, the runId, no delivery phase (SL:551-554). Neither is `interrupted`. | The Run is committed, or undetermined. |
 | **D.** Committed, not latched; step 1 cancellable | From `publish` returning `Committed` unlatched (the window is closed) until the output decision point. It includes `finish` and step 1's projection. | There is no latch. `finish` runs to completion. At the decision point, step 1 is `cancelled` and its projection is discarded. | `interrupted` 130 on `kind: run`, with `run.authority: authoritative`, the runId, and `termination {class: interrupted, signal, runId}` (WS:224-227; WFC:4720). This envelope is the invocation's termination output. It is rendered and written in its own final output section. | The Run is committed. No REV is owed for the signal. |
-| **O.** Final output section (r2; S18; durable and ephemeral alike, r3) | From the output decision point until the required output returns (5.3) | **Deferred.** It never changes the decided envelope. **"Recorded with arrival phase O" (r3, NB-01)** means three things: the host cancellation source classifies the signal as O in memory; SOP2's `host.signal.received` is attempted with the new `CancelPhase` member `O` (an ordinary registration, SOP2:205-208); and because O follows SOP2's freeze, that event is post-freeze loss (SOP2:663). No sink is reopened and the frozen diagnostics are unchanged. A second signal waits for an in-flight write, as for any native effect (OPP:341). **A renderer failure inside O, before any byte (r3, J1-R2-02),** replaces the decided envelope with the failure envelope, built through J2a's total projection (item 10), chosen by the committed evidence: <br>- **a `PublishedCommit` exists:** X7's F16 row (X7:99; WS:1376), operational-failed 4, `DELIVERY.REQUIRED_FAILED`, `delivery-required`, `DELIVERY.RENDERER_FAILED_AFTER_COMMIT`, keeping its runId; <br>- **no committed Run** (an ephemeral result, a refusal before the commit, a `CommitUndetermined`, an interrupt with no Run): WS:1377's row 44, operational-failed 4, `DELIVERY.REQUIRED_FAILED`, `delivery-required`, `DELIVERY.REQUIRED_PROJECTION_FAILED`, with no runId. <br>Either way, WS:233-240's aggregate decides the termination over both required steps. An uncertain step 0 keeps its ExecutionId and namespace disclosure (X7:101, :120), through WS:1409-1411's composition of a termination's `executionId`. No Run is manufactured. **A write failure after the first byte**, including one whose call cannot prove that no byte escaped, ends exit 4 with no replacement envelope (`bootstrap.rs:55-60`). If the failure envelope itself cannot be rendered, the invocation ends exit 4 with the one coded standard-error line, as `bootstrap.rs:42-47` does. | the decided envelope, or the failure envelope above; the exit follows it | as decided |
+| **O.** Final output section (r2; S18) | From the output decision point until the required output returns (5.3) | **Deferred.** It is recorded with arrival phase O and never changes the decided envelope. A second signal waits for an in-flight write, as for any native effect (OPP:341). A renderer failure inside O takes X7's F16 row in place of the decided envelope, before any byte is written. A write failure after the first byte ends exit 4 with no replacement envelope (`bootstrap.rs:55-60`). | the decided envelope; the exit follows it | as decided |
 | **E.** Settled | After the settlement point (5.3) | Nothing is reclassified. The signal is recorded only. | The settled class stands (WS:227-228, WS:1393; WFC:4650). | none |
 
 **8.3 Precedence (lead decision; r2, J1-R1).** For a signal observed before settlement, the rule matches the outcome X3d actually returned first. The gate's state 3 alone proves neither a commitment nor a RunId (X3D:170; X7:100-101; `commit_session.rs:939-958`, where an undetermined `COMMIT` builds no `PublishedCommit`). The first rule that applies decides:
@@ -521,7 +502,7 @@ When another stop came first (`AlreadyStopped`), or a certain refusal ended the 
 - **The output decision point** is the single cancellation check after `finish` and step 1's projection. It comes before SOP2's finalization, because SOP2 finalizes once, "after the command's result is decided and before the required envelope is rendered or written" (SOP2:623). It decides which envelope the final output section renders. It does not make step 1 terminal (5.3).
 - **Phase O defers a signal.** The required envelope is one, and once its first byte is written no replacement may follow (`bootstrap.rs:57-58`; L464:32). The envelope also carries its own `exitCode` (ENV7 `exitCode`), so a signal that changed the class mid-section would contradict bytes already decided or written. O therefore records the signal and defers it.
   - **This is an exception to WS:224-226's before-settle rule,** because step 1 is not terminal in O. J1 does not claim the existing rule covers it.
-  - **S18** reconciles the exception with the WS owner (WS §1's cancellation paragraph) and the OPP owner (OPP §5.5's phase table) as a passage successor. **Every** output path that uses O is gated on S18's acceptance, J2c's ephemeral output as well as J3d's durable output (r3, J1-R2-03). Until then, both units may land everything except their output wiring.
+  - **S18** reconciles the exception with the WS owner (WS §1's cancellation paragraph) and the OPP owner (OPP §5.5's phase table) as a passage successor. J3d's output code is gated on S18's acceptance. Until then, J3d's other parts may land with their output path unwired.
   - **Its bound.** The section's length is SOP2's bounded finalization (SOP2:623-650) plus one rendering and one output. A blocked output has no elapsed bound (OPP:341), and that is stated, not hidden.
 - **Rejected:**
   - **X7's latched row for D.** It would report a delivery failure that did not happen. X7's F39 row means the commit observed a latch after admission (X7:100).
@@ -539,7 +520,7 @@ When another stop came first (`AlreadyStopped`), or a certain refusal ended the 
 
 **8.6 What changes in X3D and X7.**
 - **X3d r9 (S10):**
-  - item 5: the third latch source; `take_cancellation_latch`, minted once per operation; and the window, opened at the attempt row's commit, kept open across `Ok(PreparedCommit)`, and closed only where a `StoppedSession` is produced (8.1; r3, J1-R2-01);
+  - item 5: the third latch source; `take_cancellation_latch`, minted once per operation; and the window, closed on every return of `prepare_commit` and `publish` (8.1);
   - items 7 and 8: `StopCause::Operator` and the REV reason `operator`, with the reserve cost unchanged;
   - item 9: `InstallationTermination::Interrupted { signal }`, row "operator stop", projected by X7;
   - item 13: unit J3b;
@@ -550,7 +531,7 @@ When another stop came first (`AlreadyStopped`), or a certain refusal ended the 
 - **X7 r7 (S9):**
   - item 1: item 7's order;
   - item 3: a new row, `Refused(Interrupted { signal })`, projected as the A/B `interrupted` envelope. The F39 and `CommitUndetermined` rows are unchanged, and are named as applying whatever the latch source. They are selected by the returned outcome, `CommitUndetermined` first (8.3);
-  - item 4: step 1's terminality and the settlement point (5.3), the output decision point, phase D's row and phase O's deferral (8.4, under S18). X7a's `DeliveryPhase::render` (`finalization.rs:256-262`) splits into a projection, which is cancellable in D, and the rendering of the decided envelope, which happens in O. In O, a renderer failure takes F16 only when a `PublishedCommit` exists, and WS:1377's no-Run row otherwise (r3, J1-R2-02);
+  - item 4: step 1's terminality and the settlement point (5.3), the output decision point, phase D's row and phase O's deferral (8.4, under S18). X7a's `DeliveryPhase::render` (`finalization.rs:256-262`) splits into a projection, which is cancellable in D, and the rendering of the decided envelope, which happens in O;
   - item 8: the termination type's interrupted branch, still with no wildcard arm;
   - new forbidden substitutes: projecting D as F39; F39 for a `CommitUndetermined`; re-deciding the envelope after the output decision point; and a replacement envelope after output has begun.
 
@@ -560,24 +541,8 @@ When another stop came first (`AlreadyStopped`), or a certain refusal ended the 
   - "`CommitUndetermined` → exit 4 with the ExecutionId", including **a latch 1→3 followed by an undetermined evidence `COMMIT`**, which must never give F39 or a runId (8.3, rule 1; r2, J1-R1);
   - "a signal in D → exit 130 with the runId";
   - "a signal in O → the decided envelope and its exit, with the signal recorded as O";
-  - "a renderer failure in O → the failure envelope chosen by committed evidence, with no byte of the decided envelope written" (J-C14b).
-- **J-C14b (r3, J1-R2-02).**
-  - A durable `Committed` Run whose renderer fails before any byte gives F16, with the runId kept and `DELIVERY.RENDERER_FAILED_AFTER_COMMIT`.
-  - An ephemeral result whose renderer fails before any byte gives `DELIVERY.REQUIRED_PROJECTION_FAILED`, with no runId, and so does the rendering of a pre-commit refusal.
-  - A `CommitUndetermined` whose failure envelope's renderer fails keeps the ExecutionId disclosure and has no runId.
-  - A write failure after the first byte gives exit 4 with no replacement envelope.
-  - An unrenderable failure envelope gives exit 4 and the one coded line.
-- **J-C14c (r3, J1-R2-03).** The ephemeral path:
-  - A signal before the output decision point (analysis, evaluation, or step 1's projection) gives `interrupted` 130 on the empty-errors branch, with no runId and no durable effect. This holds before and after S18.
-  - **Once S18 is accepted, and gating J2c's output wiring:** a signal inside O gives the decided ephemeral envelope and its exit, with the signal classified as O in memory; a signal after settlement reclassifies nothing.
-- **J-C15.** `CancellationLatch` changes nothing outside its window. `take_cancellation_latch` returns `None` the second time. A second `latch` on one token is refused at compile time. `AlreadyStopped` keeps the first cause's REV reason. **(r3)** A latch racing each closing return is either seen by that return's sample or is a no-op. The closing returns are the four `prepare_commit` errors, the three `publish` returns, and `refused()` and `undetermined()`. The window bits survive every `admit` and latch exchange.
-- **J-C15b (r3, J1-R2-01).** First obtain `Ok(PreparedCommit)`, then assert the window is still open. Then cancel during `publish` at:
-  - the journal transaction's start (3.1);
-  - after the SEAL (3.6);
-  - before the final checkpoint;
-  - after admission and before the evidence `COMMIT`.
-
-  The projections and durable effects are phase B's or C's (8.2): `REV(operator)`, F38's rollback, and F39 or F40 by the returned outcome. A latch after `Ok(PreparedCommit)` and before `publish` is called is seen by `publish`'s first checkpoint.
+  - "a renderer failure in O → F16, with no byte of the decided envelope written".
+- **J-C15.** `CancellationLatch` changes nothing outside its window. `take_cancellation_latch` returns `None` the second time. A second `latch` on one token is refused at compile time. A latch racing each of the five closing returns is either seen by that return's sample or is a no-op. `AlreadyStopped` keeps the first cause's REV reason.
 - **J-C16.** An injected stall in the evidence `COMMIT` and in a barrier, with a second signal: the process keeps waiting, invents no refusal, and projects per X7 once the call returns.
 - **J-C17.** X9 rows S12-B, S12-C, S12-U, S12-D and S12-O (S12, item 12).
 
@@ -655,12 +620,12 @@ Every row uses an existing D9 class, error code, fault cause and detail. **No pu
 | 40 | Carrier capacity exhausted | operational-failed / 4 | `LEDGER.BUSY_TIMEOUT` / ledger-busy | `PROJECT.BUSY`, with the rollover disclosed beside | none | X7:104, :165-177 |
 | 41 | Capacity preflight (once S-OP-8 is accepted) | operational-failed / 4 | `HOST.IO_FAILURE` / host-io | as S-OP-8 fixes | none | OPP:294 |
 | 42 | `Committed(PublishedCommit)` with `latchedAfterAdmission` (observer or signal), selected by the returned outcome, never by state 3 alone (8.3, rule 2) | operational-failed / 4 | `DELIVERY.REQUIRED_FAILED` / delivery-required | `DELIVERY.RENDERER_FAILED_AFTER_COMMIT` | the `PublishedCommit`'s runId | X7:100; SL:551-554 |
-| 43 | Required renderer or output failure when a `PublishedCommit` exists, including inside phase O (r3) | operational-failed / 4 | `DELIVERY.REQUIRED_FAILED` / delivery-required | `DELIVERY.RENDERER_FAILED_AFTER_COMMIT` | runId | WS:1376; X7:99 |
-| 44 | Required projection or renderer failure with no committed Run, including inside phase O (r3): an ephemeral result, a pre-commit refusal, a `CommitUndetermined` (its ExecutionId disclosure kept), or an interrupt with no Run. Aggregated with step 0 under WS:233-240. | operational-failed / 4 | `DELIVERY.REQUIRED_FAILED` / delivery-required | `DELIVERY.REQUIRED_PROJECTION_FAILED` | none (an uncertain step 0's executionId kept) | WS:1377; WS:233-240; X7:101 |
+| 43 | Required renderer or output failure after commit | operational-failed / 4 | `DELIVERY.REQUIRED_FAILED` / delivery-required | `DELIVERY.RENDERER_FAILED_AFTER_COMMIT` | runId | WS:1376; X7:99 |
+| 44 | Required projection failure with no committed Run | operational-failed / 4 | `DELIVERY.REQUIRED_FAILED` / delivery-required | `DELIVERY.REQUIRED_PROJECTION_FAILED` | none | WS:1377 |
 | 45 | End-path settlement, end-step or rollover failure | disclosed beside the outcome; never rewrites it | its own row | its own row | — | X3D:289; X7:141-150 |
 | 46 | Signal: phase A or B | interrupted / 130 | — | `signal` | none | 8.2; WS:224-227 |
 | 47 | Signal: phase D (before the output decision point) | interrupted / 130 | — | `signal` | runId | 8.2; WFC:4720 |
-| 48 | Signal: phase O (deferred, durable or ephemeral, only once S18 is accepted) or E; optional output failure | the decided or settled class | unchanged | unchanged | unchanged | 5.3; 8.4; WS:1393; X7:106 |
+| 48 | Signal: phase O (deferred under S18) or E; optional output failure | the decided or settled class | unchanged | unchanged | unchanged | 5.3; 8.4; WS:1393; X7:106 |
 | 49 | Host panic before or after FinalGate admission | operational-failed 4, host-invariant, where the termination layer is reachable after unwinding / nothing manufactured | `SYSTEM.OUTCOME.ILLEGAL_STATE` | — | none / unchanged | OPP:296-297; X3D:213 |
 | 50 | Observability loss (SOP2) | none, ever | — | counters only | — | OPP:298; SOP2:710 |
 | 51 | `--ephemeral` with an authority prerequisite (not reachable at M3) | request-rejected / 2 | `REQUEST.UNSATISFIABLE` | `WORKFLOW.EPHEMERAL_CANNOT_SUPPLY_AUTHORITY` | none | WS:246; CINV `analyze-ephemeral-required-authority` |
@@ -711,7 +676,7 @@ M3P r6 assigns both M2 carry-ins outside J1: re-commit to X3c r8 and X3c-3 (P5-2
   - **S12-U:** S12-C with `fail-after` at `x3c.evidence.commit`; the expectation is F40's, never `interrupted`;
   - **S12-U (r2, J1-R1):** this is the row that pins 8.3's rule 1: a latch 1→3 followed by an undetermined evidence `COMMIT` gives the durability row, never F39 or a runId;
   - **S12-D (r2, J1-R2):** in a host run, a hold at `x3d.finish.end-step.after` (F15's point), which is after `finish` and before the output decision point, so a genuinely cancellable phase D point. Then a signal, then a resume. The expectation is `interrupted` with the runId, the Run committed (R1 CH), and no byte of a success envelope;
-  - **S12-O (r2, J1-R2; r3, NB-01):** a host hold at `x7.delivery.required.before`, which is inside the final output section, after the output decision point and SOP2's finalization. Then a signal, then a resume. The expectation is the decided envelope and its exit, the Run committed, and the signal **classified as O by the host cancellation source in memory**. No persisted log record is expected: the SOP2 event is post-freeze loss (SOP2:663). This row exercises S18's deferral, and it is transcribed only once S18 is accepted.
+  - **S12-O (r2, J1-R2):** a host hold at `x7.delivery.required.before`, which is inside the final output section, after the output decision point and SOP2's finalization. Then a signal, then a resume. The expectation is the decided envelope and its exit, the signal recorded with arrival phase O, and the Run committed. This row exercises S18's deferral, and it is transcribed only once S18 is accepted.
 - **Census.** Item 7 adds no durability point. S-OP-12 adds none: it reuses `x4.gate.latch.after`, and its window bits are in memory. The ExecutionId reservation is in memory too (item 2). The REV reason `operator` adds one end-path body inside the existing reserve.
 
 ### 13. Successors
@@ -728,8 +693,8 @@ M3P r6 assigns both M2 carry-ins outside J1: re-commit to X3c r8 and X3c-3 (P5-2
 | S7b | M3-B and X2 successor (E-1); M3-C (E-2); M3-C item 7 and X4T (E-3, E-4) | B, C, trust owners | item 6's joins | J2c |
 | S8 | X5 r4 | host | item 3's order (item 7) | J3b |
 | S9 | X7 r7 | host | items 1, 3, 4 and 8 (items 7 and 8) | J3b |
-| S10 | X3d r9 | security, storage | 8.1 and 8.6, with the window closed only where a `StoppedSession` is produced (r3); the `refused()` record; item 2's reservation at `open` | J3a (item 2), J3b |
-| S11 | X4 r8 (amendment; r2, r3) | security | the cancellation latch as a gate source; the two window bits in the gate's word, preserved by every compare-exchange loop and never reset (8.1) | J3b |
+| S10 | X3d r9 | security, storage | 8.1 and 8.6; the `refused()` record; item 2's reservation at `open` | J3a (item 2), J3b |
+| S11 | X4 r8 (amendment; r2) | security | the cancellation latch as a gate source, and the two window bits in the gate's word (8.1) | J3b |
 | S12 | X9 r17 (record and rows) | lead | re-transcribed host drivers; rows S12-B, -C, -U, -D and -O (-O after S18) | J3b, J3d |
 | S13 | J-BS (contract) | workflows/identity | item 9; after F8b's execution | J3d |
 | S14 | X3c r8 and X3c-3 (M3P P5-2, M3P:576-578) | storage | re-commit (item 11). J1 needs only its outcome. | J3d |
@@ -737,7 +702,7 @@ M3P r6 assigns both M2 carry-ins outside J1: re-commit to X3c r8 and X3c-3 (P5-2
 | S15 | S-OP-12 closed | OPP §9 | item 8 with S9 to S11. OPP's next revision cites it. | — |
 | S16 | S-B (M3-C) | native | the bounded projections (5.4c) | J units that reach them |
 | S17 | M3-PLAN's next revision (record) | lead | the J row and its units (item 14); "J1 fixes the order" done; M3-C's "J1 chooses" items answered | — |
-| S18 | **The final-output-section successor (r2, J1-R2):** a passage successor to WS §1's cancellation paragraph (WS:224-231) and to OPP §5.5's phase table (OPP:330-340) | the WS owner (product workflows) and the OPP owner (CLI and operability) | Step 1 is terminal when its required output returns. From the output decision point to that moment, a signal is classified as phase O and deferred: it never changes the decided envelope or its exit. The rule is the same for the durable and the ephemeral path (r3). A renderer failure there, before any byte, takes the failure envelope chosen by committed evidence: F16 with the runId when a `PublishedCommit` exists, otherwise WS:1377's no-Run row, both under WS:233-240 (r3). A write failure after the first byte ends exit 4 with no replacement envelope (5.3, 8.2, 8.4). `CancelPhase` gains `O` by SOP2's ordinary registration (SOP2:205-208). It adds no class, code or exit. | **every** output path that uses O: J2c's and J3d's output wiring (r3); S12-O |
+| S18 | **The final-output-section successor (r2, J1-R2):** a passage successor to WS §1's cancellation paragraph (WS:224-231) and to OPP §5.5's phase table (OPP:330-340) | the WS owner (product workflows) and the OPP owner (CLI and operability) | Step 1 is terminal when its required output returns. From the output decision point to that moment, a signal is recorded with arrival phase O and deferred: it never changes the decided envelope or its exit. A renderer failure there takes F16 before any byte; a write failure after the first byte ends exit 4 with no replacement envelope (5.3, 8.2, 8.4). It adds no class, code or exit. | J3d's output code; S12-O |
 
 Not successors: X12r4, whose first-use clause J1 implements unchanged; and S-OP-2, whose finalization point J1 places (SOP2:623).
 
@@ -749,10 +714,10 @@ Each unit is reviewed on its own. J4 is listed for its interface only; J-RW owns
 |---|---|---|---|
 | **J2a** | `host/src/invocation.rs`: the typed request, the step lists, the join state machine, settlement, the cancellation source and phase recording. `outcomes.rs`: NE §10's deficiency-to-D9 bridge, the route and origin tables (NE:3364-3374, :3523-3575), and item 10's total projection. Pure, with no I/O. Tests: the WFC cases and D9 goldens. | P0, J1 | M |
 | **J2b** | `host/src/analysis.rs`: the shared analysis core from the capture session through evaluation (J-δ to J-θ), on scratch projects with labelled synthetic closures. It is mode-agnostic and opens no installation. | J2a, and M3P's J2 set: H, C4a, C4c, X12d and its lead set, D3, CF-2, I1-b2, X4-F1 and X4-F2 (M3P:217, :309). Its provider stages also need O7 and D1's primitive (M3P:476). | L |
-| **J2c** | The ephemeral entry end to end (item 6). Its output wiring, and J-C14c's O and E cases, wait for S18 (r3, J1-R2-03). Everything else may land before. | J2b, S3, S7b; **S18** for output wiring | M |
+| **J2c** | The ephemeral entry end to end (item 6). | J2b, S3, S7b | M |
 | **J3a** | Platform and security: `RequestIdentity` and `ExecutionIdReservations` (item 2); the durable entry, its probe, the two-slot attempt and `EntryRefusal` (item 3); the S2 to S7 code; `open`'s reservation (S10, item 2). Tests J-C2, J-C4, J-C4b and J-C5 to J-C9, with J-C6b. | J1, S2-S7, S10's item 2 | L |
 | **J3b** | X3d r9, X4 r8, X7 r7 and X5 r4 code: `take_cancellation_latch`, the window bits, `Operator`, the `refused()` uses, `finalize`'s new signature, step 1's terminality, the output decision point. S12's rows S12-B, -C, -U and -D. | J3a, S8-S12 | L |
-| **J3d** | The durable pipeline end to end, R0 to the settlement point; J-BS (S13); `workflow_tests.rs`; J-C10 to J-C21 and J-C20b. Its final output section, its output wiring and row S12-O wait for S18, as J2c's do. | J2b, **F2 and G3** (M3P:217, :309; r2, J1-R5), J3a, J3b, X3c-3 and its rows, **O1** for SOP2's finalization (M3P:221, :314; r2, J1-N2), S13, S16, S18 | L |
+| **J3d** | The durable pipeline end to end, R0 to the settlement point; J-BS (S13); `workflow_tests.rs`; J-C10 to J-C21 and J-C20b. Its final output section, and row S12-O, wait for S18. | J2b, **F2 and G3** (M3P:217, :309; r2, J1-R5), J3a, J3b, X3c-3 and its rows, **O1** for SOP2's finalization (M3P:221, :314; r2, J1-N2), S13, S16, S18 | L |
 | **J4** | J-RW's code unit (M3P P5-1), outside J1. It reaches the pipeline only through item 3's entry. | J-RW | L |
 
 **Critical path (r2, J1-R5).** M3P r6 sizes J2 → J3 at 3 + 3, finishing on days 25 and 28. J3 needs J2, F2, G3, X3c-3 and its rows; J4 needs J-RW, not J3 (M3P:309-311, :322, :572-578). Under this breakdown:
@@ -785,9 +750,6 @@ Each unit is reviewed on its own. J4 is listed for its interface only; J-RW owns
 - A signal latch outside its window, minted twice for one operation, or used as authority; a cancellation reported as a value to keep a ledger open (X3D:383).
 - Selecting F39 from the gate's state rather than from a returned `Committed(PublishedCommit)`; F39 or a runId for any `CommitUndetermined` (r2); projecting a `Committed` with a latch, or any `CommitUndetermined`, as `interrupted`; projecting phase D as X7's F39 row.
 - Calling the output decision point settlement; re-deciding the envelope after it; a replacement envelope after output has begun (r2); rewriting a settled class (WS:1393).
-- (r3) Closing the window on `Ok(PreparedCommit)`, or anywhere a `StoppedSession` is not produced; a compare-exchange that drops the window bits.
-- (r3) F16, or a runId, for a renderer failure with no `PublishedCommit`; an uncertain step 0's ExecutionId dropped from the failure envelope.
-- (r3) Wiring any output path that uses phase O, durable or ephemeral, before S18 is accepted; requiring a persisted log record of an O signal after SOP2's freeze.
 - `audit`'s refusal replaced before its M5 comparison step exists (r2).
 - A `backupStatus` without `firstUse`, or `not-backed-up` from a missing detector.
 - An ephemeral write, lease, registration, bootstrap, creation, runId or authoritative label.
@@ -810,7 +772,7 @@ Each unit is reviewed on its own. J4 is listed for its interface only; J-RW owns
 - **R2.** Does the two-slot attempt (S3) keep the purposes of the one-attempt rule, which are no laundered budget and no reused receipt?
 - **R3.** Is opening the session at the handoff (item 7) sound against X5 item 3 and IE:1657-1658, with X3d unchanged?
 - **R4.** Is the latch window (8.1), now in the gate's own word and closed on every return, the right boundary for phases B and C? Does 8.3's outcome-first precedence close J1-R1 against X3D:170 and X7:100-101?
-- **R5 (r3).** Do 8.1's open-across-`Ok(PreparedCommit)` window (J1-R2-01), 8.2's evidence-dependent renderer route (J1-R2-02) and 5.3's common S18 gate (J1-R2-03) close the r2 findings? The r2 question follows. Do 5.3, 8.2 and 8.4 close J1-R2? That is: step 1 terminal only when its output returns; the output decision point not called settlement; phase O routed as an exception through S18; S12-D at a cancellable D point and S12-O inside O.
+- **R5.** Do 5.3, 8.2 and 8.4 close J1-R2? That is: step 1 terminal only when its output returns; the output decision point not called settlement; phase O routed as an exception through S18; S12-D at a cancellable D point and S12-O inside O.
 - **R6.** Is J-BS's in-place append lawful under the versioning rules, and does item 9's presence rule from publication (with `EntryRefusal.created`) close J1-R3?
 - **R7.** Does item 2's `ExecutionIdReservations` meet IE:77-81 for every ExecutionId, and is it kept distinct from the durable attempt row (IE:83-101; X3D:130-134)?
 - **R8.** Are rows 52 to 55 routed exactly as NE:3530-3532, :3540 and :3574 fix them, and is any reachable M3 family still missing?
