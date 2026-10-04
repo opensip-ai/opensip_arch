@@ -1,4 +1,4 @@
-# First trust acceptance from the embedded bootstrap payload — proposal X4B r5
+# First trust acceptance from the embedded bootstrap payload — proposal X4B r6
 
 2026-10-01. Claude Opus 5.5, implementation lead. Law for unit X4B of `EXIT-PLAN.md`, created by X4T r4 to r7 (item 13). It is written under:
 - the security contract's S4 (trust time, step 2 "fresh install") and S4.5, S5 and S6;
@@ -15,6 +15,32 @@ r2 answers Grok X4B r1:
 r1 bytes are preserved in PROPOSAL-r1.md.
 
 r3 answers Grok X4B r2 RF-1: the monitor exists before F is chosen. The `FreshnessMonitor` and `FinalGate` are created first (X4 item 2). Their single first `read` runs the retained-capsule admission and, on F absent, the acceptance and the one confirming admission, then returns that view. The acceptance uses that read's clock sample. Items 1, 3, 10 and 11 are corrected. r2 bytes are preserved in PROPOSAL-r2.md. r4 answers Grok X4B r3 RF-1: item 5 names item 1 step 2.3, the confirming admission, as the reader of the retained owner. r3 bytes are preserved in PROPOSAL-r3.md. r4 ACCEPTED by Grok on 2026-10-01. r5 (2026-10-01) is a lead decision under the owner's standing direction, made with law 463 r9. Implementing X4B-a found that r4 could not be met on a real release. Law 463 r8 item 9 let the embedded bootstrap list only root-chain and revocation envelopes, so it carried no signed catalog. Yet item 5's catalog admission, the retained capsule's `heads.catalog` and the payload closure's `catalog` all need one. It also carried no component manifest, so TR-INDEX and TR-COMPONENT stayed `Unbootstrapped`, and item 10's first case (the confirming admission admits the result) could never pass. Law 463 r9 lets the bootstrap carry a catalog pair and the component-manifest pairs, which `InitialCore` retains without judging them. r5 changes items 2, 4, 7, 10 and 11 to match: item 2 names those pairs as the catalog and component source; item 4 states the roles the bootstrap carries; item 10's first case expects that result; and X4B-a depends on unit 463h. Rejected alternatives: the same as 463 r9's. A second payload source and unsigned placeholders are both refused, and so is not carrying TR-COMPONENT. r4 bytes are preserved in PROPOSAL-r4.md. r5 ACCEPTED by Grok on 2026-10-02.
+
+**r6 (2026-10-04) is an amendment: J1's successor S6, with J-RW's RW-S5 record note.** S6 changes two lines: item 1's rejected bullet on the creator path, and one forbidden substitute. RW-S5's note records, in items 5 and 6, that the shared publication protocol completes two interrupted states and deletes nothing. r5 bytes, as accepted (sha256 `97c2eef3…`, 21,552 bytes, without the acceptance note), are preserved in PROPOSAL-r5.md. That snapshot already existed and was checked, not rewritten. **Draft r6, not accepted.** Drafted for Claude Opus 5.5, implementation lead, by a lead-dispatched drafting agent during the autonomous run. Not code.
+- **Its sources.**
+  - **J1 r5**, the accepted host-pipeline law, cited as J1 (`docs/implementation/m3/host-pipeline-j/PROPOSAL-r5.md`, sha256 `4ccb2320…`; accepted by Codex, `m3/reviews/codex-host-pipeline-j-r5`). Its successor row S6 gives this law "item 1's rejected bullet; forbidden-substitute wording" (J1:851). J1 item 3 states it: "The forbidden substitute 'acceptance in the creator invocation' (X4B:181) becomes 'acceptance in the creator act'. The rejected bullet at X4B:64 records that attempt B is an ordinary writer." (J1:286).
+  - **J-RW r4**, the accepted resume-writer law, cited as JRW (`docs/implementation/m3/resume-repair-jrw/PROPOSAL-r4.md`, sha256 `9c53bce7…`; accepted by Codex, `m3/reviews/codex-resume-repair-jrw-r4`). Its successor row RW-S5 says: "X4B r6 records that the shared protocol completes such a leaf and such a directory, and deletes nothing (X4B:125-130)" (JRW:683). The leaf is item 3.5's C-TRUST (JRW:373-379), and the directory is item 3.6's C-TDIR (JRW:381-415).
+- **What it changes.**
+  - **S6.** The rule stays: no acceptance in the creator act. On first use, acceptance runs at attempt B's fenced first read, because attempt B is an ordinary writer.
+  - **RW-S5 (record).** Items 5 and 6 record the two completions and that nothing is deleted. X4B decides neither. The rule is X4T item 7's, which RW-S5's other part, X4T r13, amends. That part is not written here.
+- **What it does not change.** The trigger, the payload, time, role transitions, the records and their order, the pointer rule, rows, budget, tests and units. X4B's own code does not change. Attempt B reaches item 1's trigger through X1's `OrdinaryWriteAdmission`, and J1 places that trigger at its row R10 (J1:348). Any code J1's route needs is J1 unit J3a's (J1:881). The completions are code in the shared protocol, in J-RW unit J4d, which waits for RW-S5's X4T r13 (JRW:683).
+- **Unchanged from r5:** everything else. No accepted outcome of r5 or of another law changes, except as S6 declares, and as J-RW r4 has already decided for the shared protocol. RW-S5's note records that decision, and X4B decides nothing new.
+
+**r6 changes.**
+
+| # | Change | Where | Source |
+|---|---|---|---|
+| 1 | **Item 1's rejected bullet on the creator path** records that attempt B is an ordinary writer. | item 1 (r5:64) | J1:286; 468 r6 item 1; X1 r2 item 7; X3a r6 item 2 |
+| 2 | **The forbidden substitute** "acceptance in the creator invocation" becomes "acceptance in the creator act". | Forbidden substitutes (r5:181) | J1:286 |
+| 3 | **RW-S5 (record).** The shared publication protocol completes a strict-prefix leaf at a name the publication writes (C-TRUST), and a `may_create` parent directory left without its allow (C-TDIR). It deletes nothing. | item 5's rejected bullet (r5:125); item 6 (r5:126-130) | JRW:683 (RW-S5), :373-379 (item 3.5), :381-415 (item 3.6), :705-708 (X-RW-4) |
+
+**r6 lead decisions.** Each is made under the owner's standing direction of 2026-09-30, and each names the alternative it rejects.
+- **LD6-1. X4B r6 carries S6 and RW-S5's record note together.** Both accepted laws name X4B r6: J1 for S6 (J1:851), and J-RW r4 for RW-S5's note, "shared with J1's S6" (JRW:683).
+  - **Decision.** One revision carries both, each in its own row of the changes table. RW-S5's X4T part, X4T r13, is not written here.
+  - **Rejected:** RW-S5's note in a later X4B revision. JRW:683 names r6, so a different number would need a record note in J-RW's next revision, and it would gain nothing.
+- **LD6-2. Item 1's first bullet stays as written.** It says "X1's `admit_ordinary_writer` has already returned the `OrdinaryWriteAdmission`". On J1's steady-state route, the durable entry produces that admission by running X1 item 2's steps 2 to 4 itself (J1:256; X1 r2 item 1). The trigger is the admission with the fence held, not the function that returned it, and both routes give the same admission.
+  - **Decision.** Leave the bullet. S6 does not assign it.
+  - **Rejected:** rewording it. J1:286 does not ask for it, and it would change no rule.
 
 ## Problem
 
@@ -61,7 +87,7 @@ X4T-0 builds them only under `cfg(test)`. X4B is their production producer.
      - inside `admit_ordinary_writer` (RF-1): no store is retained there;
      - at X2e or under any lease: S7, and X4T item 9;
      - an unmonitored F-absent read or acceptance before the monitor's first `read`, or a monitor created only before the confirming admission (r2): X4 item 2 rejects a separate unmonitored capture followed by a later first read;
-     - the creator path: 468c's `route` drops `InitialCore` before the gate (468 r5 item 1), and X3a r5 gives a creator invocation no store;
+     - **(r6, J1 S6)** the creator act: it drops its attempt and `InitialCore` when it ends and enters no gate (468 r6 item 1), and X3a r6 gives it no store (item 2). On first use, the invocation continues as attempt B, an ordinary writer admitted through X1 (X1 r2 item 7; J1 item 3). Acceptance then runs at attempt B's fenced first read, at this item's trigger;
      - a separate `trust bootstrap` command: it would add a mandatory user step with nothing to decide.
 2. **What is accepted (lead decision).** Exactly the payload law 463 embeds, read from the running core's tree through the `InitialCore` that X1's write receipt retains.
    - **Authentication:** it is authenticated from the embedded root binding (schema, version, digest), against the signed root it carries, and through S5's chain within `ChainBudget{16 links, 16 MiB}`. Every signature is re-verified.
@@ -122,12 +148,17 @@ X4T-0 builds them only under `cfg(test)`. X4B is their production producer.
      - the retained-phase `TrustCapsuleV1`.
    - **How they are written:** each record is canonically encoded and admitted by its closed shape before it is written. Each file goes through 467's private-file producer with its file barrier. The `state.v1` pointer goes last, by atomic replacement (exclusive temporary name, file barrier, rename, directory barrier, reopen and confirm), exactly as X4T item 7's floor write-ahead does.
    - **Retained evidence:** the confirmed new `state.v1` becomes X3a's retained owner while the fence is held, as X4T item 7 and X2's registry rule require. The decoded, capped capsule comes from the confirming reopen, not from X4B's own memory. The confirming admission (item 1, step 2.3) reads that retained owner, inside the first read; step 3 stays the start epoch.
-   - **Rejected:** writing records in place, or a pointer before its dependencies.
+   - **Rejected:** writing records in place, or a pointer before its dependencies. **(r6, record, RW-S5)** A strict-prefix completion (item 6) is not a record written in place. It changes no record's content: it writes only the missing suffix of the bytes the publication would write at that name (JRW:705-706, :242-246).
 6. **Crash states.**
    - **Before the pointer:** the store still points at P0. Any written records are unreferenced and harmless. The next first write runs X4B again with fresh names; records are content-addressed, so equal bytes are equal names.
    - **After a confirmed pointer:** accepted.
    - **An uncertain pointer replacement:** it refuses on the host I/O row and runs nothing further. The next invocation's X4T read decides from the pointer it finds.
    - **No deletion.** Nothing is ever deleted (owner §6).
+   - **(r6, record, RW-S5) Completion of interrupted protocol steps.** X4B's publication uses X4T's shared publication protocol, which has one owner (X4T item 7). J-RW r4 adds two completions to that protocol, and X4B's publication gains them unchanged (JRW:378, :683):
+     - **C-TRUST.** At a name this publication writes, a present leaf whose bytes are a strict prefix of the bytes it would write, with its ACL omitted or private, is completed in place: the owner allow first if its ACL is omitted, then the missing suffix (JRW:373-376). A torn leaf at a name no later publication writes stays unreferenced and harmless, as "Before the pointer" says (JRW:377).
+     - **C-TDIR.** A trust-publication directory that `may_create` permits, left empty, `0700` and without its owner allow, is completed with that allow and its barriers before the publication continues (JRW:381-405). X4B-a's first acceptance creates one such directory, `trust/objects` (JRW:385).
+
+     Nothing is deleted, so "No deletion" holds unchanged (JRW:378). The rule is X4T item 7's, as RW-S5's X4T r13 amends it. X4B records it and decides nothing.
 7. **Rows (existing only).**
    - no embedded bootstrap: `CORE.NO_EMBEDDED_RELEASE`;
    - authentication: the `ROOT.*` and `PAYLOAD-NOT-ADMISSIBLE` rows X4T item 10 fixes. That includes a catalog or component manifest that fails reverification, and a bootstrap without a catalog (r5, item 2);
@@ -178,7 +209,7 @@ X4T-0 builds them only under `cfg(test)`. X4B is their production producer.
 
 ## Forbidden substitutes
 
-- acceptance in the creator invocation, or from a read-only command;
+- **(r6)** acceptance in the creator act, or from a read-only command;
 - any payload other than the running core's embedded bootstrap;
 - `Trusted`, or any stored role state, set by fiat or by an event sequence `decide` doesn't accept;
 - acceptance inside `admit_ordinary_writer`, at X2e, or under any lease;

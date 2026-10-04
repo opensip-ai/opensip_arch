@@ -682,3 +682,9 @@ Times are local.
   - **Lead decision for round 3:** refuse that handoff before the guard exists, on the existing `FailStop{latched}` path, the row a first read's `AlreadyStopped` already takes. The check is made under the new cause lock at creation, so I1 holds at the guard's actual entry.
   - **Rejected:** carrying a pre-creation cause into the guard. That adds a second transition rule for one already-covered row.
   - **NB-X4R8-R2-1:** the "never waits" wording is narrowed to the monitor mutex.
+- **J1's successors S2–S6 written and sent to Codex** as one batch. They are 468 r6, X1 r2, 464 r3, X3a r6, and X4B r6, which also carries J-RW's RW-S5 note. No law had moved past the revision J1 names.
+  - **Notable lead decisions:**
+    - **468 LD6-1:** a ledger refusal after the publication rename carries `created: Some`, and an indeterminate rename carries `None`.
+    - **464 LD3-1:** J1 item 2 overrides r2's "uniqueness by construction". The prelude's ExecutionId is reserved under X3d r9's S10.1 registry.
+    - **X1 LD2-2:** `Creator` enters only through J1's durable entry.
+  - **Record:** my X1 `PROPOSAL-r1.md` copy keeps r1's acceptance sentence, unlike other snapshots. X1 r2's header records the difference, and J-RW r4's pin is unaffected.
