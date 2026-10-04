@@ -544,3 +544,7 @@ Times are local.
   - X-SD5-1's route;
   - SD-5b, owed per consumer;
   - SD-7, owed to correct SD-5's NE row text and widen the `PROVIDER.NOT_SELECTED` remedy.
+- **S21 written and sent to Grok.** It is a WS:226 / WSE:226 passage successor that reconciles WS's "interrupted" rule with J1 8.3.
+  - A signal ends `interrupted` (130) unless a required analysis or verify step's commit returned undetermined. That case (rule 1) is exit 4 with `DURABILITY.COMMIT_FAILED`, no runId, and the ExecutionId disclosed for recovery.
+  - A commit latched after FinalGate (rule 2) is exit 4 through `DELIVERY.REQUIRED_FAILED`, with its runId.
+  - The commit's returned outcome decides. No new code. It binds 91 → 92.
