@@ -1,24 +1,11 @@
-# Configuration and discovery (M3-B) — proposal r2
+# Configuration and discovery (M3-B) — proposal r1
 
 2026-10-04. Drafted for Claude Opus 5.5, implementation lead, during the overnight autonomous run. Law for unit **M3-B** of the accepted M3 unit plan (M3P:162). It covers three sub-units:
 - **B1, the resolver:** Config2 layers, precedence and provenance (AQ:43-53, AQ:102-173), `resolvedConfigDigest` (IE:518-519) and FW-13 (COV:8104).
 - **B2, discovery:** the S3 boundary (SL:105-332), NE §1.4 U-0 to U-9 (NE:619-948), FW-01 (COV:7852) and the host side of framework recognition (NE:2750-2777).
 - **B3, multi-repository workspaces:** owner decision D15 (AQP:556), with the X2 successor it needs (M3P:162, M3P:376).
 
-**Draft r2, not accepted. Not code.** Product code waits for M3-P0 (M3P:161) and M3-L's acceptance (M3P:189). Every item below is a lead decision made under the owner's standing direction to proceed on the lead's recommendation. Each names the alternatives it rejects. Item 27 lists the one owner question and the points the reviewer should test hardest.
-
-r2 answers GROK2's r1 review (`/tmp/opensip-implementation/reviews/grok2-config-discovery-b-r1/`, copied to `docs/implementation/m3/reviews/grok2-config-discovery-b-r1/`): two required findings and two non-blocking observations. GROK2 confirmed R1 to R7 apart from those findings. The r1 bytes are preserved as `PROPOSAL-r1.md` (sha256 `da014f54…`, 85,905 bytes).
-
-## r2 changes
-
-| Finding | Change |
-|---|---|
-| GROK2 RF-1 (a supplied `workspaceRoots` array must suppress reader membership) | Item 20 is restructured into two branches. **Array present:** an admitted `discovery.workspaceRoots` array, whether from the project or local layer or from `--workspace-root` (which is the flags layer of the same field, item 2), alone decides membership, and discovery is restricted to exactly those roots, never widened into a scan (NE:917-921; SLM:771-785; AQ:115). The readers declare no member; they may still record links whose directories lie inside members the array already admitted, and every other reader entry is recorded as dropped. **Array absent:** only then do the readers declare members. The same rule is stated in item 13's unit-source row, item 22 (the Config2 join), item 23's `--workspace-root` row, a new item 24 row for a dropped reader entry, and the forbidden substitutes. S3's content (item 25) now names the Config2-join text "exactly those roots, never widened". Item 20's controls add the config-tier cases. |
-| GROK2 RF-2 (I1:388 freezes the order item 10 amends) | Item 10 no longer cites I1:381-388 as standing in full. I1:383-386 (the three row-count changes) stands. **I1:388's clause that X12 r3's order stands is withdrawn by S2 (X12 r4)**; the rest of I1:388's list stands. Item 10 now gives S2's exact text, including the withdrawal record, and item 25's S2 row says so. Found while fixing it: X12:136's "it is pure and runs before any custody" carries the same order. S2 records that its ordering sense is superseded too, and keeps X12:136's dependency correction (X12 does not depend on X1). |
-| GROK2 NBO-1 (the census and the byte cap) | Item 12 now says the census bounds objects and edges only. Bytes are bounded separately by item 19's member cap and X2:272's per-record ceilings. |
-| GROK2 NBO-2 (S3's "U-9 note" had no decision) | Item 22 now states the sentence: U-9 is unchanged, and its one fallback unit is at W's root; a member is never a second fallback site. S3's cell cites item 22. |
-
-Nothing else changes in substance. The units, their sizes and their order are unchanged.
+**Draft r1, not accepted. Not code.** Product code waits for M3-P0 (M3P:161) and M3-L's acceptance (M3P:189). Every item below is a lead decision made under the owner's standing direction to proceed on the lead's recommendation. Each names the alternatives it rejects. Item 27 lists the one owner question and the points the reviewer should test hardest.
 
 ## Short names
 
@@ -286,17 +273,7 @@ Provenance is retained apart from source blobs. It never enters any digest. Doct
 - It also precedes everything else X12 item 8 lists: provider spawn, snapshot, semantic universe, consumption of facts or Coverage, Plan construction and evaluation.
 - It may therefore follow the fence acquisition of the 458c read session or the 468/X1 write gate, the selection walk, and the carrier reads.
 
-**What stands, and what S2 withdraws (r2, RF-2).**
-- Everything else in X12 r3 stands: rows 1 to 4, the `Supplied` refusal of bundled bytes, the `cfg(test)` registry, `check_plan_pack`, X12d, and item 8's rule that admission is pure, with no I/O, no lock and no ledger charge (X12:125).
-- Of I1's M3 amendments to X12 (I1:381-388), the three row-count changes **stand** (I1:383-386).
-- **I1:388's clause that X12 r3's order stands is withdrawn by S2.** I1:388's other clauses stand: rows 1 to 4, the `Supplied` refusal, the `cfg(test)` registry, `check_plan_pack` and X12d.
-- This item never cites I1:381-388 as standing in full.
-
-**S2's text (X12 r4, item 8).** This is the exact passage that replaces X12 r3's "the host runs `admit_policy_selection` first in an analysis request, before: X1 write admission, X2 project admission or any fence; …" (X12:125-130). The rest of item 8 (X12:132-138) stands, including the rule that the Plan builder takes the policy only from an `AdmittedPack` (X12:134), with one reading fixed: X12:136's "it is pure and runs before any custody" now means that admission itself performs no custody, because S3's selection judgment precedes it. X12:136's correction that X12 does not depend on X1 stands.
-
-> **8. Order: pure, and before every effect (X12 r4, by M3-B item 10).** Pack admission does no I/O, takes no lock and is not charged to any ledger. The host runs `admit_policy_selection` immediately after configuration resolution, which runs immediately after S3's selection walk and the configuration carrier captures. It runs before X2's registry capture (X2 item 5) and every later step of project admission (registration, item 6; any lease, item 7), before any effect, and before any provider spawn, snapshot or semantic-universe construction, consumption of facts or Coverage, Plan construction and evaluation. It may follow the fence acquisition of the 458c read session or of the 468/X1 write gate, the selection walk and the carrier reads, all of which write nothing. A refusal therefore still leaves the record DR-G24 asks for and has nothing to clean up.
->
-> **Withdrawal recorded.** This r4 order supersedes X12 r3 item 8's "before … X1 write admission, X2 project admission or any fence" (X12:126) and the ordering sense of X12:136's "runs before any custody". It also **withdraws the clause "the order" from M3-I1 r2 item 7's statement that "Everything else in X12 r3 stands"** (I1:388). The rest of I1:388's list, and I1:383-386, stand.
+Everything else in X12 r3, and in I1's M3 amendments (I1:381-388), stands.
 
 **Basis.** The pack ID can come from the project layer (AQ:47-52, the `policy` section). The project carrier is located and judged only by the selection walk, which runs under the fence (X2:68, X2:74). X12's rationale still holds: a refusal leaves DR-G24's record, with no evaluation, no `policyOutcome`, no facts or Coverage and no universe, and "nothing to clean up" (X12:132). Selection and the carrier reads write nothing, and dropping the session releases the fence.
 
@@ -334,7 +311,7 @@ Provenance is retained apart from source blobs. It never enters any digest. Doct
 - **Downward unit discovery and the D15 member observation** run **after** the installation fence is released, through X2's handoff (X2:231-248) or the read session's equivalent release. They run over the root descriptor that the operation context retains.
 - **Discovery ledger profile (lead decision).** They are charged to one **discovery ledger** per invocation. It is created once, after the handoff, and never recreated after a failure (`work_ledger.rs:1-8`).
 - **Its caps.** Its profile raises the platform's hard caps for this ledger only. A new constructor in `crates/platform/src/work_ledger.rs` is needed, because `with_limits` can only lower the caps (`:205-213`). Provisional caps: 2^20 objects, 2^21 edges and 2^30 bytes.
-- **Measuring the caps.** Before B2-b lands, the harness counts directories and entries outside pruned segments for every pinned T2 tree, from `git ls-tree` with no repository code (T2F:41-55). B2-b's test records those counts and shows at least a 2× margin for every T2 entry. If any entry fails the margin, the caps return to this law for revision. **The census bounds objects and edges only (r2, NBO-1).** Bytes are bounded separately: by item 19's member cap together with X2:272's ceilings (4 MiB per index, 64 KiB per Git config) and S3's 4 MiB file-custody limit on marker and carrier files (SL:126-127).
+- **Measuring the caps.** Before B2-b lands, the harness counts directories and entries outside pruned segments for every pinned T2 tree, from `git ls-tree` with no repository code (T2F:41-55). B2-b's test records those counts and shows at least a 2× margin for every T2 entry. If any entry fails the margin, the caps return to this law for revision.
 - **Exhaustion** is `WORK.BUDGET_EXHAUSTED` (X2:268). It is never truncation (NE:871-878).
 
 **Basis.** X2:231-248 (the fence is released after the handoff); SL:250-252 (observation bounding is the observation-admission owner's); SL:313-315 (per-read custody re-checks protect the later reads); `work_ledger.rs:12-13`, `:205-213`.
@@ -363,7 +340,7 @@ The instrument's obligations:
 |---|---|
 | Directory custody (SL:121-126) and config-file custody (SL:126-127) | `judge_project_object` (`crates/security/src/custody/project_chain.rs:422-438`), under X2 r9 item 1's scope |
 | `--trust-group` and `--trust-project-owner` (SL:127-130) | typed authorizations from `grants.rs` (item 23); configuration can grant neither |
-| Unit sources and precedence (SL:174-185) | `explicit-joins` > `config-workspace-roots` > `automatic`, as an exclusive choice: a present admitted `discovery.workspaceRoots` array, from either tier, never falls through to automatic discovery (SLM:771-785; AQ:115). Discovery is then restricted to exactly those roots, never widened into a scan (NE:917-921), and it also suppresses D15 reader membership (item 20). A custody failure refuses for either explicit tier and excludes for the automatic one |
+| Unit sources and precedence (SL:174-185) | `explicit-joins` > `config-workspace-roots` > `automatic`. An explicit source suppresses automatic discovery. A custody failure refuses for the explicit sources and excludes for the automatic one |
 | Pruning by exact segment before any custody walk; one row per outermost anchor; never descending (SL:187-216) | production rows are always `markerCountBasis: not-enumerated` with `markerCount: null` (SL:206-211) |
 | 4096 first-party unit cap; installed dependencies never counted (SL:216-222) | `PROJECT.WORKSPACE_UNIT_LIMIT` / `REQUEST.UNSATISFIABLE` with detail `WORKSPACE_UNIT_LIMIT:<n>><cap>` (SL:1303) |
 | Explicit roots are exact roots (SL:224-249) | `normalize_explicit_root`; the `JOIN_*` refusals; the marker-less warning `EXPLICIT_ROOT_WITHOUT_LANGUAGE_MARKER` |
@@ -557,25 +534,21 @@ Nested repositories inside a member (its submodules or clones) stay boundaries. 
 
 #### 20. Declarations and the T2 renderings
 
-**Decision.** A member exists only when declared. One fact chooses between two branches: whether the resolved semantic configuration holds an admitted `discovery.workspaceRoots` array (AQ:115). The branches follow S3's exclusive unit-source choice (SL:174-185; SLM:771-785).
+**Decision.** A member exists only when declared. The sources follow S3's precedence (SL:174-185):
 
-**Branch A: the array is present (r2, RF-1).**
-- **Where the array comes from.** The project or local layer (S3 `config-workspace-roots`), or `--workspace-root`, which is the flags layer of the same field and replaces a lower array whole (item 2; S3 `explicit-joins`). The global layer cannot set it (item 2). Both tiers are explicit intent, and they are treated alike here.
-- **Membership.** Each root that lies inside a nested conventional repository below W makes that repository a member. A failure of custody, placement or layout **refuses** (SL:174-178). **No new Config2 field.**
-- **Exactly those roots.** Discovery is restricted to exactly the array's roots, with `provenance=EXPLICIT`, and is never widened into a scan (NE:917-921), inside members as anywhere else. A member contributes only the units its named roots are.
-- **The readers declare no member.** `cargo-config-patch@1` and `npm-workspaces-members@1` still read their files as data, but only to record **links** whose directories lie inside members the array already admitted. Every other reader entry is recorded as dropped in `workspaceDeclarations[].unresolved`, including an entry that names a repository the array did not admit. It is never admitted.
-
-**Branch B: the array is absent (automatic, zero-config).** Only then do the **declaration readers** declare members, reading native files at W only, as data:
-- **`cargo-config-patch@1`** reads `W/.cargo/config.toml`, or the legacy `W/.cargo/config`. Each `[patch.<registry>]` entry whose only key is a relative `path` inside W, and whose directory lies inside a nested conventional repository, makes that repository a member and records a Cargo link: the package name, the directory, and the version from that directory's `Cargo.toml`. An entry with `git`, `branch`, `rev` or `registry` keys, or a path outside W, is recorded as unresolved and ignored. This is T2's Cargo rendering, unchanged (T2F:120-123).
-- **`npm-workspaces-members@1`** reads `W/package.json` `workspaces`. Each **literal** relative path that lies inside a nested conventional repository makes that repository a member and records an npm link: the `name` and `version` from that directory's `package.json`. **A glob entry never declares a member.** A glob that would match inside a nested repository is recorded as unresolved (`workspace-glob-crosses-repository`). This is the npm rendering T2F:124 left open, fixed here: `W/package.json` = `{"private": true, "workspaces": [<the overlay's npm link directories, sorted>]}`, generated from the overlay and not separately pinned, exactly like the Cargo file (successor S8).
-- **Python:** no reader at M3. D9 decides Python support after M3's review (AQP:550), and "a `pyproject.toml` must not be given Cargo-workspace semantics by default" (AQP:478). `mr-py-medium-boto` keeps its pinned link map.
+1. **Explicit:** a CLI `--workspace-root` value whose path lies inside a nested conventional repository below W. That repository is a member. A failure of custody or layout **refuses**.
+2. **Config:** `discovery.workspaceRoots` in W's `opensip.json` (or in the local layer), with the same rule. **No new Config2 field.**
+3. **Declaration readers** (automatic, zero-config), reading native files at W only, as data:
+   - **`cargo-config-patch@1`** reads `W/.cargo/config.toml`, or the legacy `W/.cargo/config`. Each `[patch.<registry>]` entry whose only key is a relative `path` inside W, and whose directory lies inside a nested conventional repository, makes that repository a member and records a Cargo link: the package name, the directory, and the version from that directory's `Cargo.toml`. An entry with `git`, `branch`, `rev` or `registry` keys, or a path outside W, is recorded as unresolved and ignored. This is T2's Cargo rendering, unchanged (T2F:120-123).
+   - **`npm-workspaces-members@1`** reads `W/package.json` `workspaces`. Each **literal** relative path that lies inside a nested conventional repository makes that repository a member and records an npm link: the `name` and `version` from that directory's `package.json`. **A glob entry never declares a member.** A glob that would match inside a nested repository is recorded as unresolved (`workspace-glob-crosses-repository`). This is the npm rendering T2F:124 left open, fixed here: `W/package.json` = `{"private": true, "workspaces": [<the overlay's npm link directories, sorted>]}`, generated from the overlay and not separately pinned, exactly like the Cargo file (successor S8).
+   - **Python:** no reader at M3. D9 decides Python support after M3's review (AQP:550), and "a `pyproject.toml` must not be given Cargo-workspace semantics by default" (AQP:478). `mr-py-medium-boto` keeps its pinned link map.
 
 **Further rules:**
-- **In both branches**, a reader link counts only when its directory lies inside an admitted member. Others are recorded as dropped.
+- An explicit source suppresses the readers for **membership**, as S3 suppresses automatic units. The readers still contribute **links**, but only those whose directories lie inside admitted members. Others are recorded as dropped.
 - **Ambiguity.** Two members that provide one package name give no link (`ambiguous-provider`). A patch whose directory's `Cargo.toml` names another package gives no link (`patch-target-name-mismatch`).
 - **Readers are not framework recognizers.** Their output is a custody input (membership) and a link set, not an entry-point default. They form their own closed registry (item 8). **Rejected:** overloading NE §8's nine recognizers, which would need an NE §8 successor and would mix a custody input into analysis defaults.
 
-**Basis.** CH13:59-64 (discovered values enter with provenance; ambiguity is disclosed); SL:174-185; SLM:771-785 (an `if`/`elif`/`else`: a config array never falls through to automatic discovery); NE:917-921 (Config2 `workspaceRoots` and `--workspace-root` restrict discovery to exactly those roots, "never widened into a scan"); AQ:115 ("Omitting workspaceRoots selects automatic discovery"); T2F:118-124; T2R:217-221, T2R:303.
+**Basis.** CH13:59-64 (discovered values enter with provenance; ambiguity is disclosed); SL:174-185; T2F:118-124; T2R:217-221, T2R:303.
 
 **Rejected.**
 - **Automatic membership of every nested conventional repository under a non-repository W.** It would make the zero-config scope depend on whatever happens to be cloned under W, which is the broader reading CH13:62-63 forbids.
@@ -583,16 +556,12 @@ Nested repositories inside a member (its submodules or clones) stay boundaries. 
 - **`pnpm-workspace.yaml` as the D15 npm rendering.** pnpm's linking of a version requirement to a workspace package depends on settings outside that file (`link-workspace-packages`, the `workspace:` protocol). The `package.json` `workspaces` form is the one that npm and yarn both read.
 - **The Amazon workspace tool's own file.** Its format is a fact only the owner has (OQ-1). Until a reader is added, such a workspace needs one explicit declaration in `W/opensip.json`, and FW-14 counts that as one manual correction (HD:213).
 
-**Forbidden.** Membership by glob; following a reader's path through a symlink; a reader that runs anything; a link into a non-member; **a reader adding a member, or widening discovery beyond the named roots, while an admitted `workspaceRoots` array is present** (r2, RF-1).
+**Forbidden.** Membership by glob; following a reader's path through a symlink; a reader that runs anything; a link into a non-member.
 
 **Controls.**
 - The four T2 workspaces in `vcs: none` mode give the overlay's exact link maps (T2M overlays, `overlayDigest`).
 - A glob-crossing fixture; an ambiguous-provider fixture; a name-mismatch fixture.
-- **Branch A from each source (r2, RF-1):** a project-layer array, a local-layer array and `--workspace-root` each suppress reader membership. In each case:
-  - a reader's link into an array-admitted member is kept;
-  - a reader entry naming any other repository is recorded as dropped, and that repository's paths stay `outside-project-boundary`;
-  - discovery inside a member visits exactly the named roots.
-- Branch B: with the array absent, the same reader files declare the members.
+- Explicit roots suppress reader membership but keep in-member links.
 
 #### 21. The X2 successor: X2 r9
 
@@ -668,8 +637,6 @@ Each refusal is tested with its subject.
 - `AdmittedBoundaryInventoryV3` adds `memberRepositories`, which never enters `excludedPathPrefixes`.
 - U-8's subset test is unchanged over boundaries. A member path in the native derivation that is absent from `memberRepositories` refuses `native.boundary-inventory-mismatch`.
 - `JOIN_CROSSES_NESTED_REPOSITORY` remains for a crossing into a repository that cannot become a member: one inside another nested repository, or any crossing when W fails W2.
-- **The Config2 join keeps "exactly those roots, never widened"** (NE:917-921). S3's edit of that paragraph adds only that an exact root may lie inside a member (item 20, branch A). It does not relax exactness, and a present array suppresses reader membership (r2, RF-1).
-- **U-9 is unchanged (r2, NBO-2).** It still keys off no explicit roots and no surviving `rust` or `tsjs` unit (NE:879-883). Units inside members count as surviving units, because members are not boundaries. Its one fallback unit is at W's root `""`. A member is never a second fallback site.
 
 **A member's own `opensip.json` (lead decision).**
 - A declared member that holds `opensip.json` is admitted as a member.
@@ -720,7 +687,7 @@ The reviewer is asked to test this (R1).
 | Flag | CINV class | M3 owner | Admission rule | D15 |
 |---|---|---|---|---|
 | `--project` | selection | `discovery.rs` (B2-b) | At most one explicit authority root, examined once (SL:132; SL:261-262) | selects W |
-| `--workspace-root` | selection | `discovery.rs`, `configuration.rs` (B1-a, B2-b) | Repeatable; exact roots; the flags layer of `discovery.workspaceRoots`, so it replaces Config2's array (item 2); `explicit-joins` | may declare a member (item 20, branch A); like a Config2 array, its presence suppresses reader membership |
+| `--workspace-root` | selection | `discovery.rs`, `configuration.rs` (B1-a, B2-b) | Repeatable; exact roots; the flags layer of `discovery.workspaceRoots`, so it replaces Config2's array (item 2); `explicit-joins` | may declare a member (item 20) |
 | `--ephemeral` | selection | `discovery.rs`, `configuration.rs` (B3-a) | A typed selection carried to J; not configuration; excluded from the digest (WS:242-247) | none |
 | `--trust-group <gid>` | authorization | `grants.rs` (B3-a) | `AuthorizedGroups`: at most 64 gids (SLS `authorizedGroupIds`), built only from parsed invocation input; recorded in provenance; **configuration has no constructor** (SL:127-129) | applies to member directories and member Git evidence exactly as `judge_project_object` applies it to an enclosing repository (`project_chain.rs:422-438`) |
 | `--trust-project-owner` | authorization | `grants.rs` (B3-a) | `ProjectOwnerWaiver`: only with explicit `--project`, otherwise `PROJECT.EXPLICIT_PATH_INVALID` (SLM:832-833). It waives only the owner check, on the directories under the explicit root and its config file, as the reference applies it (SLM:636, SLM:669-680), and never on marker files (SLM:665) | applies to member **directories**; **never** to member Git evidence or `local.json` |
@@ -755,7 +722,6 @@ The reviewer is asked to test this (R1).
 | More than 64 members | `PROJECT.SCOPE_LIMIT` / `REQUEST.UNSATISFIABLE` (SL:1323) | `members:<n>>64` |
 | A member that a reader declared, and that fails any of the above | **not a refusal.** The member is excluded, with the reason in `workspaceDeclarations[].unresolved`; its paths stay `outside-project-boundary` | — |
 | A reader entry that is unresolved: a glob crossing, an ambiguous provider, a name mismatch, a non-path patch | disclosed in `workspaceDeclarations[].unresolved`; no member and no link | — |
-| A reader entry while an admitted `workspaceRoots` array is present (item 20, branch A) that names a repository the array did not admit | disclosed in `workspaceDeclarations[].unresolved` as dropped; no member and no link | — |
 
 Subjects are diagnostic data under S12.1's closed vocabulary, never new codes (SL:1323, SL:1508).
 
@@ -768,8 +734,8 @@ Subjects are diagnostic data under S12.1's closed vocabulary, never new codes (S
 | # | Successor | Kind | Content | Author | Lands with |
 |---|---|---|---|---|---|
 | S1 | **X2 r9** | **law** amendment (item 21, in this proposal) | premise scope; item 3a capture; item 6b member observation; subjects | lead (this law) | B1-b, B3-b |
-| S2 | **X12 r4, item 8** | **law** amendment (item 10, in this proposal, which gives its exact text) | the order of pack admission. Its text records the withdrawal of I1:388's clause that X12 r3's order stands, and of the ordering sense of X12:136. I1:383-386 stands | lead (this law) | B1-a |
-| S3 | **SL S3 + NE §1.4 (U-8; U-9 unchanged, item 22; the Config2 join, keeping "exactly those roots, never widened", with a present array suppressing reader membership) + SLS** `DiscoveryProvenanceV3` / `AdmittedBoundaryInventoryV3` + the declaration-reader registry | **contract successor** (design unit B-S1; `ACCEPT-DESIGN-UNIT`) | items 19, 20, 22, 24 | this package | B3-b |
+| S2 | **X12 r4, item 8** | **law** amendment (item 10, in this proposal) | the order of pack admission | lead (this law) | B1-a |
+| S3 | **SL S3 + NE §1.4 (U-8, U-9 note, Config2 join) + SLS** `DiscoveryProvenanceV3` / `AdmittedBoundaryInventoryV3` + the declaration-reader registry | **contract successor** (design unit B-S1; `ACCEPT-DESIGN-UNIT`) | items 19, 20, 22, 24 | this package | B3-b |
 | S4 | **IE `vcs-observation` schema 3** | **contract successor** (design unit B-S2) | per-member VCS rows; version-2 bytes unchanged for single-root projects | this package; implemented by C1 | C1 |
 | S5 | **NE §3.3**: admitted Cargo links as projected `[patch]` path entries; the lock carrier for a patched resolution under `--locked` (NE:1786) | **contract successor** | item 22 | C3 / G1b | C3 |
 | S6 | **NE §2.2 / §2.4**: the TS context binds `WorkspaceLinkSetV1`; per-consumer node-semver satisfaction | **contract successor** | item 22 | C2 | C2, F |
@@ -817,7 +783,7 @@ These are recorded for their owners. None changes an accepted outcome.
 - **D15 needs no consent flag** (item 23).
 - **A launch inside a member selects that member alone.** S3 is unchanged. The workspace is selected from W, from any directory of W outside every member, or with `--project W`. **Rejected:** continuing the upward walk past a VCS marker to look for a workspace root. That would change the default scope of every repository that sits under a directory holding a manifest (SL:141-144, "default scope does not change with launch directory").
 
-**For the reviewer (test these hardest).** In r1, GROK2 confirmed R1 to R7, subject to RF-1 (R1's minimal further consent: a supplied array is the membership) and RF-2. r2 asks only for confirmation of those fixes.
+**For the reviewer (test these hardest):**
 - **R1.** Is a recognized native declaration at W enough intent to cross a repository boundary, with no consent flag (items 20, 23)?
 - **R2.** Is X12's order amendment sound, and is "nothing to clean up" still true after the fence acquisition (item 10)?
 - **R3.** Running discovery after the fence, on its own ledger profile, against X2 item 9's one-ledger rule (item 12).
@@ -880,7 +846,6 @@ Each item lists its own. Across all items:
   - a carrier read by name after its judgment;
   - following a symlink or a `.git` file;
   - a member admitted by glob, through a symlink, or when W is inside a repository;
-  - a reader adding a member, or discovery widened beyond the named roots, while an admitted `discovery.workspaceRoots` array is present (from any layer, or `--workspace-root`);
   - any Git object of a member beyond `.git`, `config` and `index`;
   - `--trust-project-owner` reaching Git evidence;
   - configuration building an authorization.
