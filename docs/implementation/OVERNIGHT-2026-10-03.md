@@ -196,3 +196,9 @@ Times are local.
     - ERROR's symbol 0xFFFF needs an explicit exception to item 10 and A11;
     - item 4's closure layout omits the wasm headers;
     - grammar and runtime commits are now pinned by E0.
+- **M3-H r1 written** (fact admission). It is queued for Grok after M3-L r2. Only H5 sits on the host chain (3 days, finishing day 22), so the 33-day figure holds. **Cross-law items:**
+  - **X-H1, serious.** No TS2 or Rust3 frame carries a provider's symbol census. Without a native-owner successor (FA-2) and an M3-L revision, no TypeScript or Rust symbol Coverage can be admitted, and the preview cycle rule can never decide on a real Run. **Lead decision:** FA-2 and the matching M3-L r3 are drafted next, before day 0. **Rejected:** deferring symbol Coverage past M3, which would leave G13 and the preview rule without real evidence.
+  - **X-H2:** NE's "facts before the terminal" conflicts with the retained selectors. Successor FA-1 resolves it.
+  - **X-H3:** inventory records in TS and Rust universes have no lawful producer closure. This goes to C's next revision and CRC-1.
+  - **X-H4:** M3-L's no-host-minted-facts rule needs an exception for syntax and inventory facts.
+  - **X-H5 and X-H6:** the inventory unit owner, and a typed refusal for the scope bound.
