@@ -186,3 +186,13 @@ Times are local.
   - **Weakest assumption:** the bare-WAL ledger view at the two WAL kill points comes from SQLite's documentation, not from a run. J4c must pin it by test.
 - **M3-D accepted at r3 by GROK2,** with no required findings. This is the supervisor and common control law. Section F, confinement, remains an O7 placeholder, binding only if O7 is decided as recommended. The accepted bytes are `supervisor-d/PROPOSAL-r3.md` (`9679dbc4…`). The acceptance note, and the one history-wording observation, will be added to the live file after Grok's M3-L r2 review, which pins the live bytes. SD-6, the pre-draw row R10a, goes to CODEX2 as a J1 r4 delta.
 - **X3c r8 written and sent to GROK2.** This is the re-commit law, P5-2. Codex was busy with J-RW, and the plan names Grok for M2 carry-in laws. A re-commit is a new attempt of the same Run: it adds its own attempt rows and stages no availability or pins. Whether the Run is already committed is read from its own committed rows inside the level-3 transaction, and a half state is `LEDGER.CORRUPT`. There is no DDL change, no new crash point and no new outcome. At C, 18 of the 19 next-writer re-commits change from refused to Committed. The X9 r17 rows are RC-1 to RC-9. **Cross-law item:** X3d's item 4 step 3.8 needs a record restatement (X3d r9).
+- **E0 phase 1 is ready.** These are the syntax-backend probe's downloads and harness, with no compiling yet.
+  - **Pins:** wasi-sdk-34 (digest verified); tree-sitter v0.27.0; rust v0.24.2, typescript v0.23.2 and javascript v0.25.0; wasmi 2.0.0 (deterministic, validate). T2a has 8,351 selected files, 49.2 MB, all within 4 MiB. Phase 2 waits for X4-F1's lanes and X9 rows to leave the machine.
+  - **Lead decisions, made before any data:**
+    - P5 uses the strictest reading: the median over non-empty files of bytes ÷ the full per-file cost (fresh instance, parse, copy, validation). Aggregate throughput is reported but not gated.
+    - E0's `SyntaxTreeV1` byte layout is probe-only; E2a fixes the normative one.
+    - wasmi compiles everything up front, since lazy translation makes fuel depend on file order. This becomes an E2b obligation.
+  - **E1 record items** for its next revision or for E2a/E2b:
+    - ERROR's symbol 0xFFFF needs an explicit exception to item 10 and A11;
+    - item 4's closure layout omits the wasm headers;
+    - grammar and runtime commits are now pinned by E0.
