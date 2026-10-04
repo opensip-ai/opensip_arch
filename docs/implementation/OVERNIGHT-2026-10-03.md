@@ -41,3 +41,9 @@ Times are local.
   - `verify_scratch` passes.
   - It includes seven omissions from before D1, and closes X1b with no change.
   - About 20 stale code doc comments are listed for a later code follow-up.
+- **M3-T2b sent to GROK2** (arch `06311e94f`).
+  - **Size:** 49 repositories, 33 families and 5 workspaces. Every class has at least 2 dev repositories per language.
+  - **New very-large entries:** Python has home-assistant and airflow; hand-written Rust has sui.
+  - **The aws-cdk workspace was split:** its pinned dependency versions don't resolve against the checkouts.
+  - **Open:** only 10 held-out families exist, which bears on B2's gating bar.
+  - **Open:** aws-cdk and aws-sdk-rust exceed the 4 MiB canonicalizer limit for the tree digest, so K1a may need a chunked digest.
