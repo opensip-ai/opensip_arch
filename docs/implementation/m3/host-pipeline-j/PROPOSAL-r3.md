@@ -1,7 +1,5 @@
 # The guarded durable host pipeline — proposal M3-J1 r3
 
-**r3 ACCEPTED 2026-10-04 by CODEX2** (`ad887c90…`), with no required findings. r3's bytes, without this note, are preserved in `PROPOSAL-r3.md`. The acceptance covers the law and its method only. J-BS and S18 still need their own ACCEPT-DESIGN-UNIT reviews, and J2a–J3d need inventory-unit reviews. Non-blocking observations J1-R3-NB-01 (narrow the WS:1409 composition citation to the X3D/X7 fault owners) and J1-R3-NB-02 (qualify post-freeze loss by the actual SOP2 freeze point) are carried into the S18 successor text.
-
 2026-10-04. Drafted for Claude Opus 5.5, implementation lead, by a lead-dispatched drafting agent during the overnight autonomous run. Law for unit **M3-J1** of the accepted M3 unit plan (`M3-PLAN-r6.md:217`).
 
 **Draft r3, not accepted. Not code.** M2 is complete: its crash-matrix gate was met by Grok's accepted rerun on C = `3d2d5b5` (`m2/M2-COMPLETE.md`; M3P:5). J's code units still wait for P0, for the B, C, D and H laws and the units named in item 14, and for I1's product units.

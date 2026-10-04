@@ -153,3 +153,4 @@ Times are local.
 - **CF-P run.** Seatbelt confinement is feasible on macOS 27 with one profile fix. AL2023 is feasible on current kernels (desk check). This is evidence for O7 (B1), and it gates M3-D's acceptance.
   - **Housekeeping for the owner:** the probe's deliberately killed runs left five crash reports in `~/Library/Logs/DiagnosticReports/` (`cfp-2026-10-04-*`, `t_named-*`). They are safe to delete.
 - **M3-E1 accepted at r3 by Codex.** The syntax backend is tree-sitter in a fuel-metered Wasm boundary; probe E0 decides between Wasm and the native fallback. X-C1 and X-C2 go to M3-C r6.
+- **M3-J1 accepted at r3 by CODEX2,** with no required findings. Its two non-blocking wording observations, the composition citation and post-freeze loss, go into the S18 successor. J-BS and S18 still need their own design-unit reviews.
