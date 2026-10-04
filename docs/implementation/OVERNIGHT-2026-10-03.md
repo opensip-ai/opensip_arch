@@ -740,3 +740,9 @@ Times are local.
   - **Process change:** reviewers now take the shared lane lock for cargo runs, so a review rerun can't disturb an X9 lead set.
 - **M3-PLAN r10 accepted by Codex,** with no required findings. Its two P3 observations go to r11.
 - **M3-C r8 and CRC-2 drafting started,** for CODEX2. They carry H's X-H3 (the core closure as producer of host inventory records) and the M3-C parts of J1's S7b (E-2, and E-3's C half). CRC-2 uses VD2 supersession wherever a line already has a selected override. This is critical-path law that C4a needs. It is authored now so it is ready when L takes effect.
+- **J2a implemented and sent to Grok.** It adds `invocation.rs` and `outcomes.rs`, both pure and crate-private: item 10's projection over rows 1–57, NE §10's routes and the aggregate. It has 37 new tests, and the workspace passes 1775/0/3 twice. Inventory v137 adds the two test files.
+- **Lead rulings on J2a's open items:**
+  1. **SD-5b** is written row by row with each refusal's first consumer.
+  2. **J1 r6** records SYN-1's routes.
+  3. **E-3:** the run-termination contract's §7.4 governs, so an ephemeral attempt carries no detail. J1 r6 and M3-C r8 correct E-3's detail. **Rejected:** a contract successor changing §7.4.
+  4. **Who derives the projection:** J3d for committed Runs, and J2c for ephemeral results.
