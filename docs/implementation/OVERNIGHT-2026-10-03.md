@@ -31,6 +31,7 @@ Items 1 and 3 gate M3-L *taking effect*. Its review continues meanwhile, under t
 **Worth knowing:**
 - **Syntax runs on native tree-sitter (E0: T-native).** The Wasm route was correct on all 8,351 files but ran at 0.818 MiB/s against a 1.0 floor. Parser defects are a declared residual risk, and I re-decide placement at M4, before untrusted input.
 - **Rust3's 256-file cap is solved within the major (RUST3-LIM).** Without the fix, the Rust provider could not analyze tokio, axum, deno or 6 more of the 22 Rust corpus repositories. The fix passes the file list by reference behind an optional token, it is accepted by GROK2, and it is now an L gate item. aws-sdk-rust, at 242k files, still needs a narrower root.
+- **Rust clone-detection trade-off (your call if you disagree).** The syntax normalizer (SYN-NS r2) renames Rust locals at L3 only in explicit binding forms. Plain `let x` and plain parameters can resolve to a unit struct or constant, which syntax can't prove, so they aren't renamed. This keeps clone equality correct, but Rust near-clone recall at L3 drops substantially. I plan to measure it on T2 and revisit a narrower relaxation at M4.
 - **The protocol's wire-identity list is now machine-derived** from the schemas: 278 member paths, with a control that fails on any drift.
 - **Your reversible lead decisions** are listed in M3-PLAN r9's table. The main ones:
   - the early review of M3-L;
