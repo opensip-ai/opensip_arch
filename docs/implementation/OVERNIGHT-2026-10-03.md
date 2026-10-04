@@ -689,3 +689,6 @@ Times are local.
     - **X1 LD2-2:** `Creator` enters only through J1's durable entry.
   - **Record:** my X1 `PROPOSAL-r1.md` copy keeps r1's acceptance sentence, unlike other snapshots. X1 r2's header records the difference, and J-RW r4's pin is unaffected.
 - **X4 r8 round 3 written and sent to CODEX2,** with entry rule LD8-10. `start` first rebinds the monitor's stop to the new guard's stop handle, then checks the gate under the cause lock. If the gate is already `LATCHED`, it refuses on the existing `FailStop{latched}` row with no guard and no observer. So a bare lease-free latch, including `StopOnUnwind` firing on a successful read during unrelated unwinding, can never yield a guard without a cause. New controls W-11 and W-12 cover it. NB-R2-1's "no wait" wording is narrowed.
+- **X4 r8 accepted by CODEX2 at round 3,** with no required findings. J1's S11 is now law.
+  - **What it settles:** the gate word, rule FC (one first stop, recorded with its transition and never replaced), `StopCause::CertainRefusal`, and the entry rule LD8-10.
+  - **Next:** code unit **X4-F3** fixes the pre-existing first-cause race D8-1 and must land before J3b, or with it. It starts now, writing code first and running lanes and its X9 lead-set rerun when the machine is free.

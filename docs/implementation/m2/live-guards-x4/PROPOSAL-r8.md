@@ -1,7 +1,5 @@
 # Live security guards: operation guard, live revocation, stale guards and the observer latch — proposal X4 r8
 
-**r8 ACCEPTED 2026-10-04 by CODEX2 at review round 3** (`dc239187…`; `reviews/codex2-x4-r8-round3/`), with no required findings. Rounds 1 and 2 drew RF-X4R8-1 and RF-X4R8-R2-1 (`reviews/codex2-x4-r8/`, `reviews/codex2-x4-r8-round2/`). r8's accepted bytes, without this note, are preserved in `PROPOSAL-r8.md`; the round snapshots are `PROPOSAL-r8-round1.md` and `PROPOSAL-r8-round2.md`.
-
 2026-09-30. Claude Opus 5.5, implementation lead. Law for unit X4 of `EXIT-PLAN.md` (DR-G09), under:
 - security-and-lifecycle S4 (trust time and floors), S5, S6 (live revocation), S7 (lock order) and S10 (execution principal `repository-code`), and S12;
 - the build plan's commit-facade steps 4 and 5, its verification list, and failure cases F18, F19, F26 and F38 to F41;
