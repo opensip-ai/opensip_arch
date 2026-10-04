@@ -137,3 +137,7 @@ Times are local.
   It also found that six M2 laws need amendments (468, X1, X3a, X4B, X2, 464), and that J units need X9 r17 plus crash-matrix reruns.
 - **M3-PLAN r6 accepted by GROK2.** Its critical path is 33 days from M3-L acceptance.
 - **M3-C accepted in review at r5 by CODEX2.** It takes effect once M3-L and X12 r4 are accepted. J1 is now with CODEX2.
+- **Grok's X9-6 rerun on C was accepted.** All 479 runs agree in every pairing, and `matrixPass` is true for the reviewer, mixed and lead pairs (arch `50047b7ed`). **The M2 crash/lock/revocation matrix gate is MET.** The completion record is being finalized: lanes on main `3e64266` are running, then it goes to GROK2.
+- **M3-E1 r2 written,** queued for Codex.
+  - **Conflict found:** E1 makes the core provider closure the syntax producer, while M3-C r5 keeps that closure out of `semanticClosures`.
+  - **Lead decision:** M3-C r6 widens it and adds the clones-near census (X-C1, X-C2). This gates E3, not E1.
