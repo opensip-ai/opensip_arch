@@ -2,32 +2,45 @@
 
 The owner asked the lead to run autonomously overnight: "if you get blocked, move to the next item and we can discuss any blockers tomorrow morning." This file is the running log, kept by Claude Opus 5.5 as lead.
 
-## Morning summary (updated 2026-10-04 06:10 PDT)
+## Morning summary (updated 2026-10-04 06:40 PDT)
 
-**Where things stand.** M2 is complete and its record is accepted. M3's law layer is now mostly in place:
-- **Laws accepted overnight:** B r2, I1 r2, E1 r3, J1 r4, S-OP-2 r6, D r3, H r3 and X3c r8. M3-C r7 is accepted in review and takes effect with L.
-- **Product main is `cd5958b`,** with 82 contract successors. Six design units were bound tonight: F8b, I1-L, I1-P, B-S1, B-S2 and B-S9.
-- **X4-F1 fixed M2's last known defect** and is integrated. Its confirmation lane passed 1749/0.
-- **P0, the M3 crate scaffolds,** passed every lane and is in Codex review.
+**Where things stand.** M2 is complete and its record is accepted. Since then M3's law and design layer has moved a long way:
+- **Laws accepted:**
+  - B r2, I1 r2, E1 r3, J1 r4, S-OP-2 r6, D r3, H r3 and X3c r8;
+  - M3-C r7, accepted in review and effective with L;
+  - M3-PLAN r9, the record of all of this.
+- **Bound in the product lock:** product main is `392499e`, with 83 contract successors: F8b, I1-L, I1-P, B-S1, B-S2, B-S9 and CRC-1.
+- **Accepted, waiting to bind:** RUST3-LIM, which binds after FA-2.
+- **Code integrated:** X4-F1, which fixes M2's last known defect. Its confirmation lane passed 1749/0.
+- **P0, the M3 crate scaffolds:** every lane passed; it is next in Codex's queue.
+- **In review:**
+  - M3-L r5 (GROK2);
+  - FA-2 r2 (Codex);
+  - FA-1 and SD-5 (Grok);
+  - SYN-1 r2, SYN-NS and SYN-1F (CODEX2).
+- **Being revised:** CR-1 r3, S18 r2 and J-RW r3.
 
-**What needs you** (details in "Blockers for the owner" below):
+**What needs you** (details under "Blockers for the owner" below):
 1. **B1, O7 confinement.** The CF-P evidence supports the recommendation.
-2. **B2, the gating precision bar.** Today's accepted floor needs 299 independent families, and only 10 held-out ones exist. My proposal needs about 59.
-3. **B3, signing off D3 (the T2 corpus) and D13 (the envelope).**
+2. **B2, the gating precision bar.** The accepted floor needs 299 independent families, and only 10 held-out ones exist. My proposal needs about 59.
+3. **B3, signing off D3 (the T2 corpus) and D13 (the exploratory envelope).**
 4. **B4, OQ-1:** your real workspace layout.
 
-Items 1 and 3 gate M3-L *taking effect*. L's review continues meanwhile, under the early-review rule.
+Items 1 and 3 gate M3-L *taking effect*. Its review continues meanwhile, under the early-review rule.
 
 **Worth knowing:**
-- **The syntax backend is native tree-sitter (E0, T-native).** The Wasm route was correct on all 8,351 files, but ran at 0.818 MiB/s against a 1.0 floor. Parser defects are a declared residual risk, and I re-decide placement at M4, before untrusted input.
-- **Rust3 caps a request at 256 files.** That would block tokio, axum and 7 more of our 22 Rust corpus repositories. A limit successor is being drafted, with the recommendation to raise it before the Rust provider ships.
-- **The night's reversible lead decisions** are listed in M3-PLAN r7 (in review). The main ones:
-  - early review of M3-L;
-  - J1's deferred signal during final output;
+- **Syntax runs on native tree-sitter (E0: T-native).** The Wasm route was correct on all 8,351 files but ran at 0.818 MiB/s against a 1.0 floor. Parser defects are a declared residual risk, and I re-decide placement at M4, before untrusted input.
+- **Rust3's 256-file cap is solved within the major (RUST3-LIM).** Without the fix, the Rust provider could not analyze tokio, axum, deno or 6 more of the 22 Rust corpus repositories. The fix passes the file list by reference behind an optional token, it is accepted by GROK2, and it is now an L gate item. aws-sdk-rust, at 242k files, still needs a narrower root.
+- **The protocol's wire-identity list is now machine-derived** from the schemas: 278 member paths, with a control that fails on any drift.
+- **Your reversible lead decisions** are listed in M3-PLAN r9's table. The main ones:
+  - the early review of M3-L;
+  - J1's deferred signal during final output (S18);
   - J-RW auto-completing crashed first registrations, with in-place ledger and trust completion;
-  - closure-only manifest roles (CR-1);
+  - closure-only manifest roles that carry no command tree (CR-1);
   - Linux provider scratch in `/var/tmp`;
-  - provider stderr is counted, never held.
+  - provider stderr counted, never held;
+  - SD-5 reusing `PAYLOAD-NOT-ADMISSIBLE` rather than a new code.
+- **Process note:** several narrow re-review rounds tonight were caused by my own record slips. They were a renamed review directory, stale README text, and a record line that ran ahead of its cut-off. Each was caught by a reviewer and fixed, and the lessons are in my workflow memory.
 
 **Housekeeping** (yours, at leisure):
 - delete 5 crash reports in `~/Library/Logs/DiagnosticReports/` (`cfp-2026-10-04-*`, `t_named-*`);
