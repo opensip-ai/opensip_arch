@@ -506,3 +506,15 @@ Times are local.
   - **I1 r3:** I1-L's and I1-P's findings; P0–P7 verbatim; I1-a's `verify_design` needs.
   - **Routing:** B r3 goes to GROK2, I1 r3 to CODEX2, and E1 r4 to Codex after J1 r5.
 - **M3-D r4:** Grok raised one finding (RF-1). D4-T4 claimed the security owner already refuses case (a), a closure-only manifest declaring commands. It doesn't until C2a materializes CR-1's schema (RJ-6), so until then D4's own EE-5a check is the enforcing one. NBO-1 calls the X-SD5-1 route sound. r5 is being written.
+- **I1-a implemented** (product worktree `opensip-i1a`, base `5e25d04`).
+  - **Changes:**
+    - the schema sources now equal I1-L's accepted copies;
+    - the source maps, registries, generator closure, `schema_registry.rs`, atom-registry pins and both dependency policies are re-pinned;
+    - three generated enums gain `CycleRepresentative`;
+    - one new test.
+  - **Lanes:** workspace 1732/0/3 twice; crash-matrix 1630/0/3; clippy and fmt clean; drift check `changed: []`; staged `verify_design` 87 → 88. No inventory successor is needed. Its contract-successor record follows 468a's form.
+  - **Lead decisions:**
+    - two review files (ACCEPT-UNIT plus an ACCEPT-DESIGN-UNIT contract file the lock binds), following 458b;
+    - the tool-required additions are accepted;
+    - the policy-admission gap until I1-b1 is recorded, since nothing can reach it today.
+  - **Review:** goes to CODEX2 after I1 r3.
