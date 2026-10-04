@@ -332,3 +332,9 @@ Times are local.
   - the MC citation note.
 
   Open cross-law items from H: X-H1 (FA-2, in review), X-H2 (FA-1), X-H3 (M3-C r8 / CRC-2), X-H4 (L r4), X-H5 (the M3-PLAN unit for H3) and X-H6 (S-B).
+- **SYN-1, SYN-1F and SYN-NS written** (E1's successors, for T-native). Bound together in order, they take the lock from 82 to 86.
+  - **SYN-1:** NE's per-file syntax outcomes (`parsed`, `syntax-error` → `source-parse-error`, `truncated`, `backend-fault`), with ERROR symbol 0xFFFF as the one table exception. It also adds the pre-Plan grammar-context route row and a backend-fault route.
+  - **SYN-1F:** the foundation mirrors. It carries CRC-1's identity-schema overrides, so it binds after CRC-1 and is rebuilt if CRC-1 changes.
+  - **SYN-NS:** the normalizer spec and levels L0–L3. Every node kind is checked against E0's pinned grammars.
+  - **Queue:** SYN-1 and SYN-NS go to CODEX2 after CR-1. SYN-1F is held until CRC-1 is accepted, then rebuilt.
+  - **E2s** must land after I1-a.
