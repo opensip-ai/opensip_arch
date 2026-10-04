@@ -103,3 +103,6 @@ Times are local.
     - **X4-F1:** a real defect. Observer rereads don't evaluate expiry as X4T r9 item 6 requires. It is fixed by an X4T-a successor unit before any M3 analysis ships, and disclosed as a known defect at M2 completion.
   - None of the four is among BP:886's M2 criteria, but the owner should know.
 - **M3-B accepted at r2 by GROK2.** It covers configuration and discovery, plus D15 multi-repo workspaces through X2 r9. Its successors S1–S9 and the code units come next.
+- **M3-C r2 sent to CODEX2.**
+  - **Schedule:** the 26-day conditional host chain no longer holds. It is 28 days with the C4 split (recommended) or 29 without, because of C3's units and C4's real size. Flagged as O-4, for the next M3-PLAN revision.
+  - **Archive profile:** DS-2 now admits only Cargo's actual package format (gzip, GNU headers, GNU long names), bounded and with no links.
