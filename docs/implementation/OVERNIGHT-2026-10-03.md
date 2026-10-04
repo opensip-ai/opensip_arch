@@ -473,3 +473,4 @@ Times are local.
   - RUST3-LIM bound (L-G11).
 
   The `⟨SM-n⟩` values and anything those items force go through a delta round. Day 0 means L is in effect.
+- **FA-2 accepted at r2 by Codex and bound** at product ``. **RUST3-LIM bound on top of it** at `7347614`, giving 87 contract successors. M3-L's gate items L-G10 (FA-2) and L-G11 (RUST3-LIM) are now **met**. The remaining items are the owner's (O7, D3/D13) and S-M.
