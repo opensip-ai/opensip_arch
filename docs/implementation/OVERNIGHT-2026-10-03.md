@@ -74,3 +74,10 @@ Times are local.
   - **Release absence:** byte-identical to the earlier records.
   - **Evidence record:** committed at arch `5c703071d` (`crash-matrix-x9/evidence/3d2d5b5…/`; 490 files, 23 MB).
   - **Next:** Grok's rerun on C (r2, sent). When it agrees, M2's crash/lock/revocation matrix gate is met.
+- **The F8b proposal is accepted at r2 by CODEX2.** Its execution runs after Grok's matrix rerun, because it needs the machine:
+  - the observed generator rebuild;
+  - the separate equivalence probe;
+  - the re-pins;
+  - the ACCEPT-DESIGN-UNIT review on the frozen manifest.
+
+  M3-I1's product units follow F8b.
