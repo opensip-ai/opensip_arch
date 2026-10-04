@@ -1,6 +1,93 @@
-# Project-root custody, project admission and first registration — proposal X2 r8
+# Project-root custody, project admission and first registration — proposal X2 r9
 
 2026-09-30. Claude Opus 5.5, implementation lead. Law for unit X2 of EXIT-PLAN.md, under owner.md §1b, §5, §7 and §8; the selected project registry owner (`project-registry-owner-selection-v2/owner.md`); the security contract S3 (discovery and custody), S7 (locks and leases) and S12; identity-and-evidence §2 and §5; and laws 458 (§3 and §5), 458b, 462, 465 item 4, 468 r5, 458c r6, 461 r3 (item 9, which requires this law) and X1. Every choice here is a lead decision, made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation; each is dated and names the alternative it rejects. r2 answers Codex X2 r1 RF-1 to RF-7 against product f7acb6d (X1a integrated). r1 bytes are preserved in PROPOSAL-r1.md. r3 answers Codex X2 r2 RF-1 to RF-4, and r2 bytes are preserved in PROPOSAL-r2.md. r4 answers Grok X2 r3 RF-1 to RF-3, and r3 bytes are preserved in PROPOSAL-r3.md. r5 answers Grok X2 r4 RF-1 (step 6 rechecks the current owners) and RF-2 (the floor step is ordered before item 7's lease, outside 7a). r4 bytes are preserved in PROPOSAL-r4.md. r5 was ACCEPTED by Grok on 2026-09-30. r6 is an amendment required by Grok X6 r1 RF-1: one narrow exception to item 7's fence rule for the read-only recovery selector. r5 bytes are preserved in PROPOSAL-r5.md. r6 was ACCEPTED by Grok on 2026-10-01. r7 is an amendment from implementing X2b-2: system Git configuration sources are refusal-only evidence, read without custody, because the custody rule refused every repository on a stock Mac. r6 bytes are preserved in PROPOSAL-r6.md. r8 answers Grok X2 r7 RF-1: item 1's no-follow premise admission governs only the Git evidence still in scope, and a system source is refused only as item 6a says, never for its location. r7 bytes are preserved in PROPOSAL-r7.md. r8 ACCEPTED by Grok on 2026-10-01. Not code. Library only: CLI enablement is X11.
+
+**r9 (2026-10-04) is an amendment made as lead decisions under the owner's standing direction of 2026-09-30.** r8 bytes are preserved in PROPOSAL-r8.md (sha256 `c31d9a02…`, the subject Grok accepted in `reviews/grok-project-root-x2-r8`).
+
+- **Where it comes from.** The accepted M3 law **M3-B r2**, configuration and discovery (`docs/implementation/m3/config-discovery-b/PROPOSAL.md`). GROK2 accepted it on 2026-10-04 (`docs/implementation/m3/reviews/grok2-config-discovery-b-r2`, subject `92e65825…`, preserved as `PROPOSAL-r2.md`).
+  - M3-B item 25 names this amendment as its successor S1, and M3-B item 21 gives its content. r9 carries that content and adds one lead decision: the order of item 3a's reads relative to items 2 and 3 (below).
+  - It serves two M3 needs:
+    - **M3-B's resolver (B1).** The project configuration file is read from the descriptor S3's selection judged, and the interactive local file is judged and read the same way.
+    - **Owner decision D15, multi-repository workspaces** (`docs/implementation/m3/analysis-quality/PLAN.md:556`). The selected root W is in no repository, and declared member repositories below W each have a closed, conventional Git layout.
+- **No product code changed.** The product is at main `3e64266`. M3-B's product citations were read at `30c5db1`, and every cited file is byte-identical at `3e64266`.
+- **How it edits r8.** r8's sentences stay in place. Each addition is marked "(r9)", or is a short "r9" note; a note that needs more points here. The two new items are 3a and 6b. The lead decision is marked "r9, lead decision" in item 3a.
+
+It changes the following and nothing else.
+
+- **Item 1, premise scope.** The fact, the premise, the H-volume constraint and the "strictly below H" rule are unchanged. The objects the premise may admit gain:
+  - `<root>/.opensip/local.json`, as a custody-checked configuration file (M3-B item 2's layer 4, the interactive local layer);
+  - the directories the **downward** discovery walk custody-judges, from the root to each unit. Item 10 already says that item 1's scope "covers its custody-checked objects", and r9 names them;
+  - for each admitted D15 member M: `M/.git` (the directory), `M/.git/config` and `M/.git/index`. These are exactly the three objects item 1 already admits for an enclosing repository, each through its own retained no-follow descriptor. **Nothing else under `M/.git`.** Any further Git object, such as `HEAD`, refs or `packed-refs`, is admitted only by C1's VCS-observation law (M3's snapshot unit), for every repository alike.
+- **New item 3a, carrier capture.** S3's selection keeps the descriptor of the `opensip.json` it judged, and judges `.opensip/local.json` the same way when the invocation is interactive. B1 reads their bytes from those descriptors, at most 4 MiB. Their full metadata samples join item 3's held-fence recheck set.
+- **Item 3a's order (lead decision; below).** Item 2's placement check and item 3's chain walk run first. Then come item 3a's reads, configuration resolution and X12 r4's pack admission, and then item 5's registry capture.
+- **New item 6b, the member observation.** It runs at discovery, after the fence is released, on M3-B's discovery ledger. Its precondition is that item 6a's observation of W is "no repository". For each declared member it checks placement, then item 6a's admitted layout and exact index decoder, unchanged.
+- **Item 8, rows.** No new code. Four new subjects:
+  - under `PROJECT.ROOT_CUSTODY_REFUSED`: `member-vcs-unsupported:<reason>`, `member-outside-volume` and `workspace-root-inside-repository`;
+  - under `PROJECT.SCOPE_LIMIT`: `members:<n>>64`.
+- **Item 10, units.** M3-B's unit B1-b owns item 3a, and its unit B3-b owns item 6b.
+- **Forbidden substitutes.** Every forbidden substitute applies to members. Four are added: item 6b without its precondition, a member admitted from the environment, any member Git object beyond the three, and any write under a member.
+
+**Why it is safe** (M3-B item 21):
+1. **No new evidence class.** The premise is the same per-filesystem fact (X2:18-22), applied to the same three Git objects and to custody-checked files of the same kinds.
+2. **No new Git semantics.** Everything outside the closed layout still refuses as `vcs-unsupported`. r9 models nothing that r8 did not.
+3. **One authority root.** W keeps the only ProjectId, marker, registry row and lease namespace. Members are never authority roots under W, and identity-and-evidence's identity rules (IE:41-58) are untouched.
+4. **No write.** Nothing is created or written in any member: no `.opensip`, no index refresh, no config (M3-B item 15).
+5. **The marker stays untracked by construction.** W is in no repository, so no index can track W's marker, and members are strictly below W, outside `.opensip`.
+6. **The environment stays refusal-only.**
+7. **Undeclared nested repositories keep S3's boundary.** Only W's own declaration, read as data from files W's owner controls under custody, crosses one.
+8. **Read-only, per-read custody.** Every member byte the snapshot reads is re-checked between `lstat` and `open` (SL:313-315).
+
+**Basis** (M3-B item 21). X2:18-49, X2:74-96, X2:163-215 and X2:250-280; `git_tracking.rs:1-18` and `:743-776`; SL:159-168. GROK2's r1 review of M3-B confirmed these eight points (its R7), and confirmed that a downward walk after the fence, on its own ledger, is compatible with item 9 (its R3).
+
+**Rejected** (M3-B item 21):
+- **Following a member's `.git` file (gitdir).** It would admit relocated repositories whose evidence lives outside M, which r8 refused for a reason that still holds (X2:213).
+- **Running item 6b under the fence.** It grants nothing that the fence protects.
+- **Admitting more Git objects in r9.** C1 has to define VCS state for single-root projects anyway, and one law should admit those objects for every repository alike.
+
+**Controls** (M3-B item 21; B3-b's tests). Synthetic Git fixtures, created by tests in a private 0700 scratch under a synthetic H:
+- a conventional member;
+- a `.git` file;
+- `core.worktree`;
+- an `include`;
+- `extensions.objectformat=sha256`;
+- `commondir` present;
+- a split index;
+- a submodule gitlink inside a member;
+- a `.hg` between W and M;
+- W inside a repository;
+- a member on another volume, where the platform allows it, or synthetic otherwise;
+- 64 and 65 members.
+
+Each refusal is tested with its subject.
+
+**Lead decision: item 3a's order (r9, under the owner's standing direction of 2026-09-30).** It was found while drafting r9.
+- **The gap.** Neither M3-B nor r8 orders item 3a's reads, configuration resolution and pack admission (X12 r4) relative to item 2's placement check and item 3's chain walk. All are reads under the fence, so either order meets both laws. But the refusal differs: a root outside H that also has a refused pack ID would get either `outside-home` or X12's row 1.
+- **Decision.** After S3's selection walk, item 2's placement check and item 3's chain walk run first. Then come item 3a's carrier reads, configuration resolution and X12 r4's pack admission, and then item 5's registry capture.
+  - A misplaced root, or one whose chain fails, is refused before any configuration byte is read.
+  - S3's selection walk still judges `opensip.json` where it examines it, and keeps its descriptor. Only the bytes wait.
+  - This is consistent with item 5, whose placement check already runs "first" and refuses before any registry content read.
+- **Rejected:**
+  - **Reading the carriers, resolving and admitting packs straight after the selection walk.** The configuration of a root that item 2 or item 3 would refuse would be read, and a misplaced root could be refused on a pack row instead of its placement row.
+  - **Leaving the order to B1-b.** A public refusal would then depend on the implementation.
+- **Not decided here.** `members:<n>>64` still has no remedy text. It stays with successor S3 (see "The `PROJECT.SCOPE_LIMIT` remedy" below).
+
+**Reconciliations with r8's text.** Each one states how M3-B item 21's text reads in this law. None changes M3-B's content.
+- **Names.** M3-B's item numbers differ from this law's. In r9's text, "M3-B item N" is M3-B's, and a bare "item N" is this law's. M3-B's terms are its own:
+  - W1 to W3 and M1 to M5 are M3-B item 19's clauses, and item 6b quotes M1 to M3;
+  - B1, B1-b and B3-b are M3-B's sub-unit and units, and C1 is M3's snapshot unit;
+  - "declared" means declared under M3-B item 20, and "interactive" is M3-B item 3's invocation mode.
+
+  M3-B's short names are its own as well. Here SL is the security contract `docs/v2/contracts/product-v1/security-and-lifecycle.md`, and IE is `docs/v2/contracts/product-v1/identity-and-evidence.md`. The product paths are under `opensip/crates/security/src/custody/`.
+- **`.opensip/local.json` and "never covers".** Item 1 never covers "OpenSIP's own operational files in the project, such as `.opensip/project-id.v1`". `local.json` lies under `.opensip/`, but it is not an operational file. It is a configuration carrier (M3-B item 2's layer 4), custody-checked like the S3 config file, and its custody refusal is item 8's config-file row, `CONFIG.CUSTODY_REFUSED` (M3-B item 2). The marker and every other operational file stay outside the premise.
+- **The one ledger (item 9).** Item 9 charges everything "to one authoritative ledger for the operation (the session's or the gate's)".
+  - Item 3a runs inside admission, under the fence, so its captures are charged to that ledger, within the 4 MiB per-record ceiling.
+  - Item 6b, and the downward walk whose directories item 1 now names, are not part of admission. They run after item 7a's handoff, or the read session's equivalent release, on M3-B item 12's discovery ledger.
+  - So item 9's one ledger stays the admission's.
+- **The `PROJECT.SCOPE_LIMIT` remedy.** Item 8's remedy text ("This installation's project registry is at its lifetime capacity …") stays the remedy of the three registry subjects only. M3-B gives `members:<n>>64` no remedy text. Its item 24 rows are successor S3's content (M3-B item 25), so that remedy is S3's to state. r9 states none.
+- **Where the new subjects apply.** M3-B item 24 decides when each new subject applies, and when a failure excludes a member instead of refusing. A member that a reader declared, and that fails item 6b, is excluded and disclosed, not refused. M3-B item 20 gives the two declaration branches.
+- **Line citations.** Citations of the form X2:NNN, in M3-B, in other laws and in r9's own text, are to r8's lines, preserved in PROPOSAL-r8.md. This file's lines move with r9's header.
+
+**Unchanged from r8:** everything else. That includes items 2 to 7a apart from the additions above; the registry capture, first registration, leases and the handoff; every forbidden substitute other than the r9 bullet; and "Not claimed". No new public code, row or detail.
 
 ## Problem
 
@@ -24,12 +111,15 @@ Without the premise, no project root can be admitted. Without an admitted root, 
      - the directories from H, exclusive, down to the project root;
      - the project root;
      - the directories S3's walk examines from the launch directory up to the selected root;
+     - **(r9)** the directories the **downward** discovery walk custody-judges, from the root to each unit. Item 10 already says this scope "covers its custody-checked objects", and r9 names them;
      - `.opensip/` when it exists, as a project directory;
      - the project's custody-checked files: the S3 config file and, when unit discovery lands, the workspace marker files;
+     - **(r9)** `<root>/.opensip/local.json`, as a custody-checked configuration file (M3-B item 2's layer 4). It is a configuration carrier, not an operational file (see the r9 header);
      - the Git tracking evidence of item 6a, and nothing else under `.git`: each enclosing repository's `.git` directory, its `config` file and its `index` file;
+     - **(r9)** for each admitted D15 member M (item 6b): `M/.git` (the directory), `M/.git/config` and `M/.git/index`. These are exactly the three objects the bullet above admits for an enclosing repository, each through its own retained no-follow descriptor. **Nothing else under `M/.git`.** Any further Git object, such as `HEAD`, refs or `packed-refs`, is admitted only by C1's VCS-observation law, for every repository alike;
      - item 6a's fixed global Git configuration files under H, `H/.gitconfig` and `H/.config/git/config`, with the directories `H/.config` and `H/.config/git`. Each must be owned by the invoking user, with no group or other write, and one link for files.
        - Lead decision: these usually omit the ACL. Refusing on omission would break every user who has a global Git config, while the premise's fact (no ACL stored) is the same on H's volume.
-   - **How the Git evidence in scope is admitted** (the `.git` evidence and the global files above):
+   - **How the Git evidence in scope is admitted** (the `.git` evidence and the global files above; **r9:** including each admitted member's three objects):
        - Each is admitted only through its own retained no-follow descriptor, under the same premise and H-volume constraints.
        - Only a `.git` strictly below H counts, so the H-exclusive rule above still holds.
        - The lookups item 6a makes for names that must be absent (`commondir`, `config.worktree`) are custody-free negative lookups. Those names are never admitted as objects.
@@ -37,10 +127,10 @@ Without the premise, no project root can be admitted. Without an admitted root, 
        - Alternative rejected: refusing omitted-ACL tracking evidence. It would refuse every ordinary repository on a stock Mac.
    - **Item 6a's fixed system Git configuration files are not in this scope (r7, r8).** They are refusal-only evidence, opened by fixed path following links, with no custody judged and no premise or H-volume constraint applied. Item 6a refuses one only when it is unreadable, not a regular file, oversized, or fails the closed parse. Their location above H and off H's volume is not a refusal.
    - **Objects it never covers:**
-     - OpenSIP's own operational files in the project, such as `.opensip/project-id.v1`;
+     - OpenSIP's own operational files in the project, such as `.opensip/project-id.v1` (**r9:** `.opensip/local.json` is a configuration carrier, not one of these; see the r9 header);
      - the installation and its private descendants;
      - files read only as data, such as source and manifests read after custody;
-     - any other object under `.git`: objects, refs, hooks, logs and the rest;
+     - any other object under `.git`: objects, refs, hooks, logs and the rest (**r9:** under a member's `.git` too);
      - a `.git` at or above H, or off H's volume (item 6a refuses it);
      - item 6a's fixed system Git configuration files (refusal-only evidence; see above);
      - anything off H's volume.
@@ -67,9 +157,14 @@ Without the premise, no project root can be admitted. Without an admitted root, 
 
    **Selection stays S3's.** The S3 discovery walk (launch directory upward, at most 256 levels, with the boundaries in precedence) selects the root. A custody failure at an ancestor stays a discovery boundary, as S3 says. The chain walk above runs after selection, over the selected root's chain. The selection walk is charged on the same ledger.
 
-   **Recheck.** The chain is rechecked under the held fence as in 468 item 3's recheck set, with the project chain added.
+   **Recheck.** The chain is rechecked under the held fence as in 468 item 3's recheck set, with the project chain added. **r9:** item 3a's carrier samples join this set (see the r9 header).
 
    Alternative rejected: no ancestor check below H. A writable ancestor could rename the root during the operation. The registry incarnation key detects that only after the fact.
+
+3a. **Carrier capture (r9, by M3-B item 21).** S3's selection keeps the descriptor of the `opensip.json` it judged (`project_admission.rs:240-252`), and `.opensip/local.json` is judged the same way when the invocation is interactive (M3-B item 3). B1, M3-B's resolver, reads their bytes from those descriptors, at most 4 MiB. Their full metadata samples join item 3's held-fence recheck set.
+   - **Order (r9, lead decision; see the r9 header).** Item 2's placement check and item 3's chain walk run first, after S3's selection walk. Then come these reads, configuration resolution and X12 r4's pack admission, and then item 5's registry capture. No configuration byte is read for a root that item 2 or item 3 refuses.
+   - A file reopened by name after the judgment is forbidden (M3-B item 2, which states this item for the resolver).
+   - Owner: M3-B's unit B1-b (item 10, r9).
 
 4. **What a project root admission is.** A private, non-Clone `ProjectRootAdmission`, produced only under a held installation fence: the 458c read session, or the 468 write gate for X1 writers. It holds:
    - the retained chain and root descriptor;
@@ -213,6 +308,23 @@ Without the premise, no project root can be admitted. Without an admitted root, 
    - **Alternative rejected:** modelling Git's full configuration semantics, and relocated worktrees, linked worktrees, bare repositories, includes and SHA-256 repositories. Each adds unbounded or format-dependent evidence, and none is needed for an ordinary clone.
    - **Alternative rejected:** refusing index version 4. Its prefix compression is fully specified and simple to decode exactly, and refusing it would break repositories with `index.version = 4` or `feature.manyFiles`.
 
+6b. **The member observation (r9, by M3-B item 21; owner decision D15).** It runs at discovery, after the fence is released, on the discovery ledger (M3-B item 12).
+   - **Precondition.** Item 6a's observation of W is "no repository" (`NoRepository`; M3-B item 19's W2: no VCS marker at W or at any ancestor up to `/`).
+   - **For each declared M, in ascending path order:**
+     - **Placement:** M1 to M3, by positive no-follow lookups of `.git`, `.hg`, `.svn` and `.jj` at every directory strictly between W and M, and at M itself. M3-B item 19's clauses are:
+       - **M1.** M is a directory strictly below W. It is reached without symlinks, on W's device (no mount change), at a depth of at most 256 segments.
+       - **M2.** M holds `.git` as a directory and no other VCS marker. No directory strictly between W and M holds a VCS marker or `opensip.json`. M is not at or below `W/.opensip`.
+       - **M3.** Members are disjoint: no member is at or below another.
+     - **Layout:** item 6a's admitted layout, unchanged.
+       - The effective configuration is the union of the fixed system sources, the global sources and `M/.git/config`, with item 6a's refusals verbatim: `include`/`includeIf`, `core.worktree`, `core.bare` other than false, `extensions.*`, `core.repositoryformatversion` other than 0, `core.precomposeunicode` set to false, and any value the parse cannot bound (X2:163-208; `git_tracking.rs:295-317`).
+       - `commondir` and `config.worktree` must be positively absent (`git_tracking.rs:807`).
+       - The environment check of item 6a runs once per pass (`git_tracking.rs:697-713`).
+     - **Index:** item 6a's exact decoder, versions 2 to 4 with the checksum, refusing a `link` or `sdir` extension (`git_tracking.rs:429`). A gitlink in M's index marks a nested repository inside M, which stays a boundary.
+   - **The workspace marker:** `W/.opensip/project-id.v1` lies in no member's worktree, by M1 to M3. This is asserted, not observed.
+   - **Recheck:** the member evidence is not in the fenced recheck set, because it grants no project admission. C1's per-read custody re-check covers it at snapshot time (SL:313-315).
+   - **Rows:** item 8's r9 subjects. When each applies, and when a failure excludes the member instead, is M3-B item 24's (see the r9 header).
+   - **Owner:** M3-B's unit B3-b (item 10, r9). Its tests are the controls in the r9 header.
+
 7. **Namespace admission and leases.** **Ordering note (X3b r2 item 1).** Before this item takes any lease, with the fence held and no project lock, X3b's floor step runs once R is current (R0 for an Eligible root, R2 after a fresh registration). S7 writes trust state only under the fence and never under a lease. For `Eligible(N)`, or for a root this admission has just registered (R2), with N taken only from the ACTIVE row of the current registry owner R (R0 for an Eligible root; R2 after this admission's own first registration) and never from a caller, under the same held fence:
    - Confirm the namespace directory and both lease files under custody.
    - Take the S7 lease without blocking, starting from the existing `lifecycle::leases` two-lock implementation:
@@ -255,12 +367,17 @@ Without the premise, no project root can be admitted. Without an admitted root, 
      - The identity contract calls these admission refusals that require explicit recovery or adoption, and no identity detail exists.
      - Alternative rejected: a new code, which the owner's no-new-codes rule forbids.
    - **A tracked marker, or an unsupported or unreadable VCS, on first use or eligible reuse (item 6a):** `PROJECT.ROOT_CUSTODY_REFUSED`, with subject `marker-tracked` or `vcs-unsupported`.
+   - **D15 members (r9, by M3-B item 21).** No new code. New subjects:
+     - under `PROJECT.ROOT_CUSTODY_REFUSED`: `member-vcs-unsupported:<reason>`, `member-outside-volume` and `workspace-root-inside-repository`;
+     - under `PROJECT.SCOPE_LIMIT`: `members:<n>>64` (M3-B item 24).
+
+     When each applies, and when a failure excludes a member instead of refusing, is M3-B item 24's (see the r9 header).
    - **Registry capacity:** `PROJECT.SCOPE_LIMIT`, request-rejected, exit 2, `REQUEST.UNSATISFIABLE`, with no fault cause, and the S12 `field:count>limit` subject:
      - rows: `registry-rows:<n>>4096`, where n is the attempted resulting row count (4097 when the registry already has 4096 rows);
      - bytes: `registry-bytes:<n>>4194304`, where n is the canonical byte length of the resulting RESERVED or ACTIVE document, or of a worst-case later terminal spelling;
      - transition wrappers: `registry-transition-rows:<n>>4096`, where n is the namespace count of the worst legal all-registered transition wrapper.
 
-     The remedy text is: "This installation's project registry is at its lifetime capacity. Registry entries are kept for the life of the installation and are never removed, so a new project cannot be registered here. Use a project that is already registered." It does not suggest discarding rows or compaction.
+     The remedy text is: "This installation's project registry is at its lifetime capacity. Registry entries are kept for the life of the installation and are never removed, so a new project cannot be registered here. Use a project that is already registered." It does not suggest discarding rows or compaction. **r9:** this remedy is the three registry subjects' only; it is not the remedy of `members:<n>>64` (see the r9 header).
 
      Actual work-budget exhaustion stays the separate `WORK.BUDGET_EXHAUSTED` row.
    - **Entropy failure, I/O and barriers:** the host I/O row.
@@ -269,7 +386,7 @@ Without the premise, no project root can be admitted. Without an admitted root, 
 
    Where S12 fixes a class for a detail, S12 prevails.
 
-9. **Budget.** Everything is charged before it runs, to one authoritative ledger for the operation (the session's or the gate's), at the owner's caps. That includes every walk, sample, the registry capture and validation, replacement serialization, the VCS lookups and index read, original-owner rechecks, and reserved post-effect work. The selection walk is at most 256 levels. The registry and each Git index are each bounded by the 4 MiB per-record ceiling, and each Git config by 64 KiB. A larger registry is unavailable, and a larger index or config refuses as `vcs-unsupported`. The number of enclosing repositories is bounded by the chain length.
+9. **Budget.** Everything is charged before it runs, to one authoritative ledger for the operation (the session's or the gate's), at the owner's caps. That includes every walk, sample, the registry capture and validation, replacement serialization, the VCS lookups and index read, original-owner rechecks, and reserved post-effect work. The selection walk is at most 256 levels. The registry and each Git index are each bounded by the 4 MiB per-record ceiling, and each Git config by 64 KiB. A larger registry is unavailable, and a larger index or config refuses as `vcs-unsupported`. The number of enclosing repositories is bounded by the chain length. **r9:** item 3a's captures are part of admission and are charged here. Item 6b and the downward walk are not: they run after item 7a's handoff, on M3-B item 12's discovery ledger (see the r9 header).
 
 10. **Units after the law.** Each unit is reviewed with an inventory successor.
     - **X2a:** the scoped premise application (a `ProjectChainPolicy` over the shared walk code), the charged use of the existing birth sampler, and the project chain walk.
@@ -277,7 +394,8 @@ Without the premise, no project root can be admitted. Without an admitted root, 
     - **X2c:** first registration (item 6), with the registry replacement primitive and the create-or-admit of `I/host/projects` and `.opensip`.
     - **X2d:** namespace admission and leases (item 7), returning `FencedNamespace` with the fence still held.
     - **X2e:** the checked operation handoff (item 7a). It depends on X2d and X3a-1, and X3a's store binding and X3b depend on it.
-    - **Unit discovery** (S3's workspace units, markers, pruning and the 4096 cap) belongs to M3's analysis owner. Item 1's scope already covers its custody-checked objects.
+    - **Unit discovery** (S3's workspace units, markers, pruning and the 4096 cap) belongs to M3's analysis owner. Item 1's scope already covers its custody-checked objects. **r9:** item 1 now names them.
+    - **(r9)** M3-B's unit B1-b owns item 3a, and its unit B3-b owns item 6b.
 
 ## Forbidden substitutes
 
@@ -301,7 +419,12 @@ Without the premise, no project root can be admitted. Without an admitted root, 
 - a no-replace publication of the existing registry name, or a registry replacement published before its file barrier;
 - first registration over a tracked or unreadable marker;
 - deleting or adopting a leftover reservation, namespace or marker;
-- a new public code.
+- a new public code;
+- **(r9) D15 members:** every forbidden substitute above applies to members. In addition:
+  - item 6b without the "no repository" precondition;
+  - a member admitted from the environment;
+  - any Git object of a member beyond `.git`, `config` and `index`;
+  - any write under a member.
 
 ## Not claimed
 

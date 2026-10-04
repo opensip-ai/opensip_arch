@@ -1,4 +1,4 @@
-# Configuration and policy-pack admission — proposal X12 r3
+# Configuration and policy-pack admission — proposal X12 r4
 
 2026-10-01. Claude Opus 5.5, implementation lead. Law for unit X12 of `EXIT-PLAN.md`, release gate DR-G24 PREVIEW-ANALYZE-WELL-FORMED-ADMISSION. X5 r1 split this gate out of X5 (`replay-join-x5/PROPOSAL.md` item 1, "Correction to EXIT-PLAN"). The governing documents are:
 - the register's DR-G24 row (`08-decision-and-readiness-register.md` line 369: "Host admission of preview analyze requests refuses a non-bundled pack identity and a non-declarative pack or contribution"; retained evidence "pack-identity refusal before evaluation; imperative-pack refusal; no user or third-party pack"; "no waiver for silent admission"), and DR-131 (line 320, SATISFIED at D-369);
@@ -10,6 +10,76 @@
 - the accepted laws X5 r2 (items 1, 3 and 5) and 468 r5 item 6 (the termination vocabulary).
 
 Items 1 to 5 and 7 to 9 contain lead decisions made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation; each names the alternative it rejects. r2 answers Grok X12 r1. RF-1: an imperative key in a bundled row is row 4, the host-invariant fault, and row 3 covers only a document the caller presents (items 6 and 7). RF-2: the claim that the registered `CONFIG.INVALID` detail already states the pack condition is withdrawn, and a remedy-text contract successor, X12-0, must precede X12b (item 7 and "Units after the law"). r1 bytes are preserved in PROPOSAL-r1.md. r3 answers Grok X12 r2 RF-1: the declarativeness prohibition is scoped to a document the caller presents; a bundled imperative member surfaces as row 4. r2 bytes are preserved in PROPOSAL-r2.md. r3 ACCEPTED by Grok on 2026-10-01. Not code. Library only: no CLI command is wired.
+
+**r4 (2026-10-04) is an amendment made as lead decisions under the owner's standing direction of 2026-09-30.** r3 bytes are preserved in PROPOSAL-r3.md (sha256 `11628912…`, the subject Grok accepted in `reviews/grok-policy-admission-x12-r3`).
+
+- **Where it comes from.** The accepted M3 law **M3-B r2**, configuration and discovery (`docs/implementation/m3/config-discovery-b/PROPOSAL.md`). GROK2 accepted it on 2026-10-04 (`docs/implementation/m3/reviews/grok2-config-discovery-b-r2`, subject `92e65825…`, preserved as `PROPOSAL-r2.md`).
+  - M3-B item 25 names this amendment as its successor S2, and M3-B item 10 gives S2's exact text. r4 carries that text and adds one lead decision to it: the first-use clause, with the dependents its withdrawal record names (below). M3-B item 10's own text is not changed; the addition is this law's.
+  - GROK2's r1 finding RF-2 on M3-B shaped the withdrawal record (`docs/implementation/m3/reviews/grok2-config-discovery-b-r1`).
+- **Why the order must change** (M3-B "Problem" and item 10). A pack ID can come from the project layer of the configuration, Config2's `policy.packIds` (admission-and-qualification §1.1, AQ:47-52). The project carrier is located and custody-judged only by S3's selection walk, which X2 runs charged and under the fence (X2:68, X2:74). So pack admission cannot run before every fence, as r3's item 8 required.
+- **No product code changed.** `admit_policy_selection` has no caller yet (X11 r1). M3-B's unit B1-a places its caller in r4's order (M3-B item 25: S2 lands with B1-a).
+- **How it edits r3.** S2's text replaces r3 item 8's opening paragraph and its five bullets (X12:125-130), where they stood. The lead decision adds two passages inside it, each marked "r4, lead decision": the first-use clause, after S2's first paragraph, and the dependents, at the end of the withdrawal record. X12:136 keeps its words and is followed by a short "r4" note. Nothing else is edited.
+
+It changes the following and nothing else.
+
+- **Item 8's order.** Pack admission stays pure: no I/O, no lock and no ledger charge.
+  - It now runs immediately after configuration resolution, which runs immediately after S3's selection walk and the configuration carrier captures.
+  - It runs before X2's registry capture and every later step of project admission, before any effect, and before everything r3 listed after the fence.
+  - It may follow the fence acquisition, the selection walk and the carrier reads, which write nothing.
+- **The first-use clause (lead decision; below).** On the first-use creator route, "before any effect" reads "before any project-scoped effect".
+- **The withdrawal record** (in item 8). r4's order supersedes r3's "before … X1 write admission, X2 project admission or any fence" (X12:126) and the ordering sense of X12:136. It withdraws the clause "the order" from M3-I1 r2 item 7's "Everything else in X12 r3 stands" (I1:388). By the lead decision, it also supersedes two dependents: X11 r1 item 1a and I1:404.
+- **X12:136's reading.** "it is pure and runs before any custody" now means that admission itself performs no custody, because S3's selection judgment precedes it. Its correction that X12 does not depend on X1 stands.
+
+**Lead decision: first use (r4, under the owner's standing direction of 2026-09-30).** It was found while drafting r4.
+- **The gap.** S2 lets pack admission follow "the fence acquisition of the 458c read session or of the 468/X1 write gate", and requires it "before any effect".
+  - On first use, 468 r5 item 1 has the creator publish the installation before the invocation continues through the 468 gate with a fresh fence.
+  - The project carrier can be read only after that fence and S3's selection walk.
+  - So on the first-use creator route, S2's literal order cannot be met.
+- **Decision.** On that route, "before any effect" reads "before any project-scoped effect".
+  - The creator's installation effects come first, then pack admission, then every project-scoped effect: registration (X2 item 6), any lease (X2 item 7), the project ledger and journal, and every later project effect.
+  - A refused pack on first use leaves an empty, valid installation and no project effect. This is disclosed in the refusal and is never hidden.
+  - On every other route, S2's "before any effect" stands as written.
+- **Rejected:** reading the project configuration before its custody judgment, so that pack admission could precede the creator. It would break X2 r9 item 3a, which reads each carrier only from the descriptor S3's selection judged under the fence.
+- **Dependents.** The withdrawal record names two dependents that S2 supersedes:
+  - **X11 r1 item 1a** rejected "creating I first" on r3's order. That conflict is routed to the X11 successor that M3-J1 owns. X11's M2 decision does not rest on item 1a alone: X11 calls its four reasons "each sufficient on its own".
+  - **I1:404**, "J2 calls `admit_policy_selection` first (X12:125-132)". J2 calls it in r4's order.
+- **Not law, so not withdrawn here.** Row 1 of the order table in M3-C's draft (`docs/implementation/m3/snapshot-plan-c/PROPOSAL.md`) still carries r3's order. It is a dependent to update in M3-C's next revision.
+- **Control** (the X11 successor's, M3-J1). On first use, a refused project-layer pack ID leaves:
+  - a complete installation;
+  - no registry row, namespace, `.opensip`, marker, lease or journal;
+  - the refusal's disclosure of the creation.
+
+**What stands** (M3-B item 10):
+- the rest of item 8 (X12:132-138), including the rule that the Plan builder takes the policy only from an `AdmittedPack` (X12:134), "nothing to clean up" (X12:132) and the rejection of admission inside Plan construction (X12:138);
+- item 8's rule that admission is pure, with no I/O, no lock and no ledger charge (X12:125);
+- everything else in r3: rows 1 to 4, the `Supplied` refusal of bundled bytes, the `cfg(test)` registry, `check_plan_pack` and X12d;
+- of M3-I1 r2's amendments to X12 r3 (I1:381-388): the three row-count changes (I1:383-386), and I1:388's other clauses (rows 1 to 4, the `Supplied` refusal, the `cfg(test)` registry, `check_plan_pack` and X12d).
+
+**Basis** (M3-B item 10). The pack ID can come from the project layer (AQ:47-52, the `policy` section). The project carrier is located and judged only by the selection walk, which runs under the fence (X2:68, X2:74). X12's rationale still holds: a refusal leaves DR-G24's record, with no evaluation, no `policyOutcome`, no facts or Coverage and no universe, and "nothing to clean up" (X12:132). Selection and the carrier reads write nothing, and dropping the session releases the fence. GROK2's r1 review of M3-B checked this (its R2): `ObservationSession::begin` and `DurableWriteGate::begin` write no registry row, RESERVED document, lease or journal.
+
+**Rejected** (M3-B item 10):
+- **Reading the carriers before the fence.** That reverses X2's charged, fenced selection (X2:68) and opens a gap between the read and the fenced admission.
+- **Allowing policy selection only from defaults and flags.** It contradicts Config2's project-level `policy.packIds` (AQ:47-52).
+- **Admitting twice,** once before the fence for flags and once after selection. It doubles the path and needs the same amendment anyway.
+
+**Controls** (M3-B item 10; B1-a's test). For a refused project-layer pack ID: no registry read, no RESERVED row, no lease, no journal, the session released, and X12 row 1 returned.
+
+**Reconciliations with r3's text.** Each one states how S2's text reads in this law. None changes S2's words.
+- **Format.** S2 writes item 8's number inside its bold heading (`**8. Order: …**`). r4 writes it as this law's list marker (`8. **Order: …**`), so item 8 stays the eighth item of the list. The "Withdrawal recorded" paragraph is indented as part of item 8. Apart from the two passages marked "r4, lead decision", every word of item 8's opening is as M3-B item 10 gives it.
+- **Names in S2's text.**
+  - "S3" is the security contract's S3 (discovery and custody), not M3-B's successor S3.
+  - In "(registration, item 6; any lease, item 7)", the items are X2's, as the preceding "X2 item 5" says. They are not this law's items 6 and 7.
+  - "I1" is M3-I1 r2 (`docs/implementation/m3/preview-pack-i1/PROPOSAL.md`), and I1:NNN are its live lines.
+- **X12:132 follows S2's last sentence.** S2's paragraph ends "A refusal therefore still leaves the record DR-G24 asks for and has nothing to clean up", and X12:132 then states that record in full. M3-B item 10 keeps both.
+- **M3-I1's amendments live in I1.** I1 r2 item 7 amended r3 for M3 by statement, without revising this file. Item 4's "zero rows" (X12:67) and item 10's two release-row sentences (X12:160, X12:169) change when unit I1-c lands.
+  - r4 does not restate them. They stand, and they read on r4's text, which is identical at those places.
+  - I1's file is not edited. S2 records the withdrawal of I1:388's "the order" here, in item 8.
+- **Item 10's source pin.** X12:170 requires that the refusal paths "reach no evaluation, provider, facts, Coverage or custody call". That stays true. Admission itself performs no custody (X12:136's reading), and the custody that precedes it is not on its refusal path.
+- **Forbidden substitutes.** The "Order" bullets stand and stay true. M3-B item 10's own forbidden substitute, "pack admission after any registry capture, registration, lease or effect", is r4's item 8 read negatively. On the first-use creator route, "effect" there means a project-scoped effect. r4 adds no bullet for it.
+- **X2 r9's order.** X2 r9 item 3a (a lead decision) runs X2 item 2's placement check and item 3's chain walk after S3's selection walk and before the carrier reads. S2's "immediately after S3's selection walk and the configuration carrier captures" therefore reads as immediately after the captures, which follow those two checks. Both checks only read, under the fence.
+- **Line citations.** Citations of the form X12:NNN, in M3-B, in M3-I1, in other laws and in r4's own text, are to r3's lines, preserved in PROPOSAL-r3.md. This file's lines move with r4's header.
+
+**Unchanged from r3:** everything else. That includes items 1 to 7, 9 and 10, the rest of item 8, the units after the law, the forbidden substitutes and "Not claimed". No public code, row, detail or remedy changes.
 
 ## Problem
 
@@ -122,18 +192,22 @@ The product contract leaves four things open for this gate:
 
    **Rejected:** minting `POLICY.PACK_UNREGISTERED` or `PACK.NOT_BUNDLED`. The native route already uses `CONFIG.INVALID` for an id the closed registry does not admit under external configuration. The remedy-keying constraint allows a new key to reuse a code when its author widens the code's remedy so the one string is true for every key, and that is X12-0. A new detail would add a public code for a condition the existing code covers once its remedy is widened.
 
-8. **Order: pure, and before everything (lead decision).** Pack admission does no I/O, takes no lock and is not charged to any ledger. The host runs `admit_policy_selection` first in an analysis request, before:
-   - X1 write admission, X2 project admission or any fence;
-   - any provider spawn, snapshot or semantic-universe construction;
-   - consuming facts or Coverage;
-   - Plan construction;
-   - any evaluation.
+8. **Order: pure, and before every effect (X12 r4, by M3-B item 10).** Pack admission does no I/O, takes no lock and is not charged to any ledger. The host runs `admit_policy_selection` immediately after configuration resolution, which runs immediately after S3's selection walk and the configuration carrier captures. It runs before X2's registry capture (X2 item 5) and every later step of project admission (registration, item 6; any lease, item 7), before any effect, and before any provider spawn, snapshot or semantic-universe construction, consumption of facts or Coverage, Plan construction and evaluation. It may follow the fence acquisition of the 458c read session or of the 468/X1 write gate, the selection walk and the carrier reads, all of which write nothing. A refusal therefore still leaves the record DR-G24 asks for and has nothing to clean up.
+
+   **First use (r4, lead decision; see the r4 header).** On the first-use creator route (468 r5 item 1), "before any effect" reads "before any project-scoped effect".
+   - The creator's installation effects come first. The invocation then continues through the 468 gate, and pack admission follows the selection walk, the carrier captures and configuration resolution as above.
+   - Pack admission precedes every project-scoped effect: registration (X2 item 6), any lease (X2 item 7), the project ledger and journal, and every later project effect.
+   - A refused pack on first use leaves an empty, valid installation and no project effect. This is disclosed in the refusal and is never hidden. 464 item 3's first-write disclosure has already preceded the installation effects.
+
+   **Withdrawal recorded.** This r4 order supersedes X12 r3 item 8's "before … X1 write admission, X2 project admission or any fence" (X12:126) and the ordering sense of X12:136's "runs before any custody". It also **withdraws the clause "the order" from M3-I1 r2 item 7's statement that "Everything else in X12 r3 stands"** (I1:388). The rest of I1:388's list, and I1:383-386, stand. **Dependents (r4, lead decision).** This order also supersedes two dependents that rest on r3's order:
+   - X11 r1 item 1a, which rejected "creating I first" because it "would break item 8's order". Its reconciliation with the first-use clause is routed to the X11 successor that M3-J1 owns.
+   - I1:404, "J2 calls `admit_policy_selection` first (X12:125-132)". J2 calls it in this order.
 
    A refusal therefore leaves the record DR-G24 asks for: no core evaluation, no `policyOutcome`, no facts or Coverage consumption and no semantic universe. It has nothing to clean up.
 
    The future M3 Plan builder takes the policy only from an `AdmittedPack`. It writes `analysis-spec.policyPackIds = [packId]` and `plan.policyDigest` from it, never from a configuration string or a file.
 
-   **Correction to EXIT-PLAN.** X12 does not depend on X1: it is pure and runs before any custody. Its only dependency is the current product.
+   **Correction to EXIT-PLAN.** X12 does not depend on X1: it is pure and runs before any custody. Its only dependency is the current product. **r4:** "it is pure and runs before any custody" now means that admission itself performs no custody, because S3's selection judgment precedes it. Its ordering sense is superseded by the order above. The correction that X12 does not depend on X1 stands (M3-B item 10; see the r4 header).
 
    **Rejected:** admitting packs inside Plan construction. Plan construction already sits behind snapshot and provider work, so a refused pack would cost those effects and blur "refusal before evaluation".
 
