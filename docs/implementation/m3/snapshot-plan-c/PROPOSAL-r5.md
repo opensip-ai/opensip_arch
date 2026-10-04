@@ -1,7 +1,5 @@
 # Sealed snapshot and Plan — proposal M3-C r5
 
-**r5 ACCEPTED in review 2026-10-04 by CODEX2** (`7f76052d…`). r5's bytes, without this note, are preserved in `PROPOSAL-r5.md`. Under its own gate, the law takes effect once M3-L and X12 r4 are accepted.
-
 2026-10-04. Drafted for Claude Opus 5.5, implementation lead, by a lead-dispatched drafting agent during the overnight autonomous run. Law for unit **M3-C** of the accepted M3 unit plan (`M3-PLAN.md:163`).
 
 **Draft r5, not accepted. Not code.** No product crate is touched before X9-6 (M3P:5, M3P:272). Every code unit below also waits for P0, the M3-L law and I1's product units ("Units").
