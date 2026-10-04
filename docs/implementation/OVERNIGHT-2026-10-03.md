@@ -717,3 +717,6 @@ Times are local.
 - **REG v3: one finding, RF-JRW-S2-1.** REG:9 already carries a selected override from initial-root-binding-owner-selection-v1. v3's raw override would conflict, and would also drop that unit's accepted text.
   - **Fix, as CODEX2 directs and as lead decision:** a VD2 passage supersession of that override. It keeps its whole text and appends J-RW's, and the next design-unit review lists the target in `supersededPassages`. This is the second supersession, after SD-7.
   - **Effect:** only J4b, which binds REG v3, waits for it.
+- **J4a started** (J-RW's shared primitives, for Codex). It covers C-ACL and C-SUFFIX, and their uses in X3c r9's store directories, X3c r9's length-0 ledger file and X3b r11's carrier floors.
+  - **Lead decision: J3a waits for X4-F3 to integrate.** Both edit `commit_session.rs`, and the X3d r9 reservation at `open` would otherwise be written on a base about to change.
+  - **Rejected:** starting J3a now and rebasing afterwards.
