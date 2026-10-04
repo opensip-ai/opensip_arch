@@ -274,3 +274,6 @@ Times are local.
   - **Measured constants:** `fuelBase` 190,000, `fuelPerByte` 420,000 and `maxMemoryPages` 20,896. These are now relevant only if T-wasm returns at M4.
   - **Review:** the report is sent to GROK2 for a record review.
 - **I1-P accepted at r2 by CODEX2** (ACCEPT-DESIGN-UNIT, no findings) **and bound** at product main `cd5958b`, giving 82 contract successors. Both of I1's design units are bound, so the I1 product chain (I1-a, then I1-b1, I1-c and I1-b2) can start once the machine queue reaches it.
+- **J-RW r2: Codex raised two P2 findings**, and r3 is being written.
+  - **R2-01:** SQLite's schema cookie wraps at 2³². **Lead direction:** keep C-LEDGER, scoped to OpenSIP writers. The product runs no VACUUM, DROP or ALTER on ledgers, so OpenSIP commits at most k schema changes. A foreign SQL writer that wraps the cookie sits with forgery, outside the custody model. A product-SQL census control is added. **Rejected:** withdrawing C-LEDGER.
+  - **R2-02:** N-T2 is split at the native open. A symlink or non-directory keeps `HOST.IO_FAILURE`; only a directory reaching the custody judgment takes `installation-incomplete`.
