@@ -461,3 +461,4 @@ Times are local.
   - **L-G11 = RUST3-LIM:** "met in review, held on FA-2".
   - **Rename:** gate items are now L-G1..L-G11.
   - **Trigger 4:** covers any change to RUST3-LIM's bytes.
+- **CR-1 r3 written.** Only the command-tree checks are gated, and name and alias admission runs for every manifest. A new control, CR-T9, covers a closure-only name collision. It binds 83 → 84, and goes to GROK2 after L r5.

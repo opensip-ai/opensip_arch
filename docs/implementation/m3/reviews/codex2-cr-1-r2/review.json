@@ -1,0 +1,191 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "CODEX2",
+  "unit": "snapshot-plan-c-cr-1",
+  "round": "r2",
+  "verdict": "REQUIRED-FINDINGS",
+  "requiredFindings": [
+    {
+      "id": "RF-CR1-2",
+      "location": "docs/implementation/m3/snapshot-plan-c/cr-1/materialization-map.json:45 /alsoChangedByC2a/2/change; README.md:179,221; evidence/build_cr_1.py:331-333",
+      "problem": "The r2 materialization plan gates the whole existing command_checks function on commands presence. That function also owns component-name and manifest-alias admission. Applying the stated gate would bypass duplicate-name/alias, reserved-name and different-identity live-name collision checks for every closure-only manifest, contrary to the unchanged DR-103 rules. A commandless grammar manifest with a name or alias in the supplied reserved/live set would receive no check from this owner. This is a defect in the proposed C2a instructions, not an observed runtime regression.",
+      "evidence": [
+        {
+          "location": "crates/security/src/component_manifest.rs@cd5958b:171",
+          "observation": "command_checks begins by indexing m[\"commands\"] unconditionally."
+        },
+        {
+          "location": "crates/security/src/component_manifest.rs@cd5958b:257-276",
+          "observation": "The same function builds keys from manifest.name, manifest.aliases and root-command aliases, refuses duplicate keys (257-266), checks reserved_names (268-270), and checks context.live_names for a different (stableId, provenance) (271-276). These are component-name admission checks as well as command checks."
+        },
+        {
+          "location": "crates/security/src/component_manifest.rs@cd5958b:395-414",
+          "observation": "Both validate and validate_inventory call validate_inner; command_checks is the only call in this owner that applies the supplied reserved_names and live_names context. The proposed presence gate skips that whole call for all four closure-only roles."
+        },
+        {
+          "location": "docs/coop/artifacts/component-manifest-schemas.v11.json /manifestSchema/fields/3; /manifestSchema/fields/5; /rejectionRules/rules/1; /indexSchema/collisionUniverse",
+          "observation": "Component name and alias uniqueness against the reserved list and live identities is an admission rule. Cross-entry collisions apply to a different (stableId, provenance); the coexistence exception is retained. CR-1 does not override any of these rules."
+        },
+        {
+          "location": "docs/implementation/m3/snapshot-plan-c/cr-1/README.md:99; successor.json /passageOverrides/0/after",
+          "observation": "Every other DR-103 manifest rule applies to every role alike."
+        },
+        {
+          "location": "docs/implementation/m3/snapshot-plan-c/cr-1/completion/manifest-schema.completed.v1.json /properties/name; /properties/aliases; evidence/audit_schema.py",
+          "observation": "Shape validation constrains name syntax and uniqueness within the aliases array. It cannot reject an alias equal to manifest.name or a name/alias in supplied reserved/live context. The independent schema audit does not execute these semantic admission checks."
+        }
+      ],
+      "fix": {
+        "instruction": "Make only command-tree validation conditional. Preserve the existing component-name and manifest-alias admission for every role, with the current different-(stableId, provenance) coexistence exception; do not read commands for closure-only roles. No completed-schema edit or additional parent override is needed.",
+        "exactReplacements": [
+          {
+            "location": "docs/implementation/m3/snapshot-plan-c/cr-1/materialization-map.json /alsoChangedByC2a/2/change",
+            "before": "command_checks (line 171 indexes m[\"commands\"] unconditionally) runs only when commands is present, which the schema makes exactly role analyzer; the executable-entrypoint check (line 337) applies to role analyzer only, while a closure-only entrypoint must name a regular-file entry directly (no symlink resolution); the closure-only roles require capabilities [] and permissions []",
+            "after": "The command-tree-specific checks run only when commands is present, which the schema makes exactly role analyzer. Component-name and manifest-alias admission currently colocated at component_manifest.rs:257-276 remains mandatory for every role: form the name/alias set without reading commands for closure-only roles, reject duplicate keys and reserved-list collisions, and check live-name collisions against a different (stableId, provenance); analyzer also includes its mounted-root aliases as before. The executable-entrypoint check (line 337) applies to role analyzer only, while a closure-only entrypoint must name a regular-file entry directly (no symlink resolution); the closure-only roles require capabilities [] and permissions []."
+          },
+          {
+            "location": "docs/implementation/m3/snapshot-plan-c/cr-1/README.md:179",
+            "before": "- runs `command_checks` only when `commands` is present. Line 171 indexes `m[\"commands\"]` unconditionally today, and the schema now guarantees presence exactly for `analyzer`;",
+            "after": "- separates component-name and manifest-alias admission from command-tree validation. The name/alias checks currently at `component_manifest.rs:257-276` remain mandatory for every role, including reserved-list refusal and the existing different-`(stableId, provenance)` live-name collision rule. Only command-tree validation requires `commands`, which the schema guarantees exactly for `analyzer`; analyzer retains mounted-root alias checks;"
+          },
+          {
+            "location": "docs/implementation/m3/snapshot-plan-c/cr-1/README.md:221",
+            "before": "  `command_checks` never runs on a manifest without `commands`.",
+            "after": "  Command-tree validation never runs on a manifest without `commands`. Component-name and manifest-alias admission still runs for every role without reading an absent tree."
+          },
+          {
+            "location": "docs/implementation/m3/snapshot-plan-c/cr-1/README.md immediately after CR-T8",
+            "insert": "- **CR-T9.** For every role, component-name and manifest-alias admission remains enforced independently of command-tree presence. A component name or alias colliding with the reserved list refuses RJ-2; an alias duplicating the component name refuses RJ-2; a name or alias colliding with a live entry of a different `(stableId, provenance)` refuses RJ-2. The same-`(stableId, provenance)` coexistence control still admits when all other rules pass. Closure-only controls have no `commands`; analyzer controls retain their required tree and mounted-root alias checks."
+          }
+        ],
+        "followThrough": "Emit the exact replacement map string from evidence/build_cr_1.py, carry the README replacements and CR-T9 control into the frozen subject, and rebuild/repin the map, README, builder, successor and subject manifest through the lead's normal process. C2a must implement and demonstrate the separation in both full host admission and inventory-body validation. These are future C2a controls; run no product code for this design review."
+      }
+    }
+  ],
+  "nonBlockingObservations": [],
+  "findingResolution": {
+    "RF-CR1-1": {
+      "status": "RESOLVED",
+      "resolution": "LD-8 is a sound alternative to the r1 offered inert-metadata repair. The schema, SL:70 and DR103 fields/8 semantics all require commands absent for the four closure-only roles. No mandatory tree remains to be a root-command claim; declared commands refuses through the closed schema. Analyzer command-tree admission is unchanged and its pre-existing D4/EE-3b/EE-5a question is explicitly left to M3-D."
+    },
+    "NB-CR1-1": {
+      "status": "RESOLVED",
+      "resolution": "LD-9, SL:70 and CR-T4 require closure-only entrypoints to name a regular-file entry directly, while preserving existing analyzer in-tree resolution and executable-target checks."
+    }
+  },
+  "subjectManifestSha256": "4e1b169b241212b5b6b250de0fdd85888c9a390168f766ba9a7d33968426484c",
+  "successor": {
+    "path": "docs/implementation/m3/snapshot-plan-c/cr-1/successor.json",
+    "bytes": 10694,
+    "sha256": "5ee9beace59c0c45b13fafe5e60cdd74afa7cbf281c3901cc7dfa3693f2365af"
+  },
+  "assessment": {
+    "rfResolution": "Resolved by removing the closure-only command tree, rather than interpreting it as inert metadata. The fourth string override explicitly qualifies DR103 fields/8 required:true; the selected executable schema enforces the role-scoped exception.",
+    "schema": "The two oneOf branches are disjoint by required role. The root retains commands as an array of 1..4096 CommandSpec objects. Analyzer requires that member and retains its prior constraints. The closure-only branch types a present commands member as null, which cannot also satisfy the root array type, so absence is the only admitted spelling. This is a minimal lawful absence constraint in the generator's supported subset. The schema alone does not enforce the semantic capabilities/permissions/entrypoint rules, which remain C2a responsibilities.",
+    "audit": "Independently reran the supplied jsonschema 4.25.1 Draft202012Validator audit. It reproduced all 11010 parent-fixture verdicts, found zero copy/parent changes, and obtained all 100 expected role variants. This establishes fixture coverage and supports the schema reasoning; it is not runtime or semantic-owner qualification.",
+    "generatorImpact": "Static inspection confirms the generator supports every used keyword, emits optional-property is_none_or and exactly-one branch counting, and can emit the null type without changing the generator. The root/role/branch shape impact is correctly recorded. The admission-owner presence gate is incomplete because it also removes name/alias checks; RF-CR1-2 is the only new required finding.",
+    "nbResolution": "The requested role scoping is applied correctly. Analyzer symlink resolution is not newly restricted.",
+    "diff": "Reviewed the full diff of all nine frozen r1 members and both new members. Changes are the declared commands/entrypoint amendments, associated evidence and controls, base/reviewer-path refresh, stronger audit, and both-order verifier support. The role-to-kind table, parent pins, selection form, unchanged schema portions, and remaining role semantics are preserved.",
+    "base": "Live product HEAD was cd5958b3608f44a0035566c9d4500e5005c62e91. Seven pinned product schema/input/generator/generated-shape/owner/fixture files were independently byte-compared between 9c11c53 and cd5958b and are identical. Content checks pass at both bases; the prior reviewed contract mechanics continue to hold. The new C2a gate instruction is the substantive exception. During final validation HEAD advanced to 392499e3a42ab9f45d517b8c267a83031abf3863 in the CRC-1 binding commit (83 successors). The refreshed checkout verifier passes with CR-1 appended, 83 to 84.",
+    "binding": "All supplied scratch verifier modes pass. Initial joint runs used CRC-1 subject e030a1cf5031c7ece420b54663415cae69a7db1a55937130be91281408437728. During final validation CRC-1 changed to the pins in refresh-context.json and was bound at product 392499e3a42ab9f45d517b8c267a83031abf3863. Both orders were rerun on frozen cd5958b (82 to 84), and checkout verification was rerun after that binding (83 to 84). All pass without inventory or inheritance changes. These establish well-formedness with synthetic CR-1 review/assent, not CR-1 acceptance, root assent or implementation. The lead-only frozen CRC-1 r2 harness was not rerun."
+  },
+  "validation": {
+    "constraints": "Read-only repositories; no delegation, cargo, builds, tests, generator execution, crash-matrix commands or commits. All commands ran at nice -n 19. Evidence Python used the requested interpreter with -I -B. All writes, logs and offline dependencies are under this review directory; neither protected home nor private 413 fixture was accessed.",
+    "pins": {
+      "suppliedPinsVerified": 50,
+      "subjectMembersVerified": 11,
+      "frozenR1MembersVerified": 9,
+      "evidence": "pin-audit.json",
+      "stage": "All 50 request pins matched initially. CR-1's 11 subject members remain unchanged. At final validation only the explicitly mutable CRC-1 subject pin has advanced; its refreshed pins and verifier results are recorded separately."
+    },
+    "diffEvidence": "r1-r2.diff",
+    "checks": [
+      {
+        "command": "evidence/audit_schema.py --deps /tmp/opensip-implementation/reviews/codex2-cr-1-r2/deps",
+        "exitCode": 0,
+        "result": "identical; 11010 fixture cases, 100 variants",
+        "log": "schema-audit.log"
+      },
+      {
+        "command": "evidence/build_cr_1.py --check",
+        "exitCode": 0,
+        "result": "identical; no differing generated file or excluded unit draft",
+        "log": "build-check.log"
+      },
+      {
+        "command": "evidence/check_cr_1.py",
+        "exitCode": 0,
+        "result": "pass at cd5958b; four overrides; five-role table; 55 negative role cases preserved",
+        "log": "content-check-current.log"
+      },
+      {
+        "command": "evidence/check_cr_1.py --rev 9c11c53",
+        "exitCode": 0,
+        "result": "pass at the r1 base",
+        "log": "content-check-r1-base.log"
+      },
+      {
+        "command": "evidence/verify_scratch.py --rev cd5958b",
+        "exitCode": 0,
+        "result": "82 to 83; four overrides, zero supersessions; inventory v134 and 55 inheritance rows unchanged",
+        "log": "verify-base.log"
+      },
+      {
+        "command": "evidence/verify_scratch.py --rev cd5958b --after-crc-1",
+        "exitCode": 0,
+        "result": "82 to 84; pass; inventory/inheritance unchanged",
+        "log": "verify-after-crc.log"
+      },
+      {
+        "command": "evidence/verify_scratch.py --rev cd5958b --before-crc-1",
+        "exitCode": 0,
+        "result": "82 to 84; pass; inventory/inheritance unchanged",
+        "log": "verify-before-crc.log"
+      },
+      {
+        "command": "evidence/verify_scratch.py",
+        "exitCode": 0,
+        "result": "82 to 83; 40 generation sources, 48 admission sources and 15 aliases verified; no generator or runtime code executed",
+        "log": "verify-checkout.log"
+      },
+      {
+        "command": "evidence/verify_scratch.py --rev cd5958b --after-crc-1",
+        "exitCode": 0,
+        "result": "pass with refreshed CRC-1; 82 to 84",
+        "log": "verify-after-crc-refresh.log",
+        "reasonForRepeat": "CRC-1 and product HEAD advanced during final validation"
+      },
+      {
+        "command": "evidence/verify_scratch.py --rev cd5958b --before-crc-1",
+        "exitCode": 0,
+        "result": "pass with refreshed CRC-1; 82 to 84",
+        "log": "verify-before-crc-refresh.log",
+        "reasonForRepeat": "CRC-1 and product HEAD advanced during final validation"
+      },
+      {
+        "command": "evidence/verify_scratch.py",
+        "exitCode": 0,
+        "result": "pass at 392499e3a42ab9f45d517b8c267a83031abf3863; 83 to 84; 40 generation sources, 48 admission sources, 15 aliases",
+        "log": "verify-checkout-refresh.log",
+        "reasonForRepeat": "CRC-1 and product HEAD advanced during final validation"
+      }
+    ],
+    "runPolicy": "Each of the eight initial checks was run once. Only the two joint-order and checkout verifier checks were rerun, because CRC-1 and HEAD changed during final validation.",
+    "externalStateRefresh": {
+      "productHead": "392499e3a42ab9f45d517b8c267a83031abf3863",
+      "contractSuccessors": 83,
+      "crc1": [
+        {
+          "path": "docs/implementation/m3/snapshot-plan-c/crc-1-subject.json",
+          "bytes": 1434,
+          "sha256": "ec89680137ed0ad29af1d2b3b955eff763a184c5314387f2fa83b67da14433bc"
+        },
+        {
+          "path": "docs/implementation/m3/snapshot-plan-c/crc-1/successor.json",
+          "bytes": 21493,
+          "sha256": "29df5f5e2b145daf3c9b8e231ccac1d08c5b36d2eb006fbdc3bba543d7084166"
+        }
+      ]
+    }
+  }
+}
