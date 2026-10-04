@@ -1,0 +1,88 @@
+--- r1/tools/verify_design.py
++++ r2/tools/verify_design.py
+@@ -414,9 +414,13 @@
+             overrides[key] = override
+         # VD2: a review that lists superseded passages lists exactly the
+         # record's, in record order; a contract passage link requires the list.
++        # Exactly means canonical JSON (key order free, JSON types kept), so a
++        # listed selector is the record's canonical selector (check 2.3), never
++        # a value Python equality coerces, such as true or 1.0 for line 1.
+         review = object_value(decode(pinned_bytes(architecture, binding['review'])), 'contract review')
+         if 'supersededPassages' in review:
+-            if review['supersededPassages'] != [entry['supersedes'] for entry in result['passageSupersessions']]:
++            named = [entry['supersedes'] for entry in result['passageSupersessions']]
++            if json.dumps(review['supersededPassages'], sort_keys=True) != json.dumps(named, sort_keys=True):
+                 raise DesignError('contract review superseded passages differ from the record')
+         elif record_links:
+             raise DesignError('contract passage supersession is not listed by its review')
+--- r1/tools/tests/test_design_binding.py
++++ r2/tools/tests/test_design_binding.py
+@@ -1234,8 +1234,68 @@
+         inventory_root = self.contract([self.final], [ov(self.final, 2, 'D0', 'D1')])
+         self.contract([self.final], supersessions=[sup(self.final, 2, 'D1', 'D2', inventory_root, self.final, 2)], listed=[])
+         self.refuse('contract review superseded passages differ from the record')
++
++    # ---- VD2A-RF-01: the review list is compared as canonical JSON, not by Python equality.
++    def rewrite_review(self, text):
++        """Replace the last record's review bytes with text and rejoin its assent and lock pins."""
++        binding = self.fx.lock['contractSuccessors'][-1]
++        raw = text.encode()
++        (self.fx.root / binding['review']['path']).write_bytes(raw)
++        binding['review'] = {'path': binding['review']['path'], 'sha256': hashlib.sha256(raw).hexdigest(), 'bytes': len(raw)}
++        assent = json.loads((self.fx.root / binding['assent']['path']).read_bytes())
++        assent['actualClaudeReview'] = binding['review']
++        binding['assent'] = self.fx.write(binding['assent']['path'], assent)
++
++    def test_n20_review_list_is_type_exact(self):
++        # A link on doc.md line 1 whose review lists a value Python equality would coerce.
++        for label, float_in_record, change in (
++                ('a line true for line 1', False, {'selector': {'line': True}}),
++                ('b line 1.0 for line 1', False, {'selector': {'line': 1.0}}),
++                ('c a float record byte count listed for the record\'s integer one', False, 'float'),
++                ('d an integer record byte count listed for the record\'s float one', True, 'int')):
++            with self.subTest(label):
++                self.fresh()
++                root = self.contract([self.doc], [line(self.doc, 1, 'L1', 'L1a')])
++                named = {**root, 'bytes': float(root['bytes'])} if float_in_record else root
++                link = csup(self.doc, {'line': 1}, 'L1a', 'L1b', named)
++                review = copy.deepcopy(link['supersedes'])
++                if change == 'float':
++                    review['record'] = {**root, 'bytes': float(root['bytes'])}
++                elif change == 'int':
++                    review['record'] = root
++                else:
++                    review.update(change)
++                self.contract([self.doc], supersessions=[link], listed=[review])
++                self.refuse('contract review superseded passages differ from the record')
+ 
++    def test_n21_named_selector_true_is_not_the_canonical_target(self):
++        root = self.contract([self.doc], [line(self.doc, 1, 'L1', 'L1a')])
++        link = csup(self.doc, {'line': 1}, 'L1a', 'L1b', root, self.doc, {'line': True})
++        self.contract([self.doc], supersessions=[link])
++        self.refuse('superseded passage is not in the named record')
+ 
++    def test_p11_review_list_key_order_is_free(self):
++        link = csup(self.doc, L2, 'L2a', 'L2b', self.root)
++        self.contract([self.doc], supersessions=[link])
++        review = json.loads((self.fx.root / self.fx.lock['contractSuccessors'][-1]['review']['path']).read_bytes())
++        named = link['supersedes']
++        reordered = {'supersededPassages': [{'selector': named['selector'],
++                                             'parent': {key: named['parent'][key] for key in ('sha256', 'path', 'bytes')},
++                                             'record': {key: named['record'][key] for key in ('bytes', 'sha256', 'path')}}],
++                     **{key: review[key] for key in ('verdict', 'subjectManifestSha256', 'requiredFindings')}}
++        text = json.dumps(reordered) + '\n'
++        self.assertNotEqual(text, json.dumps(reordered, sort_keys=True) + '\n')
++        self.rewrite_review(text)
++        self.assertEqual(self.counts(), (1, 0, 0))
++
++    def test_p12_target_pin_equality_stays_vd1_compatible(self):
++        # The named record pin keeps VD1's equality: exact path and digest, numerically equal
++        # byte count. The review then lists the record's own values, here the float, exactly.
++        root = self.contract([self.doc], [line(self.doc, 1, 'L1', 'L1a')])
++        self.contract([self.doc], supersessions=[csup(self.doc, {'line': 1}, 'L1a', 'L1b', {**root, 'bytes': float(root['bytes'])})])
++        self.assertEqual(self.counts(), (1, 0, 0))
++
++
+ class GenerationSourceBindingTests(unittest.TestCase):
+     write = DesignBindingTests.write
+ 

@@ -605,3 +605,7 @@ Times are local.
   - clippy, fmt, `verify_design`, edges, dependency checkers.
 
   The **54-row X9 subset is identical to the X9-6 evidence** in both sets (storage census 259 points, kill set 321; host census 218, kill set 271), and release absence passes. No file is added, so there is no inventory successor. Its base is `3f6f9a5`. It shares no file with I1-a or X3a-2, which landed since; a confirmation lane follows integration.
+- **VD2-a r2 built and sent to Codex.** The review list is compared as sorted-key JSON text, and target-pin equality stays VD1-numeric, as Codex's answer allows.
+  - **Tests:** 121 pass; the new N20 a–d cases fail on r1's tool. Mutation testing kills 19 of 20 mutants; the survivor is the accepted unreachable invariant.
+  - **F8c:** rebuilt on `cca4fe4`, with no generator rebuild.
+  - **SD-7 r2:** outcomes unchanged. Its evidence script hard-codes 95 successors, now 96; binding uses the real tool.
