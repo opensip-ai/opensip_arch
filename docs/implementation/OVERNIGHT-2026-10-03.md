@@ -393,3 +393,10 @@ Times are local.
   - verify_scratch, projection, package edges and both dependency checkers with their tests.
 
   The staged lock carries SCRATCH review and assent pins, so integration swaps those two. P0 goes to Codex after FA-2 r2. **Lead decision on `forbid(unsafe_code)` for `crates/syntax`:** keep it at P0. Whether native grammars need in-crate FFI (E0's harness used `extern "C"`) is E2b's reviewed decision, and lifting the lint there is a one-line change. **Rejected:** dropping it now, which would force a full lane rerun for no present need.
+- **RUST3-LIM written** (the Rust3 256-file cap). It is not a major bump.
+  - **Measured counts:** 9 of the 22 T2 Rust repositories exceed 256: axum 301, tauri 327, tokio 808, deno 1,052, smithy-rs 1,084, rspack 1,384, rust-analyzer 1,483, sui 3,318 and aws-sdk-rust 242,187. aws-sdk-rust also exceeds `snapshot2`'s bounds and needs a narrower root.
+  - **Fix:** under a new optional token, `subject-scope-reference-v1`, each Analyze stage carries a file count and commitment instead of the list. Host and worker rebuild the list from the accepted manifest, as TS2 already does. The commitment recipes and the 32-member limits map are unchanged, and the bound becomes the manifest's 200,000 limit. The token is required only above 256 files.
+  - **Rejected:** raising the constant, which breaks the exact Hello limits map and the 64 MiB frame; chunking, which needs a new frame; and a Rust4 major.
+  - **Order:** it binds after FA-2. TS2 is unaffected.
+  - **Lead decision:** RUST3-LIM becomes L's gate item G11, entering at L's next revision. Without it, L in effect fixes a protocol that refuses two of S-M's seven medium workloads.
+  - **Review:** queued for CODEX2.
