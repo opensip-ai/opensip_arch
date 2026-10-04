@@ -640,3 +640,7 @@ Times are local.
     - the operator stop gives `interrupted` 130 with no runId;
     - the step-1 render split between D and O.
   - **New defect found (D8-1, follow-up X4-F3):** in today's product, an observer checkpoint can record a placeholder `FailStop{latched}` before an existing latch's own cause. That can turn `REV(operation-stopped)` into `observer-fail-stop`, or a refusal row into `OBSERVER.FAIL_STOP`. The operator stop is protected by LD8-3. X4-F3 needs a narrow law and a code unit, before J3b.
+- **X7 r7 accepted by GROK2** (S9: the operator-stop projection and step-1's split into phases D and O).
+- **X4 r8: CODEX2 raised one high-severity finding.** The D8-1 first-cause race can't be an ungated follow-up: J3b must preserve the first cause's row and REV reason, including for `AlreadyStopped` and after a certain refusal whose window is closed.
+  - **Lead decision:** fold the D8-1 fix into X4 r8 as review round 2, keeping the revision name "X4 r8", which J1 and X3d r9 cite for S11.
+  - **Rejected:** a separate X4-F3 law, which leaves J3b gated on an unwritten unit, and renumbering to r9, which would make every "X4 r8" citation stale.

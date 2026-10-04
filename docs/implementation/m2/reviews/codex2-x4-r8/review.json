@@ -1,0 +1,340 @@
+{
+  "reviewer": "CODEX2",
+  "review": "law X4 r8 / J1 successor S11",
+  "verdict": "REQUIRED-FINDINGS",
+  "requiredFindings": [
+    {
+      "id": "RF-X4R8-1",
+      "severity": "high",
+      "location": "docs/implementation/m2/live-guards-x4/PROPOSAL.md:347-348, :454-477 (S11.6, D8-1 and the X4-F3 route); :384 (W-6)",
+      "problem": "D8-1 accurately discloses existing first-cause races, but leaves their fix as an ungated follow-up even though J3b must preserve the earlier refusal's row and REV reason. Protecting only a successful cancellation CAS does not satisfy J1:598, X3d r9 S10.4 or J-C15 when the cancellation observes AlreadyStopped, or follows a certain refusal whose window is already closed.",
+      "evidence": [
+        {
+          "path": "docs/implementation/m3/host-pipeline-j/PROPOSAL-r5.md",
+          "lines": "598, 684",
+          "detail": "An earlier stop or certain refusal keeps that cause's REV reason. J-C15 requires AlreadyStopped to preserve the first cause."
+        },
+        {
+          "path": "docs/implementation/m2/commit-session-x3d/PROPOSAL-r9.md",
+          "lines": "537-541, 566-570",
+          "detail": "S10.4 keeps the earlier cause's reason, and the latch code with these controls lands in J3b only after S11 acceptance."
+        },
+        {
+          "path": "crates/security/src/custody/operation_guard.rs",
+          "lines": "213-220, 255-262, 413-428, 547-549",
+          "detail": "The placeholder is a persistent first-record-wins FailStop. A certain-refusal stop records no cause; the stale-guard source sets LATCHED before acquiring the record mutex."
+        },
+        {
+          "path": "crates/security/src/revocation.rs",
+          "lines": "121-127",
+          "detail": "An observer tick on an already latched gate returns AlreadyStopped, without establishing a new observer failure."
+        },
+        {
+          "path": "crates/security/src/custody/commit_session.rs",
+          "lines": "94-101, 529-530, 554-569, 986-1014, 1106-1116",
+          "detail": "The observer stays live on the stopped operation. finish reads the recorded cause; FailStop maps to observer-fail-stop while no cause maps to operation-stopped."
+        },
+        {
+          "path": "docs/implementation/m2/live-guards-x4/PROPOSAL.md",
+          "lines": "455-464, 472-477",
+          "detail": "The draft acknowledges that the certain-refusal race can change the REV reason J1/X3d expect, but supplies no required landing gate for X4-F3 and calls it not required by J1."
+        }
+      ],
+      "counterexamples": [
+        "Certain refusal with a settlement reserve: stop() sets LATCHED with no cause; an observer tick records FailStop(latched); a signal after the closing return gets OutsideWindow and records nothing; finish emits REV(observer-fail-stop), instead of the certain stop's operation-stopped reason.",
+        "Stale guard before admission: the checkpoint sets LATCHED and pauses before record(Stale(row)); cancellation returns AlreadyStopped and records nothing; an observer tick records FailStop(latched); the checkpoint's record returns that placeholder. The refusal row becomes OBSERVER.FAIL_STOP and REV becomes observer-fail-stop instead of the stale row and stale-guard."
+      ],
+      "fix": "Keep S11's word and successful-Operator discipline. Make preservation of the existing sources' first cause a required prerequisite for J3b's cancellation code and J-C15/J-C15b, with deterministic controls for both D8-1 schedules. The repair may remain a separately reviewed X4-F3 law/unit, but identify its owner, scope, acceptance and integration dependency here; it must land before those J3b portions. A cause-less certain refusal must retain its existing operation-stopped REV semantics, and a stale source must retain its own row and stale-guard reason even when the placeholder reader races it. Review any typed-cause or source-discipline change through the affected X4/X3d authorities; do not authorize the changed reasons as an exception or expand the cancellation lock across monitor I/O."
+    }
+  ],
+  "nonBlockingObservations": [
+    {
+      "id": "NB-X4R8-1",
+      "location": "docs/implementation/m2/live-guards-x4/PROPOSAL.md:378-383 and :422-429 (W-5, LD8-3)",
+      "observation": "W-5 lists three of the four reader paths reviewed under LD8-3. The boundary check has a distinct named FailStop(admission-boundary) recorder, whereas step 3 and admit refusal use latched(). The proposed lock protects all four, so this is a coverage note rather than a separate correctness finding.",
+      "evidence": [
+        "crates/security/src/custody/operation_guard.rs:570-574 records admission-boundary through Shared.record.",
+        "crates/security/src/revocation.rs:159-165, :184-191 can return AlreadyStopped to the boundary caller.",
+        "All four readers acquire Shared.cause through Shared.record or latched, so a successful cancellation's held-lock insertion precedes them."
+      ],
+      "fix": "Add the boundary-check race to W-5 and assert that Operator, the interrupted row and REV(operator) survive; hold any synchronization seam outside the cause-lock critical section."
+    }
+  ],
+  "noAcceptedOutcomeChanged": true,
+  "noAcceptedOutcomeChangedBasis": "Apart from the declared S11 changes, all accepted r7 text and outcomes are preserved. RF-X4R8-1 concerns the failure to make their existing-source implementation guarantee a prerequisite; this review does not permit the D8-1 reason/row drift.",
+  "subjectSha256": "ee75847192fb9c9a9e2609bdd814e13e0d3733e5b0f2e17c97da7e87b28a8984",
+  "subject": {
+    "path": "docs/implementation/m2/live-guards-x4/PROPOSAL.md",
+    "bytes": 59840,
+    "sha256": "ee75847192fb9c9a9e2609bdd814e13e0d3733e5b0f2e17c97da7e87b28a8984"
+  },
+  "preservedSnapshot": {
+    "path": "docs/implementation/m2/live-guards-x4/PROPOSAL-r7.md",
+    "bytes": 26577,
+    "sha256": "fc8490f4e751e486bc4cf6dc15e04eb541672112bda2eab8c15759c31eaf0224"
+  },
+  "authorities": [
+    {
+      "subject": "docs/implementation/m2/live-guards-x4/PROPOSAL-r7.md",
+      "record": "docs/implementation/m2/reviews/grok-live-guards-x4-r7/review.json",
+      "recordBytes": 870,
+      "recordSha256": "39277075ace6964280b2684fd07fa109badc9d0b4525e8fa84a6a680424f2b84",
+      "verdict": "ACCEPT",
+      "subjectSha256": "fc8490f4e751e486bc4cf6dc15e04eb541672112bda2eab8c15759c31eaf0224",
+      "matches": true,
+      "requiredFindings": [],
+      "nonBlockingObservations": null
+    },
+    {
+      "subject": "docs/implementation/m3/host-pipeline-j/PROPOSAL-r5.md",
+      "record": "docs/implementation/m3/reviews/codex-host-pipeline-j-r5/review.json",
+      "recordBytes": 1358,
+      "recordSha256": "f309446af26041902a00c4b541b0cf1742441c2caba80ab49dc4ee5f26c17e24",
+      "verdict": "ACCEPT",
+      "subjectSha256": "4ccb23204b9d072464c3daa63eba8238c0f0425d38ea0da6c93df21711877599",
+      "matches": true,
+      "requiredFindings": [],
+      "nonBlockingObservations": [
+        {
+          "id": "J1-R5-NB-01",
+          "location": "docs/implementation/m3/host-pipeline-j/PROPOSAL.md:30 and :100",
+          "observation": "The blanket claim that every cited M3C line keeps its text is too broad. The J-delta citation at :398 expands to r7 lines 868-872, including the changed row 8 at :871. That row was r5 :829, which said closure admission; r7 replaces it with SD-6's closure selection among manifests already admitted at R10a/ER10a. The re-citation correctly reflects the narrowing already accepted in J1 r4 and recorded as S19, so this is a non-blocking record correction.",
+          "evidence": [
+            "docs/implementation/m3/host-pipeline-j/PROPOSAL.md:30, :100, :398, :866",
+            "docs/implementation/m3/snapshot-plan-c/PROPOSAL-r5.md:829",
+            "docs/implementation/m3/snapshot-plan-c/PROPOSAL-r7.md:871",
+            "Static comparison of the 36 expanded cited M3C lines finds 35 byte-identical lines and this one accepted SD-6 change."
+          ],
+          "fix": "Qualify both blanket text-identity claims with the item-16 row-8 exception, identifying it as the already accepted SD-6/S19 narrowing. Keep the current r7 citation and the existing routes."
+        }
+      ]
+    },
+    {
+      "subject": "docs/implementation/m2/commit-session-x3d/PROPOSAL-r9.md",
+      "record": "docs/implementation/m2/reviews/grok2-x3d-r9/review.json",
+      "recordBytes": 1005,
+      "recordSha256": "279b790b81b497f261b70386ecf5daa204b3d41a27e240d54c6bd16c072e1668",
+      "verdict": "ACCEPT",
+      "subjectSha256": "c727001a44e1ef48ce131b0262cb566e9417ff5537bf3d9446b97ca10a213fdf",
+      "matches": true,
+      "requiredFindings": [],
+      "nonBlockingObservations": [
+        {
+          "id": "NBO-1",
+          "location": "PROPOSAL.md:155",
+          "observation": "XL-1's list of what J1 writes under the name X3d r9 says S10 covers \"the cancellation latch as a third gate source, with take_cancellation_latch and the window bits (item 5).\" J1 r5:651-658 and :856 assign X3d r9 the latch, the token, and the open/close rule. The two window bits are S11, X4 r8 (J1 r5:659, :857). LD9-5 and S10.11 already leave the bits, the masked loops, and never-reset with X4 r8. Drop \"and the window bits\" from that bullet so the fold's scope list matches those sections."
+        }
+      ]
+    },
+    {
+      "subject": "docs/implementation/m3/provider-protocol-l/PROPOSAL-r5.md",
+      "record": "docs/implementation/m3/reviews/grok-provider-protocol-l-r5/review.json",
+      "recordBytes": 2455,
+      "recordSha256": "1512435dccc0a77c95607d2b8dbbbf2e5e22339ed6f66e674e9bd897b316fa5a",
+      "verdict": "ACCEPT",
+      "subjectSha256": "f654ee4e9149e62693ebae8177adcc1f3a8a595b745c1e7503e5f279b80e3e88",
+      "matches": true,
+      "requiredFindings": [],
+      "nonBlockingObservations": []
+    }
+  ],
+  "pinVerification": {
+    "allEightListedPinsMatch": true,
+    "allFourAcceptedSnapshotsMatchAcceptingRecords": true,
+    "pins": [
+      {
+        "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m2/live-guards-x4/PROPOSAL.md",
+        "bytes": 59840,
+        "sha256": "ee75847192fb9c9a9e2609bdd814e13e0d3733e5b0f2e17c97da7e87b28a8984",
+        "matches": true
+      },
+      {
+        "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m2/live-guards-x4/PROPOSAL-r7.md",
+        "bytes": 26577,
+        "sha256": "fc8490f4e751e486bc4cf6dc15e04eb541672112bda2eab8c15759c31eaf0224",
+        "matches": true
+      },
+      {
+        "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m2/reviews/codex2-x4-r8/REQUEST.md",
+        "bytes": 12303,
+        "sha256": "b7b7f5269f3edd9962f237d1a5f1104487080b70c8b49fdb84c786db62b5fe02",
+        "matches": true
+      },
+      {
+        "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/host-pipeline-j/PROPOSAL-r5.md",
+        "bytes": 146331,
+        "sha256": "4ccb23204b9d072464c3daa63eba8238c0f0425d38ea0da6c93df21711877599",
+        "matches": true
+      },
+      {
+        "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m2/commit-session-x3d/PROPOSAL-r9.md",
+        "bytes": 97231,
+        "sha256": "c727001a44e1ef48ce131b0262cb566e9417ff5537bf3d9446b97ca10a213fdf",
+        "matches": true
+      },
+      {
+        "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m2/reviews/grok2-x3d-r9/review.json",
+        "bytes": 1005,
+        "sha256": "279b790b81b497f261b70386ecf5daa204b3d41a27e240d54c6bd16c072e1668",
+        "matches": true
+      },
+      {
+        "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m3/provider-protocol-l/PROPOSAL-r5.md",
+        "bytes": 172198,
+        "sha256": "f654ee4e9149e62693ebae8177adcc1f3a8a595b745c1e7503e5f279b80e3e88",
+        "matches": true
+      },
+      {
+        "path": "/Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m2/reviews/grok-live-guards-x4-r7/review.json",
+        "bytes": 870,
+        "sha256": "39277075ace6964280b2684fd07fa109badc9d0b4525e8fa84a6a680424f2b84",
+        "matches": true
+      }
+    ]
+  },
+  "productEvidence": {
+    "heads": {
+      "cca4fe4": "cca4fe48d3cf44c6c73c0e625bd4de769cd34899",
+      "d2c00a9": "d2c00a96c3136fe45b901bc067b6d0ca51f0c9c1",
+      "HEAD": "d2c00a96c3136fe45b901bc067b6d0ca51f0c9c1"
+    },
+    "changedFilesBetweenCommits": [
+      "apps/report/src/generated/report.ts",
+      "crates/security/src/custody/installation_read_fixture.rs",
+      "crates/security/src/custody/operation_handoff_tests.rs",
+      "crates/security/src/custody/operation_live_tests.rs",
+      "crates/security/src/trust.rs",
+      "crates/security/src/trust/accepted_store_fixture.rs",
+      "crates/security/src/trust/current_trust_admission.rs",
+      "crates/security/src/trust/current_trust_admission_tests.rs",
+      "crates/security/src/trust/floor_publication.rs",
+      "crates/security/src/trust/floor_publication_tests.rs",
+      "crates/security/src/trust/root_payload.rs",
+      "design-lock.json",
+      "schemas/registry.json",
+      "tools/contracts/generator-closure.json",
+      "tools/tests/test_design_binding.py",
+      "tools/typescript-lanes.json",
+      "tools/verify_design.py"
+    ],
+    "files": [
+      {
+        "path": "crates/security/src/commit_authority.rs",
+        "bytes": 11784,
+        "sha256": "49e320c5f5fc7b926ff0390ce375c6f2c4af5ffce1e06a3cf8a146cdb85500b0",
+        "sameAtD2c00a9": true,
+        "liveEqualsPinned": true,
+        "inCommitDiff": false
+      },
+      {
+        "path": "crates/security/src/custody/operation_guard.rs",
+        "bytes": 30032,
+        "sha256": "b04ad5ffec751993c3d712f302cbf2b6fc72879369afeb44659f4da15040b99a",
+        "sameAtD2c00a9": true,
+        "liveEqualsPinned": true,
+        "inCommitDiff": false
+      },
+      {
+        "path": "crates/security/src/custody/commit_session.rs",
+        "bytes": 61705,
+        "sha256": "94a6969f62b637c768ce36e3f2a8f369c3c6fac0e331fe231e96085ba4196f24",
+        "sameAtD2c00a9": true,
+        "liveEqualsPinned": true,
+        "inCommitDiff": false
+      },
+      {
+        "path": "crates/security/src/revocation.rs",
+        "bytes": 21176,
+        "sha256": "c8021ac82f8cdb5285252766c5505e18bc19e840dfe136cfccc856abc1514c03",
+        "sameAtD2c00a9": true,
+        "liveEqualsPinned": true,
+        "inCommitDiff": false
+      }
+    ]
+  },
+  "textPreservation": {
+    "onlyChangedR7Lines": [
+      1,
+      17
+    ],
+    "titleOnlyRevisionNumber": true,
+    "historyOnlyAcceptanceNote": true,
+    "acceptanceNoteBytes": 35,
+    "everyOtherR7LineVerbatim": true,
+    "r7Lines": 200,
+    "r8Lines": 521
+  },
+  "questions": [
+    {
+      "question": 1,
+      "result": "PASS for the word and scope; the earlier-cause guarantee is subject to RF-X4R8-1",
+      "reason": "The four bits share one AtomicU8 and SeqCst order. All state readers mask with 3; every CAS preserves window bits; opening/close are fetch_or; the close returns the prior decoded state. OutsideWindow is tested before AlreadyStopped. X3d retains token, window placement, sample meaning and outcomes; X7's draft supplies no authority."
+    },
+    {
+      "question": 2,
+      "result": "PASS",
+      "reason": "Only admit can set ADMITTED, and only from state 0. Bits never clear. Two concurrent admissions cannot both succeed; an earlier latch makes admission impossible. Open/close never admit or unlatch. A closed state-0 word remains admissible at the gate level, while session ownership makes such a production admission unreachable. F18 and F41 remain; F38/F39 continue to depend on actual admission and the returned executor outcome."
+    },
+    {
+      "question": 3,
+      "result": "PASS",
+      "reason": "A strong CAS failure reports a changed word, with no ABA because the bits only accumulate. admit has at most two continuing failures, for OPEN and CLOSED, plus its final attempt. Cancellation can continue after only an ADMITTED change; CLOSED or LATCHED terminates it. Maxima are three and two attempted exchanges, including terminal failed exchanges. Weak CAS/fetch_update do not supply this no-spurious-failure bound. The existing literal 0 CAS fails on preparing word 4 and then the current unmasked decoder would panic."
+    },
+    {
+      "question": 4,
+      "result": "PASS for the successful cancellation source",
+      "reason": "Without LD8-3 all four readers can record FailStop before Operator. With CAS and Operator insertion under Shared.cause, step 3, admit refusal, boundary failure and observer tick wait for that insertion and return the stored Operator. Mutex acquisition can wait; so can the refusing readers. That adds no wait to a path that subsequently admits an effect. The watcher takes cause only; existing monitor->cause order remains and no cause->monitor edge is introduced. Insert through the already-held guard rather than recursively calling the lock-taking Shared.record. No I/O, callback or crash hold belongs inside the critical section. This does not repair earlier existing-source record gaps."
+    },
+    {
+      "question": 5,
+      "result": "PASS",
+      "reason": "The existing crash point follows a successful cancellation CAS and its cause insertion, after mutex release. OutsideWindow/AlreadyStopped did not perform a successful latch, so neither fires it. The existing fetch_or latch placement stays. Narrowing close to prior decoded state and opening to no result preserves the sample and prevents callers from branching on window flags; both remain crate-private."
+    },
+    {
+      "question": 6,
+      "result": "PASS for delegated variant/row and the existing record rule; RF-X4R8-1 limits the global first-stop claim",
+      "reason": "Operator { signal }, REV(operator) and Interrupted { signal } are borrowed from accepted X3d r9. X4 only adds the record and row arm. Shared.record's get_or_insert implements first recorded cause wins, not a guarantee that every existing source's earliest latch wins. LD8-3 makes those orders agree for a successful operator CAS."
+    },
+    {
+      "question": 7,
+      "result": "REQUIRED-FINDINGS: RF-X4R8-1",
+      "reason": "Both D8-1 schedules are statically reproducible from the pinned code. Deferring their repair is acceptable only with a required acceptance/integration gate before the affected J3b latch code and controls. An ungated lead-list follow-up does not fulfill the already accepted earlier-cause guarantees."
+    },
+    {
+      "question": 8,
+      "result": "PARTIAL: word controls and unit split are sound; RF-X4R8-1 and NB-X4R8-1 apply",
+      "reason": "W-1 covers all 16 words and six operations; W-2 covers preserved bits/bounds; W-3 covers close/latch order; W-4 covers one permit; W-5 protects new Operator recording; W-6 routes earlier causes; W-7 covers crash-point census. Session closing returns, token opacity and J-C15b's durable phase effects remain X3d/J3b tests. LD8-5 is covered by W-1. W-6 needs the existing-source race repair; W-5 should also name the boundary reader."
+    },
+    {
+      "question": 9,
+      "result": "PASS",
+      "reason": "The snapshot equals Grok's accepted subject hash. Every r7 line except title/history survives byte for byte. The title changes only r7 to r8; history adds precisely the 35-byte acceptance note. The rest is the declared insertions. No additional accepted outcome is amended. D8-1 is an existing implementation defect, not authorization to change those accepted outcomes."
+    },
+    {
+      "question": 10,
+      "result": "No additional required finding",
+      "reason": "No new durability point, crash point, budget, public code/class/exit/detail, window-placement decision or host projection decision is introduced. The only new lock usage is the existing cause mutex for the new source. This is law review only, not unit acceptance, implementation verification or timing qualification."
+    }
+  ],
+  "validation": {
+    "method": "Static source inspection, digest/diff audit, and reviewer-only finite arithmetic; no product code executed",
+    "abstractOperationCases": 96,
+    "maxAdmitCasAttempts": 3,
+    "maxCancellationCasAttempts": 2,
+    "productBuildsRun": false,
+    "productTestsRun": false,
+    "cargoRun": false,
+    "leadSetsRun": false,
+    "delegationUsed": false,
+    "repositoryEditsMade": false,
+    "commitsMade": false,
+    "realOpenSipHomeAccessed": false,
+    "private413FixtureRead": false,
+    "writesConfinedTo": "/tmp/opensip-implementation/reviews/codex2-x4-r8"
+  },
+  "evidenceArtifacts": [
+    "pin-audit.json",
+    "r7-r8.diff",
+    "static-analysis.json"
+  ]
+}

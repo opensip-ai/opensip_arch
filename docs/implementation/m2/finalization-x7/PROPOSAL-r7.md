@@ -1,7 +1,5 @@
 # Host finalization: outcomes, delivery after commit and the rollover route — proposal X7 r7
 
-**r7 ACCEPTED 2026-10-04 by GROK2** (`7757935c…`; `reviews/codex2-x7-r7/`), with no required findings. r7's bytes, without this note, are preserved in `PROPOSAL-r7.md`. Its observation (the parts-used list skips J1 8.1, which S9.5 cites) is a record note for the next revision.
-
 2026-10-01. Claude Opus 5.5, implementation lead. Law for unit X7 of `EXIT-PLAN.md`. It is written under:
 - the build plan's opaque-prerequisite decision (lines 25–40), its end-path paragraph (lines 140–146), its publication sequence (lines 155–185) and its delivery rule (lines 820–835);
 - failure cases F12, F16, F17, F32, F39 and F40;
