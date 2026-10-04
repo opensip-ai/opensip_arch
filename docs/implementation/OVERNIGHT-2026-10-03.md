@@ -106,3 +106,8 @@ Times are local.
 - **M3-C r2 sent to CODEX2.**
   - **Schedule:** the 26-day conditional host chain no longer holds. It is 28 days with the C4 split (recommended) or 29 without, because of C3's units and C4's real size. Flagged as O-4, for the next M3-PLAN revision.
   - **Archive profile:** DS-2 now admits only Cargo's actual package format (gzip, GNU headers, GNU long names), bounded and with no links.
+- **X2 r9 and X12 r4 drafted** (M3-B's successors S1 and S2). Lead decisions:
+  - **First-use gap.** On the first-use creator route, the creator writes the installation before the write-gate fence, so "pack admission before any effect" can't hold. On that route it reads "before any project-scoped effect". A refused pack there leaves an empty, valid installation, which is disclosed. X11 r1 item 1a's conflict goes to the X11 successor (M3-J1).
+  - **X2 ordering.** The placement check and chain walk run before item 3a's config reads.
+
+  Both are queued for Grok after the rerun.
