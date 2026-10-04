@@ -1,0 +1,856 @@
+diff --git a/crates/security/src/custody/operation_guard.rs b/crates/security/src/custody/operation_guard.rs
+index d940ce3..1687b33 100644
+--- a/crates/security/src/custody/operation_guard.rs
++++ b/crates/security/src/custody/operation_guard.rs
+@@ -225,7 +225,9 @@ impl Shared {
+         })
+     }
+     /// One observation through the shared monitor (law X4 r7 item 5): one
+-    /// `read` whose counter is the whole two-attempt observation.
++    /// `read` whose counter is the whole two-attempt observation. The read's
++    /// own opening sample is the observation's clock (law X4T r11 item 6,
++    /// unit X4-F1); no other sample is taken.
+     fn observe(&self, cell: &mut MonitorCell) -> Result<(), StopCause> {
+         let mut failure = None;
+         let observation = LiveObservation {
+@@ -235,8 +237,8 @@ impl Shared {
+             hook: &self.hook,
+         };
+         let MonitorCell { monitor, clock } = cell;
+-        let read = monitor.read_sampled_with(clock, |_| {
+-            observation.observe().map_err(|f| {
++        let read = monitor.read_sampled_with(clock, |opening| {
++            observation.observe(opening).map_err(|f| {
+                 failure = Some(f);
+             })
+         });
+diff --git a/crates/security/src/custody/operation_live_tests.rs b/crates/security/src/custody/operation_live_tests.rs
+index f8023f9..0145f18 100644
+--- a/crates/security/src/custody/operation_live_tests.rs
++++ b/crates/security/src/custody/operation_live_tests.rs
+@@ -424,6 +424,88 @@ fn a_boot_change_fail_stops_the_next_read() {
+     });
+ }
+ 
++/// A started operation on `fixture` whose scripted monitor clock reads its
++/// wall clock `shift` seconds from `scripted::WALL`. Its monotonic readings
++/// and boot are the script's own.
++fn begin_live_shifted(fixture: &ReadFixture, project: &Path, tag: &str, shift: i64) -> Live {
++    use super::super::super::operation_guard::{Cadence, GuardSeam};
++    let (mut writer, trees) = new_writer(fixture, tag);
++    let subject = admitted(&mut writer, project);
++    let clock = scripted::Clock::new();
++    let seam = {
++        let clock = clock.clone();
++        GuardSeam {
++            clock: Box::new(move || {
++                let mut sample = clock.sample()?;
++                sample.wall_seconds += shift;
++                Ok(sample)
++            }),
++            cadence: Cadence::Manual,
++            hook: ObservationHook::live(),
++        }
++    };
++    let operation = writer
++        .begin_operation_with(
++            subject,
++            WriterLease::AppendWrite,
++            &inputs(),
++            &scripted::invocation(),
++            seam,
++        )
++        .unwrap();
++    Live {
++        operation,
++        clock,
++        _trees: trees,
++    }
++}
++
++#[test]
++fn a_list_going_stale_during_the_operation_fail_stops_before_any_further_effect() {
++    // Law X4T r11 item 6 (unit X4-F1). The store's list was issued
++    // 2026-10-01, so it is stale strictly after 2026-12-30T00:00:00Z; its L
++    // is 2026-10-01 too, so a first read is plausible up to that instant. The
++    // first read's wall clock is two seconds before it, and so is its tEval.
++    churned(|| {
++        let (fixture, project, n) = eligible("x4f1-stale");
++        let first_wall = 1_798_588_798; // 2026-12-29T23:59:58Z
++        let mut live = begin_live_shifted(
++            &fixture,
++            &project,
++            "x4f1-stale",
++            first_wall - scripted::WALL,
++        );
++        assert_eq!(
++            live.operation.guard().start_view().time().unwrap().evaluation,
++            Some(first_wall)
++        );
++        // One monotonic second later: tEval + 1 is before the boundary. A
++        // tick continues and an effect is admitted.
++        live.clock.advance(Duration::from_secs(1));
++        assert!(live.operation.guard().tick());
++        assert!(matches!(
++            checkpoint(&mut live.operation, false),
++            Ok(Checked::Effect)
++        ));
++        assert_eq!(witness_of(&fixture, &n), (1, 1, "COMMITTED".into()));
++        // Two more: tEval + 3 is past it. The core role is stale at the
++        // observation's instant, so the observer fail-stops on the standing.
++        live.clock.advance(Duration::from_secs(2));
++        assert!(!live.operation.guard().tick());
++        assert_eq!(live.operation.guard().cause(), Some(fail_stop("standing")));
++        assert_eq!(
++            live.operation.guard().state(),
++            AttemptState::LatchedBeforeAdmission
++        );
++        // No further effect or admission: the checkpoint names the first cause.
++        assert_eq!(
++            stopped(checkpoint(&mut live.operation, true)),
++            fail_stop("standing")
++        );
++        assert_eq!(witness_of(&fixture, &n), (1, 1, "COMMITTED".into()));
++    });
++}
++
+ #[test]
+ fn a_checkpoint_needs_this_operations_own_level_four() {
+     churned(|| {
+diff --git a/crates/security/src/trust/current_trust_admission.rs b/crates/security/src/trust/current_trust_admission.rs
+index 895c235..8137c28 100644
+--- a/crates/security/src/trust/current_trust_admission.rs
++++ b/crates/security/src/trust/current_trust_admission.rs
+@@ -1,7 +1,9 @@
+ // Law X4T r5 (X4T-a): read-only admission of the installation's current
+ // trust. It composes the existing owners over one budget and grants nothing;
+ // it writes nothing (the floor write-ahead is X4T-b) and is not wired to a
+-// session or operation here (X4a consumes it).
++// session or operation here (X4a consumes it). Unit X4-F1 (law X4T r11 item
++// 6): an observer reread evaluates expiry and staleness at its instant, the
++// handoff's tEval advanced by the elapsed monotonic time (`HandoffClock`).
+ use super::super::admitted_revocations::verify_revocation;
+ use super::super::admitted_trust_records::{self as clock, Phase};
+ use super::super::current_event_trace::LocalTrace;
+@@ -153,8 +155,11 @@ pub(crate) enum ReadMode {
+     /// report-only mode (read sessions and doctor): writes are proposed only.
+     /// X4T-a never performs the write-ahead; that is X4T-b.
+     Fenced { report: bool },
+-    /// An unfenced reread: items 2 to 5 only, no time re-admission.
+-    Reread,
++    /// An unfenced reread: items 2 to 5, with no time re-admission. Item 6
++    /// (unit X4-F1): expiry and staleness are evaluated at `at`, in UTC
++    /// seconds: the handoff's tEval advanced by the elapsed monotonic time
++    /// (`HandoffClock::advanced`). No reread is made without its instant.
++    Reread { at: i64 },
+ }
+ /// Item 1: the admitted current-trust view. Not Clone, not serializable.
+ #[derive(Debug)]
+@@ -174,6 +179,39 @@ pub(crate) struct AdmittedCurrentTrust {
+     closure: ViewClosure,
+     /// Item 4's admitted revocation list, for X4's S6 predicate.
+     revocation: AdmittedRevocation,
++    /// Item 6 (unit X4-F1): an admitted fenced read's clock, which the
++    /// rereads of the operation it starts advance. `None` on a reread.
++    handoff: Option<HandoffClock>,
++}
++/// Item 6 (unit X4-F1): the clock of an admitted fenced read. Its tEval, and
++/// its S4 observation's sleep-inclusive monotonic seconds and boot. Observer
++/// rereads do not re-admit time; they evaluate expiry and staleness at this
++/// tEval advanced by the monotonic time elapsed on the same boot.
++#[derive(Clone, Debug, PartialEq, Eq)]
++pub(crate) struct HandoffClock {
++    evaluation: i64,
++    mono: i64,
++    boot: String,
++}
++impl HandoffClock {
++    /// Item 6: a reread's instant, from the reread's own S4 observation
++    /// (`observation`, admitted by the same grammar as the fenced read's):
++    /// tEval plus its monotonic seconds less the handoff's. Only the
++    /// monotonic reading and the boot are used; the observation's wall clock
++    /// is never consulted. Another boot is a stop (X4 r2 item 5), and a
++    /// monotonic reading below the handoff's is not an elapsed time; neither
++    /// has an instant.
++    pub(crate) fn advanced(&self, observation: &V) -> Result<i64, &'static str> {
++        let now = RecordedObservation::admit(observation).map_err(|_| "observation")?;
++        if now.boot() != self.boot {
++            return Err("boot");
++        }
++        now.mono()
++            .checked_sub(self.mono)
++            .filter(|elapsed| *elapsed >= 0)
++            .and_then(|elapsed| self.evaluation.checked_add(elapsed))
++            .ok_or("monotonic")
++    }
+ }
+ /// Item 4's closure components as the view keeps them (law X4 r7 item 2).
+ #[derive(Clone, Debug, PartialEq, Eq)]
+@@ -303,6 +341,10 @@ impl AdmittedCurrentTrust {
+     pub(crate) fn closure(&self) -> &ViewClosure {
+         &self.closure
+     }
++    /// Item 6 (unit X4-F1): the fenced read's clock; `None` on a reread.
++    pub(crate) fn handoff_clock(&self) -> Option<&HandoffClock> {
++        self.handoff.as_ref()
++    }
+ }
+ /// What the caller supplies besides the store: the S4 observation for a
+ /// fenced read, the project's policy body if one exists (item 5), and the
+@@ -899,6 +941,29 @@ fn standing_of(roles: &[(State, bool); 6]) -> Result<TrustStanding, TrustRefusal
+     }
+ }
+ 
++/// Item 6 (unit X4-F1): a reread's expiry and staleness applied to the
++/// stored roles through the role machine's own `EV-CLOCK` (`clock`), on law
++/// X4B r5 item 4's mapping of documents to roles, the one the law states:
++/// the signing root's expiry to TR-BUNDLE, TR-COMPONENT and TR-CORE; the
++/// root's or the catalog's to TR-INDEX; the list's staleness to all four.
++/// TR-PROFILE and TR-REPAIR, which no payload carries and the standing's join
++/// does not read, keep their stored states.
++fn clock_roles(
++    roles: [(State, bool); 6],
++    (root, catalog, stale): (bool, bool, bool),
++) -> [(State, bool); 6] {
++    let mut out = roles;
++    for (i, name) in ROLES.iter().enumerate() {
++        let expired = match *name {
++            "TR-BUNDLE" | "TR-COMPONENT" | "TR-CORE" => root,
++            "TR-INDEX" => root || catalog,
++            _ => continue,
++        };
++        out[i].0 = super::super::super::role_machine::clock(out[i].0, expired, stale);
++    }
++    out
++}
++
+ /// Items 1 to 6 over a bound capsule. Shared by the in-memory path and the
+ /// native capture; `store` is the same store the binders used.
+ fn admit_bound(
+@@ -944,16 +1009,27 @@ fn admit_bound(
+         },
+     )
+     .or_else(|e| refuse(TrustRow::Incomplete, e))?;
+-    // Item 6: time on the fenced read only.
++    // Item 6: time is admitted on the fenced read only.
+     let mut pending = None;
+-    let time = match inputs.mode {
+-        ReadMode::Reread => None,
++    let mut handoff = None;
++    let (roles, standing, time) = match inputs.mode {
++        // Item 6 (unit X4-F1): a reread re-admits no time and writes nothing.
++        // It evaluates S4's expiry and staleness at its instant, applies them
++        // to the stored roles through EV-CLOCK, and joins the standing again:
++        // a continuation refusal is X4's callback error (item 9).
++        ReadMode::Reread { at } => {
++            let expired = crate::trust_time::evaluate_reread_expiry(&input, at)
++                .or_else(|e| refuse(TrustRow::Incomplete, e))?;
++            let roles = clock_roles(roles, expired);
++            (roles, standing_of(&roles)?, None)
++        }
+         ReadMode::Fenced { report } => {
+             let observation = inputs
+                 .observation
+                 .map_or_else(|| refuse(TrustRow::HostIo, "observation"), Ok)?;
+             let observation = RecordedObservation::admit(observation)
+                 .or_else(|e| refuse(TrustRow::HostIo, e))?;
++            let (mono, boot) = (observation.mono(), observation.boot().to_owned());
+             let proposal = crate::trust_time::evaluate_retained_ordinary(input, observation, report)
+                 .or_else(|e| refuse(TrustRow::Incomplete, e))?;
+             let admission = proposal.admission();
+@@ -973,7 +1049,13 @@ fn admit_bound(
+                     refusal,
+                 );
+             }
+-            Some(admission)
++            // Item 6 (unit X4-F1): the clock the operation's rereads advance.
++            handoff = admission.evaluation.map(|evaluation| HandoffClock {
++                evaluation,
++                mono,
++                boot,
++            });
++            (roles, standing, Some(admission))
+         }
+     };
+     Ok(AdmittedCurrentTrust {
+@@ -991,6 +1073,7 @@ fn admit_bound(
+         pending,
+         closure,
+         revocation: AdmittedRevocation(heads.revocation),
++        handoff,
+     })
+ }
+ 
+diff --git a/crates/security/src/trust/current_trust_admission_tests.rs b/crates/security/src/trust/current_trust_admission_tests.rs
+index ec1186f..e804da5 100644
+--- a/crates/security/src/trust/current_trust_admission_tests.rs
++++ b/crates/security/src/trust/current_trust_admission_tests.rs
+@@ -37,14 +37,22 @@ fn fenced(report: bool, obs: &V) -> ViewInputs<'_> {
+         core_closure: fixture::CORE_CLOSURE,
+     }
+ }
+-fn reread() -> ViewInputs<'static> {
++fn utc(text: &str) -> i64 {
++    crate::trust_time::timestamp_seconds(text).unwrap()
++}
++/// A reread at `at` (law X4T r11 item 6's instant, unit X4-F1).
++fn reread_at(at: i64) -> ViewInputs<'static> {
+     ViewInputs {
+-        mode: ReadMode::Reread,
++        mode: ReadMode::Reread { at },
+         observation: None,
+         project_policy: None,
+         core_closure: fixture::CORE_CLOSURE,
+     }
+ }
++/// A reread at `hour_later`'s tEval, before any expiry.
++fn reread() -> ViewInputs<'static> {
++    reread_at(utc("2026-10-02T01:00:00Z"))
++}
+ fn with_roles(core: RoleTarget, index: RoleTarget, component: RoleTarget) -> Spec {
+     let mut spec = Spec::default();
+     // ROLES order: BUNDLE, COMPONENT, CORE, INDEX, PROFILE, REPAIR.
+@@ -264,6 +272,134 @@ fn time_refusals_take_their_rows() {
+     assert_eq!(admit(&Spec::default(), &inputs).unwrap_err().row, TrustRow::HostIo);
+ }
+ 
++/// Item 6 (unit X4-F1): a reread evaluates S4's expiry and staleness at its
++/// instant and applies them to the stored roles through EV-CLOCK. The default
++/// store's list was issued 2026-10-01, so it is stale strictly after
++/// 2026-12-30T00:00:00Z; its signing root expires at 2027-10-01T00:00:00Z.
++#[test]
++fn a_reread_fails_closed_once_its_instant_passes_an_expiry() {
++    let stale = utc("2026-12-30T00:00:00Z");
++    let expires = utc("2027-10-01T00:00:00Z");
++    // Before: admitted on the stored states, and still no time admitted.
++    for at in [utc("2026-10-02T01:00:00Z"), stale] {
++        let view = admit(&Spec::default(), &reread_at(at)).unwrap();
++        assert_eq!(
++            view.standing(),
++            TrustStanding::InstallGateRequiredForNewProcess,
++            "{at}"
++        );
++        assert_eq!(view.role_states()[2], ("TR-CORE", "trusted"), "{at}");
++        assert!(view.time().is_none() && view.handoff_clock().is_none());
++    }
++    // After: the continuation row, naming the role and its clocked state. A
++    // reread's refusal is X4's callback error (item 9).
++    for (at, subject) in [
++        (stale + 1, "core:stale-revocation"),
++        (expires - 1, "core:stale-revocation"),
++        // EV-CLOCK: expiry wins over staleness.
++        (expires, "core:expired"),
++    ] {
++        let refusal = admit(&Spec::default(), &reread_at(at)).unwrap_err();
++        assert_eq!(
++            refusal.row,
++            TrustRow::Continuation(subject.into()),
++            "{at}: {}",
++            refusal.cause
++        );
++        assert_eq!(refusal.row.code(), "CONTINUE-CORE-NOT-TRUSTED");
++    }
++}
++
++/// Item 6 (unit X4-F1): a fenced read keeps its clock. A reread's instant is
++/// its tEval advanced by the monotonic seconds elapsed on the same boot,
++/// whatever the reread's own wall clock says.
++#[test]
++fn the_handoff_clock_advances_by_monotonic_time_only() {
++    let obs = hour_later();
++    let view = admit(&Spec::default(), &fenced(false, &obs)).unwrap();
++    let t_eval = view.time().unwrap().evaluation.unwrap();
++    assert_eq!(t_eval, utc("2026-10-02T01:00:00Z"));
++    let clock = view.handoff_clock().unwrap();
++    assert_eq!(clock.advanced(&obs), Ok(t_eval));
++    // The wall clock is never consulted: behind the handoff's, or ahead of
++    // it, the instant is the same.
++    for wall in [
++        "2020-01-01T00:00:00Z",
++        "2026-10-02T01:00:10Z",
++        "2029-01-01T00:00:00Z",
++    ] {
++        assert_eq!(clock.advanced(&observation(3617, wall)), Ok(t_eval + 10), "{wall}");
++    }
++    // A monotonic reading below the handoff's, another boot, or no
++    // observation at all has no instant.
++    assert_eq!(
++        clock.advanced(&observation(3606, "2026-10-02T02:00:00Z")),
++        Err("monotonic")
++    );
++    assert_eq!(
++        clock.advanced(&observation_on("boot-2", 3617, "2026-10-02T01:00:10Z")),
++        Err("boot")
++    );
++    assert_eq!(clock.advanced(&V::Null), Err("observation"));
++    // A report-only read keeps its clock too; a reread has none.
++    let report = admit(&Spec::default(), &fenced(true, &obs)).unwrap();
++    assert_eq!(report.handoff_clock(), Some(clock));
++    assert!(admit(&Spec::default(), &reread()).unwrap().handoff_clock().is_none());
++}
++
++/// Item 6 (unit X4-F1): the reread's EV-CLOCK follows law X4B r5 item 4's
++/// mapping, and the role machine's join decides. A catalog expired alone
++/// leaves TR-INDEX `Expired` and the view `ExistingOnly`, which admits
++/// continuing work; TR-PROFILE and TR-REPAIR keep their stored states.
++#[test]
++fn a_rereads_clock_follows_x4b_item_4_and_the_role_machine() {
++    use State::*;
++    // ROLES order: BUNDLE, COMPONENT, CORE, INDEX, PROFILE, REPAIR.
++    let stored = [Trusted, Trusted, Trusted, Trusted, Unbootstrapped, Trusted]
++        .map(|s| (s, s != Unbootstrapped));
++    let states = |roles: [(State, bool); 6]| roles.map(|(s, _)| s);
++    assert_eq!(clock_roles(stored, (false, false, false)), stored);
++    let catalog = clock_roles(stored, (false, true, false));
++    assert_eq!(
++        states(catalog),
++        [Trusted, Trusted, Trusted, Expired, Unbootstrapped, Trusted]
++    );
++    assert_eq!(standing_of(&catalog).unwrap(), TrustStanding::ExistingOnly);
++    let root = clock_roles(stored, (true, false, false));
++    assert_eq!(
++        states(root),
++        [Expired, Expired, Expired, Expired, Unbootstrapped, Trusted]
++    );
++    assert_eq!(
++        standing_of(&root).unwrap_err().row,
++        TrustRow::Continuation("core:expired".into())
++    );
++    let stale = clock_roles(stored, (false, false, true));
++    assert_eq!(
++        states(stale),
++        [
++            StaleRevocation,
++            StaleRevocation,
++            StaleRevocation,
++            StaleRevocation,
++            Unbootstrapped,
++            Trusted
++        ]
++    );
++    assert_eq!(
++        standing_of(&stale).unwrap_err().row,
++        TrustRow::Continuation("core:stale-revocation".into())
++    );
++    // Expiry wins over staleness, from either state.
++    assert_eq!(states(clock_roles(stored, (true, false, true)))[2], Expired);
++    assert_eq!(states(clock_roles(stale, (true, false, true)))[2], Expired);
++    // States EV-CLOCK never moves (it never preempts Recovery).
++    for state in [Recovery, Revoked, QuorumLost, Unbootstrapped, Expired] {
++        let roles = [(state, true); 6];
++        assert_eq!(clock_roles(roles, (true, true, true)), roles, "{state:?}");
++    }
++}
++
+ #[test]
+ fn the_policy_digest_is_the_effective_digest_on_both_reads() {
+     let obs = hour_later();
+diff --git a/crates/security/src/trust/floor_publication_tests.rs b/crates/security/src/trust/floor_publication_tests.rs
+index ed69323..63d7eb8 100644
+--- a/crates/security/src/trust/floor_publication_tests.rs
++++ b/crates/security/src/trust/floor_publication_tests.rs
+@@ -230,7 +230,9 @@ fn the_next_admission_reaches_accepted_by_outside_the_current_chain() {
+         // accepted role's acceptance event opened by reference.
+         let mut b = view_budget();
+         admit_native(&mut b, &site.fence, &site.store.store, &super::super::ViewInputs {
+-            mode: ReadMode::Reread,
++            mode: ReadMode::Reread {
++                at: crate::trust_time::timestamp_seconds("2026-10-02T02:00:00Z").unwrap(),
++            },
+             observation: None,
+             project_policy: None,
+             core_closure: fixture::CORE_CLOSURE,
+@@ -283,7 +285,9 @@ fn a_floor_publication_on_a_rotated_store_is_followed_by_an_admitted_read() {
+         // And the unfenced reread through the native readers.
+         let mut b = view_budget();
+         let view = admit_native(&mut b, &site.fence, &site.store.store, &super::super::ViewInputs {
+-            mode: ReadMode::Reread,
++            mode: ReadMode::Reread {
++                at: crate::trust_time::timestamp_seconds("2026-10-02T02:00:00Z").unwrap(),
++            },
+             observation: None,
+             project_policy: None,
+             core_closure: fixture::CORE_CLOSURE,
+@@ -645,7 +649,9 @@ fn a_reread_mode_is_not_a_fenced_first_read() {
+         let site = site(&Spec::default());
+         let mut owner = bound(&site);
+         let inputs = ViewInputs {
+-            mode: ReadMode::Reread,
++            mode: ReadMode::Reread {
++                at: crate::trust_time::timestamp_seconds("2026-10-02T00:00:00Z").unwrap(),
++            },
+             observation: None,
+             project_policy: None,
+             core_closure: fixture::CORE_CLOSURE,
+diff --git a/crates/security/src/trust/live_observation.rs b/crates/security/src/trust/live_observation.rs
+index fa61fc3..6761ec6 100644
+--- a/crates/security/src/trust/live_observation.rs
++++ b/crates/security/src/trust/live_observation.rs
+@@ -15,6 +15,9 @@
+ //   collection's retained handle), `state.v1` reopened, and once more when
+ //   its identity changed; then the floors against the start view and S6's
+ //   `observe_revocation` against the immutable start epoch and closure.
++//   Unit X4-F1 (law X4T r11 item 6): the reread evaluates expiry and
++//   staleness at the start view's tEval advanced by the monotonic time
++//   elapsed to the monitored read's own opening sample.
+ // It never takes the fence, writes nothing and grants nothing.
+ use super::super::super::directory_record_capture as files;
+ use super::super::super::native_record_capture::{locator_components, reference_parts};
+@@ -26,6 +29,7 @@ use super::{
+ };
+ use crate::custody::directory_policy;
+ use crate::custody::installation_fence::HeldFence;
++use crate::revocation::Sample;
+ use crate::trust::trust_record_reader::{Record, RecordKind};
+ use opensip_identity::{JsonInteger, JsonValue as V, digest_hex};
+ use opensip_platform::{
+@@ -371,6 +375,11 @@ pub(crate) enum ObservationFailure {
+     Budget(String),
+     /// The view's role standing no longer continues.
+     Standing(String),
++    /// The observation has no instant (law X4T r11 item 6, unit X4-F1): its
++    /// opening sample does not project, or names another boot or an earlier
++    /// monotonic reading than the handoff's. The monitor's own `clock`
++    /// subject (X4 r7 item 8: a boot change is a fail-stop).
++    Clock(String),
+ }
+ impl ObservationFailure {
+     pub(crate) fn subject(&self) -> &'static str {
+@@ -381,6 +390,7 @@ impl ObservationFailure {
+             Self::Rollback(_) => "rollback",
+             Self::Budget(_) => "budget",
+             Self::Standing(_) => "standing",
++            Self::Clock(_) => "clock",
+         }
+     }
+ }
+@@ -466,15 +476,18 @@ struct Attempt {
+ impl LiveObservation<'_> {
+     /// Steps 1 to 4 once more if step 4's identity differs, then the floors
+     /// and the S6 predicate, all charged to one fresh per-observation ledger
+-    /// (never the operation's). This is the body of one monitored read.
+-    pub(crate) fn observe(&self) -> Result<Observed, ObservationFailure> {
++    /// (never the operation's). This is the body of one monitored read, and
++    /// `opening` is that read's own opening sample: both attempts evaluate
++    /// expiry and staleness at its instant (unit X4-F1).
++    pub(crate) fn observe(&self, opening: &Sample) -> Result<Observed, ObservationFailure> {
++        let at = self.instant(opening)?;
+         let mut ledger = WorkLedger::with_limits(OBSERVATION_LEDGER)
+             .map_err(|e| ObservationFailure::Budget(format!("{e:?}")))?;
+-        let first = self.attempt(&mut ledger, 1)?;
++        let first = self.attempt(&mut ledger, 1, at)?;
+         let attempt = if first.coherent {
+             first
+         } else {
+-            let second = self.attempt(&mut ledger, 2)?;
++            let second = self.attempt(&mut ledger, 2, at)?;
+             if !second.coherent {
+                 return Err(ObservationFailure::Mixed);
+             }
+@@ -486,7 +499,34 @@ impl LiveObservation<'_> {
+         };
+         predicate(self.start, &view)
+     }
+-    fn attempt(&self, ledger: &mut WorkLedger, n: u8) -> Result<Attempt, ObservationFailure> {
++    /// Law X4T r11 item 6 (unit X4-F1): the observation's instant. The
++    /// opening sample is projected exactly as the first read's S4 observation
++    /// is (`project_monitor_sample`), and the start view's handoff clock
++    /// advances by its monotonic reading on the same boot; its wall reading
++    /// is never used. No clock is sampled here, nothing is read or charged.
++    fn instant(&self, opening: &Sample) -> Result<i64, ObservationFailure> {
++        let observation = crate::clock_observation::project_monitor_sample(
++            opening.wall_seconds,
++            opening.wall_nanos,
++            opening.before,
++            opening.after,
++            &opening.boot,
++        )
++        .map_err(|cause| ObservationFailure::Clock(cause.into()))?;
++        let handoff = self
++            .start
++            .handoff_clock()
++            .ok_or_else(|| ObservationFailure::Clock("handoff".into()))?;
++        handoff
++            .advanced(&observation)
++            .map_err(|cause| ObservationFailure::Clock(cause.into()))
++    }
++    fn attempt(
++        &self,
++        ledger: &mut WorkLedger,
++        n: u8,
++        at: i64,
++    ) -> Result<Attempt, ObservationFailure> {
+         let h = self.handles;
+         // A refused view is carried out here: its failed read has already
+         // latched the per-observation ledger, so the scope itself returns
+@@ -542,7 +582,7 @@ impl LiveObservation<'_> {
+                         });
+                     }
+                     let inputs = ViewInputs {
+-                        mode: ReadMode::Reread,
++                        mode: ReadMode::Reread { at },
+                         observation: None,
+                         project_policy: None,
+                         core_closure: self.core_closure,
+diff --git a/crates/security/src/trust/live_observation_tests.rs b/crates/security/src/trust/live_observation_tests.rs
+index 1be5c40..ed569bd 100644
+--- a/crates/security/src/trust/live_observation_tests.rs
++++ b/crates/security/src/trust/live_observation_tests.rs
+@@ -55,12 +55,36 @@ fn store_binding() -> V {
+     )
+     .unwrap()
+ }
++/// The first read's S4 observation. Its boot is in the platform's grammar,
++/// so that an observation's opening sample on the same boot projects onto it
++/// (unit X4-F1).
++const BOOT: &str = "00000000-0000-4000-8000-000000000009";
+ fn observation() -> V {
+     opensip_identity::parse_json(
+-        br#"{"bootId":"boot-9","mono":3607,"wall":"2026-10-02T01:00:00Z"}"#,
++        format!(r#"{{"bootId":"{BOOT}","mono":3607,"wall":"2026-10-02T01:00:00Z"}}"#).as_bytes(),
+     )
+     .unwrap()
+ }
++/// 2026-10-02T01:00:00Z, the first read's wall clock and so its tEval (F is
++/// 2026-10-02T00:00:00Z).
++const T_EVAL: i64 = 1_790_902_800;
++/// An observation's opening sample: `mono` seconds of the monotonic clock on
++/// `boot`, and a wall clock of `wall` UTC seconds.
++fn opening_on(boot: &str, mono: u64, wall: i64) -> Sample {
++    let at = std::time::Duration::from_secs(mono);
++    Sample {
++        before: at,
++        after: at,
++        boot: boot.to_owned(),
++        wall_seconds: wall,
++        wall_nanos: 0,
++    }
++}
++/// An opening sample `elapsed` seconds after the first read's, with the wall
++/// clock moving with it.
++fn opening(elapsed: u64) -> Sample {
++    opening_on(BOOT, 3607 + elapsed, T_EVAL + elapsed as i64)
++}
+ fn invocation() -> TrustInvocation {
+     TrustInvocation::new(
+         &format!("req1_{}", "a".repeat(32)),
+@@ -220,12 +244,12 @@ fn an_observation_reads_through_the_retained_handles_with_no_fence_held() {
+             hook: &hook,
+         };
+         assert_eq!(
+-            observation.observe(),
++            observation.observe(&opening(1)),
+             Ok(Observed::Continue { drift: None })
+         );
+         // Each observation has its own ledger: a second one is admitted too.
+         assert_eq!(
+-            observation.observe(),
++            observation.observe(&opening(2)),
+             Ok(Observed::Continue { drift: None })
+         );
+         // A record of the closure gone: unreadable, never assumed.
+@@ -234,8 +258,69 @@ fn an_observation_reads_through_the_retained_handles_with_no_fence_held() {
+             fs::remove_file(entry.unwrap().path()).unwrap();
+         }
+         assert!(matches!(
+-            observation.observe(),
++            observation.observe(&opening(3)),
+             Err(ObservationFailure::Unreadable(_))
+         ));
+     });
+ }
++
++/// Law X4T r11 item 6 (unit X4-F1): an observation evaluates expiry and
++/// staleness at the first read's tEval advanced by the monotonic time elapsed
++/// to its own opening sample. The store's list was issued 2026-10-01, so it is
++/// stale strictly after 2026-12-30T00:00:00Z: 7,686,000 s after the first
++/// read's tEval. The wall clock is never used, and an opening sample with no
++/// instant is the monitor's `clock` fail-stop.
++#[test]
++fn an_observation_fails_closed_once_its_monotonic_instant_passes_an_expiry() {
++    crate::test_scratch::settled(|| {
++        let mut site = site();
++        let start = first_read(&site);
++        assert_eq!(start.time().unwrap().evaluation, Some(T_EVAL));
++        let handles = handles(&site, &|_| true).unwrap();
++        drop(site.fence.take());
++        let hook = ObservationHook::live();
++        let observation = LiveObservation {
++            handles: &handles,
++            start: &start,
++            core_closure: CORE,
++            hook: &hook,
++        };
++        const STALE: u64 = 7_686_000;
++        // Up to the boundary: the stored states continue.
++        for elapsed in [0, 5, STALE] {
++            assert_eq!(
++                observation.observe(&opening(elapsed)),
++                Ok(Observed::Continue { drift: None }),
++                "{elapsed}"
++            );
++        }
++        // One second past it: the core role is stale, so the standing no
++        // longer continues (X4 r7 item 8's fail-stop, subject `standing`).
++        let stale = observation.observe(&opening(STALE + 1)).unwrap_err();
++        assert_eq!(stale.subject(), "standing");
++        let ObservationFailure::Standing(cause) = &stale else {
++            panic!("{stale:?}")
++        };
++        assert!(cause.contains("core:stale-revocation"), "{cause}");
++        // Monotonic time, never the wall clock: a wall clock set back to 2020
++        // does not hide the passed instant, and one set a year ahead does not
++        // make an unexpired list stale.
++        let behind = opening_on(BOOT, 3607 + STALE + 1, 1_577_836_800);
++        assert_eq!(observation.observe(&behind).unwrap_err().subject(), "standing");
++        let ahead = opening_on(BOOT, 3608, T_EVAL + 365 * 86_400);
++        assert_eq!(
++            observation.observe(&ahead),
++            Ok(Observed::Continue { drift: None })
++        );
++        // No instant: a monotonic reading before the first read's, or another
++        // boot. Nothing is read for either.
++        for sample in [
++            opening_on(BOOT, 3606, T_EVAL),
++            opening_on("00000000-0000-4000-8000-00000000000a", 3608, T_EVAL),
++        ] {
++            let failure = observation.observe(&sample).unwrap_err();
++            assert!(matches!(failure, ObservationFailure::Clock(_)), "{failure:?}");
++            assert_eq!(failure.subject(), "clock");
++        }
++    });
++}
+diff --git a/crates/security/src/trust/role_machine.rs b/crates/security/src/trust/role_machine.rs
+index 5b39eeb..b305c90 100644
+--- a/crates/security/src/trust/role_machine.rs
++++ b/crates/security/src/trust/role_machine.rs
+@@ -285,6 +285,22 @@ fn decide(state: State, event: Event) -> Decision {
+         Event::RecoverAbort { .. } => Decision::refused(state, Refusal::RecoveryAbortNotInCeremony),
+     }
+ }
++/// Law X4T r11 item 6 (unit X4-F1): `EV-CLOCK` at an observer reread's
++/// instant, exactly `decide`'s transition. From `Trusted` or
++/// `StaleRevocation`, `expired` gives `Expired`; from `Trusted`,
++/// `stale_revocation` gives `StaleRevocation`; every other state is kept
++/// (EV-CLOCK never preempts `Recovery`). A proposal over asserted guards:
++/// nothing is recorded.
++pub(super) fn clock(state: State, expired: bool, stale_revocation: bool) -> State {
++    decide(
++        state,
++        Event::Clock {
++            expired,
++            stale_revocation,
++        },
++    )
++    .state
++}
+ /// Law X4B r5 item 4: what a carried role's document was judged to be at
+ /// acceptance (the entry observation `PresentOrdinary` takes).
+ #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+diff --git a/crates/security/src/trust/trust_bootstrap_tests.rs b/crates/security/src/trust/trust_bootstrap_tests.rs
+index 87b0941..6126e13 100644
+--- a/crates/security/src/trust/trust_bootstrap_tests.rs
++++ b/crates/security/src/trust/trust_bootstrap_tests.rs
+@@ -348,7 +348,9 @@ fn the_reread_and_the_reference_binders_accept_what_acceptance_wrote() {
+         // X4T-a's native reread: capture_p2, bind, bind_trace,
+         // bind_retained_head, the Budget::load members and accepted.by.
+         let inputs = ViewInputs {
+-            mode: ReadMode::Reread,
++            mode: ReadMode::Reread {
++                at: timestamp_seconds("2026-10-02T00:00:00Z").unwrap(),
++            },
+             observation: None,
+             project_policy: None,
+             core_closure: &closure,
+@@ -1087,8 +1089,10 @@ fn a_report_only_or_unfenced_read_never_bootstraps() {
+         .unwrap_err();
+         assert_eq!(err.row, TrustRow::NoAdmittedTimeContext);
+         // An unfenced reread is not a first read at all.
+-        let err =
+-            first_read(&site, &mut owner, &obs, &closure, ReadMode::Reread, &source).unwrap_err();
++        let reread = ReadMode::Reread {
++            at: timestamp_seconds("2026-10-02T00:00:00Z").unwrap(),
++        };
++        let err = first_read(&site, &mut owner, &obs, &closure, reread, &source).unwrap_err();
+         assert_eq!(err.row, TrustRow::HostIo);
+         assert_eq!(err.cause, "\"fenced-read-mode\"");
+         assert_eq!(tree_files(&site), before);
+diff --git a/crates/security/src/trust_time.rs b/crates/security/src/trust_time.rs
+index 264dc78..0e6d014 100644
+--- a/crates/security/src/trust_time.rs
++++ b/crates/security/src/trust_time.rs
+@@ -160,11 +160,7 @@ impl Assessment {
+             root: payload.and_then(|p| p.root).unwrap_or(record.expiry.root),
+         };
+         let rev_end = expiry.revocation.map(|t| add(t, HORIZON)).transpose()?;
+-        self.states = Some((
+-            expiry.root.is_none_or(|t| evaluation >= t),
+-            expiry.catalog.is_none_or(|t| evaluation >= t),
+-            rev_end.is_none_or(|t| evaluation > t),
+-        ));
++        self.states = Some(expiry_states(&expiry, evaluation)?);
+         self.freshness = rev_end
+             .map(|end| {
+                 let remaining = sub(end, evaluation)?;
+@@ -177,6 +173,19 @@ impl Assessment {
+         Ok(())
+     }
+ }
++/// S4's expiry states at `evaluation`: (root expired, catalog expired,
++/// revocation stale). An expiry at or before the instant is expired; a list is
++/// stale strictly after its issue time plus 90 days; an absent time is
++/// expired. The one rule for the fenced read (`finish`) and, law X4T r11
++/// item 6 (unit X4-F1), for an observer reread (`evaluate_reread_expiry`).
++fn expiry_states(expiry: &Expiry, evaluation: i64) -> Result<(bool, bool, bool), Error> {
++    let rev_end = expiry.revocation.map(|t| add(t, HORIZON)).transpose()?;
++    Ok((
++        expiry.root.is_none_or(|t| evaluation >= t),
++        expiry.catalog.is_none_or(|t| evaluation >= t),
++        rev_end.is_none_or(|t| evaluation > t),
++    ))
++}
+ struct Writes {
+     advance: FloorAdvance,
+     anchor: Option<Observation>,
+@@ -434,6 +443,15 @@ impl RecordedObservation {
+     pub(crate) fn document(&self) -> &opensip_identity::JsonValue {
+         &self.document
+     }
++    /// Law X4T r11 item 6 (unit X4-F1): the observation's sleep-inclusive
++    /// monotonic seconds, from which an operation's rereads advance.
++    pub(crate) fn mono(&self) -> i64 {
++        self.parsed.mono
++    }
++    /// Law X4T r11 item 6 (unit X4-F1): the observation's boot.
++    pub(crate) fn boot(&self) -> &str {
++        &self.parsed.boot
++    }
+ }
+ #[derive(Debug, PartialEq, Eq)]
+ pub(crate) enum ProofRetention {
+@@ -588,6 +606,25 @@ pub(crate) fn evaluate_retained_ordinary(
+         assessment,
+     })
+ }
++/// Law X4T r11 item 6 (unit X4-F1): an observer reread's expiry and
++/// staleness at `at`, the handoff's tEval advanced by the elapsed monotonic
++/// time, by S4's own rule (`expiry_states`), over the expiry times of the
++/// reread's authenticated documents, the same payload times
++/// `evaluate_retained_ordinary` presents. No time is admitted: no
++/// observation, floor, anchor, continuity or plausibility step runs, and
++/// nothing is proposed for writing (item 9). Returns (root expired, catalog
++/// expired, revocation stale) at `at`.
++pub(crate) fn evaluate_reread_expiry(
++    inputs: &crate::trust::OrdinaryClockInput,
++    at: i64,
++) -> Result<(bool, bool, bool), Error> {
++    let expiry = Expiry {
++        revocation: Some(inputs.revocation_issued()),
++        catalog: Some(inputs.catalog_expires()),
++        root: Some(inputs.root_expires()),
++    };
++    expiry_states(&expiry, at)
++}
+ 
+ #[cfg(test)]
+ mod tests {

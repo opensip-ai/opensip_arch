@@ -1,10 +1,9 @@
-**LANES PENDING. Do not send yet.** The code was written by reading only: no cargo build, check, clippy, fmt or test has run on it, because Grok's timing-sensitive crash-matrix rerun holds this machine. Before sending, the lead runs the lanes in "Lead results", fixes anything they find, refreshes the diff's size and sha256 in "Subject", fills in the results table, writes hashes.txt and status.json, and deletes this paragraph.
-
-Codex review: unit X4-F1 r1, observer rereads evaluate expiry. It is OpenSIP's fix for the known defect "X4 F-1" (M2-COMPLETE.md §5 row 16; EXIT-PLAN, "X4 F-1"). Claude Opus 5.5 leads, and you are the single reviewer. Verdict wanted: **ACCEPT** on the diff. This is a product code unit, an X4T-a successor. It adds no file, so it has no inventory successor and no design selection.
+GROK2 review: unit X4-F1 r1, observer rereads evaluate expiry. It is OpenSIP's fix for the known defect "X4 F-1" (M2-COMPLETE.md §5 row 16; EXIT-PLAN, "X4 F-1"). Claude Opus 5.5 leads, and you are the single reviewer. Verdict wanted: **ACCEPT** on the diff. This is a product code unit, an X4T-a successor. It adds no file, so it has no inventory successor and no design selection.
 
 **Rules:**
 - No repository edits, commits, pushes or delegation.
-- Write only under `/tmp/opensip-implementation/reviews/codex-observer-expiry-x4f1-r1`. If you build or test, use a `CARGO_TARGET_DIR` under that directory.
+- Write only under `/tmp/opensip-implementation/reviews/grok2-observer-expiry-x4f1-r1`. If you build or test, use a `CARGO_TARGET_DIR` under that directory.
+- **Lead note (machine window).** This request was written for Codex. GROK2 reviews it, because GROK2 was free. Probe E0's timed runs are using this machine for about the next 90 minutes. **Do not run cargo, tests or crash-matrix sets.** Review the diff, the code and the lead's recorded lanes and X9 evidence in `evidence/`. If you need a run, say so in your review and the lead will run it after E0. Where the text asks Codex a question (call 5), answer it yourself.
 - Run git read-only, and only against the worktree named below.
 - Don't run any cargo lane while a crash-matrix lead set is running on this machine: its 5 s timing guard fails under load. Ask the lead first.
 - Run every command at `nice -n 19`, with a private 0700 `TMPDIR` under `$(getconf DARWIN_USER_TEMP_DIR)`.
@@ -25,11 +24,19 @@ The finding is Grok's X4a r1 review (`reviews/grok-live-guards-x4a-r1/REVIEW.md`
 
 ## Subject
 
-- **Worktree:** `/Users/sb/code/opensip-ai/opensip-x4f1`, detached at product main `3e64266` (F8a, after X9-6 and D3). Nothing is committed or staged, and no file is added.
-- **Diff:** `git -C /Users/sb/code/opensip-ai/opensip-x4f1 diff 3e64266`. Before lanes it was 38214 bytes, sha256 `63eef2ab7e9db2c24d2ee51a1d4d988b4359e54ab51b416125cf855f3c4415fd`, with 10 files, +524 −33. **The lead refreshes these after lanes.**
+- **Worktree:** `/Users/sb/code/opensip-ai/opensip-x4f1`, detached at product main `e093e908dd7fe735356a896f3cf4b97e1d93198e` (F8b). Nothing is committed or staged, and no file is added.
+  - The unit was written on `3e64266` (F8a) and moved onto `e093e90` with no conflict, because F8b touches no `crates/` file.
+  - The diff is byte-identical on either base.
+- **Diff:** `git -C /Users/sb/code/opensip-ai/opensip-x4f1 diff e093e90` is 38214 bytes, sha256 `63eef2ab7e9db2c24d2ee51a1d4d988b4359e54ab51b416125cf855f3c4415fd`, with 10 files, +524 −33. A copy is at `evidence/x4f1.diff`.
 - **Toolchain:** `PATH=/opt/homebrew/bin:/opt/homebrew/Cellar/rust/1.95.0/bin:/usr/bin:/bin`, Python `/opt/homebrew/Cellar/python@3.14/3.14.6/bin/python3.14`.
+- **Evidence:** `evidence/` in this directory. Every file is pinned in `hashes.txt`.
+  - **Scripts:** `lanes.sh`, `rows.py`, `set.sh`, `release.sh`, `x9.sh` and `compare.py`, as run. They name the lead's scratch paths.
+  - **Lane summaries:** final and preliminary.
+  - **`results.json`:** test counts and the X9 summary.
+  - **`release-absence.json`.**
+  - **`x9/`:** the row lists, the source-pin record, the run summary, `compare.json`, and the four run-set `matrix.json` files.
 
-## The defect, at `3e64266`
+## The defect, at `3e64266` (the same lines at `e093e90`)
 
 - **The reread evaluates no time.** In `current_trust_admission.rs:950`, `ReadMode::Reread => None`: the reread's time step does nothing. `ReadMode::Reread` (`:157`) carries no instant, and `ViewInputs.observation` (`:313`) is for the fenced read only. The view's standing (`:916`) is the role machine's join over the capsule's stored role states only.
 - **The observation discards the only clock it has.** In `operation_guard.rs:238`, `Shared::observe` calls `monitor.read_sampled_with(clock, |_| …)`, dropping the monitored read's opening sample. `LiveObservation::observe()` (`live_observation.rs:470`) takes no clock, and it calls the reread with `ReadMode::Reread, observation: None` (`:545`).
@@ -99,21 +106,58 @@ Existing tests whose behaviour must not move: `a_boot_change_fail_stops_the_next
 
 ## Crash barriers, traces and the X9 rows
 
-**No crash point, scope, read, write or clock sample is added, removed or moved.** `git diff 3e64266` touches no `crash_barrier!`, `crash_scope!`, `observe_clock`, `native_clock`, `cfg` or file I/O line outside tests. `instant` projects a sample the monitor already took, and the reread's expiry uses documents it has already authenticated. So every trace and kill set is unchanged.
+**No crash point, scope, read, write or clock sample is added, removed or moved.** `git diff e093e90` touches no `crash_barrier!`, `crash_scope!`, `observe_clock`, `native_clock`, `cfg` or file I/O line outside tests. `instant` projects a sample the monitor already took, and the reread's expiry uses documents it has already authenticated. So every trace and kill set is unchanged.
 
 Outcomes change only when an expiry or staleness instant falls inside a run's [tEval, tEval + elapsed]. The matrix's scripted wall starts at `clockEpoch` 2026-10-04T00:00:00Z (+3600 s per child ordinal). The nearest boundary in its stores is the list's staleness, 2026-12-30T00:00:00Z. So no required run's expected outcome changes.
 
-The rows that exercise the changed code, to be rerun at integration:
+### The rows that exercise the changed code
+
 - **Storage, `x4.observer.tick` armed (43 runs):**
   - X9-4: F18 ×2, F19 ×31, F38, F39, F40 (latched), F41 ×2, and the moved F14 row;
   - X9-6 (r16 W5): F19 ×2;
   - X9-3: F44 and F45.
-- **Storage, X9-4's other 8 rows** (F06 ×2, F26, F30 ×2, F34, F40 ×2), to complete X9-4's 47-row `check-unit` subset.
+- **Storage, X9-4's other 8 rows** (F06 ×2, F26, F30 ×2, F34, F40 ×2), which complete X9-4's 47-row subset.
 - **Storage, the r16 checkpoint kills around the observation (X9-6, 13 runs):** F07 ×4 and F11 ×9, at `x4.checkpoint/lock.before`, `.before-observation`, `.after-observation`, `.before-admit` and `x4.gate.admit.after`.
-- **Host (4 runs):** F39 `latched-after-admission-delivery` (tick armed) and F40 ×3.
-- **Both censuses**, confirming that the kill sets are unchanged.
+- **Host (4 runs):** F39 `latched-after-admission-delivery` and F40 ×3. F39 and F40's latched variant arm the tick.
+- **Both censuses.**
 
-Every other committing row also runs the reread at its checkpoint's final observation, with no trace change. A full two-target `check` on the integrated commit is the lead's call (see the end of "Lead results").
+Every other committing row also runs the reread at its checkpoint's final observation, with no trace change.
+
+### The regression, run (2026-10-04, on `e093e90` plus the diff)
+
+**Source pins first** (`evidence/x9/source-pins.txt`):
+- Every X9 harness source is byte-identical at `e093e90` and at X9-6's C, `3d2d5b5`, and the diff touches none of them. Those sources are:
+  - the checker and its test;
+  - `crates/platform`;
+  - storage's and host's tests and both `required-runs.v1.json` files;
+  - security's `crash_matrix_sites.rs`, `crash_matrix_census.rs` and `crash_matrix_support`.
+- The checker's suite passes: 26 tests, OK.
+- X9-0's `no_manifest_enables_the_crash_matrix_feature` and X9-1's `every_test_feature_site_is_on_the_pinned_list` pass in both workspace runs. F8b's `tools/contracts/Cargo.toml` edit is among the manifests the first reads.
+
+**The runs:**
+- **Selection.** `evidence/rows.py` computes the 64 storage and 4 host rows from the required-runs files. It checks that the harness's own `OPENSIP_X9_ROWS` prefix rule selects exactly those rows and no other.
+- **Two sets.** `evidence/set.sh` runs X9-6's run-set entry, `x9_6_matrix` (census, then the selected rows), for storage and then host. It ran as two sets, `x4f1-1` and `x4f1-2`, one after the other, with nothing else running and a private 0700 TMPDIR.
+  - Storage: 384 s and 386 s.
+  - Host: 69 s and 70 s.
+  - Every run is PASS, and the real home stayed absent.
+
+**The comparison** (`evidence/compare.py`, output `evidence/x9/compare.json`) is against the accepted X9-6 evidence, arch `crash-matrix-x9/evidence/3d2d5b5…/` (its lead-1 run files and both targets' `matrix.json`).
+- **What it compares**, for every run in both sets:
+  - verdict;
+  - `postState.normalizedSha256`;
+  - ladder and `notApplicable`;
+  - every child's role, ordinal, exit, `lastHeld`, outcome and trace `{records, sha256}`;
+  - whether `timingGuard` is present.
+- **Per target and set:** the census points and census trace, and the kill set.
+- **The result: identical, with 0 differences.**
+  - Storage: 64/64 runs equal in both sets. Census: 259 points, trace 1379 records, `e9add21e…`. Kill set: 321 points.
+  - Host: 4/4 runs equal in both sets. Census: 218 points, trace 1195 records, `93d0922a…`. Kill set: 271 points.
+- **Timing guards** (not compared, all within 5,000 ms):
+  - storage 2,603–2,943 ms (43 runs per set);
+  - host 1,052–1,181 ms (2 runs per set).
+- **Expected differences:** each record's `product` is `{commit: e093e90, worktreeClean: false}`, because the subject is uncommitted, and `releaseAbsence` carries the new binary below. Neither is in the comparison.
+
+A full two-target `check` with `matrixPass` needs a clean commit, so it can only run at integration; the lead decides whether to run it then. These rows are the ones the change can reach.
 
 ## Judgment calls
 
@@ -143,18 +187,39 @@ Every other committing row also runs the reread at its checkpoint's final observ
 
 The diff adds, removes and renames no file, so v134 stands. Inventory rows carry no bytes, and the touched files' descriptions remain true. As with F3–F8a, there is no inventory successor and no `inventoryCandidateAssessment`.
 
-## Lead results (pending)
+## Lead results
+
+**How they ran:** every lane ran on `e093e90` plus the diff (`evidence/lanes.sh`), serially, with a private 0700 TMPDIR, `--locked --offline`, and nothing else running. The summary is `evidence/lanes-e093e90-summary.txt`, and the counts are in `evidence/results.json`. The real home stayed absent throughout.
 
 | Lane | Result |
 |---|---|
-| `cargo build -p opensip-security` | pending |
-| security lib tests: the six above, then `trust::`, `custody::` and `trust_time` in full, `--test-threads=1` | pending |
-| `cargo test --workspace` (private 0700 TMPDIR) | pending |
-| `cargo clippy --workspace --all-targets -- -D warnings` | pending |
-| `cargo fmt --check` | pending |
-| `cargo build -p opensip-security --features opensip-platform/crash-matrix` | pending |
-| `verify_design.py --architecture ../opensip_arch --implementation .` (expected identical output) | pending |
-| X9 regression set above, on the integrated commit, plus both censuses | pending (at integration) |
+| `cargo fmt --all --check` | pass |
+| `cargo build --workspace --all-targets` | pass |
+| `cargo build` of platform, security, storage and host, `--features crash-matrix --all-targets` | pass |
+| `cargo build` of security, storage and host, `--features scenario-fixtures --all-targets` | pass |
+| `cargo build -p opensip-security --features opensip-platform/crash-matrix` | pass |
+| `cargo clippy --workspace --all-targets -- -D warnings` | pass, no warnings |
+| `cargo clippy`, the crash-matrix lane (four packages, `--all-targets`, `-D warnings`) | pass |
+| `cargo clippy`, the scenario-fixtures lane (three packages, `--all-targets`, `-D warnings`) | pass |
+| The six new and changed tests (security lib, `--test-threads=1`) | 6 passed, 0 failed |
+| `cargo test --workspace`, run 1 | 1749 passed, 0 failed, 3 ignored (515 s) |
+| `cargo test --workspace`, run 2 | 1749 passed, 0 failed, 3 ignored (520 s) |
+| `cargo test`, platform, security, storage and host, `--features crash-matrix --all-targets` | 1629 passed, 0 failed, 3 ignored (506 s) |
+| `verify_design.py --architecture ../opensip_arch --implementation .` | pass |
+| `check_package_edges.py --lane host` against inventory v134 | pass |
+| `python3.14 -m unittest tools/tests/test_check_crash_matrix.py` | 26 tests OK |
+| X9 regression (above): two sets, 64 storage and 4 host runs, plus both censuses | identical to the X9-6 evidence, 0 differences |
+
+**Notes on the results:**
+- **Workspace count.** X9-6's lanes counted 1744 workspace tests at `3d2d5b5`; the 5 new tests make 1749.
+- **Preliminary runs on `3e64266`.** The same lanes ran on `3e64266` before F8b landed, with the same diff and the same counts (`evidence/lanes-3e64266-preliminary-summary.txt`): workspace 1749/0/3 twice and the feature lane 1629/0/3. They are preliminary only.
+- **Cached builds on `e093e90`.** The build and clippy steps there were fresh no-ops: F8b changes no Rust input, so cargo reused the artifacts the `3e64266` lanes had just built and linted from the same sources.
+
+**Release absence** (`evidence/release.sh`, record `evidence/release-absence.json`):
+- `cargo build --release -p opensip-cli` (no features) gives `target/release/opensip`, 6314800 bytes, sha256 `4055dd66d5fef89f758e0687e60368037223a5aa52e40952b8a6b2d63afbd0db`.
+- Neither `OPENSIP_X9_` nor any of the 25 registered scope names appears in it (`found: []`, `passed: true`).
+- The release builds of storage and of host with `--features crash-matrix` are each refused at the compile guard (exit 101).
+- X9-2 to X9-6 recorded 6315264 bytes, `b32604fe…`. The binary differs because the security code it links changed.
 
 ## Decide
 
@@ -168,6 +233,6 @@ The diff adds, removes and renames no file, so v134 stands. Inventory rows carry
 Write REVIEW.md and review.json under the output directory. review.json needs:
 - `"verdict"`: `ACCEPT` or `REQUIRED-FINDINGS`;
 - `"requiredFindings"`;
-- `"subjectSha256"`: the diff's sha256, as a single string. The lead fills it in after lanes.
+- `"subjectSha256"`: `63eef2ab7e9db2c24d2ee51a1d4d988b4359e54ab51b416125cf855f3c4415fd`, the diff's sha256, as a single string.
 
 No `subjectManifestSha256` or `inventoryCandidateAssessment` is needed. Do not commit.
