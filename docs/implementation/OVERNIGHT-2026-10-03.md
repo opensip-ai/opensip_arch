@@ -668,3 +668,9 @@ Times are local.
   - **JRW-R3-01:** the DDL split is 7 tables, 1 index and 18 triggers, and RW-C17 enumerates what `selected_ddl()` actually selects.
   - **JRW-R3-02, LD-16:** C-TRUST and C-TDIR also run before X4T r12's clocked refusal, on the closure and the pending write the publication itself uses. Two new controls follow, RW-C18 and RW-C19. RW-S5 now targets X4T r13.
   - **Pin fix before sending:** J-RW pinned X1's live file, which S2–S6's drafter is about to amend. X1 r1's bytes are now snapshotted as `PROPOSAL-r1.md`, and J-RW cites that.
+- **X4 r8 round 2 written and sent to CODEX2.** It folds the D8-1 fix into S11.6 as rule FC: an operation has exactly one first stop, and its cause is recorded with the transition that sets `LATCHED`, under the stop-cause lock, and never replaced.
+  - **Sources:** all nine latch sources go through one stop transition.
+  - **New cause:** the two cause-less sources, X3d's certain refusals and the checkpoint's lock mismatch, record a new `StopCause::CertainRefusal`. It maps to today's `operation-stopped` REV reason, so no row or reason changes.
+  - **The placeholder is withdrawn.** The cancellation latch keeps the first cause under every result.
+  - **X4-F3** is a code unit under r8 covering sources 1–8, and lands before J3b or with it. J3b covers source 9.
+  - **One question passed to CODEX2:** whether X4-F3's edits to X3d's call sites need X3d's own revision. They change no X3d outcome.

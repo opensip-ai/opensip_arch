@@ -35,14 +35,12 @@ r1 bytes are preserved in PROPOSAL-r1.md. r3 answers Grok X4 r2 RF-1 (the mixed-
 - **The product** is main `cca4fe4`, read-only. The cited files are `crates/security/src/commit_authority.rs`, `crates/security/src/custody/operation_guard.rs`, `crates/security/src/custody/commit_session.rs` and `crates/security/src/revocation.rs`. Main has since moved to `d2c00a9`, and none of these four files changed.
 - **What it changes.**
   - **Notes.** Items 2, 3, 7, 8, 10 and 11 each gain a short "r8 (S11)" note.
-  - **Units.** One code unit is added under this law, X4-F3 (round 2; S11.9).
-  - **Forbidden substitutes and Not claimed.** The forbidden substitutes gain two groups, the second in round 2, and "Not claimed" gains one line.
+  - **Forbidden substitutes and Not claimed.** The forbidden substitutes gain one group, and "Not claimed" gains two lines.
   - **The decisions** are in a new section, "S11 (r8): the gate word", after the r5 block.
   - **What it adds:**
     - two bits in the gate's word;
     - one latch source;
-    - two stop causes: `Operator`, recorded from X3d r9, and `CertainRefusal`, for the sources that are cause-less today (round 2; LD8-7);
-    - one discipline for every latch, the stop transition (round 2; S11.6);
+    - one stop cause, recorded from X3d r9;
     - three in-memory operations on the word: the cancellation latch, the opening and the close.
   - **What it does not add or change.** It adds no public code, class, exit, detail, row, crash point, lock, ledger or budget, and it changes no lock order.
   - **r7's text.** Every accepted r7 sentence stays in place.
@@ -59,35 +57,10 @@ r1 bytes are preserved in PROPOSAL-r1.md. r3 answers Grok X4 r2 RF-1 (the mixed-
 | 5 | **The gate never resets.** No operation clears a bit, so each bit is set at most once, the window bits included. | S11.3; forbidden substitutes | J1:534, :857 |
 | 6 | **At most one permit,** with three latch sources and a window | S11.4 | F41; J1:538, :540 |
 | 7 | **How each source sets the bits.** The cancellation latch acts only inside the window. Its exchange and its `Operator` record are one critical section of the operation's stop-cause record (LD8-3). `x4.gate.latch.after` follows a successful exchange (LD8-4). | S11.5, S11.6; item 7 | J1:532-537; X3D9 S10.2 |
-| 8 | **`StopCause::Operator { signal }` on X4's type,** recorded from X3d r9 LD9-4. Its `REV` reason and its row are X3d r9's. **(Round 2)** `StopCause::CertainRefusal` too (LD8-7). | S11.6; item 8 | X3D9 S10.4, S10.5, LD9-4 |
-| 9 | **Controls:** J-C15's and J-C15b's gate halves, an exhaustive word trace, and tests for LD8-2 to LD8-4. **(Round 2)** The first-stop matrix, D8-1's regressions, a source pin and a no-wait test (W-6, W-8 to W-10). | S11.8; item 10 | J1:684-691; X3D9 S10.8 |
-| 10 | **Units:** X4's part of J3b. **(Round 2)** X4-F3, a code unit under this law, gated before J3b (LD8-9). | S11.9; item 11 | J1:882; X3D9 LD9-5; RF-X4R8-1 |
-| 11 | **(Round 2) The total first-cause rule.** Every source's latch and its cause's record form one stop transition (I1). The placeholder record is withdrawn. D8-1 is resolved. | S11.6, S11.11; LD8-6 to LD8-8 | J1:598, :684; X3D9 S10.4; RF-X4R8-1 |
-
-**Round 2 (2026-10-04).** Round 1 (`ee758471…`, 59,840 bytes) is preserved in PROPOSAL-r8-round1.md.
-- **Its review.** CODEX2 reviewed round 1 (`reviews/codex2-x4-r8`) and returned REQUIRED-FINDINGS:
-  - **RF-X4R8-1 (high):** D8-1's races may not be left as an ungated follow-up;
-  - **NB-X4R8-1:** W-5 should name all four reader paths.
-
-  CODEX2 passed the word, the masked loops, the bounds, never-reset, one permit, LD8-3 for the cancellation latch's own exchange, LD8-4 and LD8-5.
-- **The lead's decision.** D8-1's fix is folded into this revision as round 2.
-  - **The name stays "X4 r8".** J1, X3d r9, M3-L r5 and M3-PLAN r9 cite it for S11.
-  - **No separate law.** The round-1 X4-F3 law route is dropped, and X4-F3 is now a code unit under this law.
-- **The diff base.** Diff PROPOSAL-r8-round1.md against PROPOSAL.md.
-
-**Round 2 changes.**
-
-| # | Finding | Change | Where |
-|---|---|---|---|
-| R2-1 | RF-X4R8-1 | **The first-cause rule is total.** Every stop source takes the stop transition: its latch and its cause's record form one critical section of the stop-cause lock, and the record is made only if its own transition set `LATCHED`. Invariant I1 says that outside the lock, `LATCHED` is set if, and only if, the first stop's cause is recorded. Each of the nine sources is named, with its product lines and its unit. | S11.6; LD8-6 |
-| R2-2 | RF-X4R8-1 | **A cause for the cause-less sources.** `StopCause::CertainRefusal` is recorded by X3d's certain refusals (`OperationGuard::stop`) and by the checkpoint's lock mismatch. It maps to `REV(operation-stopped)`, today's reason, and its `row()` is the invariant row, which no checkpoint reaches. | S11.6; LD8-7 |
-| R2-3 | RF-X4R8-1 | **The placeholder record is withdrawn.** `latched()` only reads. A breach of I1 gives `GuardRefusal::Invariant` and records nothing. | S11.6; LD8-8 |
-| R2-4 | RF-X4R8-1 | **The cancellation latch's four results preserve the first cause,** `AlreadyStopped` and a closed window's `OutsideWindow` included. D8-1's two schedules are now closed. | S11.6; S11.11 |
-| R2-5 | RF-X4R8-1 | **Controls.** W-6 becomes the matrix of every ordered pair of sources, with the cancellation latch in three window states. New controls: W-8, D8-1's schedules and two more as regressions; W-9, a source pin for the stop transition; and W-10, no new wait. | S11.8 |
-| R2-6 | RF-X4R8-1 | **Gating.** X4-F3, a code unit under this law, carries sources 1 to 8. It integrates before J3b or in J3b's commit, and J3b's cancellation code, J-C15 and J-C15b never land without it. | S11.9; LD8-9 |
-| R2-7 | RF-X4R8-1 | **The existing latch's crash point** moves outside the lock, on the same calls and in the same order. X9 r17 gets one record note. | LD8-4; S11.7; S11.12 |
-| R2-8 | NB-X4R8-1 | **W-5 names all four readers,** including the boundary check, both its own failure and its `AlreadyStopped`. Seams sit outside the critical section. | S11.8 |
-| R2-9 | — | **Records.** D8-1 is now resolved. Cross-law records are added for X3d's next revision and for X9 r17. X7 r7 is cited as accepted. | S11.11; S11.12; the r8 header; forbidden substitutes; Not claimed |
+| 8 | **`StopCause::Operator { signal }` on X4's type,** recorded from X3d r9 LD9-4. Its `REV` reason and its row are X3d r9's. | S11.6; item 8 | X3D9 S10.4, S10.5, LD9-4 |
+| 9 | **Controls:** J-C15's and J-C15b's gate halves, an exhaustive word trace, and tests for LD8-2 to LD8-4 | S11.8; item 10 | J1:684-691; X3D9 S10.8 |
+| 10 | **Units:** X4's part of J3b | S11.9; item 11 | J1:882; X3D9 LD9-5 |
+| 11 | **Disclosed, not decided:** X4a's placeholder stop record (D8-1), routed to a follow-up | S11.11 | `operation_guard.rs:213-220` |
 
 ## Problem
 
@@ -191,7 +164,7 @@ M2 exits on a real crash, lock and revocation matrix. Its revocation half needs 
    - **After admission:** a latch takes the gate from `1` to `3`. The admitted commit is not revoked or relabelled (F39). No further effects or retries are admitted, and required delivery reports `DELIVERY.REQUIRED_FAILED` (X3d and the delivery owner).
    - **After a confirmed commit:** the commit stays committed. The guard is never reused, and current custody still gates reading (F26).
    - **Not claimed:** rollback of reversible effects and the `CLN` residual list. These concern brokered effects, which no M2 command performs.
-   - **r8 (S11): a third source.** The cancellation latch (J1 8.1; X3d r9 S10.2) latches the same gate, with the same transitions, 0 to 2 and 1 to 3, and the same consequences as above, but only inside its window. The two existing sources, the observer and a failed checkpoint, ignore the window, and so do X3d's certain-refusal stops. S11.1 to S11.5 fix the word, its operations and how each source sets the bits. **(Round 2)** Every latch, of every source, is a stop transition that records its cause with it (S11.6).
+   - **r8 (S11): a third source.** The cancellation latch (J1 8.1; X3d r9 S10.2) latches the same gate, with the same transitions, 0 to 2 and 1 to 3, and the same consequences as above, but only inside its window. The two existing sources, the observer and a failed checkpoint, ignore the window, and so do X3d's certain-refusal stops. S11.1 to S11.5 fix the word, its operations and how each source sets the bits.
 8. **Refusal rows.** These use existing details only, as new variants of 468c's closed `InstallationTermination` vocabulary. Every match stays exhaustive, and no new code is added.
    - **A revoking observation:** S12's revoked-during-operation row, request-rejected, 2, `EXTENSION.ADMISSION_REJECTED`, detail `TRUST.COMPONENT_REVOKED_DURING_OPERATION`. The subject is `trust-revoked` or `policy`.
    - **Observer or monitor fail-stop:** an unreadable, mixed, unauthenticated or rolled-back view; a stall; a boot change; a regression; a per-observation budget overrun; or the admission-boundary check. This is S12's row: operational-failed, 4, `HOST.IO_FAILURE`, fault cause `host-io`, detail `OBSERVER.FAIL_STOP`, subject the stop reason.
@@ -204,7 +177,7 @@ M2 exits on a real crash, lock and revocation matrix. Its revocation half needs 
 
    Where S12 already fixes a class for a detail, S12 prevails.
 
-   **r8 (S11):** the operation's stop causes gain `StopCause::Operator { signal }`, recorded from X3d r9 LD9-4. Its row is X3d r9's operator stop, `InstallationTermination::Interrupted { signal }`: class `interrupted`, exit 130, with no code or detail (X3d r9 S10.5). X7 r7 projects it. None of the rows above changes. S11.6 states the first-cause rule. **(Round 2)** That rule is now total. The cause-less sources record `StopCause::CertainRefusal`, which keeps their `REV(operation-stopped)` and their rows.
+   **r8 (S11):** the operation's stop causes gain `StopCause::Operator { signal }`, recorded from X3d r9 LD9-4. Its row is X3d r9's operator stop, `InstallationTermination::Interrupted { signal }`: class `interrupted`, exit 130, with no code or detail (X3d r9 S10.5). X7 r7 projects it. None of the rows above changes. S11.6 states the first-cause rule.
 9. **Budget (lead decision).**
    - The X4T admission at the lease-free point (item 2), before any lease, is charged to the gate ledger while the fence is held, as X4T r2 says. Nothing is charged for it inside 7a.
    - Checkpoints are charged to the receipt's attempt ledger (item 6), before they run.
@@ -228,13 +201,13 @@ M2 exits on a real crash, lock and revocation matrix. Its revocation half needs 
 
       Every test uses scripted clocks and counters. None of them qualifies native scheduling.
 
-      **r8 (S11):** F41's test covers the three sources and the window bits, and S11.8 adds W-1 to W-10.
+      **r8 (S11):** F41's test covers the three sources and the window bits, and S11.8 adds W-1 to W-7.
 11. **Units after the law.**
     - **X4T (law, then code):** native current-trust admission (item 1). Dependencies: the trust owners, 463, and 466/467's trust records. X4a depends on it.
     - **X4a (security):** the monitor's creation and first read at the lease-free point, `OperationGuard`'s creation inside X2e's handoff, the shared monitor history, the observer thread and per-observation ledger, the checkpoint over a `JournalAppendLock` borrow, `FinalGate` admission, and the termination mapping. Dependencies: X4T, X2e and X3a; X3b for the real lock type. Before X3b lands, only `cfg(test)` abstract locks exist.
     - **X4b (security):** `grants.rs` `admit_repo_execution_grant` per S10. No M2 dependency.
     - **X4c (inside X3d):** the end path's `REV`/`CLN` appends, and the repeated checkpoints after blocking SEAL and witness work, completing F19, F38 and F39.
-    - **r8 (S11):** X4's part of J3b, and the code unit X4-F3, which is gated before J3b (S11.9).
+    - **r8 (S11):** X4's part of J3b (S11.9).
 
 **Policy drift and role standing (r5).**
 - **Policy drift.** In M2 the global policy is empty (X4T r4 item 5), so policy drift can only come from a project policy. The drift rules are unchanged.
@@ -300,7 +273,7 @@ M2 exits on a real crash, lock and revocation matrix. Its revocation half needs 
 | Operation | Caller | Form | What it changes | Result |
 |---|---|---|---|---|
 | `admit` | item 3 step 4, the checkpoint | compare-exchange loop (LD8-2) | the state bits 0 → 1 only; window bits carried | the one `AdmissionPermit`, or the decoded state |
-| the existing latch | the observer, a failed checkpoint, a failed monitor read, and X3d's certain-refusal stops (`OperationGuard::stop`, `refused()`) | one `fetch_or(2)`, inside the source's stop transition (round 2; S11.6) | bit 1; the window bits are kept by the OR | the decoded state after it |
+| the existing latch | the observer, a failed checkpoint, a failed monitor read, and X3d's certain-refusal stops (`OperationGuard::stop`, `refused()`) | one `fetch_or(2)` | bit 1; the window bits are kept by the OR | the decoded state after it |
 | the cancellation latch | X3d r9's `CancellationLatch::latch` | compare-exchange loop, inside the stop-cause record's lock (LD8-2, LD8-3) | bit 1 only, and only while `WINDOW_OPEN` is set and `WINDOW_CLOSED` is clear | `OutsideWindow`, `AlreadyStopped`, `BeforeAdmission` or `AfterAdmission` |
 | `observe` | checkpoint step 3, the monitor, X3d | one load | nothing | the decoded state |
 | the opening | X3d r9's session step (X3D9 LD9-1) | one `fetch_or(4)` | bit 2 | none (LD8-5) |
@@ -314,7 +287,7 @@ M2 exits on a real crash, lock and revocation matrix. Its revocation half needs 
      - **On failure:** take the current word the exchange returned, and repeat from step 2.
 
   **Why today's exchange cannot stay.** Today's compare-exchange runs from the literal 0 (`commit_authority.rs:31-38`). Once the window is open, the word in a `Preparing` state is 4. A literal 0 → 1 exchange would then refuse every lawful admission in `publish`, and its error arm would decode 4.
-- **The existing latch** is unchanged as a word operation (`commit_authority.rs:40-44`). It is one `fetch_or` of `LATCHED`, and the OR keeps the window bits. It returns the decoded state. **(Round 2)** It now runs inside its source's stop transition (S11.6), and `x4.gate.latch.after` follows that transition's release, on the same calls (LD8-4).
+- **The existing latch** is unchanged (`commit_authority.rs:40-44`). It is one `fetch_or` of `LATCHED`, and the OR keeps the window bits. It returns the decoded state, and `x4.gate.latch.after` follows it, as X9 r1 G4 placed it.
   - It ignores the window bits. It latches inside or outside the window, before or after the close (J1:538; X3D9 LD9-3).
 - **The cancellation latch** runs inside the stop-cause record's lock (LD8-3):
   1. Read the word.
@@ -346,106 +319,33 @@ M2 exits on a real crash, lock and revocation matrix. Its revocation half needs 
 With three latch sources and a window, F41 still holds: at most one permit per operation, and none after a latch.
 
 **S11.5 Item 7: how each source sets the bits.**
-- **The observer** (a revoking observation, or a fail-stop), **a failed checkpoint** (any step), **a failed monitor read or boundary check**, and **X3d's certain-refusal stops** (`OperationGuard::stop`, `refused()`). Each makes one `fetch_or`, as in r7, inside its stop transition (round 2; S11.6):
+- **The observer** (a revoking observation, or a fail-stop), **a failed checkpoint** (any step), **a failed monitor read or boundary check**, and **X3d's certain-refusal stops** (`OperationGuard::stop`, `refused()`). Each makes one `fetch_or`, as in r7:
   - state 0 becomes 2;
   - state 1 becomes 3;
   - a latched state stays latched.
 
   The window bits are untouched.
-- **The cancellation latch.** It runs the loop of S11.2, and only inside the window. It takes state 0 to 2 or state 1 to 3, in the same exchange that checks the window (J1:532). Its loop is its stop transition (LD8-3; S11.6).
+- **The cancellation latch.** It runs the loop of S11.2, and only inside the window. It takes state 0 to 2 or state 1 to 3, in the same exchange that checks the window (J1:532).
 - **The order.** Every operation is in the one word's single modification order (`SeqCst`).
   - **The cancellation latch and the close.** The latch comes either before the close, so the close's sample shows state 2 or 3, or after it, so it returns `OutsideWindow` (J1:535).
   - **Any latch and `admit`.** If the latch comes first, `admit` refuses (state 2). If it comes after, it takes state 1 to 3, and the close's sample shows 3 when the latch preceded the close.
 
-**S11.6 Items 7 and 8: the first stop and its cause (round 2: total; RF-X4R8-1; LD8-6 to LD8-8).**
-- **The rule (FC).** An operation has exactly one first stop: the source whose transition first sets `LATCHED` in the gate's word. Its cause is recorded in the same critical section as that transition, and it is never replaced. Every later source records nothing. Every reader, and `finish`, gets that cause.
-  - **Rows.** A checkpoint's refusal row is that cause's row, unless the checkpoint refuses on its own row (the invariant). The outcome's own row stays the outcome's (X3d item 9).
-  - **`REV`.** The end path's `REV` reason is that cause's reason (J1:598; J-C15; X3D9 S10.4).
-- **The stop transition (LD8-6).** After the guard's creation (item 6), every latch of the operation's gate is a stop transition, and nothing else sets `LATCHED`. A stop transition runs these steps:
-  1. **Lock.** It takes the operation's stop-cause lock (`Shared.cause`, `operation_guard.rs:208`).
-  2. **Transition.** It makes its source's latching transition on the word:
-     - one `fetch_or(LATCHED)` for every existing source;
-     - S11.2's window loop for the cancellation latch.
-  3. **Record.** It records its source's cause if, and only if, that transition set `LATCHED`, meaning the word it read had `LATCHED` clear.
-  4. **Read.** It reads the recorded cause.
-  5. **Release.** It releases the lock.
-  6. **Crash point.** Outside the lock, `x4.gate.latch.after` fires (LD8-4):
-     - for an existing source, on every call, as today (X9 r1 G4), but after the release;
-     - for the cancellation latch, only after a successful exchange.
+**S11.6 Items 7 and 8: the first stop, and `StopCause::Operator` (X3D9 LD9-4; LD8-3).**
+- **The stop-cause record.** This is a record of X4a, under items 7 and 8 (`operation_guard.rs:96-106`, `:199-226`).
+  - The operation keeps one stop-cause record. The first cause recorded wins and is never replaced.
+  - Every source that names a cause sets the latch bit before it records the cause:
+    - the observer (`:255-262`);
+    - the checkpoint's steps (`:547-574`);
+    - the monitor, which latches inside its own read or boundary check before returning its error (`revocation.rs:149-151`, `:189-191`).
 
-  It returns the decoded state, whether this call was the first stop, and the recorded cause.
-
-  **What the section may contain.** The critical section holds only the word's atomic operations and one insert or read. It never holds I/O, a wait, a callback or a crash point. The lock is never held across a monitor read: the monitor's latch comes after its clock and counter callbacks have returned (`revocation.rs:130-151`, `:167-191`).
-- **Invariant I1.** Outside the lock, `LATCHED` is set if, and only if, a cause is recorded, and the recorded cause is the first stop's.
-  - **At the guard's creation.** I1 holds then. The gate is in state 0 with nothing recorded, because item 2's first read either succeeded without a latch, or ended the operation before any guard existed (`operation_guard.rs:161-191`, `:372-406`).
-  - **Afterwards.** Every stop transition sets `LATCHED` and records in one critical section, and the lock serializes them. So no source sets `LATCHED` without recording, and no later source records.
-- **Readers.** Three readers can see `LATCHED`:
-  - checkpoint step 3's `observe` (`:563-566`);
-  - `admit`'s refusal (`:512-518`);
-  - a monitor read or boundary check that returns `AlreadyStopped` (`revocation.rs:126-127`, `:163-165`, `:184-186`; `operation_guard.rs:259`).
-
-  A reader that has seen `LATCHED` takes the lock and reads the recorded cause. The setter held the lock from before its transition until after its record. So the reader always finds the first stop's cause.
-- **The placeholder record is withdrawn (LD8-8).**
-  - **What changes.** `latched()` (`operation_guard.rs:218-220`) reads, and no longer records. Under I1 it always finds a cause.
-  - **A breach.** If it ever found none, because something latched outside a stop transition, it returns `GuardRefusal::Invariant` and records nothing.
-  - **What it was.** The placeholder `FailStop { subject: "latched" }` survives only as the true cause of sources 4 and 5 below, whose subject it already is today.
-
-**Every source, and how its cause is recorded.** These are the code obligations on X4-F3 (sources 1 to 8) and J3b (source 9). Product lines are at `cca4fe4`. "og" is `crates/security/src/custody/operation_guard.rs`, "rv" is `crates/security/src/revocation.rs`, and "cs" is `crates/security/src/custody/commit_session.rs`.
-
-| # | Source | Today | Its cause, recorded in its own stop transition | Unit |
-|---|---|---|---|---|
-| 1 | The observer: a revoking observation | og:255-257: `fetch_or`, then a separate `record(Revoked)` | `Revoked { subject }` | X4-F3 |
-| 2 | A monitor read's failure, in an observer tick or checkpoint step 2: clock, stall, regression, boot change, an unreadable counter, or the observation's own failure | rv:149-151 latches inside the read, then og:260-262 records `FailStop` | `FailStop { subject }`, with today's subject: the observation's own failure subject, else the stop reason's (og:260-262). From the guard's creation, the monitor latches only through the operation's stop handle, with the cause its caller supplies for that read | X4-F3 |
-| 3 | The boundary check's own failure, at checkpoint step 4 | rv:189-191 latches, then og:570-574 records `FailStop { admission-boundary }` | `FailStop { subject: "admission-boundary" }`, as today, through the stop handle | X4-F3 |
-| 4 | A panic inside a monitor read or boundary check | rv:84-91 (`StopOnUnwind`) latches, with no cause | `FailStop { subject: "latched" }`: the subject that today's poisoned-mutex path records for a dead observer (og:221-226), through the stop handle | X4-F3 |
-| 5 | The monitor's mutex is poisoned | og:221-226: `fetch_or`, then a separate `record` | `FailStop { subject: "latched" }`, unchanged | X4-F3 |
-| 6 | A stale guard, at checkpoint step 1 | og:547-549: `fetch_or`, then a separate `record(Stale(row))`, outside the monitor's mutex | `Stale(row)` | X4-F3 |
-| 7 | The checkpoint is handed a level-4 borrow that is not this operation's lock | og:538-543: latches with no cause; the refusal is `GuardRefusal::Invariant` | `CertainRefusal` (LD8-7). The refusal stays `GuardRefusal::Invariant`, on the invariant row | X4-F3 |
-| 8 | X3d's certain refusals: `refuse()` (cs:553-569, which serves `refused()` at cs:529-531 and `prepare_commit`'s certain refusals), `open`'s refusal (cs:572-587), and `publish`'s refusal arm (cs:985-1014) | `OperationGuard::stop` (og:419-421): a `fetch_or` with no cause | `CertainRefusal` (LD8-7). `OperationGuard::stop` becomes the stop transition with this cause. The three call sites (cs:562, :577, :986) are unchanged except for that | X4-F3 |
-| 9 | The cancellation latch | new | `Operator { signal }`, only when its exchange set `LATCHED` (`BeforeAdmission`, `AfterAdmission`). Nothing on `AlreadyStopped` or `OutsideWindow` | J3b |
-
-- **Trailing latches are stop transitions too.** The checkpoint's trailing latch on every refusal (og:538-541, the `stop` closure) is a stop transition. Its cause is that refusal's own: a recorded cause, or `CertainRefusal` for source 7.
-  - When an earlier step already stopped the operation, it finds `LATCHED` set and records nothing.
-  - The same holds for source 8 when `publish`'s refusal arm follows a checkpoint refusal that already stopped the operation (`SealStep::Guard`, cs:996-998).
-- **The boundary check's `AlreadyStopped`.** When it returns `AlreadyStopped` because another source latched first, the checkpoint's stop transition with `admission-boundary` finds `LATCHED` set and records nothing. The checkpoint then reports the first cause (NB-X4R8-1; W-5).
-- **Lock order.**
-  - **Where the lock is taken.** The stop-cause lock is taken either alone, or while the monitor's mutex is held. The second case covers sources 2 to 5, and the checkpoint's steps 2 to 4, which hold the monitor's mutex (og:551-575).
-  - **The order.** That is monitor then cause, today's order (og:221-226). No path takes the monitor's mutex while it holds the cause lock. The cancellation latch takes the cause lock alone.
-  - **Successful admissions.** Only refusal paths and the cancellation latch take the lock. A successful admission does not, so no wait is added between item 3's steps 2 and 4.
-
-**What each cause maps to.**
-- **Unchanged.** For `Revoked`, `FailStop` and `Stale`, the rows (`StopCause::row()`, og:118-129) and the `REV` reasons (`RevReason::of`, cs:94-101) do not change.
-- **`CertainRefusal`.**
-  - **Its `REV` reason** is `operation-stopped`, the reason a certain refusal gets today through `None` (cs:100). X3d's reason set and its reserve are unchanged.
-  - **Its `row()`** is the invariant row. No checkpoint can meet it: a certain refusal ends the session on the session thread before any further checkpoint, and source 7 reports `GuardRefusal::Invariant` itself.
-- **`Operator`** maps to X3d r9's `REV(operator)` and its operator stop row (X3D9 S10.4, S10.5). X4 records the `row()` arm and decides neither.
-- **No row or reason changes.**
-
-**The cancellation latch's four results keep the first cause** (J1:598; J-C15; X3D9 S10.4):
-- **`BeforeAdmission` and `AfterAdmission`.** Its exchange set `LATCHED`, so `Operator` is the first cause.
-- **`AlreadyStopped`.** An earlier stop transition set `LATCHED` and recorded its cause in the same section (I1). The latch records nothing, and that cause's row and `REV` reason stand.
-- **`OutsideWindow`, before the window opens or after it closes.** It records and changes nothing.
-  - If a stop came before the close, its cause was recorded with its latch. That covers a certain refusal (`CertainRefusal`) and any other source.
-  - An observer tick after that reads the cause and records nothing, so `finish`'s `REV` keeps that cause's reason.
-
-**D8-1's two schedules, now** (RF-X4R8-1's counterexamples):
-1. **A certain refusal with a settlement reserve.**
-   - `stop` records `CertainRefusal` together with `LATCHED`.
-   - An observer tick's read returns `AlreadyStopped` and reads `CertainRefusal`. It records nothing.
-   - A signal after the closing return gets `OutsideWindow` and records nothing.
-   - `finish` emits `REV(operation-stopped)`.
-2. **A stale guard before admission.**
-   - The checkpoint records `Stale(row)` together with `LATCHED`.
-   - A cancellation gets `AlreadyStopped`.
-   - An observer tick reads `Stale(row)`.
-   - The checkpoint returns `Stopped(Stale(row))`: the stale guard's row and `REV(stale-guard)`.
-
-**`StopCause` after r8.** It has five variants:
-- the three existing ones (`Revoked`, `FailStop`, `Stale`);
-- `CertainRefusal` (X4-F3; LD8-7);
-- `Operator { signal }` (J3b; recorded from X3d r9 LD9-4).
-
-Item 8's rows are unchanged.
+    So a recorded cause always has the latch bit set.
+  - **The placeholder.** A reader that finds the gate latched with no cause recorded records a placeholder fail-stop, `latched` (`operation_guard.rs:218-220`). D8-1 discloses where that placeholder can still win.
+- **The fourth cause, recorded from X3d r9 LD9-4.** `StopCause` gains `Operator { signal }`.
+  - **X3d r9 carries:** the variant, its `REV` mapping (`operator`) and its row, the operator stop `InstallationTermination::Interrupted { signal }` (X3D9 S10.4, S10.5).
+  - **X4 records:** that `StopCause::row()` maps `Operator` to that row, beside its three existing arms. It decides neither the reason nor the row.
+  - **Item 8.** Item 8's rows are unchanged.
+- **The first stop is the exchange that set the latch bit.** The cancellation latch records `Operator` only when its own exchange set the latch bit (J1:537; X3D9 S10.2). Under LD8-3, that exchange and the record are one critical section of the record's lock. So no other recorder can come between them, the placeholder included.
+- **`AlreadyStopped`.** If the latch bit was already set, by any source, the cancellation latch records nothing. The `REV` then keeps the earlier cause's reason (J1:598; J-C15; X3D9 S10.4).
 
 **S11.7 What does not change.**
 - **Items 2 to 6:**
@@ -456,9 +356,9 @@ Item 8's rows are unchanged.
   - item 6's guard.
 - **Items 7 to 9:**
   - item 7's state law, and F18, F38, F39 and F41;
-  - item 8's rows. Round 2's `CertainRefusal` keeps every row and `REV` reason (S11.6);
+  - item 8's rows;
   - item 9's budget. The word's operations charge nothing.
-- **Crash points.** The existing points `x4.gate.admit.after` and `x4.gate.latch.after` stay, and no point is added (J1:840; X3D9 S10.9). **(Round 2)** `x4.gate.latch.after` follows each stop transition's release. It is reached on the same calls and in the same thread order (LD8-4).
+- **Crash points.** The existing points `x4.gate.admit.after` and `x4.gate.latch.after` stay, and no point is added (J1:840; X3D9 S10.9).
 - **Durability.** The window bits, the sample and the record are in memory and add no durability point.
 
 **S11.8 Item 10: controls.** These are X4's half of J-C15 and J-C15b (J1:684-691) and of J3b's gate-trace test (X3D9 S10.8). Every test runs in process. Where timing matters it uses the real atomic with deterministic synchronization, as F41's test does. None qualifies native scheduling.
@@ -475,79 +375,30 @@ Item 8's rows are unchanged.
 - **W-3. The close race (J-C15).** A cancellation latch races the close. It is either seen by the sample (state 2 or 3) or returns `OutsideWindow` with nothing written. This is driven at the gate here, and for each closing step through the session in J-C15.
 - **W-4. One permit (F41).** After each source, and after the close, a second `admit` refuses, and no latch yields a permit.
   - **Regression:** `admit` from state 0 with the window open succeeds. A literal-0 exchange would refuse it.
-- **W-5. LD8-3 against all four readers (round 2: NB-X4R8-1).** A cancellation latch wins its exchange, and each of the four reader paths races it:
-  - checkpoint step 3's `observe` (og:563-566);
-  - `admit`'s refusal (og:512-518);
-  - the boundary check (og:570-574), both when it fails for its own reason and when it returns `AlreadyStopped`;
-  - an observer tick (og:259).
+- **W-5. LD8-3.** A cancellation latch wins the exchange, and three readers race it:
+  - checkpoint step 3;
+  - `admit`'s refusal;
+  - an observer tick.
 
-  Each reads `Operator`, never a placeholder and never `admission-boundary`. The checkpoint's refusal row is the operator stop, and `finish`'s `REV` reason is `operator`.
-  - **Seams.** Every synchronization seam sits outside the stop-cause critical section, before it is entered or after it is released.
-- **W-6. The first-stop matrix (round 2: RF-X4R8-1; J-C15).** Run every ordered pair (A, B) of distinct sources from S11.6's table, 1 to 9: A's stop transition completes, then B's runs.
-  - **The cancellation latch as B** runs in three window states: open (`AlreadyStopped`), closed (`OutsideWindow`) and never opened (`OutsideWindow`).
-  - **What each pair asserts:**
-    - the recorded cause is A's;
-    - B records nothing, and its call returns A's cause;
-    - a checkpoint path among A and B reports A's cause's row, except source 7, which reports `GuardRefusal::Invariant`;
-    - `finish`'s `REV` reason is A's: `RevReason::of` of A's cause.
-  - **Where it runs.** Sources 2 to 4 run through the scripted clock and counter seams that F41's and the monitor's tests already use. The pairs run at the guard level, so pairs that a single session never produces are covered too (two certain refusals, for instance).
-- **W-7. LD8-4's census.**
-  - **The cancellation latch.** `x4.gate.latch.after` is reached once per successful cancellation exchange, after the lock is released. It is never reached on `OutsideWindow` or `AlreadyStopped`.
-  - **The existing sources (round 2).** The point is reached once per latch call, set or not, after the release. Its count and per-thread order are as today.
-- **W-8. D8-1's schedules as regressions (round 2).** All four are deterministic, with seams only outside the critical section.
-  - **(a)** A certain refusal with a settlement reserve, then an observer tick, then a signal after the closing return (`OutsideWindow`), then `finish`. The result is `REV(operation-stopped)`.
-  - **(b)** A stale guard before admission, held after its section's release, then a cancellation (`AlreadyStopped`), then an observer tick, then the checkpoint's return. The result is the stale guard's row and `REV(stale-guard)`.
-  - **(c)** A certain refusal inside the window, then a signal (`AlreadyStopped`). The result is `REV(operation-stopped)`.
-  - **(d)** An observer revocation, then a signal, then a certain refusal. The result is the revocation's row where a checkpoint reports, and `REV(trust-revoked)`.
-- **W-9. A source pin for the stop transition (round 2).** In production code under `crates/security/src` (the X8 r3 source-pin convention), all of the following hold:
-  - every operation that can set `LATCHED` on an operation's gate after the guard's creation is inside the stop transition. The only other callers are `StopObserver::latch` at the lease-free point and test code;
-  - `Shared::record` and its insert are called only from inside the stop transition;
-  - `latched()` contains no insert;
-  - the stop transition's critical section contains no call except the word's atomic operations and the record's insert and read;
-  - `admit`'s success path never takes the stop-cause lock.
-- **W-10. No new wait (round 2).** A cancellation latch while the monitor's mutex is held (`hold_monitor`, og:457) completes without waiting. A certain refusal's stop transition does the same while an observation holds the monitor's mutex.
+  Each reads `Operator`, never the placeholder. The checkpoint's refusal row is the operator stop, and `finish`'s `REV` reason is `operator`.
+- **W-6. `AlreadyStopped` (J-C15).** An observer revocation comes first and a signal follows; separately, a stale guard comes first and a signal follows. Each gives `AlreadyStopped`, and the first cause and its `REV` reason are kept.
+- **W-7. LD8-4's census.** `x4.gate.latch.after` is reached once per successful cancellation exchange, after the record. It is never reached on `OutsideWindow` or `AlreadyStopped`.
 
-**S11.9 Item 11: units (round 2: two code units under this law; LD8-9).**
-- **X4-F3** is a security code unit under X4 r8, not a separate law. It carries the first-cause rule for the existing sources, 1 to 8 of S11.6:
-  - in `operation_guard.rs`:
-    - the stop transition and I1;
-    - the operation's stop handle, which the monitor latches through from the guard's creation;
-    - the stop-transition form of sources 1, 5, 6 and 7, and of `OperationGuard::stop` (source 8);
-    - `StopCause::CertainRefusal` and its `row()` arm;
-    - the placeholder's withdrawal from `latched()`;
-  - in `revocation.rs`: sources 2 to 4. The monitor's failure latches and its unwind latch go through the stop handle, with the caller's cause;
-  - in `commit_authority.rs`: the existing latch's `x4.gate.latch.after` moves outside the lock;
-  - in `commit_session.rs`, X3d's code:
-    - the three call sites (cs:562, :577, :986) pass `CertainRefusal`;
-    - `RevReason::of` gains `CertainRefusal → OperationStopped`, so X3d's `REV` reason for a certain refusal stays `operation-stopped`.
-  - **Tests:**
-    - W-6's pairs among sources 1 to 8;
-    - W-8 (a), (b) and (d);
-    - W-9;
-    - W-10's certain-refusal half;
-    - F41's existing tests, kept.
-  - **Depends on:** this revision's acceptance only. It does not depend on J3a or on J1's other successors.
-  - **Review:** a code-unit review (ACCEPT-UNIT) against S11.6 and S11.8.
-  - **Lead sets:** both crash-matrix lead sets rerun on its integration commit, serialized (J1 item 12). A transcribed value that moves is re-transcribed by X9 r17 before X4-F3's review, never read back from a run (S11.12).
-- **X4's part of J3b** (security). It covers:
-  - in `commit_authority.rs`:
-    - the two window bits;
-    - the decoder over `word & 3`;
-    - the masked `admit` loop;
-    - the cancellation latch's loop as a stop transition (LD8-3);
-    - the opening and the close;
-  - in `operation_guard.rs`: `StopCause::Operator { signal }`, and its `row()` arm to X3d r9's row;
-  - **tests:**
-    - W-1 to W-5;
-    - W-6's pairs that involve source 9;
-    - W-7;
-    - W-8 (c);
-    - W-10's cancellation half.
+**S11.9 Item 11: units.** **X4's part of J3b** (security). It covers:
+- in `commit_authority.rs`:
+  - the two window bits;
+  - the decoder over `word & 3`;
+  - the masked `admit` loop;
+  - the cancellation latch's loop;
+  - the opening and the close;
+- in `operation_guard.rs`:
+  - `StopCause::Operator { signal }`;
+  - its `row()` arm to X3d r9's row;
+  - LD8-3's record discipline.
 
-  X3d r9's part lands in the same unit (X3D9 S10.8): the token, the session steps that call the opening and the close, the `REV` mapping `operator` and the row.
-  - **Dependencies.** J3b's own (J1:882), this revision's acceptance (X3D9 LD9-5), and X4-F3 (the gate below).
-  - **Lead sets.** The unit touches `crates/security`, so both crash-matrix lead sets rerun on its integration commit, serialized (J1 item 12).
-- **The gate (LD8-9).** X4-F3 integrates before J3b, or in the same integration commit. J3b's cancellation latch code, J-C15 and J-C15b never integrate on a tree without X4-F3. The lead's plan is X4-F3 first: it is smaller and has no other dependency.
+X3d r9's part lands in the same unit (X3D9 S10.8): the token, the session steps that call the opening and the close, the `REV` mapping and the row.
+- **Dependencies.** J3b's (J1:882), plus this revision's acceptance (X3D9 LD9-5).
+- **Lead sets.** The unit touches `crates/security`, so both crash-matrix lead sets rerun on its integration commit, serialized (J1 item 12).
 
 **S11.10 Lead decisions.** Each is made under the owner's standing direction of 2026-09-30, where J1 and X3d r9 leave X4's side open.
 - **LD8-1. The window bits' values.** J1 names the two bits and places them beside the state bits in the same `AtomicU8` (J1:519). It does not fix their values.
@@ -583,13 +434,8 @@ Item 8's rows are unchanged.
     - **Record, then exchange.** It would record `Operator` when an earlier latch, not yet recorded, had already stopped the operation, and it would then need an un-record.
     - **Taking the monitor's mutex.** A signal's latch would then wait behind a blocked observation, up to the stall bound, but J1 has the watcher latch at once (J1:551).
     - **A cause field in the atomic word.** `StopCause` carries data (subject, row, signal), and this would change every existing source's record.
-  - **Round 2.** LD8-3 is the cancellation latch's instance of S11.6's stop transition. LD8-6 extends the same discipline to every source.
 - **LD8-4. Where `x4.gate.latch.after` fires for the cancellation latch.** J1 says the point "fires after it", meaning the exchange that sets the latch bit (J1:532). X3d r9 reuses the point and adds none (X3D9 S10.9).
-  - **Decision:** for the cancellation latch, the point fires once, after a successful exchange and its record, once the record's lock is released. It does not fire on `OutsideWindow` or `AlreadyStopped`, because no latch happened.
-  - **Round 2: the existing sources.** Their latch is now inside a stop transition (LD8-6), so their point also moves outside the lock.
-    - It fires once per existing-source latch call, set or not, as today, after the release rather than straight after the `fetch_or`.
-    - Its count and per-thread order are unchanged (W-7).
-    - X9 r17 records the new placement (S11.12).
+  - **Decision:** the point fires once, after a successful exchange and its record, once the record's lock is released. It does not fire on `OutsideWindow` or `AlreadyStopped`, because no latch happened. The existing latch's placement is unchanged.
   - **Rejected:**
     - **Firing on every call.** It would put a latch point on spans where no latch happens: S12-D, S12-O and J1's LD-r5-1 span after `publish` returns.
     - **Firing inside the lock.** An armed hold would then block every cause reader, checkpoint step 3 among them, for the length of the hold.
@@ -605,71 +451,30 @@ Item 8's rows are unchanged.
     - **Returning the state after the close.** The close sets no state bit, so the state is the same. J1 names the prior value.
     - **An opening that refuses when `WINDOW_CLOSED` is set.** No such case is reachable, and X3d r9's opening step grants and charges nothing (X3D9 LD9-1).
 
-- **LD8-6. One stop transition for every source (round 2; RF-X4R8-1).** J1:598, J-C15 (J1:684) and X3d r9 S10.4 require an earlier stop or certain refusal to keep its own row and `REV` reason. That includes the case where a later cancellation sees `AlreadyStopped`, and the case where it follows a certain refusal whose window has already closed. CODEX2's two schedules show that X4a's existing sources do not guarantee this: a latch, then a separate record, and a placeholder that any reader can record in between (D8-1, round 1).
-  - **Decision:** S11.6's stop transition and invariant I1, for every source after the guard's creation:
-    - each source's latch and its cause's record are one critical section of the stop-cause lock;
-    - the record is made only when that source's own transition set `LATCHED`;
-    - the monitor latches through the operation's stop handle, never through a bare `StopObserver`.
+**S11.11 Disclosed, not decided.**
+- **D8-1. X4a's placeholder stop record can win against two existing latches.** A reader that finds the gate latched with no cause records the placeholder `FailStop { subject: "latched" }` (`operation_guard.rs:218-220`; the observer at `:259`, checkpoint step 3 at `:563-566`, `admit`'s refusal at `:516`). Two of r7's latches leave that gap open to another thread:
+  - **X3d's certain-refusal stops.** `OperationGuard::stop` (`:419`) and `refused()` latch with no cause. If an observer tick runs before `finish` reads the cause, it records the placeholder, and the `REV` reason becomes `observer-fail-stop` instead of `operation-stopped` (`commit_session.rs:94-101`).
+  - **The checkpoint's stale-guard path.** It latches, then records, outside the monitor's mutex (`:548-549`). An observer tick between the two records the placeholder first. The refusal then takes `OBSERVER.FAIL_STOP` instead of the stale guard's row.
+  - **What it does not change.** Neither race changes a gate state, a permit or which outcome is returned. Neither touches the operator stop: LD8-3 closes the gap for the cancellation latch, and an `AlreadyStopped` latch records nothing.
+  - **What it can change.** The first race can change the `REV` reason that J1:598 and X3D9 S10.4 expect after "a certain refusal ended the attempt before the signal was observed".
+  - **Lead decision:** r8 leaves the existing sources unchanged and routes this to a follow-up unit, **X4-F3**, on the lead's list. The proposal for X4-F3:
+    - every latch that names a cause sets the bit and records under the record's lock;
+    - a cause-less stop records a typed cause that the placeholder cannot displace.
   - **Rejected:**
-    - **Protecting only the cancellation latch's successful exchange (round 1).** The existing sources keep both schedules. RF-X4R8-1 found that this does not meet J1:598, J-C15 or X3d r9 S10.4.
-    - **An ungated follow-up (round 1's D8-1 route).** J3b's controls would assert a guarantee that the tree does not keep.
-    - **A replaceable placeholder, where a later real cause displaces it.** "First" would then mean first real cause, not first stop. A certain refusal followed by an observer revocation would take `REV(trust-revoked)`.
-    - **Holding the stop-cause lock across a monitor read.** CODEX2's fix excludes it. A read can block up to the stall bound, and the cancellation latch must not wait. The monitor's latch comes after its callbacks return, so it needs no lock across I/O.
-    - **Recording under the monitor's mutex instead.** The certain refusal, the stale-guard path and the cancellation latch all run outside it, and the cancellation latch must not wait behind an observation.
-    - **Changing the reasons or rows as an exception.** CODEX2's fix forbids it, and no reason or row changes here.
-- **LD8-7. `CertainRefusal`, the cause of a source that has none today.** X3d's certain refusals (source 8) and the checkpoint's lock mismatch (source 7) latch with no cause (og:419-421, :538-543). Their `REV` reason, `operation-stopped`, comes from the absence of a cause (cs:100). Under I1 a latch must record its cause with its transition, so these need one.
-  - **Decision:** a unit variant `StopCause::CertainRefusal`.
-    - **Recording.** `OperationGuard::stop` and the checkpoint's source-7 path record it in their stop transitions (S11.6).
-    - **`REV`.** `RevReason::of` maps it to `operation-stopped`, the reason these sources get today. X3d's reason set, reserve and rows do not change.
-    - **`row()`.** It is the invariant row, which no checkpoint can meet (S11.6).
-  - **Rejected:**
-    - **Leaving them cause-less.** A placeholder or a later source would then supply the first cause. That is schedule (a).
-    - **Carrying the refusal's row in the cause.** A staging refusal's row is storage's type. The outcome already carries its row, and X3d projects from the returned outcome, never from the cause (X3D9 S10.3).
-    - **A new `REV` reason.** X3d's closed set and its reserve pin would change, and no consumer asks for one.
-- **LD8-8. The placeholder record is withdrawn.** X4a's `latched()` records `FailStop { latched }` when it finds the gate latched with no cause (og:218-220). That is the vehicle of both D8-1 schedules.
-  - **Decision:**
-    - `latched()` reads the recorded cause and records nothing. Under I1 it always finds one.
-    - If it finds none, which can only be a latch outside a stop transition, it returns `GuardRefusal::Invariant`, records nothing, and fails W-9 in test.
-    - The subject `latched` stays the true cause of sources 4 and 5 (og:221-226).
-  - **Rejected:**
-    - **Keeping the placeholder as a recorder.** It is how both schedules happen.
-    - **Panicking on a breach.** It would put a panic on a refusal path.
-- **LD8-9. The fix is a code unit under this law, gated before J3b.** RF-X4R8-1 asks for the fix's owner, scope, acceptance and integration dependency.
-  - **Decision:**
-    - **X4-F3** is a security code unit under X4 r8 (S11.9). It has no separate law: its scope is S11.6's sources 1 to 8, and its acceptance is S11.8's tests.
-    - **The gate.** It integrates before J3b, or in J3b's integration commit. J3b's cancellation code, J-C15 and J-C15b never integrate without it.
-    - **The name.** This revision stays "X4 r8", because J1 (J1:659, :857, :882), X3d r9 (S10.11, LD9-5), M3-L r5 (items 16f and 18) and M3-PLAN r9 (:330) cite "X4 r8" for S11.
-  - **Rejected:**
-    - **A separate X4-F3 law** (round 1's route). The rule is S11.6's, and it belongs with the word it governs.
-    - **Folding X4-F3 into J3b.** That ties an M2 correctness fix to J3a and J1's other successors, which J3b waits for.
-    - **Renumbering to X4 r9.** Every citation of "X4 r8" would need a record note.
-
-**S11.11 D8-1, resolved in round 2.** Round 1 disclosed two races in X4a's existing sources and routed them to an ungated follow-up. CODEX2 required them fixed before J3b's latch code (RF-X4R8-1).
-- **The races.** In both, X4a's placeholder record (og:218-220) could win:
-  - **against X3d's cause-less certain refusal** (og:419-421; cs:562, :577, :986), turning `REV(operation-stopped)` into `REV(observer-fail-stop)`;
-  - **against the stale-guard path's separate latch and record** (og:547-549), turning the stale guard's row into `OBSERVER.FAIL_STOP`.
-- **Where each is now closed:**
-  - S11.6's stop transition and I1 (LD8-6);
-  - `CertainRefusal` (LD8-7);
-  - the placeholder's withdrawal (LD8-8);
-  - X4-F3, gated before J3b (S11.9, LD8-9).
-- **The schedules as regressions.** W-8 runs both schedules, and W-6 checks every ordered pair of sources.
-- **What does not change.** No gate state, permit, outcome, row or `REV` reason.
-- **The other monitor-side gaps.** The same discipline closes them: the monitor's failure latch before its caller's record (sources 2 and 3), and the unwind latch with no cause (source 4).
+    - **Fixing it here.** That would amend X3d r9's accepted certain-refusal stop and its `REV` mapping, and X4a's observer, which is beyond S11.
+    - **Leaving it undisclosed.**
 
 **S11.12 Cross-law items (S11).**
-- **X3d r9.** No change to its law is required: it assumes exactly S11.1 to S11.6. Three readings may go into its next revision as record notes:
+- **X3d r9.** No change is required: it assumes exactly S11.1 to S11.6. Two readings may go into its next revision as record notes:
   - S10.2's "`x4.gate.latch.after` fires after it" is LD8-4's "after a successful exchange and its record";
-  - S10.4's "the existing first-cause rule" is S11.6's total rule, and its "When another stop came first (`AlreadyStopped`)" holds for every source (W-6);
-  - X3d's certain refusals now record `CertainRefusal` through `OperationGuard::stop`, and `RevReason::of` maps it to `operation-stopped`, the reason they get today. X4-F3 makes this code change in `commit_session.rs` under X4 r8 (S11.9). X3d's reason set, reserve, rows and outcomes are unchanged.
-- **X7 r7** (accepted, `finalization-x7/PROPOSAL-r7.md`). None. Finalization reads the returned outcome and `admitted_at_close()`, and never the word or the cause.
-- **J1.** None. J-C15's "`AlreadyStopped` keeps the first cause's `REV` reason" now holds for every earlier source (W-6, W-8).
-- **X9 r17.**
-  - **No crash point is added.** W-7's census is a unit test, not a row.
-  - **One record note.** X9 r1 G4's "`x4.gate.latch.after` follows the fetch-OR" now reads "follows the stop transition's release". The point is reached on the same calls, in the same thread order.
-  - **Re-transcription.** X4-F3's lead-set rerun shows whether any transcribed value moves. One that moves is re-transcribed by X9 r17 before X4-F3's review (J1 item 12).
-- **X8.** None. The word, its operations and `StopCause` are crate-private, and the token's fixtures are X3d r9's (X3D9 S10.7).
-- **X4-F3.** It is a code unit under this law (S11.9), not a successor of J1 and not a separate law.
+  - S10.4's "the existing first-cause rule" is S11.6, with LD8-3's discipline for the new source.
+
+  D8-1 concerns X3d's cause-less stop, and goes to X4-F3, not to X3d.
+- **X7 r7 (S9).** None. Finalization reads the returned outcome and `admitted_at_close()`, and never the word.
+- **J1.** None.
+- **X9 r17.** No crash point is added. W-7's census is J3b's test, not a row.
+- **X8.** None. The word and its operations are crate-private, and the token's fixtures are X3d r9's (X3D9 S10.7).
+- **X4-F3.** It is new, from D8-1. It is not a successor that J1 requires.
 
 ## Forbidden substitutes
 
@@ -702,13 +507,6 @@ Item 8's rows are unchanged.
   - the cancellation latch's exchange and its record in separate critical sections (LD8-3);
   - a weak compare-exchange, or an unbounded loop, on the word;
   - a separate atomic or lock for the window.
-- **The first stop (r8 round 2, S11.6):**
-  - a latch of an operation's gate, after the guard's creation, outside a stop transition; a cause recorded outside one, or by a source whose own transition did not set `LATCHED`;
-  - a recorded cause replaced, or displaced by a placeholder or by a later cause;
-  - a cause-less latch, or a reader that records;
-  - the stop-cause lock held across a monitor read, I/O, a wait, a callback or a crash point;
-  - a reason or row changed to fit the rule;
-  - J3b's cancellation code, J-C15 or J-C15b integrated without X4-F3.
 
 ## Not claimed
 
@@ -720,3 +518,4 @@ Item 8's rows are unchanged.
 - The settlement sweep (F53).
 - CLI enablement.
 - (r8) X3d r9's half of S10: the token, the window's opening and closing points, what the sample means, the `REV` reason `operator` and the operator stop row. The phases and projections (J1, X7 r7). The host cancellation source (J3b, J3d).
+- (r8) D8-1's fix (X4-F3).
