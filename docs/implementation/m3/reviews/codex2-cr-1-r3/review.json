@@ -1,0 +1,43 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "reviewer": "GROK2",
+  "unit": "snapshot-plan-c-cr-1",
+  "round": "r3",
+  "subjectManifestSha256": "24c880b436a48848d36c0e3a005ed8b5ec96ea7f66018c99b2fe49119de7d82f",
+  "successor": {
+    "path": "docs/implementation/m3/snapshot-plan-c/cr-1/successor.json",
+    "bytes": 10694,
+    "sha256": "728fbcc84e60850c842d56ac5c9c6867b2dec2da3de7967886d1337c1918b12b"
+  },
+  "requiredFindings": [
+    {
+      "id": "RF-CR1-3",
+      "location": "docs/implementation/m3/snapshot-plan-c/cr-1/README.md:235 CR-T9, the r3 sentence",
+      "problem": "The sentence added to CR-T9 says a closure-only manifest with no commands whose name collides with a reserved or live name refuses on the existing route in both validate and validate_inventory. Reserved-name refusal does run in both entry points. Live-name refusal runs only in validate. validate_inventory passes no live-name context, and the existing live-name loop admits the collision. A C2a control that refuses that collision from validate_inventory would change inventory-body admission.",
+      "evidence": [
+        {
+          "location": "crates/security/src/component_manifest.rs@392499e:268-276 and :395-414",
+          "observation": "command_checks refuses a reserved_names hit at 268-270 and a live_names hit at 271-276. The live loop iterates context.map_or(&[][..], |c| c.live_names.as_slice()), so a None context checks nothing. validate (395-397) calls validate_inner with Some(context). validate_inventory (398-403) calls validate_inner with the reserved-name set and context None. Both reach command_checks at line 414. The same bytes are at cd5958b and at 9c11c53."
+        },
+        {
+          "location": "crates/security/tests/fixtures/inventory293.ndjson@392499e",
+          "observation": "host-live-name-conflict and CUSTODY/different-owner-name are inventory-valid and host-invalid. catalog-reserved-name and COMMAND/reserved are invalid on both flags. The inventory oracle is 301 rows. trust_ordinary_metadata.rs calls validate_inventory with the catalog reservedRootCommands set and no live names."
+        },
+        {
+          "location": "docs/implementation/m3/snapshot-plan-c/cr-1/README.md:235",
+          "observation": "CODEX2's CR-T9 paragraph is present verbatim and is immediately followed by: \"(r3) In particular, a closure-only manifest with no `commands` whose name collides with a reserved or live name refuses on that existing route, in both `validate` and `validate_inventory`.\" The map's added line-range sentence does not make this claim. check_cr_1.py asserts CR-T9's opening and does not assert this sentence."
+        }
+      ],
+      "fix": "Replace only that added sentence. The verbatim CR-T9 paragraph stays. The replacement is: \"(r3) In particular, a closure-only manifest with no `commands` whose name collides with a reserved name refuses on the existing reserved-name route in both `validate` and `validate_inventory`. A collision with a live name of a different `(stableId, provenance)` refuses on the existing live-name route in `validate` only; `validate_inventory` receives reserved names and no live-name context, and that collision stays inventory-valid.\" Leave the map's line-range sentence as it is."
+    }
+  ],
+  "nonBlockingObservations": [],
+  "findingResolution": [
+    {
+      "id": "RF-CR1-2",
+      "round": "r2",
+      "status": "partly resolved",
+      "resolution": "The map instruction starts with CODEX2's exact replacement, then one line-range sentence. LD-7's C2a bullet and CR-T7's last line are the exact replacements. CR-T9's required paragraph is present verbatim, and the old whole-function gate sentence is gone. The cited ranges match component_manifest.rs at 392499e: command_checks is 166-279, the command-tree checks are 171-256 (line 171 indexes m[\"commands\"]), name and alias admission is 257-276, and validate_inner calls command_checks at 414 from both validate (395-397) and validate_inventory (398-403). Those ranges split the gate the way RF-CR1-2 required: only the command-tree checks are conditional on commands, and duplicate-key, reserved-list, and different-(stableId, provenance) live-name admission stay mandatory for every role. The added CR-T9 sentence then tells C2a to refuse a live-name collision from validate_inventory, which the existing inventory route admits. That part is RF-CR1-3."
+    }
+  ]
+}
