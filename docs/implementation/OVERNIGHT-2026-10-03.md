@@ -818,3 +818,8 @@ Times are local.
   - **Lock-hygiene bug found:** X3c-3's lane script released the shared lock on any exit, so a waiting process killed early could delete a lock it never held. It is being fixed. J4a's own helper had the same bug and is fixed.
 - **E2s started** (SYN-1 and SYN-1F applied to the product's schema sources, registries and generation registry), for GROK2. It is the only generator-regenerating unit in flight; X4T-c follows it.
 - **X4-F3 accepted by CODEX2 (ACCEPT-UNIT, no findings) and integrated** at product main `1d24900`. The integrated diff is byte-identical to the reviewed subject, and `verify_design` passes on the integrated tree. The pre-existing first-cause race D8-1 is fixed, and J3b's X4-F3 edge is met. **J3a now starts:** its laws are all accepted, and `commit_session.rs` is settled.
+- **J4a: Codex raised one P2 finding, J4A-RF-01.** C-SUFFIX must do J-RW item 3.2's capped byte read-back *after* both barriers. Today it reads back before the barriers, then only compares device, inode and length. It goes back to J4a's implementer as r2.
+  - **Codex accepted the other nine judgment calls:**
+    - the four `.repair` scope names, which §RW must record;
+    - RW-K5's empty kill set, also for §RW;
+    - the integration hold.
