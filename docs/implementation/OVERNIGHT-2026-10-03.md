@@ -156,3 +156,9 @@ Times are local.
 - **M3-J1 accepted at r3 by CODEX2,** with no required findings. Its two non-blocking wording observations, the composition citation and post-freeze loss, go into the S18 successor. J-BS and S18 still need their own design-unit reviews.
 - **M3-C r6 written and sent to CODEX2.** It applies E1's X-C1 by lead decision: the core provider closure also produces syntax-universe work and is in `semanticClosures` exactly when a syntax universe is selected. It also applies X-C2, the `clones-near` census that C4a builds. Nothing else changed from r5.
 - **S-OP-2 accepted at r6 by Codex** (ACCEPT-DESIGN-UNIT, no required findings). It is the safe event vocabulary and sink law. Its one non-blocking observation, a table-cell placement, is applied in the recording text. M3-O's O1 now waits only on P0.
+- **Five pre-day-0 drafts started in parallel,** all docs-only, with no machine load:
+  - M3-H, the fact-admission law, for Grok;
+  - B-S1 (with SX-1) and B-S2, M3-B's contract successors, for GROK2;
+  - I1-L and I1-P, the preview pack's contract successors, for CODEX2;
+  - J-RW, the resume/repair writer law (P5-1), for Codex;
+  - X3c r8, the re-commit law (P5-2), for Codex.
