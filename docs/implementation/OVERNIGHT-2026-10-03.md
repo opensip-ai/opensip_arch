@@ -64,3 +64,4 @@ Times are local.
   - **The policies went stale on 2026-09-21,** because no unit ran these checks for two weeks. F8a's request recommends adding them to the Python lanes of any unit that touches `crates/contracts` or `crates/identity`.
   - **I1-a regenerates contract code,** so it needs F8b first. Order: F8b, then I1-a.
 - **S-OP-2 r1:** Codex raised 7 findings, and it went back for r2 with lead decisions on each.
+- **M3-T2b accepted by GROK2,** with no findings. The T2 corpus is complete: 49 repositories, 33 families and 5 workspaces. M3-L's gate item "T2 complete" is met; the owner's D3 sign-off is B3.
