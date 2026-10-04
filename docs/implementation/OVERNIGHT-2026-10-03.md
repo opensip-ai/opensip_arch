@@ -217,3 +217,12 @@ Times are local.
   - **Rejected:** going straight to VD2. Changing `verify_design.py` again would make the generator-closure and lane-registry pins stale and force another F8b-style rebuild.
   - **Timing:** B1-a needs S9 by day 0, and SX-1 and D15 are needed by B2-a, C1a and B3-b.
   - **M3-B r2 contradicts itself** on a crossing when the root is inside a repository: item 22 and row 1 say one thing, row 3 another. The drafter follows item 22 and row 1, so projects without D15 keep today's refusal. This is flagged for GROK2.
+- **J1 r4 and M3-C r7 written** (SD-6). They are queued for CODEX2 after I1-L.
+  - **J1 r4** adds R10a between R10 and R11. It quotes the first-use exception from D, adds ER10a as the last step under the read fence on the ephemeral path, and adds control J-C10b. It also corrects item 11: `repair recover` is the source-repair journal command, not storage repair. CINV:988, WS:1024 and the product's `repair-v2` schema confirm this.
+  - **M3-C r7** narrows row 8 to a selection among component manifests admitted at R10a. Core closures are outside the narrowing.
+  - **Record items for D's next revision:**
+    - D4-T1 and D4-T2 sample at R10a's return;
+    - "first use" also covers `LostRace` and `NotPristine`;
+    - SD-6's "MC r5" citation;
+    - **SD-5,** the public route for R10a's `ExcludedForm` refusal, is not yet written. It must stay distinct from matrix row 27.
+- **Pin drift handled.** J-RW (Codex) and X3c r8 (GROK2) pinned live files that later moved to drafts. Both reviewers are told which commits hold the pinned bytes, and the queued M3-H request carries the same note. **Lesson:** requests pin accepted snapshots (`PROPOSAL-rN.md`), not live files.

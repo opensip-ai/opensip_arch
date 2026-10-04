@@ -1,14 +1,26 @@
-# The guarded durable host pipeline — proposal M3-J1 r3
-
-**r3 ACCEPTED 2026-10-04 by CODEX2** (`ad887c90…`), with no required findings. r3's bytes, without this note, are preserved in `PROPOSAL-r3.md`. The acceptance covers the law and its method only. J-BS and S18 still need their own ACCEPT-DESIGN-UNIT reviews, and J2a–J3d need inventory-unit reviews. Non-blocking observations J1-R3-NB-01 (narrow the WS:1409 composition citation to the X3D/X7 fault owners) and J1-R3-NB-02 (qualify post-freeze loss by the actual SOP2 freeze point) are carried into the S18 successor text.
+# The guarded durable host pipeline — proposal M3-J1 r4
 
 2026-10-04. Drafted for Claude Opus 5.5, implementation lead, by a lead-dispatched drafting agent during the overnight autonomous run. Law for unit **M3-J1** of the accepted M3 unit plan (`M3-PLAN-r6.md:217`).
 
-**Draft r3, not accepted. Not code.** M2 is complete: its crash-matrix gate was met by Grok's accepted rerun on C = `3d2d5b5` (`m2/M2-COMPLETE.md`; M3P:5). J's code units still wait for P0, for the B, C, D and H laws and the units named in item 14, and for I1's product units.
+**Draft r4, not accepted. Not code.** M2 is complete: its crash-matrix gate was met by Grok's accepted rerun on C = `3d2d5b5` (`m2/M2-COMPLETE.md`; M3P:5). J's code units still wait for P0, for the B, C, D and H laws and the units named in item 14, and for I1's product units.
 
 r1 (`PROPOSAL-r1.md`, sha256 `ff5cb156…`, 75,581 bytes) was reviewed by CODEX2 (`reviews/codex2-host-pipeline-j-r1`; REQUIRED-FINDINGS, 7 required, 2 non-blocking). r2 answered all nine.
 
 r2 (`PROPOSAL-r2.md`, sha256 `f7efb87a…`, 100,981 bytes) was reviewed by CODEX2 (`reviews/codex2-host-pipeline-j-r2`; REQUIRED-FINDINGS, 3 required, 1 non-blocking). CODEX2 closed J1-R1 and J1-R3 to R7 and J1-N2. r3 answers all four r2 findings and changes nothing else of substance.
+
+r3 (`PROPOSAL-r3.md`, sha256 `ad887c90…`, 111,561 bytes) was **accepted** by CODEX2 with no required findings (`reviews/codex2-host-pipeline-j-r3`). The acceptance covers the law and its method only: J-BS and S18 still need their own ACCEPT-DESIGN-UNIT reviews, and J2a–J3d need inventory-unit reviews. Its two non-blocking observations, J1-R3-NB-01 (narrow the WS:1409 composition citation to the X3D and X7 fault owners) and J1-R3-NB-02 (qualify post-freeze loss by the actual SOP2 freeze point), are carried into S18's successor text, not into this law.
+
+**r4 is a narrow amendment.** It applies successor **SD-6** of the accepted supervisor law M3-D r3 (**M3D**, M3D:1092) and one record correction. It changes nothing else. M3D owns what the new row admits and refuses, and how each refusal is routed. J1 only places the row.
+
+## r4 changes
+
+| Source | Where | Change |
+|---|---|---|
+| **M3D SD-6: row R10a** (M3D item 24, M3D:717-722) | item 4: the order table, the R10a bullet; 5.2's J-β | **R10a, the pre-draw component admission,** sits between R10 and R11. After R10's fenced first read yields the authenticated trust view, and before R11's handoff and R12's ExecutionId draw, D4's `components/manifest.rs` admits every component manifest that the trust view admits and that the analysis step can select. It refuses the manifest-class excluded forms EE-1, EE-3b, EE-4's manifest part and EE-5a. A refusal there draws and reserves no analysis-attempt ExecutionId. Its route is M3D item 24's: the internal `ExcludedForm`, projected by J1 with existing codes under M3D's SD-5 (S20). J-β's range becomes R4-R10a. |
+| **SD-6: the ephemeral counterpart** | item 6 | **ER10a** is the last step under the read session's fence, after X4T's report-only trust admission. The ephemeral attempt starts, and so draws and reserves its ExecutionId, only after ER10a returns. With no trust view (E-3, E-4), ER10a admits nothing and refuses nothing. |
+| **SD-6: the first-use exception** | item 4's R10a bullet; J-C10b | Quoted as M3D r3 states it. The creation prelude's ExecutionId, drawn and reserved earlier in `mint_intent`, may already exist at R10a. It names the creation act only and is never bound to the analysis attempt. |
+| **SD-6: controls and successors** | item 4 (J-C10b); item 13 (S19, S20); Forbidden substitutes; Short names | **J-C10b** is the placement half of M3D's D4-T1. It samples the reservation registry when R10a returns its refusal, before step 1's render draw. **S19** is M3-C r7, which narrows M3C item 16's row 8 to a selection among R10a-admitted manifests. **S20** records the SD-5 projections that R10a's route needs. One forbidden-substitute line is added, and one short name, **M3D**. |
+| **Record correction** (found by the J-RW r1 drafter, X-RW-8; record only) | item 11 | r3's "A `repair recover` command is M5 (BP:973)" is withdrawn. `repair-recover` is the source-repair journal recovery command (CINV:988-989; WS:1024; SL:673), not a storage repair. |
 
 ## r3 changes and review responses
 
@@ -63,6 +75,7 @@ It also fixes the M3 outcome matrix and breaks J2 to J4 into units.
 | **EXIT** | `docs/implementation/m2/EXIT-PLAN.md` |
 | **M3B** | `docs/implementation/m3/config-discovery-b/PROPOSAL.md` (r2 accepted) |
 | **M3C** | `docs/implementation/m3/snapshot-plan-c/PROPOSAL-r5.md`, the r5 bytes CODEX2 accepted in review (`7f76052d…`, 1183 lines). Under its own gate, it takes effect once M3-L and X12 r4 are accepted. |
+| **M3D** | `docs/implementation/m3/supervisor-d/PROPOSAL-r3.md`, the M3-D r3 bytes GROK2 accepted (`9679dbc4…`; `reviews/grok2-supervisor-d-r3`). The live `PROPOSAL.md` is byte-identical to them on 2026-10-04. Cited by item, successor and line (r4). |
 | **M3L** | `docs/implementation/m3/provider-protocol-l/PROPOSAL.md` (r1 draft, not sent) |
 | **I1** | `docs/implementation/m3/preview-pack-i1/PROPOSAL.md` (r2 accepted) |
 | **OPP** | `docs/implementation/m3/operability/PLAN.md` (r3 accepted). It is cited by section and by its live lines. |
@@ -309,6 +322,7 @@ The durable request runs this order. Each row ends with a typed value the next r
 | R8 | X3a's endpoint admission, from the gate's own retained captures, with no new read | X3A:28-29 |
 | R9 | X2 item 5's registry capture; X2 item 6's first registration when the root is unregistered, with item 6a's tracking observation | M3C:825; X2:192, :202 |
 | R10 | X3b's floor step; the operation's `FreshnessMonitor` and `FinalGate`; X4T's fenced first read, with X4B's acceptance when F is absent | X4:44; X4B:42-56 |
+| R10a | **(r4, SD-6) Pre-draw component admission.** D4's `components/manifest.rs` admits every component manifest that R10's trust view admits and that the analysis step can select, and refuses each manifest-class excluded form (EE-1, EE-3b, EE-4's manifest part, EE-5a) as `ExcludedForm {class, subject}`, routed as M3D item 24 fixes. The fence is still held. No analysis-attempt ExecutionId is drawn or reserved. It ends with the admitted manifest set, which M3C item 16's row 8 selects from (S19). | M3D item 24, the owner of what it admits and refuses; CH14:433 |
 | R11 | X2 item 7's `APPEND-WRITE` lease; X2e's handoff. The fence is released and the lease is held. | X2:328; `operation_handoff.rs:330` |
 | R12 | `CommitSession::open`, which draws the ExecutionId | item 7 |
 
@@ -320,6 +334,19 @@ The durable request runs this order. Each row ends with a typed value the next r
     - the refusal's disclosure of the creation, through the notice on standard error and `retentionDisclosure` with `firstUse: true` (item 9).
 
     This control is shared with M3C:906-910 (C4-T20) and B1-a.
+- **R10a, the pre-draw component admission (r4; M3D item 24, successor SD-6).** J1 places the row. M3D owns what it admits, what it refuses and how each refusal is routed (M3D:717-734).
+  - **Its place.** After R10, whose fenced first read yields the authenticated trust view, and before R11's handoff and R12's draw. It does not wait for the Plan's selection, because selection needs discovery, and discovery runs only after R12 (M3D:718).
+  - **Its route.** The internal refusal is `ExcludedForm {class, subject}`. Its public projection is J1's, with existing codes, under M3D's successor SD-5 (S20). M3D recommends request-rejected 2 with `EXTENSION.ADMISSION_REJECTED` (SL:1306; M3D:733). No public code is added.
+  - **What a refusal leaves.** It comes before R11 and R12, so there is no handoff, lease or `CommitSession`, and neither `refused()` nor `finish` runs (item 7 governs every end after R12). Step 0 ends on the refusal, and step 1 projects it (5.2). When item 3's `created` is `Some`, the refusal discloses the creation, as every refusal after R3 does (item 9).
+  - **The first-use exception, as M3D r3 states it** (M3D:722): "On the first-use route, the creation prelude's own ExecutionId was drawn earlier and names the creation act only (J1:161). It is not the analysis attempt's, and R10a creates none." In this law's terms: on route 3b, whatever the creator act's result, the prelude's reservation, made in `mint_intent` before P0 is staged (item 2; S4), may already be in `ExecutionIdReservations` when R10a runs. It is never bound to the analysis attempt (item 2, "Rejected"). R10a's no-draw property concerns the analysis attempt's ExecutionId only.
+  - **What follows it.** M3C item 16's row 8 selects only among the manifests R10a admitted, and adds no admission of its own (S19). The ephemeral counterpart is ER10a (item 6).
+  - **Control J-C10b (r4, SD-6).** The placement half of M3D's D4-T1 (M3D:743-746), on its hostile but well-formed corpus for EE-1, EE-3b, EE-4's manifest part and EE-5a. It runs on the steady-state durable path (3a), on the first-use path (3b, once each for `Published`, `LostRace` and `NotPristine`) and on the ephemeral path (ER10a):
+    - **Sampled when R10a or ER10a returns its refusal,** `ExecutionIdReservations` holds no analysis-attempt reservation. Its set equals its set at R10a's entry: empty on 3a and on the ephemeral path, and the creation prelude's alone on 3b.
+    - On the durable path, R11 and R12 never run: there is no handoff, lease or session, and the census point `x3d.session.execution-draw` is never reached. On the ephemeral path, the ephemeral attempt never starts.
+    - No capture session opens, nothing is spawned and no source byte moves.
+    - The only reservation added after the refusal is step 1's render draw (item 2), and it is never bound to the analysis attempt.
+    - On 3b, when `created` is `Some`, the envelope carries `retentionDisclosure` with `firstUse: true` (item 9).
+    - With no trust view (E-3, E-4), ER10a admits nothing and refuses nothing.
 - **Rejected:**
   - **Pack admission before the durable entry.** The project carrier is judged only by the fenced selection (X12r4:42; M3B:306).
   - **The S3.1 choice at the commit.** Its refusal would come after the whole analysis and after project-scoped effects.
@@ -342,7 +369,7 @@ The durable request runs this order. Each row ends with a typed value the next r
 | Join | From → to | Owner |
 |---|---|---|
 | J-α | request → durable entry (R0-R3), or the ephemeral entry (item 6) | J2a; J3a |
-| J-β | fence → project admission, configuration, pack and S3.1 (R4-R10) | X2; M3B; X12r4 |
+| J-β | fence → project admission, configuration, pack, S3.1 and (r4) component admission (R4-R10a) | X2; M3B; X12r4; M3D item 24 |
 | J-γ | handoff → the open session (R11-R12) | X2e; X3d; item 7 |
 | J-δ | capture session → sealed `snapshot2`: M3C rows 5-9 (M3C:826-830), with downward discovery after the fence (M3B:336) | C1; B2 |
 | J-ε | the Plan: M3C rows 10-16 (M3C:831-837). The PlanId is minted at row 14 (M3C:835). Row 15's pre-execution joins come before any provider (M3C:836). | C3; C4 |
@@ -395,11 +422,13 @@ The durable request runs this order. Each row ends with a typed value the next r
     - layer 2, through the session's private-access judgment (M3B:91, :97);
     - configuration resolution and pack admission;
     - X4T's report-only trust admission (X4T:123), with no X4B acceptance (X4B:58);
-    - the registered ProjectId when the root is registered, and E-2's otherwise.
+    - the registered ProjectId when the root is registered, and E-2's otherwise;
+    - **(r4, SD-6) ER10a,** R10a's ephemeral counterpart (item 4; M3D:720): the same pre-draw component admission over the report-only trust view, with the same refusals and routes.
 
     It reads no store and takes no lease. Then the read session's equivalent release (M3B:336; X2:84) comes before the capture session.
   - **I positively absent.** There is no session. Layer 2 is absent: "absent is no layer" (M3B:91). Joins E-1 to E-3 then apply.
   - **I present but incomplete.** The request refuses on the read path's row (L468:46). It never degrades to the absent shape.
+  - **The ephemeral attempt's draw (r4, SD-6).** The ephemeral attempt starts, and so draws and reserves its ExecutionId (item 2), only after ER10a returns. A refusal at ER10a therefore draws and reserves no analysis-attempt ExecutionId. With no trust view (I positively absent, E-3; or F absent, E-4), ER10a admits no manifest and has nothing to refuse (M3D:720).
   - **The projection.** X7 item 2's ephemeral projection: authority `ephemeral`, no runId (DR-G27; X7:87-93). A failing verdict is policy-failed 1 with `authority: ephemeral` (WS:247-248). Custody is temporary (5.4a).
   - **Cancellation (r3, J1-R2-03).** Before S18 is accepted, cancellation has phase A only, under WS's before-settle rule, and J2c wires no output (5.3). Once S18 is accepted, the common rule applies: A runs through step 1's projection to the output decision point, with cooperative cancellation and no commit gate; then O, the deferred final output; then E, after actual required-step terminality. Phases B, C and D never occur, because an ephemeral request has no commit.
 - **Joins owed by other laws.** J2c, the ephemeral entry end to end, waits on all four. J2a and J2b do not.
@@ -689,7 +718,8 @@ M3P r6 assigns both M2 carry-ins outside J1: re-commit to X3c r8 and X3c-3 (P5-2
   - **Control J-C21 (J3d's).** Two durable analyses of an unchanged scratch project both end `Committed`, with two receipts for one RunId. Recovery of either ExecutionId reports committed. X3c-3's own tests own the storage half.
 - **The resume writer (J-RW, J4).** The crash states M2 leaves permanently refused are listed at EXIT:186-191.
   - **J1's constraints on J-RW.** Any writer that resumes them is an X1 ordinary writer reached through item 3's durable entry, never the creator act. It adds no public code, class, exit or detail. It deletes no user data and adopts no foreign artifact (OWN:111-120).
-  - **Recommendation for J-RW (not a decision).** Complete forward at the next durable request's admission, by each owner's own predicates, as X3b's floor and start steps already reconcile the carrier. A `repair recover` command is M5 (BP:973).
+  - **Recommendation for J-RW (not a decision).** Complete forward at the next durable request's admission, by each owner's own predicates, as X3b's floor and start steps already reconcile the carrier.
+  - **Record correction (r4).** r3's sentence "A `repair recover` command is M5 (BP:973)" is withdrawn. `repair-recover` is the source-repair journal recovery command, `opensip repair recover REQUEST-ID [--apply-recovery]` (CINV:988-989), a closed table over repair-journal states (WS:1024) under S10.2's authorization (SL:673), owned by `crates/host/src/repair.rs` (BP:973). It is not a storage-repair or crash-state resume command. The error was found by the J-RW r1 drafter (X-RW-8).
   - **Control J-C22** is J-RW's to define. J3d keeps one test: a durable request over a resumable fixture behaves exactly as J-RW fixes.
 
 ### 12. Controls, tests and the crash matrix
@@ -740,6 +770,8 @@ M3P r6 assigns both M2 carry-ins outside J1: re-commit to X3c r8 and X3c-3 (P5-2
 | S16 | S-B (M3-C) | native | the bounded projections (5.4c) | J units that reach them |
 | S17 | M3-PLAN's next revision (record) | lead | the J row and its units (item 14); "J1 fixes the order" done; M3-C's "J1 chooses" items answered | — |
 | S18 | **The final-output-section successor (r2, J1-R2):** a passage successor to WS §1's cancellation paragraph (WS:224-231) and to OPP §5.5's phase table (OPP:330-340) | the WS owner (product workflows) and the OPP owner (CLI and operability) | Step 1 is terminal when its required output returns. From the output decision point to that moment, a signal is classified as phase O and deferred: it never changes the decided envelope or its exit. The rule is the same for the durable and the ephemeral path (r3). A renderer failure there, before any byte, takes the failure envelope chosen by committed evidence: F16 with the runId when a `PublishedCommit` exists, otherwise WS:1377's no-Run row, both under WS:233-240 (r3). A write failure after the first byte ends exit 4 with no replacement envelope (5.3, 8.2, 8.4). `CancelPhase` gains `O` by SOP2's ordinary registration (SOP2:205-208). It adds no class, code or exit. | **every** output path that uses O: J2c's and J3d's output wiring (r3); S12-O |
+| S19 | **M3-C r7 (r4, SD-6):** item 16's row 8 narrowed | the M3-C author (lead) | Row 8's closure admission becomes a selection among the component manifests that R10a, or ER10a, admitted. It adds no admission of its own (M3D:719). The core role closures of M3C item 9 are not component manifests and are unchanged. | D4's integration (M3D's Units); J2b's closure selection |
+| S20 | **M3D's SD-5, for R10a's route (r4, record)** | lead (J1's author) | Item 10 rows, with existing codes only, for the internal refusals M3D assigns to J1's projection (M3D:1091), R10a's and ER10a's `ExcludedForm` among them (M3D:733). Until S20 lands, item 10 has no row for them, and J2a's projection of them is incomplete. | J2a's projection of those refusals; J3d's R10a wiring and J2c's ER10a wiring, each with D4 |
 
 Not successors: X12r4, whose first-use clause J1 implements unchanged; and S-OP-2, whose finalization point J1 places (SOP2:623).
 
@@ -790,6 +822,7 @@ Each unit is reviewed on its own. J4 is listed for its interface only; J-RW owns
 - (r3) Closing the window on `Ok(PreparedCommit)`, or anywhere a `StoppedSession` is not produced; a compare-exchange that drops the window bits.
 - (r3) F16, or a runId, for a renderer failure with no `PublishedCommit`; an uncertain step 0's ExecutionId dropped from the failure envelope.
 - (r3) Wiring any output path that uses phase O, durable or ephemeral, before S18 is accepted; requiring a persisted log record of an O signal after SOP2's freeze.
+- (r4) A manifest-class refusal (M3D item 24) after R11, R12 or the ephemeral attempt's start; an analysis-attempt ExecutionId drawn or reserved before R10a or ER10a returns; the creation prelude's ExecutionId bound to the analysis attempt.
 - `audit`'s refusal replaced before its M5 comparison step exists (r2).
 - A `backupStatus` without `firstUse`, or `not-backed-up` from a missing detector.
 - An ephemeral write, lease, registration, bootstrap, creation, runId or authoritative label.

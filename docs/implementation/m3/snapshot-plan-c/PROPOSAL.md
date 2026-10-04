@@ -1,10 +1,8 @@
-# Sealed snapshot and Plan — proposal M3-C r6
-
-**r6 ACCEPTED in review 2026-10-04 by CODEX2** (`8274bca1…`). r6's bytes, without this note, are preserved in `PROPOSAL-r6.md`. This file differs from them only in recording text: this paragraph, and owner question R1's wording, updated for X-C1 as non-blocking observation C6-NB-01 asks. Under its own gate, the law takes effect once M3-L and X12 r4 are accepted; X12 r4 is accepted.
+# Sealed snapshot and Plan — proposal M3-C r7
 
 2026-10-04. Drafted for Claude Opus 5.5, implementation lead, by a lead-dispatched drafting agent during the overnight autonomous run. Law for unit **M3-C** of the accepted M3 unit plan (`M3-PLAN.md:163`).
 
-**Draft r6, not accepted. Not code.** No product crate is touched before X9-6 (M3P:5, M3P:272). Every code unit below also waits for P0, the M3-L law and I1's product units ("Units").
+**Draft r7, not accepted. Not code.** No product crate is touched before X9-6 (M3P:5, M3P:272). Every code unit below also waits for P0, the M3-L law and I1's product units ("Units").
 
 r2 answered CODEX2's r1 review: four required findings and three non-blocking observations. The r1 bytes are preserved as `PROPOSAL-r1.md` (sha256 `ff9a5e8d…`, 78,037 bytes).
 
@@ -21,7 +19,18 @@ r5 answers CODEX2's r4 review (`/tmp/opensip-implementation/reviews/codex2-snaps
 
 **r5 was accepted in review by CODEX2** (`7f76052d…`), with its bytes preserved as `PROPOSAL-r5.md`. r6 applies exactly two cross-law items from the accepted syntax law **M3-E1 r3** (`docs/implementation/m3/syntax-e/PROPOSAL.md`, Codex, arch `a59390a4b`; its item 14b and its successor rows X-C1 and X-C2). It changes nothing else.
 
+**r6 was accepted in review by CODEX2** (`8274bca1…`; `reviews/codex2-snapshot-plan-c-r6`), with its bytes preserved as `PROPOSAL-r6.md`. r7 applies exactly one cross-law item from the accepted supervisor law **M3-D r3** (`docs/implementation/m3/supervisor-d/PROPOSAL-r3.md`, GROK2, `9679dbc4…`; its item 24 and its successor SD-6): item 16's row 8 is narrowed to a selection among the manifests admitted at J1 r4's new row R10a. It changes nothing else. The gate is unchanged: under its own gate, the law takes effect once M3-L is accepted; X12 r4, the gate's other item, is accepted.
+
 **Lead decisions.** Items 1 to 20 hold lead decisions dated 2026-10-04. They are made under the owner's standing direction to decide on the lead's recommendation and to block only where no recommendation exists. Each one names the alternatives it rejects. The owner may reverse any of them. Four are flagged to the owner in "Open questions"; none blocks this law. r3's step-order rows 1 to 4 follow X12 r4, which is pending review.
+
+## r7 changes
+
+r7 applies exactly one cross-law item of the accepted M3-D r3 (item 24; successor SD-6). Nothing else changes.
+
+| Item | Change |
+|---|---|
+| **SD-6** (M3-D r3 item 24, `supervisor-d/PROPOSAL-r3.md:717-722`, `:1092`) | Item 16's **row 8** is narrowed. Closure admission becomes a **selection among the component manifests already admitted at R10a**, the pre-draw component-admission row that J1 r4 adds between R10 and R11 (`host-pipeline-j/PROPOSAL.md`, r4 draft), or at its ephemeral counterpart ER10a. Row 8 adds no admission of its own. Item 7's admission path has therefore already run for those manifests, no later than R10a and before any analysis-attempt ExecutionId is drawn. Item 7's retention covers the closures row 8 selects, the same population r6's row 8 admitted. The core evaluator and detector closures (item 9) are projections of the authenticated core inventory, not component manifests: R10a does not admit them, and row 8 keeps them unchanged. Nothing else in item 16 changes. If J1 r4's review changes R10a, row 8 follows the accepted text. |
+| C6-NB-01 (recording text, carried from r6's acceptance) | Owner question R1 names the core provider closure's two admitted uses (item 9), as CODEX2's r6 observation asks. This wording was already in the live r6 file beside its acceptance note. |
 
 ## r6 changes
 
@@ -859,7 +868,7 @@ O7 is **not** a gate item. This law launches nothing except the dependency-featu
   | 5 | Open the capture session (item 1), after the fence is released | 4 | CH14:495; SL:313-315; M3-B item 12 |
   | 6 | B2 discovery on the discovery ledger: units, boundaries, pruned trees (with SX-1's `.opensip` anchor), scope descriptor, `UnitMembershipV1`. Source reads go through the session. | 2, 5 | NE:686-863; SL:180-303; M3-B items 12 to 14 |
   | 7 | **Selection precheck** of `requestedCapabilities` (item 17) | 2, 6 | NE:4278's order, applied to that field alone |
-  | 8 | Closure admission: providers and tools for the selected modes, plus the core evaluator and detector closures | 7 | IE:1360-1377; items 7 and 9 |
+  | 8 | **Closure selection (r7, SD-6):** providers and tools for the selected modes, **selected only among the component manifests already admitted at J1 r4's row R10a** (ER10a on the ephemeral path; M3-D r3 item 24). Row 8 adds no admission of its own, and item 7's retention covers what it selects. Plus the core evaluator and detector closures (item 9), which are core-inventory projections, not component manifests, and are unchanged. | 7; R10a's admitted set | IE:1360-1377; items 7 and 9; M3-D r3 item 24 (SD-6) |
   | 9 | The TypeScript layout, then C1 sealing on the snapshot ledger. The walk reuses the session's captures and makes item 1's two-sided carrier join (r4). | 5, 6, 8 | IE:548-593; SL:266-279; item 1 |
   | 10 | C3: dependency import, unified features, then any explicit prepared import | 9 (Cargo.lock from the sealed snapshot) | NE:2499-2500 ("after snapshot seal and dependency-source admission, before PlanId"); NE:1785-1791 |
   | 11 | C2: mint, admit and bind the contexts and universes; count the contexts as they are produced | 8, 9, 10 | NE:1460-1462 (before PlanId); NE:1279-1311, NE:1583-1598; NE:4276 (producer boundary) |
