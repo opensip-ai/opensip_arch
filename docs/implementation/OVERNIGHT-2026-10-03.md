@@ -266,3 +266,10 @@ Times are local.
 
     New control H-C24 covers this.
   - **Item 10 rebuilt:** the owner's view join already runs the Coverage producer check. H now builds scope D and a provisional `coverage2`, and the owner decides. This fixes r1's per-Analyze census and a dialect shape H couldn't build. Question R11 asks the reviewer about it.
+- **E0 complete: the outcome is T-native** (`m3/syntax-e/E0-REPORT.md`), about 13 minutes of machine time.
+  - **Results:**
+    - P1, P2, P3, P4 and P6 pass. P3 compared 8,351 of 8,351 files, about 13.9M nodes, with identical trees on the wasm and native legs.
+    - **P5 fails.** The median per-file throughput is 0.818 MiB/s against the 1.0 floor. The aggregate is 0.931 and the parse-only figure 0.883. 97.7% of the time is interpretation, and native is about 15.5× faster.
+  - **Lead decision, under E1's predeclared rule:** syntax uses native tree-sitter linked in the host, with `executionModel` `native-linked-v1`. E1 item 18's fallback posture applies. Parser defects are a declared residual risk, and the lead re-decides placement at M4 before CLI `analyze` takes untrusted input. E0's data is the input to that decision, including a non-product diagnostic that reached 1.047 MiB/s without tree serialization.
+  - **Measured constants:** `fuelBase` 190,000, `fuelPerByte` 420,000 and `maxMemoryPages` 20,896. These are now relevant only if T-wasm returns at M4.
+  - **Review:** the report is sent to GROK2 for a record review.
