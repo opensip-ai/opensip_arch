@@ -342,3 +342,9 @@ Times are local.
   - The §4.1a census source must be limited to TS/Rust symbol keys, so the in-host syntax census needs no carrier.
   - The cascade must be limited to bindings that owe the worker's census, which excludes host inventory bindings (X-H3) and syntax universes.
   - FA-2 r2 follows L r4, from the same drafter.
+- **CR-1 r1:** CODEX2 raised one finding. DR-103's required command tree still reads as a root-command claim, which D4/EE-5a refuses, so a grammar manifest would be refused. **Lead decision for r2:**
+  - closure-only roles declare no command tree; it is role-scoped in the schema copy, with a passage in DR-103 and SL:70;
+  - D4 refuses a closure-only manifest that declares a tree;
+  - the CR-T4 symlink rule is scoped or aligned.
+
+  **Rejected:** an "inert tree" reading, which leaves a claim-shaped object at every consumer. SYN-1 now goes to CODEX2.
