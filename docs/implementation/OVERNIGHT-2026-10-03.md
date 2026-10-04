@@ -167,3 +167,12 @@ Times are local.
 - **M3-C r6 accepted in review by CODEX2,** with no required findings. Its one stale-wording observation is applied to owner question R1. The law takes effect once M3-L is accepted, which waits on O7 (B1).
 - **M2 record r3 sent to GROK2.** It fixes RF-1: the run records carry a plural `units` array of the laws touched, not the X9 sub-unit. It also takes up the four observations and F8b's binding.
 - **Lead decision: M3-L gets an early review round.** r1 was never sent and is stale: it cites M3-PLAN r4 and predates S-OP-2, T2b, CF-P, C r6, E1 and J1. It is being refreshed to r2 for Grok. An ACCEPT is recorded as "accepted in review", effective when the gate is met (O7, S-M, D3 and D13), as was done for M3-C. The `⟨SM-n⟩` values and any change that O7 forces go through a delta round. **Rejected:** holding all review until the owner items close, which would serialize the day-0 law behind them.
+- **M3-D r2 written,** queued for GROK2 after the M2 record. It answers GROK2's five r1 findings and folds in CF-P:
+  - macOS tree kill is best effort, recorded truthfully;
+  - the spawn-refusal routes are corrected;
+  - the ExecutionId draw follows J1 r3;
+  - the Linux fact table is complete.
+- **Lead decisions in M3-D r2, reversible by the owner:**
+  - **Linux provider scratch moves to `/var/tmp`,** because AL2023's `/tmp` is a tmpfs capped at half of RAM.
+  - **A group `SIGSTOP` before the macOS snapshot is deferred to CF-1,** because CF-P didn't measure it.
+  - **SD-6:** D's manifest refusals before the ExecutionId draw need a new J1 row, R10a. That amends the accepted J1 r3, so it goes to a J1 r4 delta for CODEX2 once GROK2 has ruled on D r2.
