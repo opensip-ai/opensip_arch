@@ -435,3 +435,4 @@ Times are local.
   - **Audit:** it reads the native model's literal emissions with `ast` and checks each form character for character.
   - **New record item (O-1):** the model emits two native-context keys that NE:3530 and J1 row 52 don't list.
   - **Queue:** CODEX2. SYN-1F's request is refreshed to cite SYN-1 r2.
+- **CRC-1 r3:** Grok confirmed the builder fix but found stale r2 wording in the README. The lead wrote r4, a README consistency pass. The passages are unchanged, and it still binds 82 → 83. SYN-1F's parent-only rebuild waits until CRC-1 is accepted, so it is done once.
