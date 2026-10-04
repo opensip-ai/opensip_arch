@@ -1,51 +1,35 @@
-# The safe event vocabulary and sink law — contract-successor proposal S-OP-2 r5
+# The safe event vocabulary and sink law — contract-successor proposal S-OP-2 r4
 
-**DRAFT r5, not accepted.** This is a contract-successor proposal. The verdict it seeks is ACCEPT-DESIGN-UNIT.
+**DRAFT r4, not accepted.** This is a contract-successor proposal. The verdict it seeks is ACCEPT-DESIGN-UNIT.
 
 2026-10-04. Drafted for Claude Opus 5.5, implementation lead, by a lead-dispatched drafting agent during the overnight autonomous run.
 
-**Review history.** Every review is under `/tmp/opensip-implementation/reviews/`.
-
-| Revision | Snapshot | sha256 | Bytes | Codex verdict | Required findings | Non-blocking |
-|---|---|---|---|---|---|---|
-| r1 | `PROPOSAL-r1.md` | `e3b117f0…` | 60,424 | REQUIRED-FINDINGS | SOP2-R1-01 to -07 | 6 |
-| r2 | `PROPOSAL-r2.md` | `91a2ea45…` | 83,628 | REQUIRED-FINDINGS | SOP2-R2-01 to -03 | 7 |
-| r3 | `PROPOSAL-r3.md` | `75a87d78…` | 103,714 | REQUIRED-FINDINGS | SOP2-R3-01 and -02 | 4 |
-| r4 | `PROPOSAL-r4.md` | `db10e19c…` | 117,310 | REQUIRED-FINDINGS (`codex-s-op-2-r4/`) | SOP2-R4-01 to -03 | 2 |
-
-In r4, SOP2-R3-01 was resolved and SOP2-R3-02 partly resolved. Codex accepted the bounded per-sink cell design.
-
-**r5** answers the five r4 items with the lead's decisions. The "r5 changes" table maps each; the earlier tables are their rounds' records.
+**Review history.**
+- **r1** (`PROPOSAL-r1.md`, sha256 `e3b117f0…`, 60,424 bytes). Codex returned REQUIRED-FINDINGS: SOP2-R1-01 to -07, with six non-blocking (`/tmp/opensip-implementation/reviews/codex-s-op-2-r1/`).
+- **r2** (`PROPOSAL-r2.md`, sha256 `91a2ea45…`, 83,628 bytes). Codex returned REQUIRED-FINDINGS: SOP2-R2-01 to -03, with seven non-blocking (`…/codex-s-op-2-r2/`).
+- **r3** (`PROPOSAL-r3.md`, sha256 `75a87d78…`, 103,714 bytes). Codex returned REQUIRED-FINDINGS (`…/codex-s-op-2-r3/`):
+  - SOP2-R2-02 was resolved; SOP2-R2-01 and -03 were partly resolved;
+  - two new required findings, SOP2-R3-01 and -02;
+  - four non-blocking, SOP2-R3-NB-01 to -04.
+- **r4** answers all six. Where Codex offered a choice, r4 takes the lead's stated preference, with one bounded adaptation explained in the table. The "r4 changes" table maps each finding; the r3 and r2 tables after it are their rounds' records.
 
 **What it is.** S-OP-2 is the successor that the accepted operability plan names. Its §9 row reads "Registry, `SafeField` set, privacy classes, per-sink allowlists, §3.3 bounds and loss marker", owned by the "DR-125 owners: Component architecture + CLI/operability/security" (OPP:408; REG:314). It is written under:
 - OPP §3.1–§3.6, §5.3, §6, §7 and §10 (r3, accepted);
 - the draft law M3-L, items 12–14, which name what it needs from S-OP-2 (M3L:345-425);
 - the accepted contracts listed under "Joins" (items 18–22).
 
-## r5 changes and review responses
-
-| Finding | Items | Change |
-|---|---|---|
-| SOP2-R4-01 pre-scope handoff | 16, 17; C-7 | **Partition by source (lead decision).**<br>**Exactly one source tally per file projection.** The producer reads a one-way "file admitted" flag once. It increments the pre-scope tally `E_pre` if the file sink is not yet admitted, and the direct file tally `E_direct` otherwise.<br>**Two partitions in one snapshot.** The file writer's single atomic snapshot carries both partitions:<br>- **direct:** direct outcomes `O_direct`;<br>- **pre-scope:** pre-scope transfers `T` and pre-scope outcomes `O_pre`.<br>**Moving a record into an intermediate queue or unit is not an outcome.**<br>**At the freeze:**<br>- `drain-abandoned (direct)` = `E_direct − O_direct`;<br>- `drain-abandoned (pre-scope)` = `T − O_pre`;<br>- untransferred records, `E_pre − T`, are `unpersisted` if no persistent sink was admitted, and otherwise `drain-abandoned`.<br>Item 16 proves every quantity non-negative and every file projection counted exactly once. C-7 adds the handoff pauses. |
-| SOP2-R4-02 marker admission | 17, 16; C-7 | **The marker's compare-and-swap is its admission (lead decision).**<br>1. The writer first CASes `not-attempted → attempted`. Only after winning does it load the gate.<br>2. If the gate is closed, it CASes `attempted → suppressed` and issues no syscall.<br>3. If the gate is open, it writes and records completion by CAS.<br>4. If its first CAS loses to the finalizer's `not-attempted → skipped`, no syscall is ever issued.<br>At the freeze, `attempted` becomes `unconfirmed`, and `not-attempted` becomes `skipped`, meaning no admission was recorded by the freeze. Every losing path is given. |
-| SOP2-R4-03 lawful path suffixes | 13c; C-4, C-5 | **Whole-value matching and no trimming stay for every grammar.** A trailing LF, CR or space is refused only where the grammar excludes it: identities, code members, `ts`, `level`, `event`, `component`, `phase`, K4–K6, K9, K10, K14 and K15. K12 paths and elided tails keep `LogicalPath`'s lawful suffixes and are encoded by rule E. C-4 and C-5 add positive cases for paths and tails ending in space, LF and CR; the negative identity, K1 and K14 cases stay. The r4 table row is annotated. |
-| SOP2-R4-NB-01 | C-7 | A two-sink producer pause after the first increment and before the second. The first projection is counted once, and F discloses the call; F counts calls, not missing projections. |
-| SOP2-R4-NB-02 | Standing; short names | M3P now names the accepted r4 bytes, `M3-PLAN-r4.md` (`e50f75d3…`), with r4 line numbers. The live plan is r6, accepted (`a6956e88…`; `M3-PLAN-r6.md`); its G7 and M3-O rows are cited separately. |
-
-Nothing else of substance changed from r4.
-
 ## r4 changes and review responses
 
 | Finding | Items | Change |
 |---|---|---|
-| SOP2-R3-01 complete read-back predicates | 5, 13a, 13c; C-4, C-5, C-9 | **K12** inherits `LogicalPath`'s rules on read-back (`common-v4.schema.json:101-110`; IE:161-163). Both the path and the elided tail exclude backslash, and each segment is at most 255 scalar values. Names such as `..note` and `...` stay valid.<br>**K6 (lead decision).** The reader has no workspace. A persisted K6 `file` is accepted only if it is `external` or a member of a workspace-source census **retained in the descriptor set**. Otherwise the field is dropped, never echoed or rewritten.<br>**Whole-value matching.** Every grammar is matched against the whole decoded value. `$` means the true end, as the pinned `(?![\s\S])`, so a trailing LF, CR or space is refused, never trimmed (IE:65-76). The header identities use the pinned patterns verbatim. *(r5 correction, SOP2-R4-03: the refusal applies only to grammars that exclude those characters; K12 keeps `LogicalPath`'s lawful suffixes.)*<br>**V at read-back.** A value whose encoded length in the input exceeds its kind's V is dropped. |
+| SOP2-R3-01 complete read-back predicates | 5, 13a, 13c; C-4, C-5, C-9 | **K12** inherits `LogicalPath`'s rules on read-back (`common-v4.schema.json:101-110`; IE:161-163). Both the path and the elided tail exclude backslash, and each segment is at most 255 scalar values. Names such as `..note` and `...` stay valid.<br>**K6 (lead decision).** The reader has no workspace. A persisted K6 `file` is accepted only if it is `external` or a member of a workspace-source census **retained in the descriptor set**. Otherwise the field is dropped, never echoed or rewritten.<br>**Whole-value matching.** Every grammar is matched against the whole decoded value. `$` means the true end, as the pinned `(?![\s\S])`, so a trailing LF, CR or space is refused, never trimmed (IE:65-76). The header identities use the pinned patterns verbatim.<br>**V at read-back.** A value whose encoded length in the input exceeds its kind's V is dropped. |
 | SOP2-R3-02 summary derived from the commit state | 16, 17; C-7 | **The frozen summary is derived from authoritative commit cells, never copied from separately incremented counters** (lead preference). Every disposition is committed by **one atomic operation on its cell, and that operation is its linearization point**:<br>- a producer drop is one tally increment;<br>- a record's pending status for a sink is one enqueue-tally increment, made before it is pushed;<br>- a writer's outcomes are one atomic exchange of an immutable cumulative snapshot;<br>- the marker's outcome is one compare-and-swap.<br>At the freeze the finalizer reads the in-flight count, then the snapshots, then the tallies. Per sink, `drain-abandoned` is the enqueue tally minus the snapshot's outcomes, so pending records become abandoned first and each is counted once. Any other counters are non-authoritative gauges.<br>**The bounded adaptation.** Per-record cells kept until the freeze would be unbounded in a long command, and folding them into totals would reintroduce the two-step gap. The cells are therefore per sink and per tally, with the same rule. A writer paused before its exchange has committed nothing, so its records count once, as `drain-abandoned`. A producer call still uncommitted at the freeze is disclosed through `in_flight_at_freeze`, an upper bound, so the summary never silently undercounts.<br>`unconfirmed` now means that completion was not recorded in the marker's cell at the freeze. |
 | SOP2-R3-NB-01 | C-4, C-5 | Escaper unit checks are separated from kind-admission checks. A K12 with NUL or backslash, and a K14 or K15 with any escape-set character, is refused. Tail negatives are exactly `..` and `../x`; `..note` and `...` are positives. |
 | SOP2-R3-NB-02 | 13a; C-4 | `truncated` and `omitted` are checked on the parsed input, before any field is dropped. The output's counts are recomputed after drops and projection. An unknown elided field is dropped as `unknown-field`. C-4 adds the two-field round trip. |
 | SOP2-R3-NB-03 | 14 | A cap change needs a successor that rechecks the grammar and maxima. The reserve assertion fails only when a recomputed maximum exceeds R; the direct 32-byte and 16-byte table checks stand on their own. |
 | SOP2-R3-NB-04 | 16, 17 | `written` is a delivered outcome. It is counted outside the loss matrices, the loss carrier and the marker. |
 
-The table above is the r4 record. Nothing else of substance changed from r3 in r4.
+Nothing else of substance changed from r3.
 
 ## r3 changes and review responses
 
@@ -101,8 +85,8 @@ The table above is the r2 record. Nothing else of substance changed from r1 in r
   - the S-OP-4 record join, which M3-L carries (M3L:345-371);
   - OPP §3.1's phase-lawful identities.
 - **Its role as a gate:**
-  - **Drafted.** The draft existing meets M3-L gate item G7, "S-OP-2 drafted" (M3P:158; M3L:24). The live plan, r6, records G7 as met (`M3-PLAN-r6.md`:441).
-  - **Accepted.** Acceptance gates M3-O's O1 part (M3P:172, "P0; S-OP-2"; unchanged in `M3-PLAN-r6.md`:221) and OPP §8's M3 row (OPP:381).
+  - **Drafted.** The draft existing meets M3-L gate item G7, "S-OP-2 drafted" (M3P:160; M3L:24), on the lead's reading.
+  - **Accepted.** Acceptance gates M3-O's O1 part (M3P:174, "P0; S-OP-2") and OPP §8's M3 row (OPP:381).
 - **Decisions.** Items marked **(LD)** are lead decisions, dated 2026-10-04. They are made under the owner's standing direction to proceed on the lead's recommendation. Each names the alternative it rejects, and the owner may reverse any of them.
 - **Numbers.** Every number is **provisional** unless it is a cited protocol constant, a schema pattern length or a computed encoding bound.
 
@@ -111,7 +95,7 @@ The table above is the r2 record. Nothing else of substance changed from r1 in r
 Line numbers are those of the live files on 2026-10-04. Each was checked; see "Citations checked".
 - **OPP** `docs/implementation/m3/operability/PLAN.md` (r3, accepted; the live file carries a two-line acceptance note)
 - **M3L** `docs/implementation/m3/provider-protocol-l/PROPOSAL.md` (r1, draft, not accepted)
-- **M3P** `docs/implementation/m3/M3-PLAN-r4.md`: the accepted r4 bytes, sha256 `e50f75d3…`, cited by their own line numbers. The live `M3-PLAN.md` has since become r6, accepted (`a6956e88…`, preserved as `M3-PLAN-r6.md`), and r6 lines are cited as `M3-PLAN-r6.md`:n.
+- **M3P** `docs/implementation/m3/M3-PLAN.md` (r4, accepted)
 - **Q0** `docs/implementation/m3/harness/DESIGN.md` (r13, accepted)
 - **REG** `docs/v2/architecture/08-decision-and-readiness-register.md`
 - **APP** `docs/coop/completion/architecture-application.v1.json` (the D-369 application)
@@ -517,13 +501,11 @@ What this gives:
   - **Integers** are JSON integers with no sign, fraction or exponent, and no leading zero (`0|[1-9][0-9]*`), within the stated range. Only `Errno` may carry a leading `-`.
   - **Booleans** are JSON `true` or `false`.
   - **Strings** are JSON strings escaped by rule E. The decoded value must satisfy the stated grammar.
-  - **Whole-value match (r4, SOP2-R3-01; r5, SOP2-R4-03).** Every grammar in this proposal, wherever it is written, is matched against the whole decoded value.
+  - **Whole-value match (r4, SOP2-R3-01).** Every grammar in this proposal, wherever it is written, is matched against the whole decoded value.
     - **`$`** means the true end of the value, exactly as the pinned schemas' `(?![\s\S])`, never a regex dialect's end-of-line.
-    - **No trimming.** Nothing is ever trimmed before matching.
+    - **No trimming.** A trailing LF, CR or space is refused, never trimmed (IE:65-76).
     - **Lengths** are of the decoded value.
-    - **Trailing LF, CR or space.** Such a value is refused exactly when its grammar excludes that character:
-      - **refused:** the header identities (IE:65-76), `ts`, `level`, `event`, `component` and `phase`; K1 and K3 members; K4, K5, K6, K9, K10, K14 and K15;
-      - **lawful:** K12 paths and elided tails. They follow `LogicalPath`, which permits these characters within and at the end of a segment. They are kept as they are and encoded by rule E: LF as `\u000a`, CR as `\u000d`, and space unescaped.
+  - **Objects** have exactly the listed keys, written in the listed order. Readers accept any order, but no extra, missing or duplicate key.
 - **The header:**
 
 | Member | Presence | Value |
@@ -619,28 +601,23 @@ What this gives:
   - **Producers never wait.** No producer takes a lock that is held across I/O, and none waits for space (OPP:201).
 - **Memory.** About 2.2 MiB per host process (OPP:207). It is a total across however many writer threads M3-O uses.
 
-**16. The pre-scope buffer, the crash ring and bounded finalization (LD; r2, SOP2-R1-04; r3, SOP2-R2-03; r4, SOP2-R3-02; r5, SOP2-R4-01).**
+**16. The pre-scope buffer, the crash ring and bounded finalization (LD; r2, SOP2-R1-04; r3, SOP2-R2-03; r4, SOP2-R3-02).**
 - **Pre-scope buffer.** 64 KiB and 256 records, drop-newest, counted `prescope-full` (OPP:193). "Pre-scope" means before the sink is known; it is unrelated to item 9's scopes.
-  - If the invocation later holds S-OP-1's write capability, the file sink's writer **transfers** the buffered records into the file in order (OPP:220). It keeps draining the buffer until finalization, so a record pushed after its first pass is transferred later.
-  - A transfer moves a record into the writer's queue or unit. **That is not an outcome**; the record stays pending until a terminal outcome is published.
-  - Records never transferred are counted at the freeze: `unpersisted` if no persistent sink was admitted, and otherwise `drain-abandoned`.
+  - If the invocation later holds S-OP-1's write capability, the file sink's writer takes the records into the file in order (OPP:220).
+  - Otherwise they are counted `unpersisted` at the freeze.
 - **Crash ring.** 64 KiB preallocated, at most 256 records, overwriting the oldest, holding P0–P1 projections (OPP:194). Overwrites go in the crash record's header (S-OP-7), not into loss.
 - **Authoritative commit cells (r4, lead decision).** Every disposition is committed exactly once, **by one atomic operation on its cell, and that operation is its linearization point.** The cells are bounded:
 
   | Cell | Committed by | Commit point | What it records |
   |---|---|---|---|
   | producer drop tally, global, per (reason, level) | the producer | one atomic increment | a drop decided before the record is enqueued: `budget`, `queue-full`, `prescope-full` and `refused`, and `drain-abandoned` for a call that finds admission or enqueue closed |
-  | enqueue tally, per source stage and level: each sink's direct stage, and the pre-scope buffer | the producer | one atomic increment per sink the record is projected to, into **exactly one** source tally for that sink, made **before** the record is pushed | that the record is pending from that source |
-  | writer snapshot, per sink | that sink's writer | one atomic exchange of a pointer to an immutable cumulative snapshot | terminal outcomes per (outcome, level): `written`, `sink-failed` and `sink-stopped`. For the file sink there are **two partitions in the same snapshot**: direct outcomes `O_direct`; and the pre-scope transfer count `T` with pre-scope outcomes `O_pre`. Also the sink's first I/O error kind and errno. |
-  | file-admitted flag | S-OP-1's capability grant | one atomic store, which never reverts | whether file projections now go to the direct stage |
-  | marker cell, per sink | the writer, or the finalizer at the freeze | one compare-and-swap, which for the writer's first transition is also the marker's admission | the marker's state and outcome (item 17) |
+  | enqueue tally, per stage (each sink, and the pre-scope buffer) and level | the producer | one atomic increment per stage the record is projected to, made **before** the record is pushed | that the record is pending for that stage |
+  | writer snapshot, per sink | that sink's writer | one atomic exchange of a pointer to an immutable cumulative snapshot | per (outcome, level): `written`, `sink-failed` and `sink-stopped`; for the file sink, also the pre-scope records it has taken; the sink's first I/O error kind and errno |
+  | marker cell, per sink | the writer, or the finalizer at the freeze | one compare-and-swap | the marker's outcome (item 17) |
   | in-flight count | the producer | increment on entry after the level filter; decrement after the call's commit | calls whose disposition is not yet committed |
 
   - **No two-step commits.** No disposition is recorded first in one place and published later in another; the commit is the publication. A writer that has decided a unit's outcomes but is paused before its snapshot exchange has committed nothing, and its records are still pending.
-  - **One source per file projection (r5, SOP2-R4-01).** Before its file increment, the producer reads the file-admitted flag once. If the flag is clear, it increments the pre-scope tally `E_pre` and pushes into the pre-scope buffer. If it is set, it increments the direct file tally `E_direct` and pushes into the queue. Every file projection is therefore pending from exactly one source.
-  - **Ordering.** A record's enqueue increment happens before its push, and a writer counts a record in its snapshot only after dequeuing it. For the pre-scope source, a record is transferred only after its push, and its outcome is published no earlier than its transfer, in the same cumulative snapshot. So at every instant, for every sink and source:
-    - **ordinary stages:** the records in the published outcomes are a subset of those the source tally counts;
-    - **the pre-scope source:** `O_pre` (all outcomes) ≤ `T` ≤ `E_pre`, per level.
+  - **Ordering.** A record's enqueue increments happen before it is pushed, and a writer counts a record in its snapshot only after dequeuing it. So for every stage, at every instant, the records in its published snapshot are a subset of those its enqueue tally counts.
   - **No drop after an enqueue increment.** The producer checks "enqueue closed" once, before its first enqueue increment. Once it has made its increments, it never commits a drop for that record. If its push is then refused because enqueue has closed, it discards the record and commits nothing more: the subtraction in step 5 counts it.
   - **Gauges.** Any other counter, such as a live per-sink matrix for tests or metrics, is a non-authoritative gauge. The summary never reads one.
 - **Finalization (lead decision).** It happens once, on the termination path, **after the command's result is decided and before the required envelope is rendered or written.**
@@ -651,42 +628,30 @@ What this gives:
   1. **Cutoff.** One atomic store closes producer admission. A call that observes it closed commits `drain-abandoned` in the producer drop tally.
   2. **Settle.** Until the deadline, the termination path waits for two things:
      - the in-flight count to reach zero;
-     - every sink's writer to publish a snapshot that covers its whole enqueue tally, and, for the file, its whole transferred pre-scope buffer ("drained").
+     - every sink's writer to publish a snapshot that covers its whole enqueue tally ("drained").
 
      Writers keep writing while the gates are open. The best-effort marker is attempted here (item 17).
   3. **Close.** Every persistent sink gate is closed (item 17). One atomic store closes enqueue.
   4. **Read, in this order:**
      1. the in-flight count F;
-     2. the file-admitted flag;
-     3. each writer's current snapshot pointer, by one atomic load;
-     4. each enqueue tally;
-     5. each producer drop tally.
+     2. each writer's current snapshot pointer, by one atomic load;
+     3. each enqueue tally;
+     4. each producer drop tally.
 
-     Then the marker cells are settled by item 17's finalizer transitions.
-  5. **Derive and freeze.** The frozen summary is computed from what step 4 read, never copied from gauges. Per level:
-     - **each sink S other than the file, and the file's direct partition:** each outcome as the snapshot records it, and `drain-abandoned` = the source tally minus all outcomes of that partition (`E_direct − O_direct` for the file);
-     - **the file's pre-scope partition:**
-       - each outcome as `O_pre` records it;
-       - `drain-abandoned` = `T − O_pre`, for records transferred but with no published outcome;
-       - `E_pre − T`, for records never transferred, as `unpersisted` if the file-admitted flag was clear and otherwise as `drain-abandoned`;
-     - **global, per reason:** the producer drop tallies;
-     - **delivered:** the `written` counts, kept outside every loss matrix, the loss carrier and the marker (r4, SOP2-R3-NB-04);
+     Then the marker cells are settled by compare-and-swap: a marker still `attempted` becomes `unconfirmed`, and one still `not-attempted` becomes `skipped`.
+  5. **Derive and freeze.** The frozen summary is computed from what step 4 read, never copied from gauges:
+     - **per sink S and level:** each outcome as S's snapshot records it, and `drain-abandoned` = S's enqueue tally minus all outcomes in S's snapshot. The ordering rule means this cannot be negative.
+     - **the pre-scope buffer, per level:** records its enqueue tally counts that the file sink's snapshot has not taken are `unpersisted` if no persistent sink was admitted, and otherwise `drain-abandoned` for the file sink.
+     - **global, per reason and level:** the producer drop tallies.
+     - **delivered:** the `written` counts, kept outside every loss matrix, the loss carrier and the marker (r4, SOP2-R3-NB-04).
      - **`in_flight_at_freeze`:** F.
 
-     The summary is immutable. Anything committed after step 4's reads goes only to a post-freeze tally that tests can observe and no carrier reports: a late producer call, a writer's later snapshot, or a marker transition that loses to the finalizer.
+     The summary is immutable. Anything committed after step 4's reads goes only to a post-freeze tally that tests can observe and no carrier reports: a late producer call, a writer's later snapshot, or a marker outcome after its cell settled.
   6. **Deliver.** The frozen summary goes to S-OP-6, which renders it into the envelope's `diagnostics`. Then the required envelope is written, and the command exits with its exit code unchanged.
 - **Why nothing committed before the freeze is lost or double-counted.**
   - **Each sink projection of an enqueued record is counted exactly once:** in its writer's outcome if the snapshot read in step 4 contains it, and otherwise in `drain-abandoned` by the subtraction. A snapshot published after the read cannot count it again, because the summary is already derived.
-  - **The pre-scope handoff (r5, SOP2-R4-01).** A pre-scope record is pending from `E_pre` alone, never from `E_direct`, so the direct subtraction never sees it. Within the pre-scope partition it falls in exactly one of three disjoint classes, judged against the one snapshot that was read:
-    - **not in `T`:** counted once in `E_pre − T`;
-    - **in `T` with no outcome:** counted once in `T − O_pre`;
-    - **with an outcome:** counted once by that outcome.
-
-    The three sum to `E_pre`.
-  - **Non-negativity.** Snapshots are read before tallies, and an increment precedes its push, which precedes any transfer or outcome. So every record in a snapshot was already counted by its source tally when the tally was read. That gives `O_direct ≤ E_direct` and `T ≤ E_pre`. `T` and `O_pre` come from the same cumulative snapshot, and an outcome is published no earlier than its transfer, which gives `O_pre ≤ T`. Every derived quantity is therefore non-negative.
-  - **Handoff pauses.** A writer that has transferred records but not yet published the snapshot that counts them has committed neither the transfer nor any outcome, so those records fall in `E_pre − T`. A writer that has published `T` but not their outcomes leaves them in `T − O_pre`. Either way, each is counted once.
   - **The r3 race, a writer paused after deciding an outcome but before its exchange,** commits nothing before the freeze. The record is counted once, as `drain-abandoned`. The summary may then report a record that was in fact written as lost: an overcount, never an undercount.
-  - **Producer drops.** A drop committed before the read in step 4.5 is in the tally that was read. One committed after it was, by definition, committed after the freeze.
+  - **Producer drops.** A drop committed before the read in step 4.4 is in the tally that was read. One committed after it was, by definition, committed after the freeze.
 - **What the summary discloses rather than counts.**
   - **The gap.** A producer call that entered before the cutoff and had not committed by the freeze has no disposition in the summary. An example is a call paused between a failed reservation and its drop increment.
   - **The disclosure.** F is read first, so every such call is still counted in F. `in_flight_at_freeze` is therefore an upper bound on the calls the summary may not include. S-OP-6 renders it with the loss line when it is nonzero, so the summary never silently undercounts.
@@ -704,7 +669,7 @@ What this gives:
   - **Per-record cells kept until the freeze.** Keeping one cell per record per sink for the whole command is unbounded. Folding retired cells into totals would reintroduce the two-step gap. The bounded cells above keep the same rule: one atomic commit per disposition, and a summary derived from committed state.
   - **A helping protocol,** in which the finalizer completes a paused callback's counter update (lead preference).
 
-**17. Loss accounting, the best-effort marker and the sink gate (r2, SOP2-R1-03, -04; r3, SOP2-R2-03, NB-06; r4, SOP2-R3-02, NB-04; r5, SOP2-R4-01, -02).**
+**17. Loss accounting, the best-effort marker and the sink gate (r2, SOP2-R1-03, -04; r3, SOP2-R2-03, NB-06; r4, SOP2-R3-02, NB-04).**
 - **Loss reasons.** A closed enum of eight. `written` is not among them: it is a delivered outcome, counted outside the loss matrices.
 
   | Reason | Category | Committed in | Meaning |
@@ -713,54 +678,39 @@ What this gives:
   | `budget` | loss | producer drop tally (global) | per-name budget exceeded |
   | `queue-full` | loss | producer drop tally (global) | queue bound hit |
   | `prescope-full` | loss | producer drop tally (global) | pre-scope bound hit |
-  | `unpersisted` | policy | derived at the freeze (pre-scope partition, `E_pre − T`) | pre-scope records never transferred because no persistent sink was admitted |
+  | `unpersisted` | policy | derived at the freeze (pre-scope) | pre-scope records never taken because no persistent sink was admitted |
   | `sink-failed` | loss | writer snapshot (per sink) | I/O error; that record and every later one for the sink |
   | `sink-stopped` | loss | writer snapshot (per sink) | the gate was closed at admission, including a short-write remainder |
-  | `drain-abandoned` | loss | producer drop tally, for a call that finds admission or enqueue closed. Also derived per sink and source at the freeze: `E − O` per direct stage, and `T − O_pre` plus, when a persistent sink was admitted, `E_pre − T`. | not written within finalization |
+  | `drain-abandoned` | loss | producer drop tally, for a call that finds admission or enqueue closed; derived per sink at the freeze, for enqueued records outside the snapshot | not written within finalization |
 
 - **Authoritative state** is item 16's commit cells. Nothing else is read for the summary.
 - **The frozen summary** (item 16, step 5) is the only source of the loss summary. It keeps distinct the global matrix, each sink's matrix, the delivered counts and `in_flight_at_freeze`.
 - **The marker, `log.loss.counted`, is best-effort.**
   - **When it is attempted.** During finalization step 2, after a writer has drained sink S, and only if S's gate is open and the deadline has not passed.
   - **What it holds.** Its single K8 `counts` field is the **element-wise saturating sum** of the producer drop tallies, as the writer reads them, and the loss outcomes in S's own latest snapshot, all as of the marker's admission. It may undercount later abandonment; the frozen summary is authoritative.
-  - **How it is encoded.** Into a slot preallocated at logging start.
-  - **Its cell is its admission (r5, SOP2-R4-02, lead decision).** The marker's state lives in one cell and changes only by compare-and-swap. The cell starts `not-attempted`.
-    - **The writer's path:**
-      1. **Admit.** The writer CASes `not-attempted → attempted`. **Winning this CAS is the marker's admission.** Only after winning does the writer touch the gate.
-      2. **Gate.** It acquire-loads the gate, which is the ordinary per-syscall rule.
-         - If the gate is `closed`, it CASes `attempted → suppressed`, and issues no syscall.
-         - If the gate is `open`, it issues the write. Every short-write continuation needs its own gate load. If a continuation's load sees `closed`, the rest is abandoned.
-      3. **Complete.** When the write returns, the writer CASes `attempted → written`, or `attempted → failed` (with the errno), or `attempted → failed` (gate-stopped) if a continuation was refused.
-    - **The finalizer's path, at the freeze (item 16, step 4):**
-      1. It CASes `not-attempted → skipped`.
-      2. If that loses, it CASes `attempted → unconfirmed`.
-      3. If that loses too, the writer's terminal outcome stands.
-    - **Every losing path:**
+  - **How it is admitted.** It is encoded into a slot preallocated at logging start, and admitted as an ordinary write unit through the gate, with one load per syscall.
+  - **Its cell.** The marker's state lives in its cell and changes only by compare-and-swap. It starts `not-attempted`.
+    - The writer sets `suppressed` if its gate load sees `closed`.
+    - It sets `attempted` when the marker is admitted.
+    - It then sets `written` or `failed` when the write returns.
+    - At the freeze, the finalizer moves `not-attempted` to `skipped` and `attempted` to `unconfirmed`.
 
-      | Who loses | Which CAS | What follows |
-      |---|---|---|
-      | the writer | its admission CAS, to the finalizer's `skipped` | It stops. It makes no gate load and **issues no syscall, ever**. The frozen outcome is `skipped`. |
-      | the writer | `attempted → suppressed`, to the finalizer's `unconfirmed` | It issues no syscall. The frozen outcome is `unconfirmed`, and the suppression goes to the post-freeze tally. |
-      | the writer | its completion CAS, to the finalizer's `unconfirmed` | The frozen outcome is `unconfirmed`, and the completion goes to the post-freeze tally. |
-      | the finalizer | `not-attempted → skipped` | The writer was admitted first. The finalizer goes on to step 2. |
-      | the finalizer | `attempted → unconfirmed` | A writer outcome was recorded first and stands. |
+    The outcomes:
 
-    - **The outcomes, each defined by what the cell recorded by the freeze:**
+    | Outcome | Meaning |
+    |---|---|
+    | `written` | its write returned success |
+    | `failed` | its write returned an error; the errno is recorded |
+    | `suppressed` | its gate load saw `closed` |
+    | `skipped` | it was never attempted before the freeze |
+    | `unconfirmed` | it was admitted, but its completion was **not recorded in its cell by the freeze**. Some, all or none of its bytes may have reached the sink. |
 
-      | Outcome | Meaning |
-      |---|---|
-      | `written` | admitted, and the write's success recorded before the freeze |
-      | `failed` | admitted, and an error or a gate-stopped continuation recorded before the freeze. Some or none of its bytes may be in the sink. |
-      | `suppressed` | admitted, its gate load saw `closed`, and no syscall was issued; recorded before the freeze |
-      | `skipped` | **no admission was recorded by the freeze.** The writer's admission CAS can then never win, so no marker syscall is ever issued. |
-      | `unconfirmed` | admitted, but **no completion was recorded by the freeze**. Some, all or none of its bytes may reach the sink, possibly after the freeze. |
-
-    - **The residual.** An admitted marker whose gate load saw `open` before the gate closed may issue its syscall after the closure, or after the freeze. It is the one admitted unit per sink writer of the gate residual below, and S-OP-7 owns its acceptability.
+    A writer outcome that loses the compare-and-swap after the freeze goes to the post-freeze tally.
   - **On failure.** No retry, no further record and no panic. A cap hit never emits through the saturated path (OPP:202).
 - **Visibility.** If the frozen summary has a nonzero loss count, or a nonzero `in_flight_at_freeze`, and the command produces an envelope, the P0 summary goes to `diagnostics` through S-OP-6 **before the envelope is written** (OPP:203). Loss never changes Coverage, termination, exit or a committed Run (OPP:203; OPP §5.2).
 - **The sink gate. The atomic load is the admission point.**
   - **Closing.** Each persistent sink has an atomic gate. Closing it is one atomic store with release ordering, and it never waits.
-  - **Admission.** The writer's acquire load of `open`, made immediately before a syscall, is that syscall's admission. **Every syscall needs its own successful load**: a write unit's first write, every short-write continuation, and the marker, which must also have won its admission CAS first.
+  - **Admission.** The writer's acquire load of `open`, made immediately before a syscall, is that syscall's admission. **Every syscall needs its own successful load**: a write unit's first write, every short-write continuation, and the marker.
   - **After a load sees `closed`,** nothing more is admitted to that sink. A unit's unwritten remainder is abandoned and recorded `sink-stopped` in the writer's next snapshot. If no such snapshot precedes the freeze, those records count `drain-abandoned` by the subtraction. Readers drop the torn last line (item 13a).
   - **Write units** are at most 64 KiB (provisional).
   - **Residual, stated.** A unit admitted before closure may be **issued and completed after** it, because the writer can be descheduled between its load and its syscall. The bound is at most one admitted unit per sink writer, at most 64 KiB. S-OP-2 claims no retroactive suppression and no ordering of syscall issue. Whether this residual is acceptable after an uncertain or latched commit outcome is **S-OP-7's decision with the X3D owner's assent** (OPP:312; OP-R3-NB-02). If it is not, S-OP-7 must specify a coordinated issuance mechanism.
@@ -932,10 +882,10 @@ The controls are authored at M3 under S-OP-11 and qualified at M6 (OPP:424). The
 | C-1 | **Compile-fail suite.** Rustdoc `compile_fail` tests with the expected error codes, or a UI harness if M3-O admits one. Each must fail to compile:<br>- a field typed `String`, `&str`, `Cow<str>`, `PathBuf`, `OsString`, `Vec<u8>`, `io::Error`, `&dyn Error`, `fmt::Arguments` or `serde_json::Value`;<br>- a code-table member written `include_str!(…)`, `env!(…)` or `concat!(…)`;<br>- a `CodeEnum` impl outside the registry module;<br>- a generic `impl<T> CodeEnum for W<T>` adapter;<br>- a `TableRegistration` built outside the module;<br>- **a `Phase` or `ComponentRole` member of 33 bytes;**<br>- a K8 table with no members;<br>- `Correlation` from text;<br>- `IdentityDigest` from bytes or a parsed value;<br>- `ProjectPath` from `&str`;<br>- `SecretValue` as a field;<br>- an `Execution`-requiring event at a scope from before admission;<br>- a RunId from a candidate;<br>- a scope or marker impl outside its owner;<br>- `storage.commit.published` without `PublishedCommit`, or `not_published` through a Run-bearing scope;<br>- a 33-character key;<br>- a template over 160 B, or with a non-ASCII byte;<br>- an event whose `MAX_LINE` exceeds 4,096;<br>- 33 fields;<br>- **a field value of depth 3, by item 13c's convention;**<br>- an `Event` impl outside `registry!`. | 3, 5, 8, 9, 13c, 14, 20 |
 | C-2 | **Registry integrity.**<br>- **Names:** follow the grammar and are unique; domains are listed; retired names are not reused; every retired name has a complete descriptor or is marked pruned.<br>- **Kinds:** every field is K1–K15.<br>- **Code tables:** each has a listed provenance:<br>&nbsp;&nbsp;– `registry-literal` members and templates are checked on the **unexpanded** source: each is a string literal written directly in the invocation;<br>&nbsp;&nbsp;– `generated-contract` tables match the recorded sha256 of their reviewed output bytes and are literal;<br>&nbsp;&nbsp;– `protocol-enum` members equal their schema's enum;<br>&nbsp;&nbsp;– no `include_str!`, `include_bytes!`, `env!`, `option_env!` or `OUT_DIR` appears in the registry or the registered generated modules.<br>- **Header tables:** members are at most 32 B, and `PathAnchor` members at most 16 B.<br>- **Code members** are never removed.<br>- **K8 maps are frozen:** an older vector read across an attempted member addition and an attempted reordering must require a new event name.<br>- **Maxima:** the documented per-event maximum equals the computed `MAX_LINE(E)`, and the vocabulary's computed header maxima (646 and 724) are within R.<br>- **Renderings** equal the committed files.<br>- **Constructors:** the constructor and mint list equals the audited exception list. | 2, 3, 8, 13c, 14 |
 | C-3 | **Foreign events.** A dependency emits `tracing` and `log` events carrying canaries, with field visitors and formatters instrumented. No visitor or formatter runs, no sink receives a byte, and no logger is installed. | 10 |
-| C-4 | **Canary privacy and re-admission** (OPP:428).<br>- **Canaries:** random high-entropy, low-entropy passphrase, unknown formats, Unicode, bidi and ANSI/C0, and 10× each bound, plus source snippets.<br>- **Injected into:** TS and Rust stderr, `fault` detail, `refusal` detail, `detailCode`, nonces, `clientCorrelationId`, configuration strings, declared and undeclared environment values, file and directory names (including `password=CANARY`), absolute paths with a canary username, I/O error text, panic payloads and nested configuration.<br>- **Sinks checked:** file, stderr at every level, ring and crash file, bundle with and without P2 consent, captured OTLP, `diagnostics`, and the pre-scope flush.<br>- **Round trips:** every kind and header member, including both `Flag` values, K3 in both forms, K6, K7, K8, K10, K12 in both forms, K13 with and without a column, and `component`, is written, read back by item 13a and re-encoded byte-identically.<br>- **The two-field round trip (r4):** one elided P2 field is projected out by the bundle's ceiling, and the output's `truncated` and `omitted` are recomputed. An unknown elided field is dropped as `unknown-field` while the input `truncated` still matches.<br>- **Poisoned persisted files fed to the bundle reader:**<br>&nbsp;&nbsp;– a known event with text in a P0 code field;<br>&nbsp;&nbsp;– extra fields;<br>&nbsp;&nbsp;– an integer where a boolean belongs, and the reverse;<br>&nbsp;&nbsp;– an oversize line and a torn last line;<br>&nbsp;&nbsp;– a retired name with and without a descriptor, and an older schema;<br>&nbsp;&nbsp;– a missing mandatory header member;<br>&nbsp;&nbsp;– an identity set that is not a lawful shape;<br>&nbsp;&nbsp;– a `level` that differs from the descriptor's;<br>&nbsp;&nbsp;– a required identity missing;<br>&nbsp;&nbsp;– a `truncated` count that does not match;<br>&nbsp;&nbsp;– a value whose encoded length exceeds its V;<br>&nbsp;&nbsp;– **LF, CR and space suffixes** on `requestId`, an identity, a K1 member and a K14 value, which are refused, never trimmed;<br>&nbsp;&nbsp;– **K12 values** `/private/x`, `../x`, `a/../b`, `./a`, `a//b`, `a\..\b` and `C:\private\name`;<br>&nbsp;&nbsp;– **elided tails** that are exactly `..`, that start `../x`, that contain a later `..` segment, or that contain `\`;<br>&nbsp;&nbsp;– **a persisted K6** `{"file":"crates/vendor_private.rs","line":1}` outside the retained census, whose field is dropped.<br>**Positives:**<br>&nbsp;&nbsp;– K12 values and tails with `..note` and `...` segments are accepted;<br>&nbsp;&nbsp;– **(r5)** K12 paths and elided tails ending in a space, an LF or a CR are written, escaped by rule E (`\u000a`, `\u000d`), read back and re-encoded byte-identically.<br>- **Pass rule:**<br>&nbsp;&nbsp;– canary bytes appear only as P2 names in P2-permitted sinks;<br>&nbsp;&nbsp;– poisoned values are dropped and counted, never re-emitted;<br>&nbsp;&nbsp;– each canary's SHA-256 (hex and base64) and 12-hex prefix appear nowhere. | 4–7, 12, 13, 13a, 13c |
-| C-5 | **Rule E.**<br>- **Escaper unit checks (r4, SOP2-R3-NB-01).** The rule E escaper, applied to synthetic strings, escapes every code point of its set exactly, in both forms: U+0000–U+001F, ESC sequences, U+007F, U+0080–U+009F, U+061C, U+200E, U+200F, U+202A–U+202E, U+2066–U+2069, U+2028, U+2029, `"` and `\`.<br>- **Kind admission checks.**<br>&nbsp;&nbsp;– Valid K12 names containing escapable code points other than NUL and backslash (C0, DEL, C1, bidi, U+2028/U+2029 and `"`) are escaped exactly, including **(r5)** names ending in LF or CR, and names ending in a space, which stay unescaped.<br>&nbsp;&nbsp;– The same trailing characters on an identity, a K1 member or a K14 value are refused.<br>&nbsp;&nbsp;– K12 values with NUL or a backslash are refused at construction.<br>&nbsp;&nbsp;– K14 and K15 values with any escape-set character are refused.<br>&nbsp;&nbsp;– Invalid K5 inputs are refused, and invalid K6 files become `external`.<br>- **Also checked:**<br>&nbsp;&nbsp;– every record is exactly one line;<br>&nbsp;&nbsp;– a value made entirely of escaped code points elides into `{"elided":…}` within V, at a code-point boundary;<br>&nbsp;&nbsp;– non-UTF-8 names are refused as K12;<br>&nbsp;&nbsp;– `PathRef` tags differ across processes for one path and never equal its SHA-256. | 6, 13, 13b, 13c |
+| C-4 | **Canary privacy and re-admission** (OPP:428).<br>- **Canaries:** random high-entropy, low-entropy passphrase, unknown formats, Unicode, bidi and ANSI/C0, and 10× each bound, plus source snippets.<br>- **Injected into:** TS and Rust stderr, `fault` detail, `refusal` detail, `detailCode`, nonces, `clientCorrelationId`, configuration strings, declared and undeclared environment values, file and directory names (including `password=CANARY`), absolute paths with a canary username, I/O error text, panic payloads and nested configuration.<br>- **Sinks checked:** file, stderr at every level, ring and crash file, bundle with and without P2 consent, captured OTLP, `diagnostics`, and the pre-scope flush.<br>- **Round trips:** every kind and header member, including both `Flag` values, K3 in both forms, K6, K7, K8, K10, K12 in both forms, K13 with and without a column, and `component`, is written, read back by item 13a and re-encoded byte-identically.<br>- **The two-field round trip (r4):** one elided P2 field is projected out by the bundle's ceiling, and the output's `truncated` and `omitted` are recomputed. An unknown elided field is dropped as `unknown-field` while the input `truncated` still matches.<br>- **Poisoned persisted files fed to the bundle reader:**<br>&nbsp;&nbsp;– a known event with text in a P0 code field;<br>&nbsp;&nbsp;– extra fields;<br>&nbsp;&nbsp;– an integer where a boolean belongs, and the reverse;<br>&nbsp;&nbsp;– an oversize line and a torn last line;<br>&nbsp;&nbsp;– a retired name with and without a descriptor, and an older schema;<br>&nbsp;&nbsp;– a missing mandatory header member;<br>&nbsp;&nbsp;– an identity set that is not a lawful shape;<br>&nbsp;&nbsp;– a `level` that differs from the descriptor's;<br>&nbsp;&nbsp;– a required identity missing;<br>&nbsp;&nbsp;– a `truncated` count that does not match;<br>&nbsp;&nbsp;– a value whose encoded length exceeds its V;<br>&nbsp;&nbsp;– **LF, CR and space suffixes** on `requestId`, an identity, a K1 member and a K14 value, which are refused, never trimmed;<br>&nbsp;&nbsp;– **K12 values** `/private/x`, `../x`, `a/../b`, `./a`, `a//b`, `a\..\b` and `C:\private\name`;<br>&nbsp;&nbsp;– **elided tails** that are exactly `..`, that start `../x`, that contain a later `..` segment, or that contain `\`;<br>&nbsp;&nbsp;– **a persisted K6** `{"file":"crates/vendor_private.rs","line":1}` outside the retained census, whose field is dropped.<br>**Positives:** K12 values and tails with `..note` and `...` segments are accepted.<br>- **Pass rule:**<br>&nbsp;&nbsp;– canary bytes appear only as P2 names in P2-permitted sinks;<br>&nbsp;&nbsp;– poisoned values are dropped and counted, never re-emitted;<br>&nbsp;&nbsp;– each canary's SHA-256 (hex and base64) and 12-hex prefix appear nowhere. | 4–7, 12, 13, 13a, 13c |
+| C-5 | **Rule E.**<br>- **Escaper unit checks (r4, SOP2-R3-NB-01).** The rule E escaper, applied to synthetic strings, escapes every code point of its set exactly, in both forms: U+0000–U+001F, ESC sequences, U+007F, U+0080–U+009F, U+061C, U+200E, U+200F, U+202A–U+202E, U+2066–U+2069, U+2028, U+2029, `"` and `\`.<br>- **Kind admission checks.**<br>&nbsp;&nbsp;– Valid K12 names containing escapable code points other than NUL and backslash (C0, DEL, C1, bidi, U+2028/U+2029 and `"`) are escaped exactly.<br>&nbsp;&nbsp;– K12 values with NUL or a backslash are refused at construction.<br>&nbsp;&nbsp;– K14 and K15 values with any escape-set character are refused.<br>&nbsp;&nbsp;– Invalid K5 inputs are refused, and invalid K6 files become `external`.<br>- **Also checked:**<br>&nbsp;&nbsp;– every record is exactly one line;<br>&nbsp;&nbsp;– a value made entirely of escaped code points elides into `{"elided":…}` within V, at a code-point boundary;<br>&nbsp;&nbsp;– non-UTF-8 names are refused as K12;<br>&nbsp;&nbsp;– `PathRef` tags differ across processes for one path and never equal its SHA-256. | 6, 13, 13b, 13c |
 | C-6 | **Guard.**<br>- Zero defects over the C-4 corpus.<br>- `password=CANARY` file names are reported as `p2-name-match`, never as defects.<br>- Escaping is never counted as a firing.<br>- Unit tests run the guard on synthetic bytes, separately from the construction checks. | 11 |
-| C-7 | **Bounds, gate and finalization** (OPP:431).<br>- **Floods:** stderr at 10× its bound; a single-name storm; saturation with the writer blocked on a FIFO. Producers never wait, and counts are right by reason, level and cell.<br>- **Headroom:** `error` is admitted after `debug` fills the queue.<br>- **Pre-scope:** overflow is counted.<br>- **Sink failures:** EACCES, ENOSPC, EIO and short writes.<br>- **Gate pause:** a test hook pauses the writer between a successful gate load and its syscall. The gate closes during the pause. The admitted unit completes; its continuation, the next unit and the marker are not admitted; the remainder is accounted; the reader drops the torn line.<br>- **Finalization (r4, SOP2-R3-02):**<br>&nbsp;&nbsp;– **a writer paused after deciding an EIO outcome but before its snapshot exchange, across the freeze:** the record is counted once, as `drain-abandoned`, in the frozen summary; the final envelope shows nonzero loss; the writer's later exchange goes to the post-freeze tally only;<br>&nbsp;&nbsp;– **a writer paused after its exchange but before any gauge update:** the frozen summary counts the outcome from the snapshot;<br>&nbsp;&nbsp;– **a producer paused between a failed reservation and its drop increment, across the freeze:** `in_flight_at_freeze` is at least 1, the envelope discloses it, and the later increment goes to the post-freeze tally;<br>&nbsp;&nbsp;– **a producer paused between its enqueue increments and its push, across the freeze:** the record is counted once, as `drain-abandoned`, and the resumed push commits nothing;<br>&nbsp;&nbsp;– **(r5, SOP2-R4-NB-01) a producer paused after its first sink's increment and before its second's, across the freeze:** the first projection is counted once, as `drain-abandoned`; the second is absent; F is at least 1. F counts calls, not missing projections;<br>&nbsp;&nbsp;– **(r5, SOP2-R4-01) the pre-scope handoff,** each with one buffered record:<br>&nbsp;&nbsp;&nbsp;&nbsp;· with no file capability, it is counted exactly once, as `unpersisted`;<br>&nbsp;&nbsp;&nbsp;&nbsp;· with the writer paused after transferring it and before publishing the snapshot that counts the transfer, the frozen summary and final envelope show exactly one file loss (`E_pre − T`);<br>&nbsp;&nbsp;&nbsp;&nbsp;· with the writer paused after publishing `T` and before publishing its outcome, exactly one (`T − O_pre`);<br>&nbsp;&nbsp;&nbsp;&nbsp;· with the transfer and a `written` outcome published, zero loss and one delivered;<br>&nbsp;&nbsp;&nbsp;&nbsp;· with a producer that read the flag clear and pushes after the writer's first transfer pass, the record is counted exactly once;<br>&nbsp;&nbsp;&nbsp;&nbsp;· no derived quantity is negative, and the direct partition never counts a pre-scope record;<br>&nbsp;&nbsp;– **a stalled data write:** finalization completes within 200 ms (normal) or 100 ms (cancellation);<br>&nbsp;&nbsp;– **a stalled marker write:** the outcome is `unconfirmed`;<br>&nbsp;&nbsp;– **(r5, SOP2-R4-02) marker admission races:**<br>&nbsp;&nbsp;&nbsp;&nbsp;· a writer paused before its admission CAS, across the freeze: the frozen outcome is `skipped`; on resuming, its CAS loses and **no marker syscall is ever issued**;<br>&nbsp;&nbsp;&nbsp;&nbsp;· a writer paused after winning admission and before its gate load, across the freeze: the frozen outcome is `unconfirmed`; on resuming it sees the gate closed, its `suppressed` CAS loses, and no syscall is issued; the post-freeze tally records it;<br>&nbsp;&nbsp;&nbsp;&nbsp;· a writer paused after a gate load that saw `open` and before the syscall, across closure and the freeze: the frozen outcome is `unconfirmed`; any later syscall is the stated residual, and its completion goes to the post-freeze tally;<br>&nbsp;&nbsp;– **an emission after the freeze:** goes to the post-freeze tally only;<br>&nbsp;&nbsp;– **`written` outcomes** never appear in a loss matrix, the carrier or the marker;<br>&nbsp;&nbsp;– **the final emitted envelope** carries exactly the frozen summary;<br>&nbsp;&nbsp;– **the timing claim** covers the logging contribution only.<br>- **Marker:** each of the five outcomes is observed, never assumed.<br>- **`refused`** stays zero.<br>- **Boundaries:**<br>&nbsp;&nbsp;– a 32-byte key;<br>&nbsp;&nbsp;– a maximally escaped K12;<br>&nbsp;&nbsp;– every K8 counter at `u64::MAX`;<br>&nbsp;&nbsp;– a full header with every identity, a 32-byte phase, a 32-byte role with ordinal 65535, and a 96-byte event;<br>&nbsp;&nbsp;– Codex's one-field `truncated=1` case, within its MAX_LINE of 1,060 B.<br>Each line is at most its event's MAX_LINE and at most 4,096 B. | 13c, 14–17 |
+| C-7 | **Bounds, gate and finalization** (OPP:431).<br>- **Floods:** stderr at 10× its bound; a single-name storm; saturation with the writer blocked on a FIFO. Producers never wait, and counts are right by reason, level and cell.<br>- **Headroom:** `error` is admitted after `debug` fills the queue.<br>- **Pre-scope:** overflow is counted.<br>- **Sink failures:** EACCES, ENOSPC, EIO and short writes.<br>- **Gate pause:** a test hook pauses the writer between a successful gate load and its syscall. The gate closes during the pause. The admitted unit completes; its continuation, the next unit and the marker are not admitted; the remainder is accounted; the reader drops the torn line.<br>- **Finalization (r4, SOP2-R3-02):**<br>&nbsp;&nbsp;– **a writer paused after deciding an EIO outcome but before its snapshot exchange, across the freeze:** the record is counted once, as `drain-abandoned`, in the frozen summary; the final envelope shows nonzero loss; the writer's later exchange goes to the post-freeze tally only;<br>&nbsp;&nbsp;– **a writer paused after its exchange but before any gauge update:** the frozen summary counts the outcome from the snapshot;<br>&nbsp;&nbsp;– **a producer paused between a failed reservation and its drop increment, across the freeze:** `in_flight_at_freeze` is at least 1, the envelope discloses it, and the later increment goes to the post-freeze tally;<br>&nbsp;&nbsp;– **a producer paused between its enqueue increments and its push, across the freeze:** the record is counted once, as `drain-abandoned`, and the resumed push commits nothing;<br>&nbsp;&nbsp;– **a stalled data write:** finalization completes within 200 ms (normal) or 100 ms (cancellation);<br>&nbsp;&nbsp;– **a stalled marker write:** the outcome is `unconfirmed`;<br>&nbsp;&nbsp;– **an emission after the freeze:** goes to the post-freeze tally only;<br>&nbsp;&nbsp;– **`written` outcomes** never appear in a loss matrix, the carrier or the marker;<br>&nbsp;&nbsp;– **the final emitted envelope** carries exactly the frozen summary;<br>&nbsp;&nbsp;– **the timing claim** covers the logging contribution only.<br>- **Marker:** each of the five outcomes is observed, never assumed.<br>- **`refused`** stays zero.<br>- **Boundaries:**<br>&nbsp;&nbsp;– a 32-byte key;<br>&nbsp;&nbsp;– a maximally escaped K12;<br>&nbsp;&nbsp;– every K8 counter at `u64::MAX`;<br>&nbsp;&nbsp;– a full header with every identity, a 32-byte phase, a 32-byte role with ordinal 65535, and a 96-byte event;<br>&nbsp;&nbsp;– Codex's one-field `truncated=1` case, within its MAX_LINE of 1,060 B.<br>Each line is at most its event's MAX_LINE and at most 4,096 B. | 13c, 14–17 |
 | C-8 | **Run-time identities** (OPP:429). Each phase carries exactly its lawful headers, including:<br>- `storage.commit.published` with the Run and `not_published` without it;<br>- a stored-Run read carrying the Run;<br>- an ephemeral analysis carrying no Run;<br>- allocation failure emitting only the fixed line. | 9, 13c |
 | C-9 | **Code locations.** A release build emits no absolute path, `.cargo` path, `crates/../…`, `crates/./…` or other non-workspace origin. It emits as `external` a lexically valid lookalike that is not in the census, such as a dependency compiled from `crates/vendor_private.rs`. **The same lookalike, persisted and read back, has its field dropped (r4).** | 5 (K6), 13a |
 | C-10 | **Environment.** With the declared resolver input held fixed, setting `RUST_LOG`, `RUST_BACKTRACE`, `RUST_LIB_BACKTRACE` and `OTEL_*` changes no sink's content, and no effective filter, sink set or bound. | 21 |
@@ -990,9 +940,6 @@ The rejected alternatives are recorded with the items that reject them. The prin
 - A summary updated after the freeze, a required envelope written before finalization, or a disposition counted twice.
 - A disposition recorded in two steps; a frozen summary that reads a gauge; a producer that commits a drop after its enqueue increments.
 - A K12 value containing a backslash; a persisted K6 file outside a retained census; a grammar matched with a dialect `$`, or with trimming.
-- A refusal of a trailing LF, CR or space in a K12 path or elided tail.
-- A file projection counted in both source tallies. A transfer treated as an outcome.
-- A marker syscall issued without a won admission CAS, or after its admission CAS lost.
 - A producer that blocks on the queue or on writer I/O.
 - A syscall admitted after a load observed `closed`. A short-write retry or a marker without its own gate load.
 - A termination path that waits on a sink syscall, joins a blocked writer, or exceeds its finalization budget for optional logging. A logging sink holding a lock that the output or termination path takes.
@@ -1039,11 +986,6 @@ Codex settled R1, R2 and R5 in its r1 review: the DR-125 reading stands, the DC4
 ## Citations checked
 
 Every citation was opened and read on 2026-10-04.
-
-New in r5:
-- **`M3-PLAN-r4.md`:** line 87 ("the S-OP-2 vocabulary drafted"), line 158 (the M3-L row and its gate) and line 172 (the M3-O row, "P0; S-OP-2").
-- **`M3-PLAN-r6.md`:** line 221 (the M3-O row, unchanged dependency) and line 441 (G7 met).
-- **`common-v4.schema.json:105`.** `LogicalPath` segments exclude only `/`, `\` and NUL, so a segment may end in a space, LF or CR.
 
 New in r4:
 - **IE:65-76.** RequestId and ExecutionId are end-anchored with `(?![\s\S])`, and a trailing newline, carriage return or space is refused rather than trimmed.
