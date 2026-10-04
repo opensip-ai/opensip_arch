@@ -1,0 +1,152 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "reviewer": "Codex",
+  "reviewKind": "law and contract-soundness",
+  "round": 2,
+  "subject": "docs/implementation/m3/resume-repair-jrw/PROPOSAL.md",
+  "subjectSha256": "7bff3d5548fa627c4cf0fd14b869a83c42a74a6e2059573e716788aa6bac8a4b",
+  "subjectBytes": 87080,
+  "productBaseline": "e093e908dd7fe735356a896f3cf4b97e1d93198e",
+  "requiredFindings": [
+    {
+      "id": "JRW-R2-01",
+      "priority": "P2",
+      "location": "docs/implementation/m3/resume-repair-jrw/PROPOSAL.md:200-226 (especially 211, 220-226); :236; :538; :578-581",
+      "problem": "A zero schema cookie does not exclude every committed-history state reachable through the SQL/VACUUM writers the law includes. The law acknowledges wraparound but calls it unreachable, while still claiming that cookie 0 establishes that no schema change or evidence ever committed. SQLite implements a wrapping 32-bit counter; defensive mode does not turn it into an unbounded history counter.",
+      "evidence": [
+        "The pinned product selects rusqlite =0.40.2 with bundled SQLite (crates/storage/Cargo.toml:13), and enables defensive mode at crates/storage/src/ledger_store.rs:125-133. Its controls impose no lifetime schema-change bound.",
+        "The libsqlite3-sys 0.38.2 primary documentation identifies the bundled engine as SQLite 3.53.2: https://docs.rs/crate/libsqlite3-sys/0.38.2 .",
+        "SQLite 3.53.2 src/build.c:1934-1958 explicitly acknowledges that repeated schema changes can return the cookie to a previous value and increments it using unsigned arithmetic: https://raw.githubusercontent.com/sqlite/sqlite/version-3.53.2/src/build.c .",
+        "SQLite 3.53.2 src/vacuum.c:329-352 uses u32 meta, adds 1 to BTREE_SCHEMA_VERSION, and preserves text encoding, user_version and application_id: https://raw.githubusercontent.com/sqlite/sqlite/version-3.53.2/src/vacuum.c .",
+        "Static counterexample, not executed: start at cookie 0 in a private WAL database; commit CREATE TABLE t(x), INSERT, and DROP TABLE, then complete 2^32-2 ordinary VACUUM operations. The committed schema increments total 2^32, so the cookie returns to 0. The schema is empty and VACUUM permits the same one-page, zero-freelist footprint with UTF-8 and zero IDs. No raw-byte write, writable_schema, schema_version assignment, or non-defensive operation is required.",
+        "RW-C5's finite fixtures reject the original compacted-history example but do not establish the claimed universal history guarantee or make wraparound unreachable."
+      ],
+      "fix": "Make the no-wrap premise explicit and qualify every history guarantee by it. State that the relevant file history begins at cookie 0, has fewer than 2^32 committed schema-cookie increments, and has no reset/forgery; say this is a custody/producer-history assumption, not a fact L-UNC can infer. Remove the claim that wrapping is unreachable through ordinary SQLite interfaces and qualify the coverage of arbitrary SQL/VACUUM writers accordingly. Carry the same premise into the basis, RW-S3 and X-RW-9. If the law retains its universal guarantee instead, it needs an independent history discriminator or must keep C-LEDGER withdrawn for histories it cannot establish. Keep the positive-view stop rule and N-L0 fallback; a wraparound stress run is not requested."
+    },
+    {
+      "id": "JRW-R2-02",
+      "priority": "P2",
+      "location": "docs/implementation/m3/resume-repair-jrw/PROPOSAL.md:300, :350 (N-T2), :431 (RW-C15); related unchanged-row rule :331 and RW-C2 :407",
+      "problem": "N-T2 assigns installation-incomplete to every symlink or non-directory at a publication parent name, and RW-C15 requires that result. At the pinned baseline these cases fail the native directory open and take HOST.IO_FAILURE, before the custody judgment that produces installation-incomplete. Implementing the stated result would change an existing public refusal row, contrary to the law's unchanged-row rule.",
+      "evidence": [
+        "At e093e90, crates/security/src/trust/floor_publication.rs:434 calls open_private before any directory creation/completion; :164-166 maps a child-directory open failure through lift(TrustRow::HostIo), whereas :170 maps a failed private-directory judgment through lift(TrustRow::Incomplete).",
+        "crates/platform/src/filesystem/directory_open.rs:61-73 turns only NotFound into None and retains every other native failure. :134-150 opens with O_DIRECTORY and O_NOFOLLOW and returns the native error for a non-directory or symlink.",
+        "floor_publication.rs:58-69 preserves the supplied row for an operation failure and uses the budget row separately.",
+        "At e093e90, crates/security/src/trust/current_trust_admission.rs:84-110 maps HostIo to HOST.IO_FAILURE with no installation-incomplete subject; Incomplete maps to CONFIG.CUSTODY_REFUSED with that subject.",
+        "Accepted X4T r11 item 10, docs/implementation/m2/trust-admission-x4t/PROPOSAL-r11.md:153, preserves host I/O and budget rows. RW-N12's particular non-empty ACL-omitted directory does reach the custody judgment, so its installation-incomplete expectation is correct."
+      ],
+      "fix": "Split N-T2 by the existing failure boundary: a directory opened successfully whose custody/predicate fails keeps CONFIG.CUSTODY_REFUSED / installation-incomplete; native child-directory open failures, including symlink/non-directory failures, keep HOST.IO_FAILURE; budget failures keep their budget row. Apply that distinction to item 3.6 and RW-C15. Authorize C-ACL only after obtaining the retained directory and observing precisely P-ACL; do not recover a native I/O failure by reclassifying it. Keep RW-N12 unchanged."
+    }
+  ],
+  "nonBlockingObservations": [
+    {
+      "id": "JRW-R2-NB-01",
+      "location": "docs/implementation/m3/resume-repair-jrw/PROPOSAL.md:104-110; :290-293; :325-327",
+      "problem": "The census state coverage is adequate, but the prose conflates distinct point identities with physical trace records. Host traces -a and -b do not have the same create.after bases, and the storage trace includes the directory point in both commit and refused-end children.",
+      "evidence": [
+        "The storage trace contains 1379 records and 22 create.after bases. dependency/create.after#6 occurs at line 112 in commit and line 1256 in refused-end.",
+        "Host trace -a contains 1009 records and 11 create.after bases; -b contains 165 records and 7 bases. Their union has 14 bases; their respective journal witness paths differ. Both contain the predecessor-directory point at line 40 (#5).",
+        "The separately manifest-verified host trace -c contains 21 records and no create.after point.",
+        "Thus there are three referenced trace/point selections (storage #6, host -a #5, host -b #5), but four physical directory events across the recorded publishing children. Neither storage #6 nor host #5 is in its target kill set.",
+        "The extra storage event leaves the same RW-T3 state. RW-D1 already selects the commit driver explicitly; the differing host bases remain covered by the P states or the existing journal owners. No additional L11 state or mandatory new RW row was found."
+      ],
+      "fix": "Describe host -a and -b as sharing the dependency shape, list their different base sets or refer to the union, and distinguish the three trace/point selections from the four physical directory events. Explicitly note storage's refused-end occurrence. Preserve the existing RW-D1/RW-K10 state coverage."
+    }
+  ],
+  "priorReviewDisposition": [
+    {
+      "id": "JRW-R1-01",
+      "status": "Original compacted-history counterexample excluded; universal history claim needs JRW-R2-01's qualification.",
+      "evidence": "L-UNC cookie clause, RW-C5, N-L2 and RW-N11; positive-view stop rule and N-L0 retained."
+    },
+    {
+      "id": "JRW-R1-02",
+      "status": "Resolved.",
+      "evidence": "Closed namespace/marker join before any effect; N-R9 existing rows verified; RW-C16/RW-N10 and RW-S1/RW-S2 carry it."
+    },
+    {
+      "id": "JRW-R1-03",
+      "status": "Omitted completion state resolved; its new neighbour-row contract needs JRW-R2-02.",
+      "evidence": "RW-T3/C-TDIR covers the allowed parent step after unchanged fenced admission, with own and parent barriers; RW-D1/RW-K10/RW-N12 and conditional L11 retirement carry it."
+    },
+    {
+      "id": "JRW-R1-NB-01",
+      "status": "Resolved.",
+      "evidence": "Byte preservation has the named SQLite schema/header/WAL/checkpoint exception."
+    },
+    {
+      "id": "JRW-R1-NB-02",
+      "status": "Resolved.",
+      "evidence": "N-R4/N-T1 now exclude both exact equality and strict prefixes."
+    },
+    {
+      "id": "JRW-R1-NB-03",
+      "status": "Resolved for the per-publication example.",
+      "evidence": "Seven dependency creates per pinned storage publication, six files and one directory; see new census-count observation."
+    }
+  ],
+  "requestItemAssessments": [
+    {
+      "item": 1,
+      "result": "Qualified by JRW-R2-01.",
+      "detail": "Defensive mode and cookie 0 reject the r1 compacted-history fixture. RW-C5 requires both positive bundled-engine views and negative fixtures before enabling completion. Failure withdraws completion without widening the predicate and preserves L11/N-L0. Those gates are sound as law, but their future execution is not evidence of a no-wrap history bound."
+    },
+    {
+      "item": 2,
+      "result": "Satisfied.",
+      "detail": "Cases (a)/(b) exactly impose absent N plus absent marker, or complete N plus an absent/equal/prefix marker. Present marker with absent N is excluded before every effect. N-R9's ACL-omitted and private-malformed rows match project_admission.rs:602-603,616,684-685. No IE passage successor is required."
+    },
+    {
+      "item": 3,
+      "result": "Completion and X9 structure satisfied; JRW-R2-02 and JRW-R2-NB-01 apply.",
+      "detail": "C-TDIR is after the unchanged reference-directed fenced read and under the publication fence. It is limited to may_create names and empty, same-filesystem, owner/private-mode ACL-omitted directories. It finishes both directory barriers before publication continues. The census audit found no further L11 family. RW-D1 adds the unsampled directory explicitly; RW-K10 covers its repair barriers; RW-N12 is a correctly labelled mutation; no-ExecutionId cells are skipped; future reference transcriptions, existing driver use and evidence-gated L11 retirement follow X9 r16."
+    },
+    {
+      "item": 4,
+      "result": "Satisfied.",
+      "detail": "The three original observations are addressed without changing the intended byte-preservation or equal/prefix rules."
+    },
+    {
+      "item": 5,
+      "result": "Compatible subject to JRW-R2-01's history qualification.",
+      "detail": "Accepted X3c r8 and GROK2's matching ACCEPT record were verified. Item 2 is unchanged; RW-S3 is written on r8; completions create no attempt/per-Run records. Re-commit continues under item 6a. RC/RW sections stay separate and whichever unit integrates second reruns both, with no J4 dependency on X3c-3. CL-3's existing-row prohibition is retained."
+    },
+    {
+      "item": 6,
+      "result": "Satisfied.",
+      "detail": "The 19 r1-to-r2 diff hunks belong to the response table, request-item follow-ups, accepted-snapshot repins, or their propagated controls/units/matrix/cross-law text. No unrelated substantive change found."
+    }
+  ],
+  "verification": {
+    "suppliedPins": {
+      "count": 34,
+      "matched": 34,
+      "evidence": "pin-verification.json"
+    },
+    "evidenceManifestDerivedPins": {
+      "count": 3,
+      "matched": 3,
+      "paths": [
+        "storage/matrix.json",
+        "host/matrix.json",
+        "host/census-trace-c.txt"
+      ],
+      "evidence": "input-audit.json"
+    },
+    "diffHunksReviewed": 19,
+    "censusAudit": "All create.after records in storage and host -a/-b/-c read as data; input-audit.json records grouping, kill-set membership, and product source digests.",
+    "productCrateDiffs": "3e64266 -> e093e90 and e093e90 -> 0ceb9ad both empty under crates.",
+    "workingCheckout": "HEAD had advanced to 15c077935a9fdd9d2550726922669d576e7f6c4b during the audit. Judgments use e093e90. current_trust_admission.rs was inspected with git show at that baseline; the other recorded cited owners still match it.",
+    "execution": "Only read-only file/diff/hash tabulation, Git object reads and primary-source browsing. Scratch Python used the pinned interpreter with -I -B at nice -n 19 and private review-local HOME/TMPDIR.",
+    "notRun": [
+      "cargo",
+      "product tests",
+      "SQLite fixtures",
+      "crash matrix",
+      "lead set",
+      "verify_design"
+    ],
+    "boundary": "No repository edits, commits, pushes or delegation; no real-home or 413-fixture access; writes confined to this review directory."
+  },
+  "acceptanceBoundary": "Law review only. No J4 inventory-unit acceptance, no RW-S1 to RW-S6 successor acceptance, and no executed evidence retiring L11 is granted."
+}

@@ -623,3 +623,7 @@ Times are local.
 - **VD2-a + F8c accepted by Codex (r2) and integrated** at product main `d761121`. `verify_design` now admits explicit contract passage supersession, with no generator rebuild.
 - **SD-7 r2 bound** at `d2c00a9` as the **first contract passage supersession** (`contractPassageSupersessions: 1`), giving 97 contract successors. SD-5's NE:3540 row now matches D r5, item 25's row is in place, and NE remains the selected contract with no copy.
 - **Confirmation lane on product `988f6ed`** (with X4-F2): workspace 1758 passed, 0 failed, 3 ignored. That is the earlier 1750 plus X4-F2's 8 tests. Since then, `d761121` (VD2-a and F8c) and `d2c00a9` (SD-7) changed only tools and the lock, and the tool tests pass at 121.
+- **J-RW r3 written and sent to Codex.**
+  - **C-LEDGER kept, scoped exactly:** OpenSIP's writers commit at most **k = 26** schema changes per ledger (one schema transaction of 26 `CREATE` statements, verified against bundled SQLite 3.53.2), with no VACUUM, ALTER or migration in the product. A foreign writer that wraps the cookie sits with forgery, outside the custody model.
+  - **Controls:** RW-C17, a product-SQL census, is added. RW-C5 now pins the cookie at 26 after creation.
+  - **N-T2:** split at the native open, as directed.
