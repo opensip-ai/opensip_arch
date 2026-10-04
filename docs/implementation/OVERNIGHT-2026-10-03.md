@@ -226,3 +226,4 @@ Times are local.
     - SD-6's "MC r5" citation;
     - **SD-5,** the public route for R10a's `ExcludedForm` refusal, is not yet written. It must stay distinct from matrix row 27.
 - **Pin drift handled.** J-RW (Codex) and X3c r8 (GROK2) pinned live files that later moved to drafts. Both reviewers are told which commits hold the pinned bytes, and the queued M3-H request carries the same note. **Lesson:** requests pin accepted snapshots (`PROPOSAL-rN.md`), not live files.
+- **X3c r8 accepted by GROK2,** with no findings or observations. This is the re-commit law, P5-2. X3c-3, the storage code, and its X9 lead set are next, and must land by day 25. X3d r9's record restatement (CL-1) is owed.
