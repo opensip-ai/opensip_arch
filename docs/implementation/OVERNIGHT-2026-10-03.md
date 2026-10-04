@@ -407,3 +407,10 @@ Times are local.
 
   The lead wrote r8 (three rows) for GROK2. **NBO-1, the G10 name collision:** M3-L's next revision renames its gate items L-G1..L-G11.
 - **M3-H's live file now carries its acceptance note,** with Grok's observations applied.
+- **CR-1 r2 written.**
+  - **Schema:** closure-only roles must leave `commands` absent. A root `oneOf` that the product generator can compile enforces it: the `analyzer` branch requires commands, and the closure-only branch types `commands` as `null` against the root's array type. **Lead decision LD-8:** absent only, not "absent or empty", so there is one spelling.
+  - **DR-103 and SL:70:** they gain a role-scoped command tree, and D4 refuses a closure-only manifest that declares one.
+  - **Audit:** the copy flips none of the product shape fixture's 11,010 verdicts.
+  - **CR-T4:** uses CODEX2's exact text.
+  - **New D record item:** M3-D's EE-3b and EE-5a (MD:729, :731) read as refusing *any* root-command claim, which would include an ordinary `analyzer` manifest's mandatory root command. D's next revision must state how D4 admits `analyzer` manifests under those rows.
+  - **Queue:** CR-1 r2 goes to CODEX2 next, since it gates C2a by day 5.
