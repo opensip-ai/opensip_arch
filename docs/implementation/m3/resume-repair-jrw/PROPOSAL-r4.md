@@ -1,7 +1,5 @@
 # The resume/repair writer — proposal J-RW r4
 
-**r4 ACCEPTED 2026-10-04 by Codex** (`9c53bce7…`; `reviews/codex-resume-repair-jrw-r4/`), with no required findings. r4's bytes, without this note, are preserved in `PROPOSAL-r4.md`. Its observation JRW-R4-NB-01 is a record note for the next revision: several `current_trust_admission.rs` line labels are cd5958b's, and the same mapping sits two lines later at d2c00a9 (:89-114). The r4 cites resolve correctly at d2c00a9.
-
 2026-10-04. Drafted for Claude Opus 5.5, implementation lead, by a lead-dispatched drafting agent during the overnight autonomous run. Law **J-RW** of the accepted M3 unit plan, owned by M3-J under lead decision P5-1 (M3P:217, :236, :572-575).
 
 **Draft r4, not accepted. Not code.** It must be accepted before M3 day 0, which is M3-L's acceptance (M3P:236, :259). Its code unit J4 follows it and does not wait for J3 (M3P:251, :311, :574).

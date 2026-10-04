@@ -674,3 +674,5 @@ Times are local.
   - **The placeholder is withdrawn.** The cancellation latch keeps the first cause under every result.
   - **X4-F3** is a code unit under r8 covering sources 1–8, and lands before J3b or with it. J3b covers source 9.
   - **One question passed to CODEX2:** whether X4-F3's edits to X3d's call sites need X3d's own revision. They change no X3d outcome.
+- **J-RW r4 accepted by Codex,** with no required findings. The resume/repair writer is now law. Each L11 crash state is completed inside the next admitted durable write, at its owner's own step, and anything that isn't exactly a known crash prefix keeps its refusal. The observation (stale cd5958b line labels for one mapping) is a record note.
+  - **Next:** its successors RW-S1 to RW-S5 are drafted together: X2 r10 with J1's S7, REG v3, X3c r9, X3b r11, and X4T r13 with an X4B r6 note. §RW of X9 r17 follows, then J4a.
