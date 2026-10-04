@@ -518,3 +518,6 @@ Times are local.
     - the tool-required additions are accepted;
     - the policy-admission gap until I1-b1 is recorded, since nothing can reach it today.
   - **Review:** goes to CODEX2 after I1 r3.
+- **Started:**
+  - **X3a-2 implementation**, the read-side adoption of the selected endpoint (X3a r5 items 4 and 8). It is needed before C1a by day 10, with a possible inventory candidate v136, and goes to Grok.
+  - **X4-F2 law draft**, closing the expiry gap in the fenced read (X4T r12). It goes to GROK2.
