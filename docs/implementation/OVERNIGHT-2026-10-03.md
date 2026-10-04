@@ -142,3 +142,10 @@ Times are local.
   - **Conflict found:** E1 makes the core provider closure the syntax producer, while M3-C r5 keeps that closure out of `semanticClosures`.
   - **Lead decision:** M3-C r6 widens it and adds the clones-near census (X-C1, X-C2). This gates E3, not E1.
 - **X2 r9 and X12 r4 accepted by Grok,** with no findings. These are M3-B's S1 and S2, and X12 r4 includes the first-use clause. M3-C's gate now waits only on M3-L, which waits on O7.
+- **M2 COMPLETE (2026-10-04).** `M2-COMPLETE.md` was finalized at arch `3e6c40ad7` and is in GROK2's fact review.
+  - **Evidence:** the crash matrix passes on `3d2d5b5` with Grok's rerun agreeing on 479/479.
+  - **Lanes on main `3e64266`:** workspace 1744/0, crash-matrix 1624/0, clippy, fmt and `verify_design` all clean.
+  - **Open, with owners:** the four obligations X3a-2, X4b, X4T-c and X4-F1.
+- **M3-J1 r1:** CODEX2 raised 7 findings. It went back for r2 with lead direction.
+- **F8b execution started:** the generator rebuild, the equivalence probe and the re-pins. X4-F1's lanes and X9 row reruns follow it.
+- **S-OP-2 r5** is queued for Codex.
