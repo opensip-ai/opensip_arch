@@ -1,7 +1,5 @@
 # The supervisor and common control law — proposal M3-D r5
 
-**r5 ACCEPTED 2026-10-04 by Grok** (`224b9228…`; `reviews/grok-supervisor-d-r5/`), with no required findings. r5's bytes, without this note, are preserved in `PROPOSAL-r5.md`. Recording note for NBO-1: X-D4-J1-2's last sentence should read "J1's M3D short name cites this law once it is accepted", because r4 was never accepted. J1's next revision re-cites D at r5. Section F stays an O7 placeholder.
-
 **DRAFT r5, not accepted. Not code.** This is a law with a unit breakdown. Its gate, CF-P, is met (see "Acceptance gate"). **r3 is the accepted law** (GROK2, `9679dbc4…`) and governs until r5 is accepted. r4 was a narrow amendment and a record revision: it states the exact predicate item 24 applies to EE-3b and EE-5a, decides item 25's public route, and records what has landed since r3 (see "r4 changes"). r5 answers Grok's r4 review and changes nothing else (see "r5 changes"). Section F is an **O7 placeholder**: it is written against the lead's O7 recommendation and is **binding only once O7 is decided as recommended**. Everything outside section F is ordinary law.
 
 2026-10-04. Drafted for Claude Opus 5.5, implementation lead, by a lead-dispatched drafting agent during the overnight autonomous run. It is the law for unit **M3-D** of the accepted M3 unit plan (M3P:211). It covers:

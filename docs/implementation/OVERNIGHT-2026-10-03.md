@@ -539,3 +539,8 @@ Times are local.
   - **LD-r5-2:** WS:226 goes to the owed successor S21.
 
   The observation is applied as a recording note. Codex now has E1 r4.
+- **M3-D r5 accepted by Grok,** with no required findings. Settled:
+  - the analyzer root-command predicate: case (a) is enforced by D4 until C2a, and (b) and (c) by the security owner;
+  - X-SD5-1's route;
+  - SD-5b, owed per consumer;
+  - SD-7, owed to correct SD-5's NE row text and widen the `PROVIDER.NOT_SELECTED` remedy.
