@@ -1,4 +1,4 @@
-# Configuration and discovery (M3-B) — proposal r4
+# Configuration and discovery (M3-B) — proposal r3
 
 2026-10-04. Drafted for Claude Opus 5.5, implementation lead, during the overnight autonomous run. Law for unit **M3-B** of the accepted M3 unit plan (M3P:160). It covers three sub-units:
 - **B1, the resolver:** Config2 layers, precedence and provenance (AQ:43-53, AQ:102-173), `resolvedConfigDigest` (IE:518-519) and FW-13 (COV:8104).
@@ -10,15 +10,6 @@
 r2 answers GROK2's r1 review (`/tmp/opensip-implementation/reviews/grok2-config-discovery-b-r1/`, copied to `docs/implementation/m3/reviews/grok2-config-discovery-b-r1/`): two required findings and two non-blocking observations. GROK2 confirmed R1 to R7 apart from those findings. The r1 bytes are preserved as `PROPOSAL-r1.md` (sha256 `da014f54…`, 85,905 bytes).
 
 **r3 is a record revision.** GROK2 accepted r2 on 2026-10-04 with no findings (`docs/implementation/m3/reviews/grok2-config-discovery-b-r2/`). The r2 bytes are preserved as `PROPOSAL-r2.md` (sha256 `92e65825…`, 94,762 bytes). The live file carried them with a 2-line acceptance note, which r3 removes. r3 applies only what has since been settled for this law: GROK2's rulings in its review of design unit B-S1, the three bound design units B-S1, B-S2 and B-S9, the acceptance of S1 and S2, and M3-L's cross-law item X10. It also re-pins this law's citations to accepted snapshots. It decides nothing new. The "r3 changes" table comes first, and the "r2 changes" table is kept below it with its reviewed citations. Diff r3 against `PROPOSAL-r2.md`.
-
-## r4 changes
-
-r4 answers GROK2's r3 review (`reviews/grok2-config-discovery-b-r3/`) and changes nothing else. r3's bytes are preserved in `PROPOSAL-r3.md`.
-
-| Finding | Change |
-|---|---|
-| RF-1 | Item 24's directory-custody row stated "as above". After r3 rewrote the row above it, "as above" resolved to row 1's pair. The row now states row 2's pair explicitly: `PROJECT.ROOT_CUSTODY_REFUSED` / `CONFIG.INVALID`. Only the in-repository crossing moved to row 1 (RBS1 R2). |
-| NBO-1 | Item 13's producer row now names `AdmittedBoundaryInventoryV3` for every project, per B-S1 LD-4. |
 
 ## r3 changes
 
@@ -402,7 +393,7 @@ The instrument's obligations:
 | Nested repositories and nested projects recorded, never entered (SL:146-157, SL:163-168) | unchanged, except for declared D15 members (item 22) |
 | `.git` indirection is data, never followed (SL:159-161) | unchanged |
 | The pruned-tree read set (SL:266-279) | C1's join; B2 exports the anchors |
-| The admitted boundary inventory (SL:281-311) | `boundary_inventory(result)` produces `AdmittedBoundaryInventoryV3` for every project **(r4, RBS3 NBO-1)**, as B-S1 LD-4 makes version 3 the current discovery record because the SX-1 anchor is on every project (SLS `schemas.AdmittedBoundaryInventoryV3`; SL:286 and NE:4135 as overridden by B-S1) |
+| The admitted boundary inventory (SL:281-311) | `boundary_inventory(result)` produces `AdmittedBoundaryInventoryV2` (SLS `schemas.AdmittedBoundaryInventoryV2`), or V3 under D15 (item 22) |
 | Native custody (SL:313-315) | ACL reads, reuse of the O_NOFOLLOW handle, and the `st_dev`/`st_ino` re-check |
 | Backup custody before the first source-derived write (SL:317-331) | the admission function is in `grants.rs` (item 23). J3 calls it at the first source-derived write. Law 464's constant-UNKNOWN classifier admits with `unknown-disclosed` |
 
@@ -782,7 +773,7 @@ The reviewer is asked to test this (R1).
 | A member path that fails grammar, or a crossing into a repository that cannot become a member | `PROJECT.EXPLICIT_PATH_INVALID` / `CONFIG.INVALID` (SL:1302, SL:1305) | `JOIN_PATH_GRAMMAR`, `JOIN_CROSSES_NESTED_REPOSITORY` |
 | An explicit or config member that fails layout or placement | `PROJECT.ROOT_CUSTODY_REFUSED` / `CONFIG.INVALID` (X2:250-270) | `member-vcs-unsupported:<reason>`, `member-outside-volume` |
 | An explicit or config member when W is inside a repository (W fails W2) | row 1's: `PROJECT.EXPLICIT_PATH_INVALID` / `CONFIG.INVALID` (SL:1302, SL:1305) | `JOIN_CROSSES_NESTED_REPOSITORY`. **(r3, RBS1 R2)** Item 22 and row 1 govern. This is a crossing into a repository that cannot become a member, so a project that never opts into D15 keeps S3's existing refusal. `workspace-root-inside-repository` is not applied to an explicit or config member; row 6 uses it |
-| An explicit or config member that fails directory custody | row 2's: `PROJECT.ROOT_CUSTODY_REFUSED` / `CONFIG.INVALID` (X2:250-270) **(r4, RBS3 RF-1)** | the existing custody subjects |
+| An explicit or config member that fails directory custody | as above | the existing custody subjects |
 | More than 64 members, **in either branch (r3, RBS1 R4)**. n is the number of distinct repositories that the active branch's declarations name after placement (M1 to M3), counted before X2 r9 item 6b reads any Git configuration or index | `PROJECT.SCOPE_LIMIT` / `REQUEST.UNSATISFIABLE` (SL:1323) | `members:<n>>64`. No member is dropped to fit, which would be truncation (item 12). The subject's remedy is the sentence B-S1 adds at SL:1323 (BS1 LD-17) |
 | A member that a reader declared, and that fails any of the above **except row 5 (r3, RBS1 R4: the cap refuses in both branches)** | **not a refusal.** The member is excluded, with the reason in `workspaceDeclarations[].unresolved`; its paths stay `outside-project-boundary`. **(r3, RBS1 R2 and R5)** When W fails W2, the readers declare nothing and derive no link. A literal reader entry inside a nested repository is disclosed as `member-excluded` with subject `workspace-root-inside-repository`, and no other entry is recorded | — |
 | A reader entry that is unresolved: a glob crossing, an ambiguous provider, a name mismatch, a non-path patch | disclosed in `workspaceDeclarations[].unresolved`; no member and no link | — |
