@@ -95,3 +95,10 @@ Times are local.
     - NE:1750 strips `[patch]`, which needs successor S5;
     - B is about 3 days larger than planned.
   - **OQ-1 added to the blockers as B4.** It is informational.
+- **The M2 completion record is drafted** at `m2/M2-COMPLETE.md`, pending Grok's rerun. It has 62 unit rows matched against git, 19 laws, L1–L11 and 22 follow-ups. EXIT-PLAN's status column is refreshed.
+  - **It found four M2 law obligations never built or formally deferred.** Lead decisions:
+    - **X3a-2** (read-side endpoint adoption): a post-M2 unit, before M3-C1.
+    - **X4b** (`admit_repo_execution_grant`): deferred to M3-B3 `grants.rs` and M5-EX, under O7.
+    - **X4T-c** (two continuation codes): right after F8b.
+    - **X4-F1:** a real defect. Observer rereads don't evaluate expiry as X4T r9 item 6 requires. It is fixed by an X4T-a successor unit before any M3 analysis ships, and disclosed as a known defect at M2 completion.
+  - None of the four is among BP:886's M2 criteria, but the owner should know.
