@@ -259,3 +259,10 @@ Times are local.
 - **X4-F1 accepted by GROK2 and integrated** at product main `15c0779`, on top of the binding commits. The integrated diff is byte-identical to the reviewed subject (`63eef2ab…`), and `verify_design` passes. M2's known defect X4 F-1 is fixed: observer rereads now evaluate expiry at the handoff instant plus elapsed monotonic time.
   - **Lead decision:** no full two-target matrix run at integration. The rows the change can move were rerun and match X9-6 byte for byte, and no crate reads `design-lock.json`, the only other delta from the tested base. A confirmation workspace lane on `15c0779` runs after E0 frees the machine.
   - **GROK2's rulings:** the evaluation instant is tEval + elapsed, not max(T, F′). The fenced read's own `EV-CLOCK` is outside this unit.
+- **M3-H r2 written and sent to Grok.**
+  - **RF-1:** the anchor checks stay with their owner, run once over a provisional view in a staging overlay. Routing is by the key and the view's origin:
+    - a provider return's anchor or Coverage failures take MJ row 30 (or 32);
+    - a host-minted view's failures take the host-invariant row.
+
+    New control H-C24 covers this.
+  - **Item 10 rebuilt:** the owner's view join already runs the Coverage producer check. H now builds scope D and a provisional `coverage2`, and the owner decides. This fixes r1's per-Analyze census and a dialect shape H couldn't build. Question R11 asks the reviewer about it.
