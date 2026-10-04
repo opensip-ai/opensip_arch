@@ -759,3 +759,16 @@ Times are local.
 - **M3-C r8 accepted in review by CODEX2,** with no required findings; like r7, it takes effect with L. **CRC-2 accepted and bound** at product main `1799d3d`, giving 99 contract successors and 4 passage supersessions. C4a's X-H3 prerequisite is met.
   - **Observation NB-MC8-1** goes to E1 r5: E1's X-C1, its forbidden substitute and E3-T13/T14 must conform to r8's widened core-closure use.
   - **Still owed before C4a:** X-8's enumeration-contract successor.
+- **J1 r6 written and sent to Codex.** It is a record revision covering:
+  - row 57 and R1's sentence;
+  - S21 met;
+  - D r5 re-pinned;
+  - SYN-1's routes (row 52, and new row 58, the syntax backend fault);
+  - E-3's ephemeral form with no detail;
+  - item 14's derivation units;
+  - item 13's successor states;
+  - the SD-5b rule;
+  - RW-S8;
+  - every pin moved to a snapshot.
+
+  **Conflict found by the drafter:** NE's excluded-form row (SD-5, as SD-7 supersedes it at NE:3540) still names `COMPONENT.REQUIRED_CLOSURE_NOT_INSTALLED` for an ephemeral request with no trust view, which contradicts §7.4. **Lead ruling:** **SD-8**, an NE passage supersession of SD-7's override, drops that detail and keeps the class and code. It is owed before J2c. **Rejected:** reading the sentence as fixing only the class and code, which leaves a bound contract sentence contradicting §7.4. The ruling is written into r6 before sending.
