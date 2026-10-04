@@ -206,3 +206,6 @@ Rejected: changing the trust-anchor tool now for one sentence.
   - the contract generator's drift check pins the `verify_design.py` from before VD1.
 
   A small policy-refresh unit is owed, alongside the next generator-closure successor.
+- **Follow-ups found by X4-F1 (2026-10-04).**
+  - **X4-F2:** the fenced read computes the expiry flags but never applies them (X4T-a r1 call 6 accepted this). A store already expired at handoff is admitted, then fail-stops at its first tick or checkpoint. It becomes a separate unit that publishes the continuation row at the lease-free point.
+  - **F9, fixture date refresh:** X4T-0's fixed fixture dates make native-clock test lanes refuse from 2026-12-30T00:00:01Z. Refresh them well before then.

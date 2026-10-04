@@ -111,3 +111,9 @@ Times are local.
   - **X2 ordering.** The placement check and chain walk run before item 3a's config reads.
 
   Both are queued for Grok after the rerun.
+- **X4-F1 written** in worktree `opensip-x4f1` (10 files, +524 −33), not yet compiled.
+  - **The fix:** observer rereads evaluate expiry at the handoff time plus monotonic elapsed time. An expired root or stale list fail-stops, with no new codes. No crash-barrier or trace change.
+  - **Integration needs:** full lanes plus a rerun of the 43 tick-armed storage rows, X9-4's remaining rows, 13 checkpoint kills, 4 host rows and both censuses.
+  - **New follow-ups, lead decisions:**
+    - **X4-F2:** the fenced read has the same unapplied-expiry gap.
+    - **F9:** test fixture dates expire on 2026-12-30.
