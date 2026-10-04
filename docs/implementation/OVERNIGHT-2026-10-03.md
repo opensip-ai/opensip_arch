@@ -300,3 +300,4 @@ Times are local.
     - new gate G10 makes FA-2 a condition of L taking effect;
     - item 5 gains an exception for E1's syntax stage and H's inventory derivation.
 - **New finding, important for the owner's Rust use:** Rust3 caps a request's subject list at 256 files, and refuses before spawn above it. By the T2 manifest, 9 of the 22 Rust repositories exceed it, including tokio (808 files) and axum (301). A product Rust provider couldn't analyze them. It goes to the Rust protocol owner (L r3's X13/R12) as a limit successor, alongside SM-6's TS2 limit successor. **Lead recommendation:** raise or remove the cap in a Rust3 limit successor before G3 ships, measured by S-M.
+- **E0 report accepted by GROK2** (record review, no required findings). The T-native outcome stands: syntax uses native tree-sitter, `native-linked-v1`. E2a can start once P0 lands.
