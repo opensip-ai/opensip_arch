@@ -81,3 +81,9 @@ Times are local.
   - the ACCEPT-DESIGN-UNIT review on the frozen manifest.
 
   M3-I1's product units follow F8b.
+- **M3-C r1 drafted and sent to CODEX2.**
+  - **Main finding:** `snapshot2`'s 4 MiB descriptor cap limits a snapshot to about 27k files. Five T2 repositories, and likely TS repositories with `node_modules`, exceed it, so an inventory-by-reference successor (S-R) is probably needed after S-M.
+  - **Lead decisions, for the owner to know about (reversible):**
+    - **O-1:** prepared-mode measurement waits for M5, because it would otherwise execute repository code.
+    - **O-2:** every core release is a new detector closure, as EC1 made it for the evaluator.
+    - **O-3:** large repositories may hit the cap until S-R lands.
