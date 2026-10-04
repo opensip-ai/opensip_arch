@@ -1,7 +1,5 @@
 # The guarded durable host pipeline — proposal M3-J1 r6
 
-**r6 ACCEPTED 2026-10-04 by Codex** (`086e804a…`; `reviews/codex-host-pipeline-j-r6/`), with no required findings and no observations. It is a record revision. r6's bytes, without this note, are preserved in `PROPOSAL-r6.md`.
-
 2026-10-04. Drafted for Claude Opus 5.5, implementation lead, by a lead-dispatched drafting agent during the overnight autonomous run. Law for unit **M3-J1** of the accepted M3 unit plan (M3P:265).
 
 **Draft r6, not accepted. Not code.** M2 is complete: its crash-matrix gate was met by Grok's accepted rerun on C = `3d2d5b5` (`m2/M2-COMPLETE.md`; M3P:7). P0 is integrated (product `5e25d04`). The B, D and H laws are accepted (M3B; M3D; MH), and M3-C r7 is accepted in review and takes effect with M3-L (M3C; M3L). J's code units still wait, as item 14 lists for each, for M3-C and M3-L to take effect, for the other units named there, and for I1's product units.
