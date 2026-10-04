@@ -1,8 +1,8 @@
-# M2 completion record — PENDING-RERUN
+# M2 completion record — COMPLETE (2026-10-04)
 
 2026-10-04. Drafted for Claude Opus 5.5, implementation lead, by a lead-dispatched drafting agent during the overnight autonomous run. This is a record. It is not law, code or a contract successor, and it changes no accepted contract, gate, threshold or register row. Drafted against arch HEAD `28e46fec5` and product main `3e64266`.
 
-**Status: PENDING-RERUN.** M2 completes when Grok's independent rerun of the crash matrix on product commit C (`3d2d5b5`) is accepted. That rerun is review `reviews/grok-crash-matrix-x96-r2/`, assigned at arch `af703414d`. Until then, this record claims nothing beyond the lead's own evidence and the accepted reviews it cites.
+**Status: COMPLETE (2026-10-04).** The rerun was accepted (`reviews/grok-crash-matrix-x96-r2`, arch `50047b7ed`). M2 completes when Grok's independent rerun of the crash matrix on product commit C (`3d2d5b5`) is accepted. That rerun is review `reviews/grok-crash-matrix-x96-r2/`, assigned at arch `af703414d`. Until then, this record claims nothing beyond the lead's own evidence and the accepted reviews it cites.
 
 When the lead finalizes:
 - every `RERUN` token below (a name in double square brackets) is filled from that review's `review.json` and `REVIEW.md`;
@@ -15,7 +15,7 @@ If the rerun's verdict is REQUIRED-FINDINGS, M2 is not complete. The status stay
 
 | Token | Filled from (`grok-crash-matrix-x96-r2`) | Expected value |
 |---|---|---|
-| `[[RERUN:verdict]]` | `review.json` `"verdict"` | `ACCEPT` |
+| (filled) `[[RERUN:verdict]]` | `review.json` `"verdict"` | `ACCEPT` |
 | `[[RERUN:requiredFindings]]` | `"requiredFindings"` | `[]` |
 | `[[RERUN:matrixPass-reviewer-pair]]` | `"matrixPass"`, the reviewer's two sets | `true` |
 | `[[RERUN:matrixPass-mixed-pair]]` | `"matrixPass"`, the pair (lead-1, reviewer set 1) | `true` |
@@ -44,7 +44,7 @@ The detailed checks are BP:591–613 ("Required API and fault-injection checks")
 2. **The actual crash/lock/revocation matrix passes.** The real two-target `check` gave `matrixPass: true` on the clean commit C, and an independent rerun on C agrees (§2.2).
 3. **Synthetic fixtures stay labelled.** Every matrix run carries `synthetic`, and no record claims qualification (§2.3).
 4. **The deliverable exists.** Its four parts exist as reviewed, integrated library code at main `3e64266` (§2.4).
-5. **The exit plan is accounted for.** Every EXIT-PLAN unit is integrated, or carried with a recorded owner (§3, §5). There are four exceptions: three units that accepted laws declare were never built (X3a-2, X4b and X4T-c), and the open gap X4 F-1. None of the four lies on BP:886's completion criteria. Each still needs a lead decision before finalization (§9).
+5. **The exit plan is accounted for.** Every EXIT-PLAN unit is integrated, or carried with a recorded owner (§3, §5). There are four exceptions: three units that accepted laws declare were never built (X3a-2, X4b and X4T-c), and the open gap X4 F-1. None of the four lies on BP:886's completion criteria. Each now has a lead decision (2026-10-04), recorded in §5 rows 13–16. X3a-2 is a post-M2 unit due before M3-C1. X4b is deferred to M3-B3's `grants.rs` and M5-EX, under O7. X4T-c follows F8b. X4 F-1 is a disclosed known defect: its fix, unit X4-F1, is written and lands before any M3 analysis ships. M3-PLAN r6 schedules all four.
 
 ### What this record does not claim
 
@@ -140,14 +140,14 @@ The same binary bytes appear in X9-2's to X9-5's records.
 - **X9-6 r1 (ACCEPT-UNIT):** Grok reproduced the census, the transcription, the coverage and release absence. Grok deferred its two full sets to a single rerun on C (`grok-crash-matrix-x96-r1/REVIEW.md`, "Rerun timing").
 
 **Grok's rerun on C (the third execution, X9 r16 item 7). PENDING.**
-- **Verdict:** `[[RERUN:verdict]]`. Required findings: `[[RERUN:requiredFindings]]`.
-- **`matrixPass`:** reviewer pair `[[RERUN:matrixPass-reviewer-pair]]`; mixed pair (lead-1, reviewer set 1) `[[RERUN:matrixPass-mixed-pair]]`.
-- **`normalizedSha256` agreement with the lead:** `[[RERUN:normalized-equal]]` equal, `[[RERUN:normalized-differing]]` differing.
-- **The evidence record's `hashes.txt`, as Grok hashed it:** `[[RERUN:evidenceRecordSha256]]`.
-- **The reviewer's release absence:** `[[RERUN:release-absence]]`.
-- **Review date and record:** `[[RERUN:date]]`, arch `[[RERUN:arch-record]]`.
+- **Verdict:** `ACCEPT`. Required findings: `none`.
+- **`matrixPass`:** reviewer pair `true`; mixed pair (lead-1, reviewer set 1) `true (the lead pair is also true)`.
+- **`normalizedSha256` agreement with the lead:** `479 of 479, in every pairing of Grok's two sets with the lead's two sets and with each other` equal, `0` differing.
+- **The evidence record's `hashes.txt`, as Grok hashed it:** ``97f8367e46c07fddc627bb0661896b228e39348460af70cf29f1d535ed57da69``.
+- **The reviewer's release absence:** ``opensip` 6315264 bytes, `b32604fe…`, with no barrier strings found; both feature builds refused`.
+- **Review date and record:** `2026-10-04`, arch ``50047b7ed``.
 
-**Result:** M2's crash/lock/revocation matrix gate is MET when `[[RERUN:verdict]]` is ACCEPT.
+**Result:** M2's crash/lock/revocation matrix gate is MET when `ACCEPT` is ACCEPT.
 
 ### 2.3 "Synthetic fixtures remain labelled, not compiler qualification"
 
@@ -445,7 +445,7 @@ nice -n 19 /opt/homebrew/Cellar/python@3.14/3.14.6/bin/python3.14 -I -B tools/ve
 | `check_package_edges.py --lane host` against v134 | passed |
 | Checker unit tests | 26 OK |
 
-No cargo lane is recorded at `3e64266`. D3 and F8a change no byte that Rust reads; F8a's request deferred the workspace lanes to "integration, after those sets". `[[LEAD: record any lanes run at 3e64266 after Grok's rerun, or state that none were run]]`
+No cargo lane is recorded at `3e64266`. D3 and F8a change no byte that Rust reads; F8a's request deferred the workspace lanes to "integration, after those sets". The lead ran the lanes on product main `3e64266` on 2026-10-04, after Grok's rerun. Workspace: 1744 passed, 0 failed, 3 ignored. Crash-matrix feature lane (platform, security, storage, host): 1624 passed, 0 failed, 3 ignored. Workspace clippy `-D warnings`: clean. fmt: clean. `verify_design`: passed, v134 selected. The real home stayed absent.
 
 **Policy checks.**
 - After F8a, `check_dependencies.py` and `check_identity_dependencies.py` pass, and so do their suites, 9 and 5 tests (`codex-policy-refresh-f8a-r1`).

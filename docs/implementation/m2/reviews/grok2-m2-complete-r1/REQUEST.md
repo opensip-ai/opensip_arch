@@ -5,7 +5,7 @@ GROK2 review: the **M2 completion record**, r1. Verdict wanted: **ACCEPT** or **
 > 2. The lead has filled every `[[RERUN:…]]` token and the `[[LEAD:…]]` token in `M2-COMPLETE.md`, and decided §5 items 13–16.
 > 3. `hashes.txt` here has been recomputed over the finalized bytes and committed.
 >
-> The hashes committed with this draft pin the PENDING-RERUN draft. They are not the bytes to review.
+> The hashes committed with this draft pin the COMPLETE (finalized after Grok's accepted rerun, arch 50047b7ed) draft. They are not the bytes to review.
 
 Claude Opus 5.5 leads, and you are the reviewer.
 - Do not edit any repository, commit, push or delegate.
