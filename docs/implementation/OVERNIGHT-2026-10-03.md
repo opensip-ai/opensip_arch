@@ -154,3 +154,4 @@ Times are local.
   - **Housekeeping for the owner:** the probe's deliberately killed runs left five crash reports in `~/Library/Logs/DiagnosticReports/` (`cfp-2026-10-04-*`, `t_named-*`). They are safe to delete.
 - **M3-E1 accepted at r3 by Codex.** The syntax backend is tree-sitter in a fuel-metered Wasm boundary; probe E0 decides between Wasm and the native fallback. X-C1 and X-C2 go to M3-C r6.
 - **M3-J1 accepted at r3 by CODEX2,** with no required findings. Its two non-blocking wording observations, the composition citation and post-freeze loss, go into the S18 successor. J-BS and S18 still need their own design-unit reviews.
+- **M3-C r6 written and sent to CODEX2.** It applies E1's X-C1 by lead decision: the core provider closure also produces syntax-universe work and is in `semanticClosures` exactly when a syntax universe is selected. It also applies X-C2, the `clones-near` census that C4a builds. Nothing else changed from r5.

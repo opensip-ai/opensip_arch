@@ -1,10 +1,8 @@
-# Sealed snapshot and Plan — proposal M3-C r5
-
-**r5 ACCEPTED in review 2026-10-04 by CODEX2** (`7f76052d…`). r5's bytes, without this note, are preserved in `PROPOSAL-r5.md`. Under its own gate, the law takes effect once M3-L and X12 r4 are accepted.
+# Sealed snapshot and Plan — proposal M3-C r6
 
 2026-10-04. Drafted for Claude Opus 5.5, implementation lead, by a lead-dispatched drafting agent during the overnight autonomous run. Law for unit **M3-C** of the accepted M3 unit plan (`M3-PLAN.md:163`).
 
-**Draft r5, not accepted. Not code.** No product crate is touched before X9-6 (M3P:5, M3P:272). Every code unit below also waits for P0, the M3-L law and I1's product units ("Units").
+**Draft r6, not accepted. Not code.** No product crate is touched before X9-6 (M3P:5, M3P:272). Every code unit below also waits for P0, the M3-L law and I1's product units ("Units").
 
 r2 answered CODEX2's r1 review: four required findings and three non-blocking observations. The r1 bytes are preserved as `PROPOSAL-r1.md` (sha256 `ff9a5e8d…`, 78,037 bytes).
 
@@ -19,7 +17,18 @@ r4 answers CODEX2's r3 review (`/tmp/opensip-implementation/reviews/codex2-snaps
 
 r5 answers CODEX2's r4 review (`/tmp/opensip-implementation/reviews/codex2-snapshot-plan-c-r4/`): one required finding, C4-R1, resolved by a lead decision, and three non-blocking observations. The r4 bytes are preserved as `PROPOSAL-r4.md` (sha256 `bcf4baa1…`, 140,217 bytes).
 
+**r5 was accepted in review by CODEX2** (`7f76052d…`), with its bytes preserved as `PROPOSAL-r5.md`. r6 applies exactly two cross-law items from the accepted syntax law **M3-E1 r3** (`docs/implementation/m3/syntax-e/PROPOSAL.md`, Codex, arch `a59390a4b`; its item 14b and its successor rows X-C1 and X-C2). It changes nothing else.
+
 **Lead decisions.** Items 1 to 20 hold lead decisions dated 2026-10-04. They are made under the owner's standing direction to decide on the lead's recommendation and to block only where no recommendation exists. Each one names the alternatives it rejects. The owner may reverse any of them. Four are flagged to the owner in "Open questions"; none blocks this law. r3's step-order rows 1 to 4 follow X12 r4, which is pending review.
+
+## r6 changes
+
+r6 applies exactly the two cross-law items of the accepted M3-E1 r3 (item 14b; successor rows X-C1 and X-C2). Nothing else changes.
+
+| Item | Change |
+|---|---|
+| **X-C1** (E1 item 14b) | **Lead decision: widen.** Item 9's **core provider closure**, which r5 called the core import-producer closure and which is the same identity, gains a second admitted use as the producer of syntax-universe work:<br>- the scope enumerator, view and fact producer, stage-spec producer, enumeration binding enumerator and `CandidateProducerResultV1` producer;<br>- **only** for records whose universe is a `native.semantic-universe.syntax.v2` identity;<br>- it is a `plan.semanticClosures` member **exactly when** a syntax universe is selected;<br>- it never produces a TypeScript or Rust record.<br><br>The core adapter closure is unchanged. **Rejected** (as E1 item 14b records): re-kinding the grammar closure `provider`; a separate core "syntax-producer" projection, since the same descriptor with the same kind is the same identity.<br>C2-T13 is narrowed and C2-T13a is added (E3-T13 and E3-T14's Plan legs). Item 16's `semanticClosures` row and stage specs now include one stage per syntax universe, produced by the core provider closure. The CRC-1 row and item 13's wording follow. |
+| **X-C2** (E1 item 14a) | Item 16's step 12 builds **`candidateSourcePaths`** for every available syntax-only `clones-near` binding. It holds the scoped first-party body-eligible paths under the cell workspace (NE:959-970), plus any path an explicit scope names. It is a canonical set of at most 100,000 paths. A zero-path census is the explicit `[]`, never omitted (`enumeration-contract.v1.md:49`). C4-T21 is added, and C4a's unit row carries both Plan legs. |
 
 ## r5 changes
 
@@ -408,9 +417,19 @@ O7 is **not** a gate item. This law launches nothing except the dependency-featu
     - **component and role joins:** TR-CORE's role over that body (IE:274-276), as EC1;
     - **retained bytes and descriptor:** the inventory body and the platform tree, retained once per store by raw SHA-256 (EC1 "Consequences");
     - **selection in the Plan:** the emission row and `semanticClosures`.
-- **Decision (the in-core import roles).** Item 13 needs an `import.producerClosure` of kind `provider` and an `import.adapterClosure` of kind `adapter` (IDS:4726) for the in-core importer. These are the **core adapter closure** and the **core import-producer closure**: the same D with `kind` set to `"adapter"` and `"provider"` respectively.
-  - Each is admissible **only** in that one field, of an import whose `kind` is `dependency` or `prepared`.
-  - Neither is ever a `plan.semanticClosures` member, so neither can produce a view, scope, fact, stage or cache entry (IDS `closureMembership.direct`; L:206-210).
+- **Decision (the in-core provider and adapter roles; r6, X-C1).** Item 13 needs an `import.producerClosure` of kind `provider` and an `import.adapterClosure` of kind `adapter` (IDS:4726) for the in-core importer. These are the **core adapter closure** and the **core provider closure**: the same D with `kind` set to `"adapter"` and `"provider"` respectively. r5 called the second the "core import-producer closure". It is the same identity, and E1 names it the core provider closure (E1 item 14b).
+  - **The core adapter closure** is admissible **only** as `import.adapterClosure` of an import whose `kind` is `dependency` or `prepared`. It is never a `plan.semanticClosures` member.
+  - **The core provider closure** has exactly **two** admitted uses (r6, lead decision on E1's X-C1):
+    1. **`import.producerClosure`** of an import whose `kind` is `dependency` or `prepared` (item 13);
+    2. **the producer of syntax-universe work** (E1 item 14b). It is the producer in every one of these fields, **only** where the record's universe, or the stage's or binding's universe, is a `native.semantic-universe.syntax.v2` identity:
+       - `subject-scope.enumeratorClosure`;
+       - `view.producerClosure`, and so `fact.producerClosure` (IDS `equalToDirect`);
+       - `stage-spec.producerClosure`;
+       - the enumeration binding's `enumerator.closureId` (`enumeration-plan.schema.v1.json`, cited by E1 as ENS:265);
+       - `CandidateProducerResultV1.producerClosure`.
+
+       The code that produces syntax facts and candidates (`crates/syntax`, `host/syntax.rs` and the engine) ships in the core (BP:676-683). The grammar closure stays kind `grammar` and is never a producer (IDS:4743).
+  - **Its `semanticClosures` membership.** The core provider closure is a `plan.semanticClosures` member (IDS:4794-4803) **exactly when** the Plan selects a syntax universe, and never otherwise. It is never the producer of any TypeScript or Rust record, and never an import's producer except as use 1. So it can produce no TypeScript or Rust view, scope, fact, stage or cache entry (IDS `closureMembership.direct`; L:206-210).
 - **Successor CRC-1** (the core role closures; identity owner; the EC1 pattern). It carries:
   - the three projections;
   - the `manifestDigest` artifact text for those kinds;
@@ -428,13 +447,23 @@ O7 is **not** a gate item. This law launches nothing except the dependency-featu
     - the consuming Rust provider's closure as producer: false, since the provider did not produce the record;
     - a placeholder closure: not admissible;
     - a new closure kind: `closureKinds` is closed (IDS:4726).
-- **Forbidden substitutes:** a detector closure from any core other than the seal's evaluator's; a core role projection outside its one field; `kind: core` anywhere in identity (EC1 "Rejected").
+  - **For syntax-universe work (r6, as E1 item 14b records):**
+    - the grammar closure re-kinded `provider`: item 7 fixes the kind by role, and the grammar closure executes nothing;
+    - a separate core "syntax-producer" projection: the same descriptor with the same kind is the same `closure2`, and a second name for one identity is a distinction no admission can see.
+- **Forbidden substitutes:** a detector closure from any core other than the seal's evaluator's; a core role projection outside its admitted fields (r6: one field for the adapter, the two uses above for the provider); the core provider closure on a TypeScript or Rust record; the TypeScript or Rust provider's closure on a syntax record; `kind: core` anywhere in identity (EC1 "Rejected").
 - **Controls:**
   - C2-T9: the vector. D″ equals D′ except `kind`, the ids differ, and `manifestDigest` is the body's SHA-256.
   - C2-T10: an emission row naming the evaluator closure refuses.
   - C2-T11: an emission row naming another core's detector refuses.
   - C2-T12: a core adapter projection as a view producer refuses.
-  - C2-T13: a core provider projection in `semanticClosures` refuses.
+  - C2-T13 (r6, narrowed for X-C1): the core provider closure in `plan.semanticClosures` refuses when the Plan selects **no** syntax universe. When a syntax universe is selected, its absence from `semanticClosures` refuses. This is E3-T13's Plan leg.
+  - C2-T13a (r6, X-C1): the core provider closure:
+    - **admits** as the producer of a syntax-universe view, scope, stage spec, binding or envelope;
+    - **admits** as `import.producerClosure` of a `dependency` or `prepared` import;
+    - **refuses** as the producer of a TypeScript or Rust record (E3-T14);
+    - **refuses** in any other field.
+
+    A TypeScript or Rust provider closure on a syntax record also refuses.
 
 **10. Native contexts and universes.**
 - **Decision.**
@@ -689,7 +718,7 @@ O7 is **not** a gate item. This law launches nothing except the dependency-featu
       - The record is retained as a blob, and `observationDigest` is the raw SHA-256 of its canonical bytes (NE:2697-2708).
       - "No observations" refers to those four values only;
     - `completeness` is `complete`, or `partial` with one `missing:<name> <version> <sourceId>` omission per missing package;
-    - `producerClosure` and `adapterClosure` are item 9's core import-producer and core adapter closures.
+    - `producerClosure` and `adapterClosure` are item 9's core provider closure (its import-producer use) and core adapter closure.
   - **No self-reference.** A payload cannot name its own ImportId, because ImportId hashes the payload (IE:181; NE:2655). So in every M3 record:
     - `acquisition.descriptorId` is `null` (NES `AcquisitionV1`);
     - `preparation.importId` is `null` (NES `PreparationV3`).
@@ -803,7 +832,7 @@ O7 is **not** a gate item. This law launches nothing except the dependency-featu
   |---|---|
   | `snapshotId` | C1 |
   | `capabilityManifestId`, `capabilityManifestBytesDigest` | the committed CVE1 artifact and its recipe (IE:224-235) |
-  | `semanticClosures` | the selected provider closures, the core evaluator closure (EC1) and the core detector closure (item 9). These are exactly the direct members (IDS:4794), and nothing a context or import already selects. |
+  | `semanticClosures` | the selected provider closures, the core evaluator closure (EC1) and the core detector closure (item 9), **plus the core provider closure exactly when a syntax universe is selected** (r6, X-C1). These are exactly the direct members (IDS:4794), and nothing a context or import already selects. Once selected, the core provider closure is a selected provider closure, so the semantic grant's sentence below covers it. |
   | `analysisSpecDigest` | the analysis-spec built and admitted at step 12 (r2; r3 numbering): B's requested capabilities; `policyPackIds` from the `AdmittedPack` (item 18); the `EnumerationPlanV1` parameter (from the snapshot, boundaries, scope, `UnitMembershipV1` (NE:745), closures, contexts and universes) and the `EvaluatorEmissionPlanV1` parameter (COMP:9) |
   | `resolvedConfigDigest`, `scopeDigest` | B1 and B2, equal to the snapshot's (IE:1416) |
   | `nativeContextDigests` | C2, as a bare-hex canonical set (IE:297-302, IE:498-506) |
@@ -861,7 +890,12 @@ O7 is **not** a gate item. This law launches nothing except the dependency-featu
   - `EnumerationPlanV1` (`enumeration-contract.v1.md:13-24`) carries:
     - `snapshotId`, `scopeDigest` and `membershipDigest` from steps 6 and 9;
     - one cell per requested ownership tuple;
-    - program bindings whose available enumerators name the contexts and universes admitted in step 11, with the prospective `semanticClosures` and `nativeContextDigests` sets as its graph inputs (`:83-96`).
+    - program bindings whose available enumerators name the contexts and universes admitted in step 11, with the prospective `semanticClosures` and `nativeContextDigests` sets as its graph inputs (`:83-96`). The enumerator of a syntax-universe binding is the core provider closure (item 9; X-C1).
+    - **the `clones-near` census (r6, X-C2; E1 item 14a).** Every available syntax-only `clones-near` binding carries `candidateSourcePaths`, the required Plan-selected census of a candidate-only cell (`enumeration-contract.v1.md:49`; `enumeration-plan.schema.v1.json`, `candidateSourcePaths`). C4a builds it as E1 item 14a defines it:
+      - the scoped first-party snapshot paths under the cell's workspace root whose suffix selects a syntax dialect-table variant, that is, the body-eligible paths (NE:959-970);
+      - plus any path an explicit scope names.
+
+      It is a canonical set of logical paths, at most 100,000, the schema's bound, which the snapshot's own 100,000 rows already bound (item 5). A zero-path census is the explicit `[]`, never an omitted field, because an omitted field is not complete-empty work (`:49`). E3 consumes it unchanged.
 
     It never names `planId` or `analysisSpecDigest` (`:15`).
   - `EvaluatorEmissionPlanV1` is built from the `AdmittedPack`'s rules and step 8's core detector closure (item 18).
@@ -869,6 +903,7 @@ O7 is **not** a gate item. This law launches nothing except the dependency-featu
   The spec is then admitted in NE:4278's order: bounded cardinality, then schema, then the closed vocabulary. The admitted bytes are the bytes retained and the bytes `plan.analysisSpecDigest` names. There is no placeholder, no later rebinding and no second construction. The enumeration joins themselves take the Plan and PlanId (`admit_enumeration`, `enumeration-contract.v1.md:164`), so their structural part runs at step 15, and the full admission runs after execution, both over the same bytes.
 
   **Stage specs and `exec-plan2`.** Each stage spec is `{planId, producerClosure, operation, parameters, outputDomains, outputSchemaDigest}`. Its operation token comes from the selected producer's interface. Its output schema must be registered at `opensip-interface/stage-output/<operation>.schema.json` in that closure. Every parameter row must also be an analysis-spec row (IE:1288-1346).
+  - **Syntax universes (r6, X-C1; E1 item 14b).** `exec-plan2` has **one stage per selected syntax universe**, and that stage's `producerClosure` is the core provider closure. Every syntax-only binding of that universe names that stage as its `stageOrdinal`. The stage's operation and output schema are those the core's syntax interface registers. E1 owns the interface, and E3 executes the stage in the host.
 
   C4 mints no `cache2` and no `regen2` (L item 3).
 - **Basis:** IE:182, IE:1360-1377, IE:1416-1425, IE:1462-1474, IE:1508-1515; IDS `plan`, `closureMembership`; COMP:9; `enumeration-contract.v1.md:13-24`, `:83-96`; NE:4276-4278; X12 items 8 and 9.
@@ -905,6 +940,7 @@ O7 is **not** a gate item. This law launches nothing except the dependency-featu
     - with one expected inventory withheld, refuses `ENUMERATION_INVENTORY_MISSING_RECORD`.
 
     A source pin shows that C4 never calls the inventory-taking admission.
+  - C4-T21 (r6, X-C2): for a project with a U-9 syntax-only unit holding `.rs`, `.ts`, `.json` and `README.md` files, the `clones-near` binding's `candidateSourcePaths` is exactly the scoped body-eligible code paths, with no data document. An explicit scope naming one extra path adds exactly it, and a census with no eligible path is `[]`, never omitted. The Plan's `exec-plan2` has exactly one stage per syntax universe, whose producer is the core provider closure. This carries E3-T8 to E3-T12's Plan leg.
   - C4-T20 (r3, X12 r4):
     - a refused project-layer pack ID returns X12 row 1 after the carrier captures and before any registry read, RESERVED row, lease or journal, with the session released;
     - **on the first-use creator route**, the same refusal leaves a complete installation and no project-scoped effect (no registry row, namespace, `.opensip`, marker, lease or journal), and the refusal discloses the creation.
@@ -1002,7 +1038,7 @@ O7 is **not** a gate item. This law launches nothing except the dependency-featu
 | ID | Kind and owner | Content | Needed before |
 |---|---|---|---|
 | **X12d** | inventory successor (C4b); lead | Item 19 | J2; any producer reaching X5 |
-| **CRC-1** | identity contract successor; identity owner (EC1 pattern) | Item 9: the core detector, adapter and import-producer closures; the `manifestDigest` text; field restrictions; the detector join; a vector | C2a |
+| **CRC-1** | identity contract successor; identity owner (EC1 pattern) | Item 9: the core detector, adapter and provider closures; the `manifestDigest` text; field restrictions, including **r6's two uses of the core provider closure** (import producer; syntax-universe producer) and its `semanticClosures` membership exactly when a syntax universe is selected (E1's X-C1); the detector join; a vector | C2a |
 | **CR-1** | security / DR-103 host vocabulary successor; security owner with D4 | Item 7's role-to-kind table; widening the manifest `role` enum | C2a; F4 and G2 closure manifests |
 | **NIJ-1** | native passage successor; native owner | Item 13: null self-references, the identity join, native-input imports in `plan.importIds`, the producer and adapter, the `acquisitionSourcePath` disposition | C3a |
 | **VCS-1** | identity passage successor (IE:542-546) | Item 4's meaning of `dirty` | C1b |
@@ -1042,7 +1078,7 @@ Each is an inventory successor on the linear chain, numbered at launch (workflow
 | **C3a** | `imports.rs`: DS-1..DS-6 admission, CRATE-ARCHIVE-1, the wrapper (items 11 to 13) | C1a; NIJ-1; P0's inflater row | L |
 | **C3b** | the unified-features adapter invocation (item 12) | C3a; D1's primitive. O7 and the D law are day-0 assumptions (M3P:191-195, M3P:310). | S |
 | **C3c** | prepared import and PO-0..PO-4 (item 14) | C3a; R3 | M |
-| **C4a** | `plan.rs`: the step 1 to 16 order (for steps 1 to 6, C4a calls the X2, B1, X12 and B2 owners), the analysis-spec, Plan, bounds, grant, pack citation and stage specs (items 16 to 18). It also orchestrates the Rust context minting through C2c. **Recommended split (r2):** without wiring prepared imports into the Plan. | C1b, C1c, C2b, C2c, C3a, C3b, B1, I1-c | L |
+| **C4a** | `plan.rs`: the step 1 to 16 order (for steps 1 to 6, C4a calls the X2, B1, X12 and B2 owners), the analysis-spec, Plan, bounds, grant, pack citation and stage specs (items 16 to 18), including **r6's syntax stages and `clones-near` census** (E1's X-C1 and X-C2; their Plan legs are carried by C4a's acceptance). It also orchestrates the Rust context minting through C2c. **Recommended split (r2):** without wiring prepared imports into the Plan. | C1b, C1c, C2b, C2c, C3a, C3b, B1, I1-c | L |
 | **C4c** (r2) | wiring prepared imports into the Plan: step 10's prepared branch, the PO-1 refusal path, `read-import` for prepared sets | C4a; C3c | S |
 | **C4b = X12d** | item 19 | C4a; I1-b2; X12-A; one serialized X9 lead run set | M |
 | **H-DEP, H-NM, H-PREP** | the harness recipes (item 15), on the K lane | T2-DEP; C3a (H-DEP); C1c (H-NM); C3c (H-PREP) | S each |
