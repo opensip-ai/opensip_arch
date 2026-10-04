@@ -1,0 +1,92 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "reviewer": "CODEX2",
+  "reviewType": "law-and-method-soundness",
+  "round": 2,
+  "subjectPath": "docs/implementation/m3/host-pipeline-j/PROPOSAL.md",
+  "subjectSha256": "f7efb87a74da9c0d65789a8302f30d356ff7c83ced4e7de7f8a2de8d3fcb865e",
+  "subjectBytes": 100981,
+  "productCommit": "3e64266aa8729160cd22509dcfff95a3bb09fcea",
+  "requiredFindings": [
+    {
+      "id": "J1-R2-01",
+      "location": "PROPOSAL.md:449-462 (8.1); :535 (8.6); :561 (J-C15); S10/S11",
+      "problem": "The window closes on every return of prepare_commit, including Ok(PreparedCommit), which returns before publish. WINDOW_CLOSED then permanently prevents the B/C latch during publication, so S12-B/C/U cannot exercise the promised operator stop.",
+      "evidence": [
+        "PROPOSAL.md:450-462 opens at attempt-row COMMIT, closes on every prepare_commit/publish return, and permits a latch only when WINDOW_CLOSED is clear. Its list of five closing outcomes omits the continuing Ok(PreparedCommit) return.",
+        "Product crates/storage/src/commit.rs:465-557 returns Ok(PreparedCommit) on successful preparation; PreparedCommit::publish is a separate call at :571-630.",
+        "Pinned X3D:119-156 separates preparation from publication; :168-171 fixes F38/F39/F41. PROPOSAL.md:480-481 and :674-677 require a cancellation latch inside publish."
+      ],
+      "fix": "Keep the window open across successful preparation. Close on every terminal/unsuccessful prepare return and every terminal publish outcome, using the successful publication close as the latch sample. Update 8.1/8.6, S10/S11 and J-C15, and add successful preparation followed by cancellation during publish to the controls. Preserve all window bits in state-changing CAS operations, mask logical state reads, and never reset the gate."
+    },
+    {
+      "id": "J1-R2-02",
+      "location": "PROPOSAL.md:483 (phase O); :560 (J-C14); :705 (S18); :623-624 (matrix 43-44)",
+      "problem": "Phase O sends every renderer failure to F16, an after-commit route retaining RunId. Required rendering also covers ephemeral evaluations and pre-commit refusals, which have no committed Run. The new rule contradicts the existing no-Run renderer/projection route and the proposal's row 44.",
+      "evidence": [
+        "PROPOSAL.md:318-327 gives durable and ephemeral invocations the same required render step and renders analysis refusals. :483 and :705 unconditionally choose F16 for an O renderer failure.",
+        "Pinned X7:88-91 permits authoritative RunId only from PublishedCommit; :99 defines F16 as Committed with required delivery failure.",
+        "Pinned WS:1376-1377 distinguishes DELIVERY.RENDERER_FAILED_AFTER_COMMIT with retained RunId from DELIVERY.REQUIRED_PROJECTION_FAILED without RunId. Both use operational-failed/4 and DELIVERY.REQUIRED_FAILED. WS:233-240 still governs required-step aggregation and ties."
+      ],
+      "fix": "Select the before-byte renderer failure route from the actual committed evidence: F16 when PublishedCommit exists, otherwise WS:1377/row 44 with no RunId, subject to the aggregate rules. Keep required ExecutionId/recovery disclosure for an uncertain analysis outcome. Update O, S18 and J-C14; control both committed and ephemeral/pre-commit renderer failures. Construct a failure envelope before any bytes only through the reviewed failure projector; preserve exit 4 and no replacement envelope on output failure."
+    },
+    {
+      "id": "J1-R2-03",
+      "location": "PROPOSAL.md:323, :340-352 (shared DAG/settlement); :387-388 (ephemeral); :705 (S18); :717-720 (J2c/J3d)",
+      "problem": "The common final output section defers cancellation before settlement for ephemeral output too, but the ephemeral rule still says phase A only and J2c can be wired end to end without S18. Only J3d's output is gated. This permits an unaccepted exception to WS before-settle cancellation and leaves the ephemeral O-signal disposition contradictory.",
+      "evidence": [
+        "PROPOSAL.md:323 specifies the same required render step for ephemeral; :340-352 applies the O exception to the shared DAG and gates only J3d.",
+        "PROPOSAL.md:387 says ephemeral cancellation has phase A only. :717 makes J2c the ephemeral entry end to end with dependencies J2b, S3 and S7b, without S18. The unwired-output allowance at :515 and the S18 gate at :720 apply only to J3d.",
+        "Pinned WS:224-228 applies cancellation by required-step terminality, with no durability restriction. WS:242-248 supplies ephemeral authority rules but no final-output deferral exemption."
+      ],
+      "fix": "Explicitly define ephemeral pre-output cooperative cancellation, O final output, and E after required-step terminality, without B/C commit-gate phases or RunId. Gate every wired output path that uses deferral on S18, including J2c, or explicitly leave that output unwired until the common accepted output implementation is available. Pure model authoring may proceed earlier. Add ephemeral controls before the decision point, inside O and after settlement."
+    }
+  ],
+  "nonBlockingObservations": [
+    {
+      "id": "J1-R2-NB-01",
+      "location": "PROPOSAL.md:476, :483, :559, :680; S18",
+      "problem": "O needs a reviewed CancelPhase table member, and S12-O's signal arrives after SOP2 has closed producer admission and frozen the summary. A persisted O event cannot be required at that hold under SOP2 r4's stated late-record loss rule.",
+      "evidence": [
+        "Pinned SOP2:815 lists CancelPhase A-E; :205-208 permits ordinary reviewed code-table member registration without a new SOP2 successor.",
+        "Pinned SOP2:628-649 closes producer admission/enqueue and persistent sinks and freezes the immutable summary; :663 says post-freeze records are neither logged nor in the summary.",
+        "PROPOSAL.md:680 sends the O signal after SOP2 finalization but expects it recorded with arrival phase O."
+      ],
+      "recommendation": "In S18/O1's separate reviews, register O and specify attempted classified emission with the stated post-freeze loss, or a reviewed in-memory observation for the control. Do not reopen sinks or mutate frozen envelope diagnostics. Logging loss must remain nonsemantic."
+    }
+  ],
+  "priorFindingClosures": [
+    {"id": "J1-R1", "status": "closed", "basis": "Outcome-first rules, phase C, rows 38/42, J-C14 and S12-U preserve uncertainty and require PublishedCommit for F39/RunId."},
+    {"id": "J1-R2", "status": "original-boundary-defect-addressed-with-new-required-corrections", "basis": "Actual terminality, separate output decision and explicit S18 owner exception repair the original claim; J1-R2-02 and J1-R2-03 correct the new O route and gates."},
+    {"id": "J1-R3", "status": "closed", "basis": "EntryRefusal.created carries this act's value-only publication record through failed attempt B and post-rename refusals; presence no longer waits for R3 success."},
+    {"id": "J1-R4", "status": "closed", "basis": "Platform process-wide ExecutionIdReservations supplies pre-use uniqueness for all drawing owners, distinct from durable attempt custody; S4/S10/J3a and J-C4b cover it."},
+    {"id": "J1-R5", "status": "closed", "basis": "J3d restores F2/G3 and conditional critical-path waits."},
+    {"id": "J1-R6", "status": "closed", "basis": "Rows 52-55 and J-C20b cover NE native context, preparation bound, ambient Cargo and authenticated release routes with the correct origin/detail rules."},
+    {"id": "J1-R7", "status": "closed", "basis": "Per-command enablement retains audit's refusal until M5 comparison."},
+    {"id": "J1-N1", "status": "minting-and-atomic-order-addressed-with-new-window-defect", "basis": "Mint once and same-word ordering are explicit; J1-R2-01 corrects the premature successful-preparation close."},
+    {"id": "J1-N2", "status": "closed-for-J3d", "basis": "O1 is an explicit J3d dependency; no SOP2 acceptance is implied."}
+  ],
+  "requestedDecisions": {
+    "s18Boundary": "Sound in direction: output decision before SOP2 finalization, then actual required-output terminality; explicit WS/OPP passage successor and no claimed elapsed bound on blocked required output. Requires evidence-dependent renderer routes and gates for every wired mode using the exception.",
+    "writeFailure": "Exit 4 with no appended replacement envelope is sound, including when a failed write cannot prove that zero bytes escaped; bootstrap.rs:55-60 is preserved.",
+    "postRenameCreated": "Sound for this act's known completed exclusive rename. Value-only firstUse/target/unknown backup disclosure is not a durable-success receipt; L468:48 HostIo refusal and OWN:115-117 restrictions remain. Unknown rename results must not be promoted by later existence scans.",
+    "gateBits": "Same-word monotonic window bits, masked logical state decoding and full-word-preserving CAS loops can retain the 0..3 state law and F41. S11 is correctly an X4 amendment. Successful preparation must keep the window open.",
+    "executionIdOwner": "Platform is an appropriate shared owner. Pre-use process reservation is separate from durable attempt custody, preserves security's draw, and uses each drawing owner's existing HostIo/HOST.IO_FAILURE refusal on entropy failure or exhausted collision draws.",
+    "renewedPins": "M3P r6, M3-C r5, X12 r4, X2 r9 and SOP2 r4 are the requested archived bytes; renewed order, dependency and control citations were checked. SOP2 r5 was not substituted and gains no acceptance. M3-C effectiveness remains gated and M3-L remains draft."
+  },
+  "verification": {
+    "manifestFileCount": 40,
+    "allFrozenPinsMatched": true,
+    "productSourceSchemaExports": 17,
+    "allExportsMatchedPinnedGitObjects": true,
+    "evidenceFiles": ["input_checks.json", "input_checks-final.json", "product_checks.json", "diff-r1-r2.patch", "validation.json"],
+    "productExecution": false,
+    "cargoBuildsTestsOrLeadSets": false,
+    "delegation": false,
+    "repositoryEditsCommitsPushes": false,
+    "realHomeAccess": false,
+    "fixture413Access": false,
+    "writeRoot": "/tmp/opensip-implementation/reviews/codex2-host-pipeline-j-r2"
+  },
+  "scopeLimit": "This is law/method review only. J-BS and S18 require separate contract-successor reviews with ACCEPT-DESIGN-UNIT; J2a-J3d require their own inventory-unit reviews."
+}
