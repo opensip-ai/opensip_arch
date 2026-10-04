@@ -47,3 +47,7 @@ Times are local.
   - **The aws-cdk workspace was split:** its pinned dependency versions don't resolve against the checkouts.
   - **Open:** only 10 held-out families exist, which bears on B2's gating bar.
   - **Open:** aws-cdk and aws-sdk-rust exceed the 4 MiB canonicalizer limit for the tree digest, so K1a may need a chunked digest.
+- **D3 accepted and bound.** Grok gave ACCEPT-DESIGN-UNIT with no findings.
+  - It is product main `30c5db1`, on top of C, and touches `design-lock.json` only.
+  - `verify_design` passes: 76 contract successors, v134 selected.
+  - Main has moved past C. The X9-6 evidence and Grok's rerun stay on C (`3d2d5b5`), in the X9-6 worktree.
