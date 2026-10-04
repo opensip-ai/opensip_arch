@@ -572,3 +572,8 @@ Times are local.
   - **Correction to the earlier estimate:** F8c needs **no generator rebuild**, because `verify_design.py` is not a build input. It is a few pin moves, about 1–2 hours.
   - **Lead decision:** VD2-a and F8c land in one product commit.
   - **SD-7 r1's request is withdrawn unsent.** SD-7 r2, as a supersession, follows VD2-a and F8c.
+- **X3a-2 implemented and sent to Grok.** It is the read-side adoption of the selected endpoint. A new `InstallationReadFence::store_endpoint` returns a borrowed `ReadStoreEndpoint`, and the host readers and storage's marker take their values from it instead of capturing.
+  - **Lanes:** workspace 1729/0/3 twice; crash-matrix 1627/0/3; clippy and fmt clean; `verify_scratch` 95 → 96 inventory and 93 → 94 contract successors. No X9 row moves.
+  - **Inventory candidate v136** adds two files.
+  - **Two verdicts are requested,** following the 458b form: ACCEPT-UNIT, plus ACCEPT-DESIGN-UNIT for three description overrides.
+  - **Lead decisions:** the nine judgment calls in its request are accepted. **Recheck cost** (call 3): at the worst case, a 64-node lineage on a 48-deep home, one reader plus two operations uses 128,745 of 131,072 edges.
