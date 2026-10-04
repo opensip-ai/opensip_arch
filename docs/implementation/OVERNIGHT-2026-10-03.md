@@ -713,3 +713,7 @@ Times are local.
 
   **Still owed:** J1's S7b, an M3-B and X2 successor that gates J2c, and RW-S6, X9 r17's §RW round.
 - **X9 r17 round 1 (the frame and §RC) accepted by Grok,** with no required findings. The 22 RC rows and LD-RC-6's kill-set shift stand. **X3c-3**, the storage re-commit code with its serialized lead set, is now unblocked and starts.
+- **J-RW's successors: CODEX2 accepted four of five,** each with no findings: X2 r10 (with J1's S7), X3c r9, X3b r11 and X4T r13. **J3a's law prerequisites are now all met** (J1's S2–S7 and S10).
+- **REG v3: one finding, RF-JRW-S2-1.** REG:9 already carries a selected override from initial-root-binding-owner-selection-v1. v3's raw override would conflict, and would also drop that unit's accepted text.
+  - **Fix, as CODEX2 directs and as lead decision:** a VD2 passage supersession of that override. It keeps its whole text and appends J-RW's, and the next design-unit review lists the target in `supersededPassages`. This is the second supersession, after SD-7.
+  - **Effect:** only J4b, which binds REG v3, waits for it.

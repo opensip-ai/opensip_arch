@@ -1,6 +1,4 @@
 # The durable grant-journal append, its witness, the carrier high-water and grant-generation rollover — proposal X3b r11
-
-**r11 ACCEPTED 2026-10-04 by CODEX2** (`27ed0aaf…`; `reviews/codex2-jrw-successors-r1/`, a batch of J-RW's successors), with no required findings. It carries J-RW's RW-S4. r11's bytes, without this note, are preserved in `PROPOSAL-r11.md`.
  r4 was ACCEPTED by Grok on 2026-09-30. r5 is an amendment found by Grok's X3c r1 review: on the SEAL path, level 4 is held through the evidence COMMIT, so no REV can slip between SEAL and commit. r4 bytes are preserved in PROPOSAL-r4.md. r6 answers Grok r5 RF-1 (the SEAL-path hold had no release when COMMIT is never called) and RF-2 (the r4 snapshot now equals the accepted bytes). r5 bytes are preserved in PROPOSAL-r5.md. r6 ACCEPTED by Grok on 2026-09-30; r6 bytes are preserved in PROPOSAL-r6.md.
 
 **r7 (2026-10-01) is an amendment required by the accepted X7 r3** (item 6 and its dependency note). It defines grant-generation rollover inside item 4's end step, under the fence that step already holds. It covers the `EXCLUSIVE` closure, the `TERMINAL` append and its `op-` token, the opening of generation g+1 with its crash states, the floor write for g+1, skip-if-busy, and the charge to the attempt ledger. It also reconciles X3d r3 item 3's capacity threshold with what the carrier admits.
