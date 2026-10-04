@@ -746,3 +746,13 @@ Times are local.
   2. **J1 r6** records SYN-1's routes.
   3. **E-3:** the run-termination contract's §7.4 governs, so an ephemeral attempt carries no detail. J1 r6 and M3-C r8 correct E-3's detail. **Rejected:** a contract successor changing §7.4.
   4. **Who derives the projection:** J3d for committed Runs, and J2c for ephemeral results.
+- **M3-C r8 and CRC-2 written and sent to CODEX2.**
+  - **X-H3 (LD8-1):** the core closure becomes producer and enumerator of host-derived inventory records, bounded to three relations and four fields, so MC:458's principle holds. There is one inventory stage per universe.
+  - **The other items:**
+    - X-H5: M3 mints no `vcs-change` fact, and its Coverage is `unknown`;
+    - X-H6: S-B's subject-scope bounds;
+    - S7b's E-2: a fresh ephemeral ProjectId per invocation;
+    - S7b's E-3, C half: no trust view means no manifest closure, and no detail, per §7.4.
+  - **CRC-2:** two VD2 supersessions of CRC-1's IE:285 and IE:1377, plus two plain overrides on SYN-1F's schema copy. Local verify passes, giving 99 successors and 4 supersessions.
+  - **New gap, X-8:** default discovery makes every cell required, and the enumeration contract then refuses a required cell that has no enumerator, which is the case when its provider closure is missing. **Lead decision:** an enumeration-contract successor will admit the unselected enumerator in exactly that case, with the `provider-unavailable` pair. It is owed before C4a and J2c.
+  - **Still owed of S7b:** E-1 (M3-B and X2), and E-3's trust half plus E-4 (X4T).

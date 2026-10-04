@@ -1,10 +1,8 @@
-# Sealed snapshot and Plan — proposal M3-C r7
-
-**r7 ACCEPTED in review 2026-10-04 by CODEX2** (`a1ee9386…`), with no findings. r7's bytes, without this note, are preserved in `PROPOSAL-r7.md`. Under its own gate, the law takes effect once M3-L is accepted.
+# Sealed snapshot and Plan — proposal M3-C r8
 
 2026-10-04. Drafted for Claude Opus 5.5, implementation lead, by a lead-dispatched drafting agent during the overnight autonomous run. Law for unit **M3-C** of the accepted M3 unit plan (`M3-PLAN.md:163`).
 
-**Draft r7, not accepted. Not code.** No product crate is touched before X9-6 (M3P:5, M3P:272). Every code unit below also waits for P0, the M3-L law and I1's product units ("Units").
+**Draft r8, not accepted. Not code.** No product crate is touched before X9-6 (M3P:5, M3P:272). Every code unit below also waits for P0, the M3-L law and I1's product units ("Units").
 
 r2 answered CODEX2's r1 review: four required findings and three non-blocking observations. The r1 bytes are preserved as `PROPOSAL-r1.md` (sha256 `ff9a5e8d…`, 78,037 bytes).
 
@@ -23,7 +21,42 @@ r5 answers CODEX2's r4 review (`/tmp/opensip-implementation/reviews/codex2-snaps
 
 **r6 was accepted in review by CODEX2** (`8274bca1…`; `reviews/codex2-snapshot-plan-c-r6`), with its bytes preserved as `PROPOSAL-r6.md`. r7 applies exactly one cross-law item from the accepted supervisor law **M3-D r3** (`docs/implementation/m3/supervisor-d/PROPOSAL-r3.md`, GROK2, `9679dbc4…`; its item 24 and its successor SD-6): item 16's row 8 is narrowed to a selection among the manifests admitted at J1 r4's new row R10a. It changes nothing else. The gate is unchanged: under its own gate, the law takes effect once M3-L is accepted; X12 r4, the gate's other item, is accepted.
 
+**r7 was accepted in review by CODEX2** (`a1ee9386…`; `reviews/codex2-snapshot-plan-c-r7`), with no findings, and its bytes are preserved as `PROPOSAL-r7.md`. r8 takes up exactly the cross-law items that two accepted laws address to this law. It changes nothing else.
+- **From M3-H r3** (`docs/implementation/m3/fact-admission-h/PROPOSAL-r3.md`, Grok, `7a562720…`): X-H3, the producer of host inventory records; X-H6, a subject-scope field in S-B; the `vcs-change` question that X-H5 routes here; and H's record correction of r7's line 885, which MH cites as MC:885.
+- **From M3-J1 r5** (`docs/implementation/m3/host-pipeline-j/PROPOSAL-r5.md`, Codex, `4ccb2320…`): the M3-C parts of successor S7b, which are join E-2 and the C half of join E-3.
+
+The gate is unchanged. A new identity successor, **CRC-2**, carries X-H3's contract text.
+
 **Lead decisions.** Items 1 to 20 hold lead decisions dated 2026-10-04. They are made under the owner's standing direction to decide on the lead's recommendation and to block only where no recommendation exists. Each one names the alternatives it rejects. The owner may reverse any of them. Four are flagged to the owner in "Open questions"; none blocks this law. r3's step-order rows 1 to 4 follow X12 r4, which is pending review.
+
+r8 adds lead decisions LD8-1 to LD8-6, dated 2026-10-04, under the same direction. "r8 lead decisions" lists them with the alternatives they reject, and each is stated in place.
+
+## r8 changes
+
+r8 applies M3-H r3's items for this law and the M3-C parts of M3-J1 r5's S7b. Nothing else changes.
+
+| Item | Change |
+|---|---|
+| **X-H3** (MH item 18; MH "H. Successors"; M3P10's C row) | **LD8-1: widen, with a bound.** Item 9's core provider closure gains a **third admitted use**: producer and enumerator of **host inventory records** in every universe. These are the records of the three `inventory` relations, `file@enumerated`, `package@manifest-declared` and `vcs-change@vcs-reported`, that the host derives (MH item 18; NCM:949). Its fields are the `enumerator.closureId` of every binding of a requested `inventory` cell, and the `stage-spec.producerClosure`, `view.producerClosure` (so `fact.producerClosure`) and `subject-scope.enumeratorClosure` of that universe's host inventory stage. It is a `semanticClosures` member exactly when a syntax universe is selected **or** an `inventory` cell is requested. Item 9 states the bound. C2-T13, C2-T13a, item 16's `semanticClosures` row and step 12 follow. |
+| **X-H3, the stage** | **LD8-2.** `exec-plan2` gains **one host inventory stage per universe** that an available `inventory` binding binds, syntax universes included. Its producer is the core provider closure and it returns views only. H owns its interface and derives its records. In a syntax universe an `inventory` binding names this stage, not the syntax stage. Control C4-T22 is added. |
+| **X-H5's `vcs-change` question** (MH item 18; MH X-H5) | **LD8-3.** Item 4 gains a bullet. M3 observes no change set, so the inventory stage mints no `vcs-change@vcs-reported` fact. That key's Coverage is `unknown` with `provider-unavailable` and `capability-missing`, never `complete`. |
+| **X-H6** (MH item 9) | The S-B row gains the host subject scope's two bounds, 100,000 `subjects` and the 4 MiB descriptor, as fields reachable after execution. |
+| **MH's record correction** (MH "Record corrections"; M3P10 change 15) | Step 15 now cites the inventory joins as `:108-111`, not `:107-111`. Line 107 is the `nativeContextDigest` join, which step 15 checks itself. |
+| **S7b, E-2** (MJ5 item 6; MJ5:463) | **LD8-4.** Item 6: an ephemeral request whose root is unregistered, or that has no installation, takes one fresh ProjectId draw. It is never persisted or compared. Its snapshot and Plan ids are not comparable across invocations, and this law says so. Control C1-T28 is added. |
+| **S7b, E-3's C half** (MJ5 item 6; MJ5:464) | **LD8-5.** Item 7: with no admitted trust view, item 7 admits no component-manifest closure. ER10a's set is empty and row 8 selects none. Item 9's core role closures are unaffected. Every requested cell stays in the Plan as an unavailable binding. The ephemeral result is indeterminate with `COVERAGE.PROVIDER_UNAVAILABLE` and **no detail**: the run-termination contract's §7.4 admits none on an ephemeral attempt, so E-3's `COMPONENT.REQUIRED_CLOSURE_NOT_INSTALLED` detail is corrected (lead ruling, `reviews/grok-j2a-r1/REQUEST.md`, "Lead rulings", item 3). A required cell, other than an `inventory` cell, has no lawful binding under the enumeration contract: cross-law finding X-8. Control C2-T18 is added. |
+| **S7b, still owed** | E-1 (M3-B and X2), E-3's trust half and E-4 (X4T). C1's walk on E-1's path needs a root it can start from (X-11). |
+| **Successors, units and records** | **LD8-6:** successor CRC-2 is added in VD2's form and gates C4a. C4a's scope gains the inventory stages. The S-B row gains X-H6's fields. Cross-law findings X-8 to X-11, one owner flag, two reviewer questions and four forbidden-substitute lines are added. |
+
+### r8 lead decisions
+
+| ID | Decision | Rejected |
+|---|---|---|
+| **LD8-1** (item 9) | The third use is bounded five ways: the three `inventory` relations only; host-derived records only; four named fields; never a binding that owes a symbol inventory; and membership only when a syntax universe is selected or an `inventory` cell is requested. No language provider closure is ever an `inventory` record's producer. So the principle at r7's line 458, that a provider that did not produce a record is not its producer, holds both ways. | the language provider's closure as producer; a separate core projection or a new kind; inventory records only in a syntax universe; an unbounded use for every host-minted record; leaving the records unowned |
+| **LD8-2** (item 16) | One host inventory stage per universe, separate from the syntax stage. | E3's syntax stage carrying inventory records; one stage for all universes; no stage |
+| **LD8-3** (item 4) | No `vcs-change` fact at M3. Its Coverage is `unknown`, `provider-unavailable`, `capability-missing`. | a complete empty result; changes inferred from index stat data or from `dirty`; a Git object reader; omitting the entry |
+| **LD8-4** (item 6) | A fresh PROJECT-ID-V1 draw per ephemeral invocation, never persisted or compared. | a path-derived or content-derived ProjectId; a constant ephemeral ProjectId; registering the root; persisting the draw |
+| **LD8-5** (item 7) | No trust view, no manifest-admitted closure. Core role closures stay, and every cell stays as an unavailable binding. The ephemeral result carries no detail, under RTC §7.4 (the lead's ruling). | any trust-free admission; the synthetic root on the ephemeral path; refusing the request; dropping cells; withholding the core role closures; a contract successor changing RTC §7.4 to admit the detail, since a law cannot override the contract and nothing needs the detail |
+| **LD8-6** (successor CRC-2) | CRC-2 supersedes CRC-1's IE:285 and IE:1377 overrides in VD2's form, and overrides two strings of SYN-1F's identity-schema copy, which is the selected IDS. | a new IE paragraph at a fresh line beside CRC-1's (CRC-1 LD-8's pre-VD2 advice), which would leave "exactly two uses" in force beside its contradiction; a complete IE copy; editing I1-L's copy, which is no longer selected |
 
 ## r7 changes
 
@@ -95,6 +128,7 @@ Lines were checked against the files named here on 2026-10-04.
 - **IE / NE / SL / WS / AQ** `docs/v2/contracts/product-v1/{identity-and-evidence,native-evidence,security-and-lifecycle,workflows-and-surfaces,admission-and-qualification}.md`. **BP** `docs/v2/architecture/implementation-boundaries-and-build-plan.md`. **CH14** `docs/v2/architecture/14-repository-and-module-layout.md`. **COV** `docs/v2/architecture/implementation-coverage.v1.json`.
 - **IDS** `docs/coop/design-corrections/foundation/identity-schemas.v3.json`. **NES** `docs/coop/design-corrections/native/native-evidence.schemas.v2.json`. **NEM** `docs/coop/design-corrections/native/native_evidence_model.v2.py`. **COMP** `docs/coop/design-corrections/foundation/evaluator-composition-contract.v3.md`. **RPP** `docs/coop/artifacts/rust-provider-protocol.v2.json`.
 - Product paths are under `opensip/`, at main `30c5db1`.
+- **(r8)** **MH** `docs/implementation/m3/fact-admission-h/PROPOSAL-r3.md` (M3-H r3, accepted by Grok, `7a562720…`). **MJ5** `docs/implementation/m3/host-pipeline-j/PROPOSAL-r5.md` (M3-J1 r5, accepted by Codex, `4ccb2320…`). **M3P10** `docs/implementation/m3/M3-PLAN-r10.md` (accepted by Codex, `ec8c38f8…`). **ME** `docs/implementation/m3/syntax-e/PROPOSAL-r3.md` (M3-E1 r3, accepted by Codex, `d71031ff…`). **NCM** `docs/coop/design-corrections/native/native-capability-matrix.v2.json`. **ENC** `docs/coop/design-corrections/foundation/enumeration-contract.v1.md`. **RTC** `docs/coop/design-corrections/foundation/run-termination-contract.v1.md`, the run-termination contract. r8 reads product main `21e428d` only for CRC-2's binding check. Its other product citations are r7's.
 
 ## Acceptance gate
 
@@ -294,6 +328,8 @@ O7 is **not** a gate item. This law launches nothing except the dependency-featu
     - plus `members: [{path, kind: "git", commitId, dirty}]`, ascending by path. Each member's `commitId` and `dirty` follow the two bullets above.
 
     A single-root project keeps schema 2's bytes (M3-B item 22, M3-B:685-689). C1b lands S4 after B-S2 is accepted.
+  - **No change set at M3 (r8, LD8-3; MH's X-H5).** This item proves no per-path change. It reads no Git object and records `dirty: true` for every Git case. So the host inventory stage (item 16) mints **no `vcs-change@vcs-reported` fact**, and that key's Coverage is **never `complete`**. A complete result with no fact would say that no path changed (NE:393-395), and nothing observed that. In every universe an `inventory` binding binds, H mints the key's entry as `unknown`, with deficiency `provider-unavailable` and `nativeCause` `capability-missing` (NE:3370). The cell's file and package inventories are unaffected, since an `inventory` cell derives only those two kinds (ENC:17).
+    - **Rejected:** a complete empty result; changes inferred from index stat data or from `dirty`; a Git object reader (rejected above); omitting the key's entry, which leaves a requested relation unanswered.
 - **Basis:** IE:542-546 ("This is source provenance; it alone never authenticates imported runtime-to-source correspondence").
 - **Rejected:**
   - **A Git object reader** (zlib, pack indexes, deltas) to compute an exact `dirty`. It adds a large hostile-input parser to the TCB for provenance nothing consumes at M3.
@@ -341,7 +377,13 @@ O7 is **not** a gate item. This law launches nothing except the dependency-featu
     4. the VCS observation (item 4);
     5. the bounds (item 5);
     6. `H("snapshot", …)`.
-  - **Bound inputs.** `projectId` comes from X2. `resolvedConfigDigest` comes from B1's resolution, which never names native-input imports (item 13). `scopeDigest` is B2's scope descriptor (NE:933-944). Snapshot and Plan carry the same configuration and scope digests (IE:1416).
+  - **Bound inputs.** `projectId` comes from X2: the registered ProjectId, on the durable path and on an ephemeral request whose root is registered. **(r8, S7b E-2; LD8-4)** An ephemeral request whose root is unregistered, or that has no installation I, has no X2 ProjectId. Its `projectId` is then **one fresh PROJECT-ID-V1 draw** for the invocation: `prj1-` and 64 lower-case hex digits from 32 host-CSPRNG bytes (IE:41-42), as X2's allocation draws them (X2 r10:279, `docs/implementation/m2/project-root-x2/PROPOSAL-r10.md`). J2c draws it at MJ5 item 6's ProjectId step and hands it to C1 as X2's would be.
+    - **Never persisted.** It is never written to a marker, a registry row, a store, a lease or any record outside the invocation's temporary custody (SL:1521; IE:1639-1641).
+    - **Never compared.** No marker, registry row or other ProjectId is matched against it, and it selects no namespace or store.
+    - **Not comparable across invocations.** `snapshot2`, every record that names it, and `plan2` differ on every invocation, even over the same bytes. This law states it, and J2c's ephemeral projection discloses it (MJ5:463).
+    - **Not an operational value.** It has the ProjectId's form and plays its role. It is what IE:52 gives an ordinary fresh clone: a fresh ProjectId. Only its persistence differs.
+    - **Rejected:** a ProjectId derived from the root path, which puts a host path into content identity (WS:1539-1541); one derived from the tree's bytes, which gives two projects with equal bytes one identity; a constant ephemeral ProjectId, which does the same for every unregistered project; registering the root, which is a write the ephemeral path forbids (SL:1521); persisting the draw in a marker, also a write.
+  - **Other bound inputs.** `resolvedConfigDigest` comes from B1's resolution, which never names native-input imports (item 13). `scopeDigest` is B2's scope descriptor (NE:933-944). Snapshot and Plan carry the same configuration and scope digests (IE:1416).
   - **Included:** every regular file the walk reaches, including in-snapshot `.cargo/config(.toml)` originals (NE:1739-1741), lockfiles, markers and in-repository vendored trees; and item 3's read set.
   - **Excluded:**
     - pruned trees outside the read set, boundaries, `ignorePaths`, symlinks and special files;
@@ -356,6 +398,7 @@ O7 is **not** a gate item. This law launches nothing except the dependency-featu
 - **Controls:**
   - C1-T22: the snapshot and Plan disagreeing on config or scope refuses at Run closure.
   - C1-T23: a RequestId appears in no snapshot byte (a source pin over the descriptor builder).
+  - C1-T28 (r8, E-2; J2c carries the end-to-end leg): two ephemeral invocations over one unregistered root give two different ProjectIds, `snapshot2`s and PlanIds, and neither writes a marker, registry row or store byte. With I positively absent the same holds. An ephemeral request over a registered root takes the registered ProjectId.
 
 ### B. C2 — closure admission and native contexts
 
@@ -381,6 +424,13 @@ O7 is **not** a gate item. This law launches nothing except the dependency-featu
 
     Widening the role enum is successor **CR-1**, owned by security and DR-103, and joined with D4's `components/manifest.rs` (DR-G29, BP:1033). A closure whose role maps to a kind other than the one its selecting field requires (IDS `closureKinds.byField`, IDS:4726) refuses.
   - **Retention.** Every admitted closure retains its manifest body and its whole tree (IE:1493-1499; IE:1399-1411).
+  - **No admitted trust view (r8, S7b E-3's C half; LD8-5).** On the ephemeral path there is no admitted trust view when I is positively absent, or when F is absent under the read session (MJ5 item 6, joins E-3 and E-4). E-4, and E-3's trust half, are X4T's.
+    - **What this item admits then:** nothing. The one path needs a TR-INDEX catalog verified by the trust owner (SL:21-60), and there is none. ER10a's admitted set is empty, so row 8 selects no provider, toolchain, stdlib, rust-dev-llvm or grammar closure.
+    - **What still holds:** item 9's core role closures. They project the authenticated core inventory of the process's read receipt (InitialCore; MJ5 item 6, "Core identity"; EC1), and they are never component manifests.
+    - **What the Plan says.** Every native context names a manifest-admitted closure, a toolchain, stdlib or grammar closure (item 10; NE:223-232; NE:1450-1458). So no context is minted and no universe is bound. Every requested cell stays in `cells` (ENC:17) as the enumeration contract's unavailable binding: `universe` null, deficiency `provider-unavailable` with `nativeCause` null, and host extents still populated (ENC:51). An optional cell's enumerator is the `optional-unselected` shape (ENC:53), except an `inventory` cell's, which is the core provider closure (item 9, use 3). No cell is dropped (BP:887).
+    - **The public answer carries no detail (lead ruling, 2026-10-04).** It is indeterminate 3 with `COVERAGE.PROVIDER_UNAVAILABLE`, `authority: ephemeral`, no runId and **no `domainDetail`**. The run-termination contract's §7.4 owns a step termination's detail and authority (WS:1399-1414), and it admits no §7.5 detail on an ephemeral attempt (`RUN_TERMINATION_DETAIL_NOT_ADMITTED`; RTC §7.4). E-3's `COMPONENT.REQUIRED_CLOSURE_NOT_INSTALLED` detail is corrected to fit, and J1 r6 corrects row 27's ephemeral case the same way. The durable not-installed case keeps that detail, because a committed Run selects it under §7.5's row 2. The ruling is recorded in `reviews/grok-j2a-r1/REQUEST.md`, "Lead rulings", item 3.
+    - **A required cell other than an `inventory` cell** has no lawful binding here. ENC:53 refuses an unselected enumerator on it, and no admitted closure can truthfully stand as its selected enumerator (item 9's bound). The durable path has the same gap when a required provider closure is not installed (WS:1374). This is cross-law finding X-8. C4a's and J2c's legs for that case wait for it, and no binding is invented meanwhile.
+    - **Rejected:** any trust-free admission, such as an unsigned closure, a PATH tool, a manifest read without verification, or a closure remembered from an earlier invocation; the synthetic root on the ephemeral path, which item 8 keeps test-only; refusing the request, since E-3's answer is a disclosed unavailability; dropping the cells; withholding the core role closures, which need no trust view; a contract successor changing RTC §7.4 so that the ephemeral result could carry the detail, since a law cannot override the contract and nothing needs the detail.
 - **Basis:** IE:180, IE:272-285; SL:21-60; BP:699-720; IDS:4726-4794.
 - **Rejected:**
   - **A kind field asserted by the caller,** or a kind inferred from a path or file name. Either is a claim, not an admission (IE:174-175).
@@ -396,6 +446,7 @@ O7 is **not** a gate item. This law launches nothing except the dependency-featu
   - C2-T3: a bad envelope signature refuses.
   - C2-T4: a symlink row is never followed into the tree.
   - C2-T5: the same tree under a changed version is a new `closure2`.
+  - C2-T18 (r8, E-3; J2c carries the end-to-end leg): an ephemeral request with I positively absent, and one with F absent. ER10a admits nothing, and no component-manifest closure, context or universe enters the Plan. Every optional cell other than an `inventory` cell is an `optional-unselected` unavailable binding with the `provider-unavailable` pair, and every `inventory` binding names the core provider closure with a null universe. The core evaluator and detector closures are the read receipt's. A closure offered from PATH or from an earlier invocation is never admitted. The ephemeral result is indeterminate with `COVERAGE.PROVIDER_UNAVAILABLE` and carries no `domainDetail` (RTC §7.4).
 
 **8. Synthetic signed closures for tests.**
 - **Decision.**
@@ -430,9 +481,9 @@ O7 is **not** a gate item. This law launches nothing except the dependency-featu
     - **component and role joins:** TR-CORE's role over that body (IE:274-276), as EC1;
     - **retained bytes and descriptor:** the inventory body and the platform tree, retained once per store by raw SHA-256 (EC1 "Consequences");
     - **selection in the Plan:** the emission row and `semanticClosures`.
-- **Decision (the in-core provider and adapter roles; r6, X-C1).** Item 13 needs an `import.producerClosure` of kind `provider` and an `import.adapterClosure` of kind `adapter` (IDS:4726) for the in-core importer. These are the **core adapter closure** and the **core provider closure**: the same D with `kind` set to `"adapter"` and `"provider"` respectively. r5 called the second the "core import-producer closure". It is the same identity, and E1 names it the core provider closure (E1 item 14b).
+- **Decision (the in-core provider and adapter roles; r6, X-C1; r8, X-H3).** Item 13 needs an `import.producerClosure` of kind `provider` and an `import.adapterClosure` of kind `adapter` (IDS:4726) for the in-core importer. These are the **core adapter closure** and the **core provider closure**: the same D with `kind` set to `"adapter"` and `"provider"` respectively. r5 called the second the "core import-producer closure". It is the same identity, and E1 names it the core provider closure (E1 item 14b).
   - **The core adapter closure** is admissible **only** as `import.adapterClosure` of an import whose `kind` is `dependency` or `prepared`. It is never a `plan.semanticClosures` member.
-  - **The core provider closure** has exactly **two** admitted uses (r6, lead decision on E1's X-C1):
+  - **The core provider closure** has exactly **three** admitted uses (r6, lead decision on E1's X-C1; r8, LD8-1 on MH's X-H3):
     1. **`import.producerClosure`** of an import whose `kind` is `dependency` or `prepared` (item 13);
     2. **the producer of syntax-universe work** (E1 item 14b). It is the producer in every one of these fields, **only** where the record's universe, or the stage's or binding's universe, is a `native.semantic-universe.syntax.v2` identity:
        - `subject-scope.enumeratorClosure`;
@@ -442,7 +493,22 @@ O7 is **not** a gate item. This law launches nothing except the dependency-featu
        - `CandidateProducerResultV1.producerClosure`.
 
        The code that produces syntax facts and candidates (`crates/syntax`, `host/syntax.rs` and the engine) ships in the core (BP:676-683). The grammar closure stays kind `grammar` and is never a producer (IDS:4743).
-  - **Its `semanticClosures` membership.** The core provider closure is a `plan.semanticClosures` member (IDS:4794-4803) **exactly when** the Plan selects a syntax universe, and never otherwise. It is never the producer of any TypeScript or Rust record, and never an import's producer except as use 1. So it can produce no TypeScript or Rust view, scope, fact, stage or cache entry (IDS `closureMembership.direct`; L:206-210).
+
+    3. **(r8, X-H3) the producer and enumerator of host inventory records, in every universe.** These are the records of the three `inventory` relations, `file@enumerated`, `package@manifest-declared` and `vcs-change@vcs-reported` (NE:997-998). The host derives them from retained records only: the sealed inventory, `UnitMembershipV1`, the scope descriptor and the Plan's extents (MH item 18). No language provider produces them (NCM:949). The core provider closure is the closure in exactly four fields:
+       - the `enumerator.closureId` of every binding of a requested `inventory` cell, available or not;
+       - the `stage-spec.producerClosure` of each host inventory stage (item 16);
+       - that stage's `view.producerClosure`, and so `fact.producerClosure`;
+       - that stage's `subject-scope.enumeratorClosure`.
+
+       The code that derives the records (`fact_admission/inventory.rs`, MH item 25's H3) ships in the core, so the core is their producer in fact.
+  - **The bound on use 3 (r8, LD8-1).** A closure is a record's producer only where it produced that record (the rejected import-role alternative below, which MH cites as MC:458). Use 3 keeps that both ways:
+    - **Relations:** the three `inventory` relations only. Every other TypeScript or Rust relation stays its language provider's.
+    - **Origin:** host-derived records only. A record a language provider returned is never admitted under use 3, whatever its relation.
+    - **Bindings:** never the enumerator of a binding that owes a symbol inventory. That enumerator stays the universe's language provider closure.
+    - **Fields:** the four above only. Use 3 never reaches `CandidateProducerResultV1.producerClosure`, and no use reaches `cache-key.producerClosure` (CRC-1 LD-4).
+    - **The mirror:** no language provider closure is the producer or enumerator of an `inventory` relation's record, because no language provider produces one.
+  - **Its `semanticClosures` membership.** The core provider closure is a `plan.semanticClosures` member (IDS:4794-4803) **exactly when** the Plan selects a syntax universe **or requests an `inventory` cell (r8)**, and never otherwise. Apart from use 3, it is never the producer of any TypeScript or Rust record, and it is never an import's producer except as use 1. So in a TypeScript or Rust universe it produces only use 3's inventory stage and its views, scopes and facts, and it produces no cache entry anywhere (IDS `closureMembership.direct`; L:206-210).
+    - **(r8)** Default discovery requests `inventory` for every unit (NE:950-955), so most Plans now select it. Those Plans already select the core evaluator closure (EC1), so their identity already moves with each core release. Use 3 adds no new churn.
 - **Successor CRC-1** (the core role closures; identity owner; the EC1 pattern). It carries:
   - the three projections;
   - the `manifestDigest` artifact text for those kinds;
@@ -450,6 +516,7 @@ O7 is **not** a gate item. This law launches nothing except the dependency-featu
   - a test vector built on EC1's `baseline-macos` fixture.
 
   It is flagged to the owner like EC1: every core release becomes a new detector closure.
+- **Successor CRC-2 (r8, X-H3; LD8-6)** (`snapshot-plan-c/crc-2/`; identity owner; the CRC-1 pattern in VD2's form). It carries use 3, its bound and its membership. It supersedes CRC-1's IE:285 and IE:1377 overrides, and overrides two strings of SYN-1F's identity-schema copy, the selected IDS. It adds no kind, field, domain, recipe, code or vector, because use 3 names an existing closure.
 - **Consequence, disclosed.** A new core release is a new detector, so two-way baseline comparison across releases needs the core tree's `.opensip/detector-compatibility.json` listing (WS:300-316; IE:282-285) or an E0 pivot. That is M5 work. Findings' fingerprints are unaffected: `finding-key2` names no closure (IE:188).
 - **Basis:** COMP:9 ("Its detectorClosure is a selected closure of kind detector. A provider or evaluator closure cannot stand in for it"); IE:1508-1512; WS:277-287; EC1; I1:392-396, I1:428.
 - **Rejected:**
@@ -463,20 +530,27 @@ O7 is **not** a gate item. This law launches nothing except the dependency-featu
   - **For syntax-universe work (r6, as E1 item 14b records):**
     - the grammar closure re-kinded `provider`: item 7 fixes the kind by role, and the grammar closure executes nothing;
     - a separate core "syntax-producer" projection: the same descriptor with the same kind is the same `closure2`, and a second name for one identity is a distinction no admission can see.
-- **Forbidden substitutes:** a detector closure from any core other than the seal's evaluator's; a core role projection outside its admitted fields (r6: one field for the adapter, the two uses above for the provider); the core provider closure on a TypeScript or Rust record; the TypeScript or Rust provider's closure on a syntax record; `kind: core` anywhere in identity (EC1 "Rejected").
+  - **For host inventory records (r8, LD8-1, as MH item 18 and X-H3 record them):**
+    - the language provider's closure as producer: false, since no language provider produces them (NCM:949);
+    - a separate core "inventory-producer" projection, or a new kind: the same descriptor with the same kind is the same `closure2`, and `closureKinds` is closed;
+    - inventory records only in a syntax universe, answering TypeScript and Rust cells from it: totality must be discharged by evidence produced in the scope's own universe (NE:377-381);
+    - an unbounded use for every host-minted record: it would let the core stand in for a language provider on resolved relations;
+    - leaving the records unowned: J2b's full join would then lack the host-derived inventories (MH item 18).
+- **Forbidden substitutes:** a detector closure from any core other than the seal's evaluator's; a core role projection outside its admitted fields (r6: one field for the adapter; r8: the three uses above for the provider); the core provider closure on a TypeScript or Rust record other than a use-3 inventory record (r8); the TypeScript or Rust provider's closure on a syntax record, or on an `inventory` relation's record (r8); `kind: core` anywhere in identity (EC1 "Rejected").
 - **Controls:**
   - C2-T9: the vector. D″ equals D′ except `kind`, the ids differ, and `manifestDigest` is the body's SHA-256.
   - C2-T10: an emission row naming the evaluator closure refuses.
   - C2-T11: an emission row naming another core's detector refuses.
   - C2-T12: a core adapter projection as a view producer refuses.
-  - C2-T13 (r6, narrowed for X-C1): the core provider closure in `plan.semanticClosures` refuses when the Plan selects **no** syntax universe. When a syntax universe is selected, its absence from `semanticClosures` refuses. This is E3-T13's Plan leg.
-  - C2-T13a (r6, X-C1): the core provider closure:
+  - C2-T13 (r6, narrowed for X-C1; r8, X-H3): the core provider closure in `plan.semanticClosures` refuses when the Plan selects **no** syntax universe **and requests no `inventory` cell**. When either is present, its absence from `semanticClosures` refuses. This is E3-T13's Plan leg.
+  - C2-T13a (r6, X-C1; r8, X-H3): the core provider closure:
     - **admits** as the producer of a syntax-universe view, scope, stage spec, binding or envelope;
     - **admits** as `import.producerClosure` of a `dependency` or `prepared` import;
-    - **refuses** as the producer of a TypeScript or Rust record (E3-T14);
+    - **admits (r8)** as the enumerator of an `inventory` binding, and as the producer of a host inventory stage and of its views, facts and scopes, in a TypeScript, Rust or syntax universe;
+    - **refuses** as the producer of any other TypeScript or Rust record (E3-T14); as the enumerator of a binding that owes a symbol inventory (r8); and as `CandidateProducerResultV1.producerClosure` outside a syntax universe (r8);
     - **refuses** in any other field.
 
-    A TypeScript or Rust provider closure on a syntax record also refuses.
+    A TypeScript or Rust provider closure on a syntax record also refuses, and so does one on an `inventory` relation's record (r8).
 
 **10. Native contexts and universes.**
 - **Decision.**
@@ -845,7 +919,7 @@ O7 is **not** a gate item. This law launches nothing except the dependency-featu
   |---|---|
   | `snapshotId` | C1 |
   | `capabilityManifestId`, `capabilityManifestBytesDigest` | the committed CVE1 artifact and its recipe (IE:224-235) |
-  | `semanticClosures` | the selected provider closures, the core evaluator closure (EC1) and the core detector closure (item 9), **plus the core provider closure exactly when a syntax universe is selected** (r6, X-C1). These are exactly the direct members (IDS:4794), and nothing a context or import already selects. Once selected, the core provider closure is a selected provider closure, so the semantic grant's sentence below covers it. |
+  | `semanticClosures` | the selected provider closures, the core evaluator closure (EC1) and the core detector closure (item 9), **plus the core provider closure exactly when a syntax universe is selected or an `inventory` cell is requested** (r6, X-C1; r8, X-H3). These are exactly the direct members (IDS:4794), and nothing a context or import already selects. Once selected, the core provider closure is a selected provider closure, so the semantic grant's sentence below covers it. |
   | `analysisSpecDigest` | the analysis-spec built and admitted at step 12 (r2; r3 numbering): B's requested capabilities; `policyPackIds` from the `AdmittedPack` (item 18); the `EnumerationPlanV1` parameter (from the snapshot, boundaries, scope, `UnitMembershipV1` (NE:745), closures, contexts and universes) and the `EvaluatorEmissionPlanV1` parameter (COMP:9) |
   | `resolvedConfigDigest`, `scopeDigest` | B1 and B2, equal to the snapshot's (IE:1416) |
   | `nativeContextDigests` | C2, as a bare-hex canonical set (IE:297-302, IE:498-506) |
@@ -884,7 +958,7 @@ O7 is **not** a gate item. This law launches nothing except the dependency-featu
   The step numbers changed in r3, and every "step N" in this law uses this table's numbering.
 
   **Enumeration admission is split in two (r3, C2-R1).** `admit_enumeration` requires the actual `SubjectInventoryV1` outcomes (`enumeration-contract.v1.md:164`), one per expected `(cellOrdinal, programOrdinal, kind)` (`:111-121`). The symbol inventories, including the `imports`-cell inventories that item 18 selects, are provider-attributed (IE:1467-1470), so they cannot exist before the providers run. So:
-  - **Step 15, structural admission** (C4). This is the pre-execution part of the same law, with a limited interface: the Plan, PlanId, analysis-spec, scope descriptor, `UnitMembershipV1`, `EnumerationPlanV1`, the admitted contexts and universes, and the closures. It takes **no inventories argument**. It validates `EnumerationPlanV1` against its schema and checks every enumeration join that names no inventory (`enumeration-contract.v1.md:100-106`; the inventory joins at `:107-111` wait for full admission):
+  - **Step 15, structural admission** (C4). This is the pre-execution part of the same law, with a limited interface: the Plan, PlanId, analysis-spec, scope descriptor, `UnitMembershipV1`, `EnumerationPlanV1`, the admitted contexts and universes, and the closures. It takes **no inventories argument**. It validates `EnumerationPlanV1` against its schema and checks every enumeration join that names no inventory (`enumeration-contract.v1.md:100-106`; the inventory joins at `:108-111` wait for full admission):
     - `snapshotId`, `scopeDigest` and `membershipDigest` equal the Plan's and the retained record's;
     - the cells match `requestedCapabilities`, `required` included;
     - each selected `closureId` is in `plan.semanticClosures` with kind `provider`;
@@ -903,7 +977,7 @@ O7 is **not** a gate item. This law launches nothing except the dependency-featu
   - `EnumerationPlanV1` (`enumeration-contract.v1.md:13-24`) carries:
     - `snapshotId`, `scopeDigest` and `membershipDigest` from steps 6 and 9;
     - one cell per requested ownership tuple;
-    - program bindings whose available enumerators name the contexts and universes admitted in step 11, with the prospective `semanticClosures` and `nativeContextDigests` sets as its graph inputs (`:83-96`). The enumerator of a syntax-universe binding is the core provider closure (item 9; X-C1).
+    - program bindings whose available enumerators name the contexts and universes admitted in step 11, with the prospective `semanticClosures` and `nativeContextDigests` sets as its graph inputs (`:83-96`). The enumerator of a syntax-universe binding is the core provider closure (item 9; X-C1). **(r8, X-H3)** So is the enumerator of every binding of a requested `inventory` cell, in every universe, available or not (item 9, use 3).
     - **the `clones-near` census (r6, X-C2; E1 item 14a).** Every available syntax-only `clones-near` binding carries `candidateSourcePaths`, the required Plan-selected census of a candidate-only cell (`enumeration-contract.v1.md:49`; `enumeration-plan.schema.v1.json`, `candidateSourcePaths`). C4a builds it as E1 item 14a defines it:
       - the scoped first-party snapshot paths under the cell's workspace root whose suffix selects a syntax dialect-table variant, that is, the body-eligible paths (NE:959-970);
       - plus any path an explicit scope names.
@@ -916,7 +990,15 @@ O7 is **not** a gate item. This law launches nothing except the dependency-featu
   The spec is then admitted in NE:4278's order: bounded cardinality, then schema, then the closed vocabulary. The admitted bytes are the bytes retained and the bytes `plan.analysisSpecDigest` names. There is no placeholder, no later rebinding and no second construction. The enumeration joins themselves take the Plan and PlanId (`admit_enumeration`, `enumeration-contract.v1.md:164`), so their structural part runs at step 15, and the full admission runs after execution, both over the same bytes.
 
   **Stage specs and `exec-plan2`.** Each stage spec is `{planId, producerClosure, operation, parameters, outputDomains, outputSchemaDigest}`. Its operation token comes from the selected producer's interface. Its output schema must be registered at `opensip-interface/stage-output/<operation>.schema.json` in that closure. Every parameter row must also be an analysis-spec row (IE:1288-1346).
-  - **Syntax universes (r6, X-C1; E1 item 14b).** `exec-plan2` has **one stage per selected syntax universe**, and that stage's `producerClosure` is the core provider closure. Every syntax-only binding of that universe names that stage as its `stageOrdinal`. The stage's operation and output schema are those the core's syntax interface registers. E1 owns the interface, and E3 executes the stage in the host.
+  - **Syntax universes (r6, X-C1; E1 item 14b).** `exec-plan2` has **one stage per selected syntax universe**, and that stage's `producerClosure` is the core provider closure. Every syntax-only binding of that universe, **other than an `inventory` binding (r8)**, names that stage as its `stageOrdinal`. The stage's operation and output schema are those the core's syntax interface registers. E1 owns the interface, and E3 executes the stage in the host.
+  - **Host inventory stages (r8, X-H3; LD8-2).** `exec-plan2` has **one host inventory stage per selected universe** that an available binding of a requested `inventory` cell binds, a syntax universe included.
+    - Its `producerClosure` is the core provider closure (item 9, use 3).
+    - Its `outputDomains` are `["view"]`. The file and package `SubjectInventoryV1` outcomes stay host-derived typed inputs, never stage outputs (`execution-inputs-contract.v1.md:59`, `:266-270`).
+    - Its parameters are analysis-spec rows only, as for every stage (IE:1296-1298).
+    - Its operation and output schema are those the core's inventory interface registers. H owns that interface and derives the stage's records in the host (MH item 18). The core tree must carry the schema (cross-law finding X-9).
+    - Every available `inventory` binding in that universe names the stage as its `stageOrdinal`. In a syntax universe it names this stage, not the syntax stage. E3's syntax stage returns the syntax views and the candidate envelope (ME:578), and inventory records are H's.
+    - An unavailable binding has no universe, so no stage (item 7's E-3 case).
+    - **Rejected:** E3's syntax stage carrying inventory records, which would make E3 mint records H derives and widen E1's output schema; one inventory stage for every universe, which X-H3 does not ask for and which mixes several universes' views in one stage; no stage, since a fact's producer is the producer of the stage its binding names (NE:3011; NE:3119-3121).
 
   C4 mints no `cache2` and no `regen2` (L item 3).
 - **Basis:** IE:182, IE:1360-1377, IE:1416-1425, IE:1462-1474, IE:1508-1515; IDS `plan`, `closureMembership`; COMP:9; `enumeration-contract.v1.md:13-24`, `:83-96`; NE:4276-4278; X12 items 8 and 9.
@@ -959,6 +1041,13 @@ O7 is **not** a gate item. This law launches nothing except the dependency-featu
     - **on the first-use creator route**, the same refusal leaves a complete installation and no project-scoped effect (no registry row, namespace, `.opensip`, marker, lease or journal), and the refusal discloses the creation.
 
     This control is shared with B1-a and the X11 successor (X12 r4's control).
+  - C4-T22 (r8, X-H3): for a project with an available TypeScript program, an available Rust program and a U-9 syntax unit, with an `inventory` cell requested in each mode:
+    - `semanticClosures` holds the core provider closure. A Plan with no syntax universe and no `inventory` cell does not hold it;
+    - every `inventory` binding's enumerator is the core provider closure, and every other TypeScript or Rust binding's is its language provider closure;
+    - `exec-plan2` has exactly one host inventory stage per universe, with the core provider closure as producer and `["view"]` as output domains. Each `inventory` binding names its universe's stage, and the syntax universe's other bindings keep the syntax stage;
+    - a core tree without the inventory stage's output schema refuses `STAGE_OUTPUT_SCHEMA_UNREGISTERED`.
+
+    This carries the Plan leg of H3's TypeScript and Rust inventory leg (MH item 25).
 
 **17. The prospective-Plan bounds (NE:4276) and the analysis-spec order (NE:4278).**
 - **Decision.** C4 implements NE:4276-4280 exactly:
@@ -1052,15 +1141,16 @@ O7 is **not** a gate item. This law launches nothing except the dependency-featu
 |---|---|---|---|
 | **X12d** | inventory successor (C4b); lead | Item 19 | J2; any producer reaching X5 |
 | **CRC-1** | identity contract successor; identity owner (EC1 pattern) | Item 9: the core detector, adapter and provider closures; the `manifestDigest` text; field restrictions, including **r6's two uses of the core provider closure** (import producer; syntax-universe producer) and its `semanticClosures` membership exactly when a syntax universe is selected (E1's X-C1); the detector join; a vector | C2a |
+| **CRC-2** (r8) | identity contract successor; identity owner (the CRC-1 pattern, in VD2's form) | Item 9's use 3 (X-H3): the core provider closure as producer and enumerator of host-derived `inventory` records in every universe, its four fields, its bound, and its `semanticClosures` membership when an `inventory` cell is requested. It supersedes CRC-1's IE:285 and IE:1377 overrides, and overrides two strings of SYN-1F's identity-schema copy (LD8-6) | C4a |
 | **CR-1** | security / DR-103 host vocabulary successor; security owner with D4 | Item 7's role-to-kind table; widening the manifest `role` enum | C2a; F4 and G2 closure manifests |
 | **NIJ-1** | native passage successor; native owner | Item 13: null self-references, the identity join, native-input imports in `plan.importIds`, the producer and adapter, the `acquisitionSourcePath` disposition | C3a |
 | **VCS-1** | identity passage successor (IE:542-546) | Item 4's meaning of `dirty` | C1b |
 | **SX-1** (r3) | native and security passage successor (NE U-4a, NE:703-743; SL S3, SL:187-222; IE:548-551); landed with M3-B's B-S1 | Items 1 and 2: `.opensip/` at the project root and each admitted member root is an exact discovery anchor with reason `opensip-custody-state`. It is recorded in `prunedTrees` and `excludedPathPrefixes`, and is never in the inventory. | B2-a; C1a |
-| **S-B** | native passage successor (NE:4276) | Item 5: the snapshot inventory as the eighth bounded field. **r3:** also item 12's three dependency-set protocol counters (`DependencySetBound`). **r4:** and the candidate acquisition bounds (`DependencyAcquisitionBound`), as separate fields | J1's public projection |
+| **S-B** | native passage successor (NE:4276) | Item 5: the snapshot inventory as the eighth bounded field. **r3:** also item 12's three dependency-set protocol counters (`DependencySetBound`). **r4:** and the candidate acquisition bounds (`DependencyAcquisitionBound`), as separate fields. **r8 (X-H6):** and the host subject scope's two bounds, reachable after execution at H's admission (MH item 9): `subjects` over 100,000 entries, with subject `subject-scope.subjects:count>100000`, and a canonical descriptor over 4 MiB, in the byte form S-B fixes. Each refuses typed and is never truncated or split (NE:4280) | J1's public projection; H5's large-scope path (r8) |
 | **S-R** | identity successor, **conditional** on SM-5/SM-6 | Item 5: the inventory named by reference | T2 TypeScript with `node_modules`; very large T2 |
 | **T2-DEP** | corpus manifest and FETCH-SPEC successor; Q0 §10 amendment | Item 15: dependency pins and the H-DEP and H-NM recipes | H-DEP, H-NM |
 | **X12-A** | record amendment to X12 r3 | X12d's corpus target (item 19) | X12d |
-| **M3P-C** | record corrections for M3P's next revision | C2 covers NE:1255-1429 too. The C3b → D1 edge, with O7 and the D law. C2 is three sub-units, with C2b a hard XL part. C3 is three sub-units and C4 is split into C4a and C4c. **The host chain is 28 days under variant B, or 29 under A, at M3P's B rows; M3P's 26 days no longer holds** (r2, C-R4). **With M3-B r2's units it is b + 23 days in variant B: 31 at M3-B's estimate of b = 8, and 33 at b = 10** (r3, "Units"). F1 and G1a's edges are narrowed to their interfaces (r3). X12d runs beside H only if its X9 lead set completes inside H's window. SM-6 compares with the identity bounds (X-1). | — |
+| **M3P-C** | record corrections for M3P's next revision | C2 covers NE:1255-1429 too. The C3b → D1 edge, with O7 and the D law. C2 is three sub-units, with C2b a hard XL part. C3 is three sub-units and C4 is split into C4a and C4c. **The host chain is 28 days under variant B, or 29 under A, at M3P's B rows; M3P's 26 days no longer holds** (r2, C-R4). **With M3-B r2's units it is b + 23 days in variant B: 31 at M3-B's estimate of b = 8, and 33 at b = 10** (r3, "Units"). F1 and G1a's edges are narrowed to their interfaces (r3). X12d runs beside H only if its X9 lead set completes inside H's window. SM-6 compares with the identity bounds (X-1). **(r8)** The X-H3 widening is written, as M3-C r8 with CRC-2, and CRC-2 gates C4a. S7b's C parts are in r8 (E-2, and E-3's C half). E-1 and the X4T halves stay owed. | — |
 
 ## Units
 
@@ -1079,19 +1169,20 @@ Each is an inventory successor on the linear chain, numbered at launch (workflow
 - VCS-1 is accepted before C1b;
 - SX-1 is accepted before C1a and B2-a (r3);
 - X12 r4 is accepted before C4a, whose steps 1 to 4 follow it (r3).
+- CRC-2 is accepted before C4a (r8, X-H3; MH item 25).
 
 | Unit | Scope | Depends on (integration) | Size |
 |---|---|---|---|
 | **C1a** | `snapshot.rs`: the capture session, walk, reads into custody, sealing, bounds (items 1, 2, 5, 6) | B2; S-B for the public projection only | M |
 | **C1b** | the VCS observation (item 4) | C1a; VCS-1 | S |
 | **C1c** | the `node_modules` read set (item 3) | C1a; C2b's layout | S |
-| **C2a** | closure admission, synthetic signed closures, core role closures (items 7 to 9) | CRC-1; CR-1 | M |
+| **C2a** | closure admission (with r8's no-trust-view rule, E-3), synthetic signed closures, core role closures (items 7 to 9) | CRC-1; CR-1 | M |
 | **C2b** | the TypeScript context and universe resolver, and the layout (item 10) | C2a | hard XL part (5 days; r2) |
 | **C2c** | the Rust context and universe: pure projection, admission and binding functions over supplied inputs (item 10). C4a calls them once C3 supplies the inputs. | C2a | M |
 | **C3a** | `imports.rs`: DS-1..DS-6 admission, CRATE-ARCHIVE-1, the wrapper (items 11 to 13) | C1a; NIJ-1; P0's inflater row | L |
 | **C3b** | the unified-features adapter invocation (item 12) | C3a; D1's primitive. O7 and the D law are day-0 assumptions (M3P:191-195, M3P:310). | S |
 | **C3c** | prepared import and PO-0..PO-4 (item 14) | C3a; R3 | M |
-| **C4a** | `plan.rs`: the step 1 to 16 order (for steps 1 to 6, C4a calls the X2, B1, X12 and B2 owners), the analysis-spec, Plan, bounds, grant, pack citation and stage specs (items 16 to 18), including **r6's syntax stages and `clones-near` census** (E1's X-C1 and X-C2; their Plan legs are carried by C4a's acceptance). It also orchestrates the Rust context minting through C2c. **Recommended split (r2):** without wiring prepared imports into the Plan. | C1b, C1c, C2b, C2c, C3a, C3b, B1, I1-c | L |
+| **C4a** | `plan.rs`: the step 1 to 16 order (for steps 1 to 6, C4a calls the X2, B1, X12 and B2 owners), the analysis-spec, Plan, bounds, grant, pack citation and stage specs (items 16 to 18), including **r6's syntax stages and `clones-near` census** (E1's X-C1 and X-C2; their Plan legs are carried by C4a's acceptance) and **r8's host inventory stages and `inventory` enumerators** (X-H3; C4-T22). It also orchestrates the Rust context minting through C2c. **Recommended split (r2):** without wiring prepared imports into the Plan. | C1b, C1c, C2b, C2c, C3a, C3b, B1, I1-c | L |
 | **C4c** (r2) | wiring prepared imports into the Plan: step 10's prepared branch, the PO-1 refusal path, `read-import` for prepared sets | C4a; C3c | S |
 | **C4b = X12d** | item 19 | C4a; I1-b2; X12-A; one serialized X9 lead run set | M |
 | **H-DEP, H-NM, H-PREP** | the harness recipes (item 15), on the K lane | T2-DEP; C3a (H-DEP); C1c (H-NM); C3c (H-PREP) | S each |
@@ -1099,7 +1190,7 @@ Each is an inventory successor on the linear chain, numbered at launch (workflow
 **Authoring and integration.** Every unit may be **authored** against its predecessors' accepted interfaces as soon as this law and its successors are accepted. The edges above are **integration** edges: a unit lands only after they land. M3P:198's durations include review and integration, so the timing below uses integration edges only.
 
 **The revised DAG (r2, C-R4).** The units, durations and edges are M3P's (M3P:197-227), with this law's changes. The assumptions are those of M3P:191-195, and also:
-- this law and CRC-1, CR-1, NIJ-1 and VCS-1 are accepted before day 0;
+- this law and CRC-1, CR-1, NIJ-1 and VCS-1 are accepted before day 0, and CRC-2 by C4a's start at the latest (r8; MH item 25);
 - R3 is settled;
 - I1-c and I1-b2 are integrated.
 
@@ -1172,6 +1263,14 @@ In both variants:
 - **X-5 (for B2).** Whether the project marker directory `.opensip/` is a discovery exclusion. U-4a does not prune it, so the walk inventories `project-id.v1` (item 2). That is harmless, but it is B2's rule to state.
 - **X-6 (for the native owner).** `baseCfg` has no producing recipe in NE (NE:1438, NE:1268). Item 10 decides that it is closure-shipped data. A passage could state this.
 - **X-7 (for B1, r4).** An `ignorePaths` entry that covers the root's `opensip.json` makes item 1's carrier join refuse at sealing (`excluded`). B1's resolver could refuse such an entry earlier, as `CONFIG.INVALID`, before any snapshot work. That is M3-B's choice. Until then, C1's refusal is the disposition.
+- **X-8 (r8, for the enumeration owner, with J1).** A required cell whose closure is not admitted has no lawful binding.
+  - ENC:53 refuses an unselected enumerator on a required cell (`ENUMERATION_PLAN_REQUIRED_UNSELECTED_ENUMERATOR`), and the reference model does the same (`enumeration_model.v1.py:740-745`). Default discovery requests every cell with `required=true` (NE:950-955).
+  - A selected enumerator needs a Plan-selected provider closure, and none can truthfully stand in for a missing one (item 9's bound).
+  - So E-3's required cells other than `inventory` cells (item 7), and WS:1374's durable golden, "required provider closure not installed", which MJ5 routes to row 27 as indeterminate 3, have no Plan the enumeration contract admits.
+  - **Lead recommendation:** an enumeration-contract successor that admits the unselected enumerator on a required cell exactly when no closure for the cell's mode is admitted, with the `provider-unavailable` pair. The required cell is then indeterminate, as WS:1374 states, and required-cell indeterminacy is unchanged. C4a's and J2c's legs for that case wait for it.
+- **X-9 (r8, for H's next revision and core packaging).** The host inventory stage needs an operation token and an output schema registered in the core platform tree at `opensip-interface/stage-output/<operation>.schema.json` (IE:1303-1318), as the syntax stage does (CRC-1 cross-law item 2). H owns the interface (item 16), and the core inventory builder must ship the schema. Otherwise C4a's stage spec refuses `STAGE_OUTPUT_SCHEMA_UNREGISTERED`. H3 and H5 also carry LD8-3's control: no `vcs-change` fact, and the `unknown` entry with `provider-unavailable` and `capability-missing`, in every universe an `inventory` binding binds. The native owner may confirm that pair.
+- **X-10 (r8, record, for E1's next revision).** ME:578's "every syntax-only binding of that universe names that stage" reads as the bindings whose records the syntax stage returns. An `inventory` binding in a syntax universe names the host inventory stage (item 16; LD8-2).
+- **X-11 (r8, for M3-B and X2: S7b's E-1).** Item 2's walk starts from the request's admitted `ProjectRootAdmission` and its tracking observation. When I is positively absent, E-1 produces no `ProjectRootAdmission` (MJ5:462). E-1's successor must give C1 a retained root descriptor and a tracking observation under the same custody predicates. Until then, C1 has no lawful start on that path, and C1 changes nothing.
 
 ## Forbidden substitutes
 
@@ -1195,6 +1294,10 @@ In addition to each item's list:
 - a protocol counter computed over candidates, inactive packages, rejected archives or framing; or an acquisition-bound crossing reported as `DependencySetBound` (r4);
 - a capture origin inside an identity row (r4).
 - stopping a candidate's acquisition at a protocol threshold, or inferring admission or activation from a decoded prefix; or materializing a rejected or partial candidate for the adapter (r5).
+- the core provider closure as producer or enumerator of a TypeScript or Rust record other than a host-derived `inventory` record, of a record a language provider returned, or of a binding that owes a symbol inventory; a language provider closure on an `inventory` relation's record (r8);
+- a `complete` `vcs-change@vcs-reported` result at M3 (r8);
+- an ephemeral ProjectId that is persisted, compared, or derived from a path or from the tree's bytes (r8);
+- a closure admitted with no admitted trust view, or a requested cell dropped from the Plan because its closure is absent (r8).
 - policy fields not from an `AdmittedPack`;
 - a cache or regeneration key at M3;
 - an operational value in any identity;
@@ -1204,12 +1307,13 @@ In addition to each item's list:
 
 **For the owner.** None blocks this law. Four lead decisions are flagged, and the owner may reverse any of them:
 - **O-1.** T2 measurement of the five `rust-cargo-prepared` cells waits for M5's authorized preparation (item 15). It is possible earlier only by executing repository code, which M3 forbids.
-- **O-2.** Every core release becomes a new detector closure, as EC1 did for the evaluator (item 9). Cross-release baseline comparison will need compatibility listings at M5.
+- **O-2.** Every core release becomes a new detector closure, as EC1 did for the evaluator (item 9). Cross-release baseline comparison will need compatibility listings at M5. **(r8)** With use 3, each release is also a new producer of every inventory record (MH owner flag 4). Plans that request `inventory` already select the core evaluator closure, so their identity already moves with each release.
 - **O-3.** Until S-R lands, large T2 repositories, and TypeScript repositories analyzed with `node_modules`, may refuse at item 5's bound, and the harness then falls back to `nodeModulesInReadSet=false` (item 15). Expect S-R to be needed after S-M.
 - **O-4 (r2; r3).** M3P's conditional host chain moves from 26 days to **28** (variant B, recommended) or 29 (variant A) at M3P's B rows, because of C3's and C4's real unit sizes. With M3-B r2's accepted units it is **b + 23 days**, which is 31 to 33 depending on when B2-c lands ("Units"). The next M3-PLAN revision records it.
 
 **For other owners:**
 - **R1. Identity owner (CRC-1).** Are three core-role projections acceptable, in particular the core provider closure's two admitted uses under one provider identity (r6, item 9): `import.producerClosure`, and the producer of syntax-universe work, with `semanticClosures` membership exactly when a syntax universe is selected? A separate syntax-producer projection is rejected (item 9).
+- **R1b (r8). Identity owner (CRC-2).** Is use 3 acceptable as item 9 bounds it: the three `inventory` relations, host-derived records only, four fields, never a symbol-inventory binding, and membership exactly when a syntax universe is selected or an `inventory` cell is requested?
 - **R2. Security and DR-103 owner (CR-1).** The role-to-kind table of item 7.
 - **R3. Security owner.** Confirm the S10 owner file-manifest recipe used for `inputBinding.ownerFileManifestSha256` for snapshot-member and dependency-closure-member owners (SL:1076-1082). The field is `owner-retained` by security (NES).
 - **R4. Rust protocol owner.** X-3.
@@ -1221,14 +1325,17 @@ In addition to each item's list:
 - **V1.** Is item 9's reading of COMP:9 sound? "An evaluator closure cannot stand in" is taken to refer to the closure, not to the core release, so a distinct `kind: detector` projection of the same core is lawful.
 - **V2.** Is item 4's `dirty: true` ("cleanliness not established") an acceptable M3 meaning, given VCS-1?
 - **V3.** Does item 13's union for `plan.importIds` conflict with any closure rule that requires `plan.importIds` to equal the configuration's `evidence.importIds`? The drafter found none: NE:4276 calls the configuration field "the selecting field" for overflow purposes only.
+- **V4 (r8).** Is item 6's fresh ProjectId draw consistent with IE:41-58 and with INC-1 and INC-2, given that it makes an unregistered root's ephemeral PlanIds incomparable across invocations?
+- **V5 (r8).** Is `provider-unavailable` with `capability-missing` the right disclosure for `vcs-change@vcs-reported` at M3 (item 4), rather than another pair of NE:3362-3374?
 
 ## Not claimed
 
-- **Nothing was run.** No product code, cargo command, test, fetch or lead run set was run for this law. Product facts come from reading main `30c5db1`.
+- **Nothing was run.** No product code, cargo command, test, fetch or lead run set was run for this law. Product facts come from reading main `30c5db1`. **(r8)** For CRC-2 only, `tools/verify_design.py` ran in a throwaway worktree of product main `21e428d`. It was Python only, with no cargo.
 - **Item 5's sizes are estimates.** They come from T2M's entry counts at an assumed mean row size. S-M measures them.
 - **Item 12's Cargo and `tar` facts come from source inspection only** (docs.rs `latest`, 2026-10-04). No archive was produced or decoded for this law (R6).
 - **Item 16 and "Units" timings are planning assumptions** under M3P:198. They are not measurements. The day B2-c finishes is M3-B's to fix.
 - **X12 r4 is not accepted.** Item 16's rows 1 to 4 cite it as pending review (r3).
 - **No contract, schema, gate, threshold, register row or pinned file is changed.** The successors listed are proposals.
 - **No launch rule is stated** (the D law's), and no O7 outcome is assumed.
+- **(r8) FA-2's three asks of C** (M3P10's C row, from L r5's X16) are not taken up here. They wait for a later revision.
 - **Not claimed for M3:** confinement; repository-code execution; `authorized-execution` prepared sets; the `import` and `native-prepare` commands; changed-scope or cache reuse; a public projection of item 5's refusal before S-B and J1; Git object reading; T2 prepared-mode measurement.
