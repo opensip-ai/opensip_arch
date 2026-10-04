@@ -589,3 +589,4 @@ Times are local.
   - **Content:** one supersession of SD-5's NE:3540 row, carrying D r5's predicate; a fresh NE:3539 override for item 25; the remedy overrides on B-S9's two copies. NE7 is dropped, and the folded NE text equals r1's NE7 byte for byte.
   - **Checks:** it binds 95 → 96 under the VD2-a tool, and today's tool refuses it, so it fails closed.
   - **Binding:** after VD2-a + F8c.
+- **SD-7 r2 accepted by GROK2** (ACCEPT-DESIGN-UNIT, with the `supersededPassages` list). It binds immediately after VD2-a + F8c is accepted and integrated.
