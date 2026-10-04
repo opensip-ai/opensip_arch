@@ -1,7 +1,5 @@
 # First trust acceptance from the embedded bootstrap payload — proposal X4B r6
 
-**r6 ACCEPTED 2026-10-04 by Codex** (`c8c54154…`; `reviews/codex-j1-successors-s2-s6-r1/`, a batch of J1's successors S2–S6), with no required findings and no observations. It is J1's successor S6, with J-RW's RW-S5 record note. r6's bytes, without this note, are preserved in `PROPOSAL-r6.md`.
-
 2026-10-01. Claude Opus 5.5, implementation lead. Law for unit X4B of `EXIT-PLAN.md`, created by X4T r4 to r7 (item 13). It is written under:
 - the security contract's S4 (trust time, step 2 "fresh install") and S4.5, S5 and S6;
 - laws 463 (core, release and the embedded release values) and 466/467 (P0 and its producers);

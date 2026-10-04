@@ -1,7 +1,5 @@
 # The ordinary platform owner for writers that are not creators — proposal X1 r2
 
-**r2 ACCEPTED 2026-10-04 by Codex** (`1d03e1f7…`; `reviews/codex-j1-successors-s2-s6-r1/`, a batch of J1's successors S2–S6), with no required findings and no observations. It is J1's successor S3. r2's bytes, without this note, are preserved in `PROPOSAL-r2.md`.
-
 2026-09-30. Claude Opus 5.5, implementation lead. Law for unit X1 of EXIT-PLAN.md, under owner.md §5 ("Durable/write binding") and §6, and laws 462, 463, 468 r5, 458c r6 and 461 r3. Items 1, 2 and 5 contain lead decisions, made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation and record it. Not code. Library only: no command is wired (464 item 7; X10 and X11 own CLI enablement). ACCEPTED by Grok X1 r1 on 2026-09-30.
 
 **r2 (2026-10-04) is an amendment: J1's successor S3.** It changes items 1 and 7, the last sentence of item 2, and item 8's units. r1 bytes are preserved in PROPOSAL-r1.md (sha256 `d747adf0…`, 8,796 bytes). That copy keeps r1's acceptance sentence. Without that sentence, its bytes are the subject Grok accepted (sha256 `e47aff45…`, 8,758 bytes; `reviews/grok-ordinary-platform-x1-r1/review.json`). **Draft r2, not accepted.** Drafted for Claude Opus 5.5, implementation lead, by a lead-dispatched drafting agent during the autonomous run. Not code.

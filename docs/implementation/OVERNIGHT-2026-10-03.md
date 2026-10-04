@@ -703,3 +703,4 @@ Times are local.
     - adding a named exception list to the checker;
     - leaving E2 out of the union.
   - **Caveat:** the numbers are predictions. §RC tells X3c-3 to stop if its census-only run differs.
+- **J1's successors S2–S6 accepted by Codex:** 468 r6, X1 r2, 464 r3, X3a r6 and X4B r6, each with no findings and no observations. J3a's law prerequisites are now S2–S6 (met), S10 (X3d r9, met) and S7 (X2 r10, being drafted with J-RW's RW-S1).

@@ -1,7 +1,5 @@
 # Creation ingress and storage choice for the initial creator — proposal 464 r3
 
-**r3 ACCEPTED 2026-10-04 by Codex** (`e0803ad9…`; `reviews/codex-j1-successors-s2-s6-r1/`, a batch of J1's successors S2–S6), with no required findings and no observations. It is J1's successor S4. r3's bytes, without this note, are preserved in `PROPOSAL-r3.md`.
-
 2026-09-26. Claude Opus 5.5, implementation lead. Law for unit 464 (`CreationIntent`), under owner.md §1a step 1, the first-creation storage choice paragraph, and §6. It closes the points owner.md leaves to the implementation and settles two textual conflicts. Not code, not creator authority. The creator stays disabled. r2 answers Grok 464 r1 RF-1 (the notice omitted retention origin) and RF-2 (StepId is a position, not a draw). r1 bytes are preserved in PROPOSAL-r1.md. ACCEPTED by Grok 464 r2 on 2026-09-26.
 
 **r3 (2026-10-04) is an amendment: J1's successor S4.** It changes items 1 and 5, and item 7 gains a note on the code's unit. r2 bytes, as accepted (sha256 `a940ba50…`, 6,709 bytes, without the acceptance note), are preserved in PROPOSAL-r2.md. **Draft r3, not accepted.** Drafted for Claude Opus 5.5, implementation lead, by a lead-dispatched drafting agent during the autonomous run. Not code.
