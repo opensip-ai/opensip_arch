@@ -184,3 +184,4 @@ Times are local.
   - The owner's 465 item 5 ACL decision extends to the L11 owners (LD-3).
   - Trust files and ledgers are completed in place: only the missing suffix is written (LD-4, LD-5).
   - **Weakest assumption:** the bare-WAL ledger view at the two WAL kill points comes from SQLite's documentation, not from a run. J4c must pin it by test.
+- **M3-D accepted at r3 by GROK2,** with no required findings. This is the supervisor and common control law. Section F, confinement, remains an O7 placeholder, binding only if O7 is decided as recommended. The accepted bytes are `supervisor-d/PROPOSAL-r3.md` (`9679dbc4…`). The acceptance note, and the one history-wording observation, will be added to the live file after Grok's M3-L r2 review, which pins the live bytes. SD-6, the pre-draw row R10a, goes to CODEX2 as a J1 r4 delta.
