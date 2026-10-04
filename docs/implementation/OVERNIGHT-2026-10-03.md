@@ -400,3 +400,4 @@ Times are local.
   - **Order:** it binds after FA-2. TS2 is unaffected.
   - **Lead decision:** RUST3-LIM becomes L's gate item G11, entering at L's next revision. Without it, L in effect fixes a protocol that refuses two of S-M's seven medium workloads.
   - **Review:** queued for CODEX2.
+- **CRC-1 r2:** Grok raised one finding, and it was the lead's own slip. Renaming the review directory left the builder emitting the old path, so `--check` failed. The lead wrote r3: only the builder's path text and the README change, and the passage overrides are byte-identical. It still binds 82 → 83. SYN-1F's parent pin on CRC-1's record moves again, so SYN-1F needs a parent-only rebuild before it is sent.
