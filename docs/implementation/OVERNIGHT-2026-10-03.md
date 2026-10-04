@@ -738,3 +738,4 @@ Times are local.
     4. **The `SyntaxTreeV1` layout** goes to E2b's `parser.rs`.
     5. **`shim` is null** under T-native.
   - **Process change:** reviewers now take the shared lane lock for cargo runs, so a review rerun can't disturb an X9 lead set.
+- **M3-PLAN r10 accepted by Codex,** with no required findings. Its two P3 observations go to r11.

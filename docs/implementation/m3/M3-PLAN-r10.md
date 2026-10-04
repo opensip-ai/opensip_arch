@@ -1,7 +1,5 @@
 # M3 unit plan
 
-**r10 ACCEPTED 2026-10-04 by Codex** (`ec8c38f8…`; `reviews/codex-m3-plan-r10/`), with no required findings. r10's bytes, without this note, are preserved in `M3-PLAN-r10.md`. Its two P3 observations go to r11 as record notes: NB-01, that the "only Cargo.toml and generator pins changed" claim needs a narrower scope (Cargo.lock and the scaffold files also changed); and NB-02, that the MB citation note should also name B2-a's expanded duties.
-
 Draft r10, not accepted. Claude Opus 5.5, implementation lead; drafted for the lead by a lead-dispatched drafting agent during the overnight autonomous run. **Planning record: not law, not code, not a contract successor.** It is the M3 counterpart of [m2/EXIT-PLAN.md](../m2/EXIT-PLAN.md). It orders M3's obligations into reviewable units and changes no accepted contract, gate, threshold or register row.
 
 **r10 is a record revision.** It records what was accepted, bound, integrated or decided after r9's cut-off, up to r10's own cut-off below. It moves no gate or threshold the owner set. It changes no unit's scope beyond what accepted laws decided, and it cites the law wherever one did. Durations and edges move only where an accepted law moved them (P7-5). It makes no new lead decision. r7 was the previous record revision; r8 and r9 answered GROK2's reviews of it.
