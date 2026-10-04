@@ -16,3 +16,9 @@ Times are local.
 - **Session restart.** X9-6's lead sets, lanes and release absence had completed: storage 381/381, host 98/98, union 383/383 killed, repetitions agree. The real `check` correctly refuses on the uncommitted worktree.
   - Its review request was pinned and sent to Grok (arch `2c44a5e46`).
   - Lead recommendation: Grok reruns once, on the integrated commit.
+- **X9-6 accepted and integrated.** Grok gave ACCEPT-UNIT with no findings, and X9-6 is integrated as product main `3d2d5b5` (commit C). Grok chose to run its full sets once, on C.
+- **Final evidence run started on C:** release absence, two full sets across both targets, then the real `check`.
+- **Started in parallel, with no machine load:**
+  - M3-T2b, corpus completion, for GROK2;
+  - M3-I1, the preview-pack IR freeze and contract-successor draft, for CODEX2;
+  - M3-L, the protocol law draft. Its acceptance is gated on O7.
