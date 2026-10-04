@@ -9,6 +9,17 @@ Write only under /tmp/opensip-implementation/reviews/grok-fact-admission-h-r1.
 - Never read the 413 fixture.
 - Use read-only scratch scripts under your review directory if you need them.
 
+
+**Two pinned files moved after pinning (lead note).** Their live paths now hold new drafts:
+- `m3/host-pipeline-j/PROPOSAL.md` is J1 r4, a narrow SD-6 amendment in review with CODEX2;
+- `m3/snapshot-plan-c/PROPOSAL.md` is M3-C r7, likewise.
+
+Judge H against the **pinned bytes**:
+- J1: `git show 176534ae7:docs/implementation/m3/host-pipeline-j/PROPOSAL.md` (`89c84927…`; r3 plus its acceptance note);
+- M3-C: `git show 3590205a9:docs/implementation/m3/snapshot-plan-c/PROPOSAL.md` (`a2f16b7b…`; r6 plus its note).
+
+Run git read-only with a private `HOME`. You may also read the new drafts, J1 r4 (row R10a) and C r7 (row 8 narrowed to manifests admitted at R10a), and say whether either changes anything H relies on.
+
 ## Subject
 
 The pins are in `hashes.txt`. The subject file is untracked in arch until acceptance.
