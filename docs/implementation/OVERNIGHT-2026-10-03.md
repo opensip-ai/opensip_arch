@@ -550,3 +550,9 @@ Times are local.
   - The commit's returned outcome decides. No new code. It binds 91 → 92.
 - **SYN-NS accepted at r2 by GROK2 and bound** at product main `6190e66`, giving 92 contract successors. All of E1's successors (SYN-1, SYN-1F, SYN-NS) are now bound. M3-B r3 drew one finding: the directory-custody row's "as above" now resolves to the wrong code pair. The lead fixes it as r4.
 - **E1 r4 (Codex) and I1 r3 (CODEX2) accepted,** both record revisions with no findings. E1 now records E0's T-native outcome and the SYN items. I1 records I1-L's and I1-P's findings and I1-a's `verify_design` needs. CODEX2 now has I1-a.
+- **X4T r12 written (the X4-F2 law) and sent to Codex.**
+  - **Clock at the fenced read:** the fenced read applies `EV-CLOCK` at tEval, through X4B r5 item 4's mapping, as X4-F1's `clock_roles` does. It is the admission's last decision, and the clocked state exists only in the view; nothing is written as `EV-CLOCK`.
+  - **Write first, then refuse:** if the clock refuses, the floor write-ahead still runs first. A wall clock set back later cannot re-admit the store.
+  - **Refusal route:** the existing `CONTINUE-CORE-NOT-TRUSTED` row, with subject `core:expired` or `core:stale-revocation`.
+  - **X9:** no row moves. The code unit reruns 54 storage F00 rows by X4-F1's method.
+  - **Record slip found:** X4T r11's live note said it was accepted on 2026-10-03; the correct date is 2026-10-01.
