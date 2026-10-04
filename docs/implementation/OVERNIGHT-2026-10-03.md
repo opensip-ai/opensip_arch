@@ -246,3 +246,11 @@ Times are local.
   - **New state RW-T3 (R1-03):** a trust-publication directory created but not yet private. It appears three times in the pinned census, and is completed by C-ACL at `parent_dir`.
   - **L11** is retired only when J4e's lead set passes every RW row.
 - **B-S1 accepted by GROK2** (ACCEPT-DESIGN-UNIT, no findings) **and bound** at product main `9c11c53`, with 79 contract successors. SX-1 and the D15 passages are now law in the product lock. **GROK2's ruling R2:** M3-B's item 22 and row 1 govern the in-repository crossing, so row 3 needs a record correction in M3-B's next revision.
+- **B-S2 accepted by Codex** (ACCEPT-DESIGN-UNIT, no findings) **and bound** at product main `240a795`, giving 80 contract successors. Its one observation goes to C1b: the materialization must preserve I1-L's identity-schema changes alongside B-S2's merge.
+- **X4-F1 is ready for review.** It is rebased on `e093e90`, and every lane passes:
+  - workspace 1749/0, twice;
+  - crash-matrix 1629/0;
+  - clippy, fmt and `verify_design`.
+
+  Its X9 regression covers 64 storage rows and 4 host rows, two sets each. Every run is byte-identical to the accepted X9-6 evidence, and the census and kill sets are identical. Release absence passes.
+- **E0 phase 2 started** on the now-quiet machine, with the lead's rulings on the probe's ambiguities.

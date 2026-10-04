@@ -1,0 +1,153 @@
+{
+  "artifact": "opensip.identity-schemas.additions",
+  "successor": "B-S2",
+  "status": "PROPOSED-NOT-SELF-ACCEPTED",
+  "base": {
+    "path": "docs/coop/design-corrections/foundation/identity-schemas.v3.json",
+    "bytes": 196987,
+    "sha256": "a76c9e2f07e8f8e52ee611f157548f6a09061866308652e3a0f7e3c24893db21"
+  },
+  "alsoAppliesTo": [
+    {
+      "path": "docs/implementation/m1/source-selection-v2/schemas/sources/identity.v3.schema.json",
+      "bytes": 197480,
+      "sha256": "311c1feb09ff8cd0b207233d2ec0d7440bb1c72fc0470de277ee1891c24bb68f"
+    }
+  ],
+  "mergeRule": "The base bundle's #/$defs/vcs-observation is REPLACED by this fragment's, which admits exactly schema 2 or schema 3. vcs-observation-v2 is the base bundle's vcs-observation, copied unchanged, so schema-2 admission and canonical bytes do not change. vcs-observation-v3 and vcs-member-observation are ADDED. The record name, the snapshot's vcsDigest selector #/$defs/vcs-observation and every other base member are unchanged. Hash and LogicalPath resolve in the merged bundle. The same merge applies to the product copy named in alsoAppliesTo, whose vcs-observation equals the base's.",
+  "standing": "Closed Draft 2020-12 records for identity-and-evidence section 3 (vcsDigest), contract successor B-S2. Design evidence, not a product implementation; C1b materializes it.",
+  "$defs": {
+    "vcs-observation": {
+      "description": "The closed vcs-observation record that snapshot2.vcsDigest names: schema 2 for a project with no admitted D15 member, schema 3 for a project with at least one (contract successor B-S2).",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/vcs-observation-v2"
+        },
+        {
+          "$ref": "#/$defs/vcs-observation-v3"
+        }
+      ]
+    },
+    "vcs-observation-v2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "kind",
+        "commitId",
+        "dirty",
+        "sourceInventoryDigest"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 2
+        },
+        "kind": {
+          "enum": [
+            "none",
+            "git",
+            "hg",
+            "svn",
+            "jj"
+          ]
+        },
+        "commitId": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/Text"
+            }
+          ]
+        },
+        "dirty": {
+          "type": "boolean"
+        },
+        "sourceInventoryDigest": {
+          "$ref": "#/$defs/Hash",
+          "x-opensip-digest": {
+            "representation": "canonical-record",
+            "record": {
+              "bundle": "identity",
+              "selector": "#/$defs/source-inventory"
+            }
+          }
+        }
+      }
+    },
+    "vcs-observation-v3": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "kind",
+        "commitId",
+        "dirty",
+        "sourceInventoryDigest",
+        "members"
+      ],
+      "description": "Schema 3 (contract successor B-S2, law M3-B r2 successor S4): the VCS observation of a project with at least one admitted D15 member repository. The top level is the selected root's own observation, which is kind none because a workspace root is in no repository (security S3); sourceInventoryDigest covers the whole snapshot inventory. members holds one row per admitted member, ascending by path. A project with no member uses schema 2.",
+      "properties": {
+        "schemaVersion": {
+          "const": 3
+        },
+        "kind": {
+          "const": "none"
+        },
+        "commitId": {
+          "type": "null"
+        },
+        "dirty": {
+          "const": false
+        },
+        "sourceInventoryDigest": {
+          "$ref": "#/$defs/Hash",
+          "x-opensip-digest": {
+            "representation": "canonical-record",
+            "record": {
+              "bundle": "identity",
+              "selector": "#/$defs/source-inventory"
+            }
+          }
+        },
+        "members": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/vcs-member-observation"
+          },
+          "x-opensip-order": "path"
+        }
+      }
+    },
+    "vcs-member-observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "kind",
+        "commitId",
+        "dirty"
+      ],
+      "description": "One admitted D15 member repository: its root as a logical path relative to the project root, kind git (the only member layout admitted), its resolved HEAD commit as 40 lowercase hexadecimal digits (object format sha1; project-root law X2 refuses extensions.*), and dirty under the same rule as a single repository's.",
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/LogicalPath"
+        },
+        "kind": {
+          "const": "git"
+        },
+        "commitId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}(?![\\s\\S])"
+        },
+        "dirty": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}
