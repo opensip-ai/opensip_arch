@@ -245,3 +245,4 @@ Times are local.
   - **Registration (R1-02):** a present marker with an absent namespace always refuses.
   - **New state RW-T3 (R1-03):** a trust-publication directory created but not yet private. It appears three times in the pinned census, and is completed by C-ACL at `parent_dir`.
   - **L11** is retired only when J4e's lead set passes every RW row.
+- **B-S1 accepted by GROK2** (ACCEPT-DESIGN-UNIT, no findings) **and bound** at product main `9c11c53`, with 79 contract successors. SX-1 and the D15 passages are now law in the product lock. **GROK2's ruling R2:** M3-B's item 22 and row 1 govern the in-repository crossing, so row 3 needs a record correction in M3-B's next revision.

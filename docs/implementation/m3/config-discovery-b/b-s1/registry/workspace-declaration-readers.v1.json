@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "registry": "opensip.discovery.workspace-declaration-readers",
+  "standing": "PROPOSED closed registry of the D15 workspace declaration readers (contract successor B-S1, under law M3-B r2 items 8, 15, 19, 20, 22 and 24; security S3 'Multi-repository workspaces'). It is the FW-13 'Workspace declaration readers (D15)' row: a closed enum, pinned, and an unknown reader id or version is a host invariant fault (HOST.INVARIANT_VIOLATED), never run. Readers are not framework recognizers (native section 8 is unchanged) and are not configuration carriers. Design text, not a product implementation; B3-b implements it.",
+  "rootTerms": {
+    "W": "the selected project root (security S3).",
+    "W2": "project-root law X2's tracking observation of W is NoRepository: no VCS marker (.git, .hg, .svn, .jj) at W or at any ancestor up to /.",
+    "arrayPresent": "the resolved semantic configuration holds an admitted discovery.workspaceRoots array, from the project or interactive local layer or from --workspace-root, which is the flags layer of the same field (law M3-B items 2 and 20). Branch A when present, branch B when absent.",
+    "nestedRepository": "a directory strictly below W that holds a VCS marker, as security S3 observes it.",
+    "candidate": "for an entry directory D, the first directory R on the path from W to D, D included, that holds a VCS marker. An entry with no such R lies in W's own tree."
+  },
+  "common": {
+    "runsNothing": "A reader parses its carrier as data with an exact parser. It runs no process, script, hook, build script, plugin, glob program or package manager, uses no network and no environment variable, and writes nothing (law M3-B items 9 and 15).",
+    "carrierCustody": "The carrier, and every directory from W to it, passes security S3 directory and config-file custody (regular file, link count 1, at most 4 MiB, owner, mode and ACL), read from the descriptor whose custody was judged, on the discovery ledger. A custody failure never refuses: the reader's declaration is 'refused' with subject custody:<S3 custody code>, and it declares nothing.",
+    "readerScope": "Readers read only files at W, at the fixed carrier paths below. No file inside a member, and no other file at W, declares a member.",
+    "pathGrammar": "An entry path is a canonical relative directory (native section 1.4 U-0, CanonicalRelativeDirV1): one or more non-empty /-joined segments, with no leading or trailing /, no . or .. segment, no NUL and no backslash. It is never normalized. An absolute path, or one with a .. segment, is entry-path-outside-root; any other violation is entry-path-grammar.",
+    "placement": "An entry directory D = W/<path> must exist as a directory, reached from W segment by segment with no-follow lookups and no symlink; otherwise entry-path-absent. A device change on the path from W to D is member-excluded with subject member-outside-volume. Its candidate R is found by positive no-follow lookups of .git, .hg, .svn and .jj at each directory from W's child to D. With no candidate, the entry lies in W's own tree.",
+    "membershipByPlacementOnly": "An entry declares its candidate R a member by placement alone: R holds .git as a directory and no other VCS marker, no directory strictly between W and R holds opensip.json, R is not at or below W/.opensip, and R is not at or below another candidate. Package metadata never decides membership; a link failure leaves the member declared (law M3-B item 20: boundaries never depend on units).",
+    "memberCap": "n is the number of distinct candidates that pass placement across every declaring source of the active branch, counted before project-root law X2 r9 item 6b reads any candidate's Git configuration or index. n > 64 refuses PROJECT.SCOPE_LIMIT (REQUEST.UNSATISFIABLE, exit 2) with subject members:<n>>64 in either branch. Candidates are never dropped to fit.",
+    "memberObservation": "Each counted candidate then passes X2 r9 item 6b in ascending path order (layout, configuration and index, M/.git, M/.git/config and M/.git/index only) and directory custody. In branch B a failure excludes the candidate: it stays a nested repository and a boundary, and every entry naming it is disclosed as member-excluded with the X2 r9 or S3 subject.",
+    "links": "Links are derived only after membership is final, and only for entries whose directory lies inside an admitted member. The provider manifest is read as data under config-file custody. Two link candidates of one ecosystem with the same packageName and different packageDir both give no link (ambiguous-provider). A link is a declaration of a provider, never a resolution: per-consumer satisfaction is decided at context construction by the ecosystem's own resolver, under successors S5 (Cargo) and S6 (npm), and no link is honoured before them.",
+    "branchA": "Array present and W2 holds: readers declare no member. Entries whose directory lies inside a member the array admitted yield links as below; an entry whose directory lies inside any other repository is dropped-workspace-roots-present; an entry in W's own tree is entry-not-in-a-member.",
+    "branchB": "Array absent and W2 holds: readers declare members as below.",
+    "rootInRepository": "W2 fails (W is itself in a repository), whatever the array: readers declare nothing and derive no link. A literal entry whose directory lies inside a nested repository is disclosed as member-excluded with subject workspace-root-inside-repository; no other entry is recorded.",
+    "entryOnce": "Each distinct entry is decided once and takes exactly one disposition. unresolved rows are strictly ascending by the UTF-8 bytes of entry."
+  },
+  "readers": [
+    {
+      "readerId": "cargo-config-patch",
+      "readerVersion": 1,
+      "ecosystem": "cargo",
+      "carrier": "W/.cargo/config.toml, or the legacy W/.cargo/config. Neither present: state absent. Both present: state refused, subject carrier-ambiguous, and nothing is declared (law M3-B item 17: the narrower scope is taken and disclosed; Cargo's own preference between the two is not imitated).",
+      "parser": "The pinned toml crate (crates/identity/Cargo.toml), as data, exactly as native section 1.4 U-2 reads Cargo.toml. A parse failure, or a patch value that is not a table of tables, is state refused, subject parse. Every key other than patch is ignored and never acted on (for example build.rustc-wrapper).",
+      "entries": "Each patch.<source>.<name>, where <source> is the patch table key (crates-io or a registry URL) and <name> the package key. The entry string recorded in unresolved is patch.<source>.<name>, with <source> and <name> spelled exactly as parsed.",
+      "entryShape": "An entry declares or links only if it is a table whose only key is path with a string value. Any other key set (git, branch, tag, rev, registry, package, version or any other) is patch-entry-not-path. Cargo resolves the path from the directory that holds .cargo, which is W (T2 FETCH-SPEC section 6).",
+      "member": "branch B: the candidate R of a placed entry, by membershipByPlacementOnly.",
+      "link": "For an entry inside an admitted member: the directory's Cargo.toml [package] name must equal <name> (else patch-target-name-mismatch), and [package] version must be a literal string (else provided-version-unusable; an inherited version.workspace is not literal). An absent, uncustodied or unparseable Cargo.toml is link-manifest-unusable. The link row is {ecosystem: cargo, packageName: <name>, providerMember, packageDir, providedVersion, cargoPatchSource: <source>, declaredBy}."
+    },
+    {
+      "readerId": "npm-workspaces-members",
+      "readerVersion": 1,
+      "ecosystem": "npm",
+      "carrier": "W/package.json. Absent: state absent. It is also a native section 1.4 U-1 marker, and its custody is that marker's custody.",
+      "parser": "Exact JSON admission (admission-and-qualification section 1). A parse failure is state refused, subject parse. An absent workspaces key is state read with no entry. A workspaces value that is not an array of strings, including the object form {packages: [...]}, is state refused, subject workspaces-shape-unsupported.",
+      "entries": "Each string of workspaces, recorded verbatim as entry.",
+      "glob": "An entry is a glob when it contains any of the characters *, ?, [, ], {, } or !. A glob never declares a member and never yields a link. Its literal prefix is its leading segments up to the first segment that holds a glob character. When the literal prefix is at or below a nested repository, or a nested repository lies at or below it, the glob is workspace-glob-crosses-repository; otherwise it is W's own npm workspace and is not recorded.",
+      "member": "branch B: the candidate R of a placed literal entry, by membershipByPlacementOnly.",
+      "link": "For a literal entry inside an admitted member: the directory's package.json must admit as exact JSON with a string name (else link-manifest-unusable, subject name-absent, parse or custody:<code>) and a string version (else provided-version-unusable). The link row is {ecosystem: npm, packageName: name, providerMember, packageDir, providedVersion, declaredBy}. This is the D15 npm rendering left open by T2 FETCH-SPEC section 6: W/package.json = {\"private\": true, \"workspaces\": [the overlay's npm link directories, sorted]} (law M3-B item 20; record successor S8)."
+    }
+  ],
+  "notRead": [
+    "pnpm-workspace.yaml: never a D15 declaration. pnpm's linking of a version requirement depends on settings outside that file (law M3-B item 20, rejected alternatives). It stays a framework-recognition input under native section 8.",
+    "pyproject.toml and every Python file: no Python reader at M3 (owner decision D9; law M3-B item 20).",
+    "Any workspace tool's own manifest: none is registered (owner question OQ-1; law M3-B item 20). Such a workspace declares its members in discovery.workspaceRoots."
+  ],
+  "unresolvedReasons": [
+    {"reason": "workspace-glob-crosses-repository", "subject": "null", "meaning": "an npm glob whose literal prefix reaches a nested repository; no member, no link"},
+    {"reason": "entry-path-grammar", "subject": "null", "meaning": "an entry path that is not a canonical relative directory"},
+    {"reason": "entry-path-outside-root", "subject": "null", "meaning": "an absolute entry path, or one with a .. segment"},
+    {"reason": "entry-path-absent", "subject": "null", "meaning": "the entry directory does not exist as a directory reached from W without a symlink or device change"},
+    {"reason": "entry-not-in-a-member", "subject": "null", "meaning": "dropped: the entry directory lies in W's own tree, so it is neither a member nor a link"},
+    {"reason": "dropped-workspace-roots-present", "subject": "null", "meaning": "branch A: the entry directory lies inside a repository that the workspaceRoots array did not admit as a member"},
+    {"reason": "member-excluded", "subject": "required: an X2 r9 or S3 subject, for example member-vcs-unsupported:<reason>, member-outside-volume, workspace-root-inside-repository, JOIN_CROSSES_NESTED_PROJECT or DIRECTORY_CUSTODY:<code>", "meaning": "the entry's candidate is not admitted as a member; it stays a nested repository and a boundary"},
+    {"reason": "patch-entry-not-path", "subject": "null", "meaning": "a Cargo patch entry with any key other than a single path"},
+    {"reason": "patch-target-name-mismatch", "subject": "null", "meaning": "the patched directory's Cargo.toml names another package; no link"},
+    {"reason": "ambiguous-provider", "subject": "null", "meaning": "two link candidates of one ecosystem provide one packageName from different directories; neither links"},
+    {"reason": "provided-version-unusable", "subject": "null", "meaning": "the provider manifest has no literal string version; no link"},
+    {"reason": "link-manifest-unusable", "subject": "required: absent, parse, name-absent or custody:<code>", "meaning": "the provider manifest cannot be read as data; no link"}
+  ],
+  "records": {
+    "provenance": "security-lifecycle additions: WorkspaceDeclarationV1 (one per reader, in readerId order), UnresolvedDeclarationEntryV1, MemberRepositoryV1 and MemberDeclarationV1 (source reader, with readerId, readerVersion, path of the carrier and contentSha256 of its exact bytes).",
+    "links": "The link rows above are the declaration half of the host-owned WorkspaceLinkSetV1 (law M3-B item 22). Its Plan binding belongs to successors S5 and S6; this registry fixes only what a reader outputs."
+  }
+}

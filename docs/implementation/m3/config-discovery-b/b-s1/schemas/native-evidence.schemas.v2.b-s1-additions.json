@@ -1,0 +1,277 @@
+{
+  "artifact": "opensip.native-evidence.schemas.additions",
+  "successor": "B-S1",
+  "status": "PROPOSED-NOT-SELF-ACCEPTED",
+  "base": {
+    "path": "docs/coop/design-corrections/native/native-evidence.schemas.v2.json",
+    "bytes": 277967,
+    "sha256": "2d37b810bd9ffed741d74241fc8a11051606862d8af2f152eed16b92bdc66043"
+  },
+  "mergeRule": "Every $defs member below is ADDED to the base bundle (urn:opensip:product-v1:native:evidence-schemas:v2) under the same key; no base member is replaced or removed. Every #/ reference resolves in the merged bundle.",
+  "standing": "Closed Draft 2020-12 records added to the native evidence bundle by contract successor B-S1 for native-evidence section 1.4 (U-4a and U-8). PrunedTreeV3 mirrors the security bundle PrunedTreeRowV3 and AdmittedBoundaryInventoryV3 mirrors its security namesake, as their version-2 pairs do. Design evidence, not a product implementation.",
+  "$defs": {
+    "PrunedTreeV3": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "reason",
+        "markerCount",
+        "markerCountBasis"
+      ],
+      "description": "VERSION 3 (contract successor B-S1, successor SX-1 of law M3-C): adds exactly the reason opensip-custody-state, the anchor of the exact path .opensip at the selected root and at each admitted D15 member root, observed only as an entry of its parent and never opened, listed or entered. Pruned-tree row VERSION 2 (XA-02 / CR-25). Closed four-member row. The anchor is known from the admitted directory observation and is recorded even when no descendant marker was observed; discovery never descends into the tree to obtain a count or to find a nested anchor. markerCount is null if and only if markerCountBasis is not-enumerated. Version-1 rows keep their bytes under the version-1 records and are read as version 1, never re-read as version 2. Mirror of the security bundle PrunedTreeRowV3; the native boundary comparison uses path and reason only.",
+      "properties": {
+        "path": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "reason": {
+          "type": "string",
+          "enum": [
+            "dependency-tree",
+            "vcs-tree",
+            "cargo-build-output",
+            "opensip-custody-state"
+          ]
+        },
+        "markerCount": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/I64NonNegative"
+            }
+          ],
+          "description": "Exact count of distinct supplied marker paths under this anchor when markerCountBasis is observed-inventory; null when not-enumerated. Common i64 nonnegative domain, shared byte-for-byte with the native mirror."
+        },
+        "markerCountBasis": {
+          "type": "string",
+          "enum": [
+            "not-enumerated",
+            "observed-inventory"
+          ],
+          "description": "Whether the SUPPLIED marker inventory enumerated inside this pruned tree. not-enumerated means discovery did not descend, or the anchor own directory observation could not be established, and markerCount is null. observed-inventory means markerCount is exact OVER THE SUPPLIED INVENTORY ONLY; zero observed never means zero hidden. Provenance only: never a comparison key, never a unit-selection, work-bound, Coverage or scope input."
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "markerCountBasis": {
+              "const": "not-enumerated"
+            },
+            "markerCount": {
+              "type": "null"
+            }
+          }
+        },
+        {
+          "properties": {
+            "markerCountBasis": {
+              "const": "observed-inventory"
+            },
+            "markerCount": {
+              "$ref": "#/$defs/I64NonNegative"
+            }
+          }
+        }
+      ]
+    },
+    "AdmittedBoundaryInventoryV3": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "source",
+        "selectedRoot",
+        "nestedRepositories",
+        "nestedProjects",
+        "custodyExcludedUnits",
+        "prunedTrees",
+        "memberRepositories"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 3
+        },
+        "source": {
+          "const": "security.discovery"
+        },
+        "selectedRoot": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "nestedRepositories": {
+          "type": "array",
+          "maxItems": 4096,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096,
+            "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$))[^\\u0000\\\\]+(?![\\s\\S])"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "nestedProjects": {
+          "type": "array",
+          "maxItems": 4096,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096,
+            "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$))[^\\u0000\\\\]+(?![\\s\\S])"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "custodyExcludedUnits": {
+          "type": "array",
+          "maxItems": 4096,
+          "items": {
+            "$ref": "#/$defs/CustodyExcludedUnitV1"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "prunedTrees": {
+          "type": "array",
+          "maxItems": 65536,
+          "items": {
+            "$ref": "#/$defs/PrunedTreeV3"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "memberRepositories": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096,
+            "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$))[^\\u0000\\\\]+(?![\\s\\S])"
+          },
+          "x-opensip-order": "utf8"
+        }
+      },
+      "description": "TRUSTED ADMITTED INPUT (P3), VERSION 3 (contract successor B-S1): version 2 converted from the ACCEPTed DiscoveryProvenanceV3, with PrunedTreeV3 rows (SX-1) and memberRepositories, the relative roots of the admitted D15 member repositories. A member is not a boundary: it enters no excludedPathPrefixes and excludes no unit or file (native section 1.4 U-8). Never authored by a caller."
+    },
+    "UnitBoundariesV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "nestedRepositories",
+        "nestedProjects",
+        "custodyExcludedUnits",
+        "excludedUnits",
+        "disclosure",
+        "memberRepositories"
+      ],
+      "properties": {
+        "source": {
+          "type": "string",
+          "enum": [
+            "security.discovery",
+            "none"
+          ]
+        },
+        "nestedRepositories": {
+          "type": "array",
+          "maxItems": 4096,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096,
+            "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$))[^\\u0000\\\\]+(?![\\s\\S])"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "nestedProjects": {
+          "type": "array",
+          "maxItems": 4096,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096,
+            "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$))[^\\u0000\\\\]+(?![\\s\\S])"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "custodyExcludedUnits": {
+          "type": "array",
+          "maxItems": 4096,
+          "items": {
+            "$ref": "#/$defs/CustodyExcludedUnitV1"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "excludedUnits": {
+          "type": "array",
+          "maxItems": 8192,
+          "items": {
+            "$ref": "#/$defs/BoundaryExcludedUnitV1"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "disclosure": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "memberRepositories": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096,
+            "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$))[^\\u0000\\\\]+(?![\\s\\S])"
+          },
+          "x-opensip-order": "utf8"
+        }
+      },
+      "description": "boundary provenance of a unit discovery, VERSION 2 (contract successor B-S1): version 1 plus memberRepositories, the admitted D15 member roots carried beside the boundary rows (empty with source none and for a project with no member)"
+    },
+    "UnitDiscoveryV3": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "units",
+        "prunedTrees",
+        "boundaries",
+        "refused"
+      ],
+      "properties": {
+        "units": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/WorkspaceUnitV2"
+          },
+          "maxItems": 8192,
+          "uniqueItems": true,
+          "x-opensip-order": "sequence"
+        },
+        "prunedTrees": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PrunedTreeV3"
+          },
+          "maxItems": 65536,
+          "x-opensip-order": "sequence"
+        },
+        "boundaries": {
+          "$ref": "#/$defs/UnitBoundariesV2"
+        },
+        "refused": {
+          "type": "null"
+        }
+      },
+      "description": "Unit discovery output VERSION 3 (contract successor B-S1): version 2 with PrunedTreeV3 rows (SX-1) and UnitBoundariesV2 (D15 memberRepositories). Versions 1 and 2 remain the historical records for their own bytes."
+    }
+  }
+}

@@ -1,0 +1,869 @@
+{
+  "artifact": "opensip.security-lifecycle.schemas.additions",
+  "successor": "B-S1",
+  "status": "PROPOSED-NOT-SELF-ACCEPTED",
+  "base": {
+    "path": "docs/coop/design-corrections/security/security-lifecycle.schemas.v1.json",
+    "bytes": 135672,
+    "sha256": "f66d2c617084825e3cdb9a855a151c10aa66625968b40ef91fc6bb3be39423f4"
+  },
+  "mergeRule": "Every $defs and schemas member below is ADDED to the base bundle under the same key; no base member is replaced or removed. Every #/ reference resolves in the merged bundle. Version-1 and version-2 records are unchanged.",
+  "standing": "Closed Draft 2020-12 records added to the security-lifecycle bundle by contract successor B-S1 (law M3-B r2 successor S3, with successor SX-1 of law M3-C) for security-and-lifecycle S3. Design evidence, not a product implementation.",
+  "$defs": {
+    "PrunedTreeRowV3": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "reason",
+        "markerCount",
+        "markerCountBasis"
+      ],
+      "description": "VERSION 3 (contract successor B-S1, successor SX-1 of law M3-C): adds exactly the reason opensip-custody-state, the anchor of the exact path .opensip at the selected root and at each admitted D15 member root, observed only as an entry of its parent and never opened, listed or entered. Pruned-tree row VERSION 2 (XA-02 / CR-25). Closed four-member row. The anchor is known from the admitted directory observation and is recorded even when no descendant marker was observed; discovery never descends into the tree to obtain a count or to find a nested anchor. markerCount is null if and only if markerCountBasis is not-enumerated. Version-1 rows keep their bytes under the version-1 records and are read as version 1, never re-read as version 2.",
+      "properties": {
+        "path": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "reason": {
+          "enum": [
+            "dependency-tree",
+            "vcs-tree",
+            "cargo-build-output",
+            "opensip-custody-state"
+          ]
+        },
+        "markerCount": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/I64NonNegative"
+            }
+          ],
+          "description": "Exact count of distinct supplied marker paths under this anchor when markerCountBasis is observed-inventory; null when not-enumerated. Common i64 nonnegative domain, shared byte-for-byte with the native mirror."
+        },
+        "markerCountBasis": {
+          "type": "string",
+          "enum": [
+            "not-enumerated",
+            "observed-inventory"
+          ],
+          "description": "Whether the SUPPLIED marker inventory enumerated inside this pruned tree. not-enumerated means discovery did not descend, or the anchor own directory observation could not be established, and markerCount is null. observed-inventory means markerCount is exact OVER THE SUPPLIED INVENTORY ONLY; zero observed never means zero hidden. Provenance only: never a comparison key, never a unit-selection, work-bound, Coverage or scope input."
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "markerCountBasis": {
+              "const": "not-enumerated"
+            },
+            "markerCount": {
+              "type": "null"
+            }
+          }
+        },
+        {
+          "properties": {
+            "markerCountBasis": {
+              "const": "observed-inventory"
+            },
+            "markerCount": {
+              "$ref": "#/$defs/I64NonNegative"
+            }
+          }
+        }
+      ]
+    },
+    "MemberDeclarationV1": {
+      "description": "One source that declared a D15 member (law M3-B item 22). An explicit tier names the exact root, as an absolute locator, that lies inside the member; a reader names its carrier and the SHA-256 of the carrier bytes it read.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source",
+            "path"
+          ],
+          "properties": {
+            "source": {
+              "enum": [
+                "explicit-joins",
+                "config-workspace-roots"
+              ]
+            },
+            "path": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source",
+            "readerId",
+            "readerVersion",
+            "path",
+            "contentSha256"
+          ],
+          "properties": {
+            "source": {
+              "const": "reader"
+            },
+            "readerId": {
+              "enum": [
+                "cargo-config-patch",
+                "npm-workspaces-members"
+              ]
+            },
+            "readerVersion": {
+              "const": 1
+            },
+            "path": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "contentSha256": {
+              "$ref": "#/$defs/Hex64"
+            }
+          }
+        }
+      ]
+    },
+    "MemberRepositoryV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "declaredBy"
+      ],
+      "description": "An admitted D15 member repository (security S3): its root as an absolute locator, and every source that declared it.",
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "declaredBy": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4096,
+          "items": {
+            "$ref": "#/$defs/MemberDeclarationV1"
+          },
+          "x-opensip-order": {
+            "by": [
+              "source",
+              "path"
+            ]
+          }
+        }
+      }
+    },
+    "UnresolvedDeclarationEntryV1": {
+      "description": "One reader entry that declared no member and yielded no link, with its closed reason (registry docs/implementation/m3/config-discovery-b/b-s1/registry/workspace-declaration-readers.v1.json). entry is the entry as written: patch.<source>.<name> for Cargo, the workspaces string for npm.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "entry",
+            "reason",
+            "subject"
+          ],
+          "properties": {
+            "entry": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "reason": {
+              "enum": [
+                "member-excluded",
+                "link-manifest-unusable"
+              ]
+            },
+            "subject": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "entry",
+            "reason",
+            "subject"
+          ],
+          "properties": {
+            "entry": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "reason": {
+              "enum": [
+                "workspace-glob-crosses-repository",
+                "entry-path-grammar",
+                "entry-path-outside-root",
+                "entry-path-absent",
+                "entry-not-in-a-member",
+                "dropped-workspace-roots-present",
+                "patch-entry-not-path",
+                "patch-target-name-mismatch",
+                "ambiguous-provider",
+                "provided-version-unusable"
+              ]
+            },
+            "subject": {
+              "type": "null"
+            }
+          }
+        }
+      ]
+    },
+    "WorkspaceDeclarationV1": {
+      "description": "What one registered declaration reader did. absent: no carrier at W. read: the carrier was admitted and parsed, and its undeclared entries are listed. refused: carrier custody, parse, shape or ambiguity failure; nothing was declared and nothing is listed. A refusal here is a disclosure, never a public refusal.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "readerId",
+            "readerVersion",
+            "state",
+            "path",
+            "contentSha256",
+            "stateSubject",
+            "unresolved"
+          ],
+          "properties": {
+            "readerId": {
+              "enum": [
+                "cargo-config-patch",
+                "npm-workspaces-members"
+              ]
+            },
+            "readerVersion": {
+              "const": 1
+            },
+            "state": {
+              "const": "absent"
+            },
+            "path": {
+              "type": "null"
+            },
+            "contentSha256": {
+              "type": "null"
+            },
+            "stateSubject": {
+              "type": "null"
+            },
+            "unresolved": {
+              "type": "array",
+              "maxItems": 0,
+              "items": {
+                "$ref": "#/$defs/UnresolvedDeclarationEntryV1"
+              },
+              "x-opensip-order": {
+                "by": [
+                  "entry"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "readerId",
+            "readerVersion",
+            "state",
+            "path",
+            "contentSha256",
+            "stateSubject",
+            "unresolved"
+          ],
+          "properties": {
+            "readerId": {
+              "enum": [
+                "cargo-config-patch",
+                "npm-workspaces-members"
+              ]
+            },
+            "readerVersion": {
+              "const": 1
+            },
+            "state": {
+              "const": "read"
+            },
+            "path": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "contentSha256": {
+              "$ref": "#/$defs/Hex64"
+            },
+            "stateSubject": {
+              "type": "null"
+            },
+            "unresolved": {
+              "type": "array",
+              "maxItems": 65536,
+              "items": {
+                "$ref": "#/$defs/UnresolvedDeclarationEntryV1"
+              },
+              "x-opensip-order": {
+                "by": [
+                  "entry"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "readerId",
+            "readerVersion",
+            "state",
+            "path",
+            "contentSha256",
+            "stateSubject",
+            "unresolved"
+          ],
+          "properties": {
+            "readerId": {
+              "enum": [
+                "cargo-config-patch",
+                "npm-workspaces-members"
+              ]
+            },
+            "readerVersion": {
+              "const": 1
+            },
+            "state": {
+              "const": "refused"
+            },
+            "path": {
+              "$ref": "#/$defs/NullableString"
+            },
+            "contentSha256": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "#/$defs/Hex64"
+                }
+              ]
+            },
+            "stateSubject": {
+              "type": "string",
+              "pattern": "^(custody:[A-Z_]+|parse|carrier-ambiguous|workspaces-shape-unsupported)(?![\\s\\S])"
+            },
+            "unresolved": {
+              "type": "array",
+              "maxItems": 0,
+              "items": {
+                "$ref": "#/$defs/UnresolvedDeclarationEntryV1"
+              },
+              "x-opensip-order": {
+                "by": [
+                  "entry"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "DiscoveryD9V1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "class",
+        "exit",
+        "code"
+      ],
+      "properties": {
+        "class": {
+          "enum": [
+            "request-rejected",
+            "operational-failed"
+          ]
+        },
+        "exit": {
+          "enum": [
+            2,
+            4
+          ]
+        },
+        "code": {
+          "enum": [
+            "CONFIG.INVALID",
+            "REQUEST.PRECONDITION_FAILED",
+            "EXTENSION.ADMISSION_REJECTED",
+            "LEDGER.BUSY_TIMEOUT",
+            "REQUEST.SCHEMA_MAJOR_UNSUPPORTED",
+            "LEDGER.CORRUPT",
+            "HOST.IO_FAILURE",
+            "REQUEST.UNSATISFIABLE"
+          ]
+        }
+      },
+      "description": "The D9 branch of a discovery refusal. It is the bundle D9 with REQUEST.UNSATISFIABLE added, which PROJECT.WORKSPACE_UNIT_LIMIT (security S3) and PROJECT.SCOPE_LIMIT (members:<n>>64) carry (security S12). The bundle D9 itself is unchanged."
+    }
+  },
+  "schemas": {
+    "DiscoveryProvenanceV3": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "mode",
+        "ci",
+        "selectedRoot",
+        "configPath",
+        "walked",
+        "stopReason",
+        "custodyWaiver",
+        "authorizedGroupIds",
+        "vcs",
+        "nestedRepositories",
+        "nestedProjects",
+        "unitSource",
+        "units",
+        "excludedUnits",
+        "prunedTrees",
+        "explicitPathWasSymlink",
+        "warnings",
+        "memberRepositories",
+        "workspaceDeclarations",
+        "memberConfigs"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 3
+        },
+        "mode": {
+          "enum": [
+            null,
+            "explicit",
+            "walk",
+            "config",
+            "vcs-default",
+            "cwd-default"
+          ]
+        },
+        "ci": {
+          "type": "boolean"
+        },
+        "selectedRoot": {
+          "$ref": "#/$defs/NullableString"
+        },
+        "configPath": {
+          "$ref": "#/$defs/NullableString"
+        },
+        "walked": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "$ref": "#/$defs/WalkRecord"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "stopReason": {
+          "$ref": "#/$defs/NullableString"
+        },
+        "custodyWaiver": {
+          "enum": [
+            null,
+            "trustProjectOwner"
+          ]
+        },
+        "authorizedGroupIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/I64NonNegative"
+          },
+          "maxItems": 64,
+          "x-opensip-order": "sequence"
+        },
+        "vcs": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "target",
+                "followed"
+              ],
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "directory",
+                    "indirection"
+                  ]
+                },
+                "target": {
+                  "$ref": "#/$defs/NullableString"
+                },
+                "followed": {
+                  "const": false
+                }
+              }
+            }
+          ]
+        },
+        "nestedRepositories": {
+          "$ref": "#/$defs/StringList"
+        },
+        "nestedProjects": {
+          "$ref": "#/$defs/StringList",
+          "description": "directories under the selected root that hold their own opensip.json: deliberate project boundaries (ADV-3), recorded and never entered; reachable only by their own launch or --project"
+        },
+        "units": {
+          "type": "array",
+          "maxItems": 4096,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "kind",
+              "markers"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "maxLength": 4096
+              },
+              "kind": {
+                "enum": [
+                  "explicit-join",
+                  "config-workspace-root",
+                  "workspace-auto"
+                ]
+              },
+              "markers": {
+                "type": "array",
+                "maxItems": 4,
+                "uniqueItems": true,
+                "items": {
+                  "enum": [
+                    "Cargo.toml",
+                    "package.json",
+                    "tsconfig.json",
+                    "jsconfig.json"
+                  ]
+                },
+                "x-opensip-order": "sequence"
+              }
+            }
+          },
+          "x-opensip-order": "sequence"
+        },
+        "explicitPathWasSymlink": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "warnings": {
+          "$ref": "#/$defs/StringList"
+        },
+        "unitSource": {
+          "enum": [
+            null,
+            "explicit-joins",
+            "config-workspace-roots",
+            "automatic"
+          ]
+        },
+        "excludedUnits": {
+          "type": "array",
+          "maxItems": 4096,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "reason"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "maxLength": 4096
+              },
+              "reason": {
+                "type": "string",
+                "maxLength": 256
+              }
+            }
+          },
+          "x-opensip-order": "sequence"
+        },
+        "prunedTrees": {
+          "description": "anchors of dependency (node_modules), VCS (.git/.hg/.svn/.jj) and Cargo build-output (target directly under a Cargo.toml directory) trees observed under the selected root; pruned by exact path segment per ../discovery-defaults.py; one record per tree, never per package. VERSION 2 (CR-25): an anchor observed as a directory entry is recorded even with zero observed descendant markers, and the count carries an explicit basis. VERSION 3 (B-S1, SX-1): also the opensip-custody-state anchor.",
+          "type": "array",
+          "maxItems": 65536,
+          "items": {
+            "$ref": "#/$defs/PrunedTreeRowV3"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "memberRepositories": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/MemberRepositoryV1"
+          },
+          "x-opensip-order": "path",
+          "description": "D15 member repositories admitted under the selected root (security S3), ascending by path. A member is not in nestedRepositories and is not a boundary. Empty for a project with no member."
+        },
+        "workspaceDeclarations": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "$ref": "#/$defs/WorkspaceDeclarationV1"
+          },
+          "x-opensip-order": {
+            "by": [
+              "readerId"
+            ]
+          },
+          "description": "Exactly one row per registered declaration reader, in readerId order, whatever the branch."
+        },
+        "memberConfigs": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "x-opensip-order": "utf8",
+          "description": "Each admitted member root that holds opensip.json, as the absolute locator of that file. It is disclosed as not consulted: never read, never a configuration layer of the selected root and never a nested-project boundary (law M3-B item 22)."
+        }
+      },
+      "description": "Discovery provenance VERSION 3 (contract successor B-S1): version 2 with PrunedTreeRowV3 rows (SX-1) and the D15 fields memberRepositories, workspaceDeclarations and memberConfigs. Version-1 and version-2 records keep their bytes and are read under their own versions."
+    },
+    "DiscoveryResultV3": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "provenance"
+          ],
+          "properties": {
+            "status": {
+              "const": "ACCEPT"
+            },
+            "provenance": {
+              "$ref": "#/schemas/DiscoveryProvenanceV3"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "refusal",
+            "path",
+            "detail",
+            "d9",
+            "provenance"
+          ],
+          "properties": {
+            "status": {
+              "const": "REFUSE"
+            },
+            "refusal": {
+              "enum": [
+                "CONFIG.CUSTODY_REFUSED",
+                "PROJECT.ROOT_CUSTODY_REFUSED",
+                "PROJECT.EXPLICIT_PATH_INVALID",
+                "PROJECT.WORKSPACE_UNIT_LIMIT",
+                "PROJECT.SCOPE_LIMIT"
+              ]
+            },
+            "path": {
+              "$ref": "#/$defs/NullableString"
+            },
+            "detail": {
+              "type": "string",
+              "maxLength": 512
+            },
+            "d9": {
+              "$ref": "#/$defs/DiscoveryD9V1"
+            },
+            "provenance": {
+              "$ref": "#/schemas/DiscoveryProvenanceV3"
+            }
+          }
+        }
+      ],
+      "description": "Discovery result VERSION 3 (contract successor B-S1): version 2 with a version-3 provenance record, the D15 member cap refusal PROJECT.SCOPE_LIMIT (detail members:<n>>64) and a D9 branch that admits REQUEST.UNSATISFIABLE."
+    },
+    "AdmittedBoundaryInventoryV3": {
+      "title": "S3 export, VERSION 3 (contract successor B-S1): the admitted authority boundaries of the selected root as relative scope paths, produced only by boundary_inventory over an ACCEPTed DiscoveryResultV3 and consumed unchanged by the native unit instrument. memberRepositories are D15 member roots: not boundaries, never in excludedPathPrefixes.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "source",
+        "selectedRoot",
+        "nestedRepositories",
+        "nestedProjects",
+        "custodyExcludedUnits",
+        "prunedTrees",
+        "memberRepositories"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 3
+        },
+        "source": {
+          "const": "security.discovery"
+        },
+        "selectedRoot": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "nestedRepositories": {
+          "type": "array",
+          "maxItems": 4096,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096,
+            "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$))[^\\u0000\\\\]+(?![\\s\\S])"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "nestedProjects": {
+          "type": "array",
+          "maxItems": 4096,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096,
+            "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$))[^\\u0000\\\\]+(?![\\s\\S])"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "custodyExcludedUnits": {
+          "type": "array",
+          "maxItems": 4096,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "reason"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "maxLength": 4096,
+                "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$))[^\\u0000\\\\]*(?![\\s\\S])"
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256,
+                "pattern": "^(DIRECTORY_CUSTODY:[A-Z_]+|MARKER_CUSTODY:(Cargo\\.toml|package\\.json|tsconfig\\.json|jsconfig\\.json):[A-Z_]+|DEPTH)(?![\\s\\S])"
+              }
+            }
+          },
+          "x-opensip-order": "sequence"
+        },
+        "prunedTrees": {
+          "type": "array",
+          "maxItems": 65536,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "reason",
+              "markerCount",
+              "markerCountBasis"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096,
+                "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$))[^\\u0000\\\\]+(?![\\s\\S])"
+              },
+              "reason": {
+                "enum": [
+                  "dependency-tree",
+                  "vcs-tree",
+                  "cargo-build-output",
+                  "opensip-custody-state"
+                ]
+              },
+              "markerCount": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/$defs/I64NonNegative"
+                  }
+                ]
+              },
+              "markerCountBasis": {
+                "type": "string",
+                "enum": [
+                  "not-enumerated",
+                  "observed-inventory"
+                ],
+                "description": "Whether the SUPPLIED marker inventory enumerated inside this pruned tree. not-enumerated means discovery did not descend, or the anchor own directory observation could not be established, and markerCount is null. observed-inventory means markerCount is exact OVER THE SUPPLIED INVENTORY ONLY; zero observed never means zero hidden. Provenance only: never a comparison key, never a unit-selection, work-bound, Coverage or scope input."
+              }
+            }
+          },
+          "x-opensip-order": "sequence"
+        },
+        "memberRepositories": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096,
+            "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$))[^\\u0000\\\\]+(?![\\s\\S])"
+          },
+          "x-opensip-order": "utf8"
+        }
+      }
+    }
+  }
+}
