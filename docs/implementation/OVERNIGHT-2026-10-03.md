@@ -816,3 +816,4 @@ Times are local.
   - **X3c-3 integrates before J4a**, because they share `project_ledger.rs`, in disjoint edits.
   - **Owed:** RW-K5's empty kill set goes to §RW, and three stale inventory descriptions go to the next description batch.
   - **Lock-hygiene bug found:** X3c-3's lane script released the shared lock on any exit, so a waiting process killed early could delete a lock it never held. It is being fixed. J4a's own helper had the same bug and is fixed.
+- **E2s started** (SYN-1 and SYN-1F applied to the product's schema sources, registries and generation registry), for GROK2. It is the only generator-regenerating unit in flight; X4T-c follows it.
