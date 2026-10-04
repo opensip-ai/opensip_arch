@@ -2,30 +2,35 @@
 
 The owner asked the lead to run autonomously overnight: "if you get blocked, move to the next item and we can discuss any blockers tomorrow morning." This file is the running log, kept by Claude Opus 5.5 as lead.
 
-## Morning summary (updated 2026-10-04 09:25 PDT)
+## Morning summary (updated 2026-10-04 10:30 PDT)
 
-**Where things stand.** M2 is complete. M3's law and design layer is largely in place, and the first M3 code units have landed.
+**Where things stand.** M2 is complete. M3's law and design layer is largely in place, and the first M3 code units have landed. `verify_design` now admits contract passage supersession (VD2), so an owed contract correction no longer needs a full copy of a 380 KB contract.
 
 **Laws accepted:**
-- M3-B r4, I1 r3, E1 r4, J1 r5, S-OP-2 r6, D r5, H r3, X3c r8, X4T r12 and VD2;
+- M3-B r4, I1 r3, E1 r4, J1 r5, S-OP-2 r6, D r5, H r3 and VD2;
+- X3c r8, X4T r12, X3d r9 (J1's S10: the reservation, the cancellation latch and the window) and X7 r7 (J1's S9);
 - M3-C r7 and M3-L r5, both accepted in review and taking effect when L's gate is met;
 - M3-PLAN r9.
 
-**Product main `cca4fe4`:** 95 contract successors, 96 inventory successors, v136 selected.
-- **Bound successors:** F8b, I1-L, I1-P, B-S1, B-S2, B-S9, CRC-1, CR-1, FA-1, SD-5, FA-2, RUST3-LIM, S18, SYN-1, SYN-1F, SYN-NS, S21 and X3a-2's description successor.
+**Product main `d2c00a9`:** 97 contract successors, 96 inventory successors, v136 selected.
+- **Bound successors:**
+  - F8b, I1-L, I1-P, B-S1, B-S2, B-S9, CRC-1, CR-1, FA-1, SD-5, FA-2, RUST3-LIM, S18, SYN-1, SYN-1F, SYN-NS and S21;
+  - X3a-2's description successor;
+  - **SD-7**, the first contract passage supersession.
 - **Code integrated:**
-  - X4-F1 (M2's last known defect);
+  - X4-F1 and X4-F2, which close both of M2's observer-expiry gaps;
   - P0 (M3 crate scaffolds);
-  - I1-a (preview-pack schemas and enums);
-  - X3a-2 (read-side endpoint adoption).
-- **Confirmation lane:** a workspace lane on the combined tree runs once the machine is quiet.
+  - I1-a (preview-pack schemas);
+  - X3a-2 (read-side endpoint adoption);
+  - VD2-a + F8c (the supersession tool).
+- **Confirmation lane** on `988f6ed`: 1758 passed, 0 failed, 3 ignored. Later commits changed only tools and the lock, and the tool tests pass.
 
 **In flight:**
-- VD2-a + F8c, the `verify_design` supersession tool, is in review with Codex. SD-7 r2, already accepted, binds right after it.
-- X4-F2's code unit is running its lanes and X9 regression.
-- J-RW r3 and the X3d r9 record are being drafted.
+- **X4 r8 (J1's S11), round 2.** CODEX2 found that a real, pre-existing first-cause race (D8-1) can't be left as an ungated follow-up. An observer's placeholder stop can replace an earlier stop's row and REV reason. The fix is being folded into X4 r8 itself, with any code as unit X4-F3 under it. J3b waits for it.
+- **J-RW r4.** Codex found a miscounted DDL split and a missing composition with X4-F2's clock-refused write-ahead. The lead direction is in the log.
+- **Code units J2a** (the pure invocation and outcome code) **and E2a** (syntax definition records under T-native) are being implemented in parallel, with their build lanes serialized.
 
-**M3-L's gate:** FA-2 and RUST3-LIM are met. It waits only on your O7 and D3/D13 decisions, and on S-M, which needs D13.
+**M3-L's gate:** FA-2 and RUST3-LIM are met. It waits only on your O7 and D3/D13 decisions, and on S-M, which needs D13. Every code unit on the host chain (B1-a onward) needs L in effect, so **your O7 and D3/D13 decisions are now what gates the critical path.** Until then I'm building the units that don't wait for L: J2a, E2a, then O1, E2s, I1-b1, X4T-c and the J3 and J4 units.
 
 **What needs you** (details under "Blockers for the owner" below):
 1. **B1, O7 confinement.** The CF-P evidence supports the recommendation.
@@ -649,3 +654,8 @@ Times are local.
   - **JRW-R3-02:** C-TRUST and C-TDIR must compose with X4-F2 and X4T r12, where a clock-refused read still runs the mandatory floor write-ahead and returns no view.
   - **Lead decision for r4:** completion is authorized on that path by the same authenticated closure and pending write that authorize the publication, and manufactures no view and no lease. The unchanged clocked continuation refusal follows, and RW-S5 moves to X4T's next successor after r12.
   - **Rejected:** a successful-view gate. It would leave repairable OpenSIP-owned objects blocking a mandatory write-ahead.
+- **Morning summary refreshed (10:30).**
+- **Code units J2a and E2a started in parallel.** J2a goes to Grok and E2a to GROK2.
+  - **Lead decision:** build lanes are serialized through one lock directory. Inventory successors are taken in order: J2a v137, then E2a v138 on top of it.
+  - **Rejected:** running them one after the other, which wastes the night's capacity, and unserialized lanes, which have caused timing flakes before (F3–F6).
+  - **Next:** units that don't wait for L (O1, E2s, I1-b1, X4T-c), then J3a once its successors are in. B1-a and the rest of the host chain need L in effect, which waits on the owner (B1, B3).
