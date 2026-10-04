@@ -46,7 +46,7 @@ r2 (2026-10-01) is an amendment made as lead decisions under the owner's standin
   - **G4 is closed by X4a (`reviews/grok-live-guards-x4a-r1`).** It placed:
     - `x4.observer.tick` (kind `gate`) and `x4.observer.after-observation`;
     - `x4.checkpoint.before-observation`, `.after-observation` and `.before-admit`;
-    - `x4.gate.admit.after` and `x4.gate.latch.after`.
+    - `x4.gate.admit.after` and `x4.gate.latch.after`. **r17 round 2 (X4 r8 S11.12, record):** `x4.gate.latch.after` now follows the stop transition's release, after the stop-cause lock is released, not the `fetch_or`. It is reached on the same calls in the same order, and no expected value or census changes (the r17 header, "X4 r8's record note").
 - **A disclosed gap from X9-1, for X9-2 and X9-6 (from X9-1's review request; the review is still pending).** X9-1's census runs unarmed, so X4a's observer waits on its real 5 s period. X9-1 discloses it; it decides nothing.
   - **Why it holds today.** Each censused operation finishes well inside 5 s, and two census runs agree.
   - **What would expose it.** An operation slower than 5 s would add an observer reading and point. Under item 5 (r2), two census runs that disagree are a `HARNESS-ERROR`, never a smaller kill set.
@@ -115,7 +115,7 @@ r2 (2026-10-01) is an amendment made as lead decisions under the owner's standin
     - **How it is built.** It starts from a pinned corpus Run. It rewrites the snapshot's `projectId` and the evaluator closure to the caller's values (read from `CommitSession::project_id` and `core_closure`). **r7 (record):** the evaluator closure comes from `core_evaluator_closure`, and its descriptor is retained (see the r7 header). It recomputes every content id and blob digest that depends on them. It re-derives the outputs with the evaluator's public `derive_evaluation`, then builds the evidence, seal and Run descriptors as `replay_run` checks them.
     - **The production mint.** `replay_run` in the matrix child stays the only constructor of the `ReplayedRun` that `prepare_commit` takes.
     - **Labels.** Every run that uses it stays labelled `synthetic`.
-  - **The matrix-only order.** A first registration draws the ProjectId inside the operation, so the matrix child calls `replay_run` after `CommitSession::open` and before `prepare_commit`. Replay is pure and takes no custody, so no X3d step changes. This order is stated for matrix children only. The host's order, replay before any custody (X5 r3 item 3, F01), is unchanged and stays X9-5's.
+  - **The matrix-only order.** A first registration draws the ProjectId inside the operation, so the matrix child calls `replay_run` after `CommitSession::open` and before `prepare_commit`. Replay is pure and takes no custody, so no X3d step changes. This order is stated for matrix children only. The host's order, replay before any custody (X5 r3 item 3, F01), is unchanged and stays X9-5's. **r17 (§S12):** under X5 r4 item 3, host's own order also replays after `open` and before `prepare_commit`, so the two orders now coincide (§S12.3).
   - **Rejected:**
     - **A corpus Run with the ProjectId fixed to it.** That needs either a scripted ProjectId draw, which is a new cfg site, or rewriting the registry row and project marker after registration, which is a custody mutation outside item 6's inputs and would label every run `mutation`.
     - **Registering the root in the fixture child.** It removes registration and INIT from F00's kill set.
@@ -189,7 +189,7 @@ r2 (2026-10-01) is an amendment made as lead decisions under the owner's standin
 
     This is the same kind of gap r4 found for the operation.
   - **Decision.** Host's `crash_matrix_support` gains exactly two runners:
-    - `finalize_commit(at, root, candidate)`. It reads the on-disk run candidate at `candidate` (below), then calls host's own `finalize` with `admit` set to `operation(at, root)`, and with the support module's fixed delivery phase. `finalize` replays the candidate first, so the order "replay, then custody" is host's own code (X5 r3 item 3), and `operation` runs only if the replay succeeded.
+    - `finalize_commit(at, root, candidate)`. It reads the on-disk run candidate at `candidate` (below), then calls host's own `finalize` with `admit` set to `operation(at, root)`, and with the support module's fixed delivery phase. `finalize` replays the candidate first, so the order "replay, then custody" is host's own code (X5 r3 item 3), and `operation` runs only if the replay succeeded. **r17 (§S12):** under X5 r4 and X7 r7, the runner makes its entry, opens the session through finalization's opening entry, then calls `finalize`, which replays after `open`. §S12.3 states the re-transcribed runner and its fixed delivery phase.
       - **The fixed delivery phase.** It renders one fixed response with exit 0 into an in-memory buffer the runner owns, and its optional effect succeeds. A delivery failure comes only from item 3's `fail-before` arm at `x7.delivery.required` or `x7.delivery.optional` (item 4; labelled `injected`). Like every delivery phase, it reads nothing from the store and takes no lease, receipt or read session (X7 r6 item 4).
     - `store_gc(at)`. It calls host's own `maintenance::run` over `settlement_sweep(at)`. `SettlementSweep` already implements `maintenance::Sweep` (`maintenance.rs` line 61). An admission refusal is reported as `sweep_store` reports one.
 
@@ -207,13 +207,13 @@ r2 (2026-10-01) is an amendment made as lead decisions under the owner's standin
   - **What X9-5 found.** X3d-3's `synthetic_run_candidate` is built from a `CommitSession` (`CommitSession::project_id`, `core_evaluator_closure` and its preimages; X9 r7). `finalize` replays before admission, so no session exists when it needs the candidate. A child cannot open a session for the candidate and then call `finalize`, because that would be a second entry.
   - **Decision.** A host run's scripted phase has two children before the ladder:
     - **The `candidate` child.** Its one entry is `operation(at, root)`. It then calls `CommitSession::open`, builds X3d-3's candidate from that session, and writes the candidate's retained objects (domain and descriptor), blobs and claimed RunId as canonical JSON to a file under the run's scratch root. It ends the session on its refused end path before `prepare_commit`. Host's support module supplies that file's writer and the runner's reader, as inputs only. The child registers the root and starts its carrier, as the first registration does. It creates no attempt row, SEAL or object. Its trace is recorded as every child's is. If its trace or the post state shows a ledger or attempt row, X9-5 stops and reports.
-    - **The `finalize` child.** It calls `finalize_commit` over that file. Its replay runs before any custody of its own, as X5 r3 item 3 requires.
+    - **The `finalize` child.** It calls `finalize_commit` over that file. Its replay runs before any custody of its own, as X5 r3 item 3 requires. **r17 (§S12):** under X5 r4 item 3, its replay runs after its entry and `open` (§S12.3). The `candidate` child is unchanged.
 
     The ladder's ExecutionId is the `finalize` child's draw, never the `candidate` child's. Every run that uses the file stays labelled `synthetic`. F01's replay-invalid and substituted variants are written by the parent from that file before the `finalize` child starts. They are inputs, not stored custody bytes, so they take no `mutation` label.
 
     This order is for host's matrix runs only. X9 r5's matrix-only order (replay after `open`) stays for storage's `commit` driver.
   - **Rejected:**
-    - **Replaying after admission in host's children** (r5's matrix-only order). The children would no longer run host's order, which X5 r3 item 3 fixes, and which r5 left to X9-5.
+    - **Replaying after admission in host's children** (r5's matrix-only order). The children would no longer run host's order, which X5 r3 item 3 fixes, and which r5 left to X9-5. **r17 (§S12):** X5 r4 item 3 makes this host's own order, so this rejection lapses (§S12.3).
     - **A support function that builds the candidate from the installation without a session.** It would read the ProjectId and the core closure's preimages outside `CommitSession`'s getters, which X3d r8 item 13 binds the candidate to.
     - **A full commit in the `candidate` child.** The `finalize` child would then not be the root's first attempt. Its ledger would already exist, and every host row would start from a committed state the row does not name.
 - **A separate host required-runs file (items 7 and 9).**
@@ -336,7 +336,7 @@ It changes the following and nothing else.
       - Each replays.
       - Each is admitted, opens its session, and is refused at X3d item 3 step 1 on the invariant row. No attempt row, no ledger and no SEAL follow.
       - The refusal latches the gate, so `finish` appends one `REV`. The carrier's logical state therefore changes by exactly that record. These are X8c's B1 and B2, and X8 r5 records the same `REV`.
-    - **The replay-refused variants** end inside `finalize` before `admit` (X5 r3 item 3). They leave the whole post-state unchanged.
+    - **The replay-refused variants** end inside `finalize` before `admit` (X5 r3 item 3). They leave the whole post-state unchanged. **r17 (§S12):** under X5 r4 they end after the entry and `open`, through `refused()` and `finish` with nothing appended, and still leave the whole post-state unchanged (§S12.4).
   - **Decision.**
     - **F01's replay-refused variants:** the whole post-state is unchanged (`normalizedSha256` before and after the `finalize` child). That is stronger than the cell's "ledger and carrier logical state unchanged".
     - **F01's substituted variants:** the ledger stays absent, there is no attempt row and no SEAL, and the carrier gains exactly one record, the latched gate's `REV`. Nothing else in the cell changes.
@@ -861,6 +861,36 @@ No accepted outcome of any other law changes. No new public code, row detail or 
 
   No accepted outcome of any other law changes. No new public code, row detail or product file. §RC.7 lists what §RC adds to the matrix target and the checker.
 
+**r17 round 2 (2026-10-04) fills §S12 and records X4 r8's note. Not accepted.** Drafted for Claude Opus 5.5, implementation lead, by a lead-dispatched drafting agent during the overnight autonomous run. Its diff base is round 1's accepted bytes, `PROPOSAL-r17-RC.md` (`89fc47ff…`, 235,499 bytes). The live file differed from those bytes only by round 1's acceptance note, which stays.
+- **What round 2 changes:**
+  - this paragraph;
+  - the frame table's §S12 status cell;
+  - §S12, filled in place, with lead decisions LD-S12-1 to LD-S12-8;
+  - six in-place notes: one "r17 round 2" note on G4's `x4.gate.latch.after` (above), and five "r17 (§S12)" notes on the host order: r5's matrix-only order, r10's runner, r10's `finalize` child and its rejected alternative, and r13's F01 decision;
+  - one forbidden substitute.
+- **What it does not change.** §RC, and every other text of r16 and round 1. Every expected value of both required-runs files (§S12.4). Every census and kill set (§S12.6). Every accepted outcome of another law. There is no new public code, row detail or product file.
+- **Citations in round 2.** Round 1's short names stand, so X9:n is still `PROPOSAL-r16.md`. Round 2 adds these snapshots:
+  - J1r6:n is `m3/host-pipeline-j/PROPOSAL-r6.md` (J1 r6, accepted by Codex, `086e804a…`; `m3/reviews/codex-host-pipeline-j-r6`). J1 r6 keeps r5's item 12 rows and records S18 and S21 as bound (J1r6:864);
+  - X3D9:n is `commit-session-x3d/PROPOSAL-r9.md` (X3d r9, accepted by Grok, `c727001a…`);
+  - X4r8:n is `live-guards-x4/PROPOSAL-r8.md` (X4 r8, accepted by CODEX2 at round 3, `dc239187…`);
+  - X7r7:n is `finalization-x7/PROPOSAL-r7.md` (X7 r7, accepted by GROK2, `7757935c…`);
+  - X3B11:n is `journal-x3b/PROPOSAL-r11.md` (X3b r11, accepted by CODEX2, `27ed0aaf…`);
+  - S18:n and S21:n are `m3/host-pipeline-j/s18/README.md` and `s21/README.md` (both accepted and bound);
+  - SOP2:n is `m3/operability/s-op-2/PROPOSAL-r6.md` (accepted by Codex, `ce8d3a4b…`).
+
+  X5 r4, J1's successor S8, is in review beside this round. §S12 cites its item 3 through J1r6:517, which states it word for word, and X7r7:315, which assumes it. Product lines are at main `1799d3d`.
+- **Snapshot.** On acceptance, round 2's bytes, without its acceptance note, are preserved as `PROPOSAL-r17-S12.md`, as round 1's are `PROPOSAL-r17-RC.md` (frame rule 6).
+- **X4 r8's record note (X4r8:762-765; LD8-4).** X9 names `x4.gate.latch.after` as X4a placed it, straight after the gate's `fetch_or` (G4, above; item 5's point table, X9:943). Under X4 r8, the point follows the stop transition's release, after the stop-cause lock is released, for every existing latch source, on every call (X4r8:395-397). Code unit X4-F3 makes this move (X4r8:593). J3b adds the cancellation latch's point, which fires only after a successful exchange (X4r8:397).
+  - **What stays.** The point is reached on the same calls, in the same per-thread order (X4r8:515; W-7, X4r8:548). The stop transition's critical section holds only the word's atomic operations and one record. It never holds I/O, a wait, a callback or a crash point (X4r8:401). So nothing durable happens between the `fetch_or` and the point's new place.
+  - **The census does not change.** Each target's census keeps every name and every occurrence count, so item 5's kill set and r10's union keep every point (X9:233).
+  - **No expected value changes.** These rows observe the point:
+    - storage's F14 `kill-x3d-finish-settle-before-1-after-latch`, F38 `revoked-after-staging`, F39 `latch-after-admission`, F40 `fail-after-evidence-commit-latched`, F41 `latch-before-admission` and `admission-before-latch`, F44 and F45. Each awaits `x4.gate.latch.after#1` before it resumes the writer;
+    - storage's F19 `kill-x4-gate-latch-after-1-after-revoke`, which kills there;
+    - host's F39 `latched-after-admission-delivery` and F40 `latched-fail-after-evidence-commit`, which await it inside `revoke-latch-resume` and score `gateLatched` from its presence in the trace.
+
+    Each awaits or kills the same occurrence of the point. When the parent now sees it, the first stop's cause is already recorded, which is the state each expected value assumed. A kill there ends the process with the latch and the cause in memory only, so F19's killed row leaves the same durable state. X4 r8's `CertainRefusal` keeps every row and the `REV` reason `operation-stopped` (X4r8:513), and no expected value names a `REV` reason.
+  - **How it is checked.** X4-F3's integration commit reruns both lead sets, serialized (X4r8:606). Its census-only step comes first. It must show both censuses unchanged: the same names, counts and kill sets as the lead set before it. Then `check` must pass every row of both files. X4-F3's in-process test W-7 pins the point's count and per-thread order. If a transcribed value moved, X4-F3 stops and reports, and the lead re-transcribes it in a new round of r17 before X4-F3's review, never from a run (X4r8:765; J1r6:863). If X4-F3 lands in J3b's commit, J3b's lead set is X4-F3's too (§S12.6).
+
 Product baseline: main `f1b8321` (X3d-0 integrated). Every item contains a lead decision made under the owner's standing direction of 2026-09-30 to proceed on the lead's recommendation; each names the alternative it rejects. Not product code. No new public code, row or detail.
 
 ## Problem
@@ -1297,6 +1327,7 @@ These are recorded for the owning laws' next revisions. None changes an accepted
 - Raw state bytes committed to arch in place of the run records.
 - A matrix pass on a dirty worktree, or on a commit other than the reviewed one. **r4:** a unit's `check-unit` (item 7) is not a matrix pass.
 - (r17) A section of r17 that changes another section's rows, or that re-transcribes a row of r16 or earlier which its owning law does not require (the r17 section frame, rule 2).
+- (r17, §S12) A matrix signal sent by `kill(2)`, after a timed wait, or on a held thread; a signal step acknowledged by a crash point, or resumed before its acknowledgement; a matrix runner whose cancellation source is not host's own.
 
 ## Not claimed
 
@@ -1311,7 +1342,7 @@ Each section of r17 is the X9 record of one owning law's rows. These rules apply
 | Section | Owning law and items | Unit that transcribes and runs it | Needed before | Status |
 |---|---|---|---|---|
 | §RC | X3c r8, items 13 and 14, CL-2 (X3C:252-261, :262-325, :354) | X3c-3 | X3c-3's code (X3C:259; M3P:319) | Round 1, this round |
-| §S12 | J1 r5, item 12 and successor S12 (J1:832-841, :858) | J3b (S12-B, -C, -U, -D) and J3d (S12-O) | J3b's review; S12-O before J3d's O wiring (M3P:319) | Reserved |
+| §S12 | J1 r5, item 12 and successor S12 (J1:832-841, :858) | J3b (S12-B, -C, -U, -D) and J3d (S12-O) | J3b's review; S12-O before J3d's O wiring (M3P:319) | Round 2 (not accepted) |
 | §RW | J-RW, item 10, X-RW-10 and RW-S6 (JRW:519-596, :625, :669) | J4e | J4e (JRW:607; M3P:319) | Reserved; J-RW in review |
 
 1. **Transcription.** A section's code unit transcribes the section's rows into the reviewed required-runs files before any run of that unit. It works from the section and the census only (X9:717). An expected value is never read back from a run (X9:1089, :1233).
@@ -1768,16 +1799,340 @@ These are X3c-3's additions to the matrix target and the checker, beside X3c r8 
 7. **The checker** (`tools/check_crash_matrix.py:105`). `UNIT_VALUES` admits `"X3c-3"` with r16's reading of `"X9-6"`, with a test. `check-unit` admits no `--unit X3c-3`.
 8. **Nothing else.** There is no new crash point, scope, kind, label, run-record member or limit (X3C:182-191).
 
-### §S12. J1's section (reserved)
+### §S12. J1's section (J1 item 12 and successor S12; units J3b and J3d)
 
-**Reserved. It carries no rows.**
-- **Owner.** J1 r5, item 12 and successor S12 (J1:832-841, :858). The lead transcribes it. J3b runs S12-B, -C, -U and -D, and J3d runs S12-O (J1:882-883).
-- **What it will carry.**
-  - Rows S12-B, S12-C, S12-U, S12-D and S12-O.
-  - The host drivers J1 item 12 re-transcribes: F01, F12, F16, F17, F32, F39 and F40, host halves (J1:832; M3P:319).
-- **What fills it.** A later round of r17, reviewed on its own, before J3b's review (M3P:319).
-  - S12-C and S12-U are transcribed only once S21 is accepted (J1:833).
-  - S12-O waits for S18, which J1 r5 records as accepted and bound at product `5214350` (J1:865).
+**Round 2, 2026-10-04. Not accepted.**
+
+#### S12.1 What §S12 carries and what it decides
+
+- **Its law.** J1 item 12 names the crash-matrix rows that J's units must keep, and the new rows S12-B, S12-C, S12-U, S12-D and S12-O (J1r6:849-871). J1's successor S12 is this section (J1r6:889). The frame's row cites J1 r5's lines (J1:832-841, :858). J1 r6, accepted, keeps r5's item 12 rows and records that S18 and S21 are bound, so all five rows may be transcribed now (J1r6:864).
+- **The laws that fix each outcome:**
+  - J1 r6 items 7 and 8: the session opened at the handoff, the latch window, the phases and precedence rules 1 to 4 (J1r6:505-539, :543-669);
+  - X3d r9 S10: the cancellation latch, the operator stop row, `REV(operator)`, the `refused()` record and the rows S10 needs (X3D9:495-580);
+  - X4 r8 S11: the gate word, rule FC and the stop transition (X4r8:271-516);
+  - X7 r7 S9: `finalize`'s order and entries, the cancellation port, the projection table, step 1's split and LD7-4's crash points (X7r7:292-497);
+  - X5 r4 item 3: replay after evaluation and before `prepare_commit` (J1r6:517);
+  - S18 and S21, both bound: phase O's deferral, and the commit-outcome exception to the before-settle rule (J1r6:896, :899).
+- **What §S12 fixes,** as J1 item 12 and X7 r7 S9.9 ask (J1r6:863-870; X7r7:492-495):
+  - the re-transcribed host driver: the runner `finalize_commit` and its fixed delivery phase under X5 r4 and X7 r7 (S12.3);
+  - each existing host row's expected value under that driver (S12.4). None changes, which answers J-C13 (J1r6:539);
+  - the five rows' spellings, scripts and expected values, each derived from the laws above and X9's owning row, never from a run (S12.2, S12.5);
+  - the census and lead-set duties of J3b and J3d, and which of them integrates S12-O (S12.6);
+  - what J3b and J3d add to transcribe and run the rows (S12.7).
+- **What §S12 does not decide.** It changes no outcome of J1, X3d, X4, X5, X7, S18 or S21. Where one of them states an expectation, §S12 spells it. Where a spelling or a harness member is open, §S12 takes it from X9's existing rows and records a lead decision, LD-S12-1 to LD-S12-8. SOP2's own finalization, cutoff and freeze stay outside the matrix: S18-T1 tests them in process (S18:221-226; LD-S12-6).
+- **Its basis.**
+  - Product main `1799d3d`, read only. J3b's code does not exist yet, so no run has signalled a matrix child.
+  - Every census figure below is C's (`3d2d5b5`): host 218 points with a 271-point kill set, storage 259 points with a 321-point kill set, and the union 321 points with 383 (`evidence/3d2d5b5…/host/matrix.json`, `storage/matrix.json`; RC.3). X4-F1's and X4-F2's X9 regressions found both censuses unchanged (OVERNIGHT:312, :612).
+  - Where §S12 predicts a census or a value, the prediction is the law's and the code's. J3b's census-only run and development runs check it before its lead set (S12.6).
+
+#### S12.2 Spellings and conventions
+
+| Member | S12 rows | Basis |
+|---|---|---|
+| Target | host's `required-runs.v1.json`, for all five rows (LD-S12-1) | J1r6:865-870; X7r7:333-346 |
+| `case` | the F-case of the row's hold point: S12-B F38, S12-C F39, S12-U F40, S12-D F15, S12-O F16 (LD-S12-2) | X9:696, :1108-1109, :1131-1133; the checker's grammar `F[0-5][0-9]` (`tools/check_crash_matrix.py:257`) |
+| `variant` | `signal-` followed by the spelling of the existing row whose hold the script uses, without that row's action word (LD-S12-3) | X9:698; RC.2 |
+| `units` | `["J1"]`: the law whose item 12 owns the row | `units` names owning laws (X9:532) |
+| `unit` | `"J3b"` for S12-B, -C, -U and -D; `"J3d"` for S12-O | frame rule 3; J1r6:913-914; X7r7:421-434 |
+| `labels` | item 4's labels: `["scripted-clock", "synthetic"]` for a signal run, and `injected` added for S12-U's `fail-after`. A signal is neither a death, an injected stand-in nor a mutation | X9:915 |
+| `script` | host's script form, with one new `then` value, `signal-resume` (LD-S12-4) | `crates/host/tests/commit_matrix_tests.rs:1415-1570` |
+| Expected spellings | host's existing spellings (`authoritative:0`, `terminated:<code>/<detail>`, `unknown-attempt-open`, `terminal-not-committed`, `committed-historically:*`), and S12.7's new values. A `:*` suffix matches any further detail, as in host's `meets` (`commit_matrix_tests.rs:1048`) | the F12, F16, F39 and F40 host rows |
+
+**Lead decision LD-S12-1: all five rows are host rows.**
+- **Why.** Each row's outcome is a host projection, or it depends on host's cancellation source:
+  - finalization takes the token at the session's opening and hands it to host's cancellation source at P3 (X7r7:337-339, LD7-2);
+  - only finalization calls the session (X7r7 LD7-1, :439-447), so only a host child can latch through the token;
+  - S12-B's expectation names the interrupted projection, S12-C's and S12-U's name X7's rows, and J1 puts S12-D and S12-O in a host run (J1r6:865-870).
+- **Rejected: storage rows for S12-B, -C and -U.** Storage's `commit` child has no cancellation source and no projection. It would have to take the token itself, a second holder that LD7-2 rules out.
+
+**Lead decision LD-S12-2: each row's case is the F-case of its hold point.** r16 placed its kill rows by window in the census trace (X9:696), and LD-RC-1 placed RC-5's rows by kill point.
+- S12-B holds at `x3d.publish.after-staging#1`, F38's hold, and its expectation is F38's (J1r6:865; X9:1131).
+- S12-C holds at `x3c.evidence.commit.before#1`, r12's F39 hold, and its expectation is F39's (J1r6:866; X9:1132).
+- S12-U is S12-C with F40's `fail-after`, and its expectation is F40's (J1r6:867; X9:1133).
+- S12-D holds at `x3d.finish.end-step.after#1`, which J1 names as F15's point (J1r6:869; X9:1108).
+- S12-O holds at `x7.delivery.required.before#1`, F16's host point (J1r6:870; X9:1109, :713).
+- **Rejected: a case of its own, such as `S12`.** No build-plan case is the cancellation join's, and the checker's grammar admits only `F` and two digits (`tools/check_crash_matrix.py:257`).
+- **Rejected: F14 or F17 for S12-D and S12-O.** F14's points are `published` and the settle, not the end step. F17 is the optional effect, which S12-D never reaches.
+
+**Lead decision LD-S12-3: variant spellings.** A variant is `signal-` and then the spelling of the existing row whose hold the script uses, without that row's action word (`revoked`, `latched`, `fail` or `kill`).
+
+| Row | Existing row | Variant |
+|---|---|---|
+| S12-B | storage F38 `revoked-after-staging` | `signal-after-staging` |
+| S12-C | host F39 `latched-after-admission-delivery` | `signal-after-admission-delivery` |
+| S12-U | host F40 `latched-fail-after-evidence-commit` | `signal-fail-after-evidence-commit` |
+| S12-D | storage F15 `kill-x3d-finish-end-step-after-1` | `signal-x3d-finish-end-step-after-1` |
+| S12-O | host F16 `fail-before-required-delivery` | `signal-before-required-delivery` |
+
+Each `(case, variant)` pair is new in host's file. **Rejected:** J1's row names (`s12-b` and so on). No other variant names a law's row, and they say nothing about the run.
+
+**Lead decision LD-S12-4: the signal step.** J1 sends S12-B's signal "through the support surface" (J1r6:865). J1 item 1 gives the M4 CLI unit the wiring of SIGINT, SIGTERM and SIGHUP into the cancellation source (J1r6:192), so no OS handler exists at M3.
+- **The step.** `{"await": P, "then": "signal-resume"}` follows the row's `{"run": "finalize"}`, as `kill` and `revoke-latch-resume` do. The parent:
+  1. awaits the child's `held` record at P;
+  2. writes one control line, `signal SIGINT`, on the child's stdin, item 3's control channel (X9:884);
+  3. awaits the child's `signalled` record;
+  4. resumes P.
+- **The child.** The runner registers one signal input with the crash barrier, bound to host's own cancellation source. The held thread reads the line, as it reads every control line, and hands it to that input's own thread. The held thread runs no product code (X9:887). The input's thread delivers SIGINT to the source, as the M4 CLI's handler will. When the source returns, the thread writes one tagged record, `X9|<pid>|<thread>|<n>|-|signalled|SIGINT`. That record names no point, so the census ignores it (`Census::from_exit` skips records whose point is `-`, `crates/platform/src/crash_barrier/driver.rs:536-545`).
+- **What the source does with it,** as J1 8.2 and X7 r7 S9.2 fix:
+  - in B and C, it holds the token and the window is open, so it latches at once, on its own thread (J1r6:580; X7r7:339). The latch's `x4.gate.latch.after` is written before `signalled` (X4r8:395-397);
+  - in D, it keeps the signal for the decision point and takes no latch (J1r6:587);
+  - in O, after P5, it labels the signal O and defers it (X7r7:341, :377).
+- **Why it is deterministic.** The parent resumes only after the source has observed the signal and taken any latch it takes. No step sleeps or polls (item 3).
+- **Rejected:**
+  - **A real `SIGINT` by `kill(2)`.** Delivery is asynchronous. In D and O no latch point follows it, so the parent could resume before the source saw the signal, and the phase would be a race. It also needs an OS handler in the library, which J1 gives to the M4 CLI unit.
+  - **Delivering on the held thread.** A held thread runs no product code (X9:887).
+  - **A crash point as the acknowledgement.** J1, X3d r9, X4 r8 and X7 r7 add no crash point (J1r6:871; X3D9:573; X4r8:515; X7r7:468).
+
+**Lead decision LD-S12-5: the fixed delivery phase renders only the success envelope's bytes.** X7 r7 splits X7a's `render` into the D projection and O's rendering of the decided envelope (X7r7:366-368).
+- **The decision.**
+  - The projection is built in memory and never fails. It runs under no `x7` point (X7r7:472).
+  - O's rendering gives the success envelope today's fixed response, `{"x9":"delivered"}\n` (19 bytes), with exit 0.
+  - It gives every other decided envelope zero bytes, with that envelope's own exit. That covers phase D's interrupted envelope, every termination and the failure envelope.
+  - The optional effect still succeeds, and it follows only a success envelope (X7r7:471).
+  - A delivery failure still comes only from an armed `x7.delivery` point (X9:191).
+- **Why.** The matrix scores outcomes from the runner's report, not from envelope bytes. A decided envelope's bytes are J2a's total projection (J1r6:816), which J3d tests end to end (X7r7:428-434). Zero bytes keep every scored `delivered` value: F16 `fail-before-required-delivery` keeps `0`, because its failure envelope writes nothing, and F17 keeps `19`.
+- **Rejected: fixed bytes for each envelope kind.** F16's `delivered` would then change when J3d wires the failure envelope (X7r7:431). That re-transcribes a row J1 does not require (frame rule 2).
+
+**Lead decision LD-S12-6: the runner's port is host's own cancellation source, and its SOP2 hook does nothing.**
+- **The port.** `finalize` takes a caller-supplied port (X7r7:333). The runner passes host's own cancellation source, the one J3b and J3d build (X7r7:346), never a matrix copy. The support surface adds only the signal input (LD-S12-4). So the matrix tests host's labels and latch, as it tests host's own `finalize` (X9:199).
+- **The hook.** O's SOP2 finalization runs through a caller-supplied hook (X7r7:375). The runner's hook does nothing, as its delivery phase is fixed. A matrix child has no operational sink, so no SOP2 record is written.
+- **What S12-O then tests.** The deferral in O, and the source's label O, at a hold after P5 and after the hook (J1r6:870). SOP2's producer cutoff, freeze and post-freeze tally are S18-T1's in-process control (S18:221-226).
+- **Rejected: O1's real finalization in the matrix child.** The matrix tests durable custody, not observability. O1's sink is S-OP-1's, which is not yet accepted (J1r6:226), and S18-T1 already tests SOP2's three cases.
+
+**Lead decision LD-S12-7: new observed values.** S12.7 defines them: the head `interrupted:<exit>`, `finalize1.signal`, `finalize1.runId` on an interrupted outcome, `finalize1.arrivalPhases` and `revReasons`.
+- The verdict compares a value only where a row's `expected` names it (host's `verdict`, `commit_matrix_tests.rs:1834`). No existing host row names one.
+- None is a run-record member.
+- **Rejected: leaving the arrival phase and the `REV` reason unscored.** They are what the rows test: J1 8.2's phases and X3d r9's `REV(operator)` (J1r6:580; X3D9:537-542).
+
+**Lead decision LD-S12-8: no existing host row is re-transcribed.** S12.4 shows that every expected value of host's 98 rows holds under the new driver. Frame rule 2 allows a re-transcription only where the owning law requires one. J1 requires one for "a changed driver or expectation" (J1r6:863): the driver changes, and no expectation does.
+- **Rejected: re-transcribing F01's post-state values to be safe.** That rewrites accepted values the law still gives (S12.4), which frame rule 2 forbids.
+
+#### S12.3 The re-transcribed host driver
+
+J1 item 12 re-transcribes the host drivers of F01, F12, F16, F17, F32, F39 and F40 "because of item 7's signature" (J1r6:863; X7r7:494). Those rows share one driver, the runner `finalize_commit` (X9:190-203). F53's `finalize` children use it too, though J1's list omits F53 (S12.4).
+
+**The runner under J3b.** `finalize_commit(at, root, candidate)` keeps its signature, inputs and report type. It runs these steps:
+1. **Read the candidate file,** as today. A file that cannot be read is the host I/O row, with no entry (`crates/host/src/crash_matrix_support.rs:304-318`).
+2. **Make the process's one driver entry,** `operation(at, root)` (X9 r4 item 6). An entry refusal is reported as `finalize` reports its `admit` refusal today: the row through host's `installation_termination`, with no runId, remedy, namespace or binding (`crates/host/src/finalization.rs:418-421`).
+3. **Open the session** through finalization's opening entry, which takes P1's token (X7r7:441-442). An `open` refusal runs `finish` and step 1, as finalization does.
+4. **Call `finalize`** with the open session, the candidate's inputs, the fixed delivery phase (LD-S12-5), host's own cancellation source as the port, and a hook that does nothing (LD-S12-6). `finalize` then replays, prepares, publishes, finishes, and runs step 1, the output decision point and phase O, in X7 r7's order (X7r7:313-321; J1r6:517).
+5. **Report values only.** The report gains the interrupted outcome and the source's arrival labels (S12.7). Nothing else in it changes.
+
+**What stays** (X9:194-203): the runner's place in host's pinned support module, its on-disk inputs, one entry per process, value reports only, and no second coordinator. The `candidate` child and the host rows' starting state stay too: the carrier's INIT and the `candidate` child's one `REV` (X9:204-213, :325-330). The `candidate` child still builds the candidate from its own session, and R2 and F01's variants still read its file.
+
+**What the new order means for the matrix.** X9 r5's matrix-only order, replay after `open` (X9:116), and host's own order now coincide (X5 r4 item 3). This runner replaces r10's "replay, then custody" (X9:190, :208). The in-place "r17 (§S12)" notes at those lines point here.
+
+#### S12.4 The existing host rows under the new driver
+
+| Host rows | Runs | What the new driver changes in the run | Scored values, each unchanged | Why each holds |
+|---|---|---|---|---|
+| F01 `replay-run-object-missing`, `replay-run-descriptor-altered` | 2 | The `finalize` child now makes its entry and opens its session, drawing an ExecutionId, before it replays. The refusal ends the session through `refused()` and `finish` | `finalize1` and its `deliveryPhase` (`not-started`), `remedy`, `runId` (`no`) and `subject`; `attemptRows` `0`; `sealRows` `0`; `carrierAdded` empty; `ledgerPresent` `false`; `ledgerCarrierUnchanged` `true`; `stateUnchanged` `true` | J-C13, below |
+| F01 `substituted-target`, `substituted-inventory` | 2 | Replay moves after `open`, and it reaches no point | `finalize1` the invariant row, with its `deliveryPhase`, `remedy`, `runId` and `subject`; `attemptRows` `0`; `carrierAdded` `REV`; `ledgerPresent` `false`; `sealRows` `0` | The same calls in the same order: entry, `open`, step 0's reserve, step 1's refusal, `finish`'s one `REV` (X9:331-336). X7 r7 projects the refusal on its own row (X7r7:356) |
+| F12 `fail-after-evidence-commit` and `fail-before-evidence-commit`; F40 the same two and `latched-fail-after-evidence-commit` | 5 | Replay moves after `open` | `finalize1` the durability row, with its `subject`, `namespace`, `remedy` and `runId`; `deliveryPhase` `not-started`; `gateLatched`; the ladder | Rule 1 (X7r7:352). The durability row's envelope renders under no `x7` point (X7r7:473). The latch variant's observer latch is unchanged (the r17 header, "X4 r8's record note") |
+| F39 `latched-after-admission-delivery` | 1 | Replay moves after `open` | `finalize1` F39's row, with `runId` `yes`, `remedy`, `deliveryPhase` `not-started` and `gateLatched` `true`; `R1` | Rule 2 (X7r7:353). A latched `Committed` renders under no `x7` point (X7r7:470-473) |
+| F16 `fail-before-required-delivery` | 1 | The D projection moves out of `x7.delivery.required` | `finalize1` F16's row, with `delivered` `0`, `exit` `4`, `remedy` and `runId` `yes`; `R1`; `R2.outcome` | `x7.delivery.required` still wraps the success envelope's rendering and output (X7r7:470). `fail-before` there is a renderer failure before any byte, so F16's row (X7r7:378-379). Its failure envelope writes zero bytes (LD-S12-5) |
+| F16 `kill-x7-delivery-required-before-1` and `-after-1`; F17 `fail-before-optional-delivery`, `kill-x7-delivery-optional-before-1` and `-after-1` | 5 | As F16's | `finalize1` `killed`, or `authoritative:0` with `delivered` `19`, `optional` and `runId` `claimed`; the ladder | The same runs reach each `x7.delivery` point, at the same occurrence (X7r7:470-471; T7-7, X7r7:418). A death in delivery changes no evidence (X9:713) |
+| F32, every row | 76 | Replay moves after `open` | `finalize1`, `rollover`, `endStep`, `subject`; `attemptRows`; the ladder | `CarrierCapacityExhausted` is `prepare_commit`'s step 3, and the rollover is `finish`'s end step (X3d item 3; X3B11:115-138). Neither moves, and replay adds no point |
+| F53, every row | 6 | Replay moves after `open` | `finalize1`; `gc1` to `gc3` | J1's list omits F53, but its `finalize` children use the same runner. The attempt row's commit point and the sweep are unchanged |
+
+The table covers all 98 host rows: 4 of F01, 5 of F12 and F40, 1 of F39, 6 of F16 and F17, 76 of F32 and 6 of F53.
+
+**F01's replay-refused variants (J-C13).** J1 re-transcribes F01's host variant "if `finish`'s end step changes its post-state" (J1r6:539). It does not:
+- **Nothing is appended.** `prepare_commit` never runs, so step 0's reserve is never taken. `refused()` latches the gate, and `finish` owes a `REV`, but with no reserve it appends nothing (X3D9:550-554; `crates/security/src/custody/commit_session.rs:1106-1125`). So `carrierAdded` stays empty.
+- **No attempt row or ledger.** Both start at `prepare_commit`'s step 4, which is never reached. The substituted variants already show no ledger after an entry and `open` (X9:331-336).
+- **No floor write.** The entry's floor step and `finish`'s end step write the floor only when the copy tail is higher than the floor (X3B11:75-95, :123). The `candidate` child's end step already copied the tail at its `REV` (X9:325-330), and this child appends nothing. So neither step writes.
+- **Nothing else is written.** The `candidate` child already registered the root (X9:207). The lease files are empty and are only locked (`project-root-x2/PROPOSAL-r10.md:380`, :416). The session's draws and the ExecutionId reservation are in memory (J1r6:247).
+- **So** `stateUnchanged`, `ledgerCarrierUnchanged`, `ledgerPresent`, `attemptRows`, `sealRows` and `carrierAdded` keep their values. `finalize1` is still X5 item 5's row (X7r7:356). Its envelope renders under no `x7` point, so `deliveryPhase` stays `not-started` (X7r7:473).
+
+**Unscored changes.**
+- **F01's two replay-refused runs.** The `finalize` child's trace now holds its entry, `x3d.session.execution-draw`, `refused()`'s `x4.gate.latch.after` and `finish`'s points, so its trace digest changes. The child now draws an ExecutionId, so the run record's `notApplicable: "no-execution-id"` is absent. F01 runs no ladder either way (`NO_LADDER`, `commit_matrix_tests.rs:64`).
+- **Every other host row.** Its children reach the same points in the same order, because replay reaches no point: the evaluator and identity crates hold no crash point, and host's only points are `x7.delivery`'s (`finalization.rs:287`, :297). Their trace digests are therefore expected to stay. Item 7's repetition agreement checks them (X9:994).
+
+**Stop rule.** If J3b's development runs show any of host's 98 values moved, J3b stops and reports before its lead set. The correction is a new round of §S12 (frame rule 6), never a value read back from a run.
+
+#### S12.5 The rows
+
+There are five rows. J3b appends S12-B, -C, -U and -D to host's `required-runs.v1.json` after its 98 rows, so the file holds 102. J3d appends S12-O, so it holds 103. Every expected value comes from the clause cited beside it. Its spelling comes from the host row named.
+
+**Scripts.** Keys are sorted, as the file's canonical JSON sorts them.
+
+```
+S12-B  [{"arm":"x3d.publish.after-staging#1=hold"},{"run":"finalize"},
+        {"await":"x3d.publish.after-staging#1","then":"signal-resume"}]
+
+S12-C  [{"r2":"distinct"},{"arm":"x3c.evidence.commit.before#1=hold"},{"run":"finalize"},
+        {"await":"x3c.evidence.commit.before#1","then":"signal-resume"}]
+
+S12-U  [{"r2":"distinct"},{"arm":"x3c.evidence.commit.before#1=hold"},
+        {"arm":"x3c.evidence.commit.after#1=fail-after"},{"run":"finalize"},
+        {"await":"x3c.evidence.commit.before#1","then":"signal-resume"}]
+
+S12-D  [{"r2":"distinct"},{"arm":"x3d.finish.end-step.after#1=hold"},{"run":"finalize"},
+        {"await":"x3d.finish.end-step.after#1","then":"signal-resume"}]
+
+S12-O  [{"r2":"distinct"},{"arm":"x7.delivery.required.before#1=hold"},{"run":"finalize"},
+        {"await":"x7.delivery.required.before#1","then":"signal-resume"}]
+```
+
+- **R2's candidate.** `{"r2": "distinct"}` follows host's rule: after a committed Run, R2 commits the distinct variant (X9:356). S12-B commits no Run, so its R2 commits the candidate, a first commit (X9:265).
+- **No observer arm.** No row arms `x4.observer.tick`. No revocation is published, so the observer finds the view unchanged and latches nothing, as in host's F12 and F16 rows.
+- **The hold points.** Each is in host's census (a) at `#1`.
+
+| Row | Case | Variant | Unit | Labels |
+|---|---|---|---|---|
+| S12-B | F38 | `signal-after-staging` | J3b | `scripted-clock`, `synthetic` |
+| S12-C | F39 | `signal-after-admission-delivery` | J3b | `scripted-clock`, `synthetic` |
+| S12-U | F40 | `signal-fail-after-evidence-commit` | J3b | `injected`, `scripted-clock`, `synthetic` |
+| S12-D | F15 | `signal-x3d-finish-end-step-after-1` | J3b | `scripted-clock`, `synthetic` |
+| S12-O | F16 | `signal-before-required-delivery` | J3d | `scripted-clock`, `synthetic` |
+
+Every row has `"units": ["J1"]`. The harness reads each value where it reads it today: the `finalize1` values from the child's report; `attemptRows`, `sealRows`, `carrierAdded` and `revReasons` from the post state after the scripted phase; and `R1` to `R4` from the ladder (`commit_matrix_tests.rs:1299-1380`, :1586-1600).
+
+**S12-B. A signal in phase B** (J1r6:585, :865; X3D9:575). Case F38, `signal-after-staging`. The latch takes the gate from 0 to 2 after the SEAL. The final checkpoint refuses on the operator stop row, and the staged transaction rolls back.
+
+| Key | Expected | Basis |
+|---|---|---|
+| `finalize1` | `interrupted:130` | `Refused(Interrupted { signal })` takes rule 4: `interrupted` 130 with no runId (X7r7:355; J1r6:621; row 46) |
+| `finalize1.signal` | `SIGINT` | the token's signal (X7r7:358) |
+| `finalize1.runId` | `no` | rule 4 |
+| `finalize1.arrivalPhases` | `B` | observed by the watcher at once, after the attempt row and before FinalGate admission (J1r6:580, :585) |
+| `finalize1.gateLatched` | `true` | the latch, and then the checkpoint's trailing stop transition, reach `x4.gate.latch.after` (X4r8:395-397) |
+| `finalize1.deliveryPhase` | `not-started` | this envelope renders under no `x7` point (X7r7:473) |
+| `attemptRows`, `sealRows` | `1`; `1` | the attempt row stays `admitted`, and the SEAL stays as history (J1r6:585; F38, X9:1131) |
+| `carrierAdded` | `SEAL,REV,CLN` | the SEAL, then `finish`'s `REV` and `CLN` from the reserve: a SEAL without its evidence owes both (J1r6:585; `commit_session.rs:1114-1120`) |
+| `revReasons` | `operator` | the first stop is `Operator`, whose reason is `operator` (X3D9:537-542; J1r6:570) |
+| `R1` | `unknown-attempt-open` | F38's R1 (X9:1131) |
+| `R2.outcome` | `authoritative:0` | No revocation, so R2 is admitted. The refused attempt left no per-Run row, so R2's commit of the candidate is a first commit (X3C:114-133; F36, X9:1129) |
+| `R3` | `refused` | the sweep settles the `admitted` attempt `refused` (J1r6:585) |
+| `R4` | `terminal-not-committed` | F38's R4 without C5's revocation, as host's F12 not-landed row gives it |
+
+**S12-C. A signal in phase C** (J1r6:586, :866; X3D9:576). Case F39, `signal-after-admission-delivery`. The latch takes the gate from 1 to 3 before the evidence `COMMIT`, which then lands.
+
+| Key | Expected | Basis |
+|---|---|---|
+| `finalize1` | `terminated:DELIVERY.REQUIRED_FAILED/DELIVERY.RENDERER_FAILED_AFTER_COMMIT` | rule 2: a latched `Committed(PublishedCommit)` takes X7's F39 row, never `interrupted` (X7r7:353; J1r6:619; S21) |
+| `finalize1.runId` | `yes` | the `PublishedCommit`'s runId |
+| `finalize1.remedy` | `renderer-failed-after-commit` | host F39's spelling |
+| `finalize1.deliveryPhase` | `not-started` | F39's row has no delivery phase (X7r7:353, :473) |
+| `finalize1.gateLatched` | `true` | the latch from 1 to 3 |
+| `finalize1.arrivalPhases` | `C` | J1r6:586 |
+| `carrierAdded` | `SEAL,REV` | `finish` appends `REV(operator)` after `Committed`. A SEAL with its evidence owes no `CLN` (J1r6:586; `commit_session.rs:1114-1120`) |
+| `revReasons` | `operator` | X3D9:537-542 |
+| `R1` | `committed-historically:*` | host F39's R1 |
+| `R2.outcome` | `authoritative:0` | No revocation: R2 commits the distinct variant (X9:356) |
+| `R3` | `committed` | the sweep settles the committed attempt `committed` |
+| `R4` | `committed-historically` | host F12's landed spelling |
+
+**S12-U. A signal in phase C, then an undetermined `COMMIT`** (J1r6:867-868; X3D9:577). Case F40, `signal-fail-after-evidence-commit`. The latch takes the gate from 1 to 3. The evidence `COMMIT` lands and reports failure.
+
+| Key | Expected | Basis |
+|---|---|---|
+| `finalize1` | `terminated:DURABILITY.COMMIT_FAILED/-` | rule 1, whatever the gate's state: never F39, never `interrupted` (J1r6:618, :868; X7r7:352) |
+| `finalize1.subject` | `executionId` | host F40's spelling |
+| `finalize1.namespace` | `yes` | the namespace is disclosed |
+| `finalize1.remedy` | `commit-undetermined` | host F40's spelling |
+| `finalize1.runId` | `no` | no runId (J1r6:868) |
+| `finalize1.deliveryPhase` | `not-started` | X7r7:473 |
+| `finalize1.gateLatched` | `true` | the latch from 1 to 3 |
+| `finalize1.arrivalPhases` | `C` | J1r6:586 |
+| `carrierAdded` | `SEAL` | the undetermined outcome forfeits the reserve, so `finish` appends nothing (J1r6:586) |
+| `revReasons` | the empty string | no `REV` |
+| `R1` | `committed-historically:pendingSettlement` | the `COMMIT` landed (host F40's latch variant) |
+| `R2.outcome` | `authoritative:0` | R2 commits the distinct variant (X9:356) |
+| `R3` | `committed` | host F40's |
+| `R4` | `committed-historically` | host F40's |
+
+**S12-D. A signal in phase D** (J1r6:587, :869; X7r7:354). Case F15, `signal-x3d-finish-end-step-after-1`. The Run commits unlatched, and the window closes. The signal comes after `finish`'s end step and before the output decision point.
+
+| Key | Expected | Basis |
+|---|---|---|
+| `finalize1` | `interrupted:130` | rule 3: `interrupted` on `kind: run`, with the runId (X7r7:354; J1r6:620; row 47) |
+| `finalize1.signal` | `SIGINT` | the first signal the source observed (X7r7:358) |
+| `finalize1.runId` | `claimed` | the committed Run's runId, built only through `authoritative_run(&PublishedCommit)` (X7r7:397-400) |
+| `finalize1.arrivalPhases` | `D` | J1r6:587 |
+| `finalize1.gateLatched` | `false` | the window is closed, so no latch is taken (J1r6:587; X4r8:662-668) |
+| `finalize1.deliveryPhase` | `started` | `x7.delivery.required` wraps O's rendering of phase D's interrupted envelope (X7r7:470) |
+| `finalize1.delivered` | `0` | no byte of a success envelope (J1r6:869). The fixed phase writes this envelope as zero bytes (LD-S12-5) |
+| `carrierAdded` | `SEAL` | no `REV` is owed for the signal (J1r6:587) |
+| `revReasons` | the empty string | no `REV` |
+| `R1` | `committed-historically:pendingSettlement` | the Run is committed (J1r6:869), as host's W7 rows give it (X9:713) |
+| `R2.outcome` | `authoritative:0` | R2 commits the distinct variant (X9:356) |
+| `R3` | `committed` | X9:713 |
+| `R4` | `committed-historically` | X9:713 |
+
+**S12-O. A signal in phase O** (J1r6:588, :870; X7r7:377; S18). Case F16, `signal-before-required-delivery`. The hold is inside the final output section, after the output decision point and the hook.
+
+| Key | Expected | Basis |
+|---|---|---|
+| `finalize1` | `authoritative:0` | the decided envelope stands: a signal in O never changes it or its exit (X7r7:377; J1r6:588) |
+| `finalize1.runId` | `claimed` | the committed Run's runId |
+| `finalize1.delivered` | `19` | the decided envelope is written whole |
+| `finalize1.optional` | `ok` | the optional effect follows a success envelope (X7r7:471) |
+| `finalize1.arrivalPhases` | `O` | labelled O in memory (J1r6:870; X7r7:341) |
+| `finalize1.gateLatched` | `false` | the window is closed |
+| `finalize1.deliveryPhase` | `started` | X7r7:470 |
+| `carrierAdded` | `SEAL` | nothing is owed |
+| `revReasons` | the empty string | no `REV` |
+| `R1` | `committed-historically:pendingSettlement` | X9:713 |
+| `R2.outcome` | `authoritative:0` | X9:356 |
+| `R3` | `committed` | X9:713 |
+| `R4` | `committed-historically` | X9:713 |
+
+No persisted log record is expected or scored. The runner's hook writes nothing (LD-S12-6), and J1 expects none (J1r6:870).
+
+**Repetition.** Each S12 row's two lead repetitions must agree on `normalizedSha256` and on every child's trace digest (item 7). The `signalled` record is part of the child's trace, once per run.
+
+#### S12.6 The census and lead-set duties
+
+- **No census part.** §S12 adds no crash point (J1r6:871; X3D9:573; X4r8:515; X7r7:468). A signal run is not an unarmed lawful run, so it is no census part (item 5).
+- **The prediction: J3b changes neither census.**
+  - Host's census runs (a), (b) and (c) keep every name, count and order. Replay reaches no point, and it only moves after `open`. The window bits, the token, the sample, the stop-cause record and the ExecutionId reservation are in memory (X3D9:573; X4r8:516; J1r6:247). The D projection leaves `x7.delivery.required` and has no point of its own (X7r7:472).
+  - Storage's census is unchanged by J3b, whose security and storage code adds no point (X3D9:573; X4r8:515).
+  - So host stays at 218 points with a 271-point kill set, as at C. Storage stays at its last lead set's census: 259 points with 321 at C, or RC.3's 261 with 327 once X3c-3 has integrated. The union kill set stays at 383 points, or RC.3's 389.
+- **J3b, before its lead set.** On its integration candidate, J3b:
+  1. runs the census-only step of both targets and the checker's `coverage` (X9:647-648);
+  2. compares the result with the prediction above;
+  3. transcribes S12-B, -C, -U and -D from §S12 and that census only;
+  4. makes development runs of the four rows and of all 98 host rows under the new runner.
+
+  If any step contradicts S12.4, S12.5 or the prediction, J3b stops and reports. The correction is a new round of §S12 (frame rule 6).
+- **J3b's lead set** (J1r6:855). Two serialized repetitions of both targets on J3b's integration commit:
+  - storage: its 381 rows, plus §RC's 22 if X3c-3 has integrated (RC.6), plus §RW's if J4e has (frame rule 5);
+  - host: 102 rows.
+
+  `check` must pass over both targets (X9:1031-1041). The record states the union totals and `killedOutsideKillSet`: empty before X3c-3, and RC.3's two F03 `#41` points after it.
+  - **With X4-F3.** If X4-F3 lands in J3b's commit, this lead set is X4-F3's too (X4r8:606, LD8-9). If it landed earlier, its own lead set ran first.
+- **Which unit integrates S12-O: J3d.** J1 gives S12-O to J3d with the final output section's wiring, and X7 r7 lists it among J3d's tests (J1r6:914; X7r7:428-434). M3-PLAN places it "before J3d's O wiring" (M3P:319). J3b does not transcribe it, so J3b's lead set runs without it.
+- **J3d, before its lead set.** J3d:
+  1. runs the census-only step of both targets, with the same prediction. Its wiring keeps `x7.delivery.required` where LD7-4 places it (X7r7:470-473), and the runner's hook still does nothing;
+  2. transcribes S12-O, so host's file holds 103 rows;
+  3. makes development runs of S12-O and of the host rows;
+  4. stops and reports on any contradiction.
+
+  Its lead set is two serialized repetitions of both targets, with host's 103 rows (J1r6:855).
+- **Order.** J3b integrates before J3d, which depends on it (J1r6:914). Every later lead set runs every S12 row (frame rule 5).
+
+#### S12.7 What J3b and J3d add
+
+These are J3b's additions to host's matrix target, its support surface, the crash barrier and the checker, beside J3b's own code (J1r6:913). The harness is `crates/host/tests/commit_matrix_tests.rs`. J3b makes each change, with a test where the harness or checker has one for its neighbours. §S12 edits no product file.
+
+1. **Rows.** S12-B, -C, -U and -D, appended to host's `required-runs.v1.json` after its 98 rows. No existing row changes.
+2. **The runner and its fixed phase** (S12.3; LD-S12-5, LD-S12-6), in `crates/host/src/crash_matrix_support.rs`. The runner's existing test stays: a missing candidate file ends on the host I/O row with no entry, and a second runner call refuses (`a_process_makes_at_most_one_runner_call`, `commit_matrix_tests.rs:2049-2076`).
+3. **The signal step** (LD-S12-4):
+   - **the parent:** `then: "signal-resume"` in host's script reader (`commit_matrix_tests.rs:1484-1570`);
+   - **the control line** `signal <NAME>`, on item 3's control channel. `SIGINT` is the only name the rows use. An unknown name, or a line in a child that registered no input, is a `harness-error` (`crates/platform/src/crash_barrier.rs`; `crash_barrier/driver.rs`);
+   - **the child:** the signal input, registered by the runner and served on its own thread, and the `signalled` record, written after the source returns.
+4. **Observed values** (LD-S12-7). The verdict compares each only where a row's `expected` names it.
+   - **The head `interrupted:<exit>`.** The report's new outcome, `Interrupted { signal, run_id }`, is written `kind=interrupted;exit=<exit>;signal=<signal>;runId=<value>`. `outcome_head` reads it as `interrupted:<exit>` (`commit_matrix_tests.rs:850-857`).
+   - **`<slot>.signal`:** the interrupted envelope's signal, in COMMON4's spelling (`SIGINT`).
+   - **`<slot>.runId` on an interrupted outcome:** `claimed` when its run carries the candidate's RunId, `other` when it carries another, and `no` when it carries none. The other outcomes keep today's spellings.
+   - **`<slot>.arrivalPhases`:** the arrival-phase label host's cancellation source gave each signal it observed in the child, in order and comma-joined, in SOP2's `CancelPhase` spelling (`A` to `E`, and `O`; SOP2:871). It is `-` when the source observed none, and no existing row names it.
+   - **`revReasons`:** the `reason` of each `REV` the scripted phase added to N's carrier, in carrier order and comma-joined. It is the empty string when there is none. It is read beside `carrierAdded` (`commit_matrix_tests.rs:1586-1598`).
+5. **Selection.** Host's `required_all` admits every row whose `unit` is `"J3b"` or `"J3d"`, whatever its case (`commit_matrix_tests.rs:1074-1091`). X9-5's `required()` keeps excluding rows that carry a `unit` (`:1063-1072`). Without this, the F15 and F38 rows would be dropped, because X9-5's case list omits them (`:60`).
+6. **The checker** (`tools/check_crash_matrix.py:105`). `UNIT_VALUES` admits `"J3b"` and `"J3d"` with r16's reading of `"X9-6"`, with a test. `check-unit` admits neither.
+7. **Nothing else.** There is no new crash point, scope, point kind, point action, label, run-record member or limit. The control line and the `signalled` record are item 3's only additions.
+
+**J3d adds** S12-O, appended after J3b's four rows, and any harness member S12-O needs beyond J3b's. None is expected: S12-O uses only J3b's signal step and values.
 
 ### §RW. J-RW's section (reserved)
 

@@ -800,3 +800,7 @@ Times are local.
   - **Rejected:** fixing the fields now, which the ruling never decided.
 - **E1 r5 accepted by GROK2 at round 2,** with no findings. E2a's rulings, C r8's conformance and SYN-NS's routed items are now in E1. E2b's integration gate holds A8's range and the receipt's field list, both fixed in E1's next revision from E2b's measurement.
 - **I1-b1 started** (evaluator admission for `cycle-representative`, in `crates/evaluator` only), for CODEX2. E2s and X4T-c, which share the generator, follow one at a time.
+- **X5 r4 (J1's S8) and X9 r17 round 2 (§S12, plus X4 r8's `latch.after` note) written and sent to GROK2.** Grok is busy with J2a; the directory name is kept.
+  - **X5 r4:** replay runs after evaluation and before `prepare_commit`. A replay refusal ends through `refused()` and `finish`, appending nothing.
+  - **§S12:** five host rows. S12-B, -C, -U and -D belong to J3b, and S12-O to J3d. No existing row's expected value changes, and the census is predicted unchanged.
+  - **The largest choice, accepted as lead decision LD-S12-4:** the matrix delivers the signal through a `signal SIGINT` control line, and the child acknowledges it. **Rejected:** a real `kill(2)`, because nothing confirms delivery in phases D and O.

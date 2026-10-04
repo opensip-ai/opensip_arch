@@ -1,4 +1,4 @@
-# The replay-to-commit join — proposal X5 r3
+# The replay-to-commit join — proposal X5 r4
 
 2026-10-01. Claude Opus 5.5, implementation lead. Law for unit X5 of `EXIT-PLAN.md`, under the build plan's opaque-prerequisite decision (lines 25–70: `RunCandidate`, `ReplayedRun`, `CommitSession`, `PreparedCommit`), its M2 row (line 886: "Evaluator replay; … host fact_admission/finalization") and failure case F01, and under the accepted laws X3d r3 (items 1, 3 step 1 and 10), X3c r7, X4 r7 and X2 r5. Items 1 to 6 contain lead decisions made under the owner's standing direction to proceed on the lead's recommendation; each names the alternative it rejects. r2 answers Grok X5 r1 RF-1: a missing retained object or blob is unavailable evidence, not an input refusal. r1 bytes are preserved in PROPOSAL-r1.md. Not code. Library only: no CLI command is wired.
 
@@ -11,6 +11,23 @@
 - **The fix (item 5a, lead decision).** The evaluator classifies its own error tree, with an exhaustive accessor. The host applies `evidence.missing` first, then the variant table.
 - **Gaps settled (items 5 and 5b to 5f).** These are the class of `EVALUATION.INPUT_REFUSED`, the `Evaluation(e)` row, the mismatch subject, remedies, the `limits` parameter, the limit values and their test, the compile-fail rows, and X8c's B0 Run.
 - **Units (item 9).** X5a becomes one combined unit across evaluator and host.
+
+**r4 (2026-10-04) is J1's successor S8: item 3's order.** r3 bytes are preserved in PROPOSAL-r3.md (sha256 `d9a101b8…`, 22,501 bytes, the subject Grok accepted; `reviews/grok-replay-join-x5-r3`). Drafted for Claude Opus 5.5, implementation lead, by a lead-dispatched drafting agent during the overnight autonomous run. **Not accepted.** Not code.
+- **Why.** J1 opens the `CommitSession` at the handoff (R12), before the capture session. The attempt's ExecutionId then exists before any provider spawns, and the writer holds the lease through source admission, evaluation and commit (J1r6:508-510; IE:1657-1658). Replay needs the evaluation's candidate, so it now runs after evaluation and before `prepare_commit`. J1 item 7 states the new item 3, and J1 item 13 assigns it to X5 r4 as successor S8 (J1r6:517-519, :885).
+- **What r4 changes.** Item 3's order, and each sentence of r3 that states the old order: item 3's rejected alternative, one reason in item 4, item 7's F01 sentence and one forbidden substitute. It adds one forbidden substitute that guards the new order, and a one-line note in item 9 on where the code lands. The table below lists each change.
+- **What stays.** Items 1, 2, 5, 5a to 5f, 6 and 8: the API, the refusal rows, the accessor, the remedies, the `limits` parameter, the limit values, the compile-fail rows, the single caller and the tests. Item 4's decision stands (J1r6:519). No public code, row, detail or remedy changes. No product file of X5a changes: `fact_admission.rs` and the evaluator's accessor stay as they are.
+- **Citations.** J1r6:n is `m3/host-pipeline-j/PROPOSAL-r6.md` (J1 r6, accepted by Codex, `086e804a…`). X7r7:n is `finalization-x7/PROPOSAL-r7.md` (X7 r7, accepted by GROK2, `7757935c…`). X3D9:n is `commit-session-x3d/PROPOSAL-r9.md` (X3d r9, accepted by Grok, `c727001a…`). IE:n is `docs/v2/contracts/product-v1/identity-and-evidence.md`. X5:n is this law's `PROPOSAL-r3.md`.
+
+## r4 changes
+
+| Where | r3 | r4 | Source |
+|---|---|---|---|
+| Item 3, the order | "Order: replay before any custody". Replay runs before X1 write admission, X2 project admission and `CommitSession::open`. A refusal "ends the invocation before any fence, lease, attempt row, object or journal effect exists", "with nothing to clean up" (X5:39) | Replay runs after evaluation and before `prepare_commit`, inside host finalization. A replay refusal ends the attempt before any attempt row, object or journal effect. The lease and the session end through `refused()` and then `finish`, exactly once, and nothing is appended | J1r6:513-517; J1r6:538 (J-C12); X3D9:550-554 (S10.6); X7r7:312-326 (S9.1) |
+| Item 3, the rejected alternative | "replaying under the project lease" (X5:43) | Withdrawn. r3's own order is rejected instead, because the candidate exists only after evaluation, which runs under the lease | J1r6:518; IE:1657-1658 |
+| Item 4, the reason | "because it runs before that ledger's operation begins and performs no native observation" | The first reason is withdrawn: replay now runs inside the operation. The decision, and its other reason, stand | J1r6:519; X7r7:331 |
+| Item 7, F01 | "a replay refusal publishes nothing, because the invocation ends before any effect" | The attempt ends before any attempt row, object or journal effect, and the session's end appends nothing | item 3 (r4) |
+| Item 9 | (none) | r4 adds no unit. J3b moves the one call site in `finalization.rs` | J1r6:913; X7r7:312-322 |
+| Forbidden substitutes | "replay under a held fence or lease" | "replay under a held fence". One substitute is added: a replay refusal that ends the session other than through `refused()` and then `finish`, exactly once | J1r6:518, :538 |
 
 ## Problem
 
@@ -36,13 +53,18 @@ F01 requires that a replay refusal, or a substituted target or inventory, publis
 
    **Rejected:** a host wrapper type around `ReplayedRun`. X3d and storage must receive the evaluator's own opaque type, so a wrapper would add a second unforgeable-looking type with no extra guarantee.
 
-3. **Order: replay before any custody (lead decision).** Replay is pure: it reads only the borrowed inputs and takes no lock. The host runs `replay_candidate` before X1 write admission, X2 project admission and `CommitSession::open`. A replay refusal therefore ends the invocation before any fence, lease, attempt row, object or journal effect exists. That is F01's "no authoritative receipt", with nothing to clean up.
+3. **Order: replay after evaluation and before `prepare_commit` (lead decision; r4, J1's successor S8).** Replay is pure: it reads only the borrowed inputs and takes no lock.
+   - **r4: where it runs.** Host finalization runs `replay_candidate` after evaluation and before `prepare_commit` (J1r6:514, :517; X7r7:315). By then the pipeline has made X1's write admission and X2's project admission and handoff, and the session is open. The session opens at the handoff, so the attempt's ExecutionId exists before any provider spawns, and the writer holds the lease through source admission, evaluation and commit (J1r6:508-510; IE:1657-1658). The handoff releases the fence, so replay runs under the lease and never under the fence.
+   - **r4: what a replay refusal leaves.** It ends the attempt before any attempt row, object or journal effect. The session then ends through `CommitSession::refused()` and `finish`, exactly once (J1r6:515, :538). `prepare_commit` never runs, so no end-path reserve exists, and `finish` appends nothing. `finish` releases the lease and runs its end step only on an open attempt ledger (X3D9:550-554). The refusal is projected on its item 5 row (X7r7:323-324). That is F01's "no authoritative receipt".
+   - **r3 read** (X5:39): "The host runs `replay_candidate` before X1 write admission, X2 project admission and `CommitSession::open`. A replay refusal therefore ends the invocation before any fence, lease, attempt row, object or journal effect exists. That is F01's "no authoritative receipt", with nothing to clean up."
    - The binding comparison between the `ReplayedRun` and the session (target identity, inventory, producer closure) stays X3d's (item 3 step 1, the invariant row on mismatch). X5 does not duplicate it, and nothing on the X5 side can satisfy it.
    - Changed Plan inputs require a new replay (build plan line 66). A `ReplayedRun` is consumed by one `prepare_commit` and is not cached across invocations.
 
-   **Rejected:** replaying under the project lease. That lengthens the lease hold with pure work, and a replay failure would then cost a lease and an attempt row it never needed.
+   **r4: r3's rejected alternative is withdrawn.** r3 rejected "replaying under the project lease" because it lengthened the lease hold with pure work, and a replay failure would then cost a lease and an attempt row it never needed (X5:43). IE:1657-1658 now holds the lease through evaluation, so replay runs under it (J1r6:518). A replay failure still costs no attempt row: the attempt row is `prepare_commit`'s step 4, which a refusal never reaches.
 
-4. **Budget (lead decision).** Replay is bounded by `ReplayLimits` (the evaluator's local resource bounds: retained-walk limits, capture entries, retained bytes), which the evaluator documents as separate from operational work budgets. X5 fixes `REPLAY_LIMITS` as named constants (values in item 5e). Replay is not charged to X1's attempt ledger, because it runs before that ledger's operation begins and performs no native observation. **Rejected:** charging replay to the attempt ledger, which would let pure semantic work exhaust the owner caps meant for native custody work.
+   **Rejected (r4): r3's order, replay before any custody.** The candidate is the evaluation's output, and evaluation runs under the lease and the open session (J1r6:508-510). So no replay of it can come before custody. Keeping r3's order would need evaluation outside the lease, which IE:1657-1658 forbids, or the session opened only at the commit, which J1 rejects because providers would then run under no ExecutionId (J1r6:534).
+
+4. **Budget (lead decision).** Replay is bounded by `ReplayLimits` (the evaluator's local resource bounds: retained-walk limits, capture entries, retained bytes), which the evaluator documents as separate from operational work budgets. X5 fixes `REPLAY_LIMITS` as named constants (values in item 5e). Replay is not charged to X1's attempt ledger, because it performs no native observation. **r4:** r3 also gave the reason "it runs before that ledger's operation begins". Under item 3's r4 order, replay runs inside the operation, after the session opens, so that reason is withdrawn. The decision stands (J1r6:519), and so does X7's item 7: finalization charges nothing (X7r7:331). **Rejected:** charging replay to the attempt ledger, which would let pure semantic work exhaust the owner caps meant for native custody work.
 
 5. **Refusal rows (existing details only; r3).** Every `ReplayRefusal` maps to exactly one row, in two steps.
 
@@ -124,7 +146,7 @@ F01 requires that a replay refusal, or a substituted target or inventory, publis
 
 7. **Failure cases.**
    - **Covered:** F01, both halves:
-     - a replay refusal publishes nothing, because the invocation ends before any effect (items 3 and 5);
+     - a replay refusal publishes nothing (items 3 and 5). **r4:** the attempt ends before any attempt row, object or journal effect, and the session's end through `refused()` and `finish` appends nothing (item 3). r3 read "because the invocation ends before any effect";
      - a substituted target or inventory is refused at X3d's binding check, because only a `ReplayedRun` for the replayed Run can reach it.
    - **Elsewhere:** the binding comparison itself (X3d item 3 step 1), and everything after `prepare_commit` (X3d, X3c, X3b, X4).
    - **X8c's B0 Run (r3).** The X3d-2 review (call 3) found that no corpus Run binds to a scenario project, whose `ProjectId` is a fresh draw, and suggested a Run "through X5a's producer". X5 has no producer: analysis producers are M3 (Not claimed). B0's Run, bound to the scenario project's `projectId`, is a synthetic, labelled fixture that X8c owns and builds. X5a supplies only the join that replays it.
@@ -159,9 +181,11 @@ F01 requires that a replay refusal, or a substituted target or inventory, publis
 
    **Why one unit, not X5a-0 plus X5a.** The accessor has no caller but X5a's mapping, and is about one module. The inventory chain is linear (verify_design), so a split would burn one more successor and one more re-review for a module whose only reason to exist is reviewed in the same request.
 
+   **r4: no new unit.** r4 changes no X5a file. J3b carries "X5 r4 code" (J1r6:913): it moves the one call of `replay_candidate`, inside `finalization.rs`, to item 3's order, with X7 r7's new `finalize` signature (X7r7:312-322). X9 r17's §S12 records the matrix runner that follows from it.
+
 ## Forbidden substitutes
 
-A `ReplayedRun` built anywhere but `replay_run`; a boolean, token, RunId string or serialized prior result standing in for replay; structural-only validation as authority; replay under a held fence or lease; a host wrapper type around `ReplayedRun`; caching a `ReplayedRun` across invocations or reusing it for a second `prepare_commit`; a caller-chosen `ReplayLimits` at the commit boundary; charging replay to an operation ledger; a new public code. **r3:** classifying missing evidence from error text; a wildcard arm in the accessor or in the row mapping; a lost retained byte reported as `EVALUATION.INPUT_REFUSED`; `EVALUATION.WORK_BUDGET_EXHAUSTED` as a replay termination.
+A `ReplayedRun` built anywhere but `replay_run`; a boolean, token, RunId string or serialized prior result standing in for replay; structural-only validation as authority; replay under a held fence (**r4:** r3 also forbade replay under a held lease, which item 3 now requires); a host wrapper type around `ReplayedRun`; caching a `ReplayedRun` across invocations or reusing it for a second `prepare_commit`; a caller-chosen `ReplayLimits` at the commit boundary; charging replay to an operation ledger; a new public code. **r3:** classifying missing evidence from error text; a wildcard arm in the accessor or in the row mapping; a lost retained byte reported as `EVALUATION.INPUT_REFUSED`; `EVALUATION.WORK_BUDGET_EXHAUSTED` as a replay termination. **r4:** a replay refusal that ends the session other than through `refused()` and then `finish`, exactly once.
 
 ## Not claimed
 
