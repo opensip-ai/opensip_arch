@@ -353,3 +353,12 @@ Times are local.
   - **Delta rounds:** any FA-2 change that touches a wire member, a commitment, the admission point or reuse reopens L, and none of FA-2's §0 rows is exempt.
   - **FA-2 r2:** applies Codex's exact text for both scoping fixes. Only three members changed.
   - **Review:** FA-2 r2 goes to Codex now; L r4 goes to Grok after CRC-1 r2.
+- **P0 phase 2 done.** Every lane passes:
+  - fmt;
+  - build;
+  - clippy on all three feature sets;
+  - workspace tests 1731/0/3 twice (plus 18 doc tests, so 1749 in total, matching main);
+  - the crash-matrix lane at 1629/0/3;
+  - verify_scratch, projection, package edges and both dependency checkers with their tests.
+
+  The staged lock carries SCRATCH review and assent pins, so integration swaps those two. P0 goes to Codex after FA-2 r2. **Lead decision on `forbid(unsafe_code)` for `crates/syntax`:** keep it at P0. Whether native grammars need in-crate FFI (E0's harness used `extern "C"`) is E2b's reviewed decision, and lifting the lint there is a one-line change. **Rejected:** dropping it now, which would force a full lane rerun for no present need.
