@@ -1,6 +1,17 @@
-# Generator-closure and lane-registry re-pin — contract successor F8b (proposal r1)
+# Generator-closure and lane-registry re-pin — contract successor F8b (proposal r2)
 
-2026-10-04. Claude Opus 5.5, implementation lead. Status: **DRAFT for review.** This is design work only. Nothing has been rebuilt, generated or frozen, and no product byte has changed. F8b is the contract successor owed by EXIT-PLAN's "Stale dependency-policy rows" bullet, alongside F8a (the policy-row refresh, `reviews/codex-policy-refresh-f8a-r1/`). It also closes the "L1 follow-up" bullet. It is modelled on `existing-root-diagnostics-468a`, which selects the current closure. For the build receipt it follows `native-repin-selection-v1`, and for the lane-registry row `typescript-closure-selection-v1`/`-v2`.
+2026-10-04. Claude Opus 5.5, implementation lead. Status: **DRAFT r2 for review.** This is design work only. Nothing has been rebuilt, generated or frozen, and no product byte has changed. F8b is the contract successor owed by EXIT-PLAN's "Stale dependency-policy rows" bullet. Its companion F8a (the policy-row refresh) was accepted by Codex and integrated at product `3e64266`. F8b also closes the "L1 follow-up" bullet. It is modelled on `existing-root-diagnostics-468a`, which selects the current closure. For the build receipt it follows `native-repin-selection-v1`, and for the lane-registry row `typescript-closure-selection-v1`/`-v2`.
+
+## r2 changes
+
+r1 is kept as `PROPOSAL-r1.md` (16874 B, sha256 `f3162181…`). CODEX2 reviewed it (`reviews/codex2-generator-closure-f8b-r1/`) with one required finding and one observation:
+
+- **F8B-RF-1 (required).** r1's step 5 asked for a second public drift check with rebuild-01. That cannot run. Once step 4 selects rebuild-02, `pipeline.py:40–44` refuses any other generator ("tool bytes differ: generator"). `adapter.py:19–26` joins the receipt to the licensed `Cargo.toml` and the selected executable, so restoring the old receipt would not help either. r2 makes three changes:
+  - **Step 5** keeps the public drift gate on rebuild-02 only.
+  - **New step 6** is a separate, disclosed executable-equivalence probe. It runs both observed binaries on identical prepared inputs, for both generator invocations (`pipeline.py:132` and `:160`), and compares every byte. It also checks that rebuild-02's probe outputs equal step 5's own outputs. Its inputs, outputs, binary pins and script are frozen as evidence. It is labelled comparison evidence, not admitted F8b drift.
+  - **Numbering:** steps 6–9 become 7–10, and the review and freeze lists follow. No receipt is hand-edited, and no selected check is weakened or bypassed.
+- **F8B-NBO-1 (observation).** Decision 2 and step 3 now claim only what comparing rebuild-01 with rebuild-02 shows. Native re-pin's rebuild403-to-rebuild-01 cause stays unverified, because those older bytes are gone.
+- **Base.** F8a's integration at `3e64266` changes only the two dependency policies, none of F8b's files. Every exact value below is unchanged from r1 (rechecked against `3e64266`).
 
 ## Problem
 
@@ -23,7 +34,7 @@ L1 also deferred `license` metadata on three tooling manifests whose bytes these
 
 ## What changes
 
-Nine product files change at materialization (rows 1–9), and `design-lock.json` gains one row at integration (row 10). Values marked "at freeze" depend on the rebuild and are pinned when the unit is frozen. Every other value below is already exact, computed on a scratch copy of `30c5db1`.
+Nine product files change at materialization (rows 1–9), and `design-lock.json` gains one row at integration (row 10). Values marked "at freeze" depend on the rebuild and are pinned when the unit is frozen. Every other value below is already exact. It was computed on a scratch copy of `30c5db1` and is unchanged at `3e64266`.
 
 | # | Product file | Change | Before | After |
 |---|---|---|---|---|
@@ -56,15 +67,15 @@ No file is added, so there is no inventory successor. The v134 descriptions of a
 1. **One successor re-pins both registries.** The closure and the lane registry share the stale row. The lane registry also carries the third L1 manifest. One unit, one review and one lock row is enough. Rejected: two successors, which give the same result with twice the review cycles.
 2. **The licence goes into all three manifests, and the generator is rebuilt (option A).** The receipt is an observed build record, and `adapter.validate_build_receipt` requires its `sources` to equal the closure's `Cargo.toml` bytes. So an edited `tools/contracts/Cargo.toml` honestly needs a real rebuild, never a hand-edited receipt. The rebuild embeds its random temporary path, so the executable digest is expected to change, and with it `toolchain.json` and the closure's toolchain block. That is the native re-pin precedent.
    - **Why the binary should not change otherwise:** the generator's sources read no `CARGO_PKG_*` value (no `env!` or `option_env!` in `tools/contracts/src`). As far as the lead knows, `license` is not among the inputs Cargo hashes into `-C metadata`; step 3 tests this rather than assuming it.
-   - **What this unit can prove that native re-pin could not:** rebuild-01's bytes still exist at `~/opensip-deps/contracts-generator-rebuild-01/`, so the evidence compares the two executables directly (Procedure step 3).
+   - **What this unit can compare:** rebuild-01's bytes still exist at `~/opensip-deps/contracts-generator-rebuild-01/`. So the evidence compares rebuild-01 with rebuild-02 directly: their normalized bytes in step 3, and their generated output in step 6. That establishes a result for these two builds only. Native re-pin's explanation for the rebuild403-to-rebuild-01 digest change stays unverified, as its record says, because the rebuild403 bytes are gone.
    - **Rejected, option B:** license only the two `package.json` files and leave `tools/contracts/Cargo.toml` alone, with no rebuild. It is cheaper, but it leaves the one Cargo manifest in the repository without licence metadata until some later rebuild. It also turns L1's "next successor" follow-up into an open-ended exception. The rebuild costs one offline release build of about 25 crates.
-3. **Lockfiles stay unchanged** (L1 call 5). `npm ci` accepts a root `license` that its lock's `packages[""]` lacks; L1 showed this on `providers/typescript`. Evidence step 6 repeats it on a scratch copy of `tools/contracts`. `tools/typescript-boundary` cannot be installed on this Mac (ENOTCACHED esbuild) either before or after F8b, so that lock is not exercised. Rejected: regenerating the locks with `npm install`, which would change two more pinned files for a metadata copy.
+3. **Lockfiles stay unchanged** (L1 call 5). `npm ci` accepts a root `license` that its lock's `packages[""]` lacks; L1 showed this on `providers/typescript`. Procedure step 7 repeats it on a scratch copy of `tools/contracts`. `tools/typescript-boundary` cannot be installed on this Mac (ENOTCACHED esbuild) either before or after F8b, so that lock is not exercised. Rejected: regenerating the locks with `npm install`, which would change two more pinned files for a metadata copy.
 4. **`publish = false` is not added** to `tools/contracts/Cargo.toml`. L1's rationale called all three manifests "publish = false tooling", but this one has no `publish` key. It is still unpublishable: version 0.0.0, no `description`, and its own `[workspace]`. Adding the key is outside the recorded follow-up. Recorded here as a correction to L1's wording only.
 5. **Process rule (record, proposed for EXIT-PLAN).** A unit that changes any file pinned by `generator-closure.json` or `typescript-lanes.json` must carry the matching re-pin successor, or it must record the debt in EXIT-PLAN in the same commit. In practice that means `tools/verify_design.py`, `tools/check_typescript.py` and `tools/generate_contracts.py`. VD1 (`96dd114`, 2026-10-01) did neither, and the debt surfaced through L1 on 2026-10-03.
 
 ## Procedure
 
-The steps are ordered. Steps 2–9 run cargo, Node or the generator, so they wait until the crash-matrix lead sets on this machine finish. Everything runs at `nice -n 19`. The generator steps follow `existing-root-diagnostics-468a/evidence/` and `native-repin-selection-v1/evidence/`.
+The steps are ordered. Steps 2, 5, 6 and 7 run cargo, the generator or Node, so they wait until the crash-matrix evidence run on this machine finishes. The other steps are Python-only and follow in order. Everything runs at `nice -n 19`. The generator steps follow `existing-root-diagnostics-468a/evidence/` and `native-repin-selection-v1/evidence/`.
 
 1. **Worktree.** Create `opensip-f8b` at the then-current main. Provision `tools/contracts/node_modules` and `tools/contracts/python-packages` by copying the main checkout's trees, then check all 268 provisioned closure pins before any run. Apply edits 1–3 by script, asserting the before-pins above.
 2. **Rebuild.** Run the worktree's builder, so `--root` defaults to the worktree's `tools/contracts`:
@@ -86,21 +97,57 @@ The steps are ordered. Steps 2–9 run cargo, Node or the generator, so they wai
    - removing both ad-hoc code signatures, with `native-repin-selection-v1/evidence/scripts/sigequiv/sigequiv.py`'s method;
    - zeroing `LC_UUID`.
 
-   Equality verifies the native re-pin's unverified "only the temp path" explanation, and shows that the licence line reached nothing compiled. Any other difference is reported in the unit for the reviewer, and step 5 is then the functional gate.
+   Equality shows that rebuild-01 and rebuild-02 differ only in the embedded build path, the signature and `LC_UUID`. So the licence line reached nothing compiled. It says nothing about the earlier rebuild403-to-rebuild-01 change (decision 2). Any other difference is reported in the unit. Step 5 (the admitted gate) and step 6 (comparison evidence) then carry the functional claim.
 4. **Pins.** Copy rebuild-02's `receipt.json` byte for byte to `tools/contracts/build-receipt.json`. Set `toolchain.json`'s generator pin and `standing`. Re-pin the five closure rows and its toolchain block. Set the registry recipe's closure sha. Re-pin the two lane rows. All four JSON files round-trip through `json.dumps(indent=2) + "\n"` at base (checked), so the edit script changes only the named values and asserts their before-pins.
-5. **Generation.** Run the selected pipeline with an in-memory scratch approval, as 468a's `run_generation468a.py` does, and with `--generator` set to rebuild-02.
+5. **Generation and the admitted drift gate (rebuild-02 only).** Run the selected pipeline with an in-memory scratch approval, as 468a's `run_generation468a.py` does, and with `--generator` set to rebuild-02.
    - **Expect:** all 8 outputs are byte-identical to base except `report.ts` lines 2–3. Write `report.ts`.
-   - **Then:** run the public entry point through `drift_scratch.py`, with a synthetic in-memory F8b assent and the real `verify_design`. Expect `changed: []`.
-   - **Also:** run the same drift check with rebuild-01, to show both executables generate identical outputs from the same inputs.
-6. **npm.** In a scratch copy of `tools/contracts` with the licensed `package.json` and the unchanged lock, `npm ci --offline --ignore-scripts --no-audit --no-fund` must succeed, with `~/opensip-deps/npm-cache` and empty user and global configs.
-7. **Lane registry.** Run a scratch replay of `check_typescript.check` with the in-memory F8b assent, as far as the pin and selection checks. Expect: selected exactly once, and every tracked row matches. The lane children still cannot run here (missing esbuild). That is disclosed as unchanged from base, not claimed.
-8. **Design.** Run `verify_scratch.py`, the real `verify_design` with F8b appended in memory. Expect a pass with one more contract successor (77 at today's main), everything else unchanged: 40 generation and 48 admission sources, 55 inheritance rows, no inventory change.
-9. **Freeze.** `evidence/freeze_f8b.py` writes:
+   - **Then:** run the public entry point through `drift_scratch.py`, with a synthetic in-memory F8b assent and the real `verify_design`, again with rebuild-02. Expect `changed: []`.
+   - **Keep:** the generation run's work directory (`gen-candidate/`). Step 6 takes its inputs from it.
+   - The synthetic assent stands in only for the missing review and assent. Every pin, receipt and tool check runs unchanged. rebuild-01 is never passed to the selected path. After step 4 that path refuses it (`pipeline.py:40–44`), and it should.
+6. **Executable-equivalence probe (comparison evidence, not admitted drift).** `evidence/equivalence/probe_f8b.py` runs rebuild-01 and rebuild-02, each on its own, on identical inputs for both generator invocations, and compares every byte. It selects nothing and admits nothing. It never calls `generate_contracts.py`, `pipeline.run` or `adapter.validate_build_receipt`. It reads no product file except the two closure-pinned helpers it imports. It writes only inside a fresh, private 0700 probe directory outside both repositories. Its result never substitutes for step 5. CODEX2's alternative, a coherent comparison snapshot, is rejected: there is no public-path state to snapshot. Base `3e64266` cannot run the public path either, because its closure pins the pre-VD1 `verify_design.py`. So a snapshot would need a second synthetic selection made of rebuild-01's receipt, the unlicensed manifests and a re-pinned `verify_design.py`, which is a state that never existed.
+   - **Binaries.** Before each run and again after all runs, the script checks each executable's bytes against its pin, then copies it into the probe directory at mode 0700, as `pipeline.py:70–73` copies the selected tool:
+
+     | Label | Path | Pin |
+     |---|---|---|
+     | rebuild-01 | `~/opensip-deps/contracts-generator-rebuild-01/opensip-contract-generator` | 7202304 B, `4388e707035e0ea4b0c3dcd9206e55fd7045e58658a443fb13e04a12847a6959` (the currently selected pin) |
+     | rebuild-02 | `~/opensip-deps/contracts-generator-rebuild-02/opensip-contract-generator` | the step 2 receipt's `executable`, equal to the new `toolchain.json` pin (at freeze) |
+
+   - **Inputs.** Copied once into `probe/inputs/` from step 5's `gen-candidate/` and pinned before any run. Both binaries read these same bytes. They are re-pinned after all runs, and must be unchanged.
+     - `prepared/`: the whole directory as `pipeline.py:124–129` leaves it (`owners.json`, `rust-projection.json`, `ts-projection.json`, `options.json`, `raw-schemas.json`, `provenance.json`). The ordinary invocation reads `owners.json` and `rust-projection.json` (`tools/contracts/src/main.rs:17,20`). It is given the whole directory, as the pipeline gives it, so any other read would also be identical. These files are written by the Python prepare child (`owners.json` and both projections) and by `pipeline.py` itself (the rest). No generator binary writes them.
+     - `protocol-unformatted.rs`: the `--format-rust` input exactly as `pipeline.py:158–159` builds it, from step 5's ordinary `protocol.rs` plus `native.rs`. It came from rebuild-02's ordinary output. If the ordinary comparison below passes, rebuild-01 would have built the same input.
+   - **Invocations.** Each runs once per binary, into a fresh output directory per binary and invocation:
+     - **ordinary,** mirroring `pipeline.py:132`: `<tool> probe/inputs/prepared probe/out-NN/rust`. It reads `[prepared]` and writes `[out-NN/rust]`.
+     - **format,** mirroring `pipeline.py:160`: `<tool> --format-rust probe/inputs/protocol-unformatted.rs probe/out-NN/format/protocol.rs`. It reads the input file and writes `[out-NN/format]`.
+
+     Each run uses the pipeline's own confinement. The profile comes from `admission.child_profile(tool, reads, writes)`, written next to the run. The run goes through `confine.capture_child` under `/usr/bin/sandbox-exec`, with the pipeline's environment: `PATH=/usr/bin:/bin`, a private `HOME`, `LANG=C`, `LC_ALL=C`, `TZ=UTC`, and a private working directory. `admission.verify_confinement` (`confinement-profile.json`) runs before and after. The helpers are imported from the F8b worktree, where the closure pins them.
+   - **Comparison.** For each invocation, rebuild-01 and rebuild-02 must match in four ways:
+     - the same exit status (0 expected);
+     - byte-identical stdout and stderr (ordinary stdout is `generated six Rust files`);
+     - the same set of regular output files, collected with no symlinks or other non-regular entries: the six `crates/contracts/src/generated/{evidence,identity,invocation,output,protocol,mod}.rs` for ordinary, and `protocol.rs` for format;
+     - byte-identical contents for every one of those files.
+
+     A determinism check ties the probe to the admitted run: rebuild-02's probe outputs must equal step 5's own outputs for the same invocation. That means the six files in `gen-candidate/base/crates/contracts/src/generated/` for ordinary, and `gen-candidate/assembly/output/crates/contracts/src/generated/protocol.rs` for format. Step 5's drift gate already equated those outputs with the product, so the probe needs no product read.
+   - **Outcome.** All equal is the expected result. It is recorded as comparison evidence. Any difference, between the binaries or against step 5, stops the unit before freeze and goes to the lead and the reviewer, even though step 5 passed, because F8b's premise is that only manifest metadata changed. A difference never leads to editing a receipt, re-pinning rebuild-01, or relaxing any check.
+   - **Frozen evidence,** all under `generator-closure-f8b/evidence/equivalence/`:
+     - `probe_f8b.py`: the script. It imports only the standard library and the two closure-pinned helpers `admission.py` and `confine.py`.
+     - `probe-result.json`, with these fields:
+       - `standing`: "comparison evidence: rebuild-01 versus rebuild-02 on identical prepared inputs; not admitted F8b drift; no selection; no reproducible-build claim";
+       - both binary pins, before and after;
+       - every input pin, before and after;
+       - per invocation and binary: the argv shape, exit status, stdout and stderr pins, and output pins;
+       - the per-invocation `equal` verdicts;
+       - the determinism-check verdicts against step 5's outputs.
+     - `probe-manifest.json`: path, bytes and sha256 for every member of `probe.tar.xz`.
+     - `probe.tar.xz` (stored in LFS under arch's `docs/implementation/**/*.tar.xz` rule). It holds the `inputs/` tree, both `out-01/` and `out-02/` trees, each run's stdout, stderr and sandbox profile, and nothing else. The binaries themselves are not frozen. They stay host-local, as rebuild-01 does today, and only their pins are recorded.
+7. **npm.** In a scratch copy of `tools/contracts` with the licensed `package.json` and the unchanged lock, `npm ci --offline --ignore-scripts --no-audit --no-fund` must succeed, with `~/opensip-deps/npm-cache` and empty user and global configs.
+8. **Lane registry.** Run a scratch replay of `check_typescript.check` with the in-memory F8b assent, as far as the pin and selection checks. Expect: selected exactly once, and every tracked row matches. The lane children still cannot run here (missing esbuild). That is disclosed as unchanged from base, not claimed.
+9. **Design.** Run `verify_scratch.py`, the real `verify_design` with F8b appended in memory. Expect a pass with one more contract successor (77 at today's main), everything else unchanged: 40 generation and 48 admission sources, 55 inheritance rows, no inventory change.
+10. **Freeze.** `evidence/freeze_f8b.py` writes:
    - `generator-closure-f8b/README.md` (this proposal, finalized);
    - `materialization-map.json` (9 product files, before and after);
    - `product/` (the 9 after-copies);
    - `reference/tools/verify_design.py`, a byte-identical witness of the live 40714-byte file. VD1 was a code unit, so no successor holds a copy of it.
-   - `evidence/`: the rebuild receipt and logs, the comparison, generation and drift summaries, npm, lane and verify results, and every script;
+   - `evidence/`: the rebuild receipt and logs, the step 3 binary comparison, the step 5 generation and drift summaries, the step 6 `equivalence/` set listed above, the npm, lane and verify results, and every script;
    - `successor.json`, whose parents are listed below and sorted by path. `typescript-closure-selection-v2` exists because v1's parents were unsorted;
    - `../generator-closure-f8b-subject.json`.
 
@@ -117,7 +164,7 @@ The steps are ordered. Steps 2–9 run cargo, Node or the generator, so they wai
 ## Review and integration
 
 - **Proposal review (now, no cargo needed):** this file. Verdict ACCEPT on decisions 1–5 and the scope table.
-- **Unit review (after freeze):** verdict **ACCEPT-DESIGN-UNIT**, with `subjectManifestSha256` as a single string equal to `generator-closure-f8b-subject.json`'s sha256. The unit is a contract successor, so `ACCEPT-UNIT` and `inventoryCandidateAssessment` do not apply. The reviewer reruns steps 3, 5, 7 and 8, and step 2 if the machine is free.
+- **Unit review (after freeze):** verdict **ACCEPT-DESIGN-UNIT**, with `subjectManifestSha256` as a single string equal to `generator-closure-f8b-subject.json`'s sha256. The unit is a contract successor, so `ACCEPT-UNIT` and `inventoryCandidateAssessment` do not apply. The reviewer reruns steps 3, 5, 6, 8 and 9, and step 2 if the machine is free. Step 5 is the admitted drift gate. Step 6 is reviewed as comparison evidence.
 - **Integration:**
   1. Commit the 9 product files plus the `design-lock.json` row.
   2. On the clean commit, with no bypass, run `generate_contracts.py`, which must report `changed: []`; `verify_design.py` (one more contract successor); and `check_typescript.py` up to its child (pins and selection).
@@ -128,6 +175,7 @@ The steps are ordered. Steps 2–9 run cargo, Node or the generator, so they wai
 ## Limits and not claimed
 
 - No reproducible-build claim. Rebuild-02 is an observed trusted-host build, like rebuild-01.
+- Step 6 compares two observed builds on one set of inputs. It is comparison evidence, not admitted drift. It is not a general proof that the two executables are equivalent on every input.
 - No change to any tool version, source, dependency, option, schema or confinement policy. `tools/README.md`'s rule against re-pinning a different installed tool still stands. This unit reinstalls nothing.
 - The TypeScript lanes stay unrunnable on this Mac until esbuild 0.28.2 is in the npm cache. That is unchanged from base.
 - If `verify_design.py` changes again before freeze, both rows are re-pinned to the then-current bytes, and the unit says so.
