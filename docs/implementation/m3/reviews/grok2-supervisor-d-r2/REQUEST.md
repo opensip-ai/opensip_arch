@@ -24,7 +24,7 @@ The pins are in `hashes.txt`.
 - **Accepted:** M3-J1 r3 (CODEX2, `ad887c90…`), cited by its `host-pipeline-j/PROPOSAL-r3.md` lines; S-OP-2 r6 (Codex, ACCEPT-DESIGN-UNIT, `ce8d3a4b…`), cited by `operability/s-op-2/PROPOSAL-r6.md` lines, every r4 line re-pinned; M3-E1 r3 (Codex), cited by item 17, unchanged; M3-C r5 (CODEX2), cited by its `snapshot-plan-c/PROPOSAL-r5.md` snapshot by item, while r6 is in review.
 - **Unchanged since r1:** M3-PLAN r6, the operability plan r3, Q0 r13, the analysis-quality plan r6, M3-L r1 (draft), and every `docs/v2` and `docs/coop` file r1 cited.
 
-**The product** is `/Users/sb/code/opensip-ai/opensip` at main `3e64266`, read-only, as in r1.
+**The product** is `/Users/sb/code/opensip-ai/opensip` at main `e093e90`, read-only. That is F8b on top of r1's `3e64266`; F8b changed no file pinned here.
 
 ## What r2 changes (the "r2 changes" table has the detail)
 
