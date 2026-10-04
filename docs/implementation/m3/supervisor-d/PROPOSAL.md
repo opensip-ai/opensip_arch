@@ -1,23 +1,42 @@
-# The supervisor and common control law — proposal M3-D r3
+# The supervisor and common control law — proposal M3-D r4
 
-**r3 ACCEPTED 2026-10-04 by GROK2** (`9679dbc4…`; `reviews/grok2-supervisor-d-r3/`), with no required findings. r3's bytes are preserved in `PROPOSAL-r3.md`. This file differs from them only in recording text: this paragraph, and the review-history sentence about r1's RF-4, corrected per GROK2's r3 observation. Section F stays an O7 placeholder. D4 also waits for SD-6 (J1 r4) and SD-5.
+**DRAFT r4, not accepted. Not code.** This is a law with a unit breakdown. Its gate, CF-P, is met (see "Acceptance gate"). **r3 is the accepted law** (GROK2, `9679dbc4…`) and governs until r4 is accepted. r4 is a narrow amendment and a record revision: it states the exact predicate item 24 applies to EE-3b and EE-5a, decides item 25's public route, and records what has landed since r3 (see "r4 changes"). Section F is an **O7 placeholder**: it is written against the lead's O7 recommendation and is **binding only once O7 is decided as recommended**. Everything outside section F is ordinary law.
 
-**DRAFT r3, not accepted. Not code.** This is a law with a unit breakdown. Its gate, CF-P, is now met (see "Acceptance gate"). Section F is an **O7 placeholder**: it is written against the lead's O7 recommendation and is **binding only once O7 is decided as recommended**. Everything outside section F is ordinary law.
-
-2026-10-04. Drafted for Claude Opus 5.5, implementation lead, by a lead-dispatched drafting agent during the overnight autonomous run. It is the law for unit **M3-D** of the accepted M3 unit plan (M3P:213). It covers:
+2026-10-04. Drafted for Claude Opus 5.5, implementation lead, by a lead-dispatched drafting agent during the overnight autonomous run. It is the law for unit **M3-D** of the accepted M3 unit plan (M3P:211). It covers:
 - **D1**, `crates/platform/src/process.rs`: the spawn primitive (items 1-8), and the confinement primitive under O7 (section F);
 - **D2**, `crates/components/src/control_protocol.rs` and `provider_protocol.rs`: the codecs that own NE §9's dispatch (COV `native-evidence:10`, NE:2781-3316) with no translation (items 9-11);
 - **D3**, `crates/components/src/supervisor.rs`: supervision, single settlement, liveness, bounds, stderr, tree kill, cancellation and candidate discard (items 12-23);
-- **D4**, `crates/components/src/manifest.rs`, `session_factory.rs` and the request-validation predicates: DR-G29's excluded forms, refused **before any analysis-attempt ExecutionId is drawn or reserved** (items 24-25; item 25's R1 checks run before any draw at all, and on the first-use route the creation prelude's own reservation, which names the creation act only, may already exist at R10a), and represented post-admission substitutions, refused **after the draw and before any stage** (item 26);
+- **D4**, `crates/components/src/manifest.rs`, `session_factory.rs` and the request-validation predicates: DR-G29's excluded forms, refused **before any analysis-attempt ExecutionId is drawn or reserved** (items 24-25; item 25's R1 checks run before any draw at all, and on the first-use route, whatever the creator act's result, the creation prelude's own reservation, which names the creation act only, may already exist at R10a), and represented post-admission substitutions, refused **after the draw and before any stage** (item 26);
 - **D5**, the DR-G21 controls (item 27), with the O7 escape controls in section F (F-7).
 
-**Standing direction.** Every item marked "lead decision" is made under the owner's standing direction to proceed on the lead's recommendation, and names the alternatives it rejects. The owner may reverse any of them. The one owner decision this law depends on, O7, is pending (M3P:534, B1); section F is written so that nothing outside it depends on O7's outcome.
+**Standing direction.** Every item marked "lead decision" is made under the owner's standing direction to proceed on the lead's recommendation, and names the alternatives it rejects. The owner may reverse any of them. The one owner decision this law depends on, O7, is pending (M3P:532, B1); section F is written so that nothing outside it depends on O7's outcome.
 
 **Naming note.** The brief and M3P call NE's provider-protocol section "NE:10". That is COV's section id `native-evidence:10` (COV:7270-7292), whose heading is NE "§9. Provider protocol successors (wire)" at NE:2781-3316. NE's own §10 (NE:3317 onward) is the D9 mapping, which this law cites separately.
 
 **Review history.** r1 (`PROPOSAL-r1.md`, sha256 `c6ae10de…`, 128,473 bytes) was reviewed by GROK2 (`/tmp/opensip-implementation/reviews/grok2-supervisor-d-r1/`, copied to `docs/implementation/m3/reviews/grok2-supervisor-d-r1/`): REQUIRED-FINDINGS, RF-1 to RF-5, with seven non-blocking observations. GROK2 confirmed R2, R3, R4, R7 and R8 apart from RF-5, and the WS:1375 half of R5. r2 answers the five findings, records CF-P's outcome, and changes nothing else of substance.
 
 r2 (`PROPOSAL-r2.md`, sha256 `1f5367dc…`, 167,305 bytes) was reviewed by GROK2 (`reviews/grok2-supervisor-d-r2/`): REQUIRED-FINDINGS, one finding (RF-1), with r1's RF-1 to RF-5 resolved except RF-4, which GROK2 recorded as partly resolved and whose remainder was r2's RF-1, and four non-blocking observations. r3 answers them and changes nothing else.
+
+r3 (`PROPOSAL-r3.md`, sha256 `9679dbc4…`, 169,430 bytes) was **accepted** by GROK2 (`reviews/grok2-supervisor-d-r3/`), with no required findings and one non-blocking observation: the r2 sentence above, which r4 carries as the live file's acceptance note corrected it. That note is removed, because this file is now r4. r4 changes only what the next table names.
+
+## r4 changes
+
+r4 is a narrow amendment plus a record revision of accepted r3. Its three lead decisions are LD-R4-1 to LD-R4-3. Each is made under the owner's standing direction, names the alternatives it rejects, and may be reversed by the owner.
+
+| Source | Where | Change |
+|---|---|---|
+| **The analyzer root command** (CR-1's record item for D: ON, "CR-1 r2 written"; CR-1 README, cross-law item 3) | Problem gap 9; item 24: the EE-3b and EE-5a rows, the root-command predicate, SD-5's row, Inputs, Basis, Rejected, Forbidden substitutes, D4-T4; item 29 (SD-7); item 30 (F14, X-D4-*) | **LD-R4-1.** r3's EE-3b counted "a `commands` entry for role `analyzer`" as an authority claim, and its EE-5a refused "a root command". DR-103 requires every `analyzer` manifest to declare a non-empty tree whose one parentless entry is its mounted root (DR103:899-904), so read literally D4 refused every analyzer. The sources exclude a claim on the **host-owned root namespace**, not that mount (PPBS:719-720; AQ:343, AQ:345; D-012 clauses 2 and 3). EE-5a's root-command arm is now exact: **(a)** a closure-only manifest that declares `commands` (CR-1's D4 join); **(b)** an `analyzer` tree outside DR-103's mounted-root model; **(c)** a reserved root name among the manifest's root-namespace keys. EE-3b keeps only its capability form. The security owner's RJ-2 or RJ-6 refuses every such form first, so D4's arm is DR-G29's backstop and no condition has two routes; CR-T9's name and alias admission is unchanged. SD-5's bound row, which restates r3's wording, is read through the predicate until SD-7 conforms it. |
+| **X-SD5-1** (SD-5's cross-law item) | item 25; D4-T2; item 29 (SD-7); item 30 (F15, X-D4-J1-1) | **LD-R4-2.** Item 25's request-class `ExcludedForm` at R1 takes `request-rejected` 2, `REQUEST.UNSATISFIABLE`, detail `PROVIDER.NOT_SELECTED` with subject `excluded-form:<class>`, and no runId or executionId: NE's own rule for a well-formed request the product does not serve (NE:3577-3579). The detail's code-keyed remedy is widened by SD-7 under NE's remedy-keying constraint. No code is added. J1's row 57 is a cross-law item. |
+| **SD-5 accepted and bound** (ON, "FA-1 and SD-5 accepted by Grok") | item 24's projection; D4-T1; item 16; item 22's rows; item 29 | Item 24 cites SD-5's route, and D4-T1 asserts it. **LD-R4-3:** r3's SD-5 row splits. SD-5 is done. Its remainder, `MemoryBudgetBelowCeiling`, `ToolOutputBound`, `ToolScratchBound` and `confinement-refused`, is the named owed successor **SD-5b**, which lands with each refusal's first consumer. |
+| **D4-T1 and D4-T2 sample at the refusal's return** (ON, "J1 r4 and M3-C r7 written"; M3P9:323) | D4-T1, D4-T2 | The registry is sampled when R10a, ER10a or R1 returns its refusal, before step 1's render draw (J1:344, J1:347). |
+| **"First use" also covers `LostRace` and `NotPristine`** (same sources) | preamble; item 24; D4-T1 | First use is J1's route 3b whatever the creator act's result: `Published`, `LostRace` or `NotPristine` (J1:233-243). D4-T1 runs once for each, as J-C10b does. |
+| **SD-6 landed; its "MC r5" becomes MC r7** (same sources) | item 24's SD-6 bullet; item 28; item 29 (SD-6); item 30 (F11); Acceptance gate (M3-J1); Units | J1 r4 (GROK2) places R10a and ER10a; M3-C r7 (CODEX2, accepted in review) narrows item 16's row 8. D4's SD-6 gate is met. |
+| **F7 answered** (FA-1, accepted and bound at product `f97c02b`; MH's X-H2 and item 4) | item 20; F7 | Re-cited: a clean `BudgetExhausted` or post-Analyze `Unavailable` discards every candidate (MH:242-263; FA-1's NE:3849-3850). Item 20's gate is unchanged. |
+| **Moved snapshots and pins** | Short names; Acceptance gate (M3-L); item 17; every J1, MC, ML, ME and M3P citation outside the history tables | **J1** → r4 (`PROPOSAL-r4.md`): every line re-mapped, and matrix rows keep their numbers. **MC** → r7. **MH** r3 added. **ML** is cited by item and role only (L r5 is accepted in review and not in effect), and item 17 now follows L item 12.1, whose count-only rule L adopted at its r2. **SOP2** stays r6. **ME** → its r3 snapshot. **M3P** → `M3-PLAN-r6.md`, every line 2 lower than r3's, because r3 cited the live file; **M3P9** is r9. **ON** is cited by entry, not line. The **product** is read at `052d3cb`. |
+| **GROK2 r3 non-blocking observation** | Review history | The r2 sentence is corrected as the live acceptance note corrected it, and the note itself is removed. |
+| **The closing sections** | item 31 (R10 to R13); the global Forbidden substitutes; Not claimed | r4's questions for the reviewer; item 24's and item 25's new forbidden substitutes, restated across all items; Not claimed covers r4. |
+
+Nothing else changes. Items 1-15, 18, 19, 21, 23, 26 and 27, and section F, are r3's apart from re-cited lines. Every other change is in this table. The units and their sizes are unchanged.
 
 ## r3 changes and review responses
 
@@ -46,41 +65,46 @@ Nothing else changes in substance. The units and their sizes are unchanged, exce
 
 ## Acceptance gate
 
-The gate is M3P's: "D-law acceptance needs CF-P" (M3P:213), with "CF-P → D-law acceptance" (M3P:85) and "the D … laws … with D-law acceptance after CF-P" (M3P:261).
+The gate is M3P's: "D-law acceptance needs CF-P" (M3P:211), with "CF-P → D-law acceptance" (M3P:83) and "the D … laws … with D-law acceptance after CF-P" (M3P:259).
 
 | # | Item | Status (2026-10-04) | Evidence |
 |---|---|---|---|
 | G1 | **CF-P**, the confinement-feasibility probe: a programmatic Seatbelt trial on macOS 27 and a desk check of the Linux primitives | **met.** CF-P ran on macOS 27.0 (26A428) with a trivial test child, no provider and no repository bytes. Its verdict: Seatbelt is feasible through `sandbox_init_with_parameters`, with five amendments to F-3; the AL2023 and Ubuntu 24.04 desk check is feasible, with corrections; F8 is confirmed. r2 records every outcome (section F-8). CF-P claims nothing as enforced. | CFP:1-5, CFP:231-251, CFP:309-320; arch `70ab22c71` (the record) and `68be36dc0` (the overnight-log entry) |
 
 **Not gates of this law:**
-- **O7.** Section F is non-binding until O7 is decided. O7 gates provider and tool *launch* (M3P:478), which no D unit performs outside tests.
-- **M3-L.** D is accepted before day 0, and day 0 is L's acceptance (M3P:257, M3P:261). Item 15 follows ML item 12, item 19 follows ML item 16, and item 21 follows ML items 13 and 14. **Item 17 departs from ML item 12.1's hold** of stderr text and keeps only the count (R2, confirmed by GROK2 as lawful). If L's accepted text differs, D is amended to follow it.
+- **O7.** Section F is non-binding until O7 is decided. O7 gates provider and tool *launch* (M3P:476), which no D unit performs outside tests.
+- **M3-L.** D is accepted before day 0, and day 0 is L's acceptance (M3P:255, M3P:259). Item 15 follows ML item 12, item 19 follows ML item 16, and item 21 follows ML items 13 and 14. **(r4) Item 17 now follows ML item 12.1 too.** r1-r3 recorded a departure from L r1's hold of stderr text; L adopted the count-only rule at its r2 ("Under r1 the D law's draft had to depart from this item; under r2 it follows it", ML item 12.1), so the departure is closed. L r5 is accepted in review by GROK2 and takes effect only when its gate items are met, so D cites L by item and role only (Short names). If L's text in effect differs, D is amended to follow it.
 - **S-OP-2.** Now accepted (r6). Item 21 uses its names (SOP2 item 23). A later registry change is followed by D3 without a D amendment, because names are S-OP-2's.
-- **M3-J1.** Accepted (r3). Items 22 and 24-26 cite its rows and order. SD-6 (R10a) is an amendment to it, reviewed on its own; until SD-6 is accepted, D4's code unit does not integrate (Units).
-- **P0.** It gates D's code units, not the law (M3P:210).
+- **M3-J1.** Accepted at r4 (GROK2), which applies SD-6: row R10a, its ephemeral counterpart ER10a and control J-C10b (J1:325, J1:337-349, J1:426). Items 22 and 24-26 cite r4's rows and order. D4's SD-6 gate is met (r4; Units).
+- **P0.** It gates D's code units, not the law (M3P:208).
 
 ## Short names
 
-Line numbers were checked on 2026-10-04 against the files named here. A live plan or design file carrying an acceptance note is 2 lines ahead of its `-rN` snapshot; the live file is cited.
+Line numbers were checked on 2026-10-04 against the files named here. **(r4)** Laws, and M3P, are cited by their accepted `-rN` snapshots. AQP, OPP and HD are still cited by their live files, which have not changed since r3. The "r3 changes" and "r2 changes" tables are history: their line citations are those of the bytes they then cited (J1 r3, MC r5, ML r1 and M3P's r6 live file).
 
 - **Plans and laws (arch):**
-  - **M3P** `docs/implementation/m3/M3-PLAN.md` (r6 accepted, live).
+  - **M3P** `docs/implementation/m3/M3-PLAN-r6.md`, the accepted r6 bytes (`a6956e88…`). **(r4)** r1-r3 cited r6's live file, which was 2 lines ahead of these bytes, so every M3P line here is 2 lower than r3's, with the same text. M3P's live file is now r9.
+  - **M3P9** `docs/implementation/m3/M3-PLAN-r9.md`, the accepted r9 bytes (GROK2, `72bc7a13…`). Cited for D's row (M3P9:259) and D's record items (M3P9:323).
   - **AQP** `docs/implementation/m3/analysis-quality/PLAN.md` (r6 accepted, live).
-  - **ON** `docs/implementation/OVERNIGHT-2026-10-03.md`, cited by entry (blocker B1 is ON:9).
-  - **ML** `docs/implementation/m3/provider-protocol-l/PROPOSAL.md` (M3-L r1 draft, sha256 `5e858c05…`). Cited by item and line.
+  - **ON** `docs/implementation/OVERNIGHT-2026-10-03.md`, cited by entry title, never by line, because the log is live and grows (r4: r3's "ON:9" moved when the morning summary was added). Blocker B1 is in its "Blockers for the owner" table.
+  - **ML** the M3-L law, `docs/implementation/m3/provider-protocol-l/`. It is not in effect: GROK2 accepted r5 in review (`PROPOSAL-r5.md`, `f654ee4e…`), and it takes effect only when its gate items are met, with delta rounds for S-M, O7, FA-2 and RUST3-LIM. **(r4) Cited by item and role only, never by line or hash**, so that D's citations survive those rounds. r1-r3 cited r1's lines (`PROPOSAL-r1.md`, `5e858c05…`). r4 checked every cited item against r5: items 1-21, 12.1-12.5 and 16a-16f, cross-law item X5 and owner questions R3, R8 and R9 keep their numbers and roles.
   - **OPP** `docs/implementation/m3/operability/PLAN.md` (r3 accepted, live). Cited by section and live line.
   - **SOP2** `docs/implementation/m3/operability/s-op-2/PROPOSAL-r6.md`, the S-OP-2 r6 bytes, **accepted** by Codex as ACCEPT-DESIGN-UNIT (`ce8d3a4b…`). r1 cited r4's lines; r2 re-pins every one to r6. The event names, kinds and ordinary-registration rule D uses are unchanged from r4.
   - **HD** `docs/implementation/m3/harness/DESIGN.md` (Q0 r13 accepted, live).
-  - **MC** `docs/implementation/m3/snapshot-plan-c/PROPOSAL-r5.md`, the M3-C r5 bytes, accepted by CODEX2 (`7f76052d…`; effective once M3-L and X12 r4 are accepted). r6 is in review. Cited by item.
-  - **ME** `docs/implementation/m3/syntax-e/PROPOSAL.md` (M3-E1 r3, accepted by Codex, `d71031ff…`). Cited by item; item 17 is the same item in r1, r2 and r3.
-  - **J1** `docs/implementation/m3/host-pipeline-j/PROPOSAL-r3.md`, the M3-J1 r3 bytes, **accepted** by CODEX2 (`ad887c90…`; the live file carries a 2-line note). Cited by r3's items, rows and snapshot lines: the request order (J1:293-312), the ExecutionId draws and reservation registry (J1:160-180) and the outcome matrix (J1:607-678).
+  - **MC** `docs/implementation/m3/snapshot-plan-c/PROPOSAL-r7.md`, the M3-C r7 bytes, accepted in review by CODEX2 (`a1ee9386…`; `reviews/codex2-snapshot-plan-c-r7`; effective once M3-L is in effect). **(r4)** r7 narrows item 16's row 8 to a selection among the manifests R10a admitted (SD-6; J1's S19). Cited by item; items 7, 12 and 16 keep their numbers from r5.
+  - **ME** `docs/implementation/m3/syntax-e/PROPOSAL-r3.md`, the M3-E1 r3 bytes, accepted by Codex (`d71031ff…`; r4 cites the snapshot, not the live file). Cited by item; item 17 is the same item in r1, r2 and r3.
+  - **J1** `docs/implementation/m3/host-pipeline-j/PROPOSAL-r4.md`, the M3-J1 r4 bytes, **accepted** by GROK2 (`c18c0d3c…`; `reviews/grok2-host-pipeline-j-r4`). r4 applies SD-6 to the r3 bytes CODEX2 accepted (`ad887c90…`). **(r4)** Every J1 line is now r4's: the ExecutionId draws and reservation registry (J1:175-195), the first-use route 3b (J1:233-243), the request order with R10a (J1:308-328; R10a at J1:325, its bullet and J-C10b at J1:337-349), ER10a (J1:426, J1:431) and the outcome matrix (J1:638-709). Matrix row numbers are unchanged from r3.
   - **X4** `docs/implementation/m2/live-guards-x4/PROPOSAL.md` (r7, accepted), cited for its refusal rows (X4:120-121).
   - **CFP** `docs/implementation/m3/confinement-cf/CF-P-RECORD.md`, the CF-P record (arch `70ab22c71`), with its probe under `confinement-cf/probe/`. A record, not law: it claims nothing as enforced (CFP:3).
+  - **MH** (r4) `docs/implementation/m3/fact-admission-h/PROPOSAL-r3.md`, the M3-H r3 bytes, accepted by Grok (`7a562720…`). Cited for item 4 and cross-law item X-H2 (MH:242-263, MH:859).
+  - **FA-1** (r4) `docs/implementation/m3/native-successors-fa/fa-1/`, accepted by Grok (ACCEPT-DESIGN-UNIT, `reviews/grok-fa-1-r1`) and bound at product `f97c02b`. It replaces NE:3849-3850 and adds H's closed-world key to NE:3529.
+  - **SD5** (r4) `docs/implementation/m3/supervisor-d/sd-5/`, successor SD-5, accepted by Grok (ACCEPT-DESIGN-UNIT, `reviews/grok-sd-5-r1`) and bound at product `052d3cb`. Its README and generated `PASSAGES.md` give NE §10's row after NE:3540.
+  - **CR-1** (r4) `docs/implementation/m3/snapshot-plan-c/cr-1/`, M3-C's role successor, **accepted** by GROK2 at its r4 (ACCEPT-DESIGN-UNIT, `reviews/codex2-cr-1-r4`; subject `e9e1a406…`) and bound at product `3fe7eb5`, after this law's product base. Its r4 corrected only CR-T9's entry points (RF-CR1-3): a reserved-name collision refuses in both `validate` and `validate_inventory`, and a live-name collision in `validate` only. C2a materializes it. Cited for its D4 join (README, "The rule"; its SL:70 passage), LD-8, CR-T8 and CR-T9.
 - **Architecture:** **F02** `docs/v2/architecture/02-distribution-and-components.md`; **F03** `…/03-configuration-and-security.md`; **CH13** `…/13-evidence-workflows-and-product-contracts.md`; **CH14** `…/14-repository-and-module-layout.md`; **REG** `…/08-decision-and-readiness-register.md`; **BP** `…/implementation-boundaries-and-build-plan.md`; **COV** `…/implementation-coverage.v1.json`.
-- **Product contracts:** **NE / SL / AQ / WS** `docs/v2/contracts/product-v1/{native-evidence, security-and-lifecycle, admission-and-qualification, workflows-and-surfaces}.md`.
+- **Product contracts:** **NE / SL / AQ / WS** `docs/v2/contracts/product-v1/{native-evidence, security-and-lifecycle, admission-and-qualification, workflows-and-surfaces}.md`. **(r4)** Bound successors override three NE lines D cites, and no WS or SL line D cites: FA-1 at NE:3529 (a condition added; the row's route is unchanged) and NE:3849-3850 (replaced; item 20, F7), and SD-5 after NE:3540 (a row inserted; item 24). After `052d3cb`, S18 (bound at `5214350`) overrides WS:225, WS:227, WS:228 and WS:231, inside the WS:224-229 range D cites. D cites that range for the first signal before finalization reaching J's handler, and for the `interrupted` class while providers run. S18 changes the after-settle definition and defers a signal in the final output section, after every provider has settled, so D's use is unchanged.
 - **Selected and inherited contracts (coop):**
   - **CC** `docs/coop/completion/control-completion.contract.v5.md`, the common control contract, closed at sixteen messages (CC:9-11), selected as C.BODIES (APP:1016).
-  - **CPC** `docs/coop/artifacts/control-protocol-contract.v2.json`. CC:9-11 calls it "the accepted authority"; its own header says `CANDIDATE-NOT-APPLIED` and `"binds": "NOTHING"` (CPC:7, CPC:10). Like ML (ML:54), this law adopts its descriptor layout and join table as the reading CC adopts, and makes its own lead decisions where it relies on them.
+  - **CPC** `docs/coop/artifacts/control-protocol-contract.v2.json`. CC:9-11 calls it "the accepted authority"; its own header says `CANDIDATE-NOT-APPLIED` and `"binds": "NOTHING"` (CPC:7, CPC:10). Like ML, in its own CPC short name, this law adopts its descriptor layout and join table as the reading CC adopts, and makes its own lead decisions where it relies on them.
   - **DRC** `docs/coop/completion/distribution-runtime-completion.v2.md` (D.SDK, APP:620).
   - **BBC** `docs/coop/completion/broker-bootstrap.contract.v2.md`, selected as BROKER.BOOTSTRAP by APP:1042-1054. It supersedes DLV's TypeScript argv and environment (BBC:21-26).
   - **APP** `docs/coop/completion/architecture-application.v1.json`.
@@ -91,7 +115,13 @@ Line numbers were checked on 2026-10-04 against the files named here. A live pla
   - **QG** `docs/coop/design-corrections/qualification-gates.applied.v1.json`.
   - **PPBS** `docs/coop/artifacts/preview-product-boundary-successor.v10.json`, which defines DR-117's EE classes that DR-G29 executes.
   - **PTT** `docs/coop/artifacts/permission-truth-tables.v9.json`.
-- **Product** paths are under `opensip/` at main `3e64266`.
+  - **DR103** (r4) `docs/coop/artifacts/component-manifest-schemas.v11.json`, DR-103's accepted field authority (`1c0b8868…`): the `role` field (DR103:891-897), the `commands` field and its mounted-root rule (DR103:899-904), `commandSpecFields` (DR103:905-959), the reserved root-command list (DR103:1101-1104) and RJ-2 (DR103:1159-1173).
+  - **CD** (r4) `docs/coop/COORDINATOR-DECISIONS.md`, decision D-012 (DR-104), the command namespace and reservation policy (CD:1050-1120; clauses 2 and 3 at CD:1076-1088).
+  - **CMS** (r4) `docs/coop/completion/manifest-schema.completed.v1.json`, the completed structural manifest schema (`a5140714…`), from which the product's generated shape comes.
+  - **D9** (r4) `docs/coop/artifacts/d9-exit-contract.v1.14.json`.
+  - **NES** (r4) `docs/coop/design-corrections/native/native-evidence.schemas.v2.json`, the native route registry, with its envelope-errors composition (NES:522) and remedy-keying constraint (NES:523).
+  - **NEM** (r4) `docs/implementation/m3/config-discovery-b/b-s9/reference/native_evidence_model.py`, the selected native reference model (`a7e40715…`), whose `PUBLIC_ROUTE_REMEDIES` table is keyed by public code (NEM:1157-1167).
+- **Product** paths are under `opensip/` at main `052d3cb` (r4; 85 contract successors). Every product file r1-r3 cited is byte-identical to `3e64266`, where they were read. r4 adds `crates/security/src/component_manifest.rs` (`command_checks`, :166-279; `validate` and `validate_inventory`, :395-414). Main has since moved on, and r4 does not re-read the product past `052d3cb`: `8ca420f` binds FA-2, `7347614` RUST3-LIM, `5e25d04` integrates P0 (which makes `crates/components` a workspace member), `5214350` binds S18 and `3fe7eb5` binds CR-1. None of them changes `crates/platform`, `crates/contracts`, `crates/security`, `crates/identity` or `schemas/`, and `component_manifest.rs` is the same blob (`2ece3789…`) at `052d3cb` and `3fe7eb5`.
 - **SDK27** `/Library/Developer/CommandLineTools/SDKs/MacOSX27.0.sdk/`, the macOS 27.0 SDK on this host. Header and stub lines were read on 2026-10-04. They establish API declarations and exports only, never behaviour. macOS behaviour comes from CF-P's trial (CFP).
 
 **Facts not measured on this host.** Linux kernel, glibc and distribution facts cannot be checked on this macOS host. **Every Linux fact this law relies on is listed in section F-8 as LX-n**, and each macOS behaviour (as opposed to a header declaration) as **MX-n**. For each, F-8 records CF-P's outcome: a macOS **trial** result, a Linux **desk-check** result (documented, never measured), or "not in CF-P" for the rows r2 adds. Items cite them by id. No Linux row is established: it is "not run" until a Linux lane runs it (item 8), and CF-1 measures it.
@@ -99,7 +129,7 @@ Line numbers were checked on 2026-10-04 against the files named here. A live pla
 ## Problem
 
 **What the product has.**
-- `crates/platform/src/process.rs` is **absent** (M3P:178). The only process module is a read-only translation query (`crates/platform/src/macos_process.rs:1-2`). `crates/components` is not a workspace member (`Cargo.toml:3`); M3-P0 creates it (M3P:210).
+- `crates/platform/src/process.rs` is **absent** (M3P:176). The only process module is a read-only translation query (`crates/platform/src/macos_process.rs:1-2`). `crates/components` is not a workspace member (`Cargo.toml:3`); M3-P0 creates it (M3P:208).
 - **Every child process in the product today is test-only.** The M2 crash-matrix driver (`crates/platform/src/crash_barrier/driver.rs`) exists only under the `crash-matrix` feature, which no manifest enables and which refuses every build without debug assertions (`crates/platform/Cargo.toml:17-22`; `crates/platform/src/lib.rs:5-8`, `:15-20`). It shows what production must not copy:
   - it re-executes `current_exe()` with `env_clear()` and then sets `TMPDIR` (`driver.rs:185-200`), so its environment is built from empty but its scratch location comes from an environment key;
   - `kill` is `Child::kill`, a `SIGKILL` of one pid (`driver.rs:337-338`), with no process group or session;
@@ -129,7 +159,8 @@ Line numbers were checked on 2026-10-04 against the files named here. A live pla
 5. On macOS 27, `sandbox_init` is declared deprecated as "No longer supported" (SDK27 `usr/include/sandbox.h:46-49`). `sandbox_init_with_parameters` is exported by `libsystem_sandbox` (SDK27 `usr/lib/system/libsystem_sandbox.tbd:66`) but declared in no public header. **CF-P measured both** (CFP:94-111): the documented named mode of `sandbox_init` gets its caller SIGKILLed with `OS_REASON_SANDBOX` on 27; `sandbox_init_with_parameters` works. Programmatic Seatbelt therefore rests on an undeclared interface (finding F5).
 6. TS2 bounds each frame but not the aggregate response (NE:2961-2967), while Rust3 bounds both (RPP:113-114).
 7. S-OP-2's provider and supervision events require Project, Plan and Execution (SOP2:857-861), but MC's adapter launch runs before PlanId (MC item 12; NE:2499-2500).
-8. **(r2, RF-4)** DR-G29 asks for excluded forms refused with no ExecutionId (REG:374; QG:588), but J1 draws and reserves the durable attempt's ExecutionId at R12, before capture and before the Plan (J1:311, :424-427). Component admission that waits for C4a's closure selection (MC item 16 row 8) is too late; item 24 places it before R12.
+8. **(r2, RF-4)** DR-G29 asks for excluded forms refused with no ExecutionId (REG:374; QG:588), but J1 draws and reserves the durable attempt's ExecutionId at R12, before capture and before the Plan (J1:327, :455-458). Component admission that waits for C4a's closure selection (MC item 16 row 8) is too late; item 24 places it before R12.
+9. **(r4) D4's EE-3b and EE-5a rows, as r3 wrote them, read as refusing every `analyzer` manifest.** DR-103 requires each one to declare a non-empty command tree whose one parentless entry is its mounted root command (DR103:899-904). r3's EE-3b counted "a `commands` entry for role `analyzer`" as an authority claim, and its EE-5a refused any root command (item 24). CR-1's drafter found it (CR-1 README, cross-law item 3).
 
 ## Decisions
 
@@ -140,11 +171,11 @@ Line numbers were checked on 2026-10-04 against the files named here. A live pla
 - **Decision.**
   - `platform/process.rs` is the **only** production spawner. It provides "process launch, cancellation and reap mechanisms for already authorized operations" (CH14:392) and holds no policy (CH14:285). It takes a closed `LaunchSpec`, spawns, and exposes the host ends of the descriptors, a process-exit source, group signalling and reaping. It decides no deadline, ceiling, ladder or outcome.
   - **Launch classes (closed):**
-    - **`Provider`**: a TS2 or Rust3 child, five descriptors (item 5), launched only after the host has bound SnapshotId, PlanId and the complete universe key (DLV:566; ML item 2, ML:129) and after attempt admission, so its ExecutionId exists.
+    - **`Provider`**: a TS2 or Rust3 child, five descriptors (item 5), launched only after the host has bound SnapshotId, PlanId and the complete universe key (DLV:566; ML item 2) and after attempt admission, so its ExecutionId exists.
     - **`Tool`**: a first-party closure tool launched before PlanId, with three descriptors and no control plane. MC item 12's `cargo metadata` adapter is the only M3 member (NE:1785-1791; NE:2499-2500).
     - **`TestFixture`**: available only to tests (a `cfg(test)` or test-support feature that no release manifest enables). It runs first-party test binaries, never repository bytes, for D3 and D5 controls and CF-1 trials.
   - **No `RepositoryCode` class exists at M3** (F-6).
-  - Supervision policy is `components/supervisor.rs` (CH14:436). Construction from an admitted selection is `components/session_factory.rs` (CH14:435). The platform module is the M6 DR-G22 owner, built early (BP:1026; COV:4978-4987; M3P:213).
+  - Supervision policy is `components/supervisor.rs` (CH14:436). Construction from an admitted selection is `components/session_factory.rs` (CH14:435). The platform module is the M6 DR-G22 owner, built early (BP:1026; COV:4978-4987; M3P:211).
   - **OPP §7's process rule is made exact.** `posix_spawn` and `std::process::Command` appear in production only in `platform/process.rs`, and `execve` only in section F's launcher. The test-only crash-matrix driver keeps its exception (OPP:368).
 - **Basis:** CH14:285, CH14:288, CH14:392, CH14:435-436; BP:1026; OPP:368; DLV:566; NE:2499-2500.
 - **Rejected:**
@@ -184,7 +215,7 @@ Line numbers were checked on 2026-10-04 against the files named here. A live pla
     - **TS2:** exactly `LC_ALL=C`, `LANG=C`, `TZ=UTC`, `UV_THREADPOOL_SIZE=4` and `OPENSIP_BROKER_CONTEXT=<host-encoded bootstrap>` (BBC:119-131). At M3 the bootstrap carries an **empty** `handles` array (BBC:70-71), because "A missing key is a startup configuration failure; an empty handles array succeeds" (BBC:75-76).
     - **Rust3:** exactly `LANG=C`, `LC_ALL=C`, `TZ=UTC` (DRJ2:102-108).
     - **Tool:** exactly the keys C3b's adapter law names under NE's carrier rules CC-1..CC-5 (NE:1728-1741). D1 always refuses `PATH` and every `CARGO_*`, `RUSTFLAGS`, `RUSTC*`, `RUSTDOC*`, `RUSTUP_*`, `CC`, `CXX`, `LD`, `AR` and `TARGET_*` key (NE:1734-1736). Finding F3 (item 30) records that CC-2's fresh `CARGO_HOME` cannot be conveyed by a `CARGO_*` variable.
-  - **Never present:** `PATH`, `HOME` (except as C3b may set it for a tool under CC-2), `TMPDIR`, proxies, credentials, `NODE_*`, `OPENSSL_CONF`, `RUST_LOG`, `OTEL_*`, a RequestId, a RunId and any log path (BBC:130-131; DLV:1180-1182; ML item 13, ML:376; OPP:430).
+  - **Never present:** `PATH`, `HOME` (except as C3b may set it for a tool under CC-2), `TMPDIR`, proxies, credentials, `NODE_*`, `OPENSSL_CONF`, `RUST_LOG`, `OTEL_*`, a RequestId, a RunId and any log path (BBC:130-131; DLV:1180-1182; ML item 13; OPP:430).
   - **Validation.** `LaunchSpec` construction refuses a duplicate key, a key outside the class allowlist, an empty key, a key containing `=` or NUL, and a value containing NUL.
   - **Runtime-added keys.** Node may synthesize keys such as `__CF_USER_TEXT_ENCODING` on macOS after `exec`; the SDK removes them before provider callbacks (BBC:133-137). That is the SDK's duty (F1), not D1's. D1's claim covers the `exec` input.
 - **Basis:** BBC:73-81, BBC:119-140; DRJ2:102-108; DLV:1177-1183; NE:1728-1741; CH13:59-62; PTT:304 and NE:2456 (`PT-ENV-READ` is `ENFORCED-BY-CONSTRUCTION` in `child-process` mode, because "The child's environment is constructed by the host").
@@ -298,7 +329,7 @@ Line numbers were checked on 2026-10-04 against the files named here. A live pla
 | Core files | `RLIMIT_CORE` 0 (CFP:214) | `RLIMIT_CORE` 1 (LX-6) |
 | Confinement | Seatbelt through a `dlsym`-resolved `sandbox_init_with_parameters`, under O7 (F-3; CF-P MX-1..MX-7) | Landlock + seccomp, under O7 (F-2; LX-10, LX-11, LX-14..LX-19) |
 
-- **Platform scope at M3:** run and claim only this host's macOS family. The Linux code is built and exercised only on Linux lanes (M3P:474). Windows is outside the population (SL:722-723; CPC:258).
+- **Platform scope at M3:** run and claim only this host's macOS family. The Linux code is built and exercised only on Linux lanes (M3P:472). Windows is outside the population (SL:722-723; CPC:258).
 - **Rejected:** Linux PID or user namespaces for tree kill or isolation. They need unprivileged user namespaces, which Ubuntu 24.04 restricts by default (LX-12), and they are not needed for item 18's Linux guarantee.
 - **Controls:** every D1 and D3 test runs on both platform families' lanes. A Linux row that cannot run on this host is reported "not run", never "passed".
 
@@ -307,12 +338,12 @@ Line numbers were checked on 2026-10-04 against the files named here. A live pla
 #### 9. `control_protocol.rs`: CC v5 exactly, and the select tuple
 
 - **Decision.**
-  - **The closed set.** D2a encodes and validates exactly CC's sixteen messages and closed bodies (CC:27-41), against the product schema `control-v3.schema.json` (a closed `oneOf` of the sixteen, OPP:83 row) and its generated `Control3Root` (`crates/contracts/src/generated/protocol.rs:10`). **No message is added** (O1(a): ML item 11, ML:326-343; OPP:240).
+  - **The closed set.** D2a encodes and validates exactly CC's sixteen messages and closed bodies (CC:27-41), against the product schema `control-v3.schema.json` (a closed `oneOf` of the sixteen, OPP:83 row) and its generated `Control3Root` (`crates/contracts/src/generated/protocol.rs:10`). **No message is added** (O1(a): ML item 11; OPP:240).
   - **Framing.** A 4-byte big-endian length, then the body (CPC:267). A zero or oversized length "refuses from its four-byte prefix before buffering a body" (CC:23-24).
   - **The host's offer is 65,536 bytes (lead decision).** Before `helloAck` the bound is 65,536. Afterwards the negotiated bound is at least 65,536 and at most 16,777,216 (CC:24-25). The host offers `maxControlFrameBytesOffer` 65,536, and `helloAck` may confirm at most the offer (CPC:298), which forces 65,536 for the session. No body of the sixteen needs more: free strings are bounded at 1,024 UTF-8 bytes, and nonces and labels at 128 (CC:56-58).
   - **The JSON reader keeps integer lexemes (lead decision).** CC's precedence needs to know which field an oversized integer is in: "A positive oversized envelope seq is RF7; an oversized controlMajor or known body integer is RF2" (CC:187-195). Integer lexemes longer than sixteen digits stay lexical tokens (CC:189-191). D2a therefore has its own bounded reader, with an explicit container stack bounded by the frame (CC:187-188). It refuses duplicate members, non-integer numerics such as `1.0` and `1e0` (CC:20-22), invalid UTF-8 and unknown fields (RF2).
   - **States and precedence.** The eight states and their receivable types (CC:126-135), all 256 cells (CC:104-106), RF precedence including the two source-mandated classifications (CC:119-124), the compound-fault repair (CC:204-213) and the identity UTF-8 repair (CC:225-237). FAULTED never restarts a direction (CC:137-140; CPC:274).
-  - **The select tuple (lead decision; ML X5, ML:550; ML R3, ML:601).** `hello.subprotocolOffers` carries exactly one tuple, and `select` names the same one:
+  - **The select tuple (lead decision; ML's cross-law item X5 and owner question R3).** `hello.subprotocolOffers` carries exactly one tuple, and `select` names the same one:
     - `role`: the admitted manifest's `role`, which is `analyzer` (DRC:507, "v11 still permits only role analyzer");
     - `roleSubprotocol`: the provider id, `typescript-semantic` or `rust-semantic` (NE:2785);
     - `subprotocolVersion`: the protocol major as an integer, 2 or 3 (NE:2785). The schema types it as an integer of at least 1 (`schemas/sources/control-v3.schema.json:84-88`).
@@ -342,7 +373,7 @@ Line numbers were checked on 2026-10-04 against the files named here. A live pla
     - Each identity echo is checked by exact equality: the token arrays and `identityVersions` (NE:2837-2844); TS2's HelloAck against the verified descriptors (NE:2973-2984); Rust3's `expectedIdentity` (NE:2824-2834); and the OpenUniverse echoes (NE:3158-3189).
   - **Reject before disclosure.** No snapshot, dependency or prepared byte is written before HelloAck validates (NE:2846-2866). OpenUniverse is admitted only when `identityNegotiated` is true (NE:2857-2862).
   - **Limits handshakes.** TS2's `limits` are exactly the ten `TypeScriptProtocolLimitsV1` members (NE:2961-2967). Rust3's `ProtocolLimitsV3` is exactly the 32-member map, with semantic and deterministic-CBOR byte equality (NE:2929-2942).
-  - **What D2b emits.** Typed, admitted-at-the-wire events go to the host's consumers: candidate frames to the spool, `Coverage`/`CoverageV3`, the terminals, `Cancelled`, and stage changes for item 15's progress. **D2b admits no fact and mints no Coverage.** Fact admission is H's (M3P:218), and the pre-Analyze `Unavailable` conversion is the host's after DONE (NE:3227-3268).
+  - **What D2b emits.** Typed, admitted-at-the-wire events go to the host's consumers: candidate frames to the spool, `Coverage`/`CoverageV3`, the terminals, `Cancelled`, and stage changes for item 15's progress. **D2b admits no fact and mints no Coverage.** Fact admission is H's (M3P:216), and the pre-Analyze `Unavailable` conversion is the host's after DONE (NE:3227-3268).
   - **Commitments** such as `batchCommitment` (NE:2989-2990) and the Rust stream commitments (RPP:585-596) are recomputed from the **received** payload bytes, never from a re-serialization.
 - **Basis:** NE:2781-3316; DLV:509-512, DLV:652, DLV:668, DLV:1111-1124; RPP:84-170, RPP:585-598; CH14:434; COV:7270-7292 (owner `provider_protocol.rs`); BP:1014.
 - **Rejected:**
@@ -440,12 +471,12 @@ Line numbers were checked on 2026-10-04 against the files named here. A live pla
   |---|---|---|---|
   | Handshake: spawn to `selectAck` | 30 s provisional; S-M may raise it to at least 5 × SM-1 or SM-3 | provider | lead; ML item 9 |
   | Health ping interval | 1 s | provider | lead |
-  | **Liveness window** | **5 s provisional**, raised to at least 2 × SM-8 unless F and G show the responder is independent of compiler work | provider | OPP:237; ML item 12.4, ML:357-360 |
+  | **Liveness window** | **5 s provisional**, raised to at least 2 × SM-8 unless F and G show the responder is independent of compiler work | provider | OPP:237; ML item 12.4 |
   | Progress-absent log interval | 30 s | provider | lead; OPP:238 |
   | **Wall-clock deadline**, spawn to the participant's terminal | **1,800 s** provisional | provider | lead; "host-safety backstop only" (DLV:1163; RPP:601) |
   | Wall-clock deadline, tool | 300 s provisional | tool | lead |
   | Normal-exit grace, terminal to exit | **Rust3 5,000 ms** (RPP:120); TS2 5 s provisional | provider | RPP:120; DLV:567 |
-  | **Stage-1 cancel grace** | **Rust3 5,000 ms** (RPP:119); **TS2 2 s provisional** | provider | ML item 16c, ML:453-457; OPP:329 |
+  | **Stage-1 cancel grace** | **Rust3 5,000 ms** (RPP:119); **TS2 2 s provisional** | provider | ML item 16c; OPP:329 |
   | TERM to KILL escalation | 1 s | all | OPP:273 |
   | Reap ceiling after KILL | 10 s; **5 s under revocation** (item 19) | all | OPP:273; SL:492-494 |
   | Drain deadline after death (J-3) | 1 s | all | lead; CPC:481 |
@@ -466,7 +497,7 @@ Line numbers were checked on 2026-10-04 against the files named here. A live pla
 
 - **Decision (law, from O1(a)).**
   - **Liveness** is the nonce-matched `health` → `healthReport` exchange (CC:33-34, CC:50-54) in STEADY (CC:132), every second (item 14). A report of `busy` is live. A missing or mismatched report within the window is a **liveness fault**: `supervision.liveness.missed`, cause `liveness`, then the fault ladder (OPP:237).
-  - **Progress** is host-derived **only from transitions the participant admitted**: snapshot chunks acknowledged, accepted `FactBatch` and `Coverage`/`CoverageV3` frames per universe and stage, and stage changes (ML item 12.3, ML:352-356; OPP:236). A frame that passed protocol validation is not a fact admission, so progress never implies admitted facts (ML:356).
+  - **Progress** is host-derived **only from transitions the participant admitted**: snapshot chunks acknowledged, accepted `FactBatch` and `Coverage`/`CoverageV3` frames per universe and stage, and stage changes (ML item 12.3; OPP:236). A frame that passed protocol validation is not a fact admission, so progress never implies admitted facts (ML item 12.3).
   - **No progress is never a fault.** It is logged as `supervision.progress.absent` at its interval (OPP:238; SOP2:886). Only the deadline, a liveness failure, a resource breach or a protocol violation faults (OPP:238).
   - **Provider-asserted counters are never progress.** `resourceReport` values are logged as asserted (SOP2:842, SOP2:884) and feed only item 16's memory ceiling.
   - **Traffic alone proves nothing** (OPP:136, lesson F8).
@@ -475,7 +506,7 @@ Line numbers were checked on 2026-10-04 against the files named here. A live pla
   - **Liveness from data-plane traffic** (F8).
   - **Progress from stderr** (DLV:1133) **or from `resourceReport`** (CC:35).
   - **Progress as a liveness extension**, where admitted frames would relax the health window. It would couple two independent signals.
-- **Forbidden substitutes:** a new heartbeat or progress message (ML item 11); progress counted from unvalidated bytes; a health window shorter than a measured legitimate synchronous block (ML:371).
+- **Forbidden substitutes:** a new heartbeat or progress message (ML item 11); progress counted from unvalidated bytes; a health window shorter than a measured legitimate synchronous block (ML item 12, forbidden substitutes).
 - **Controls:** OPP's liveness row (OPP:436): D3-T10 a provider spinning traffic without admitted progress, which is not faulted while health holds; D3-T11 a blocked provider, which gets a liveness fault; and a legitimate long phase that completes within the deadline, which logs absence and never faults.
 
 #### 16. Memory ceiling, process count and byte bounds
@@ -487,7 +518,7 @@ Line numbers were checked on 2026-10-04 against the files named here. A live pla
     - **Either above the ceiling is a breach**: `supervision.limit.breached {limit: resident-memory}`, cause `memory-ceiling`, then the fault ladder. An asserted value below the ceiling never clears an observed breach.
     - **Honest scope.** This is a **sampled** ceiling, so a spike shorter than the interval can be missed. It is never a measurement: Q6 memory is the harness's `cgroupMemoryPeak` (HD:813), and `max_rss_native` is information only (HD:889; AQP:343).
   - **Process count (lead decision).** A provider tree has **one** process: neither TS2's worker nor the Rust sidecar spawns anything (DLV:1184; NE:2534-2535). A tool tree has at most 16, provisional, which covers `cargo` and its `rustc` calls (NE:1788-1789). More is a breach (`process-count`).
-  - **Zero fit** (OPP:277, OP-R2-NB-04). If the memory budget is below one ceiling, the supervision side refuses before any provider starts, with an internal `MemoryBudgetBelowCeiling {budget, ceiling}`. J1 projects it with an existing code. The ceiling is never lowered silently.
+  - **Zero fit** (OPP:277, OP-R2-NB-04). If the memory budget is below one ceiling, the supervision side refuses before any provider starts, with an internal `MemoryBudgetBelowCeiling {budget, ceiling}`. J1 projects it with an existing code (SD-5b; r4). The ceiling is never lowered silently.
   - **Byte bounds:**
 
     | Bound | Value | Enforced | Fate |
@@ -526,7 +557,7 @@ Line numbers were checked on 2026-10-04 against the files named here. A live pla
 - **Why no buffer.** DLV says the host captures "up to 256 KiB, then truncated with a host-owned marker" (DLV:1133). At M3 those bytes have **no lawful reader**: no sink accepts P3 (SOP2:259), and a consented raw capture is O9, "not at M3" (OPP:401). Counting satisfies the capture's only use, K7, and the truncation marker becomes `truncated: true`. A held buffer would only add P3 to host memory and to any host core image.
 - **Basis:** DLV:1133; NE:2967; RPP:117; DRJ2:122-123; OPP:171, OPP:401; ML item 12.1; SOP2:259, SOP2:275, SOP2:837-839.
 - **Rejected:**
-  - **Holding 256 KiB per child and reducing at settle** (OPP:171's wording, and draft ML item 12.1's). It is equivalent for every lawful output, and it keeps P3 in memory for nothing. **(r2)** This item therefore departs from ML item 12.1's hold rather than following it; GROK2 confirmed the reading as lawful (r1 review, R2 and NBO-1).
+  - **Holding 256 KiB per child and reducing at settle** (OPP:171's wording, and L r1's item 12.1). It is equivalent for every lawful output, and it keeps P3 in memory for nothing. **(r2)** This item therefore departed from L r1's hold; GROK2 confirmed the reading as lawful (r1 review, R2 and NBO-1). **(r4)** L adopted the same rule at its r2, so this item now follows ML item 12.1 ("stderr: counted, never held").
   - **Stopping reading at the bound.** The child would block, and a full pipe would turn into a deadline fault.
   - **Any digest or fingerprint** (OP-R2-NB-01).
 - **Forbidden substitutes:** stderr bytes in any record, buffer, crash ring, bundle or export; a stderr-derived digest; stderr influencing liveness, progress or an outcome.
@@ -586,7 +617,7 @@ Line numbers were checked on 2026-10-04 against the files named here. A live pla
 
 - **Decision (law; follows ML item 16 and CPC J-5).**
   - **User cancellation** happens at the first `SIGINT`, `SIGTERM` or `SIGHUP` before finalization, which J's handler receives (WS:224-229; J1 item 8).
-    1. **Stage 1, in this order** (ML item 16a, ML:444-448): the participant writes the in-band `Cancel` once (TS `CancelV1` with `reason: user-interrupt`, DLV:860; Rust `CancelV2`, RPP:447-451) and closes fd0. Then D2a sends control `cancel {reason: user}` (CC:37). Both events are appended to the merged order, and `supervision.cancel.sent` is logged.
+    1. **Stage 1, in this order** (ML item 16a): the participant writes the in-band `Cancel` once (TS `CancelV1` with `reason: user-interrupt`, DLV:860; Rust `CancelV2`, RPP:447-451) and closes fd0. Then D2a sends control `cancel {reason: user}` (CC:37). Both events are appended to the merged order, and `supervision.cancel.sent` is logged.
     2. **Grace:** Rust3 5,000 ms and TS2 2 s (item 14). During it only `Cancelled`, then exit and EOF, may follow (DLV:1122; P3T:342-364 via ML item 16c). Late octets are delivered (item 11).
     3. **Stage 2** starts at grace expiry or at a **second signal**, which forces it at once, inside either grace (ML item 16d): `SIGTERM` to the group, `SIGKILL` after 1 s, then item 18's descendant step and the reap. `supervision.cancel.forced {trigger}` is logged.
     4. **The settlement records `userInterrupted`.** The class stays `interrupted`: "absence of Cancelled after a user signal does not overwrite that class with a provider fault" (DLV:1146; ML item 16e). How the signal joins the commit phases is S-OP-12's, landed by J1 (ML item 16f; J1 item 8).
@@ -597,8 +628,8 @@ Line numbers were checked on 2026-10-04 against the files named here. A live pla
     4. **T-5:** reap. The death is the last event (CPC:479-481).
   - **Normal end.** After the participant's terminal, the host sends control `shutdown {reason: normal}` (CC:38), closes fd0 and fd3 (DLV:567, "close the protocol"), and waits for `shutdownAck`, exit and EOF within the normal-exit grace (item 14). If the child exits nonzero, the participant faults (`nonzero-exit`; DLV:1171) and the cause is `provider-protocol`. If the grace expires with no exit, the participant receives `deadline`, the cause is `deadline` (with the expired wait named in `supervision.wait.expired`), and the fault ladder runs from T-2.
   - **Revocation and fail-stop (SL S6; r2, RF-3).** When the host's trust observer stops an operation that has supervised children (SL:470-477), D3 runs the fault ladder with one of **two distinct causes**, each with its own public route (item 22):
-    - **`revoked`**: a revoking observation, a higher counter naming the closure or a policy change removing a required grant (SL:479-481). Route: SL:1306's revoked-during-operation, J1 r3 row 18 (X4:120; J1:633).
-    - **`observer-fail-stop`**: the observer's read failed or is older than its bound, or any other stop condition (SL:470-472). Route: SL:1311's `OBSERVER.FAIL_STOP`, J1 r3 row 19 (X4:121; J1:634).
+    - **`revoked`**: a revoking observation, a higher counter naming the closure or a policy change removing a required grant (SL:479-481). Route: SL:1306's revoked-during-operation, J1 row 18 (X4:120; J1:664).
+    - **`observer-fail-stop`**: the observer's read failed or is older than its bound, or any other stop condition (SL:470-472). Route: SL:1311's `OBSERVER.FAIL_STOP`, J1 row 19 (X4:121; J1:665).
 
     Both causes take the same kill ladder. Its marks are inside S6's bounds: no further requests at 0 s (providers hold no broker handles at M3, BBC:70-71), control `cancel` by 2 s, `SIGTERM` by 3 s, `SIGKILL` of the group and the reap by 5 s, and scratch cleanup by 10 s (SL:492-494). The reap ceiling under revocation is therefore 5 s (item 14). A miss is recorded, because S6's bounds are "qualification obligations under OS scheduling assumptions … not a wall-clock guarantee" (SL:472-475).
   - **The host's stalled native effect** (OPP §5.5, OPP:341) is not D's: a second signal during an admitted native commit effect waits for it. Providers have already been torn down by then, because they run before the commit.
@@ -610,7 +641,7 @@ Line numbers were checked on 2026-10-04 against the files named here. A live pla
   - **Using TS's `host-shutdown` Cancel for faults.** It would diverge from Rust3, which has no such value, and from ML item 16b.
 - **Forbidden substitutes:** an in-band `Cancel` for a non-user reason, or twice; a host-synthesized `Cancelled`; a wait without a typed expiry; facts admitted from a cancelled child (ML item 16, forbidden substitutes).
 - **Controls:**
-  - OPP's cancellation goal is reported, not asserted (OPP:342), including Rust3's up-to-5 s grace (M3P:625);
+  - OPP's cancellation goal is reported, not asserted (OPP:342), including Rust3's up-to-5 s grace (M3P:623);
   - D3-T17 cancellation in each provider state (handshake, startup, snapshot, analysis, terminal): TS `observedPhase` (NE:3296-3302) and Rust's exact phase;
   - D3-T18 a second signal inside each grace;
   - D3-T19 a child that ignores `Cancel`: forced at the grace;
@@ -622,7 +653,7 @@ Line numbers were checked on 2026-10-04 against the files named here. A live pla
 - **Decision (law).**
   - **Everything is a candidate until settlement.** The participant spools candidates as `CANDIDATE_ONLY` (RPP:586-588; DLV:1137). D3 exposes no partial iterator.
   - **Admission is gated on a clean settlement.** The spool is released to the admission owner (H) only when `firstCause` is `clean`, the participant reached its terminal, **exit status was zero and EOF was observed**, and all of the participant's commitments recomputed (DLV:1138, DLV:1171; RPP:589-596).
-    - Which candidates a clean `Unavailable` or `BudgetExhausted` admits is the admission owner's. NE:3849-3850 ("facts before the terminal are admitted") differs from DLV:1140-1141 and RPP:597-598 ("discard"); finding F7 records this for H.
+    - Which candidates a clean `Unavailable` or `BudgetExhausted` admits is the admission owner's. **(r4) It is settled: none.** On a clean `BudgetExhausted` or post-Analyze `Unavailable`, every candidate of that Analyze is discarded and only the terminal's exhaustive Coverage is admitted (MH item 4, MH:242-263). FA-1 replaced NE:3849-3850's "facts before the terminal are admitted" to match DLV:1140-1141 and RPP:597-598 ("discard"). Finding F7 is answered. This item's gate is unchanged: H receives a spool only from a clean settlement.
     - **Every other settlement discards the spool whole** (DLV:1140-1143; RPP:597): it is dropped and its memory freed, and nothing is retained in a store.
   - **No partial admission** after a fault, cancel, timeout or bound: "No coherent Run is fabricated from partial output" (DLV:1169). The worker "contributes no facts, no Coverage entries and no Run" (NE:3837-3843).
   - **Sealed evidence is untouched.** A supervised child's fault never reaches the store: providers run before the commit (ML item 16f), and D3 has no store handle (CH14:288 lists no storage dependency for components).
@@ -637,7 +668,7 @@ Line numbers were checked on 2026-10-04 against the files named here. A live pla
 #### 21. What supervision records
 
 - **Decision (law).**
-  - **Records are S-OP-2 registry events only**, built from host-held values (ML item 13, ML:382; SOP2 item 22).
+  - **Records are S-OP-2 registry events only**, built from host-held values (ML item 13; SOP2 item 22).
     - **Provider events:** `provider.process.spawned`, `.ready`, `.reaped`; `provider.stage.changed`, `.terminal`; `provider.stderr.reduced`, `provider.fault.reduced`, `provider.resources.reported` (SOP2:877-884).
     - **Supervision events:** `supervision.liveness.missed`, `.progress.absent`, `.limit.breached`, `.cancel.sent`, `.cancel.forced`, `.wait.expired` (SOP2:885-890).
   - **Ordinary registrations by D3** (SOP2:226-230: "an event or a field … without a new successor"):
@@ -649,7 +680,7 @@ Line numbers were checked on 2026-10-04 against the files named here. A live pla
     - under O7, F-4's two confinement events.
 
     The code tables `TeardownCause`, `LimitKind`, `LimitUnit`, `BoundedWait` and `ForceTrigger` are D3's literal tables. They are registered with `registry-literal` provenance and list exactly the members of items 12, 14 and 16 (SOP2:207-230).
-  - **Correlation.** Every record carries the host's RequestId. Provider events also carry Project, Plan and Execution (SOP2:857-861). A RunId never appears in supervision records, and a candidate RunId is never stringified (OPP:157-159). **No RequestId, RunId or log path reaches a child** (ML:376; OPP:430).
+  - **Correlation.** Every record carries the host's RequestId. Provider events also carry Project, Plan and Execution (SOP2:857-861). A RunId never appears in supervision records, and a candidate RunId is never stringified (OPP:157-159). **No RequestId, RunId or log path reaches a child** (ML item 13; OPP:430).
   - **Never recorded:** stderr text, `fault` or `refusal` detail text, a nonce (SOP2:840), environment values, an orphan's pid, and any P3.
 - **Basis:** SOP2 items 3, 9, 22 and 23; ML items 13 and 14; OPP §3.1-§3.2, OPP:430.
 - **Rejected:**
@@ -660,23 +691,23 @@ Line numbers were checked on 2026-10-04 against the files named here. A live pla
 
 #### 22. Outcome joins: settlement cause to existing routes
 
-- **Decision (law).** D3 assigns no D9 class or code. J2 maps each settlement to the existing route that J1's outcome matrix lists (J1 item 10, J1:607-678). D adds **no public code**. **(r2, RF-2 and RF-3)** Each row now names one owner route, and a refusal the provider never spoke is never routed as a provider fault:
+- **Decision (law).** D3 assigns no D9 class or code. J2 maps each settlement to the existing route that J1's outcome matrix lists (J1 item 10, J1:638-709). D adds **no public code**. **(r2, RF-2 and RF-3)** Each row now names one owner route, and a refusal the provider never spoke is never routed as a provider fault:
 
   | Settlement | Who observed it | Route | Basis |
   |---|---|---|---|
   | `clean` and admissible | — | the admission owner's (H, J2) | DLV:1138 |
-  | `userInterrupted`, with any cause, before FinalGate admission | the host's signal source | `interrupted` 130 with `signal` | WS:224-229; DLV:1146; J1 r3 row 46 (J1:661) |
-  | `provider-protocol` (including a provider-spoken HelloAck identity or token mismatch, NE:2854-2856, NE:2983), `control-refusal` (including a control `helloAck` RF3 echo, a `selectAck` tuple and an `effectRequest`), `unexpected-exit`, `deadline`, `liveness`, `memory-ceiling`, `process-count`, `byte-bound`, `scratch-bound`, `handshake-deadline` | the provider spoke it, or the provider process did it | `operational-failed` 4, `PROVIDER.PROTOCOL_VIOLATION`, faultCause `provider-protocol`; the key goes to the operational record; no facts, Coverage or Run | NE:3529, NE:3837-3843; DLV:1169; J1 r3 row 30 (J1:645) |
-  | **`closure-recheck-failed`** (r2): D4's pre-spawn recheck finds the installed closure bytes differ from the admitted closure | the host, before any spawn or frame | `operational-failed` 4, `HOST.IO_FAILURE`, `host-io`, detail **`DELIVERY.CLOSURE_BYTES_CORRUPT`** | **WS:1375**; J1 r3 row 28 (J1:643) |
-  | `spawn-failed`: the closure is unspawnable (`ENOENT`, `EACCES`, `ENOEXEC`, or a loader failure before any frame; LX-20 for glibc's report) | the host's spawn | `operational-failed` 4, `HOST.IO_FAILURE`, `host-io`, detail `DELIVERY.CLOSURE_UNSPAWNABLE` | **WS:1375** (current product), not DLV:1170 (preview); J1 r3 row 28 (J1:643); finding F4 |
-  | **`session-spec-inconsistent`** (r2): the host-built select tuple, Hello limits or expected identities differ from the admitted selection, which no provider has spoken | the host, before any spawn or frame | `operational-failed` 4, `SYSTEM.OUTCOME.ILLEGAL_STATE`, `host-invariant`, detail absent, the key in the operational record: NE's host-generated internal layer, "a host bug minting its own invalid spec" | NE:3573; J1 r3 row 2's route (J1:617) |
-  | **`revoked`** (r2): revocation during the operation | the trust observer | `request-rejected` 2, `EXTENSION.ADMISSION_REJECTED`, detail `TRUST.COMPONENT_REVOKED_DURING_OPERATION` | SL:1306; X4:120; J1 r3 row 18 (J1:633) |
-  | **`observer-fail-stop`** (r2): the observer or monitor fail-stops | the trust observer | `operational-failed` 4, `HOST.IO_FAILURE`, `host-io`, detail `OBSERVER.FAIL_STOP`, subject the stop reason | SL:1311; X4:121; J1 r3 row 19 (J1:634) |
+  | `userInterrupted`, with any cause, before FinalGate admission | the host's signal source | `interrupted` 130 with `signal` | WS:224-229; DLV:1146; J1 row 46 (J1:692) |
+  | `provider-protocol` (including a provider-spoken HelloAck identity or token mismatch, NE:2854-2856, NE:2983), `control-refusal` (including a control `helloAck` RF3 echo, a `selectAck` tuple and an `effectRequest`), `unexpected-exit`, `deadline`, `liveness`, `memory-ceiling`, `process-count`, `byte-bound`, `scratch-bound`, `handshake-deadline` | the provider spoke it, or the provider process did it | `operational-failed` 4, `PROVIDER.PROTOCOL_VIOLATION`, faultCause `provider-protocol`; the key goes to the operational record; no facts, Coverage or Run | NE:3529, NE:3837-3843; DLV:1169; J1 row 30 (J1:676) |
+  | **`closure-recheck-failed`** (r2): D4's pre-spawn recheck finds the installed closure bytes differ from the admitted closure | the host, before any spawn or frame | `operational-failed` 4, `HOST.IO_FAILURE`, `host-io`, detail **`DELIVERY.CLOSURE_BYTES_CORRUPT`** | **WS:1375**; J1 row 28 (J1:674) |
+  | `spawn-failed`: the closure is unspawnable (`ENOENT`, `EACCES`, `ENOEXEC`, or a loader failure before any frame; LX-20 for glibc's report) | the host's spawn | `operational-failed` 4, `HOST.IO_FAILURE`, `host-io`, detail `DELIVERY.CLOSURE_UNSPAWNABLE` | **WS:1375** (current product), not DLV:1170 (preview); J1 row 28 (J1:674); finding F4 |
+  | **`session-spec-inconsistent`** (r2): the host-built select tuple, Hello limits or expected identities differ from the admitted selection, which no provider has spoken | the host, before any spawn or frame | `operational-failed` 4, `SYSTEM.OUTCOME.ILLEGAL_STATE`, `host-invariant`, detail absent, the key in the operational record: NE's host-generated internal layer, "a host bug minting its own invalid spec" | NE:3573; J1 row 2's route (J1:648) |
+  | **`revoked`** (r2): revocation during the operation | the trust observer | `request-rejected` 2, `EXTENSION.ADMISSION_REJECTED`, detail `TRUST.COMPONENT_REVOKED_DURING_OPERATION` | SL:1306; X4:120; J1 row 18 (J1:664) |
+  | **`observer-fail-stop`** (r2): the observer or monitor fail-stops | the trust observer | `operational-failed` 4, `HOST.IO_FAILURE`, `host-io`, detail `OBSERVER.FAIL_STOP`, subject the stop reason | SL:1311; X4:121; J1 row 19 (J1:665) |
   | `host-fault`: a host I/O failure on a channel, scratch or exit source | the host | `operational-failed` 4, `HOST.IO_FAILURE`, `host-io`; or `host-invariant` for a host bug | WS:1359-1362; OPP:293; NE:3573 |
-  | `abandoned` | the host, unwinding | none manufactured; OPP §5.2's host-panic rows apply | OPP:296-297; J1 r3 row 49 (J1:664) |
-  | `confinement-refused` (under O7 only) | the launcher | `operational-failed` 4, `HOST.IO_FAILURE`, `host-io` | F-4 |
-  | Tool: `ToolOutputBound`, `ToolScratchBound`, a tool fault | the host | MC item 12's route for its adapter (`completeness.incomplete` when Cargo fails, NE:1789-1791); bound refusals projected by J1 with existing codes (SD-5) | MC item 12 |
-  | `MemoryBudgetBelowCeiling` | the host, before any provider | refused before any provider starts; projected by J1 with an existing code (SD-5) | OPP:277 |
+  | `abandoned` | the host, unwinding | none manufactured; OPP §5.2's host-panic rows apply | OPP:296-297; J1 row 49 (J1:695) |
+  | `confinement-refused` (under O7 only) | the launcher | `operational-failed` 4, `HOST.IO_FAILURE`, `host-io`; its detail and J1 row are SD-5b's (r4) | F-4 |
+  | Tool: `ToolOutputBound`, `ToolScratchBound`, a tool fault | the host | MC item 12's route for its adapter (`completeness.incomplete` when Cargo fails, NE:1789-1791); bound refusals projected by J1 with existing codes (SD-5b; r4) | MC item 12 |
+  | `MemoryBudgetBelowCeiling` | the host, before any provider | refused before any provider starts; projected by J1 with an existing code (SD-5b; r4) | OPP:277 |
 
 - **Basis:** WS:1355-1363, WS:1375; NE:3529, NE:3573, NE:3837-3843; SL:1306, SL:1311; X4:120-121; DLV:1146, DLV:1169-1171; J1 item 10.
 - **Rejected:**
@@ -710,46 +741,71 @@ Line numbers were checked on 2026-10-04 against the files named here. A live pla
 #### 24. Manifest-class refusals before any analysis-attempt ExecutionId is drawn
 
 - **Decision (law; r2, RF-4).**
-  - **Where ExecutionIds are drawn.** WS:81 gives "each admitted attempt" a fresh ExecutionId; it does not say where the id is drawn. Accepted J1 r3 fixes that, under IE:77-81's reservation rule:
-    - **the durable analysis attempt's** is X3d's draw at **R12, `CommitSession::open`**, reserved in the same step in the process registry `ExecutionIdReservations`, before the session exists (J1:162, J1:165-178, J1:311). R12 comes right after the handoff and **before** the capture session (J-δ) and the Plan (J-ε), where C4a and MC's closure admission run (J1:424-427; MC item 16, rows 5-8);
-    - **the ephemeral and render attempts'** are host draws at each attempt's start (J1:163-164, J1:174);
-    - **on the first-use creation route, the creation prelude's** is drawn and reserved in `mint_intent`, before P0 is staged. It names the creation act only (J1:161, J1:172).
+  - **Where ExecutionIds are drawn.** WS:81 gives "each admitted attempt" a fresh ExecutionId; it does not say where the id is drawn. Accepted J1 fixes that (r3; r4 adds R10a), under IE:77-81's reservation rule:
+    - **the durable analysis attempt's** is X3d's draw at **R12, `CommitSession::open`**, reserved in the same step in the process registry `ExecutionIdReservations`, before the session exists (J1:177, J1:180-193, J1:327). R12 comes right after the handoff and **before** the capture session (J-δ) and the Plan (J-ε), where C4a and MC's closure admission run (J1:455-458; MC item 16, rows 5-8);
+    - **the ephemeral and render attempts'** are host draws at each attempt's start (J1:178-179, J1:189);
+    - **on the first-use creation route, the creation prelude's** is drawn and reserved in `mint_intent`, before P0 is staged. It names the creation act only (J1:176, J1:187).
+    - **(r4) "First use"**, here and everywhere in this law, is J1's route 3b, where the installation is positively absent, **whatever the creator act's result: `Published`, `LostRace` or `NotPristine`** (J1:233-238). `mint_intent` has run on each of the three, so the prelude's reservation exists at R10a on each. Only `Published`, or a refusal after the publication rename, sets `created` (J1:239-243).
 
     A refusal placed inside C4a, as r1 placed it, would therefore come after R12's draw.
-  - **Placement: a new pre-draw row, R10a.** `components/manifest.rs` "Admit[s] selected component capabilities and manifest shape after authenticated closure association" (CH14:433). It runs at **R10a**: after R10, whose X4T fenced first read yields the authenticated trust view (J1:309), and **before R11's handoff and R12's draw** (J1:310-311).
+  - **Placement: a new pre-draw row, R10a.** `components/manifest.rs` "Admit[s] selected component capabilities and manifest shape after authenticated closure association" (CH14:433). It runs at **R10a**: after R10, whose X4T fenced first read yields the authenticated trust view (J1:324), and **before R11's handoff and R12's draw** (J1:326-327).
     - **What it admits.** Every component manifest that the trust view admits and that the request's analysis step can select: every `analyzer`-role component, with the role closures of MC item 7's table. It does not wait for the Plan's selection, because selection needs discovery, and discovery runs only after R12 (MC item 16, rows 6-8).
     - **MC's closure admission** (row 8) then selects only among manifests D4 has already admitted, and adds no admission of its own.
     - **The ephemeral path** runs R10a after X4T's report-only trust admission and before the ephemeral attempt's draw (J1 item 6). With no trust view (J1's E-3), no manifest is admitted, and there is nothing to refuse.
-    - **SD-6** records R10a as an amendment to J1's order table (J1:293-312) and its ephemeral sequence, and records MC row 8's narrowing for M3-C's next revision.
-  - **So a refusal at R10a draws and reserves no analysis-attempt ExecutionId**, no AttemptRecord and no Run (REG:374; QG:588). On the first-use route, the creation prelude's own ExecutionId was drawn earlier and names the creation act only (J1:161). It is not the analysis attempt's, and R10a creates none.
-  - **Inputs:** security's structurally validated manifest (`crates/security/src/component_manifest.rs:1-2`, "no runtime or artifact authority") and the closure owner's authenticated association. D4 never re-parses manifest bytes.
+    - **SD-6 has landed (r4).** J1 r4 (GROK2) places R10a in its order table (J1:325, J1:337-349) and ER10a in its ephemeral sequence (J1:426, J1:431), with control J-C10b (J1:343-349). M3-C r7 (CODEX2, accepted in review) narrows item 16's row 8 to a selection among the manifests R10a admitted (MC item 16, row 8; J1's S19, J1:773).
+  - **So a refusal at R10a draws and reserves no analysis-attempt ExecutionId**, no AttemptRecord and no Run (REG:374; QG:588). On the first-use route, the creation prelude's own ExecutionId was drawn earlier and names the creation act only (J1:176). It is not the analysis attempt's, and R10a creates none.
+  - **Inputs:** security's structurally validated manifest (`crates/security/src/component_manifest.rs:1-2`, "no runtime or artifact authority") and the closure owner's authenticated association. D4 never re-parses manifest bytes. **(r4)** For EE-5a's root-command arm, the host also passes the reserved root-command list the security owner validated against (`component_manifest.rs:27-33`, `Context.reserved_names`; DR103:1101-1104).
   - **Refusals, one per represented excluded form:**
 
     | Class | Represented as | Refusal | Source |
     |---|---|---|---|
     | **EE-1** | a manifest whose authenticated publisher is neither first-party nor on the explicit-trust list | refused at R10a | PPBS:667-675; AQ:341 |
-    | **EE-3b** | a manifest claiming policy, persistence, rendering, termination or host-lifecycle authority: a `commands` entry for role `analyzer`, or a capability outside the native capability matrix's provider capabilities | refused at R10a | PPBS:697-705; AQ:343 |
+    | **EE-3b** | a manifest claiming policy, persistence, rendering, termination or host-lifecycle authority: a capability outside the native capability matrix's provider capabilities. **(r4)** A command tree is never an EE-3b form. It is judged only under EE-5a's root-command arm (LD-R4-1, below). | refused at R10a | PPBS:697-705; AQ:343 |
     | **EE-4** (manifest part) | a manifest requesting admission of untrusted native or WASM code | refused at R10a | PPBS:707-715; AQ:344 |
-    | **EE-5a** | a manifest claiming a project hook, root command or contribution-granted probe | refused at R10a | PPBS:717-725; AQ:345 |
+    | **EE-5a** | a manifest claiming a project hook, root command or contribution-granted probe. **(r4)** A root command here is a claim on the host-owned root namespace, exactly the predicate below. An `analyzer` manifest's own mounted root, bound to its name, is not one. | refused at R10a | PPBS:717-725; AQ:345; CD:1076-1088; DR103:899-904 |
 
-  - **Internal refusal:** `ExcludedForm {class, subject}`. **Public projection** is J1's, with existing codes (SD-5). The lead's recommendation is `request-rejected` 2 with `EXTENSION.ADMISSION_REJECTED`, SL S12's admission family (SL:1306). No new code.
+  - **The EE-5a root-command predicate (r4, lead decision LD-R4-1).** r3's rows, read literally, refused any manifest with a command entry (EE-3b) or a root command (EE-5a). DR-103 requires every `analyzer` manifest to declare a non-empty command tree whose one parentless entry is its mounted root command (DR103:899-904), so D4 would have refused every analyzer, both M3 providers included.
+    - **What the sources exclude.** EE-5a's invariant is "Contribution-owned project hooks, root commands, and probes are excluded", and its input is "A component manifest claiming a project hook, root command, or contribution-granted probe" (PPBS:719-720). DR-117's disposition, which PPBS's classes execute, says that "arbitrary imperative contributions/project hooks/root-parser extensions are not admitted. The closed host command inventory owns every command" (AQ:345), and that "A component cannot acquire those powers by declaring a root command" (AQ:343). The owning namespace rule is D-012's: "the ROOT namespace is host-owned and flat; below a component's mounted root command, sub-command grammar is DECLARATIVE … and HOST-INTERPRETED — the component declares, the host owns all parsing and dispatch, and manifest discovery never hands a component raw root parser authority"; and "no component may claim or alias a reserved name" (CD:1076-1088, clauses 2 and 3). DR-103 carries both. The parentless entry's name must equal `manifest.name` (DR103:904), and the schema "permits arbitrary depth BELOW the single mounted root and nothing above it" (DR103:926). **So a root command in EE-5a is a claim on the host-owned root namespace**: a root the component would hold beyond its one name-bound mount, or a reserved host name. An `analyzer` manifest's own mounted root is a declaration the host interprets, not such a claim.
+    - **The predicate.** On security's validated value and the host's reserved root-command list, D4 refuses a manifest as `ExcludedForm {class: EE-5a}` for a root command exactly when one of these holds:
+      - **(a) A closure-only tree.** Its `role` is one of CR-1's closure-only roles (`toolchain`, `stdlib`, `rust-dev-llvm` or `grammar`), and it declares `commands` at all, with any value. This is CR-1's D4 join (CR-1 README, "The rule"; its SL:70 passage). Until C2a materializes CR-1, the product's generated shape admits `analyzer` only (DR103:891-897), so (a) has no member there.
+      - **(b) A root outside the mounted-root model.** Its `role` is `analyzer`, and its command tree does not have exactly one entry without `parent`, or that entry's `name` differs from the manifest's `name` (DR103:902, DR103:904).
+      - **(c) A reserved root name.** One of its root-namespace keys is on the host's reserved root-command list. The keys are its `name`, each member of its `aliases` and, for `analyzer`, each alias of its parentless entry (CD:1084-1088, clause 3; DR103:863, DR103:1101-1104). This is the key set and the list that `component_manifest.rs:257-270` checks.
+    - **Not a root-command claim.** An `analyzer` manifest whose tree has one parentless entry named for the component, with any declared depth below it, and none of whose root-namespace keys is reserved. A `CommandSpec` is closed pure data (CMS `$defs/command`, `additionalProperties: false`; DR103:938), so no field of it can grant parser, dispatch, rendering or lifecycle authority: `outputModes` names host-owned projections and is "not a right to render", and `scope` only says whether the host enters a project scope before dispatch (DR103:946-958). Whether and where the host mounts an admitted root is the command-inventory owner's (WS §8); no command is wired at M3 (J1 item 1). D4 judges only the claim.
+    - **Also not EE-5a.** A name or alias that collides with a **live** name of a different `(stableId, provenance)`, and an in-tree name, alias or parent collision. These are RJ-2's ordinary admission collisions between components (DR103:1159-1173), not claims on the host's namespace, and they keep the security owner's route. As CR-1's r4 records, the live-name check runs in `validate` only (`component_manifest.rs:271-276`), while the reserved-name check runs in both entry points.
+    - **EE-3b carries no command form.** EE-3b's represented form is the capability form alone. PPBS gives the root command to EE-5a's input and names none in EE-3b's (PPBS:700, PPBS:720), so a command claim takes one class only. AQ:343's "cannot acquire those powers by declaring a root command" holds because a lawful mounted root confers none of them, and any other root claim is refused here.
+    - **Agreement with the security owner, and with CR-1's CR-T9.** The security owner's validation, which D4 consumes, refuses every form in (a) to (c) first: (a) by CR-1's closed schema (RJ-6), once C2a materializes it; (b) by RJ-2's `MULTIPLE_ROOT_COMMANDS` and `ROOT_COMMAND_NAME_MISMATCH` (`component_manifest.rs:178-184`); and (c) by RJ-2's reserved-name check (`component_manifest.rs:268-270`), which runs in both `validate` and `validate_inventory` (`component_manifest.rs:395-414`) and is CR-T9's reserved case. A manifest those checks refuse is never a validated value and never reaches R10a, and it keeps its existing route. **So no condition has two routes.** D4's arm is the backstop DR-G29 requires at R10a: DR-G29 names `components/manifest.rs` as an owner (COV:5162-5176), and CR-1's D4 join relies on the arm for (a) (CR-T8). CR-T9's name and alias admission stays mandatory for every role and independent of `commands`: (c) uses the same keys for every role, and (a) never reads an absent tree.
+    - **SD-5's bound row restates r3's wording.** Its class list gives EE-3b as "(a `commands` entry for role `analyzer`, or a capability outside …)" and EE-5a as "a project hook, root command or contribution-granted probe", and its remedy says that none may "declare a project hook, root command or probe" (SD5 `PASSAGES.md`). **Lead decision: until SD-7 conforms that text, the row is read through this predicate.** The row routes whatever D4 refuses as `ExcludedForm`. Its class parentheticals describe D's representation, which this item owns, and no route depends on them. SD-7 (item 29) makes the text agree.
+  - **Internal refusal:** `ExcludedForm {class, subject}`. **Public projection (r4): SD-5, accepted and bound.** NE §10's row after NE:3540 gives `request-rejected` 2, `EXTENSION.ADMISSION_REJECTED`, SL S12's admission family (SL:1306), with `domainDetail` `PAYLOAD-NOT-ADMISSIBLE`. Its subject is `excluded-form:<class>:<manifestDigest>`: the least `manifestDigest` among the refused manifests, then its first class in the order EE-1, EE-3b, EE-4, EE-5a. It carries one fixed remedy, and the envelope's `errors` is exactly that detail. Every `ExcludedForm` goes to the operational record, and there is no runId or executionId. It is distinct from J1's row 27 (J1:673). J1 records it as matrix row 56 under S20 (J1:774). No new code.
   - **At M3 every admitted closure is first-party** (AQ:341). These refusals are exercised only by hostile but well-formed fixtures (QG:586).
-- **Basis:** REG:374; QG:583-601; COV:5162-5176 (owners `host/request.rs` and `components/manifest.rs`, milestone M3); BP:1033; PPBS:665-745; AQ:341-347; WS:81; J1 items 2, 4 and 7 (J1:160-180, J1:293-312, J1:424-427).
+- **Basis:** REG:374; QG:583-601; COV:5162-5176 (owners `host/request.rs` and `components/manifest.rs`, milestone M3); BP:1033; PPBS:665-745; AQ:341-347; WS:81; J1 items 2, 4 and 7 (J1:175-195, J1:308-328, J1:455-458). **(r4)** DR103:891-904, DR103:1101-1104, DR103:1159-1173; CD:1076-1088; F02:280-282 (P-2, "no root commands"); SD5; CR-1 (accepted at its r4).
 - **Rejected:**
   - **(r2) Refusing inside C4a**, as r1 did. It comes after R12's draw (RF-4).
   - **Refusing at spawn.** It is later still.
-  - **Moving R12 after the Plan.** Accepted J1 fixes the open at the handoff, so that providers carry the attempt's ExecutionId and the writer holds the lease through admission (J1:424-427; IE:1657-1658). D does not reopen an accepted law's order.
+  - **Moving R12 after the Plan.** Accepted J1 fixes the open at the handoff, so that providers carry the attempt's ExecutionId and the writer holds the lease through admission (J1:455-458; IE:1657-1658). D does not reopen an accepted law's order.
   - **Admitting before R12 only the manifests the Plan will select.** Impossible, because selection needs discovery after R12.
   - **A second manifest parser in components.** CH14:288 gives components no security dependency, so D4 consumes security's validated value through the host.
-- **Forbidden substitutes:** an excluded form admitted with a warning ("no waiver for silent admission", QG:589); an analysis-attempt ExecutionId drawn or reserved before these checks, or the creation prelude's ExecutionId bound to the analysis attempt (r3); a closure admitted at MC row 8 that R10a did not admit; a new public code.
-- **Controls:** D4-T1, DR-G29's hostile but well-formed corpus for EE-1, EE-3b, EE-4 and EE-5a, on the durable path, the first-use path and the ephemeral path. **For each, the assertion is on the reservation registry's state (r2):**
-  - after the refusal, the process's `ExecutionIdReservations` holds **no analysis-attempt reservation**. Its set equals its set at R10a's entry: empty, or the creation prelude's alone on first use;
-  - on the durable path, the census point `x3d.session.execution-draw` (J1:179), the session draw right after the handoff to `CommitSession::open` (J1:428), is never reached. The ephemeral and render draws are not that point (J1:163-164, :174); the registry bullet above is the proof on every path (r3, NBO-3);
-  - no capture session opens, nothing is spawned and no source byte moves.
+  - **(r4) r3's literal rows**, under which any `analyzer` command entry is an EE-3b claim and any root command an EE-5a claim. DR-103 requires the tree (DR103:899-904), so D4 would refuse every analyzer.
+  - **(r4) An "inert tree" reading for `analyzer`.** An analyzer's tree is not inert: it is the declaration the host serves help, completion and inventory from (DR103:902). CR-1 rejected the same reading for closure-only roles (CR-1 LD-8).
+  - **(r4) No root-command arm at D4**, leaving every root condition to RJ-2. DR-G29 names D4's owner file (COV:5162-5176), and CR-1's D4 join relies on the arm for closure-only trees (CR-T8).
+  - **(r4) Counting live-name collisions as EE-5a.** A collision between two admitted components is RJ-2's ordinary admission refusal, not a claim on the host's namespace. Counting it would also move CR-T9's live case off its existing route.
+  - **(r4) Keeping a command form in EE-3b.** It would classify one claim twice, and PPBS gives the root command to EE-5a only (PPBS:700, PPBS:720).
+  - **(r4) Removing `commands` from `analyzer` manifests**, as CR-1 does for closure-only roles. That changes DR-103's accepted schema for the one launched role, and every existing fixture with it. It is not D's to change.
+- **Forbidden substitutes:** an excluded form admitted with a warning ("no waiver for silent admission", QG:589); an analysis-attempt ExecutionId drawn or reserved before these checks, or the creation prelude's ExecutionId bound to the analysis attempt (r3); a closure admitted at MC row 8 that R10a did not admit; a new public code; **(r4)** an `analyzer` manifest refused for declaring its own name-bound mounted root; a second public route for a condition the security owner's RJ-2 or RJ-6 already refuses.
+- **Controls:** D4-T1, DR-G29's hostile but well-formed corpus for EE-1, EE-3b, EE-4 and EE-5a, on the durable path, the first-use path and the ephemeral path. **(r4)** The first-use path runs once each for `Published`, `LostRace` and `NotPristine`, as J1's J-C10b does (J1:343). **For each, the assertion is on the reservation registry's state (r2):**
+  - **sampled when R10a, or ER10a, returns its refusal (r4)**, the process's `ExecutionIdReservations` holds **no analysis-attempt reservation**. Its set equals its set at R10a's entry: empty, or the creation prelude's alone on first use. Step 1's render draw comes after that return. It is the only later reservation, and it is never bound to the analysis attempt (J1:344, J1:347);
+  - on the durable path, the census point `x3d.session.execution-draw` (J1:194), the session draw right after the handoff to `CommitSession::open` (J1:459), is never reached. The ephemeral and render draws are not that point (J1:178-179, :189); the registry bullet above is the proof on every path (r3, NBO-3);
+  - no capture session opens, nothing is spawned and no source byte moves;
+  - **(r4, SD-5)** the envelope is SD-5's route: `request-rejected` 2, `EXTENSION.ADMISSION_REJECTED`, `domainDetail` `PAYLOAD-NOT-ADMISSIBLE` with subject `excluded-form:<class>:<manifestDigest>` and SD-5's remedy, `errors` exactly that detail, and no runId or executionId. Two refused manifests, or one with two classes, give the least `manifestDigest` and its first class, and the operational record holds every refusal (SD5 README, "Controls owed by the implementing units").
+
+  **D4-T4 (r4, LD-R4-1), the root-command predicate.** It runs at D4's own interface, as CR-T8 presents a closure-only tree to D4, and on the three paths for the positive case:
+  - **positive:** a complete signed first-party `analyzer` manifest whose tree has one parentless entry named for the component, with sub-commands below it, passes R10a. Once C2a materializes CR-1, CR-T8's `grammar` manifest with no `commands` passes too;
+  - **negative:** each of (a), (b) and (c) refuses `ExcludedForm {class: EE-5a}`. For (c), the name, a manifest alias and a root alias are each tested;
+  - **not EE-5a:** a manifest whose only defect is a live-name collision is not refused as EE-5a. In production RJ-2 refuses it first, on CR-T9's route;
+  - **a source pin** shows that the security owner's checks for (a), (b) and (c) run in both `validate` and `validate_inventory` before any value reaches D4.
 
 #### 25. Request-class refusals in request validation
 
-- **Decision (law).** In `host/request.rs` (BP:1033), at **R1**, typed request admission (J1:300). That is before R3's durable entry and the creation prelude, and before any ExecutionId draw (item 24):
+- **Decision (law).** In `host/request.rs` (BP:1033), at **R1**, typed request admission (J1:315). That is before R3's durable entry and the creation prelude, and before any ExecutionId draw (item 24):
 
   | Class | Represented as | Refusal | Source |
   |---|---|---|---|
@@ -757,11 +813,20 @@ Line numbers were checked on 2026-10-04 against the files named here. A live pla
   | **EE-4** (request part) | a PlanIntent requesting untrusted native or WASM admission | rejected in request validation | PPBS:707-715 |
   | **EE-6a** | a PlanIntent whose analysis branch requests network-granted analysis | refused in request validation; no ExecutionId | PPBS:737-745; AQ:346 |
 
-  The internal refusal is `ExcludedForm`. The lead's recommendation for J1's projection is `request-rejected` 2 with `REQUEST.UNSATISFIABLE`: the request asks for something the product does not serve, as NE's `NOT-SELECTED` row does (NE:3539). No new code.
-- **Basis:** REG:374; COV:5162-5176; PPBS:677-745; J1:300.
-- **Rejected:** treating a network request as a configuration warning. AQ:346 makes ordinary analysis offline.
-- **Forbidden substitutes:** network-granted analysis admitted under any name; an ExecutionId drawn or reserved before these checks.
-- **Controls:** D4-T2, the request-class corpus, with D4-T1's registry assertions: `ExecutionIdReservations` is empty after the refusal, and neither `mint_intent` nor R12 is reached.
+  The internal refusal is `ExcludedForm {class, subject}`. **Its public route (r4, lead decision LD-R4-2; SD-5's cross-law item X-SD5-1)** is `request-rejected` 2, `REQUEST.UNSATISFIABLE`, with `domainDetail` `PROVIDER.NOT_SELECTED` and subject `excluded-form:<class>`. When one request carries several forms, the subject names the first class in this table's order, and every `ExcludedForm` goes to the operational record. The envelope's `errors` is exactly that detail, and there is no runId or executionId. No code is added.
+  - **Why this class and code.** A request that asks for an excluded form is well formed: nothing in it is malformed, and the host has made no error. NE's own rule for such a request is that it "is **origin-independent**: nothing is malformed, so it is `request-rejected` / `REQUEST.UNSATISFIABLE` with the existing detail `PROVIDER.NOT_SELECTED`, whichever boundary it arrived from" (NE:3577-3579; D9 `nonAnalysisDerivation` rule 2). EE-2, EE-4's request part and EE-6a are each outside D-371's selected product (AQ:339, AQ:342, AQ:344, AQ:346), which is what `NOT-SELECTED` means (NE:3539). J1's R1 sentence on a *malformed* library request (J1:315; NE:3573) therefore keeps its own scope and does not reach this refusal.
+  - **Why this detail.** `PROVIDER.NOT_SELECTED` is the existing detail for a well-formed request the product makes no promise to serve. Its remedy is keyed by code and today names a capability and a language mode: "this capability is not selected for that language mode; no promise is made for it" (NEM:1159). NE's remedy-keying constraint lets a new condition reuse a code only if that remedy is a true next step for it, and obliges the author "to widen it or choose another code if it is not" (NES:523). The next step is the same for both conditions: restate the request without what the product does not serve. So the remedy is widened, not replaced. That widening, with the route's NE §10 row, is SD-7 (item 29).
+  - **J1** records the matrix row at its next revision (X-D4-J1-1, item 30).
+- **Basis:** REG:374; COV:5162-5176; PPBS:677-745; J1:315. **(r4)** NE:3539, NE:3573, NE:3577-3579; NES:522-523; NEM:1159; D9 `nonAnalysisDerivation` rule 2; AQ:339-346; SD5 README, X-SD5-1.
+- **Rejected:**
+  - treating a network request as a configuration warning. AQ:346 makes ordinary analysis offline.
+  - **(r4, LD-R4-2) `SYSTEM.OUTCOME.ILLEGAL_STATE` with `host-invariant`**, J1's malformed-request route. The request is not malformed, and NE:3577 makes a well-formed unsatisfiable request origin-independent.
+  - **(r4) SD-5's route**, `EXTENSION.ADMISSION_REJECTED` with `PAYLOAD-NOT-ADMISSIBLE`. A request is neither an installed contribution nor a signed document (SD5 LD-S2, LD-S3), and SL S12 binds that detail to the extension code (SL:1306).
+  - **(r4) `CONFIG.INVALID`.** Nothing configured is wrong, and its code-keyed remedy says the request is malformed.
+  - **(r4) `domainDetail` absent**, NE's rule where no registered detail names a condition (NE:3546-3555). A failure envelope still owes a detail (WS:1340-1344; NES:522), and `PROVIDER.NOT_SELECTED` names this condition once its remedy is widened.
+  - **(r4) A dedicated new code.** Item 24 forbids one, and new public codes are the owner's (SD5 LD-S3).
+- **Forbidden substitutes:** network-granted analysis admitted under any name; an ExecutionId drawn or reserved before these checks; **(r4)** a request-class excluded form routed as a malformed request or a host fault.
+- **Controls:** D4-T2, the request-class corpus, with D4-T1's registry assertions: **sampled when R1 returns its refusal (r4)**, before step 1's render draw, `ExecutionIdReservations` is empty, and neither `mint_intent` nor R12 is reached. **(r4)** The envelope is LD-R4-2's route: `request-rejected` 2, `REQUEST.UNSATISFIABLE`, `PROVIDER.NOT_SELECTED` with subject `excluded-form:<class>`, and no runId or executionId. The remedy assertion follows SD-7.
 
 #### 26. The session factory and post-admission substitutions
 
@@ -775,14 +840,14 @@ Line numbers were checked on 2026-10-04 against the files named here. A live pla
   - **The spawn binding recheck** (item 2) runs here, immediately before handing over to D3.
   - **Post-admission substitutions are rejected before any stage** (EE-4's "post-admission substitution rejected before any stage", PPBS:711; EE-5b, PPBS:727-735). This item, **unlike items 24 and 25, runs after R12's draw**: the ExecutionId exists. **Before any source byte or Analyze**, each of these refuses, on the settlement and route of whoever observed it (r2, RF-2; item 22):
     - **Host-observed, before any spawn or frame:**
-      - the closure recheck finds the installed bytes differ from the admitted closure: `closure-recheck-failed`, J1 r3 row 28, `DELIVERY.CLOSURE_BYTES_CORRUPT` (WS:1375);
+      - the closure recheck finds the installed bytes differ from the admitted closure: `closure-recheck-failed`, J1 row 28, `DELIVERY.CLOSURE_BYTES_CORRUPT` (WS:1375);
       - the host-built select tuple, Hello limits or expected identities differ from the admitted selection: `session-spec-inconsistent`, NE:3573's host-invariant route.
     - **Provider-spoken, after spawn and before any source byte:**
       - the control `helloAck` echo of `stableId` or `admittedManifestDigest` differs (RF3, CC:119-121), or `selectAck` names another tuple: `control-refusal`;
       - HelloAck's identity or token echo differs (NE:2854-2856, NE:2983): `provider-protocol`;
       - any `effectRequest` arrives. At M3 the broker map is empty (BBC:70-71), so an `effectRequest` is RF6/PR-4 (BBC:52-54; CC:76-78): `control-refusal`. A represented imperative contribution therefore cannot proceed past the control plane.
 
-      All three take J1 r3 row 30 (NE:3529; J1:645).
+      All three take J1 row 30 (NE:3529; J1:676).
 
     Each is "represented post-admission substitution[s] rejected before any stage" (QG:588).
   - **Not covered:** an "arbitrary ambient act of an already-running trusted-TCB component" that has no request or protocol representation (PPBS:729-731). Section F addresses that under O7.
@@ -821,19 +886,19 @@ Line numbers were checked on 2026-10-04 against the files named here. A live pla
     - overhead: results identical at concurrency 1 and at the automatic value (OPP:437).
   - **CPC's hostile dual-channel classes** (CPC:496-517) as D5-C1 (item 11).
   - **The syntax pass.** E1 asks D5 to add the in-host syntax pass to G21's set (ME item 17). D5 lists it as a G21 subject. Its trap-survival and hostile-input controls (E2-T5, E2-T23) are E's units, cited here.
-  - **The three confinement escape controls** (network, write outside scratch, ambient environment read) extend S-OP-11 beyond OPP §10 (M3P:87, M3P:511). They are **O7-dependent**, so they are specified in section F-7, not here.
-  - **Where they run.** Ordinary test lanes on both platform families. **Never concurrently with a crash-matrix lead set**, whose 5 s timing guard fails under load (M3P:423; P5-8). macOS rows report macOS's stated limits (item 18) as expected outcomes.
+  - **The three confinement escape controls** (network, write outside scratch, ambient environment read) extend S-OP-11 beyond OPP §10 (M3P:85, M3P:509). They are **O7-dependent**, so they are specified in section F-7, not here.
+  - **Where they run.** Ordinary test lanes on both platform families. **Never concurrently with a crash-matrix lead set**, whose 5 s timing guard fails under load (M3P:421; P5-8). macOS rows report macOS's stated limits (item 18) as expected outcomes.
   - **Harness location:** the D5 controls live in `crates/components/tests/` and the G21 harness specification (`tests/qualification/README.md`, COV:4964). They are labelled "authored at M3, qualified at M6".
-- **Basis:** REG:366; QG:423-441; COV:4953-4977; OPP:418, OPP:426-437; CPC:496-517; ME item 17; M3P:87, M3P:213.
+- **Basis:** REG:366; QG:423-441; COV:4953-4977; OPP:418, OPP:426-437; CPC:496-517; ME item 17; M3P:85, M3P:211.
 - **Rejected:**
-  - **Real providers as G21 fixtures at M3.** They cannot misbehave on cue, and they are not launched before O7 (M3P:478).
+  - **Real providers as G21 fixtures at M3.** They cannot misbehave on cue, and they are not launched before O7 (M3P:476).
   - **Synthetic in-process "children".** The G21 corpus is about processes (REG:366).
 - **Forbidden substitutes:** a control that passes by not running on a platform; a macOS row reported as meeting a Linux guarantee; any claim of qualification (QG:432: "REQUIRED PRODUCT QUALIFICATION UNPERFORMED").
 - **Controls:** the controls are the content. D5's own check is that every row of QG:428 and every OPP §10 area that touches supervision has at least one named control. The lead keeps this as a table in D5's review.
 
 ### F. O7 placeholder: confinement and the launch rules under O7
 
-> **Binding only once O7 is decided as recommended.** The recommendation is the lead's, as put to the owner (M3P:480-487; ON B1):
+> **Binding only once O7 is decided as recommended.** The recommendation is the lead's, as put to the owner (M3P:478-485; ON B1):
 > 1. analysis never executes repository code by default;
 > 2. providers run under OS confinement: Landlock, seccomp and no network on Linux and AL2023; a Seatbelt profile on macOS that denies network access and any write outside the provider's scratch;
 > 3. where confinement is unavailable, the result discloses it, and the documentation requires containers for untrusted pull requests;
@@ -845,7 +910,7 @@ Line numbers were checked on 2026-10-04 against the files named here. A live pla
 > - the disclaimers stand: "confinement is never claimed" (SL:1113), SL:497, AQ:344, NE:2554, REG:366, and F03:135-139 ("A child process is fault containment, not a sandbox");
 > - DR-128's untrusted-code scope stays closed (REG:317).
 >
-> **The law owns launch rules under O7** (M3P:89, M3P:503-511; ML item 17, ML:494-506), so this section is where they are written.
+> **The law owns launch rules under O7** (M3P:87, M3P:501-509; ML item 17), so this section is where they are written.
 
 #### F-0. If O7 is decided otherwise
 
@@ -879,7 +944,7 @@ Line numbers were checked on 2026-10-04 against the files named here. A live pla
     **Why the `A` byte.** On macOS a failed apply returns −1 **with `errno` still 0**, and `libsystem_sandbox` writes its own `sandbox initialization failed: …` text to fd 2 (CFP:104-106). The OS can also kill the caller inside the apply call, as the named mode of `sandbox_init` is killed on macOS 27 (CFP:96). Without a positive byte, a launcher killed during the apply and a successful `exec` would both close fd 6 with no bytes. The fd 2 text is ordinary stderr: it is counted and never kept (item 17), and it never decides an outcome.
   - **Both platforms use the launcher**: one code path, a single-threaded context for every profile call, and a binary that CF-P, CF-1 and F-7 can test on its own. **CF-P used exactly this shape** (CFP:45-51). Its apply cost was 3,983–5,970 µs per launch, compilation included (CFP:109).
   - **The OS kill stays in the launcher.** The apply runs only in the launcher, so an OS-side kill during the apply kills the launcher, never the host (CFP:264).
-- **Basis:** M3P:507-509 ("a macOS Seatbelt profile applied at spawn; Landlock, seccomp and a network namespace on Linux"); macOS gives no hook between `fork` and `exec` in `posix_spawn`; SDK27 `usr/include/sandbox.h:46-49`; CFP:45-51, CFP:96-111, CFP:123, CFP:264.
+- **Basis:** M3P:505-507 ("a macOS Seatbelt profile applied at spawn; Landlock, seccomp and a network namespace on Linux"); macOS gives no hook between `fork` and `exec` in `posix_spawn`; SDK27 `usr/include/sandbox.h:46-49`; CFP:45-51, CFP:96-111, CFP:123, CFP:264.
 - **Rejected:**
   - **On Linux, a `pre_exec` hook in the host.** It forks a multithreaded host, restricts the hook to async-signal-safe calls, and gives the two platforms divergent mechanisms.
   - **`/usr/bin/sandbox-exec`.** It is present on this host, but it is an ambient tool outside the closure (F02:233-234) and is deprecated (CFP:102).
@@ -906,8 +971,8 @@ Line numbers were checked on 2026-10-04 against the files named here. A live pla
      - **Providers only:** `fork`, `vfork` and `clone` without `CLONE_THREAD`, by filtering `clone`'s argument 0 (LX-14); and `clone3`, with **`ENOSYS`**, because its flags live in user memory and cannot be filtered, and glibc 2.34 falls back to `clone` only on `ENOSYS` (LX-14; CFP:291). `execve` stays allowed, because the launcher's own `exec` needs it and seccomp cannot inspect a path. Landlock's `EXECUTE` rule lets a provider execute only its own target file, and with process creation denied, a provider can at most replace itself with its own image. It can never start another program.
      - **All classes:** `setsid`, `setpgid`, `ptrace`, `process_vm_readv`/`writev`, `pidfd_getfd`, `kill`/`tgkill`/`tkill`/`rt_sigqueueinfo`/`rt_tgsigqueueinfo` aimed at any process but the child's own (LX-19), `keyctl`, `add_key`, `request_key`, `bpf`, `perf_event_open`, `userfaultfd`, `mount`, `umount2`, `unshare`, `setns`, `pivot_root`, `chroot`, `name_to_handle_at`, `open_by_handle_at`, and, where the Landlock ABI is below 3, **`truncate`**. **(r2)** On AL2023's 6.1 kernel (ABI 2) the `truncate` rule is required, not optional (CFP:306).
   - **Tool profile:** the same, except that process creation is allowed and Landlock's `EXECUTE` covers the closure root, not only the target, so `cargo` can run the bundled `rustc` and nothing outside the closure. `setsid` and `setpgid` stay denied, so the tool tree stays in its group.
-  - **No network namespace (lead decision, against M3P:509's wording; confirmed by CF-P).** On Ubuntu 24.04, AppArmor lets an unprivileged process create a user namespace but denies capabilities inside it, so a network namespace cannot be set up (LX-12; CFP:289, CFP:293-297). Seccomp's socket denial gives "no network" without one, and Landlock's own network rules would cover TCP only (LX-10). Finding F8 records the change for M3P's next revision.
-- **Basis:** M3P:484, M3P:508-509; OPP:347; NE:2534-2535; F03:135-139; CFP:276-297.
+  - **No network namespace (lead decision, against M3P:507's wording; confirmed by CF-P).** On Ubuntu 24.04, AppArmor lets an unprivileged process create a user namespace but denies capabilities inside it, so a network namespace cannot be set up (LX-12; CFP:289, CFP:293-297). Seccomp's socket denial gives "no network" without one, and Landlock's own network rules would cover TCP only (LX-10). Finding F8 records the change for M3P's next revision.
+- **Basis:** M3P:482, M3P:506-507; OPP:347; NE:2534-2535; F03:135-139; CFP:276-297.
 - **Rejected:**
   - **A syscall allowlist** with default deny. It breaks with each glibc, Node or `rustc` release; CF-1 may tighten toward it with measurements.
   - **`libseccomp`.** A C library is a new loader dependency for DR-G22.
@@ -962,10 +1027,10 @@ Line numbers were checked on 2026-10-04 against the files named here. A live pla
     - **macOS (r2):** `dlsym` resolves `sandbox_init_with_parameters` and `sandbox_check` (F-3), **and** the running release major and `libsystem_sandbox` version have a CF-1 measured row.
 
     The result is the signed enforcement matrix's cell for the platform (CF-1) **and** the probe. Either one missing means **unavailable**. AL2023 kernel builds before 2023.8.20250804 have no Landlock at all and probe unavailable, exactly as designed (CFP:314).
-  - **Unavailable means disclose and continue.** Providers and tools launch unconfined (item 2), and each launch is recorded as `supervision.confinement.unavailable {reason}` (an ordinary registration). The public carrier for "provider ran unconfined: <reason>", which sits beside Coverage and never inside it, is **CF-2** (M3P:506), a WS output successor or S-OP-6 join. Until CF-2 lands, M3 has no public command (J1 item 1), and the disclosure reaches the operational record and the harness.
+  - **Unavailable means disclose and continue.** Providers and tools launch unconfined (item 2), and each launch is recorded as `supervision.confinement.unavailable {reason}` (an ordinary registration). The public carrier for "provider ran unconfined: <reason>", which sits beside Coverage and never inside it, is **CF-2** (M3P:504), a WS output successor or S-OP-6 join. Until CF-2 lands, M3 has no public command (J1 item 1), and the disclosure reaches the operational record and the harness.
   - **Available but an apply step fails means refuse the launch** (lead decision): settlement `confinement-refused`, routed as `operational-failed` 4 with `HOST.IO_FAILURE`, `host-io`, no new code. F-1's status pipe decides it, including the OS killing the launcher inside the apply. A host on which the probe passed but application failed is in an unknown state, and running unconfined there would turn an observed failure into silent weakening. "Silence is not disclosure" (PTT:292).
   - **Applied:** `supervision.confinement.applied {profile, abi}`. Nothing says "enforced" before CF-1 (F-8).
-- **Basis:** M3P:486, M3P:506, M3P:526; PTT:292-298; F03:102-107; CFP:260-264, CFP:309-316.
+- **Basis:** M3P:484, M3P:504, M3P:524; PTT:292-298; F03:102-107; CFP:260-264, CFP:309-316.
 - **Rejected:**
   - **Refusing on unavailability.** That is the recommendation's opposite (item 3) and alternative B.
   - **Continuing unconfined after an apply failure.**
@@ -981,8 +1046,8 @@ Line numbers were checked on 2026-10-04 against the files named here. A live pla
 #### F-6. Repository code: `RepoExecutionGrantV2`, not at M3
 
 - **Decision.**
-  - **No repository code executes at M3** (M3P:522-523; NE:2534-2535; SL:1059), and D defines no `RepositoryCode` launch class at M3.
-  - M5-EX adds that class (M3P:514-519), with these conditions:
+  - **No repository code executes at M3** (M3P:520-521; NE:2534-2535; SL:1059), and D defines no `RepositoryCode` launch class at M3.
+  - M5-EX adds that class (M3P:512-517), with these conditions:
     - `admit_repo_execution_grant` admits the grant (X4b, deferred to M5-EX);
     - the grant's `argvDigest` equals the exact argv of the `LaunchSpec` (SL:1074), and its `platformId` equals the host's (SL:1087-1088);
     - its effects are copied from the measured truth table (SL:1088-1092; NE:2440-2444). Only M5-EX's PTT successor moves a cell (NE:2480-2481);
@@ -993,7 +1058,7 @@ Line numbers were checked on 2026-10-04 against the files named here. A live pla
 
 #### F-7. The escape controls (D5's O7 part; an extension of S-OP-11)
 
-These are the three new controls M3P names (M3P:87, M3P:511), plus two this law adds. A `TestFixture` child runs under the **provider** profile, or the **tool** profile where noted, inside a test-created directory tree. **The tests never touch the real home and use only synthetic canaries.** CF-P ran a trivial-child version of all five on macOS 27 (CFP:52-58); the r2 notes say what it found.
+These are the three new controls M3P names (M3P:85, M3P:509), plus two this law adds. A `TestFixture` child runs under the **provider** profile, or the **tool** profile where noted, inside a test-created directory tree. **The tests never touch the real home and use only synthetic canaries.** CF-P ran a trivial-child version of all five on macOS 27 (CFP:52-58); the r2 notes say what it found.
 
 | Id | Attempts | Pass | r2 note from CF-P |
 |---|---|---|---|
@@ -1057,7 +1122,7 @@ These are the three new controls M3P names (M3P:87, M3P:511), plus two this law 
   | **LX-21** (r2) | `wait4`'s `ru_maxrss` is in KiB on Linux (HD:889 states it) and reports the child and its reaped descendants; `ru_utime` and `ru_stime` give CPU | items 4, 21 | **not in CF-P**; HD:889 states the unit |
   | **LX-22** (r2) | an advisory `flock` on a lock file is released when the holding process dies, so a non-waiting `flock` that succeeds proves the owner dead (the same holds on macOS) | item 6 | **not in CF-P** |
 
-- **What CF-1 must measure before D1's enforcement claim and D5's escape controls** (M3P:85, M3P:213). CF-1 is the SL S10 and S6 successor with the per-platform enforcement matrix and the honest wording, plus an AQ §5 item 4 disposition and a DR-128 record (M3P:502-505). From CF-P's list (CFP:322-353), it must:
+- **What CF-1 must measure before D1's enforcement claim and D5's escape controls** (M3P:83, M3P:211). CF-1 is the SL S10 and S6 successor with the per-platform enforcement matrix and the honest wording, plus an AQ §5 item 4 disposition and a DR-128 record (M3P:500-503). From CF-P's list (CFP:322-353), it must:
   1. **run F-7's five controls on real launches** on each platform family: macOS under the amended F-3 profile, and Linux on Ubuntu 24.04 and on AL2023's 6.1, 6.12 and 6.18 kernels;
   2. **measure the `mach-lookup` allowlist** for the TS2 SDK under BBC's argv, Rust3's sidecar with its `rustc` temporaries in scratch, and the tool's `cargo metadata`; and decide `(with no-report)` under OPP §3.2;
   3. **settle the tool profile's signal rule** (F-3);
@@ -1067,20 +1132,20 @@ These are the three new controls M3P names (M3P:87, M3P:511), plus two this law 
   7. **measure the profile's overhead** on real workloads (CF-P measured about 4-6 ms per apply, CFP:109);
   8. **confirm every LX row** above on a Linux lane, first among them LX-15 to LX-22, Landlock in AL2023's active LSM list on 6.12 and 6.18, and each lane's `core_pattern` with `RLIMIT_CORE` 1;
   9. **carry the interface-risk statement** into its wording (CFP:353).
-- **CF-2** carries F-4's disclosure (M3P:506).
+- **CF-2** carries F-4's disclosure (M3P:504).
 
 ### G. Successors, findings and open questions
 
 #### 28. What D needs from other units
 
-- **M3-P0:** `crates/components` as a workspace member (M3P:210).
+- **M3-P0:** `crates/components` as a workspace member (M3P:208).
 - **M3-L:** ML items 2, 12, 13, 16 and 17 as accepted.
 - **S-OP-2:** the registry and kinds (item 21).
-- **J1 (accepted r3):** the projections of D's internal refusals (items 16, 22, 24 and 25), the signal handler (item 19), and **SD-6's row R10a** (item 24).
+- **J1 (accepted r4):** the projections of D's internal refusals (items 16, 22, 24 and 25), the signal handler (item 19), and **SD-6's row R10a** (item 24), now in place.
 - **C3b (MC item 12):** the tool's argv and environment under CC-1..CC-5.
 - **F and G:**
   - the SDK and sidecar sides of the control plane, including a health responder independent of compiler work (ML item 12.4) and an exit on control-in EOF (item 23's host-death case);
-  - F4 and G2's closures running inside the profile, with `rustc` temporary files directed to scratch (M3P:512).
+  - F4 and G2's closures running inside the profile, with `rustc` temporary files directed to scratch (M3P:510).
 
 #### 29. Successor list
 
@@ -1089,9 +1154,11 @@ These are the three new controls M3P names (M3P:87, M3P:511), plus two this law 
 | SD-1 | **CF-1** | contract successor (SL S10 and S6; AQ §5 item 4; a DR-128 record) | F-2..F-5 as measured; the enforcement matrix; the wording | product security and platform owners (REG:317) | D1b's claim; D5's escape controls |
 | SD-2 | **The control select-tuple record** | manifest-owner record (DR-103) | item 9's tuple (`analyzer`, provider id, major) | the manifest owner, with D2 | D2a |
 | SD-3 | **The launcher's closure rows** | DR-G14 and DR-G22 rows, and a CH14 layout entry for `apps/launch/` | F-1 | release, platform and security owners | D1b (O7) |
-| SD-4 | **CF-2** | WS output successor or S-OP-6 join | F-4's disclosure carrier | output and operability owners | before M3-X (M3P:225) |
-| SD-5 | **J1's projections** | J1 law content (no new code) | `ExcludedForm`, `MemoryBudgetBelowCeiling`, `ToolOutputBound`, `ToolScratchBound`, `confinement-refused` | J1 | J2 |
-| **SD-6** (r2) | **J1 r4, row R10a** | law amendment to accepted J1 r3, reviewed on its own | the pre-draw component-admission row of item 24, between R10 and R11 (J1:309-311), and its ephemeral counterpart before the ephemeral attempt's draw (J1 item 6). It also records, for M3-C's next revision, that MC r5 item 16's row 8 selects only among R10a-admitted manifests | lead (J1's author), with the M3-C author | before D4 integrates |
+| SD-4 | **CF-2** | WS output successor or S-OP-6 join | F-4's disclosure carrier | output and operability owners | before M3-X (M3P:223) |
+| SD-5 | **R10a's `ExcludedForm` route** (r4: the written half of r3's SD-5) | contract successor: one NE §10 row after NE:3540 | `request-rejected` 2, `EXTENSION.ADMISSION_REJECTED`, `PAYLOAD-NOT-ADMISSIBLE`, subject `excluded-form:<class>:<manifestDigest>`; distinct from J1's row 27 | the NE and WS public-route owners (SD5 LD-S1) | **done (r4).** Grok ACCEPT-DESIGN-UNIT with no findings (`reviews/grok-sd-5-r1`); bound at product `052d3cb`. J1 records it as matrix row 56 (S20). |
+| **SD-5b** (r4) | **J1's remaining projections** (the rest of r3's SD-5; LD-R4-3) | J1 law content, existing codes only. Whether a contract row is also owed, as SD-5 found for `ExcludedForm` (SD5 LD-S1), is SD-5b's question. | `MemoryBudgetBelowCeiling {budget, ceiling}` (item 16: refused before any provider starts; never a lowered ceiling); `ToolOutputBound` and `ToolScratchBound` (item 16; MC item 12's "D law's adapter scratch bound"); `confinement-refused` (F-4 fixes `operational-failed` 4, `HOST.IO_FAILURE`, `host-io`; only under O7). Each needs J1's matrix row and a detail chosen by SD5 LD-S3's existing-code test. **Not written.** | lead (J1's author) | each with its first consumer: `MemoryBudgetBelowCeiling` before J2b's first provider stage, with D3a; the two tool bounds with C3b; `confinement-refused` with D1b, and only if O7 is decided as recommended. None gates D4. |
+| **SD-6** (r2) | **J1 r4, row R10a** | law amendment to accepted J1 r3, reviewed on its own | the pre-draw component-admission row of item 24, between R10 and R11 (J1:325), its ephemeral counterpart ER10a before the ephemeral attempt's draw (J1:426, J1:431), and control J-C10b (J1:343-349). For M3-C, item 16's row 8 selects only among R10a-admitted manifests (MC r7, item 16 row 8; J1's S19) | lead (J1's author), with the M3-C author | **done (r4).** J1 r4 accepted by GROK2 (`reviews/grok2-host-pipeline-j-r4`); M3-C r7 accepted in review by CODEX2 (`reviews/codex2-snapshot-plan-c-r7`) |
+| **SD-7** (r4) | **NE §10's follow-ups from r4** | contract successor to NE §10, owned like SD-5 (no new code) | **(a) SD-5's row follows item 24 (LD-R4-1):** EE-3b's parenthetical keeps only the capability form; EE-5a's "root command" reads as a root-command claim on the host-owned root namespace, as item 24 defines it; and the remedy's "declare a project hook, root command or probe" becomes "claim a project hook, a reserved or additional root command, or a probe". **(b) Item 25's request-class row (LD-R4-2):** `request-rejected` 2, `REQUEST.UNSATISFIABLE`, `PROVIDER.NOT_SELECTED`, subject `excluded-form:<class>`, with `PROVIDER.NOT_SELECTED`'s code-keyed remedy widened so that it is true both for a not-selected cell and for the three request-class forms. **Form:** NE:3540 already carries SD-5's override, and `verify_design` refuses a second override of one line (SD-5's conflict probe). So (a) needs a superseding form: B-S9's complete-copy form or a `verify_design` successor. The remedy table is in B-S9's selected model copy (NEM). SD-7's drafter chooses. | the NE and WS public-route owners (SD5 LD-S1); the lead drafts | (b) before J2a projects item 25's refusal; (a) recommended before D4's integration review. Neither gates D4: no route depends on (a)'s wording, and D4 emits only the internal refusal. |
 | — | **S-OP-2** | none: D3's events are ordinary registrations (SOP2:226-230) | item 21 | — | D3a |
 | — | **NE §9, TS2, Rust3** | none: D adds no frame, member, limit or event kind | items 9-11 | — | — |
 | — | **D9 or detail codes** | none | item 22 | — | — |
@@ -1103,16 +1170,36 @@ These are recorded for their owners. None changes an accepted outcome.
 - **F1. stderr "digest".** The brief and M3P's D row descend from OPP r2's "bytes, digest and truncation" (OP-R1-03). OPP r3 withdrew the digest (OPP:171; OP-R2-NB-01), and S-OP-2's K7 has none (SOP2:275). D follows r3 (item 17).
 - **F2. EOF and exit order.** RPP:170 and CPC J-3 (CPC:479-481) order EOF and death differently. Item 13's join reconciles them. CPC's next revision, or the DR-102 owner, may record it.
 - **F3. `CARGO_HOME` against CC-3.** NE's CC-2 requires a fresh `CARGO_HOME`, and CC-3 forbids every `CARGO_*` variable (NE:1732-1736). C3b must convey it some other way, for example a `HOME` under scratch so that `$HOME/.cargo` is fresh. Item 3 lets C3b's law name such a key. The NE owner may record the reading.
-- **F4. The spawn-failure route.** DLV:1170 (preview, `DELIVERY.REQUIRED_FAILED`) differs from WS:1375 (current, `HOST.IO_FAILURE` with `DELIVERY.CLOSURE_UNSPAWNABLE`). D and J1 (J1:643) use WS.
-- **F5. macOS Seatbelt's standing.** `sandbox_init` is declared "No longer supported", and `sandbox_init_with_parameters` is undeclared but exported (SDK27 `usr/include/sandbox.h:46-49`; `usr/lib/system/libsystem_sandbox.tbd:66`). **(r2) CF-P measured both:** the undeclared function works on 27.0, and the declared named mode gets its caller SIGKILLed; macOS 27 also dropped the `kSBXProfile*` declarations (CFP:96, CFP:253-262). This sharpens M3P:526's risk: the interface may disappear in a later major. CF-1's per-major rows and F-4's `dlsym` probe carry it.
+- **F4. The spawn-failure route.** DLV:1170 (preview, `DELIVERY.REQUIRED_FAILED`) differs from WS:1375 (current, `HOST.IO_FAILURE` with `DELIVERY.CLOSURE_UNSPAWNABLE`). D and J1 (J1:674) use WS.
+- **F5. macOS Seatbelt's standing.** `sandbox_init` is declared "No longer supported", and `sandbox_init_with_parameters` is undeclared but exported (SDK27 `usr/include/sandbox.h:46-49`; `usr/lib/system/libsystem_sandbox.tbd:66`). **(r2) CF-P measured both:** the undeclared function works on 27.0, and the declared named mode gets its caller SIGKILLed; macOS 27 also dropped the `kSBXProfile*` declarations (CFP:96, CFP:253-262). This sharpens M3P:524's risk: the interface may disappear in a later major. CF-1's per-major rows and F-4's `dlsym` probe carry it.
 - **F6. Tool records before PlanId.** S-OP-2's provider and supervision events require Plan (SOP2:857-861). D registers `tool.process.*` with Project only (item 21).
-- **F7. Clean non-Complete terminals.** NE:3849-3850 admits "facts before the terminal" on `BudgetExhausted` and `Unavailable`, while DLV:1140-1141 and RPP:597-598 discard all candidates. This is the admission owner's to settle (H; M3P:218). D gates on a clean settlement only (item 20).
-- **F8. M3P's "network namespace".** M3P:509 names a network namespace on Linux. F-2 uses seccomp instead (LX-12). **(r2) CF-P's desk check confirms it** (CFP:293-297). M3P's next revision should follow.
-- **F9. M3P's unit sizes and lane.** D1 and D2 are larger than M3P's 2 + 2 days (M3P:300), and D3 is at the edge of L. The units below split them, with no effect on the critical path (Units). M3P's lane table suggests Codex for D (M3P:417); the lead has assigned this review to GROK2.
-- **F10. ML's R8 is answered here.** D3 fixes the TS2 grace (2 s, provisional), the liveness window (5 s, with the SM-8 floor), the TERM-to-KILL escalation (1 s) and the reap ceiling (10 s, or 5 s under revocation) (ML:606; item 14). ML's R9 (RPP:119 as the host's stage-1 wait) is adopted as ML reads it, and stays a question for the Rust protocol owner.
-- **F11 (r2). J1's order needs R10a.** DR-G29's "no ExecutionId" cannot be met after accepted J1's R12, which comes before MC's closure admission (item 24). SD-6 adds the pre-draw row; MC r5 item 16's row 8 narrows to a selection among admitted manifests.
+- **F7. Clean non-Complete terminals.** NE:3849-3850 admits "facts before the terminal" on `BudgetExhausted` and `Unavailable`, while DLV:1140-1141 and RPP:597-598 discard all candidates. This is the admission owner's to settle (H; M3P:216). D gates on a clean settlement only (item 20). **(r4) Answered.** M3-H r3's item 4 decided discard (MH:242-263; X-H2, MH:859), and FA-1, accepted by Grok and bound at product `f97c02b`, replaced NE:3849-3850 to match: on `BudgetExhausted` or a post-Analyze `Unavailable` every candidate is discarded, and only the terminal's exhaustive Coverage is admitted. Item 20's gate is unchanged.
+- **F8. M3P's "network namespace".** M3P:507 names a network namespace on Linux. F-2 uses seccomp instead (LX-12). **(r2) CF-P's desk check confirms it** (CFP:293-297). M3P's next revision should follow.
+- **F9. M3P's unit sizes and lane.** D1 and D2 are larger than M3P's 2 + 2 days (M3P:298), and D3 is at the edge of L. The units below split them, with no effect on the critical path (Units). M3P's lane table suggests Codex for D (M3P:415); the lead has assigned this review to GROK2.
+- **F10. ML's R8 is answered here.** D3 fixes the TS2 grace (2 s, provisional), the liveness window (5 s, with the SM-8 floor), the TERM-to-KILL escalation (1 s) and the reap ceiling (10 s, or 5 s under revocation) (ML's owner question R8; item 14). ML's R9 (RPP:119 as the host's stage-1 wait) is adopted as ML reads it, and stays a question for the Rust protocol owner.
+- **F11 (r2). J1's order needs R10a.** DR-G29's "no ExecutionId" cannot be met after accepted J1's R12, which comes before MC's closure admission (item 24). SD-6 adds the pre-draw row, and MC's item 16 row 8 narrows to a selection among admitted manifests. **(r4) Landed:** J1 r4 adds R10a and ER10a, and MC r7 narrows row 8.
 - **F12 (r2). CF-P's macOS observations for items 4 and 18.** `killpg(pg, 0)` returns `EPERM` on a zombie-only group, and `proc_listchildpids` returns a count where `proc_listpids` returns bytes (CFP:224, CFP:228). Both shape D's macOS code; neither is in the SDK headers' prose.
 - **F13 (r2). AL2023's `/tmp` is a size-limited tmpfs** (CFP:282). Item 6 uses `/var/tmp`. Any other unit that places large temporary data on Linux should do the same.
+- **F14 (r4). r3's EE-3b and EE-5a rows read as refusing every analyzer.** CR-1's drafter found it. r4 states the predicate (item 24, LD-R4-1). SD-5 copied r3's wording into its bound NE row, which SD-7 conforms.
+- **F15 (r4). Item 25 had no placed route** (SD-5's X-SD5-1). r4 decides it (item 25, LD-R4-2). J1 records the matrix row, and SD-7 the contract row and the widened remedy.
+
+**Cross-law items (r4).** None changes an accepted outcome.
+
+| ID | For | Item |
+|---|---|---|
+| **X-D4-J1-1** | M3-J1's next revision | Item 10 gains row 57, given word for word below the table. R1's malformed-library-request sentence (J1:315) gains: "A well-formed request that is a request-class excluded form is not malformed; it takes row 57 (M3-D item 25)." J-C20 tests row 57 once M3 code can reach it. |
+| **X-D4-J1-2** | M3-J1's next revision (S20) | S20 records rows 56 (SD-5, bound) and 57 now, and SD-5b's rows when SD-5b is written. J-C10b may add D4-T4's positive case: an `analyzer` manifest with its own mounted root passes R10a. J1's M3D short name cites D r4 once r4 is accepted. |
+| **X-D4-CR1** | CR-1 (accepted at its r4; bound at `3fe7eb5`) and C2a | None required of CR-1. r4 answers CR-1's cross-law item 3 for M3-D. Arm (a) is CR-1's D4 join, and (c) uses CR-T9's key set while RJ-2 keeps CR-T9's routes. CR-1's "M3-D r3 item 24" stays true: item 24 keeps its number, and r4 states the arm CR-1 relies on. C2a's review shows D4-T4's positive case with CR-T8's manifest. |
+| **X-D4-C** | M3-C's next revision | None required. MC r7's row 8 already selects among R10a's admitted set. Item 12's adapter bounds are SD-5b's, with C3b. |
+| **X-D4-NE** | the NE and WS public-route owners | SD-7. Until it binds, SD-5's row is read through item 24's predicate. |
+| **X-D4-SL** | the security owner | Record only. D4's arms (b) and (c) restate RJ-2's root and reserved checks as DR-G29's backstop. No SL, DR-103 or registry byte changes. |
+| **X-D4-M3P** | M3-PLAN's next revision | D's record items are done (M3P9:323). SD-5 is bound and split, with SD-5b owed; SD-7 is new; D4's SD-6 gate is met; F7 is answered by FA-1. |
+
+X-D4-J1-1's row, for J1's item 10 after SD-5's row 56:
+
+```text
+| 57 | Request that is a DR-117 request-class excluded form at R1 (EE-2, EE-4's request part, EE-6a): well formed, neither malformed nor a host fault | request-rejected / 2 | `REQUEST.UNSATISFIABLE` | `PROVIDER.NOT_SELECTED`, subject `excluded-form:<class>`; every `ExcludedForm` in the operational record | none | NE:3577-3579; NE §10 (SD-7); M3-D item 25 |
+```
 
 #### 31. Open questions
 
@@ -1127,12 +1214,18 @@ r1's R2, R3, R4, R7 and R8 were confirmed by GROK2 (apart from RF-5), and R1, R5
 - **R8 (RF-5).** Is F-8's LX table now complete for every Linux fact the law relies on?
 - **R9 (CF-P).** Does section F record CF-P's outcome faithfully, including the five F-3 amendments, the status-pipe `A` byte and the `dlsym` probe? Are items 6 and 7's changes (fresh scratch per launch, `/var/tmp`, `RLIMIT_CORE` 1 on Linux) right?
 
+GROK2 accepted r3 with no required findings. **For r4, test these:**
+- **R10 (LD-R4-1).** Is item 24's root-command predicate what EE-3b and EE-5a exclude, read from PPBS:697-725, AQ:343-345, D-012 clauses 2 and 3 and DR-103? Does it admit every lawful `analyzer` manifest? Does it agree with CR-1 r3's D4 join and with CR-T9, with no condition given two routes?
+- **R11 (LD-R4-2).** Is `REQUEST.UNSATISFIABLE` with `PROVIDER.NOT_SELECTED`, its remedy widened by SD-7, an honest existing route for item 25's refusal? Or does the code's provider-specific name require a dedicated code, which item 24 forbids without an owner decision?
+- **R12 (LD-R4-3, SD-7).** Is the split of SD-5 right, with SD-5b owed by first consumer? Is reading SD-5's bound row through item 24's predicate until SD-7 lawful?
+- **R13 (records).** Are the record items applied as M3P9:323 lists them, and is every re-citation true: J1 r4's lines, M3P's r6 snapshot, MC r7, MH r3 and L by role?
+
 ## Units after the law
 
 **Gates.**
-- No product unit starts before M3-P0 is integrated and M3-L is accepted (M3P:257, M3P:259-268).
+- No product unit starts before M3-P0 is integrated and M3-L is accepted (M3P:255, M3P:257-266).
 - **D1b also waits for O7 decided as recommended.** CF-P, its other gate, is met (G1). Its enforcement claim waits for CF-1.
-- **(r2) D4 also waits for SD-6** (J1 r4's row R10a) to be accepted.
+- **(r2) D4 also waited for SD-6** (J1 r4's row R10a). **(r4) Met:** J1 r4 is accepted (GROK2). D4 waits on no other successor: SD-5 is bound, and SD-5b and SD-7 gate other consumers (item 29).
 - **D5's escape controls wait for CF-1.**
 - Inventory successor numbers are assigned by the lead at launch, after checking `git ls-files`.
 - **Reviews:** code units with an inventory need `ACCEPT-UNIT` with an `inventoryCandidateAssessment`. SD-2 and SD-3 are design units needing `ACCEPT-DESIGN-UNIT`. SD-1 and SD-4 are CF's.
@@ -1140,17 +1233,17 @@ r1's R2, R3, R4, R7 and R8 were confirmed by GROK2 (apart from RF-5), and R1, R5
 | Unit | Content | Depends on | Size | Gates and cells |
 |---|---|---|---|---|
 | **D1a** | `platform/process.rs`: items 1-8 on both platform families (the spawn primitive, sessions, descriptors, scratch root and sweep, starting state, exit sources, group signalling, Linux subreaper); D1-T1..T9 | P0 | M | DR-G22 owner (BP:1026), built early |
-| **D1b** (O7) | `apps/launch/` (`opensip-launch`), its status pipe, the F-2/F-3 profiles and the availability probe (`dlsym` on macOS; LX-10, LX-15, LX-16 on Linux); F-4's events | D1a, O7 as recommended, CF-P (met), SD-3 | L | the O7 primitive (M3P:507-509); no claim before CF-1 |
+| **D1b** (O7) | `apps/launch/` (`opensip-launch`), its status pipe, the F-2/F-3 profiles and the availability probe (`dlsym` on macOS; LX-10, LX-15, LX-16 on Linux); F-4's events | D1a, O7 as recommended, CF-P (met), SD-3 | L | the O7 primitive (M3P:505-507); no claim before CF-1 |
 | **D2a** | `components/control_protocol.rs`: item 9, with the CC v5 corpus | P0 | M | DR-G10 (control), BP:1014 |
 | **D2b** | `components/provider_protocol.rs`: items 10-11, the CBOR reader, P3T and T2O as data, the handshake checks | P0 | L | NE §9 (COV:7270-7292); DR-G10 |
 | **D3a** | `components/supervisor.rs`: items 12-17 and 20-22 (the state machine, settlement, joins, constants, liveness, progress, ceilings, bounds, stderr, discard, records) | D1a, D2a, D2b, S-OP-2's registry (O1) | L | DR-G21 (BP:1025) |
 | **D3b** | items 18, 19 and 23: tree kill and the descendant step on both platforms, the cancellation and fault ladders, revocation, harness coexistence | D3a | M | DR-G21 |
-| **D4** | `components/manifest.rs` at R10a, `components/session_factory.rs` and the `host/request.rs` predicates at R1: items 24-26 | D3a, SD-2, **SD-6** | M | **DR-G29** (BP:1033; COV:5162-5176) |
+| **D4** | `components/manifest.rs` at R10a, `components/session_factory.rs` and the `host/request.rs` predicates at R1: items 24-26 | D3a, SD-2, SD-6 (met, r4) | M | **DR-G29** (BP:1033; COV:5162-5176) |
 | **D5** | items 18's and 27's controls, the fake TS2 and Rust3 providers, and the G21 specification rows; F-7 after CF-1 | D3b, D4; CF-1 for F-7 | L (harness) | DR-G21 controls (S-OP-11) |
 
 **Order:** D1a → D2a ∥ D2b → D3a → D3b ∥ D4 → D5. D1b runs in parallel after D1a once O7 and CF-P allow.
 
-**Timing against M3P** (M3P:300-306), at its durations (S 1, M 2, L 3 days):
+**Timing against M3P** (M3P:298-304), at its durations (S 1, M 2, L 3 days):
 - D1a 2;
 - D2b 3, which bounds D2a's 2, so day 5;
 - D3a 3, so day 8;
@@ -1159,11 +1252,11 @@ r1's R2, R3, R4, R7 and R8 were confirmed by GROK2 (apart from RF-5), and R1, R5
 - D5 3, after D3b, D4 and CF-1, so day 13.
 
 M3P has D3 at day 7, D4 at 9 and D5 at 10.
-- **F1 and G1a** need D3 by day 12 (M3P:304, M3P:307): met at day 10.
-- **J2** needs D3 by day 22 (M3P:311): met.
-- **D1b:** 3 days after D1a, so day 5, which moves **G2-v** from day 3 to day 6 (M3P:306). G3 waits for G1a on day 15, so this is inside its slack.
-- **C3b** needs D1's primitive by day 15 (M3P:294): met.
-- **M3-X** needs D4 and D5 (M3P:320), well inside max(M3-M, …) at 31. **O3** follows D5 (M3P:316), so it finishes on day 16 rather than 13, far inside its slack.
+- **F1 and G1a** need D3 by day 12 (M3P:302, M3P:305): met at day 10.
+- **J2** needs D3 by day 22 (M3P:309): met.
+- **D1b:** 3 days after D1a, so day 5, which moves **G2-v** from day 3 to day 6 (M3P:304). G3 waits for G1a on day 15, so this is inside its slack.
+- **C3b** needs D1's primitive by day 15 (M3P:292): met.
+- **M3-X** needs D4 and D5 (M3P:318), well inside max(M3-M, …) at 31. **O3** follows D5 (M3P:314), so it finishes on day 16 rather than 13, far inside its slack.
 - **The critical path (33 days) is unchanged.**
 
 **Test owners:**
@@ -1179,14 +1272,14 @@ Each item lists its own. Across all items:
 - **Codecs:** a seventeenth control message; any translation, normalization, re-encoding, merge or reordering of a provider frame; a host-authored provider frame; serde over wire bytes; a negotiated protocol choice.
 - **Supervision:** two settlements; a restart; an unbounded or silent wait; progress from asserted counters, stderr or traffic; a ceiling, deadline or bound from configuration or the environment; `BudgetExhausted` manufactured from a safety bound.
 - **Diagnostics:** stderr text or a stderr digest anywhere; a RequestId, RunId or log path given to a child; a record outside S-OP-2's registry.
-- **Admission:** a candidate admitted from a non-clean settlement; an excluded form admitted silently, or refused after an analysis-attempt ExecutionId is drawn or reserved (r3); a host-observed refusal routed as a provider fault.
+- **Admission:** a candidate admitted from a non-clean settlement; an excluded form admitted silently, or refused after an analysis-attempt ExecutionId is drawn or reserved (r3); a host-observed refusal routed as a provider fault; **(r4)** an `analyzer` manifest refused for its own name-bound mounted root; a request-class excluded form routed as a malformed request or a host fault.
 - **Harness:** any cgroup write or migration.
 - **Confinement:** any confinement claim before O7 and CF-1; "sandbox" wording; a switch that disables confinement; a launch after a failed apply step; repository code at M3; either mode of `sandbox_init`; a link-time import of `sandbox_init_with_parameters`; a non-canonical profile parameter; a failed apply read from `errno` or fd 2.
 
 ## Not claimed
 
-- **Nothing was run for this record.** No product code, cargo command, test, probe or lead run set was run for r1 or r2. CF-P was run separately, by its own lead-dispatched agent, and r2 cites its record (CFP). The product was read at main `3e64266`, and SDK27's headers and stubs were read on this host.
-- **No contract, schema, gate, register row or threshold is changed.** SD-1..SD-6 are named, not written.
+- **Nothing was run for this record.** No product code, cargo command, test, probe or lead run set was run for r1 to r4. CF-P was run separately, by its own lead-dispatched agent, and r2 cites its record (CFP). r1-r3 read the product at main `3e64266`, and r4 at `052d3cb`, where every file D cites is unchanged. SDK27's headers and stubs were read on this host. r4 ran no evidence script: its new facts are read from the sources it cites.
+- **No contract, schema, gate, register row or threshold is changed.** SD-1 to SD-4, SD-5b and SD-7 are named, not written. SD-5 and SD-6 were written and accepted in their own reviews (r4).
 - **No confinement is claimed.** O7 is pending, and section F is non-binding. Even under O7, nothing is claimed before CF-1.
 - **No tree settlement is claimed on macOS**, and no complete tree kill on macOS outside F-5's measured provider profile.
 - **The memory ceiling is a sampled safety bound, not a measurement.** No elapsed bound on a stuck kernel wait is claimed (item 18's `unreaped`).

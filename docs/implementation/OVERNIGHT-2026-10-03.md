@@ -478,3 +478,13 @@ Times are local.
 - **S18 accepted at r2 by GROK2 and bound** at product main `5214350`, giving 88 contract successors. J2c's and J3d's output wiring is now unblocked on S18.
 - **CR-1 r4 written.** CR-T9 now matches the product: a reserved-name collision is refused in both entry points, while a live-name collision is refused in `validate` only (the product oracle confirms this). It binds 87 → 88 at `5e25d04`, and also 88 → 89 at `5214350`. It goes to GROK2.
 - **CR-1 accepted at r4 by GROK2 and bound** at product main `3fe7eb5`, giving 89 contract successors. With CRC-1 and CR-1 both bound, **C2a's successor gates are met**. C2a itself still waits on L taking effect, under C's gate.
+- **M3-D r4 written and sent to Grok.**
+  - **LD-R4-1, the EE-3b/EE-5a predicate,** grounded in PPBS:719-720, AQ:343-345, D-012 and DR-103. D4 refuses a root-command claim only for:
+    - (a) a closure-only manifest declaring any `commands`;
+    - (b) an analyzer whose root count or root name is wrong;
+    - (c) a reserved-name claim.
+
+    An analyzer's own mounted root is admitted. Security validation already refuses (a)–(c), so D4 is the DR-G29 backstop. New control D4-T4.
+  - **LD-R4-2, X-SD5-1:** request-rejected 2, `REQUEST.UNSATISFIABLE`, detail `PROVIDER.NOT_SELECTED` with subject `excluded-form:<class>`. This needs SD-7 to widen the remedy text, and it is the reviewer's main question.
+  - **LD-R4-3:** SD-5's owed items are grouped as SD-5b, each landing with its first consumer.
+  - **Defect found in bound SD-5:** its NE row text still describes EE-3b as covering "a `commands` entry for role `analyzer`". New successor SD-7 corrects it, using the complete-copy form because NE:3540 is already overridden. It doesn't gate D4.
