@@ -824,3 +824,4 @@ Times are local.
     - RW-K5's empty kill set, also for §RW;
     - the integration hold.
 - **J2a accepted by Grok** (ACCEPT-UNIT; inventory v137 ACCEPT; no findings) **and integrated** at product main `174aa30`, giving 97 inventory successors with v137 selected. Its code applied cleanly after X4-F3, and `verify_design` passes with the real review and assent pins. E2a (v138) integrates next.
+- **E2a integrated** at product main `b7b87b7`, giving 98 inventory successors with v138 selected. `verify_design` passes with the real pins. A confirmation workspace lane on the combined tree (X4-F3, J2a, E2a) follows, under the lane lock.
