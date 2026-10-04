@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "CODEX2",
+  "unit": "I1-P",
+  "reviewRound": "r1",
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectManifestSha256": "f051269c6c7fa4856ed58040efd56a3508eca9846135d91dae7a2841f6293791",
+  "successor": {
+    "path": "docs/implementation/m3/preview-pack-i1/i1-p/successor.json",
+    "bytes": 2598,
+    "sha256": "3cb6d4855d1523376ae9e3eb8941f1905f73a2d74639663db58296533f85f9ac"
+  },
+  "requiredFindings": [
+    {
+      "id": "RF-I1P-1",
+      "location": "docs/implementation/m3/preview-pack-i1/i1-p/evidence/build_i1p.py:177-181 (accepted_set)",
+      "problem": "The supplied evidence command cannot run after its required parent I1-L is bound. accepted_set first loads bound contract members, then asserts that every I1-L subject member is absent. The valid L-before-P binding order therefore causes an AssertionError before the candidate/parent checks and generated-file comparisons. This reproducer is itself a reviewed subject member.",
+      "evidence": "The prescribed --check command exited 1 at line 179 with AssertionError: docs/implementation/m3/preview-pack-i1/PROPOSAL-r2.md. During review product HEAD advanced from the request's e093e908dd7fe735356a896f3cf4b97e1d93198e to 0ceb9ad96946e9427c5f2fd54d6d4cd5df9e9cac; the only changed file is design-lock.json, binding I1-L successor 9c490137998222627a011eec72af8c0ed3bb568e3085725fdf11b8610d42c6a1. All I1-L subject members, including I1-P's three parents, are already selected at the exact requested byte lengths and digests. All eight I1-P members remain fresh. See independent-audit.json and evidence-command-result.json.",
+      "fix": "Replace build_i1p.py lines 177-181 with the following exact block:\n\n    # I1-L is bound ahead of I1-P (LD-P4). Reuse identical selected pins;\n    # before that binding, add its members only to the prospective accepted set.\n    for row in json.loads(read(f'{BASE}/i1-l-subject.json'))['files']:\n        selected = accepted.get(row['path'])\n        if selected is None:\n            accepted[row['path']] = row\n        else:\n            assert all(selected.get(key) == row[key] for key in ('bytes', 'sha256')), row['path']\n    return accepted\n\nRegenerate successor.json and i1-p-subject.json to pin the changed script, refresh the review request hashes, and rerun the supplied --check command against the checkout with I1-L already bound. Keep rejecting mismatched selected pins; do not unbind I1-L or change the pack document, row, or digest values."
+    }
+  ],
+  "nonBlockingObservations": [
+    {
+      "id": "NB-I1P-1",
+      "location": "docs/implementation/m3/preview-pack-i1/i1-p/README.md:60",
+      "problem": "The evidence summary labels X12 step 6.7 as the compiled program's schema. X12 6.7 is the contribution law; the program-schema check belongs to the product's rule/program admission path.",
+      "evidence": "X12 PROPOSAL-r3.md item 6.7 requires each rule's contributionId to belong to the row's contributions. build_i1p.py:204-205 already checks the stronger equality of the row's contribution set and the document's set, and S3 retains all product steps. This is an explanatory wording issue, not a missing admission obligation.",
+      "fix": "Replace README.md's paragraph beginning 'This covers X12 item 6' with this exact text:\n\nThis covers X12 item 6's steps 6.1 (lexical, by the design encoder's `parse`), 6.3 (schema), 6.5 (digest) and 6.7 (contribution membership, by comparing the row's contributions with the document's contributionId set), plus the op law of 6.6, all in the reference. It additionally validates the compiled `RuleProgramV2`'s schema. The product's imperative classifier (6.2) and its rule law run in I1-c's S3.\n\nIf adopted, regenerate the successor and subject pins for the changed README."
+    }
+  ],
+  "decisions": [
+    {
+      "id": "1",
+      "assessment": "The 574-byte document exactly matches law 5.2, with no trailing newline. The supplied run recomputed all three 5.3 digests with both pinned encoders and passed their equality checks before RF-I1P-1. Independent hashing of the document, emitWhen preimage, and recorded 457-byte RuleProgramV2 confirms the pinned values. The program shape and rule order match compile_program in policy.rs:584-606."
+    },
+    {
+      "id": "2",
+      "assessment": "The row is exactly law 5.4, with the six enforced keys and valid types, name/version spelling, lower-case SHA, and sorted nonempty contributions. The full registry has the enforced top-level key set, one row, and correct standing. Its document lookup is well-formed when I1-c installs the single named RELEASE_PACKS.documents entry. LD-P1 is sound."
+    },
+    {
+      "id": "3",
+      "assessment": "The exact-profile validation setup uses the correct schema URN and each copy's common-schema closure. The supplied run passed admission under both I1-L policy copies, parent-document refusal, all four Draft 2020-12 meta-schema checks, and I1-L's op-law check before the failure. The stored report also records both parent RuleProgramV2 refusals. All referenced schema/common pins match. The imperative classifier and actual product rule-law execution remain correctly assigned to I1-c S3. No full build-check success or product admission result is claimed."
+    },
+    {
+      "id": "4",
+      "assessment": "S1-S10 preserve law 5.6's requirements, with S1-S9 for I1-c and synthetic-input S10 for I1-b2. S5 unambiguously names the four exact contract fields. The pinned product source still has seven include_bytes!( calls and exactly two &RELEASE_PACKS references. S10 agrees with all eight named corpus cases in I1-L's accepted oracle; its additional corpus-zero-subjects case agrees with law 2.8."
+    },
+    {
+      "id": "5",
+      "assessment": "LD-P2's data-file candidates, materialization map, and separate pack-contract record are sound. LD-P3 uses the designated design encoder and the exact-profile encoder as cross-check. LD-P4's three parents enforce L before P and are now actually selected at exact pins. LD-P5 reuses the accepted I1-L oracle. The successor is structurally eligible after L: sorted unique members and parents, seven candidates covering the subject minus the record, fresh paths, matching pins, and empty passageOverrides. RF-I1P-1 prevents acceptance of this exact subject until its reproducer is corrected and repinned."
+    }
+  ],
+  "validation": {
+    "initialInputPins": {
+      "count": 18,
+      "allMatched": true
+    },
+    "subjectMembers": {
+      "count": 8,
+      "allMatched": true
+    },
+    "readOnlyMetadataChecks": {
+      "count": 33,
+      "allPassed": true,
+      "artifact": "independent-audit.json"
+    },
+    "suppliedEvidenceCommand": {
+      "exitCode": 1,
+      "result": "FAILED",
+      "stage": "accepted_set, before check(record, subject, files, accepted) and before generated-file comparisons",
+      "artifact": "evidence-command-result.json"
+    },
+    "productRequestedHead": "e093e908dd7fe735356a896f3cf4b97e1d93198e",
+    "productObservedHead": "0ceb9ad96946e9427c5f2fd54d6d4cd5df9e9cac",
+    "productAdvance": "I1-L binding in design-lock.json only; policy.rs, policy_pack_tests.rs and pack-registry.json unchanged from both e093e90 and 3e64266.",
+    "buildsOrTestsRun": false,
+    "repositoryWrites": false,
+    "delegation": false
+  }
+}
