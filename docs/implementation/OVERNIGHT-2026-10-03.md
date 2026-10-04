@@ -505,3 +505,4 @@ Times are local.
   - **E1 r4:** E0 T-native, with the T-wasm text inactive unless M4 re-decides; E0's record items; SYN-1/SYN-1F settled; SYN-NS items pending.
   - **I1 r3:** I1-L's and I1-P's findings; P0–P7 verbatim; I1-a's `verify_design` needs.
   - **Routing:** B r3 goes to GROK2, I1 r3 to CODEX2, and E1 r4 to Codex after J1 r5.
+- **M3-D r4:** Grok raised one finding (RF-1). D4-T4 claimed the security owner already refuses case (a), a closure-only manifest declaring commands. It doesn't until C2a materializes CR-1's schema (RJ-6), so until then D4's own EE-5a check is the enforcing one. NBO-1 calls the X-SD5-1 route sound. r5 is being written.
