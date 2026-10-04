@@ -823,3 +823,4 @@ Times are local.
     - the four `.repair` scope names, which §RW must record;
     - RW-K5's empty kill set, also for §RW;
     - the integration hold.
+- **J2a accepted by Grok** (ACCEPT-UNIT; inventory v137 ACCEPT; no findings) **and integrated** at product main `174aa30`, giving 97 inventory successors with v137 selected. Its code applied cleanly after X4-F3, and `verify_design` passes with the real review and assent pins. E2a (v138) integrates next.
