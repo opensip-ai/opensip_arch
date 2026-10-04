@@ -31,3 +31,13 @@ Times are local.
   - **The riskiest call (LD-3):** widening the op enums without a new identifier major.
   - **Plan impact:** I1 is larger than M3-PLAN's "M". It splits so that I1-c sits on C4's path and I1-b2 on J2's; this fits the critical path and is to be recorded in the plan.
 - **S-OP-2** (safe event vocabulary) is being drafted, for Codex.
+- **Release absence on C passed.** The record is byte-identical, and both feature builds were refused.
+- **M3-I1:** CODEX2's r1 raised 3 findings: the source-census proof, the authority for widening the enum, and the partial file inventory. r2 fixes all three.
+  - **Lead decision:** a two-passage identity-contract successor authorizes the one additive op value under the existing majors.
+  - **Rejected:** a major bump, with its cascade listed.
+- **S-OP-2 r1 sent to Codex** (arch `42109f80c`).
+- **D3 prepared and sent to Grok** (arch `8b9cfc2fe`), while Grok waits for its X9-6 rerun.
+  - It refreshes 62 stale rows: 45 overrides and 17 supersessions.
+  - `verify_scratch` passes.
+  - It includes seven omissions from before D1, and closes X1b with no change.
+  - About 20 stale code doc comments are listed for a later code follow-up.
