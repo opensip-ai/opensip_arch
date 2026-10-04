@@ -609,3 +609,12 @@ Times are local.
   - **Tests:** 121 pass; the new N20 a–d cases fail on r1's tool. Mutation testing kills 19 of 20 mutants; the survivor is the accepted unreachable invariant.
   - **F8c:** rebuilt on `cca4fe4`, with no generator rebuild.
   - **SD-7 r2:** outcomes unchanged. Its evidence script hard-codes 95 successors, now 96; binding uses the real tool.
+- **X3d r9 written and sent to Grok.** It carries J1's successor S10 (main subject) and X3c r8's CL-1.
+  - **S10 content:**
+    - the ExecutionId reservation at `open`, up to 8 draws (unit J3a);
+    - the cancellation latch, a third source for the operation's gate;
+    - the window: it opens when the attempt row commits, and every step returning a `StoppedSession` closes it with a sample;
+    - effects by phase B, C and A;
+    - `StopCause::Operator`, the REV reason `operator`, and the "operator stop" row (exit 130).
+  - **Lead decisions:** LD9-1 to LD9-6. LD9-3, a new `StoppedSession::admitted_at_close()` accessor, is for the reviewer to rule on.
+  - **Owed:** X4 r8 (S11, the gate word) and X7 r7 (S9, the row projection). J3b can't land before X4 r8 is accepted.
