@@ -1,7 +1,5 @@
 # Configuration and discovery (M3-B) — proposal r4
 
-**r4 ACCEPTED 2026-10-04 by GROK2** (`8e0803a8…`; `reviews/grok2-config-discovery-b-r4/`), with no required findings. r4's bytes, without this note, are preserved in `PROPOSAL-r4.md`. This file differs from them only in recording text, for GROK2's observations: the banner (NBO-1), and item 13's Output sentence, which now names `DiscoveryProvenanceV3` for every project (NBO-2). "RBS3" in r4's parentheticals means GROK2's r3 review of this law (`reviews/grok2-config-discovery-b-r3/`) (NBO-3).
-
 2026-10-04. Drafted for Claude Opus 5.5, implementation lead, during the overnight autonomous run. Law for unit **M3-B** of the accepted M3 unit plan (M3P:160). It covers three sub-units:
 - **B1, the resolver:** Config2 layers, precedence and provenance (AQ:43-53, AQ:102-173), `resolvedConfigDigest` (IE:518-519) and FW-13 (COV:8104).
 - **B2, discovery:** the S3 boundary (SL:105-332), NE §1.4 U-0 to U-9 (NE:619-948), FW-01 (COV:7852) and the host side of framework recognition (NE:2750-2777).

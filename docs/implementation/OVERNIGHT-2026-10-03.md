@@ -561,3 +561,4 @@ Times are local.
   - **Decision:** draft **VD2**, a `verify_design` successor allowing explicit supersession of a bound contract successor's passage override (as VD1 did for inventory descriptions). Then **F8c** (generator re-pin, following F8b's template), then **SD-7 r2** as a clean one-line supersession.
   - **Interim:** D r5's reading rule (SD-5's row is read through D's predicate) covers it; D4 is far off.
   - **Rejected:** accepting NE7 now (citation drift and an unenforced hazard), and an erratum on another line (two class lists for one route).
+- **M3-B r4 accepted by GROK2,** with no required findings. Its three wording observations are applied as recording text.
