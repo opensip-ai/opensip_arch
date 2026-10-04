@@ -301,3 +301,9 @@ Times are local.
     - item 5 gains an exception for E1's syntax stage and H's inventory derivation.
 - **New finding, important for the owner's Rust use:** Rust3 caps a request's subject list at 256 files, and refuses before spawn above it. By the T2 manifest, 9 of the 22 Rust repositories exceed it, including tokio (808 files) and axum (301). A product Rust provider couldn't analyze them. It goes to the Rust protocol owner (L r3's X13/R12) as a limit successor, alongside SM-6's TS2 limit successor. **Lead recommendation:** raise or remove the cap in a Rust3 limit successor before G3 ships, measured by S-M.
 - **E0 report accepted by GROK2** (record review, no required findings). The T-native outcome stands: syntax uses native tree-sitter, `native-linked-v1`. E2a can start once P0 lands.
+- **CRC-1 and CR-1 written** (M3-C's successors). CRC-1 goes to GROK2 and CR-1 to CODEX2. Each binds on the current lock, alone or together.
+  - **CRC-1:** the core detector, provider and adapter role closures. Each is EC1's descriptor with another `kind`. The core provider closure's two uses (import producer, and syntax-universe producer) carry `semanticClosures` membership exactly when a syntax universe is selected. It uses nine insert-only overrides.
+  - **CR-1:** the role-to-kind table, on SL:70 and the manifest schema.
+  - **Lead decisions:**
+    - **X-H3 goes to M3-C r8 and CRC-2,** before C4a. CRC-1 carries C's law and doesn't amend it.
+    - **CR-1 LD-3:** the four roles other than `analyzer` (`toolchain`, `stdlib`, `rust-dev-llvm`, `grammar`) are closure-only. They have no capabilities or permissions, and their entrypoint is never executed.
