@@ -1,6 +1,6 @@
 # M3 unit plan
 
-Draft r9, not accepted. Claude Opus 5.5, implementation lead; drafted for the lead by a lead-dispatched drafting agent during the overnight autonomous run. **Planning record: not law, not code, not a contract successor.** It is the M3 counterpart of [m2/EXIT-PLAN.md](../m2/EXIT-PLAN.md). It orders M3's obligations into reviewable units and changes no accepted contract, gate, threshold or register row.
+Draft r8, not accepted. Claude Opus 5.5, implementation lead; drafted for the lead by a lead-dispatched drafting agent during the overnight autonomous run. **Planning record: not law, not code, not a contract successor.** It is the M3 counterpart of [m2/EXIT-PLAN.md](../m2/EXIT-PLAN.md). It orders M3's obligations into reviewable units and changes no accepted contract, gate, threshold or register row.
 
 **r7 is a record revision.** It brings the plan up to date with the laws, lead decisions and cross-law items of the night of 2026-10-03 to 2026-10-04. It moves no gate or threshold the owner set. Durations and edges move only where an accepted law moved them. It adds one lead gate item to M3-L's own row (G10, FA-2; P7-2).
 
@@ -50,15 +50,6 @@ Draft r9, not accepted. Claude Opus 5.5, implementation lead; drafted for the le
 - **The overnight log, ON:** `docs/implementation/OVERNIGHT-2026-10-03.md`, cited by entry.
 - Product paths are under `opensip/`.
 
-## r9 changes
-
-r9 answers GROK2's r8 review (`reviews/grok2-m3-plan-r8/`) and changes nothing else. r8's bytes are preserved in `M3-PLAN-r8.md`.
-
-| Finding | Change |
-|---|---|
-| RF-1 | **Record cut-off kept.** r7, r8 and r9 all record at r7's cut-off, when M3-H r3 was in review. r8's "MH r3 accepted" in the day-0 assumption broke that rule and is withdrawn. Since the cut-off, Grok accepted M3-H r3 (`reviews/grok-fact-admission-h-r3/`, `7a562720…`); the next record revision records it everywhere at once. |
-| RF-2 | The NBO-1 row now points at the DR-G10 sentence by section, not line. The rename reads "L-G1 onwards", since this plan's M3-L gate runs G1 to G10. |
-
 ## r8 changes
 
 r8 answers GROK2's r7 review (`reviews/grok2-m3-plan-r7/`) and changes nothing else. r7's bytes are preserved in `M3-PLAN-r7.md`.
@@ -67,7 +58,7 @@ r8 answers GROK2's r7 review (`reviews/grok2-m3-plan-r7/`) and changes nothing e
 |---|---|
 | RF-1 | The day-0 assumption ("Critical path") and the Unsized list now name the X-H3 widening as M3-C r8 with CRC-2, matching the widening row, the cross-law route and the reversible-decision row. CRC-1 stays the day-5 successor for C's existing law. |
 | RF-2 | The Risks bullet now records X4-F1's confirmation lane as passed: 1749/0/3 on `15c0779`. |
-| NBO-1 | Recorded, not changed. In the units table, "G10" means the DR-G10 gate (the seven-gates sentence under "What M3 exit means"); in the M3-L gate table, item G10 is "FA-2 accepted". Both are defined where they appear. M3-L's next revision is to rename its gate items with an `L-` prefix (L-G1 onwards), which removes the collision at the source. |
+| NBO-1 | Recorded, not changed. In the units table, "G10" means the DR-G10 gate (line 140); in the M3-L gate table, item G10 is "FA-2 accepted". Both are defined where they appear. M3-L r4 is to rename its gate items with an `L-` prefix (L-G1..L-G11) at its next revision, which removes the collision at the source. |
 
 ## r7 changes
 
@@ -389,7 +380,7 @@ Each item from tonight's laws is routed once. "Here" means this record takes it 
   - the D law (**accepted**, r3; its gate, CF-P, met), the E law (**accepted**, r3), the J law (**accepted**, J1 r4), X3c r8 (**accepted**), the H law (in review; r3 queued) and J-RW (in review; r3 being written);
   - the B law (accepted) and its successors X2 r9 and X12 r4 (**accepted**), and B-S1 with SX-1, B-S2 and B-S9 (**all bound**; B1-a needed B-S9 on day 0);
   - **FA-2**, with L r3 (gate item G10); both are in review (Codex and Grok);
-  - **the X-H3 widening of C (M3-C r8) and CRC-2** (MH item 25; in review at this record's cut-off): before day 0, or at the latest before C4a starts on day 16.
+  - **the X-H3 widening of C (M3-C r8) and CRC-2** (MH item 25; MH r3 accepted): before day 0, or at the latest before C4a starts on day 16.
   - X12 r4 lands with B1-a (MB item 25), which starts on day 0; it is accepted, so this is met.
 - **P0 landed.**
 - **I1's product units,** or at least I1-c by day 16 and I1-b2 by day 19 (below). Both I1 design units are bound.

@@ -414,3 +414,4 @@ Times are local.
   - **CR-T4:** uses CODEX2's exact text.
   - **New D record item:** M3-D's EE-3b and EE-5a (MD:729, :731) read as refusing *any* root-command claim, which would include an ordinary `analyzer` manifest's mandatory root command. D's next revision must state how D4 admits `analyzer` manifests under those rows.
   - **Queue:** CR-1 r2 goes to CODEX2 next, since it gates C2a by day 5.
+- **M3-PLAN r8:** GROK2 raised two findings, both caused by the lead's r8 edits. One line said MH r3 was accepted while the rest of the record, at r7's cut-off, still had H in review; the other was a wrong line pointer. r9 restores the cut-off rule (H's acceptance is noted once and recorded in full next revision) and fixes the pointer. It goes to GROK2.
