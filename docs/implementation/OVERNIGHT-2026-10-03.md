@@ -141,3 +141,4 @@ Times are local.
 - **M3-E1 r2 written,** queued for Codex.
   - **Conflict found:** E1 makes the core provider closure the syntax producer, while M3-C r5 keeps that closure out of `semanticClosures`.
   - **Lead decision:** M3-C r6 widens it and adds the clones-near census (X-C1, X-C2). This gates E3, not E1.
+- **X2 r9 and X12 r4 accepted by Grok,** with no findings. These are M3-B's S1 and S2, and X12 r4 includes the first-use clause. M3-C's gate now waits only on M3-L, which waits on O7.

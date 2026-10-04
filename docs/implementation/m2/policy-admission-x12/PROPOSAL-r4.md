@@ -1,7 +1,5 @@
 # Configuration and policy-pack admission — proposal X12 r4
 
-**r4 ACCEPTED by Grok on 2026-10-04** (`adc9a88a…`). r4's bytes, without this note, are preserved in `PROPOSAL-r4.md`.
-
 2026-10-01. Claude Opus 5.5, implementation lead. Law for unit X12 of `EXIT-PLAN.md`, release gate DR-G24 PREVIEW-ANALYZE-WELL-FORMED-ADMISSION. X5 r1 split this gate out of X5 (`replay-join-x5/PROPOSAL.md` item 1, "Correction to EXIT-PLAN"). The governing documents are:
 - the register's DR-G24 row (`08-decision-and-readiness-register.md` line 369: "Host admission of preview analyze requests refuses a non-bundled pack identity and a non-declarative pack or contribution"; retained evidence "pack-identity refusal before evaluation; imperative-pack refusal; no user or third-party pack"; "no waiver for silent admission"), and DR-131 (line 320, SATISFIED at D-369);
 - the DR-131 contract `docs/coop/artifacts/preview-analyze-contract.v2.json`: `$.pack` (`opensip.preview.typescript.pack`, version 1, "Exactly one pack. Host-owned. Bundled. First-party. Declarative-only. … No user packs. No third-party packs.", rule IR not frozen), `$.planIdMembership`, and `$.negativeTests` NT-1 and NT-2;
