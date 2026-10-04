@@ -1,8 +1,8 @@
-# Sealed snapshot and Plan — proposal M3-C r5
+# Sealed snapshot and Plan — proposal M3-C r4
 
 2026-10-04. Drafted for Claude Opus 5.5, implementation lead, by a lead-dispatched drafting agent during the overnight autonomous run. Law for unit **M3-C** of the accepted M3 unit plan (`M3-PLAN.md:163`).
 
-**Draft r5, not accepted. Not code.** No product crate is touched before X9-6 (M3P:5, M3P:272). Every code unit below also waits for P0, the M3-L law and I1's product units ("Units").
+**Draft r4, not accepted. Not code.** No product crate is touched before X9-6 (M3P:5, M3P:272). Every code unit below also waits for P0, the M3-L law and I1's product units ("Units").
 
 r2 answered CODEX2's r1 review: four required findings and three non-blocking observations. The r1 bytes are preserved as `PROPOSAL-r1.md` (sha256 `ff9a5e8d…`, 78,037 bytes).
 
@@ -15,18 +15,7 @@ The r2 bytes are preserved as `PROPOSAL-r2.md` (sha256 `bf44ffe2…`, 102,443 by
 
 r4 answers CODEX2's r3 review (`/tmp/opensip-implementation/reviews/codex2-snapshot-plan-c-r3/`): two required findings and three non-blocking observations. The r3 bytes are preserved as `PROPOSAL-r3.md` (sha256 `2e455c70…`, 127,963 bytes).
 
-r5 answers CODEX2's r4 review (`/tmp/opensip-implementation/reviews/codex2-snapshot-plan-c-r4/`): one required finding, C4-R1, resolved by a lead decision, and three non-blocking observations. The r4 bytes are preserved as `PROPOSAL-r4.md` (sha256 `bcf4baa1…`, 140,217 bytes).
-
 **Lead decisions.** Items 1 to 20 hold lead decisions dated 2026-10-04. They are made under the owner's standing direction to decide on the lead's recommendation and to block only where no recommendation exists. Each one names the alternatives it rejects. The owner may reverse any of them. Four are flagged to the owner in "Open questions"; none blocks this law. r3's step-order rows 1 to 4 follow X12 r4, which is pending review.
-
-## r5 changes
-
-| Finding | Change |
-|---|---|
-| C4-R1 (oversized shortcut) | **Lead decision: the shortcut is removed** (item 12, rule 7):<br>- **Every candidate is acquired to completion** under its route's rules, the per-archive decoder counters and the acquisition bounds. It is admitted by its route, or rejected as a profile breach, **before activation**.<br>- **Acquisition crossings** refuse as `DependencyAcquisitionBound` whatever the processing order.<br>- **Admitted candidates are materialized whole**, so Cargo decides activation lawfully. Rejected ones are never materialized, and NE:1789-1791 governs Cargo's failure.<br>- **The protocol counters are checked once**, after activation and admission, over the admitted set. Only a proven overflow gives `DependencySetBound`.<br>- **A large single candidate takes no special path.**<br><br>r4's oversized rule is withdrawn. DS-6's step 1 and the forbidden substitutes are updated. C3-T6c's oversized cases become four variants each for 8 GiB + 1 of content and for 1,000,001 files: valid or late-failing, active or inactive, including a required late-failing package whose absence makes Cargo fail. |
-| C4-N1 | Rule 6's end-region cap of 1,024 to 10,240 bytes is now an explicit, separate check. D1 is shown to be implied by rules 4 and 6, D2 and alignment, so it cannot be crossed alone. It is kept as a streaming guard, and its breach is reported as the rule it implies. The D1-only control is withdrawn, and a 29,184-byte aligned empty stream now tests the end-region cap. |
-| C4-N2 | The admitted-set population covers every route: DS-1 vendored trees, DS-2 archives and DS-3 Git trees, each keeping its assurance level. CRATE-ARCHIVE-1 is DS-2 only. The acquisition source quantity covers archives and trees, and tree files count like archive files. A mixed-route control is added. |
-| C4-N3 | Acquisition is in the canonical `(name, version, sourceId)` order, with files in archive or path order, and a fixed field precedence: sources, then files, then content. So the refusal's class is order-independent and its `{field, observed, limit}` are deterministic. r4's "commutative totals" claim is withdrawn. A two-crossing control is added. |
 
 ## r4 changes
 
@@ -536,14 +525,9 @@ O7 is **not** a gate item. This law launches nothing except the dependency-featu
        - an `L` before any other type;
        - a name-field mismatch.
     5. **The effective path** is the long name when one precedes the entry, and otherwise the NUL-trimmed name field. It must be valid UTF-8, begin with exactly `<name>-<version>/` from the lock row, and leave a remainder that is a strict logical path (IE:161-163; `descriptors.rs:31`). Two entries with the same effective path are outside the profile, whatever their content.
-    6. **End of archive.** At least two zero blocks follow the last entry. Everything after the first zero block is zero. The decompressed stream ends on a block boundary. **The end region is between 1,024 and 10,240 bytes (r5, C4-N1).** This is an explicit check of its own, applied as zero blocks are produced, so a stream of zero blocks that never ends is bounded before its end is seen.
+    6. **End of archive.** At least two zero blocks follow the last entry. Everything after the first zero block is zero. The decompressed stream ends on a block boundary.
     7. **Three kinds of bound, each over its own population (r3, C2-R3; r4, C3-R2).**
-       - **Protocol counters: exact and logical, and only over the final admitted set.** The population is the **dependency set itself**. It contains every activated, non-path package that was admitted, **whatever its source route** (r5, C4-N2):
-         - a DS-1 vendored tree admitted as `self-consistent`;
-         - a DS-2 archive whose checksum matched and which passed CRATE-ARCHIVE-1 completely;
-         - a DS-3 Git tree admitted as `declared` (NE:1671-1686; NEM:1846-1875).
-
-         CRATE-ARCHIVE-1 applies to DS-2 only. Each route keeps its own assurance level. Activation comes from `UnifiedFeaturesV1`, and the reference builds the set from exactly this population (NEM:1832-1845, NEM:1870-1883). Each admitted package commits its logical counts, `fileCount` and `totalBytes` from its own file manifest (NE:1663-1664; NEM:1874). The set's totals are the sums of those committed counts:
+       - **Protocol counters: exact and logical, and only over the final admitted set.** The population is the **dependency set itself**. It contains the activated, non-path packages that were admitted: their checksum matched, and their archives are inside the profile. Activation comes from `UnifiedFeaturesV1`, and the reference builds the set from exactly this population (NEM:1832-1845, NEM:1870-1883). Each admitted package commits its logical counts, `fileCount` and `totalBytes` from its own file manifest (NE:1663-1664; NEM:1874). The set's totals are the sums of those committed counts:
          - packages: at most `maxDependencySourcePackages`, 4,096;
          - files (Σ `fileCount`): at most `maxDependencySourceEntries`, 1,000,000;
          - content (Σ `totalBytes`): at most `maxDependencySourceTotalBytes`, 8 GiB.
@@ -551,35 +535,25 @@ O7 is **not** a gate item. This law launches nothing except the dependency-featu
          These are the quantities the manifest, chunk and seal frames carry (NE:2876-2878), under NE:2931-2932's bounds. **They are checked once, after activation and final package admission, and before the set's descriptor is minted, its import is wrapped, or anything is transported.** Excluded from these counters:
          - tar framing, long-name records, padding and end blocks;
          - inactive candidates;
-         - candidates rejected by their route, including DS-2 archives rejected late, after their content was decoded (by the gzip trailer, the end-of-archive rule or a decoder counter);
+         - candidates whose archives fell outside the profile, including those rejected late, after their content was decoded (by the gzip trailer, the end-of-archive rule or a decoder counter);
          - path packages.
 
          **Only a proven overflow of the admitted set** refuses the import as a set bound: internally `DependencySetBound {field, observed, limit}`, with its public projection by J1 beside item 5's (S-B). The set could not be transported or Plan-bound. Nothing is truncated.
-       - **Acquisition bounds: before activation, over the supplied candidates (r4, C3-R2; r5, C4-R1).** Before activation, C3a acquires **candidates**: the lock's non-path packages that the named source supplies. A candidate is a DS-2 archive or a DS-1 or DS-3 tree. Their population is not the set's, so they get their own bound, separate from `DependencySetBound`.
+       - **Acquisition bounds: before activation, over the supplied candidates (r4, C3-R2).** Before activation, C3a decodes and materializes **candidates**: the lock's non-path packages that the named source supplies, processed in lock order. Their population is not the set's, so they get their own bound, separate from `DependencySetBound`.
          - **Owner:** C3a, the importer.
          - **Quantities** (a lead decision), each four times the protocol bound, so that an activated set at its protocol bounds can still be acquired when up to three quarters of the supplied candidates are inactive for the target:
-           - candidate sources (archives and trees alike): at most 16,384;
+           - candidate archives: at most 16,384;
            - candidate logical files: at most 4,000,000;
            - candidate content: at most 32 GiB.
 
-           A tree candidate's files and bytes are read under item 2's descriptor discipline and count the same way as an archive's decoded files (r5, C4-N2). H-DEP's pin-time report records every T2 Rust entry's candidate totals (item 15). If a T2 entry exceeds a quantity, the quantity returns to this law for amendment. It is never raised silently.
-         - **Every candidate is acquired to completion (r5, lead decision, C4-R1).** There is no protocol-threshold shortcut. Each candidate is decoded or read **to completion**, under its route's rules, the per-archive decoder counters (for DS-2) and the acquisition bounds. It is then either **admitted by its route** or **rejected** (for DS-2, as an archive-profile breach), **before activation**.
-           - An admitted candidate is materialized whole and read-only in the adapter's scratch, so Cargo decides activation from a lawful, complete tree (NE:1785-1791).
-           - A rejected candidate is never materialized, and no partial tree or manifest reaches the adapter. If Cargo then fails for its absence, NE:1789-1791's incomplete branch governs.
-           - A single large candidate needs no special path. A candidate with 8 GiB + 1 of content is within the 32 GiB acquisition bound, so it is acquired, admitted or rejected, and materialized like any other. If it is activated and admitted, the final protocol check finds the overflow. If it is inactive, or rejected, it counts toward nothing.
-           - r4's oversized-candidate rule (stop at the protocol threshold, then decide by activation) is **withdrawn**. A rejected or unvalidated prefix is not an admitted package, and the stopped candidate had no lawful materialization for Cargo.
-         - **Disposition, and a deterministic first breach (r5, C4-N3).** Crossing a candidate total refuses the import as `DependencyAcquisitionBound {field, observed, limit}` (internal; public projection by J1 beside S-B), **whatever the processing order**. It is **never** labelled a set bound. The fields of that refusal are fixed by a canonical order:
-           - candidates are acquired in the set's canonical order, ascending `(name, version, sourceId)` by UTF-8 bytes (NES `DependencySourceSetV1.packages`);
-           - within a candidate, files are taken in archive order, or in ascending logical path for a tree;
-           - the reported field is the first to cross in that order;
-           - when one file crosses several fields at once, the precedence is sources, then files, then content.
-
-           The refusal's class therefore never depends on processing order, and its `{field, observed, limit}` are deterministic. r4's claim that the refusal was order-independent because totals commute is withdrawn: totals commute, but the first field to be breached does not.
-         - **The adapter's scratch.** Materializing admitted candidates for the adapter is also bounded by the D law's adapter scratch bound. A refusal there is the D law's typed refusal.
+           H-DEP's pin-time report records every T2 Rust entry's candidate totals (item 15). If a T2 entry exceeds a quantity, the quantity returns to this law for amendment. It is never raised silently.
+         - **Disposition.** Crossing a candidate total refuses the import as `DependencyAcquisitionBound {field, observed, limit}` (internal; public projection by J1 beside S-B). It is **never** labelled a set bound. Totals are order-independent, so the refusal does not depend on processing order.
+         - **One oversized candidate.** A single candidate whose own content exceeds 8 GiB, or whose own files exceed 1,000,000, can never fit the set. Its decoding stops there, and it is held as **oversized**. After activation:
+           - if it is activated, the set provably overflows, so the import refuses as `DependencySetBound`;
+           - if it is inactive, it is dropped, with the omission `undecodable:<key>:oversized-inactive`.
+         - **The adapter's scratch.** Materializing candidates for the adapter is also bounded by the D law's adapter scratch bound. A refusal there is the D law's typed refusal.
        - **Decoder counters: per archive, belonging to CRATE-ARCHIVE-1.** They bound the work of decoding one archive, and they are separate from both of the above. During decoding, **only these and the acquisition bounds apply**:
-         - **D1, framing allowance (r5 wording, C4-N1).** Inflated bytes minus regular-file content bytes must stay at or below 18,432 × (regular files so far + 1) + 10,240. The constant follows from the profile: a regular file costs one 512-byte header and less than 512 bytes of padding, plus at most one long-name record, which is a 512-byte header and a payload of at most 16,385 bytes padded to 16,896. The sum is 18,431, rounded up to 18,432. The "+ 1" allows the one pending `L` before its file, and the end region is rule 6's.
-
-           **D1 is implied by** rules 4 and 6, D2 and block alignment: total framing is at most 18,431n + 10,240, which is inside the allowance. So **no archive that satisfies the other rules can cross D1 alone.** D1 is kept as an incremental streaming guard, so that framing work is bounded before the rule it implies can be evaluated. A D1 breach is reported as the archive-profile breach of the rule that caused it. An inconsistency between D1 and those rules is a decoder defect, a host-invariant fault. r4's "D1-only" control is withdrawn.
+         - **D1, framing allowance.** Inflated bytes minus regular-file content bytes must stay at or below 18,432 × (regular files so far + 1) + 10,240. The constant follows from the profile: a regular file costs one 512-byte header and less than 512 bytes of padding, plus at most one long-name record, which is a 512-byte header and a payload of at most 16,385 bytes padded to 16,896. The sum is 18,431, rounded up to 18,432. The "+ 1" allows the one pending `L` before its file. The end region holds between 1,024 and 10,240 zero bytes.
          - **D2, control records.** At most one `L` record per regular file (rule 4), and each payload at most 16,385 bytes.
          - **D3, compressed input (r4 wording, C3-N2).** Compressed bytes consumed must stay at or below 1.01 × inflated bytes produced, plus 1 MiB, checked as the stream proceeds. This is a profile limit, not a universal DEFLATE property: blocks may be of any size (RFC 1951 §§2 and 3.2.4). Its margin for Cargo's actual compressor and settings (`GzBuilder`, `Compression::best()`, cargo_package `mod.rs:871-874`), streaming prefixes included, is part of R6's pinned-producer evidence for C3a. A stream that consumes input without producing output, such as a run of empty blocks, breaches it.
          - **D4, gzip header fields.** `FNAME` at most 4,096 bytes (rule 1).
@@ -601,7 +575,7 @@ O7 is **not** a gate item. This law launches nothing except the dependency-featu
   - **DS-4 (path):** in the snapshot; nothing is imported (NE:1687). An in-snapshot `vendor/` tree with source replacement is DS-1 with `in-snapshot-vendored` (NE:1665, NE:1745).
   - **User-named paths** get the user-input custody of NE:4207-4208. Here that means item 2's descriptor discipline and S3 directory custody over the named tree. A custody failure refuses the import.
   - **DS-6, and the launch gate.** Completeness is over the packages that `UnifiedFeaturesV1` activates (NE:1693-1697). Unified features are computed **only** by the bundled `cargo metadata --offline --frozen --locked --format-version 1 --filter-platform <target>`, through `opensip-cargo-adapter` and the CC-1..CC-5 carrier (NE:1724-1741, NE:1785-1791). So the steps are:
-    1. acquire every supplied candidate **to completion**, in canonical order, under its route's rules, the decoder counters (DS-2) and the acquisition bounds. Then materialize each **admitted** candidate whole and read-only in private scratch (r5, C4-R1);
+    1. decode the supplied candidates under the decoder counters and acquisition bounds, and materialize those inside the profile read-only in private scratch;
     2. run the adapter;
     3. admit the set over the activated, non-path packages, as the reference does (`NEM:1820-1883`);
     4. **then** commit each admitted package's logical counts and check the protocol counters over the final set (rule 7). Only after that is the descriptor minted or the import wrapped (r4, C3-R2).
@@ -647,22 +621,14 @@ O7 is **not** a gate item. This law launches nothing except the dependency-featu
   - C3-T6b (r3, C2-R3): boundary controls run the decoder over generated streams, at the real bounds, without materialized fixtures. Because they are slow, they are `#[ignore]`d and run in C3a's review lane:
     - an **admitted, activated** set whose logical content is exactly 8 GiB, with full framing, admits. One more admitted content byte refuses as a set bound.
     - an admitted, activated set of 1,000,000 files, each with an `L` record (2,000,000 entry headers), admits. 1,000,001 admitted files refuse as a set bound.
-    - (r5, C4-N1) an empty tar stream of 29,184 zero bytes (57 aligned blocks) breaches **rule 6's end-region cap**. It exceeds 10,240, and D1's 28,672 as well, and is reported as the end-region rule, an archive-profile breach recorded as missing, never a set refusal. A 16,386-byte `L` payload crosses **D2** (it pads to the same 16,896 bytes as 16,385), which is also an archive-profile breach.
+    - (r4, C3-N2) an end region of 10,241 zero bytes crosses **D1 alone**, an archive-profile breach recorded as missing, never a set refusal. A 16,386-byte `L` payload crosses **D2** (it pads to the same 16,896 bytes as 16,385), which is also an archive-profile breach.
     - a run of empty deflate blocks breaches D3, also an archive-profile breach.
     - an inactive outside-profile package leaves an activated-complete set complete, with only the `undecodable:` omission.
   - C3-T6c (r4, C3-R2): population controls.
     - **Inactive excess.** In-profile inactive candidates with 9 GiB of content and 1,200,000 files in total, beside a small activated set of 10 packages, admit with no `DependencySetBound`. They are within the acquisition bounds, and only the 10 packages count.
     - **Late rejection.** An activated candidate whose content decodes fully but whose gzip trailer fails CRC-32 is recorded `missing` and `undecodable`. Its decoded bytes count toward no protocol total, and there is no set refusal.
-    - **Large single candidates (r5, C4-R1).** A DS-2 candidate with 8 GiB + 1 of content is acquired **to completion**, within the acquisition bounds, and in four variants:
-      - **valid and inactive:** admitted and materialized, then excluded from the set by activation, with no refusal;
-      - **valid and activated:** admitted and materialized, and the final protocol check refuses `DependencySetBound` (content);
-      - **failing CRC-32 after its full content decodes, and inactive:** rejected, never materialized, with only the `undecodable:` omission;
-      - **the same failure, and required by an activated dependency:** rejected, never materialized. Cargo fails for its absence, NE:1789-1791's incomplete branch applies, and the package is `missing` with `undecodable:`. There is no `DependencySetBound`, and no activation is manufactured.
-
-      The same four variants run for a candidate with 1,000,001 files.
-    - **Mixed routes (r5, C4-N2).** An activated set with a DS-1 vendored tree, a DS-2 archive and a DS-3 Git tree counts all three in the protocol totals. They keep `self-consistent`/`declared`, `registry-authenticated` and `declared` respectively, and CRATE-ARCHIVE-1 runs on the archive only.
-    - **Acquisition crossing.** 32 GiB + 1 of candidate content refuses as `DependencyAcquisitionBound`, not `DependencySetBound`. The same candidates supplied in reverse order give the same class, field, observed value and limit.
-    - **Two crossings at once (r5, C4-N3).** Four candidates with 8 GiB and one file each, and four with 1,000,000 files and 1,000,000 content bytes each, cross both acquisition totals. The reported field is the one the canonical `(name, version, sourceId)` order crosses first, and it is identical whatever the supplied order.
+    - **Oversized candidates.** A single in-profile candidate with 8 GiB + 1 of content is dropped with `oversized-inactive` when it is inactive. When it is activated, it refuses as `DependencySetBound`.
+    - **Acquisition crossing.** 32 GiB + 1 of candidate content refuses as `DependencyAcquisitionBound`, not `DependencySetBound`. The same input given in reverse lock order gives the same refusal.
   - C3-T6a (r2, positive): two archives decode, and each manifest equals the expected file list:
     - one produced by the pinned toolchain's `cargo package --no-verify` from a harness-authored fixture crate with a path longer than 100 bytes, so it carries an `L` record and a gzip `FNAME` (pinned bytes, with their provenance recorded);
     - one with no long names.
@@ -1143,7 +1109,6 @@ In addition to each item's list:
 - a carrier observation and walk row that disagree in presence, digest, type or exclusion, admitted anyway; or the carrier's bytes handed to C1 (r4);
 - a protocol counter computed over candidates, inactive packages, rejected archives or framing; or an acquisition-bound crossing reported as `DependencySetBound` (r4);
 - a capture origin inside an identity row (r4).
-- stopping a candidate's acquisition at a protocol threshold, or inferring admission or activation from a decoded prefix; or materializing a rejected or partial candidate for the adapter (r5).
 - policy fields not from an `AdmittedPack`;
 - a cache or regeneration key at M3;
 - an operational value in any identity;
