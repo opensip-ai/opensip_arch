@@ -488,3 +488,12 @@ Times are local.
   - **LD-R4-2, X-SD5-1:** request-rejected 2, `REQUEST.UNSATISFIABLE`, detail `PROVIDER.NOT_SELECTED` with subject `excluded-form:<class>`. This needs SD-7 to widen the remedy text, and it is the reviewer's main question.
   - **LD-R4-3:** SD-5's owed items are grouped as SD-5b, each landing with its first consumer.
   - **Defect found in bound SD-5:** its NE row text still describes EE-3b as covering "a `commands` entry for role `analyzer`". New successor SD-7 corrects it, using the complete-copy form because NE:3540 is already overridden. It doesn't gate D4.
+- **SYN-1 (r2) and SYN-1F accepted by CODEX2 and bound** at product `682991f` and `218465f`, giving 91 contract successors.
+- **SYN-NS r1:** CODEX2 raised six substantive findings on the normalizer.
+  - JS-family line terminators that decide automatic semicolon insertion are erased.
+  - Rust identifier patterns are renamed on a capitalization heuristic.
+  - Macro token trees aren't verbatim at L1–L3.
+  - Flow-node traversal is under-specified.
+  - The `do…while` edges are wrong.
+  - Control-flow identities collide.
+  - **Lead direction for r2:** the conservative rule. Where the grammar cannot prove a transform semantics-preserving, don't normalize.
