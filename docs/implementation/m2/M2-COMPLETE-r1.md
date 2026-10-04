@@ -1,39 +1,30 @@
 # M2 completion record — COMPLETE (2026-10-04)
 
-2026-10-04. Drafted for Claude Opus 5.5, implementation lead, by a lead-dispatched drafting agent during the overnight autonomous run. This is a record. It is not law, code or a contract successor, and it changes no accepted contract, gate, threshold or register row. It was drafted against arch `28e46fec5` and product main `3e64266`, and the lead finalized it at arch `3e6c40ad7`. This is r2.
+2026-10-04. Drafted for Claude Opus 5.5, implementation lead, by a lead-dispatched drafting agent during the overnight autonomous run. This is a record. It is not law, code or a contract successor, and it changes no accepted contract, gate, threshold or register row. Drafted against arch HEAD `28e46fec5` and product main `3e64266`.
 
-**Status: COMPLETE (2026-10-04).** Grok's independent rerun of the crash matrix on product commit C (`3d2d5b5`), review `reviews/grok-crash-matrix-x96-r2/` (assigned at arch `af703414d`), returned **ACCEPT** with no required findings. It was recorded at arch `50047b7ed` on 2026-10-04. With it, both of BP:886's completion criteria pass (§2).
+**Status: COMPLETE (2026-10-04).** The rerun was accepted (`reviews/grok-crash-matrix-x96-r2`, arch `50047b7ed`). M2 completes when Grok's independent rerun of the crash matrix on product commit C (`3d2d5b5`) is accepted. That rerun is review `reviews/grok-crash-matrix-x96-r2/`, assigned at arch `af703414d`. Until then, this record claims nothing beyond the lead's own evidence and the accepted reviews it cites.
 
-**r2 (2026-10-04)** answers GROK2's eight r1 findings (`reviews/grok2-m2-complete-r1/`, recorded at arch `55796cced`). All are consistency fixes. r1's bytes, the subject GROK2 reviewed (sha256 `957d3002…`, at arch `3e6c40ad7`), are preserved in `M2-COMPLETE-r1.md`.
+When the lead finalizes:
+- every `RERUN` token below (a name in double square brackets) is filled from that review's `review.json` and `REVIEW.md`;
+- the status line becomes **COMPLETE (date)**;
+- §9's checklist is worked through.
 
-| Finding | What r2 changes |
-|---|---|
-| RF-1 | Removes the remaining pending and "on acceptance" wording from the preamble, §1, §2.2, §3.2 row 60, §5 row 1 and §9. Fills the date and arch-record token cells. §9 now records what was done. |
-| RF-2 | §3.3 and §8 item 4 cite the lead decisions of 2026-10-04 (§5 rows 13–15) and M3-PLAN r6 as the deferral records. |
-| RF-3 | M3 citations now use `m3/M3-PLAN-r6.md` (sha256 `a6956e88…`) line numbers. The owners named there are J-RW and J4 (L11), X3c r8 and X3c-3 (re-commit), J1 (X11 successor) and C4b (X12d). §5 row 9 records M3-C r5's acceptance. |
-| RF-4 | §6 cites the lead's lane output on main `3e64266`, with its ignored counts. |
-| RF-5 | §5 gains rows 23 (X4-F2) and 24 (F9). §4.2 lists them. |
-| RF-6, RF-7 | §8 items 7 and 5 give the current facts: both records were corrected at arch `5df50f35c`. |
-| RF-8 | EXIT-PLAN's status cells are refreshed to the finalized facts. §7 describes each EXIT-PLAN change and its commit. |
+If the rerun's verdict is REQUIRED-FINDINGS, M2 is not complete. The status stays PENDING-RERUN, and the findings go into §5.
 
-r2 also takes up four of GROK2's non-blocking observations: the evidence size in bytes, the `apfs` spelling, where the §3.2 "(review)" revisions come from, and M3-PLAN's stale line 7 (§8 item 8).
+## Finalization tokens
 
-## Finalization tokens (filled)
-
-The lead filled these tokens at `3e6c40ad7`. r2 filled the last two cells.
-
-| Token | Filled from (`grok-crash-matrix-x96-r2`) | Value |
+| Token | Filled from (`grok-crash-matrix-x96-r2`) | Expected value |
 |---|---|---|
-| `[[RERUN:verdict]]` | `review.json` `"verdict"` | `ACCEPT` |
+| (filled) `[[RERUN:verdict]]` | `review.json` `"verdict"` | `ACCEPT` |
 | `[[RERUN:requiredFindings]]` | `"requiredFindings"` | `[]` |
 | `[[RERUN:matrixPass-reviewer-pair]]` | `"matrixPass"`, the reviewer's two sets | `true` |
 | `[[RERUN:matrixPass-mixed-pair]]` | `"matrixPass"`, the pair (lead-1, reviewer set 1) | `true` |
-| `[[RERUN:normalized-equal]]` | `"normalizedAgreement"`: equal runs | 479 in each of the five pairings |
+| `[[RERUN:normalized-equal]]` | `"normalizedAgreement"`: equal runs | every compared run |
 | `[[RERUN:normalized-differing]]` | `"normalizedAgreement"`: differing runs | `0` |
 | `[[RERUN:evidenceRecordSha256]]` | `"evidenceRecordSha256"` | `97f8367e46c07fddc627bb0661896b228e39348460af70cf29f1d535ed57da69` |
 | `[[RERUN:release-absence]]` | the reviewer's release-absence record (`REVIEW.md`) | `opensip` 6315264 bytes, `b32604fe…`; both feature builds refused |
-| `[[RERUN:date]]` | the date of Grok's review | 2026-10-04 |
-| `[[RERUN:arch-record]]` | the arch commit that copies the review in | `50047b7ed` |
+| `[[RERUN:date]]` | the date of Grok's review | — |
+| `[[RERUN:arch-record]]` | the arch commit that copies the review in | — |
 
 ## 1. The claim
 
@@ -47,19 +38,13 @@ The M2 row of the build plan (`docs/v2/architecture/implementation-boundaries-an
 
 The detailed checks are BP:591–613 ("Required API and fault-injection checks"). [EXIT-PLAN.md](EXIT-PLAN.md) broke M2 into units X1 to X12.
 
-### What this record claims
+### What this record claims, once the rerun is accepted
 
 1. **Opaque API refusal tests pass.** These are the X8 suite: compile-fail fixtures and the behavioural cases B0–B8 (§2.1).
-2. **The actual crash/lock/revocation matrix passes.** The real two-target `check` gave `matrixPass: true` on the clean commit C. Grok's independent rerun on C agrees: ACCEPT, at arch `50047b7ed` (§2.2).
+2. **The actual crash/lock/revocation matrix passes.** The real two-target `check` gave `matrixPass: true` on the clean commit C, and an independent rerun on C agrees (§2.2).
 3. **Synthetic fixtures stay labelled.** Every matrix run carries `synthetic`, and no record claims qualification (§2.3).
 4. **The deliverable exists.** Its four parts exist as reviewed, integrated library code at main `3e64266` (§2.4).
-5. **The exit plan is accounted for.** Every EXIT-PLAN unit is integrated, or carried with a recorded owner (§3, §5). There are four exceptions: three units that accepted laws declare were not built in M2 (X3a-2, X4b and X4T-c), and the open gap X4 F-1. None of the four lies on BP:886's completion criteria. Each has a lead decision (2026-10-04), recorded in §5 rows 13–16, and these decisions are their deferral records.
-   - X3a-2 is a post-M2 unit, due before M3-C1a.
-   - X4b is deferred. M3-B's unit B3-a creates `grants.rs` (records only), and the predicate itself lands with M5-EX, under O7.
-   - X4T-c follows F8b.
-   - X4 F-1 is a disclosed known defect. Its fix, unit X4-F1, is written and lands before J2, so before any M3 analysis ships.
-
-   M3-PLAN r6 schedules all four (`m3/M3-PLAN-r6.md:229-233`). Two further follow-ups, X4-F2 and F9, were found by X4-F1 and are scheduled there too (§5 rows 23–24).
+5. **The exit plan is accounted for.** Every EXIT-PLAN unit is integrated, or carried with a recorded owner (§3, §5). There are four exceptions: three units that accepted laws declare were never built (X3a-2, X4b and X4T-c), and the open gap X4 F-1. None of the four lies on BP:886's completion criteria. Each now has a lead decision (2026-10-04), recorded in §5 rows 13–16. X3a-2 is a post-M2 unit due before M3-C1. X4b is deferred to M3-B3's `grants.rs` and M5-EX, under O7. X4T-c follows F8b. X4 F-1 is a disclosed known defect: its fix, unit X4-F1, is written and lands before any M3 analysis ships. M3-PLAN r6 schedules all four.
 
 ### What this record does not claim
 
@@ -114,11 +99,11 @@ The commits that add fixture files are, from `git log -- crates/host/tests/refus
 
 | Target | Runs | Made up of |
 |---|---|---|
-| storage (`crates/storage/tests/commit_tests.rs`) | 381 | X9-2 231 + X9-3 57 + X9-4 47 + X9-6 46. These are each unit's transcribed-row counts. The run records' singular `unit` field tags 46 storage runs X9-6, and also tags F14 X9-4. |
+| storage (`crates/storage/tests/commit_tests.rs`) | 381 | X9-2 231 + X9-3 57 + X9-4 47 + X9-6 46 |
 | host (`crates/host/tests/commit_matrix_tests.rs`) | 98 | X9-5 94 + X9-6 4 |
 
 **The lead's evidence on clean commit C.**
-- **Location:** `crash-matrix-x9/evidence/3d2d5b5a5e5cabd1768b02e29eb3c0928264fb4f/`, committed at arch `5c703071d`. It holds 490 files, 22,699,067 bytes (about 23 MB), in r16's item 7 layout.
+- **Location:** `crash-matrix-x9/evidence/3d2d5b5a5e5cabd1768b02e29eb3c0928264fb4f/`, committed at arch `5c703071d`. It holds 490 files, 23 MB, in r16's item 7 layout.
 - **`hashes.txt`:** 66611 bytes, sha256 `97f8367e46c07fddc627bb0661896b228e39348460af70cf29f1d535ed57da69`. It pins 489 evidence files plus both `required-runs.v1.json` files at C. This record's drafter re-hashed all 489 files, and all match.
 - **`check.json`:** 56813 bytes, sha256 `cee0aaa1d6cde6715bb5e57b3a1f5650679aa022376fda93899cb931e9b299ab`. It is the real two-target `check`:
 
@@ -139,7 +124,7 @@ The commits that add fixture files are, from `git log -- crates/host/tests/refus
 **The runs.**
 - All 479 lead-1 run records have verdict `PASS`.
 - Every one is labelled `synthetic` and `scripted-clock`. 401 are also `process-death` (320 storage, 81 host), 117 `mutation` (40, 77) and 19 `injected` (12, 7).
-- Each record states its host and build: macOS 27.0 (26A428), arm64, filesystem `apfs`, fixture `synthetic-signed-v2`, profile standing `BASELINE-ATTESTED`, rustc 1.95.0, features `crash-matrix`, and `worktreeClean: true`.
+- Each record states its host and build: macOS 27.0 (26A428), arm64, APFS, fixture `synthetic-signed-v2`, profile standing `BASELINE-ATTESTED`, rustc 1.95.0, features `crash-matrix`, and `worktreeClean: true`.
 - Lead set durations: storage 1959 s and 1921 s, host 811 s and 801 s (`OVERNIGHT-2026-10-03.md`).
 
 **Release absence.** `release-absence.json` (sha256 `538a10c4…`) records:
@@ -154,16 +139,15 @@ The same binary bytes appear in X9-2's to X9-5's records.
 - **X9-3, X9-4 and X9-5:** the reviewer sets agree with both lead sets on every `normalizedSha256` and child trace (their `review.json` scopes).
 - **X9-6 r1 (ACCEPT-UNIT):** Grok reproduced the census, the transcription, the coverage and release absence. Grok deferred its two full sets to a single rerun on C (`grok-crash-matrix-x96-r1/REVIEW.md`, "Rerun timing").
 
-**Grok's rerun on C (the third execution, X9 r16 item 7): ACCEPT.** Source: `reviews/grok-crash-matrix-x96-r2/review.json` and `REVIEW.md`.
-- **Verdict:** ACCEPT. Required findings: none.
-- **`matrixPass`:** `true` for the reviewer pair, `true` for the mixed pair (lead-1, reviewer set 1), and `true` for the lead pair.
-- **`normalizedSha256` agreement:** 479 equal and 0 differing, in each of five pairings: each of Grok's two sets against lead-1 and against lead-2, and Grok's two sets against each other. Child trace digests agree too; `timingGuard` was not compared.
-- **The evidence record's `hashes.txt`, as Grok hashed it:** `97f8367e46c07fddc627bb0661896b228e39348460af70cf29f1d535ed57da69`.
-- **The reviewer's release absence:** `opensip` 6315264 bytes, `b32604fe…`, with no barrier strings found; both feature builds refused.
-- **`realOpenSipAbsent`:** `true`.
-- **Date and record:** 2026-10-04, at arch `50047b7ed`. The review's `status.json` is ACCEPTED.
+**Grok's rerun on C (the third execution, X9 r16 item 7). PENDING.**
+- **Verdict:** `ACCEPT`. Required findings: `none`.
+- **`matrixPass`:** reviewer pair `true`; mixed pair (lead-1, reviewer set 1) `true (the lead pair is also true)`.
+- **`normalizedSha256` agreement with the lead:** `479 of 479, in every pairing of Grok's two sets with the lead's two sets and with each other` equal, `0` differing.
+- **The evidence record's `hashes.txt`, as Grok hashed it:** ``97f8367e46c07fddc627bb0661896b228e39348460af70cf29f1d535ed57da69``.
+- **The reviewer's release absence:** ``opensip` 6315264 bytes, `b32604fe…`, with no barrier strings found; both feature builds refused`.
+- **Review date and record:** `2026-10-04`, arch ``50047b7ed``.
 
-**Result:** M2's crash/lock/revocation matrix gate is MET.
+**Result:** M2's crash/lock/revocation matrix gate is MET when `ACCEPT` is ACCEPT.
 
 ### 2.3 "Synthetic fixtures remain labelled, not compiler qualification"
 
@@ -190,7 +174,7 @@ The same binary bytes appear in X9-2's to X9-5's records.
 **Owner files still absent at main.** Each is absent by an accepted decision or carried as open:
 - `crates/lifecycle/src/journal_store.rs` is a different owner: lifecycle transition records, M5 (X3b r10). The grant journal's read side is `security/src/journal_store*`.
 - `crates/host/src/execution.rs` stays with the M5 commands (X4 r7 item 1).
-- `crates/security/src/grants.rs` belongs to X4b, which is deferred by lead decision (2026-10-04). M3-B's unit B3-a creates `grants.rs` for four M3 flags, and X4b's `admit_repo_execution_grant` lands with M5-EX (§3.3; §5 row 14; `m3/M3-PLAN-r6.md:175, 232`).
+- `crates/security/src/grants.rs` belongs to X4b, which was never built (§3.3, §5).
 - `crates/storage/src/index_store.rs` is an M4 owner (EXIT-PLAN, DR-G19).
 
 ### 2.5 Release gates routed to M2: prepared, not qualified
@@ -198,10 +182,10 @@ The same binary bytes appear in X9-2's to X9-5's records.
 | Gate | Prepared by (integrated) | Not prepared in M2 |
 |---|---|---|
 | DR-G07 EXACT-BYTES | 463 (core identity), 461a `d1b5eda`, X3c-1/2 `859089a`/`920941b` | — |
-| DR-G09 PERMISSIONS | X4a `a34dc6b` (the operation guard, S6) | X4b's S10 repository-execution predicate (`grants.rs`) is not built; it is deferred to M5-EX (`m3/M3-PLAN-r6.md:232`). The spawn composition is M5 (X4 r7 item 1). |
+| DR-G09 PERMISSIONS | X4a `a34dc6b` (the operation guard, S6) | X4b's S10 repository-execution predicate (`grants.rs`) is unbuilt. The spawn composition is M5 (X4 r7 item 1). |
 | DR-G11 STORAGE-CUSTODY | X3a-1 … X3d-3, X6a–c, X9-0 … X9-6 | — |
 | DR-G19 STATE-CLASS-AUTHORITY | X3a-1 … X3d-3, X6a–c | `index_store` (M4) |
-| DR-G24 PREVIEW-ANALYZE-WELL-FORMED-ADMISSION | X12-0 `b880e83`, X12a `b642c45`, X12b `6dd7363` | The release registry has no pack rows in M2 (X12a). X12c → M3-I1; X12d → M3-C's unit C4b (`m3/M3-PLAN-r6.md:155, 210`). |
+| DR-G24 PREVIEW-ANALYZE-WELL-FORMED-ADMISSION | X12-0 `b880e83`, X12a `b642c45`, X12b `6dd7363` | The release registry has no pack rows in M2 (X12a). X12c → M3-I1; X12d → M3-C (C4). |
 | DR-G27 PREVIEW-ANALYZE-NOT-SEALED-RUN | X7a `f097c5b`, X7b `099de03` | — |
 
 The other 26 gates are routed to M1 and M3–M6 (EXIT-PLAN, "Release gates"). None is touched here.
@@ -233,8 +217,6 @@ The other 26 gates are routed to M1 and M3–M6 (EXIT-PLAN, "Release gates"). No
 | VD1 (verify_design supersession) | r1, with tooling | `grok-verify-design-vd1-r1` | `eafe9c273` (2026-10-01) | — |
 
 **Dating.** The "accepted at" dates are git commit dates. Several law headers carry later dates (§8).
-
-**Later amendments.** These are the revisions M2's units were built and completed under. Since then, Grok has accepted two M3 amendments, at arch `494092761` (2026-10-04): X2 r9 and X12 r4. Both come from the accepted M3-B r2: S1 adds D15's multi-repository workspaces and the item-3a read order, and S2 sets pack admission's order and the first-use clause (`grok-project-root-x2-r9`, `grok-policy-admission-x12-r4`). Neither changed product code, and no M2 unit was built under them.
 
 ### 3.2 Code and contract units, in integration order
 
@@ -306,27 +288,23 @@ Every code review below is Grok's (w2:p1), except where another reviewer is name
 | 57 | F7 | X9-1 clock self-test independent of the wall-clock date | — | `9c5f145` | none | GROK2 (w6:p1) `grok2-clock-selftest-f7-r2` |
 | 58 | X9-4 | Locks and live-revocation rows, 47 runs | X9 r15 | `91cb45a` | none | `grok-crash-matrix-x94-r1` |
 | 59 | L1 | Apache-2.0 licence (owner decision D14) | — | `2967905` | v134 | Codex (w3:p1) `codex-licence-l1-r1` |
-| 60 | X9-6 = **C** | M2 exit: two-target check and coverage, 50 rows, release-order condition | X9 r16 | `3d2d5b5` | none | `grok-crash-matrix-x96-r1`; rerun `grok-crash-matrix-x96-r2` ACCEPT (arch `50047b7ed`) |
+| 60 | X9-6 = **C** | M2 exit: two-target check and coverage, 50 rows, release-order condition | X9 r16 | `3d2d5b5` | none | `grok-crash-matrix-x96-r1`; rerun `grok-crash-matrix-x96-r2` PENDING |
 | 61 | D3 | 45 overrides, 17 supersessions on v134; closes X1b | — | `30c5db1` | contract successor `description-batch-d3` | `grok-description-batch-d3-r1` |
 | 62 | F8a | Contracts and identity dependency-policy rows refreshed | — | `3e64266` | none | Codex (w3:p1) `codex-policy-refresh-f8a-r1` |
 
 **Notes on the table.**
-- **The law column** gives the revision that the commit message names. Where it is marked "(review)", it gives the revision that the unit's review requests name, which is sometimes an earlier round's request than the accepting one. 461b, VD1 and EC1 carry the law their unit belongs to. The column does not give today's revision; each law's accepted revision is in §3.1.
+- **The law column** gives the revision that the commit message names, or, marked "(review)", the revision that the unit's review request names. It is not today's revision. Each law's accepted revision is in §3.1.
 - **Inventory order.** The chain is linear but not numerically monotone, because units were rebuilt in acceptance order: v101 follows v102, v106 follows v112, v116 follows v117, v113 follows v116, and v118 follows v128 (`verify_design`'s `inventorySuccessors`).
 - **Commit count.** 62 product commits lie in `d4239a5..3e64266`, and every one appears above.
 
-### 3.3 Units that accepted laws declare, but that were not built in M2
+### 3.3 Units that accepted laws declare, but that are not built
 
-Until the lead decisions of 2026-10-04, no record deferred X3a-2, X4b or X4T-c. Those decisions, in §1 claim 5 and §5 rows 13–15, are now their deferral records. M3-PLAN r6 schedules each of them.
-
-| Unit | Declared by | What it is | State at M2 completion | Record of deferral |
-|---|---|---|---|---|
-| X3a-2 | X3a r5 items 4 and 8 ("The read side adopts it now") | The host provisional readers take the pair, marker and chain from the session's `SelectedStoreEndpoint`, with the extended source pin | Not built. X3a-1's review says "Item 4's host-reader adoption is X3a-2" (`grok-store-endpoint-x3a1-r1/REVIEW.md:7`). At main, `crates/host/src/installation_lineage.rs:68` still re-captures through `capture_descendant`; the file was last changed at `b230250`. The description half is already true through an inherited override. | Lead decision (2026-10-04), §5 row 13: a post-M2 unit, due before M3-C1a, by M3 day 10 (`m3/M3-PLAN-r6.md:231`). |
-| X4b | X4 r7 item 11 ("No M2 dependency") | `grants.rs` `admit_repo_execution_grant`, the pure S10 admission predicate with its `GRANT.*` refusals | Not built. `crates/security/src/grants.rs` is absent at main. | Lead decision (2026-10-04), §5 row 14: M3-B's B3-a creates `grants.rs` (records only); the predicate lands with M5-EX, under O7 (`m3/M3-PLAN-r6.md:175, 232, 512`). |
-| X4T-c | X4T r11 (lead decision on two new codes) | A contract successor adding `CONTINUE-INDEX-NOT-TRUSTED` and `CONTINUE-COMPONENT-NOT-TRUSTED` | Not built. The interim stands: `CONTINUE-CORE-NOT-TRUSTED` with a role-naming subject (X4T item 10). | Lead decision (2026-10-04), §5 row 15: right after F8b, and not concurrently with I1-a (`m3/M3-PLAN-r6.md:230`; P5-3 at `:579-580`). |
-| X12c, X12d | X12 r3 ("(M3)") | The DR-131 pack row and bundled bytes; the Run-closure `check_plan_pack` join | M3 work by law | X12 r3 itself. X12c is M3-I1; X12d is M3-C's unit C4b (`m3/M3-PLAN-r6.md:155, 210, 239`). |
-
-X4 F-1 is not a declared unit but a gap between an accepted law and the code. Its fix, X4-F1, is §5 row 16.
+| Unit | Declared by | What it is | Record of deferral |
+|---|---|---|---|
+| X3a-2 | X3a r5 items 4 and 8 ("The read side adopts it now") | The host provisional readers take the pair, marker and chain from the session's `SelectedStoreEndpoint`, with the extended source pin | **None.** X3a-1's review says "Item 4's host-reader adoption is X3a-2" (`grok-store-endpoint-x3a1-r1/REVIEW.md:7`). At main, `crates/host/src/installation_lineage.rs:68` still re-captures through `capture_descendant`, and the file was last changed at `b230250`. The description half is already true through an inherited override. |
+| X4b | X4 r7 item 11 ("No M2 dependency") | `grants.rs` `admit_repo_execution_grant`, the pure S10 admission predicate with its `GRANT.*` refusals | **None.** `crates/security/src/grants.rs` is absent at main. |
+| X4T-c | X4T r11 (lead decision on two new codes) | A contract successor adding `CONTINUE-INDEX-NOT-TRUSTED` and `CONTINUE-COMPONENT-NOT-TRUSTED` | **None.** The interim stands: `CONTINUE-CORE-NOT-TRUSTED` with a role-naming subject (X4T item 10). |
+| X12c, X12d | X12 r3 ("(M3)") | The DR-131 pack row and bundled bytes; the Run-closure `check_plan_pack` join | By law: M3. Now M3-I1 and M3-C (C4). |
 
 ## 4. Known limits carried forward
 
@@ -344,9 +322,9 @@ Each limit's "recorded owner" is verbatim from the `limits` member of both targe
 | L6 | Orphan collection. No reachability GC exists, and orphans are recorded in `postState`. | a reachability GC law | Not scheduled. *Inference:* M5 (BP:889). |
 | L7 | A measured platform profile. This host is BASELINE-ATTESTED, so every run is synthetic. | owner signing keys | An owner action; qualification at M6 |
 | L8 | Host coverage: macOS 27 on APFS on this host only | M6 qualification | M6. AL2023 joins the population by owner decision D11, through a DR-126 successor. |
-| L9 | Native optional delivery. F17 runs only as an injected failure. | CLI enablement | J1, the X11 successor law (`m3/M3-PLAN-r6.md:146, 238`). *Inference:* browser and export renderers arrive at M4 (BP:888). |
+| L9 | Native optional delivery. F17 runs only as an injected failure. | CLI enablement | M3-J, the X11 successor. *Inference:* browser and export renderers arrive at M4 (BP:888). |
 | L10 | Journal pruning. F28 runs only over X6a's fixture. | a pruning law | Not scheduled |
-| **L11** | **Permanently refused crash states** (below) | M3 (a repair or resume writer) | **J-RW** (successor law) and **J4** (code). J-RW lands before M3 day 0 and J4 before M3-X (`m3/M3-PLAN-r6.md:156, 236`; decision P5-1 at `:572-575`). |
+| **L11** | **Permanently refused crash states** (below) | M3 (a repair or resume writer) | An M3 carry-in (`m3/M3-PLAN.md:112`). **No M3 unit row names it** (M3-PLAN:156–173). |
 
 **L11 in full** (X9 r8/r9; EXIT-PLAN, "M2 known limit: permanently refused crash states"). Until a repair or resume writer exists, a crash at any of these points leaves the project refused permanently:
 - **Inside first registration** (RESERVED written, ACTIVE not): X2 item 8's identity rows (identity-recovery-required).
@@ -358,15 +336,9 @@ F00 records each outcome. The owning laws fail closed here, and X9 added no prod
 ### 4.2 Other limits M2 carries
 
 - **Lineage chain bound.** At most 64 nodes (`MAX_LINEAGE_NODES`, X3a r5 item 3). A longer chain is the budget row. Later owner: "A later compaction or retention law may revisit it". This answers EXIT-PLAN's "Lineage budget" carry-in.
-- **Backup classification.** It is constant `UNKNOWN` (law 464; owner decision 2026-09-26), so Time Machine users see "unknown". The `RetentionDisclosure` backup-status field moves to the X11 successor, J1 (`m3/M3-PLAN-r6.md:146`).
+- **Backup classification.** It is constant `UNKNOWN` (law 464; owner decision 2026-09-26), so Time Machine users see "unknown". The `RetentionDisclosure` backup-status field moves to the X11 successor (M3-J1).
 - **No pack rows.** The release pack registry is empty in M2 (X12a), so X12c ships the first row (M3-I1).
 - **Interim continuation code.** `CONTINUE-CORE-NOT-TRUSTED` with a role subject stands in for two unregistered codes until X4T-c.
-- **Two known defects, disclosed.**
-  - **X4 F-1:** observer rereads do not evaluate expiry.
-  - **X4-F2:** the fenced read computes its expiry flags but never applies them.
-
-  Both land before J2, the first unit that runs an analysis through the host pipeline (§5 rows 16 and 23; P5-4 at `m3/M3-PLAN-r6.md:583`).
-- **Fixture calendar.** X4T-0's fixed fixture dates make native-clock test lanes refuse from 2026-12-30T00:00:01Z. F9 refreshes them by 2026-12-01 (§5 row 24).
 - **No signed release.** Development builds refuse at InitialCore F0. There is no measured profile row (L7).
 - **Gates.** All 32 release gates are unqualified (§1).
 
@@ -379,32 +351,30 @@ Status values:
 
 | # | Follow-up | Source | Status | Owner | When |
 |---|---|---|---|---|---|
-| 1 | Grok's X9-6 rerun on C | X9 r16 item 7; `grok-crash-matrix-x96-r2` | closed | Grok (w2:p1) | ACCEPT with no required findings, recorded at arch `50047b7ed` (2026-10-04). The matrix gate is met (§2.2). |
-| 2 | **F8b**, the generator-closure and TypeScript lane-registry re-pin. It covers: the contract generator's drift check and `check_typescript.py`, which still refuse because they pin the `verify_design.py` from before VD1; the L1 follow-up (`license` fields on three tooling manifests); and the rest of EXIT-PLAN's "Stale dependency-policy rows". | `generator-closure-f8b/PROPOSAL.md`; `codex2-generator-closure-f8b-r2` (ACCEPTED); arch `1648ceb7e`; `m3/M3-PLAN-r6.md:229` | owned, in progress | lead; CODEX2 reviews | Execution began after Grok's rerun: rebuild, equivalence probe and re-pins (`OVERNIGHT-2026-10-03.md`, "F8b execution started"). An ACCEPT-DESIGN-UNIT review follows. Any contract regeneration waits for it, including M3-I1's product units and X4T-c (P5-3). |
+| 1 | Grok's X9-6 rerun on C | X9 r16 item 7; `grok-crash-matrix-x96-r2` | owned, in progress | Grok (w2:p1) | Now. M2 completes on its acceptance. |
+| 2 | **F8b**, the generator-closure and TypeScript lane-registry re-pin. It covers: the contract generator's drift check and `check_typescript.py`, which still refuse because they pin the `verify_design.py` from before VD1; the L1 follow-up (`license` fields on three tooling manifests); and the rest of EXIT-PLAN's "Stale dependency-policy rows". | `generator-closure-f8b/PROPOSAL.md`; `codex2-generator-closure-f8b-r2` (ACCEPTED); arch `1648ceb7e` | owned | lead; CODEX2 reviews | After Grok's rerun, because it needs the machine: rebuild, equivalence probe, re-pins, then an ACCEPT-DESIGN-UNIT review. Any contract regeneration waits for it, including M3-I1's product units and X4T-c. |
 | 3 | **Stale product doc comments** listed by D3: `carrier_floor.rs:9-10, 115-116`, `carrier_operation.rs:52-54`, `operation_handoff_tests.rs:890`, `fact_admission.rs:17`, `first_registration.rs:24-26`, `accepted_store_fixture.rs:1-13`, `driver.rs:3-6`, both `crash_matrix_support.rs` headers, `post_state.rs:4-9`, `commit_matrix_tests.rs:1-31, 58`, `commit_tests.rs:1-2, 22`, `recover_tests.rs:2-4`, `sweep_tests.rs:1-3`, `project_commit.rs:422-424`, `project_ledger.rs:128`, `store_custody.rs:4-5`, `read_premise.rs:14-19`, `commit_session.rs:1225, 1239, 1250`, `commit_session_tests.rs:508`, security and storage `lib.rs:1`, `journal_store.rs:3043` | `description-batch-d3/README.md`, "Found but not changed"; `grok-description-batch-d3-r1/REVIEW.md` item 11 | open | none recorded ("a code follow-up") | None. One comment-only code unit, or each file's next code unit. |
 | 4 | **Record-hygiene staged notes.** 11 notes in `staged-notes.patch` (README, chapters 02, 05, 08 (×5), 10 (×2) and 12). The staged condition-5 note must now point to `IMPLEMENTATION-AUTHORIZATION.md`, not read "pending owner record". | `m3/record-hygiene/PROPOSAL.md`, lead decision 2026-10-03 items 2 and 6 | owned | "the next successor that re-pins their files": the next D-372 application-manifest successor, or the next design-lock change that touches the register | Not scheduled. D3 changed `design-lock.json` without re-pinning the register (an `inputs` entry). As proposed, F8b adds one contract-successor row and does not re-pin it either. |
 | 5 | **X9 record notes.** The r14 overstatement and the X9-1 clock-window flake are recorded in r16's "Records" section. The flake was fixed by F7 `9c5f145`. | X9 r16, "Records (no rule changes)" | closed | — | — |
 | 6 | **G2 restatements.** The literal "`cfg(test)` only" sentences in X3c r7 item 11, X3b r10 item 11 and X4T items 12–13 should read "absent from every non-test build". | X9 r1 "Cross-law corrections" G2; X9 r3 | owned | each law's next revision | Not scheduled (record only) |
-| 7 | **X11 successor law**: the order, the creator's host entry, the one-RequestId rule, how the creator command ends, the creator terminations, the F0 binary restatement, and the backup-status successor | X11 r1; EXIT-PLAN "X11"; `m3/M3-PLAN-r6.md:146-154` | owned | J1, the J law (`m3/M3-PLAN-r6.md:146, 217, 238`) | M3 |
-| 8 | **X12c**, the DR-131 preview pack row and bundled bytes | X12 r3 | owned | M3-I1 (`m3/M3-PLAN-r6.md:155, 239`). Law r2 accepted by CODEX2 (`m3/reviews/codex2-preview-pack-i1-r2`). Product units I1-a, I1-b1, I1-b2 and I1-c. | M3, after F8b (P5-3) |
-| 9 | **X12d**, the Run-closure `check_plan_pack` join in replay, with the corpus moved to the test pack | X12 r3 | owned | M3-C's unit **C4b** (`m3/M3-PLAN-r6.md:155, 210, 239`). It is item 19 of the M3-C law (`m3/snapshot-plan-c/PROPOSAL.md`). CODEX2 returned 4 required findings on r1 (arch `7615a496b`), then accepted r5 (`codex2-snapshot-plan-c-r5`, arch `0caf585f1`). By its own gate, the law takes effect once M3-L and X12 r4 are accepted; X12 r4 was accepted at `494092761`. | M3, before J2 (`m3/M3-PLAN-r6.md:239`). It must land before any producer reaches X5. |
-| 10 | **Resume/repair writer** for L11's states | `EXIT-PLAN.md:186-191`; X9 L11 | owned | **J-RW** (successor law amending X2 item 8, X3c item 10 and the X4T dependency-publication rule) and **J4** (code) (`m3/M3-PLAN-r6.md:156, 236`; P5-1 at `:572-575`) | J-RW before M3 day 0; J4 before M3-X. |
-| 11 | **X3c successor.** Re-committing a Run already committed in the same store and namespace is refused at staging, because X3c-2 always stages a fresh availability record. | EXIT-PLAN, "X3d-2 ordering and follow-ups" (b) | owned | **X3c r8** (law) and **X3c-3** (storage code) (`m3/M3-PLAN-r6.md:157, 237`; P5-2 at `:576`) | Before J3, so by M3 day 25. |
+| 7 | **X11 successor law**: the order, the creator's host entry, the one-RequestId rule, how the creator command ends, the creator terminations, the F0 binary restatement, and the backup-status successor | X11 r1; EXIT-PLAN "X11"; `m3/M3-PLAN.md:103-110` | owned | M3-J1 (M3-PLAN:170) | M3 |
+| 8 | **X12c**, the DR-131 preview pack row and bundled bytes | X12 r3 | owned | M3-I1. Law r2 accepted by CODEX2 (`m3/reviews/codex2-preview-pack-i1-r2`). Product units I1-a, I1-b1, I1-b2 and I1-c. | M3, after F8b |
+| 9 | **X12d**, the Run-closure `check_plan_pack` join in replay, with the corpus moved to the test pack | X12 r3 | owned | M3-C, unit C4 (M3-PLAN:208). `m3/snapshot-plan-c/PROPOSAL.md` item 19 is r1. CODEX2 returned 4 required findings on r1 (`codex2-snapshot-plan-c-r1`, arch `7615a496b`). | M3. It must land before any producer reaches X5. |
+| 10 | **Resume/repair writer** for L11's states | EXIT-PLAN:184-189; X9 L11 | owned at milestone level | M3 carry-in (M3-PLAN:112) | M3. **No unit row yet.** The lead should assign it to a unit. |
+| 11 | **X3c successor.** Re-committing a Run already committed in the same store and namespace is refused at staging, because X3c-2 always stages a fresh availability record. | EXIT-PLAN, "X3d-2 ordering and follow-ups" (b) | owned at milestone level | M3 carry-in (M3-PLAN:113), counted among M3's law and successor units (M3-PLAN:255) | M3. No unit row yet. |
 | 12 | **L1 follow-up**: `license` on `tools/contracts/Cargo.toml`, `tools/contracts/package.json` and `tools/typescript-boundary/package.json` | EXIT-PLAN, "L1 follow-up" | owned | F8b (row 2) | With F8b |
-| 13 | **X3a-2**, the read-side adoption of the selected endpoint by the host provisional readers | X3a r5 items 4 and 8 | owned (deferred) | post-M2 unit X3a-2 (`m3/M3-PLAN-r6.md:231`) | **Lead decision (2026-10-04): deferred to a scheduled post-M2 unit, X3a-2.** It is due before M3-C1a, by M3 day 10, because C1a's snapshot reads go through the selected endpoint. No CLI path reaches these readers at M2. **Rejected:** building it inside M2's close, which would delay the gate for a path nothing calls. |
-| 14 | **X4b**, `grants.rs` `admit_repo_execution_grant` (S10) | X4 r7 item 11 | owned (deferred) | M3-B's B3-a (`grants.rs`, records only) and M5-EX (`m3/M3-PLAN-r6.md:175, 232, 512`) | Not an M3 code item. **Lead decision (2026-10-04): deferred to M3-B3 and M5.** M3-B r1 creates `security/grants.rs` for the M3 authorization flags. `admit_repo_execution_grant` lands with M5's authorized-execution package (M5-EX), under O7. **Rejected:** building it now, ahead of O7, which would fix an execution path before its confinement law exists. |
-| 15 | **X4T-c**, the two continuation codes | X4T r11 | owned | a contract successor plus regeneration (`m3/M3-PLAN-r6.md:230`) | Not concurrently with I1-a (P5-3 at `:579-580`). **Lead decision (2026-10-04): scheduled immediately after F8b,** because it regenerates contracts. The interim `CONTINUE-CORE-NOT-TRUSTED` stands until then. |
-| 16 | **X4 F-1**, observer reread expiry. X4T r9 item 6 says rereads evaluate expiry at the handoff time advanced by elapsed monotonic time. X4T-a's reread evaluates no time, and X4 r7 does not assign the check. | EXIT-PLAN, "X4 F-1"; `grok-live-guards-x4a-r1/REVIEW.md` ("F-1 stays open as an X4T-a successor or an X4 amendment") | owned | X4-F1, an X4T-a successor (`m3/M3-PLAN-r6.md:233`). It is written (worktree `opensip-x4f1`, 10 files). Lanes are pending. Its review request, `codex-observer-expiry-x4f1-r1`, is marked not to be sent until they run. | Before J2 (P5-4 at `m3/M3-PLAN-r6.md:583`). **Lead decision (2026-10-04): a defect, fixed by an X4T-a successor unit, X4-F1, before any M3 analysis ships.** The fix makes observer rereads evaluate expiry at the handoff time advanced by elapsed monotonic time, per X4T r9 item 6. It is disclosed here as a known defect at M2 completion. **Rejected:** an X4 amendment that weakens the requirement. |
+| 13 | **X3a-2**, the read-side adoption of the selected endpoint by the host provisional readers | X3a r5 items 4 and 8 | **open** | none recorded | **Lead decision (2026-10-04): deferred to a scheduled post-M2 unit, X3a-2.** It is due before M3-C1, whose snapshot reads go through the selected endpoint. No CLI path reaches these readers at M2. **Rejected:** building it inside M2's close, which would delay the gate for a path nothing calls. |
+| 14 | **X4b**, `grants.rs` `admit_repo_execution_grant` (S10) | X4 r7 item 11 | **open** | none recorded | **Lead decision (2026-10-04): deferred to M3-B3 and M5.** M3-B r1 creates `security/grants.rs` for the M3 authorization flags. `admit_repo_execution_grant` lands with M5's authorized-execution package (M5-EX), under O7. **Rejected:** building it now, ahead of O7, which would fix an execution path before its confinement law exists. |
+| 15 | **X4T-c**, the two continuation codes | X4T r11 | **open** | none recorded | **Lead decision (2026-10-04): scheduled immediately after F8b,** because it regenerates contracts. The interim `CONTINUE-CORE-NOT-TRUSTED` stands until then. |
+| 16 | **X4 F-1**, observer reread expiry. X4T r9 item 6 says rereads evaluate expiry at the handoff time advanced by elapsed monotonic time. X4T-a's reread evaluates no time, and X4 r7 does not assign the check. | EXIT-PLAN, "X4 F-1"; `grok-live-guards-x4a-r1/REVIEW.md` ("F-1 stays open as an X4T-a successor or an X4 amendment") | **open** | none recorded. The choice is an X4T-a successor or an X4 amendment. | **Lead decision (2026-10-04): a defect, fixed by an X4T-a successor unit, X4-F1, before any M3 analysis ships.** The fix makes observer rereads evaluate expiry at the handoff time advanced by elapsed monotonic time, per X4T r9 item 6. It is disclosed here as a known defect at M2 completion. **Rejected:** an X4 amendment that weakens the requirement. |
 | 17 | **The X10 source pin** cuts at the first `#[cfg(test)]\nmod tests`. X11a's pin uses the same cut. | EXIT-PLAN X10 row; Codex's partial X10a notes, as quoted in `grok-read-cli-x10a-r1/REQUEST.md:71`; `apps/cli/tests/doctor_tests.rs:111`, `apps/cli/tests/creator_commands_tests.rs:464` | open | none recorded | None. It is harmless today: the X10a review found that the cut drops no production code (`grok-read-cli-x10a-r1/REVIEW.md:19`). |
 | 18 | **X7 item 10's session-level finalization tests**: a committed Run delivered, a renderer failure after commit, a latch after admission, `CommitUndetermined` with the namespace, `ExistingAttempt` with its binding, capacity exhaustion through `finalize`, and the gate-ledger balance assertion | X7 r6, "Session-level finalization tests wait on G1" | **unverified** | X8c, X9-5 or an X7a-2 | X9-5's host rows run F12, F16, F17, F32 and F40 through `finalize`. No record maps the seven tests to landed tests. The lead should record the mapping, or schedule X7a-2. |
 | 19 | **`verify_design` silently ignores unknown record fields** | EXIT-PLAN, "D2 and verify_design strictness" | open | "a later tooling unit" | None |
 | 20 | **Process:** add both dependency checkers and their suites to the Python lanes of any unit that touches `crates/contracts/src` or `crates/identity/src` | `codex-policy-refresh-f8a-r1/REQUEST.md` item 5; `OVERNIGHT-2026-10-03.md` | owned | lead (process) | From now. F8b and M3-I1 are the first such units. |
-| 21 | **EXIT-PLAN record pass.** Several dated follow-up bullets are done but carry no status, and some dates are wrong (§8). | this record | open | lead (record only) | Not scheduled. Finalization landed without it. |
-| 22 | **Review-record hygiene.** Missing or stale `status.json` files (§8 item 5) | this record | open | lead (record only) | Any time |
-| 23 | **X4-F2.** The fenced read computes the expiry flags but never applies them, which X4T-a r1 call 6 accepted. A store already expired at the handoff is admitted, then fail-stops at its first tick or checkpoint. The fix publishes the continuation row at the lease-free point. | EXIT-PLAN, "Follow-ups found by X4-F1 (2026-10-04)" (`EXIT-PLAN.md:209-210`, arch `ebfb0f12a`); `OVERNIGHT-2026-10-03.md:118, 129` | owned | an X4T successor; no draft yet (`m3/M3-PLAN-r6.md:234`) | Before J2 (P5-4 at `m3/M3-PLAN-r6.md:583`). A disclosed defect at M2 completion (§4.2). |
-| 24 | **F9, fixture date refresh.** X4T-0's fixed fixture dates make native-clock test lanes refuse from 2026-12-30T00:00:01Z. | `EXIT-PLAN.md:211` (arch `ebfb0f12a`); `OVERNIGHT-2026-10-03.md:119, 130` | owned | a test-only unit; no draft yet (`m3/M3-PLAN-r6.md:235`) | By 2026-12-01 (P5-5 at `m3/M3-PLAN-r6.md:586`). |
+| 21 | **EXIT-PLAN record pass.** Several dated follow-up bullets are done but carry no status, and some dates are wrong (§8). | this record | open | lead (record only) | Before or with finalization |
+| 22 | **Review-record hygiene.** Missing or stale `status.json` files, and one truncated subject (§8) | this record | open | lead (record only) | Any time |
 
-**Owner blockers.** No M2 item is blocked on the owner. The lead decided items 13–16 on 2026-10-04. The owner blockers B1–B4 in `OVERNIGHT-2026-10-03.md` are M3 items. B4 (OQ-1) is informational only.
+**Owner blockers.** No M2 item is blocked on the owner. Items 13–16 are lead decisions. The owner blockers B1–B4 in `OVERNIGHT-2026-10-03.md` are M3 items. B4 (OQ-1) is informational only.
 
 **Closed EXIT-PLAN follow-ups** (for the record pass, row 21):
 
@@ -463,20 +433,7 @@ nice -n 19 /opt/homebrew/Cellar/python@3.14/3.14.6/bin/python3.14 -I -B tools/ve
 | `applicationManifestSha256` | `dab6e00fc3ccf82f015941bc767a10b18be9e6ca5f1c8598fa1fe9a4d05743f7` |
 | selected inventory | v134, as above |
 
-**Test lanes on main `3e64266`.** The lead ran these on 2026-10-04, after Grok's rerun. Source: the lead's run output, `/private/tmp/claude-501/-Users-sb-code/1bd3fa39-535c-456f-a0ee-b08a84bce0f3/tasks/b5e8y9doa.output` (372 bytes, sha256 `4c1eef2a040e9d4075e842425fc8306873085aa0c3adf7817dc4de6f5bc6812d`). That file is outside the repositories, so its sha256 is recorded here. Its commit line reads `3e64266 F8a: …`.
-
-| Lane | Output line |
-|---|---|
-| Workspace | `ws exit=0`; `workspace passed 1744 failed 0 ignored 3` |
-| Crash-matrix feature lane (platform, security, storage, host) | `feature exit=0`; `crash-matrix lane passed 1624 failed 0 ignored 3` |
-| Clippy | `clippy exit=0` |
-| fmt | `fmt exit=0` |
-| `verify_design` | `verify_design True docs/implementation/m2/repository-file-inventory.v134.json` |
-| Real home | `home-absent` |
-
-`OVERNIGHT-2026-10-03.md:147` summarizes the same run: "workspace 1744/0, crash-matrix 1624/0, clippy, fmt and `verify_design` all clean". It does not state the ignored counts.
-
-**Earlier lanes on the subject that became C.** These ran on X9-6's pre-integration worktree, whose diff `d68bcdf9` is the reviewed subject that became C (`reviews/grok-crash-matrix-x96-r1/REQUEST.md`, "Lanes"):
+**Test lanes.** These are the last recorded lanes. They ran on X9-6's pre-integration worktree, whose diff `d68bcdf9` is the reviewed subject that became C (`reviews/grok-crash-matrix-x96-r1/REQUEST.md`, "Lanes"):
 
 | Lane | Result |
 |---|---|
@@ -488,11 +445,11 @@ nice -n 19 /opt/homebrew/Cellar/python@3.14/3.14.6/bin/python3.14 -I -B tools/ve
 | `check_package_edges.py --lane host` against v134 | passed |
 | Checker unit tests | 26 OK |
 
-The counts on main equal those on the pre-integration worktree. D3 and F8a change no byte that Rust reads.
+No cargo lane is recorded at `3e64266`. D3 and F8a change no byte that Rust reads; F8a's request deferred the workspace lanes to "integration, after those sets". The lead ran the lanes on product main `3e64266` on 2026-10-04, after Grok's rerun. Workspace: 1744 passed, 0 failed, 3 ignored. Crash-matrix feature lane (platform, security, storage, host): 1624 passed, 0 failed, 3 ignored. Workspace clippy `-D warnings`: clean. fmt: clean. `verify_design`: passed, v134 selected. The real home stayed absent.
 
 **Policy checks.**
 - After F8a, `check_dependencies.py` and `check_identity_dependencies.py` pass, and so do their suites, 9 and 5 tests (`codex-policy-refresh-f8a-r1`).
-- At `3e64266`, `generate_contracts.py`'s drift check and `check_typescript.py` still refuse, until F8b (§5 row 2). `check_typescript.py` refuses first on the absent esbuild archive.
+- `generate_contracts.py`'s drift check and `check_typescript.py` still refuse until F8b (row 2). `check_typescript.py` refuses first on the absent esbuild archive.
 
 **Surfaces.**
 - `opensip doctor` is enabled.
@@ -500,26 +457,14 @@ The counts on main equal those on the pre-integration worktree. D3 and F8a chang
 - Every M2 writer path is library code, reached only from tests: the commit facade, recovery and the sweep.
 - Development builds refuse at InitialCore F0.
 
-**Safety.** No test or run touched the real home (`~/Library/Application Support/OpenSIP`). The matrix reviews record `realOpenSipAbsent: true`, and the lead's lane run records `home-absent`.
+**Safety.** No test or run touched the real home (`~/Library/Application Support/OpenSIP`). The reviews record `realOpenSipAbsent: true`.
 
 ## 7. EXIT-PLAN status refresh
 
+The "Status / notes" column of [EXIT-PLAN.md](EXIT-PLAN.md)'s units table is refreshed to match §3 and §5, in the same change as this record.
 - **Not pinned.** `EXIT-PLAN.md` appears neither in product `design-lock.json` nor in the D-372 application manifest (`docs/coop/design-corrections/reviews/application-subject.v46.json`). Only historical review `hashes.txt` files name it, and they pin earlier bytes as context.
-
-[EXIT-PLAN.md](EXIT-PLAN.md) changed three times around this record:
-
-1. **Arch `5df50f35c` (parent `28e46fec5`), with r1's draft.** It changed the units table's "Status / notes" cells only. It padded four rows (X4T-0, X4T, X4B and X12) from four cells to six, because their status sat in the "Law?" column; the padding uses "—" for Size. It added one note line after the table. No other column or section changed.
-2. **Arch `ebfb0f12a` (the lead, 2026-10-04 02:08).** It added the follow-up bullet "Follow-ups found by X4-F1 (2026-10-04)", recording X4-F2 and F9 (`EXIT-PLAN.md:209-211`). That is the only change outside the table.
-3. **This r2 change.** It refreshes the status cells again, to the finalized facts:
-   - X9 is COMPLETE, with Grok's rerun ACCEPT at `50047b7ed`;
-   - the X3a, X4T and X4 cells cite the 2026-10-04 lead decisions on X3a-2, X4T-c, X4b and X4 F-1, and the X4 cell names X4-F2 and F9;
-   - the X2 and X12 cells record X2 r9 and X12 r4 as accepted at `494092761`, and X12d as M3-C's unit C4b;
-   - the X3c cell names X3c r8 and X3c-3, and the X11 cell names J1;
-   - the note line is updated.
-
-   No other column, row or section changes. In particular, the dated follow-up bullets stay as they are, for the record pass (§5 row 21).
-
-The finalize commit `3e6c40ad7` did not change EXIT-PLAN.
+- **Padded rows.** Four rows (X4T-0, X4T, X4B and X12) had only four cells, so their status sat in the "Law?" column. They are padded to six columns, with "—" for Size.
+- **Unchanged.** No other column or section of EXIT-PLAN changed. The dated follow-up bullets are left as they were, for the record pass (§5 row 21).
 
 ## 8. Record discrepancies found while compiling this record
 
@@ -551,7 +496,7 @@ None of these changes a completion criterion. They are listed so that the review
    - X12 r3: X12 depends on nothing, and its row should read "…units X12-0, X12a, X12b; X12c and X12d at M3";
    - X9 G6: the X9 row's "Depends on" omits X2e and X5.
 3. **EXIT-PLAN bullets now stale.** "X9 follow-ups (from X9-3)" says to fold the r14 overstatement into X9's next record note, but X9 r16 has already recorded it, and F7 has fixed the clock flake. Most other dated bullets are done, without a status marker (§5, "Closed EXIT-PLAN follow-ups").
-4. **Units declared by accepted laws and not built in M2:** X3a-2, X4b and X4T-c (§3.3). When this record was drafted, no record deferred them. The lead's decisions of 2026-10-04 (§1 claim 5; §5 rows 13–15) are now their deferral records, and M3-PLAN r6 schedules them (`m3/M3-PLAN-r6.md:230-232`).
+4. **Units declared by accepted laws, never built, with no deferral record:** X3a-2, X4b and X4T-c (§3.3).
 5. **Review-record hygiene.**
    - **No `status.json`:**
      - `grok-journal-start-x3b1b-r2`, which is the review the design lock binds for v97;
@@ -572,17 +517,17 @@ None of these changes a completion criterion. They are listed so that the review
      - `grok-project-root-x2-r7` (QUEUED, superseded by r8);
      - `codex-read-cli-x10a-r1` (SENT; never completed, and Grok's X10a review is the one bound).
    - **Other:**
-     - **Corrected at arch `5df50f35c`:** `grok-crash-matrix-x9-r16/status.json` had recorded a 12-character subject prefix, `f08efe95deba`. It now carries the full `f08efe95deba681f2940a043c80c91b4faae4e4c804ca5865c024e0e083c0a85`, the same value as its `review.json`.
-     - **Still stale:** `grok-crash-matrix-x96-r1/status.json`'s `"pending"` member lists the final lead sets and check, the Grok rerun and the evidence record. All three are done.
+     - `grok-crash-matrix-x9-r16/status.json` records a 12-character subject prefix, `f08efe95deba`. Its `review.json` has the full value.
+     - `grok-crash-matrix-x96-r1/status.json`'s `"pending"` member still lists the final lead sets and the evidence record, which are now done.
 6. **Record hygiene count.** The lead decision says "The 12 staged notes land with the next successor". `staged-notes.patch` holds 11 hunks. The batch has 12 notes in all, but one is already applied, in `prototype-evidence-reference.md`.
-7. **F8b's status line. Corrected at arch `5df50f35c`.** `generator-closure-f8b/PROPOSAL.md` had read "Status: **DRAFT r2 for review**" after CODEX2 accepted r2 (`codex2-generator-closure-f8b-r2/status.json`: ACCEPTED; arch `1648ceb7e`). It now reads "Status: **r2 ACCEPTED by CODEX2 (2026-10-04); execution pending.**"
-8. **M3-PLAN's baseline line.** `m3/M3-PLAN.md:7`, the accepted r6 with its acceptance note, still says "M2 completion still waits for Grok's independent rerun on C (M2C:5, "PENDING-RERUN")". That cites an earlier draft of this record, and has been stale since `50047b7ed` and `3e6c40ad7`. The fix belongs to the plan's next revision. The same sentence is line 5 of `M3-PLAN-r6.md`.
+7. **F8b's status line.** `generator-closure-f8b/PROPOSAL.md` still reads "Status: **DRAFT r2 for review**", although CODEX2 accepted r2 (`codex2-generator-closure-f8b-r2/status.json`: ACCEPTED; arch `1648ceb7e`).
 
-## 9. Finalization (done)
+## 9. Finalization checklist for the lead
 
-1. **The rerun.** Grok's rerun returned ACCEPT with no required findings. The lead copied it into `reviews/grok-crash-matrix-x96-r2/` and recorded it at arch `50047b7ed` (2026-10-04); its `status.json` is ACCEPTED.
-2. **The lanes.** The lead ran the lanes on main `3e64266` (§6).
-3. **The decisions.** The lead decided items 13–16 of §5 on 2026-10-04 (X3a-2, X4b, X4T-c, X4 F-1), each with its rejected alternative, and recorded them in §1 claim 5 and §5. M3-PLAN r6 schedules them.
-4. **Finalization.** At arch `3e6c40ad7`, the lead filled the tokens and set the status line to COMPLETE (2026-10-04). r2 filled the last two token cells.
-5. **Commits.** The draft and the first EXIT-PLAN refresh were committed at arch `5df50f35c`. The finalized record was committed at `3e6c40ad7`.
-6. **Fact review.** GROK2 reviewed the finalized record (r1, `957d3002…`) and returned eight required consistency findings, recorded at arch `55796cced`. r2 answers them, and its fact review is `reviews/grok2-m2-complete-r2/`.
+1. **When Grok's rerun returns,** copy `REVIEW.md` and `review.json` into `reviews/grok-crash-matrix-x96-r2/` and set its `status.json`.
+2. **Fill the tokens.** Fill every `RERUN` token in §2.2, and the `LEAD` token in §6. The "Finalization tokens" table keeps its token names: delete it, or mark it filled. Then `grep -n '\[\[' M2-COMPLETE.md` should find nothing outside that table.
+3. **Decide items 13–16 of §5** (X3a-2, X4b, X4T-c, X4 F-1). Record each decision, with its rejected alternative, in the owning law or here. Then update §1 claim 5, §3.3 and §5.
+4. **Change the status line** to "**COMPLETE (date)**", or keep PENDING-RERUN if the rerun had required findings.
+5. **Commit this record and the EXIT-PLAN refresh.**
+6. **Rehash for GROK2.** Recompute `hashes.txt` in `reviews/grok2-m2-complete-r1/` over the finalized bytes, commit, and send the request to GROK2 (w6:p1).
+7. **On GROK2's acceptance,** record it here and in EXIT-PLAN's X9 row.
