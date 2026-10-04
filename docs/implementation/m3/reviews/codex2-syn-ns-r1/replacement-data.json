@@ -1,0 +1,121 @@
+{
+  "schemaVersion": 1,
+  "standing": "Reviewer-proposed exact data replacements for spec_syn_ns.py; not applied and not a replacement accepted subject. Conservative fixes are supplied, not claimed to maximize recall. Apply the required entries together; regenerate closure/readable members, report, map, successor and subject through the lead lane and seek fresh review. No code was executed for these counterexamples.",
+  "requiredReplacements": [
+    {
+      "target": "TOKEN_LAW[2]",
+      "replacement": "Gaps. The bytes of [start, end) covered by no token node form maximal gap runs. In a Rust row, a run made only of the bytes 0x09, 0x0A, 0x0B, 0x0C, 0x0D and 0x20 is dropped. In a JavaScript-family row, a run is dropped only when made entirely of 0x09, 0x0B, 0x0C and 0x20: CR and LF are kept, because line terminators can select automatic semicolon insertion. Any other run is one opensip:gap token with its exact bytes, including any whitespace inside it. This is a conservative whitespace normalization: it keeps even a line break that would be insignificant in its particular context.",
+      "findingIds": [
+        "RF-SYNNS-1"
+      ]
+    },
+    {
+      "target": "L2_LAW[0]",
+      "replacement": "L2-comment-insensitive starts from this specification's token law. A comment token is a token node of the row's commentKinds. Remove every non-directive comment token except, in a JavaScript-family row, a comment token whose text contains U+000A, U+000D, U+2028 or U+2029. Keep such a comment token unchanged, since a line terminator in a comment can select automatic semicolon insertion. This is a conservative exception to comment removal, not a claim that the comment is a compiler directive. Atomic macro token trees are not entered and no comment inside one is removed. Removal deletes the token; no other token changes.",
+      "findingIds": [
+        "RF-SYNNS-1",
+        "RF-SYNNS-3"
+      ]
+    },
+    {
+      "target": "RUST_PATTERN_LAW['law']",
+      "replacement": "The bindings of a pattern node P: a shorthand_field_identifier binds its text. An identifier binds its text only when it is the first named child of a captured_pattern, a direct child of a mut_pattern or ref_pattern, or the whole pattern field of a let_declaration that has a mutable_specifier child. These are explicit binding forms. Any other bare identifier is ambiguous between a binding and an item path and binds nothing in this conservative syntax-only extractor, in every position; neither capitalization, a raw-identifier prefix, nor naming lints decide it. A descend rule reaches its named children (except the node in its field, for -except-field), or, for field_pattern, its shorthand_field_identifier name or else the node in its pattern field. Any other node binds nothing (a path, a literal, a range, _, .., self).",
+      "findingIds": [
+        "RF-SYNNS-2"
+      ]
+    },
+    {
+      "target": "RUST_PATTERN_LAW['statedLimit']",
+      "replacement": "Conservative syntax-only extraction omits ambiguous bare identifier patterns, including ordinary unmodified parameter and local names. This is a recall limit, not permission to rename a constant, unit struct, unit variant or other free item name. A future increase in recall needs an independently reviewed rule that proves the binding classification; naming convention is not proof. The limitation applies to declares extraction as well as L3 binding discovery.",
+      "findingIds": [
+        "RF-SYNNS-2"
+      ]
+    },
+    {
+      "target": "RUST_ATOMIC",
+      "replacement": [
+        "string_literal",
+        "raw_string_literal",
+        "char_literal",
+        "line_comment",
+        "block_comment",
+        "token_tree"
+      ],
+      "findingIds": [
+        "RF-SYNNS-3"
+      ]
+    },
+    {
+      "target": "RUST_L3['bodyDisqualifiers']",
+      "replacement": [
+        {
+          "kind": "use_declaration",
+          "descendant": "use_wildcard"
+        },
+        {
+          "kind": "macro_invocation"
+        }
+      ],
+      "findingIds": [
+        "RF-SYNNS-3"
+      ]
+    },
+    {
+      "target": "SCOPE_LAW_RUST[5]",
+      "replacement": "bodyDisqualifiers: a use_declaration holding a use_wildcard, or any macro_invocation, anywhere in the body makes every name non-renamable for the body. A glob import or an unexpanded macro can introduce names this reading cannot see. Macro invocation token trees are atomic exact-byte tokens at L1, L2 and L3, so whitespace and comments inside them are kept too.",
+      "findingIds": [
+        "RF-SYNNS-3"
+      ]
+    },
+    {
+      "target": "SCOPE_LAW_RUST[6]",
+      "replacement": "Conservative macro limit: a body containing a macro invocation receives no local-name replacement. This can miss identifier-insensitive clones; it cannot rename a name introduced by an unseen expansion. No claim that an expansion's item names are visible in its token tree is needed.",
+      "findingIds": [
+        "RF-SYNNS-3"
+      ]
+    },
+    {
+      "target": "CONTROL_FLOW_LAW[1]",
+      "replacement": "Nodes and traversal. entry and exit belong to the graph's body owner. For a statementLists record without field, List(L) is L's named children minus nonStatements; with field, List(L) is only the named children carrying that field, minus nonStatements. In particular a switch_case value is not a statement. Start from the body's list. Expand only the role-selected children described here, not arbitrary descendant lists or expressions. For branch, select consequence and alternative; unwrap alternativeChild to its first non-comment named child before testing it. For a loop or labeled role, select body. For try, select body, handler's body and finalizer's body. For block, select the node itself when it is a statementLists node, else its child-selected list. For switch, select only the case/default lists in its body. For match, select only block-valued arm lists, as rule 9 states; other arm expressions remain undecomposed. A selected statementLists child is transparent: its List members are flow nodes. A selected non-list statement child is itself a flow node. The body node itself is transparent. A nested selected body is opaque in the enclosing graph; do not expand a role into its list there, and treat that enclosing flow node as simple. Rust expression_statement uses its expression child to select the role and read its role fields, but the wrapper remains the flow node for identity, order and anchor. A flow node's identity prefix is the body owner's full subject segment sequence INCLUDING the owner's own declaration/container segment, not just the owner's strict-ancestor chain. Append a stmt segment for each enclosing flow node and itself; name is the flow node kind and ordinal counts earlier flow nodes of that kind with that same enclosing-flow-node chain IN THIS GRAPH. entry and exit append their corresponding empty-name segment with ordinal 0 to the same full owner prefix. No byte offset, line or column enters these identities.",
+      "findingIds": [
+        "RF-SYNNS-4",
+        "RF-SYNNS-6"
+      ]
+    },
+    {
+      "target": "CONTROL_FLOW_LAW[2]",
+      "replacement": "first(X): for a role-selected transparent list, its first List member, or none with that list's continuation when it is empty; for a selected single statement, that flow node. In rule 3, first(list) always means the first List member of the block role's selected list, never the block flow node itself. An opaque nested body is not a selected transparent list in its enclosing graph. else_clause is unwrapped before first is evaluated; catch_clause and finally_clause select their body field.",
+      "findingIds": [
+        "RF-SYNNS-4"
+      ]
+    },
+    {
+      "target": "TS_CONTROL['roleLaw']",
+      "replacement": "Every other flow node is simple. with_statement takes the labeled role (enter its body). An alternativeChild else_clause unwraps to its first non-comment named child, including a statement_block or an if_statement. The body of a catch_clause and a finally_clause is its body field. A switch_case or switch_default list consists only of its body field nodes; its value is excluded.",
+      "findingIds": [
+        "RF-SYNNS-4"
+      ]
+    },
+    {
+      "target": "RUST_CONTROL['roleLaw']",
+      "replacement": "A flow node takes the role of its own kind, or, for an expression_statement, the role of its expression child; all role fields and child selectors are read on that effective expression node, while identity and anchor remain those of the wrapper. An alternativeChild else_clause unwraps to its first non-comment named child, a block or if_expression. Every other flow node is simple: a let_declaration, an item, a macro_invocation, an async_block, const_block, try_block or gen_block, and any other expression. The last named child of a block that is an expression without a semicolon is a flow node like any other; its normal completion is the block's. A loop carries its label in a label child; break and continue name one in theirs. The graph's nested-body opacity rule takes precedence over role expansion, including an unsafe_block's child block.",
+      "findingIds": [
+        "RF-SYNNS-4"
+      ]
+    },
+    {
+      "target": "CONTROL_FLOW_LAW[5]",
+      "replacement": "Edges. (1) entry to first(body) as fallthrough, or entry to exit when the body has no flow node (an expression body has none). (2) A simple node S: S to next(S), fallthrough, or loop when next is reached as the end of a loop body. (3) block: S to first(list), fallthrough. (4) branch: S to first(consequence) as branch-true; S to first(alternative) as branch-false when there is an alternative, else S to next(S) as branch-false; an else holding another branch makes that branch the alternative's flow node. (5) pretest loop: S to first(body) as branch-true (S to S as loop when the body has no flow node); S to next(S) as branch-false, except a for_statement whose condition is absent or empty. (6) posttest loop: S is the condition test reached after executing its body. On every edge whose destination would be S, redirect that destination to first(body), recursively when that first statement is itself a posttest loop; for an empty body keep S as destination. This includes entry, branch, normal completion and a break that completes an earlier statement. The exceptions are a continue explicitly targeting S and an edge to S through the continuation of S’s own body, regardless of that edge’s branch or loop label: both go to S for the test. S to first(body) as branch-true (S to S as loop for an empty body); S to next(S) as branch-false. The body's end to S as loop. There is no path entering a nonempty posttest loop that can bypass its first body execution. (7) infinite loop: S to first(body) as fallthrough; the body's end to S as loop; no other exit but break. (8) switch: for each case in order, S to the first flow node of that case or a later one as branch-true (branch-false for the default case); with no default case, S to next(S) as branch-false. (9) match: for each arm, S to first(the arm value) as branch-true when the value is a block with a flow node, else S to next(S) as branch-true. (10) try: S to first(try body) as fallthrough; with a handler, S to first(handler body) as exception. (11) labeled: S to first(body) as fallthrough. (12) return: S to exit as return. (13) throw: S to first(handler body) of the innermost enclosing try in this body whose try body contains S and which has a handler, as throw; else S to exit as throw. (14) break: S to next(T) as fallthrough, where T is the innermost enclosing loop or switch (a JavaScript-family row) or loop (Rust), or the node carrying the named label. (15) continue: S to T as loop, where T is the innermost enclosing loop or the loop carrying the named label (for a labeled_statement, the loop in its body). (16) Rust early return: a flow node S with a try_expression in its own part (S's subtree minus its nested flow nodes and minus nested bodies and nested try_block nodes) also gets S to exit as return.",
+      "findingIds": [
+        "RF-SYNNS-5"
+      ]
+    }
+  ],
+  "optionalReplacements": [
+    {
+      "target": "L3_LAW[3]",
+      "replacement": "Resolution. A binding-site occurrence resolves directly to the binding that site introduces, before applying reference lookup. Every other occurrence resolves to the binding of its name in the innermost enclosing scope, inside the boundary, that binds the name. In the JavaScript family a scope binds a name anywhere in it (hoisting and the temporal dead zone both bind). In Rust a let_declaration binds its names for the following siblings of its block and their subtrees only, so a later let shadows an earlier one and reference occurrences in a let's own value, type and alternative see the earlier binding; every other Rust scope binds throughout its stated region. A reference occurrence with no such binding is free.",
+      "observationId": "NB-SYNNS-1"
+    }
+  ]
+}

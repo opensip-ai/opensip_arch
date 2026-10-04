@@ -525,3 +525,11 @@ Times are local.
   - **RF-1:** case (a) is enforced by D4's own EE-5a check until C2a lands CR-1's schema (RJ-6). D4 ships with that check and doesn't rely on C2a. (b) and (c) stay with the security owner, with D4 as the backstop.
   - **NBO-1:** Grok's NE:3577-3579 wording is applied.
   - **NBO-2:** rows 56 and 57 are "owed via J1's next revision".
+- **SYN-NS r2 written,** queued for GROK2 after B r3. All six findings are fixed under the conservative rule:
+  - JS-family line breaks are kept as one `opensip:line-break` token;
+  - Rust binds only in explicit binding forms (`ref`, `mut`, `@`, `let mut`, `mut` params, `S { mut a }`);
+  - macro token trees are atomic, and any macro or attribute in a Rust body turns L3 renaming off;
+  - flow-node traversal is defined, with the role tables as the only authority;
+  - `do…while` is entered at the body;
+  - control-flow identities carry the owner's own segment.
+  - **Quality trade-off (lead decision, the owner may want a say):** plain `let x`, plain parameters and plain `for` patterns aren't treated as bindings, because Rust can resolve them to a unit struct or constant, which syntax can't see. Rust L3 near-clone recall drops substantially. **Plan:** measure Rust L3 recall on T2. If the loss matters, consider a narrower relaxation at M4, such as a file-local proof. **Rejected now:** accepting the unproven reading.
