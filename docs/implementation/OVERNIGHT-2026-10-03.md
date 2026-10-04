@@ -135,3 +135,4 @@ Times are local.
   - **The ephemeral path is read-only.**
 
   It also found that six M2 laws need amendments (468, X1, X3a, X4B, X2, 464), and that J units need X9 r17 plus crash-matrix reruns.
+- **M3-PLAN r6 accepted by GROK2.** Its critical path is 33 days from M3-L acceptance.

@@ -1,7 +1,5 @@
 # M3 unit plan
 
-**r6 ACCEPTED 2026-10-04 by GROK2** (`a6956e88…`). r6's bytes, without this note, are preserved in `M3-PLAN-r6.md`.
-
 Draft r5. Claude Opus 5.5, implementation lead. **Planning record: not law, not code, not a contract successor.** It is the M3 counterpart of [m2/EXIT-PLAN.md](../m2/EXIT-PLAN.md). It orders M3's obligations into reviewable units and changes no accepted contract, gate, threshold or register row.
 
 **Product baseline:** main `3e64266`. M2's exit gate X9-6 is integrated as commit C = `3d2d5b5`, followed by D3 (`30c5db1`) and F8a (`3e64266`). The M2 crash matrix gave `matrixPass: true` on C. M2 completion still waits for Grok's independent rerun on C (M2C:5, "PENDING-RERUN"). X9-6 is in, so the r4 rule "no unit touches product crates before X9-6" is now met.
