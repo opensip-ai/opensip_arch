@@ -1,48 +1,133 @@
-# The M3 provider-protocol and reuse law — proposal M3-L r1
+# The M3 provider-protocol and reuse law — proposal M3-L r2
 
-**DRAFT: acceptance gated.** This is a draft. It may be reviewed once its gate permits, and it cannot be accepted until every gate item below is met. Its gate list is the M3-L row of the accepted M3 unit plan (`M3-PLAN.md:160`). Drafting proceeds in parallel, as that row allows.
+2026-10-04. Drafted for Claude Opus 5.5, implementation lead, by a lead-dispatched drafting agent during the overnight autonomous run. It is the law for unit **M3-L** of the accepted M3 unit plan (`M3-PLAN-r6.md:207`).
 
-2026-10-03. Drafted for Claude Opus 5.5, implementation lead, by a lead-dispatched drafting agent, during the overnight autonomous run. It is the law for unit **M3-L** of `docs/implementation/m3/M3-PLAN.md` (r4, accepted). It is written under:
-- the M3-L row (`M3-PLAN.md:160`), the M3-D row (`M3-PLAN.md:164`), the M3-S row (`M3-PLAN.md:158`), the M3-J row (`M3-PLAN.md:170`), the "O7" section (`M3-PLAN.md:308-359`) and the critical path (`M3-PLAN.md:187-258`);
-- the accepted analysis-quality plan's §5.3, obligations INC-1 to INC-8 (`analysis-quality/PLAN.md:383-409`, r6; the INC text is byte-identical in r4, r5 and r6);
-- the accepted operability plan's §3.1, §3.6, §4.1, §5.5, §8 and §9 (`operability/PLAN.md`, r3);
-- the accepted quality-harness design record, where it constrains the protocol (`harness/DESIGN.md`, r13);
+**Draft r2, not accepted. Not code. Reviewable now; effective only when its gate is met.** Under this revision's review rule ("Review and effect"), an ACCEPT is recorded as "accepted in review". The law takes effect only when every gate item is met, as M3-C r5 and r6 do. Filling the `⟨SM-n⟩` values, and any change that O7's decision forces, go through a delta round.
+
+**History.** r1 (`PROPOSAL-r1.md`, sha256 `5e858c05…`, 59,109 bytes) was drafted on 2026-10-03 and never sent. Its draft request is superseded (`reviews/grok-provider-protocol-l-r1/status.json`, `SUPERSEDED-UNSENT`). r1 cited M3-PLAN r4 and predated T2b's acceptance, S-OP-2, CF-P, M3-C r6, M3-E1 r3 and M3-J1 r3. r2 refreshes those joins and the gate, adopts the review rule, and otherwise keeps r1's substance. r2 is the first revision sent for review.
+
+It is written under:
+- the M3-L row (`M3-PLAN-r6.md:207`), the M3-S row (`:205`), the M3-D row (`:211`), the M3-J row (`:217`), "M3-L gate status" (`:429-445`), the "O7" section (`:474-525`) and the critical path (`:253-427`);
+- the accepted analysis-quality plan's §5.3, obligations INC-1 to INC-8 (AQP:383-409, r6);
+- the accepted operability plan's §3.1, §3.6, §4.1, §5.5, §8 and §9 (OPP, r3);
+- the accepted quality-harness design record, where it constrains the protocol (Q0, r13);
+- **new in r2:** S-OP-2 r6 (accepted), items 19, 22 and 23; M3-J1 r3 (accepted), items 2, 5 and 8; M3-C r6 (accepted in review), items 5, 9, 16 and 20 and its cross-law findings X-1 and X-3; M3-E1 r3 (accepted), items 14b and 16 and its section G; CF-P's record; and the D law's draft, cited by role;
 - the product contracts in `docs/v2/contracts/product-v1/` and the protocol artifacts they select.
+
+## r2 changes
+
+| # | Change | Where | Source |
+|---|---|---|---|
+| 1 | **r1 is preserved** as `PROPOSAL-r1.md`. Six laws and drafts cite r1 by line. Those lines still resolve there, and r2 keeps every item, X, R and O number they cite (X10). | header | — |
+| 2 | **Review rule (lead decision).** Early review is allowed. An ACCEPT is "accepted in review" and takes effect only when every gate item is met. The `⟨SM-n⟩` values and any change O7 forces go through a delta round. A dependent's "M3-L accepted" means L in effect. **Rejected:** waiting for the gate before any review. | "Review and effect" | ON, "Lead decision: M3-L gets an early review round"; MC header |
+| 3 | **Gate refreshed.** G2, G3 and G7 are MET, with their records. G4 and G5 are owner items (B3). G9 is an owner item (B1), with CF-P's evidence. G1, S-M, is still NOT STARTED. G6 and G8 are unchanged. | "Acceptance gate" | `reviews/grok2-corpus-t2b-r1`; HD:3; `reviews/codex-s-op-2-r6`; CFP; ON |
+| 4 | **Dependence on O7 and S-M** is stated, item by item. | new section | — |
+| 5 | **Re-pins.** Every plan citation is now `M3-PLAN-r6.md`:n (the M3-L row is line 207). S-OP-2 is cited at its accepted r6 bytes, J1, MC and ME at theirs. The product is main `e093e90`; no product file this law cites changed after r1's `2967905`. | throughout | `git diff --name-only 2967905 e093e90` |
+| 6 | **S-OP-2's event names (item 14).** Each need is named exactly as S-OP-2 r6 registers it, and every one is registered. OPP:238's working name `supervision.no_progress` is registered as `supervision.progress.absent`. | item 14 | SOP2:864-894 |
+| 7 | **stderr is counted, never held (item 12.1; lead decision).** The host reads stderr to EOF, counts it and keeps no text. **Rejected:** r1's hold-then-reduce. This closes the D law draft's departure from item 12.1. | item 12.1 | the D law's stderr item; `reviews/grok2-supervisor-d-r1` NBO-1 |
+| 8 | **`detailCode` (item 12.2)** is S-OP-2's K3 `RustDetailCode` with an empty table. A member added later is a diagnostic label only. | item 12.2 | SOP2:844, :850-851 |
+| 9 | **S-M's figures (item 9).** SM-10's unit is the platform's native unit, labelled, with a checked byte conversion. SM-5 and SM-6 also report `snapshot2`'s bounds. The workloads come from the complete T2 manifest. SM-1, SM-3 and SM-8 also inform the D law's constants. | item 9 | SOP2:910, :915, :1041 (R9); MC X-1; T2R |
+| 10 | **Syntax universes have no child (item 2).** The in-host syntax pass is outside item 2's cardinality rules and is never a provider fallback. | item 2 | ME item 16 and §G; MC item 9 |
+| 11 | **Where a child starts (items 2 and 13).** After MC's pre-execution joins, with the attempt's ExecutionId already reserved. "Attempt admission" for identities is read as J1 item 2 reads it. | items 2, 13 | J1 items 2 and 5.2; MC row 15 |
+| 12 | **TypeScript `CancelV1` (item 16; lead decision).** M3 sends only `reason: user-interrupt`. `host-shutdown` is never sent. | items 16a, 16b | DLV:860 |
+| 13 | **The commit-phase join is J1's (items 16f and 18).** Providers are live only in phase A. r1's "the provider part of phase B" is withdrawn. | items 16f, 18 | J1 8.2, 8.5, S15 |
+| 14 | **Reuse disclosure per stage and universe (item 10)**, syntax stages included, as `host.reuse.disclosed`. | item 10 | SOP2:873; ME §G |
+| 15 | **Cross-law findings.** X3 is answered for S-OP-12 by J1. X5 is addressed by the D law's draft. X8 is resolved by M3-PLAN r5. New: X9 to X12. | "Cross-law findings" | — |
+| 16 | **Open questions.** R3, R8 and R9 are updated by the D law's draft. S-OP-2's R9 (SM-10's unit) is answered. New: R10 (Rust prepared entries) and R11 (the review rule). | "Open questions" | — |
+| 17 | **Joins checked**, law by law. | new section | — |
+
+Nothing else changes in substance.
+
+**Standing direction.** Lead decisions are made under the owner's standing direction to decide on the lead's recommendation and to block only where no recommendation exists. r1's are dated 2026-10-03, and r2's new ones (the review rule, item 12.1 and item 16b) are dated 2026-10-04. Each names the alternatives it rejects. The owner may reverse any of them.
+
+## Review and effect (lead decision, r2)
+
+- **Decision.**
+  - **Early review is allowed.** A law and contract-soundness review round may run now, before the gate is met.
+  - **What an ACCEPT means.** It is recorded as "accepted in review". The law takes effect only when every gate item, G1 to G9, is met. That is the pattern of M3-C r5 and r6: "Under its own gate, the law takes effect once M3-L and X12 r4 are accepted" (MC header).
+  - **What reopens it.** Two things go through a **delta round**, with the same reviewer, on the diff only:
+    1. filling every `⟨SM-n⟩` from S-M's report, with item 9's outcome (A, B or C), and any owner answer to O3 or O4 that the outcome triggers;
+    2. any change that O7's decision forces (see "What depends on O7 and S-M").
+
+    The S-M delta round also refreshes the gate rows. A gate item met after that round (a sign-off, or O7 decided as recommended) is recorded as recording text in the live file's header note, unless it forces a change. A forced change takes its own delta round.
+  - **What dependents may rely on.** Wherever another law or record names "M3-L accepted" or "L's acceptance" as a gate or as day 0, it means **L in effect**: accepted in review, every gate item met, and every delta round accepted. That covers MC's gate, `M3-PLAN-r6.md:255` and `:378`, and the D law draft's gate note. An ACCEPT in review alone satisfies no dependent's gate.
+- **Basis:**
+  - the overnight log's record of this lead decision (ON, "Lead decision: M3-L gets an early review round");
+  - MC's acceptance pattern (MC header; ON, "M3-C accepted in review at r5", "M3-C r6 accepted in review");
+  - `M3-PLAN-r6.md:255`: "Day 0 is M3-L's acceptance. Because O7 and S-M are in L's gate, both are done by then."
+- **Rejected:**
+  - **Waiting for the gate before any review.** That was r1's rule, and its draft request said "Send this only once the M3-L acceptance gate permits". It serializes the day-0 law behind three owner items (O7, D3, D13) and a lead run set (S-M), and leaves the law's soundness unknown until all four close.
+  - **Letting "accepted in review" satisfy dependents' gates.** A delta round under S-M or O7 could still change what they rely on, and day 0 would then start before O7 is decided, against `M3-PLAN-r6.md:476`.
+  - **A full re-review when S-M lands.** Only the values and the outcome change. A delta round on the diff is enough, as M3-C r6's narrow amendment showed.
+- **Consequence.** `M3-PLAN-r6.md:445` ("Before L can be sent: S-M, the two sign-offs and O7") and `:426` (r2 "fills ⟨SM-n⟩ after S-M") no longer describe the order. Cross-law item X9 routes the change to M3-PLAN's next revision. The gate itself is unchanged.
 
 ## Acceptance gate
 
-Status at drafting (2026-10-03). The gate is `M3-PLAN.md:160`: "S-M, complete T2 (T2b), Q0, D3, D13 and the D2 draft, S-OP-2 drafted, O1 and **O7 decided**". The same row says "The S-OP-4 join is the law's content, not a gate item", so S-OP-4 appears as item 12, not here.
+Status on 2026-10-04. The gate is the M3-L row: "S-M, complete T2 (T2b), Q0, D3, D13 and the D2 draft, S-OP-2 drafted, O1 and **O7 decided**" (`M3-PLAN-r6.md:207`). The same row says "The S-OP-4 join is the law's content, not a gate item", so S-OP-4 is item 12, not a gate row. Under "Review and effect", the gate decides when L takes effect, not when it may be reviewed.
 
 | # | Gate item | Status | Evidence |
 |---|---|---|---|
-| G1 | **S-M**, the INC-7 spike, measured | **NOT STARTED.** It depends on T2a (met), the Q0 envelope (met) and D13 (G5, open); its Q6-labelled samples also wait for D12 (`M3-PLAN.md:158`). It is a lead run set, so it waits for X9's lead sets (`M3-PLAN.md:270`). Item 9 lists the figures it must deliver. Every number that depends on it is a placeholder `⟨SM-n⟩`. | `M3-PLAN.md:158`, `:245`; no S-M report exists |
-| G2 | **T2 complete (T2b)** | **T2a MET; T2b NOT STARTED.** T2a was accepted by GROK2 (arch `be87f45f7`; `reviews/grok2-corpus-t2a-r1/status.json` `ACCEPTED`). T2b's candidates are pinned in the T2a draft manifest but not yet a T2b unit. | `corpus/README.md:11-16` |
-| G3 | **Q0** | **MET.** The harness design record r13 was accepted by CODEX2 (arch `925b1ddd2`; sha256 `37438317…`). | `harness/DESIGN.md:3` |
-| G4 | **D3**, the T2 selection | **OPEN.** It is lead work with owner sign-off, status `proposed` (`analysis-quality/PLAN.md:543`). No sign-off is recorded. | — |
-| G5 | **D13**, the exploratory envelope | **PARTLY SETTLED.** ENV is drafted and its mechanisms were accepted within Q0 r13 (`harness/DESIGN.md:1141-1158`). D13's sign-off is still open (`harness/DESIGN.md:1245`, OI-1; `analysis-quality/PLAN.md:554`). D13's second half, the DR-G13 successor, is M6 work and is not in this gate. | — |
-| G6 | **D2 drafted** | **MET, on the lead's reading.** The rule-catalog draft specs are Q0 §2 (`harness/DESIGN.md:276-300`), accepted in r13. D2's placement decision (a first-party `PolicyDocumentV2` pack through a WS/pack successor) is still `proposed`, with owner sign-off (`analysis-quality/PLAN.md:542`; `harness/DESIGN.md:1259`, OI-15). The gate asks for the draft, not the sign-off. A reviewer may read it otherwise (open question R7). | — |
-| G7 | **S-OP-2 drafted** | **NOT STARTED.** No S-OP-2 draft exists. Item 14 lists the provider-boundary events this law needs it to register. | `operability/PLAN.md:408` |
-| G8 | **O1** | **DECIDED IN THIS LAW** (item 11), as a lead decision subject to this law's review. It becomes final when this law is accepted. | `M3-PLAN.md:298`; `operability/PLAN.md:394` |
-| G9 | **O7 decided** | **PENDING. An owner decision**, blocker B1 in `docs/implementation/OVERNIGHT-2026-10-03.md`. This law neither decides O7 nor assumes its outcome (item 17). | `M3-PLAN.md:310`, `:363` |
+| G1 | **S-M**, the INC-7 spike, measured | **NOT STARTED.** It is a lead run set (`M3-PLAN-r6.md:205`). P5-8's machine order puts it after Grok's rerun on C (done), F8b's cargo steps (done: F8b is bound at product main `e093e90`) and X4-F1's lanes and reruns, which have not run (`M3-PLAN-r6.md:593`). If O7 is decided while both wait, S-M moves ahead of X4-F1 (`:594`). Its report also waits for the D13 sign-off (G5). Its Q6-labelled samples wait for D12 (`:205`). Item 9 lists the figures it must deliver. Every number that depends on it is a placeholder `⟨SM-n⟩`. | `M3-PLAN-r6.md:205`, `:371`, `:435`, `:593`; ON, "Grok's X9-6 rerun on C was accepted" and "F8b accepted and bound"; no S-M report exists |
+| G2 | **T2 complete (T2b)** | **MET.** GROK2 accepted T2b with no findings. The T2 manifest holds 49 repositories, 5 multi-repo workspaces and 33 independence families. | `reviews/grok2-corpus-t2b-r1/status.json` (`ACCEPTED`); T2R:24; `M3-PLAN-r6.md:203`, `:436`; ON, "M3-T2b accepted by GROK2" |
+| G3 | **Q0** | **MET.** CODEX2 accepted the harness design record r13 (sha256 `37438317…`; envelope schema `71f682d1…`). | HD:3; `M3-PLAN-r6.md:204`, `:437` |
+| G4 | **D3**, the T2 selection | **OPEN: an owner item** (blocker B3). It is lead work with owner sign-off, status `proposed` (AQP:543). No sign-off is recorded. The lead recommends approval as reviewed. | AQP:543; ON B3; `M3-PLAN-r6.md:438`, `:534` |
+| G5 | **D13**, the exploratory envelope | **OPEN: an owner item** (blocker B3). ENV's mechanisms were accepted within Q0 r13 (HD:1141-1158), but the sign-off is open (HD:1245, OI-1; AQP:554). D13 also gates S-M's report (G1). D13's second half, the DR-G13 successor, is M6 work and is not in this gate. | AQP:554; HD:1245; ON B3; `M3-PLAN-r6.md:439`, `:534` |
+| G6 | **D2 drafted** | **MET, on the lead's reading.** The rule-catalog draft specs are Q0 §2 (HD:276-300), accepted in r13. D2's placement decision (a first-party `PolicyDocumentV2` pack through a WS/pack successor) is still `proposed`, with owner sign-off (AQP:542; HD:1259, OI-15). The gate asks for the draft, not the sign-off. A reviewer may read it otherwise (open question R7). | AQP:542; `M3-PLAN-r6.md:440` |
+| G7 | **S-OP-2 drafted** | **MET, and exceeded.** Codex accepted S-OP-2 at r6, ACCEPT-DESIGN-UNIT with no required findings (`ce8d3a4b…`). Item 14 checks that it registers every event this law needs. It does. | SOP2; `reviews/codex-s-op-2-r6/status.json` (`ACCEPTED`); ON, "S-OP-2 accepted at r6 by Codex" |
+| G8 | **O1** | **DECIDED IN THIS LAW** (item 11), as a lead decision. Accepted S-OP-2 r6 is written within it (SOP2 item 19), and the plan records it (`M3-PLAN-r6.md:463`). It becomes final when this law takes effect. | `M3-PLAN-r6.md:442`, `:463`; OPP:394 |
+| G9 | **O7 decided** | **OPEN: an owner decision**, blocker B1. **CF-P has run.** It is evidence for O7, not a decision, and it claims nothing as enforced (CFP:3):<br>- **macOS 27:** programmatic Seatbelt confinement through `sandbox_init_with_parameters` is feasible, provided the profile adds a `kern.procargs` sysctl denial (one of five amendments CF-P asks of the D law's profile draft). Deprecation risk is high, so each macOS major needs its own check (CFP:231-264).<br>- **AL2023, by desk check only:** feasible on kernels 6.1.147, 6.12.40, 6.18 and later. Earlier kernel builds lack Landlock and disclose (CFP:309-315).<br>The lead's recommendation is in ON B1 and `M3-PLAN-r6.md:478-485`. This law neither decides O7 nor assumes its outcome (item 17). | ON B1; CFP:3, CFP:231-264, CFP:309-315; `M3-PLAN-r6.md:476`, `:532` |
 
-**Before acceptance**, the next revision must:
-- fill every `⟨SM-n⟩` placeholder from S-M's report and record the item 9 outcome;
-- update each gate row with its evidence;
-- re-pin the citations into any contract text that moved.
+**Before L takes effect:**
+- S-M runs (G1), and its delta round fills every `⟨SM-n⟩`, records item 9's outcome and refreshes these rows;
+- the owner signs off D3 and D13 (G4, G5) and decides O7 (G9);
+- any change that O7 forces passes its own delta round.
 
 **Not in this gate:**
-- CF-P, which gates the D law, not this one (`M3-PLAN.md:164`);
-- D12, which gates only S-M's Q6-labelled samples (`M3-PLAN.md:158`);
-- every D5a successor. Item 3's table explains why none is needed for M3.
+- CF-P, which gates the D law, not this one (`M3-PLAN-r6.md:211`). It has run, and G9 cites it as evidence.
+- D12, which gates only S-M's Q6-labelled samples (`M3-PLAN-r6.md:205`).
+- Every D5a successor. Item 3's table explains why none is needed for M3.
+- The D law. This law cites it by role (item 17). The D law's draft names this law as one of its inputs, not the reverse.
+
+## What depends on O7 and S-M
+
+r2 states its own reading here so that the reviewer can test it.
+
+**S-M.**
+- **Item 9 depends on it entirely:** every `⟨SM-n⟩`, the derived F and T, and the outcome (A), (B) or (C).
+- **Some things depend on it conditionally:**
+  - owner questions O3 and O4 arise only on outcomes (B) and (C);
+  - X6, liveness against synchronous compiler work, is sized by SM-8, which also sets the D law's liveness floor;
+  - SM-6 may raise a TS2 limit question, which only a successor can answer (item 1);
+  - SM-5 and SM-6 decide whether MC's conditional S-R is needed (MC item 5).
+- **No other item depends on S-M's values.** Under every outcome, items 1 and 2 keep TS2 and Rust3 one-shot for M3 (item 9's outcome text). If the owner's answer to O3 or O4 changes D5's staging, that is the owner's decision, outside this law. This law would then need a delta round only to change M3's protocol, which item 1 forbids without a successor.
+
+**O7.**
+- **No item's text depends on O7's outcome.** O7 decides when L takes effect (G9) and when a provider may launch (item 17; `M3-PLAN-r6.md:476`).
+- **A delta round is needed only if O7 is decided in a way that:**
+  - lets a provider execute repository code at M3. That contradicts item 17's third requirement and NE:2534-2535, and would need contract successors as well;
+  - needs a wire signal or wire member at the provider boundary for confinement. Item 1 forbids that, and CF-2's disclosure carrier sits "beside Coverage and never inside it" (`M3-PLAN-r6.md:504`);
+  - changes item 2's process model, for example with a resident or pooled confined helper.
+- **Under the lead's recommendation, none of these arises.** The confinement records are the D law's own registrations (its records item), not needs of item 14.
 
 ## Short names
 
-Line numbers are those of the live files on 2026-10-03. Each live plan or design file carries a two-line acceptance note, so it is 2 lines ahead of its `-rN` snapshot.
-- **M3P** `docs/implementation/m3/M3-PLAN.md` (r4, accepted)
-- **AQP** `docs/implementation/m3/analysis-quality/PLAN.md` (r6, accepted)
-- **OPP** `docs/implementation/m3/operability/PLAN.md` (r3, accepted)
-- **Q0** `docs/implementation/m3/harness/DESIGN.md` (r13, accepted)
+Line numbers are those of the cited files on 2026-10-04. A live plan or design file that carries a two-line acceptance note is 2 lines ahead of its `-rN` snapshot. AQP, OPP, Q0 and ENV have not changed since r1, so r1's lines for them stand.
+- **M3P** `docs/implementation/m3/M3-PLAN-r6.md`, the accepted r6 bytes (sha256 `a6956e88…`). The live `M3-PLAN.md` carries the acceptance note and is 2 lines ahead. **Every plan citation here is `M3-PLAN-r6.md`:n.**
+- **AQP** `docs/implementation/m3/analysis-quality/PLAN.md` (r6, accepted; live file, sha256 `1611014d…`)
+- **OPP** `docs/implementation/m3/operability/PLAN.md` (r3, accepted; live file, sha256 `4eca344b…`; the r3 bytes are `PLAN-r3.md`)
+- **Q0, HD** `docs/implementation/m3/harness/DESIGN.md` (r13, accepted; live file, sha256 `1f108399…`)
 - **ENV** `docs/implementation/m3/harness/exploratory-quality-envelope.schema.v1.json`
+- **SOP2** `docs/implementation/m3/operability/s-op-2/PROPOSAL-r6.md`, the S-OP-2 r6 bytes Codex accepted (`ce8d3a4b…`). The live file differs only in recording text.
+- **J1** `docs/implementation/m3/host-pipeline-j/PROPOSAL-r3.md`, the M3-J1 r3 bytes CODEX2 accepted (`ad887c90…`)
+- **MC** `docs/implementation/m3/snapshot-plan-c/PROPOSAL-r6.md`, the M3-C r6 bytes CODEX2 accepted in review (`8274bca1…`). They take effect once this law and X12 r4 are accepted.
+- **ME** `docs/implementation/m3/syntax-e/PROPOSAL-r3.md`, the M3-E1 r3 bytes Codex accepted (`d71031ff…`)
+- **MB** `docs/implementation/m3/config-discovery-b/PROPOSAL-r2.md` (M3-B r2, accepted by GROK2)
+- **I1** `docs/implementation/m3/preview-pack-i1/PROPOSAL-r2.md` (M3-I1 r2, accepted by CODEX2)
+- **X12r4, X2r9** `docs/implementation/m2/policy-admission-x12/PROPOSAL-r4.md` and `docs/implementation/m2/project-root-x2/PROPOSAL-r9.md` (accepted by Grok)
+- **The D law** `docs/implementation/m3/supervisor-d/PROPOSAL.md`: M3-D, a draft under GROK2's review, not accepted (r3 at this writing; r1 and r2 received required findings). **It is cited by role only** ("the D law's stderr item", "its constants table"), never by line, because it is changing.
+- **CFP** `docs/implementation/m3/confinement-cf/CF-P-RECORD.md` (a record, not law)
+- **T2R** `docs/implementation/m3/corpus/README.md` (T2a and T2b accepted by GROK2). **T2M** is its manifest, `t2-corpus-manifest.draft.json`.
+- **ON** `docs/implementation/OVERNIGHT-2026-10-03.md`, a live log, cited by entry
 - **NE / IE / WS / SL / AQ** `docs/v2/contracts/product-v1/{native-evidence,identity-and-evidence,workflows-and-surfaces,security-and-lifecycle,admission-and-qualification}.md`
 - **F02** `docs/v2/architecture/02-distribution-and-components.md`
 - **REG** `docs/v2/architecture/08-decision-and-readiness-register.md`
@@ -60,11 +145,13 @@ Line numbers are those of the live files on 2026-10-03. Each live plan or design
 - **T2O** `docs/coop/design-corrections/native/typescript-protocol2-order.v1.json`
 - **RH** `docs/implementation/m3/record-hygiene/PROPOSAL.md`
 
-Product paths are under `opensip/`, at main `2967905`.
+None of the contract, architecture or protocol files above has changed since r1.
+
+Product paths are under `opensip/`, at main `e093e90`. Every product file this law cites is unchanged since r1's `2967905`: `git diff --name-only 2967905 e093e90` lists none of them. They were read, not run.
 
 ## Problem
 
-M3 builds the first real providers and the supervisor around them (BP:887; M3P:164-168). Before the provider protocol is fixed, three accepted records require one law to settle the following.
+M3 builds the first real providers and the supervisor around them (BP:887; `M3-PLAN-r6.md:211-215`). Before the provider protocol is fixed, three accepted records require one law to settle the following.
 
 **The quality plan.** Its reuse obligations INC-1 to INC-8 must be "written into the M3 law, plus the INC-7 spike" (AQP:499). They are "the condition that the M3 provider protocol and host law must be able to satisfy, whether or not changed-scope ships at M3" (AQP:387). Any of them that needs a contract change goes through D5a (AQP:546).
 
@@ -77,21 +164,21 @@ M3 builds the first real providers and the supervisor around them (BP:887; M3P:1
 
 It also needs the provider side of two-stage cancellation (OPP:329) and the phase-lawful identity rule (OPP:149-159).
 
-**The unit plan.** It gives this law three more pieces (M3P:160, M3P:302-304, M3P:381-385):
+**The unit plan.** It gives this law three more pieces (`M3-PLAN-r6.md:207`, `:467-469`, `:624-628`):
 - the DR-G14 placement and changed-scope choices;
 - a record correction for DR-G10;
 - a record of two other stale texts.
 
-**What exists today.** At product `2967905`:
-- there is no `crates/components` (`ls crates/`);
+**What exists today.** At product `e093e90`:
+- there is no `crates/components` (`git ls-tree e093e90 crates/`; `Cargo.toml:3`);
 - the Rust provider exits before reading a request (`providers/rust/src/main.rs:1-14`);
 - the generated TS2 and Rust3 carriers (`crates/contracts/src/generated/protocol.rs:5422`, `:6111`) come from an input that is "not a production wire decoder, not semantic admission" (`schemas/wire/native-carriers-v1.json:4`).
 
-So no implementation constrains this law. The accepted contracts and plans do.
+So no implementation constrains this law. The accepted contracts, plans and laws do.
 
 ## Decisions
 
-Lead decisions are dated 2026-10-03. They are recorded under the owner's standing direction to decide on the lead's recommendation and to block only where no recommendation exists. The owner may reverse any of them.
+Lead decisions are dated 2026-10-03 unless marked r2 (2026-10-04). They are recorded under the owner's standing direction to decide on the lead's recommendation and to block only where no recommendation exists. The owner may reverse any of them.
 
 ### A. Protocols and process lifetime
 
@@ -117,7 +204,7 @@ Lead decisions are dated 2026-10-03. They are recorded under the owner's standin
   - citing F02:220 ("major is **1**") or F02:259 ("**major 2**") as the current majors (item 20).
 
 **2. One child per universe, one-shot, no reuse.**
-- **Decision.** For each `(ExecutionId, SnapshotId, universe key)` the host launches exactly one provider process. The universe key is TypeScript's `universeKey` (NE:3166-3177) and, for Rust, the native semantic-universe identity (NE:3161-3163).
+- **Decision.** For each `(ExecutionId, SnapshotId, universe key)` of a TypeScript or Rust semantic universe, the host launches exactly one provider process. The universe key is TypeScript's `universeKey` (NE:3166-3177) and, for Rust, the native semantic-universe identity (NE:3161-3163).
   - **TypeScript.** The `workerCardinality` rule applies unchanged (DLV:556-565):
     - one worker per distinct key;
     - shared across the matching TypeScript stages of that key;
@@ -126,16 +213,18 @@ Lead decisions are dated 2026-10-03. They are recorded under the owner's standin
     - never retained after its terminal;
     - never resident.
   - **Rust.** One supervised sidecar per semantic universe, with no reuse (F02:268-269).
-  - **When a child may start.** Only after the host has bound `SnapshotId`, `PlanId` and the complete universe key (DLV:566), and only through NE §9.1's reject-before-disclosure order (NE:2846-2866).
+  - **Syntax universes have no child (r2).** A `native.semantic-universe.syntax.v2` universe is produced in the host by the core provider closure (MC item 9; ME item 14b), with no provider process. This item's cardinality, start and end rules do not apply to it (ME §G). The in-host syntax pass is never a fallback for a TypeScript or Rust child (the "No in-process fallback" bullet below; ME item 16).
+  - **When a child may start.** Only after the host has bound `SnapshotId`, `PlanId` and the complete universe key (DLV:566). **(r2)** Only after MC's pre-execution joins over the built Plan, "before any provider" (MC:867, row 15). And only through NE §9.1's reject-before-disclosure order (NE:2846-2866). In J1's pipeline that is join J-ζ, after J-ε (J1 item 5.2). The attempt's ExecutionId is already reserved by then (item 13; J1 item 2).
   - **How a child ends.** After its terminal it reaches zero-exit, then EOF, and its scratch is destroyed (DLV:567; RPP:582). After `Cancelled`, TypeScript requires only EOF (T2O:261-266).
-  - **No restart.** A faulted child is never restarted within its attempt (OPP:273). A new attempt has a fresh ExecutionId (WS:81-82), and so fresh children.
-  - **No in-process fallback.** A failed launch or child is never replaced by in-process analysis (OPP:135, F7; AQP:114).
+  - **No restart.** A faulted child is never restarted within its attempt (OPP:273). A new attempt has a fresh ExecutionId (WS:81-82), and so fresh children. M3 retries no attempt in process (J1 item 5.1).
+  - **No in-process fallback.** A failed launch or child is never replaced by in-process analysis (OPP:135, F7; AQP:114). M3-E1 relies on this bullet as one of its five reasons why syntax never substitutes for a semantic rung (ME item 16).
   - **The harness.** Its warm runs follow the same rule: each is a new process "with … no reused provider process" (Q0:805).
 - **Basis:**
   - F02:222-224: "one child per `(ExecutionId, SnapshotId, TypeScriptSemanticUniverseKey)`, and no reuse remain unchanged. R-1 one-shot/lifetime-neutral constraints also apply";
   - QG:202 ("one-shot");
   - DLV:567: "A child is never retained for a later request";
-  - DLV:1517 (DL-13): "never reuses worker state".
+  - DLV:1517 (DL-13): "never reuses worker state";
+  - ME §G: "Syntax is **in the host**, not a provider. L's one-child-per-universe rules do not apply to it."
 - **Rejected:**
   - **A pre-spawned or pooled warm worker** to hide start-up cost. It crosses ExecutionIds (DLV:562), and DLV:1197 already rejected a "resident tsserver or language-server daemon".
   - **Multiplexing universes in one Node process** (DLV:561).
@@ -144,14 +233,15 @@ Lead decisions are dated 2026-10-03. They are recorded under the owner's standin
   - a worker kept alive between invocations, attempts or Plans under any name ("warm", "cached", "pooled");
   - a host-side store of provider frames replayed to a new child;
   - a provider restarted after a fault within one attempt;
-  - in-process analysis after a provider failure.
+  - in-process analysis after a provider failure;
+  - **(r2)** a provider child for a syntax universe.
 
-**3. Changed-scope at M3: none ships (lead decision; M3P:304).**
+**3. Changed-scope at M3: none ships (lead decision; `M3-PLAN-r6.md:469`).**
 - **Decision.** M3 builds no producer cache and no changed-scope path. Every M3 run is full analysis of its Plan.
   - **What binds later work.** Items 4-10 bind any changed-scope or resident design.
-  - **Who decides it.** M4 decides whether changed-scope ships, with S-M's data (AQP:502; M3P:304).
+  - **Who decides it.** M4 decides whether changed-scope ships, with S-M's data (AQP:502; `M3-PLAN-r6.md:469`).
   - **Explicit scope is not incremental.** A narrower Plan through the existing scope descriptor (`workspaceRoots`, `pathPrefixes`; NE:4276) is lawful today and needs no successor. But it is a different Plan with its own Coverage, it is not reuse, and it never satisfies INC-4.
-- **Basis:** M3P:304: "Changed-scope (M3-L). Recommendation: none ships. The obligations go into the law, and M4 decides with S-M data."
+- **Basis:** `M3-PLAN-r6.md:469`: "Changed-scope (M3-L). Recommendation: none ships. ML item 4 found that cross-edit reuse needs an IE successor (the INC-1 successor), because `cache2` binds the Plan. It is owned by the identity owner (AQP:546) and decided at M4 with S-M's data (AQP:502)."
 - **Rejected:**
   - **A same-Plan `cache2` consumer at M3.** It helps only identical re-runs (item 4), not edits. It adds a cache-admission surface before any measurement shows that it pays.
   - **Labelling an explicit-scope run "incremental".**
@@ -168,7 +258,7 @@ Lead decisions are dated 2026-10-03. They are recorded under the owner's standin
 | INC-5 | 1 | TS2 and Rust3 are unchanged. | **Pure law.** Any change is a successor by definition. |
 | INC-6 | 8 | Forbidden. | **Needs D5a successors** at M5: protocol-lifetime successors for both languages, and a DR-G10 acceptance successor. |
 | INC-7 | 9 | Gate item G1. | **Pure law.** |
-| INC-8 | 10 | The operational record says `reuse: none`. | **Pure law.** The public carrier at M4 is S-OP-6, an operability successor, not D5a. A semantic Coverage successor is forbidden. |
+| INC-8 | 10 | The operational record says `recomputed`, cause `no-reuse-path`. | **Pure law.** The public carrier at M4 is S-OP-6, an operability successor, not D5a. A semantic Coverage successor is forbidden. |
 
 ### B. The reuse law: INC-1 to INC-8
 
@@ -203,7 +293,7 @@ Lead decisions are dated 2026-10-03. They are recorded under the owner's standin
 
   Provider frames carry the verified Plan's `snapshot2` and `plan2` texts, and every echo must equal them (NE:3158-3161, NE:3216-3219).
   - **At M3** this holds by construction (item 3).
-  - **For any later reuse.** The INC-1 successor must define how a reused producer candidate is re-admitted under the new snapshot, including anchors and producer attestation. The host must never construct a fact that no admitted provider frame produced: a faulted or cancelled worker "contributes **no facts, no Coverage entries and no Run**" (NE:3837-3843), and framing grants no fact authority (M3P:169).
+  - **For any later reuse.** The INC-1 successor must define how a reused producer candidate is re-admitted under the new snapshot, including anchors and producer attestation. The host must never construct a fact that no admitted provider frame produced: a faulted or cancelled worker "contributes **no facts, no Coverage entries and no Run**" (NE:3837-3843), and framing grants no fact authority (`M3-PLAN-r6.md:216`).
 - **Basis:** AQP:390.
 - **Rejected:** carrying forward a standing such as "already admitted" from an earlier Run.
 - **Forbidden substitutes:**
@@ -223,7 +313,7 @@ Lead decisions are dated 2026-10-03. They are recorded under the owner's standin
 
   When the host cannot bound an invalidation, it falls back to full analysis and discloses that (AQP:400) in the operational record (item 10).
   - **At M3** every run is full, so the record says so.
-  - **For the INC-1 successor.** Its key must cover every one of these classes. A class the key omits is a hidden input.
+  - **For the INC-1 successor.** Its key must cover every one of these classes. A class the key omits is a hidden input. MC keeps each class separately identified, so such a key can cover them (MC item 20).
 - **Rejected:** invalidation by file-level dirtiness alone. It misses incoming references and universal negatives.
 - **Forbidden substitutes:**
   - an unbounded invalidation silently treated as bounded;
@@ -260,17 +350,17 @@ Lead decisions are dated 2026-10-03. They are recorded under the owner's standin
 - **Forbidden substitutes:** at M3, any long-lived provider or host process that serves more than one request.
 
 **9. INC-7: the spike first, and what its numbers decide (law; gate item G1).**
-- **Decision.** This law fixes the protocol (items 1-2) only on acceptance, and acceptance needs S-M's measured report (G1). S-M is the M3-S unit's lead run set:
+- **Decision.** This law fixes the protocol (items 1-2) only when it takes effect. That needs S-M's measured report (G1), entered through a delta round ("Review and effect"). An ACCEPT in review before S-M fixes nothing. S-M is the M3-S unit's lead run set:
   - it is a throwaway harness outside the product;
   - it runs over public, pinned T2 bytes;
   - it executes no repository code;
   - its samples are labelled preliminary;
-  - it makes no production claim (M3P:158).
+  - it makes no production or confinement claim (`M3-PLAN-r6.md:205`).
 
   Its report must contain at least the figures below. Each is used here only by placeholder. Unless S-M's report fixes it otherwise:
-  - **Workloads.** The dev-role medium T2a repositories of the figure's language, plus `mr-rs-medium-serde-json` for the Rust rows (`corpus/README.md:16-34`). Held-out entries are excluded, so that held-out standing is never put at risk (Q0:256, QD-23).
+  - **Workloads (r2).** The dev-role medium entries of the figure's language in the accepted T2 manifest: T2M `counts.rust.medium.devIds` (7 entries) and `counts.tsjs.medium.devIds` (6 entries) (T2R:57-67). For the Rust rows, add the workspace `mr-rs-medium-serde-json` (T2R:198). T2b's counting rule counts a polyglot entry per language, at the class of its own lines (T2R:57-59), so `poly-medium-napi-rs` is in both lists. Held-out entries are excluded, so that held-out standing is never put at risk (T2R:76; Q0:256, QD-23).
   - **Statistic.** 3 warmups, then 7 runs; the median, with the maximum also reported (AQ:268-276; AQP:349).
-  - **Host.** The lead's macOS host, labelled `preliminary`; not D12 (M3P:158).
+  - **Host.** The lead's macOS host, labelled `preliminary`; not D12 (`M3-PLAN-r6.md:205`).
 
 | ID | Figure | Unit | Value |
 |---|---|---|---|
@@ -278,43 +368,46 @@ Lead decisions are dated 2026-10-03. They are recorded under the owner's standin
 | SM-2 | TS analysis: a fresh-process `Program` creation plus a full semantic pass over the repository | ms | `⟨SM-2⟩` |
 | SM-3 | Rust start: the `rustc_driver` sidecar is ready for its callbacks (needs S-P to succeed; otherwise `incomplete` with S-P's reason) | ms | `⟨SM-3⟩` |
 | SM-4 | Rust analysis: through type checking. No build script or proc-macro runs, so the expansion that depends on them is disclosed as unavailable | ms | `⟨SM-4⟩` |
-| SM-5 | Sealing: enumerate the read set, read and SHA-256 every member, and compute the `snapshot2`/`plan2`-equivalent digests | ms; files; bytes | `⟨SM-5⟩` |
-| SM-6 | TS read-set size, including `node_modules` as T2 pins it (NE:2948-2949). Compare with `maxSnapshotEntries` 200,000 and `maxSnapshotChunkBytes` 1,048,576 (NE:2963). If T2 pins no dependency tree, report the repository-only set, labelled. | entries; bytes | `⟨SM-6⟩` |
+| SM-5 | Sealing: enumerate the read set, read and SHA-256 every member, and compute the `snapshot2`/`plan2`-equivalent digests. **(r2, MC X-1)** Also report the inventory rows, the total bytes and the canonical descriptor's bytes, against `snapshot2`'s bounds: 100,000 rows, a 4 MiB descriptor (about 27,000 rows) and 8 GiB in total (MC item 5) | ms; rows; bytes; descriptor bytes | `⟨SM-5⟩` |
+| SM-6 | TS read-set size, including `node_modules` as T2 pins it (NE:2948-2949). Compare with TS2's `maxSnapshotEntries` 200,000 and `maxSnapshotChunkBytes` 1,048,576 (NE:2963). **(r2, MC X-1)** Also compare with `snapshot2`'s binding bounds of 100,000 rows and a 4 MiB descriptor (MC item 5), and report the descriptor's bytes. If T2 pins no dependency tree, report the repository-only set, labelled. | entries; bytes; descriptor bytes | `⟨SM-6⟩` |
 | SM-7 | Transfer: stream the sealed set, plus the Rust dependency-source set, through a pipe in ≤ 1 MiB chunks with framing, once per child | ms per child | `⟨SM-7⟩` |
 | SM-8 | The longest single synchronous compiler call inside SM-2 (the event-loop block) | ms | `⟨SM-8⟩` |
 | SM-9 | Complete replay, IE:1580-1592, over a fact and finding graph of the size SM-2 and SM-4 imply. Synthetic and labelled. | ms | `⟨SM-9⟩` |
-| SM-10 | Per-process `ru_maxrss`, information only (AQP:343) | bytes | `⟨SM-10⟩` |
+| SM-10 | Per-process `wait4` `ru_maxrss`, information only (AQP:343). **(r2)** In the platform's native unit, labelled as S-OP-2's `rss_unit` labels it (`bytes` on macOS, `kib` on Linux), with the checked conversion to bytes beside it (SOP2:881, SOP2:910; Q0:889) | native unit, labelled; bytes | `⟨SM-10⟩` |
 
   **Derived figures:**
   - the one-shot fixed floor **F** = start (SM-1 or SM-3) + SM-5 + SM-7 + SM-9;
   - the per-run total **T** = F + analysis (SM-2 or SM-4).
 
-  **What the next revision records.** It records F and T per workload, and one outcome against the owner-approved targets. Those targets are held on the D12 runner (AQP:372), so the comparison here is preliminary:
+  **What the S-M delta round records.** It records F and T per workload, and one outcome against the owner-approved targets. Those targets are held on the D12 runner (AQP:372), so the comparison here is preliminary:
   - **(A)** F ≤ 2 s, the single-file edit target (AQP:385), and T within the medium budgets (AQP:377): T under Q0 §9.2's cold reset ≤ 30 s, and T under its warm reset ≤ 8 s. Cold and warm are separate fixtures (AQ:279-280), so S-M reports T under each reset it can apply. One-shot stands for M3. M4 decides whether changed-scope can meet the edit target by reducing analysis work.
   - **(B)** F > 2 s. No host-side reuse under one-shot TS2/Rust3 can meet the edit target, because F remains. This law still fixes TS2/Rust3 for M3, since residency is staged to M5. The record names residency (item 8) or a protocol successor as M4's only route to the target, and raises owner question O3.
-  - **(C)** T > a medium budget. One-shot full analysis misses an owner budget. This is the trigger AQP:372 names ("to be revisited after the first exploratory measurement"), so it raises owner question O4 before acceptance.
+  - **(C)** T > a medium budget. One-shot full analysis misses an owner budget. This is the trigger AQP:372 names ("to be revisited after the first exploratory measurement"), so it raises owner question O4 before L takes effect.
+
+  **Other uses of these figures (r2).** The D law's draft also takes two of them for its own constants (its constants table): SM-1 or SM-3 for the handshake deadline, and SM-8 for the liveness floor. Those constants are the D law's, not this law's.
 - **Basis:**
   - AQP:408: "Before the protocol is fixed, measure startup, sealing and replay costs for one-shot analysis on medium T2 workloads. Residency must earn its cost against that measurement";
-  - M3P:388: "The one-shot design may miss the §5.2 budgets … S-M exists to find that out before L".
+  - `M3-PLAN-r6.md:638`: "The one-shot design may miss the §5.2 budgets (AQP:376-378). S-M exists to find that out before L."
 - **Rejected:**
-  - **Accepting the law with invented or estimated figures.**
-  - **Making acceptance conditional on outcome (A).** The gate is "S-M measured" (M3P:160), not "S-M passes". The owner decides budget and staging questions, not this law.
+  - **Taking effect with invented or estimated figures.** An early ACCEPT in review is lawful because it fixes nothing until the delta round records measured values.
+  - **Making effect conditional on outcome (A).** The gate is "S-M measured" (`M3-PLAN-r6.md:207`), not "S-M passes". The owner decides budget and staging questions, not this law.
 - **Forbidden substitutes:**
   - a number in this law not taken from S-M's report;
   - an S-M figure from a held-out repository;
-  - a macOS figure presented as a D12 or Q6 sample.
+  - a macOS figure presented as a D12 or Q6 sample;
+  - **(r2)** a native `ru_maxrss` value labelled as bytes on a platform whose native unit is not bytes (SOP2:1006).
 
 **10. INC-8: reuse disclosure lives in the operational record, outside semantic Coverage (law).**
-- **Decision.** The host's operational record (OPP:249) discloses which results were recomputed and which were reused producer work, per provider child and per stage. The record is:
+- **Decision.** The host's operational record (OPP:249) discloses which results were recomputed and which were reused producer work, **per stage and universe (r2)**. That covers every provider child's stages and the in-host syntax stages, which have no child (item 2; ME §G). The record is:
   - host-owned, typed and nonsemantic;
-  - keyed by RequestId and, once the attempt is admitted, ExecutionId;
+  - keyed by RequestId and, once the attempt's ExecutionId is reserved, ExecutionId (item 13);
   - outside Run identity, Coverage, PlanId and every digest.
 
-  At M3 every record states that all work was recomputed and none reused, and names the cause: `no-reuse-path` (item 3).
+  At M3 every record states that all work was recomputed and none reused, and names the cause: `no-reuse-path` (item 3). **(r2)** The carrier is S-OP-2's `host.reuse.disclosed`, with fields `stage`, `universe`, `state` (`recomputed`) and `cause` (`no-reuse-path`) (SOP2:873). Its header carries the ExecutionId, which exists before the Plan (J1 item 2: R12 precedes J-ε). ME agrees that no parse result crosses invocations (ME §G).
 
   `CoverageResultV3` is unchanged. It has no reuse member (NE:2016-2030), and canonical Coverage describes only the current Plan's examined, resolved and sufficient state (AQP:409). Fully re-admitted reused work may support a complete result. Any obligation not re-established for the current Plan stays a typed incomplete deficiency (AQP:409).
-  - **Carriers.** At M3 the record reaches the harness as instrumentation (OPP:250). A public disclosure at M4 needs S-OP-6 (OPP:250, OPP:412).
-- **Basis:** AQP:409; OPP:249-250; Q0:946, Q0:953; ENV:660-666, where `carriesReuseDisclosure` is a required member.
+  - **Carriers.** At M3 the record reaches the harness as instrumentation (OPP:250). A public disclosure at M4 needs S-OP-6 (OPP:250, OPP:412). `host.reuse.disclosed` is not an export candidate (SOP2:873).
+- **Basis:** AQP:409; OPP:249-250; Q0:946, Q0:953; ENV:660-666, where `carriesReuseDisclosure` is a required member; SOP2:873.
 - **Rejected:** a Coverage successor carrying provenance. AQP:409 already rejects it: it "would make INC-4 fail by construction and change `coverage2` identities".
 - **Forbidden substitutes:**
   - reuse provenance in any semantic payload, digest, Plan input, finding or Coverage entry;
@@ -332,7 +425,8 @@ Lead decisions are dated 2026-10-03. They are recorded under the owner's standin
 - **Basis:**
   - DRC:573-574: "No generic progress frame is introduced; the host derives progress from admitted stage/counter observations";
   - DRC:574-576: diagnostics "may use the existing bounded stderr channel and carry no protocol meaning";
-  - OPP:232-238; M3P:298; OPP:394.
+  - OPP:232-238; `M3-PLAN-r6.md:463`; OPP:394;
+  - **(r2)** accepted S-OP-2 is written within it: component diagnostics under O1(a) reach records only as host-constructed codes and reductions (SOP2 item 19).
 - **Rejected:**
   - **O1(b), a typed progress or diagnostic frame.** It needs S-OP-3 (a DR-102 successor), S-OP-4's SDK methods, TS2 and Rust3 joins, and G20/G21 additions (OPP:240), and it would breach item 1.
   - **Progress from stderr.** stderr "never carries facts, Coverage, identity, control, terminal status" (DLV:1133).
@@ -344,44 +438,56 @@ Lead decisions are dated 2026-10-03. They are recorded under the owner's standin
 
 **12. The S-OP-4 record join under O1(a) (law content; owning authority DR-125, OPP:410).**
 - **Decision.** This law carries the record join. It adds no SDK operation.
-  1. **stderr.** The host captures each provider's stderr up to the protocol bound and holds it in memory. At settlement it reduces it to `{bytes, truncated}`, with no digest: a digest of free text is P3 (OPP:171). The bounds are TS2 `maxStderrBytes` 262,144 (NE:2967), and Rust3's retained v2 `maxStderrBytes` 262,144 (RPP:117, retained by NE:2934). stderr is never parsed, logged, exported, admitted or used as a fact, and it never changes a result (DLV:1133).
+  1. **stderr: counted, never held (lead decision, r2).** The host reads each provider's stderr continuously to EOF, so that a child never blocks on a full pipe. It counts the bytes, saturating, and records whether the count passed the protocol bound. **It retains no text.** At settlement the count is reduced to `{bytes, truncated}`, S-OP-2's K7 through `Reduced::from_capture` (SOP2:837), and logged as `provider.stderr.reduced` (SOP2:882). There is no digest: a digest of free text is P3 (OPP:171). The bounds are TS2 `maxStderrBytes` 262,144 (NE:2967) and Rust3's retained v2 `maxStderrBytes` 262,144 (RPP:117, retained by NE:2934). stderr is never parsed, logged, exported, admitted or used as a fact, and it never changes a result (DLV:1133).
+     - **Why counting is enough.** DLV:1133 has the host capture stderr "up to 256 KiB, then truncated with a host-owned marker". At M3 those bytes have no lawful reader. No S-OP-2 kind accepts P3, and a consented raw capture is O9, "not at M3" (OPP:401; `M3-PLAN-r6.md:541`). Counting serves the capture's only use, K7, and the marker becomes `truncated: true`. GROK2 confirmed this reading as lawful in its D r1 review (`reviews/grok2-supervisor-d-r1/review.json`, NBO-1), and the D law's stderr item adopts it.
+     - **Rejected:** r1's "holds it in memory" and reduction at settlement, which follows OPP:171's wording. The lawful output is the same, and holding keeps P3 in host memory, and in any host core image, for no use. Under r1 the D law's draft had to depart from this item; under r2 it follows it.
   2. **Fault detail.**
-     - The control `fault` detail (CC:36; ≤ 1,024 bytes, CC:56-58) is reduced to its length.
-     - Rust `ProviderFaultV2.faultKind` is a closed enum (RPP:441-445), so it is loggable as P0.
-     - Its `detailCode` is "diagnostic only, never D9 authority" (RPP:445). Until S-OP-2 registers it as a closed set, it is treated as free text and reduced to its length.
+     - The control `fault` detail (CC:36; ≤ 1,024 bytes, CC:56-58) is reduced to its length. S-OP-2 reduces control `refusal` detail (CC:32) the same way (SOP2:838-839).
+     - Rust `ProviderFaultV2.faultKind` is a closed enum (RPP:441-445), so it is loggable as P0 (SOP2:843).
+     - **(r2)** Its `detailCode` is "diagnostic only, never D9 authority" (RPP:445). S-OP-2 r6 registers it as K3 `RustDetailCode` with an **empty table**, so every value is `{unrecognized}`: its length and truncation, never its text (SOP2:844). That is this item's reduction. S-OP-2 rejected a closed set now, because it would give an open protocol member a meaning that item 1 forbids (SOP2:851). A member the G unit later adds by ordinary registration (SOP2:226-230) is a diagnostic label only. It never becomes D9 authority, a result, progress or a protocol meaning.
+
+     All of these are logged as `provider.fault.reduced` (SOP2:883).
   3. **Progress.** Progress is derived only by the host, from transitions its own state machine admitted. It counts:
      - frames that passed protocol validation: snapshot chunks acknowledged, and `FactBatch` and `Coverage`/`CoverageV3` frames per universe and stage;
      - stage changes.
 
-     The phrase "admitted stage/counter observations" (DRC:574) is read as these host-counted transitions. Frame acceptance is not fact admission: facts are admitted only after Complete, matching commitments, zero-exit and EOF (DLV:1517). So progress never implies admitted facts.
+     The phrase "admitted stage/counter observations" (DRC:574) is read as these host-counted transitions. Frame acceptance is not fact admission: facts are admitted only after Complete, matching commitments, zero-exit and EOF (DLV:1517). So progress never implies admitted facts. **(r2)** S-OP-2 carries the counts as `fact_frames` and `coverage_frames` on `provider.stage.terminal` (SOP2:880), and their absence as `supervision.progress.absent` (SOP2:886).
   4. **Liveness.**
-     - **The signal.** Nonce-matched `health`/`healthReport` (CC:33-34, CC:50-54) and `resourceReport` (CC:35), within the STEADY window (CC:132). A missed health response within the supervisor's window is a liveness fault (OPP:237). The window's value is D3's, provisionally 5 s (OPP:237).
+     - **The signal.** Nonce-matched `health`/`healthReport` (CC:33-34, CC:50-54) and `resourceReport` (CC:35), within the STEADY window (CC:132). A missed health response within the supervisor's window is a liveness fault (OPP:237), logged as `supervision.liveness.missed` (SOP2:885). Nonces are never recorded (SOP2:840).
+     - **The window.** It is the D law's constant, provisionally 5 s (OPP:237). **(r2)** The D law's draft raises it to at least 2 × SM-8 unless F and G show the responder is independent of compiler work (its constants table). This law requires only that it be above SM-8, unless the providers show that the responder is independent of compiler work.
      - **What the provider owes.** The component's health responder must not be starved by compiler work. A long synchronous compiler call must not turn a legitimate long phase (OPP:238) into a liveness fault. How it achieves that is F's and G's design, for example a responder outside the compiler's thread.
-     - **What S-M owes.** SM-8 measures the exposure. D3 must set the window above SM-8, or the providers must show that the responder is independent of compiler work.
+     - **What S-M owes.** SM-8 measures the exposure.
   5. **The SDK alias rebinding.** DRC:556-566 binds the SDK's `HostRequest`, `ProviderResponse`, `FactBatch`, `Coverage` and `ProviderComplete` aliases to DLV's **V1** payloads. Under TS2 they bind to the successor payloads of NE §9.4 and §9.7 and `provider-startup.schemas.v1.json`. That is a re-binding of existing operations, not a new operation.
      - **Rust3 has no SDK.** DRC:515 selects "a TypeScript provider SDK plus Rust host bindings", so the Rust sidecar implements its component side of common control itself (G1a).
-     - **Open.** Whether the DR-125 owners treat this re-binding as a record join or as an SDK successor is open question R2.
-- **Basis:** OPP:240 ("Under (a), S-OP-4 is still needed as a record join stating the stderr and fault-detail disposition and the progress derivation"); M3P:160.
+     - **Open.** Whether the DR-125 owners treat this re-binding as a record join or as an SDK successor is open question R2. S-OP-2 adds no SDK operation either (SOP2:806).
+- **Basis:** OPP:240 ("Under (a), S-OP-4 is still needed as a record join stating the stderr and fault-detail disposition and the progress derivation"); `M3-PLAN-r6.md:207`; SOP2 item 22 (SOP2:831-851).
 - **Rejected:**
-  - **A separate S-OP-4 record unit.** M3P:160 places the join in this law.
+  - **A separate S-OP-4 record unit.** The M3-L row places the join in this law (`M3-PLAN-r6.md:207`).
   - **Keeping a stderr digest** for correlation. That is P3 (OPP:171).
+  - **(r2)** Holding stderr bytes until settlement (12.1).
 - **Forbidden substitutes:**
   - stderr text or `fault` detail in any log, crash ring, bundle or export;
+  - **(r2)** stderr bytes kept in any buffer beyond the read that counts them;
   - a progress number a provider supplied;
   - a health window shorter than a measured legitimate synchronous block.
 
 **13. RequestId correlation and phase-lawful identities at the provider boundary (law).**
 - **Decision.**
-  - **The correlator.** `RequestId` (`req1_` plus 32 hex; WS:78-79; IE:61-63) is the universal correlator of every provider-attributed record (OPP:148).
+  - **The correlator.** `RequestId` (`req1_` plus 32 hex; WS:78-79; IE:61-63) is the universal correlator of every provider-attributed record (OPP:148). J1 mints one per invocation at ingress (J1 item 2).
   - **It never reaches a provider.** It is not a wire member (neither TS2 nor Rust3 has one, and adding one breaches item 1), not an argv element and not an environment variable. The predecessor's `OPENSIP_RUN_ID` child-environment tag (OPP:121) is not inherited.
   - **What is on the wire.** Only the identities already bound before spawn: `executionId`, `snapshotId` (`snapshot2`), `planId` (`plan2`) and the universe key (NE:3158-3163, NE:3166-3189). Rust's `CancelV2`, `CancelledV2` and `ProviderFaultV2` also echo `executionId` (RPP:441-457).
-  - **Phase.** A provider therefore exists only after attempt admission and Plan sealing (item 2). Every provider-attributed record carries `requestId`, `projectId`, `planId`, `executionId`, the component role and the universe-key suffix, which are lawful from those phases (OPP:149-157).
+  - **Phase (r2: J1's reading).** A provider exists only after its attempt's ExecutionId is reserved and after Plan sealing (item 2). J1 item 2 fixes where that ExecutionId comes from:
+    - for a durable attempt, `CommitSession::open` at row R12, reserved in the process's `ExecutionIdReservations` before any provider frame;
+    - for an ephemeral attempt, a host draw at the attempt's start (J1:160-174).
+
+    J1 reads that point as OPP §3.1's "attempt admission" for identities (J1:180). It comes before the attempt row, which OPP §5.5 and J1 item 8 call "attempt admitted" (item 16f). The provider frame builders accept only the reserved type, `ReservedExecutionId` (J1:170). Every provider-attributed record carries `requestId`, `projectId`, `planId`, `executionId`, the component role and the universe-key suffix, which are lawful from those phases (OPP:149-157). S-OP-2's provider and supervision events require Project, Plan and Execution, with `role` and `universe` fields (SOP2:857-861).
   - **What is never stringified.**
     - **RunId.** It is never a wire member. It appears in this invocation's provider-attributed records only after a `Committed` publish, and a candidate RunId is never stringified (OPP:157-159).
-    - **The emergency case.** When `RequestAuthority::begin` fails, no RequestId exists (OPP:160). No provider is ever spawned in that case, because admission has not happened.
+    - **The emergency case.** When `RequestAuthority::begin` fails, no RequestId exists (OPP:160). No provider is ever spawned in that case, because no attempt has started.
   - **Host-held values only.** Records use the host's own bound values, never worker echoes. Workers may not mint host identities (DLV:572), and an echo that differs is `PROVIDER.PROTOCOL_VIOLATION` before any source byte or after (NE:2854-2856, NE:3216-3226).
 - **Basis:**
   - OPP:145-160;
+  - J1 item 2 (J1:148-203);
   - DLV:570-574 (host ownership of process fate and identity);
   - CH13:59-62: "no … hidden environment input";
   - Q0:770, which excludes RequestId and ExecutionId from determinism comparison.
@@ -391,9 +497,10 @@ Lead decisions are dated 2026-10-03. They are recorded under the owner's standin
 - **Forbidden substitutes:**
   - any identity in a record before the phase that mints it;
   - a worker echo used as a record key;
-  - a RequestId, RunId or log path given to a child.
+  - a RequestId, RunId or log path given to a child;
+  - **(r2)** an ExecutionId on a provider's wire that was not reserved first (J1:194).
 
-**14. The operational record at the provider boundary, and the events S-OP-2 must register (law).**
+**14. The operational record at the provider boundary, and the S-OP-2 events it uses (law).**
 - **Decision.** For each supervised provider child, the host records:
   - **Role.** The protocol name and the universe-key suffix (P1).
   - **Spans**, on a monotonic clock (OPP:251), using these boundaries, which are a lead decision because each is an admitted transition:
@@ -407,24 +514,32 @@ Lead decisions are dated 2026-10-03. They are recorded under the owner's standin
   - **The reuse disclosure** (item 10).
 
   The record exists for every invocation that spawns a provider, so the harness can set `carriesReuseDisclosure` and `carriesProcessMaxRss` (ENV:660-666). A missing record is the harness's `record-missing` (Q0:994).
-- **What S-OP-2 must register** (G7). S-OP-2 owns the names, field schemas and allowlists. These are the needs, with the privacy class of their fields:
+- **The events (r2).** S-OP-2 is accepted (G7), and it owns the names, field schemas and allowlists. This law names each need exactly as S-OP-2 r6 registers it. **Every need is registered; there is no gap.**
 
-| Need | Privacy class |
-|---|---|
-| provider spawned, ready, stage changed, terminal, reaped | P0/P1 |
-| cancel stage 1 sent, cancel stage 2 forced | P0/P1 |
-| liveness missed | P0/P1 |
-| no progress (`supervision.no_progress`, OPP:238) | P0/P1 |
-| stderr reduced (`{bytes, truncated}`) | P0 |
-| fault reduced (length; `faultKind`) | P0 |
+| Need | S-OP-2 r6 event (line) | Fields this law relies on | Class |
+|---|---|---|---|
+| provider spawned | `provider.process.spawned` (SOP2:877) | `protocol`, `pid` | P0; `pid` P1 |
+| provider ready (end of the start span) | `provider.process.ready` (SOP2:878) | `start`, `transfer` (SOP2:902) | P0 |
+| stage changed | `provider.stage.changed` (SOP2:879) | `stage`, `state` | P0 |
+| stage terminal | `provider.stage.terminal` (SOP2:880) | `terminal` (NE:2025, `cancelled` included), `fact_frames`, `coverage_frames`, `analysis` | P0 |
+| reaped | `provider.process.reaped` (SOP2:881) | `pid`, `max_rss_native` with `rss_unit` (this law's `hostReapedMaxRss`; SOP2:910), `max_rss_bytes`, `cpu`, `teardown` | P0; `pid` P1 |
+| cancel stage 1 sent | `supervision.cancel.sent` (SOP2:888) | `inband`, `control_reason` | P0 |
+| cancel stage 2 forced | `supervision.cancel.forced` (SOP2:889) | `trigger` (`second-signal`, `grace-expired`), `grace` | P0 |
+| liveness missed | `supervision.liveness.missed` (SOP2:885) | `window` | P0 |
+| no progress | `supervision.progress.absent` (SOP2:886). OPP:238's working name `supervision.no_progress` is registered under this name. | `stage`, `since` | P0 |
+| stderr reduced | `provider.stderr.reduced` (SOP2:882) | `stderr` (K7 `{bytes, truncated}`) | P0 |
+| fault reduced | `provider.fault.reduced` (SOP2:883) | `source`, `fault_kind`, `refusal_family`, `detail` (K7), `detail_code` (K3) | P0 |
 
-- **Basis:** OPP:248-251; Q0 §9.4 (Q0:941-953); ENV:654-686.
+  Every row also carries `role` (P0) and `universe` (P1), and requires Project, Plan and Execution (SOP2:857-861). Two more registered events serve other items: `supervision.wait.expired` is item 16c's typed expiry of a bounded wait (SOP2:890), and `host.reuse.disclosed` is item 10's disclosure (SOP2:873). S-OP-2 states that it covers every row of r1's needs table and the provider-boundary record (SOP2:914).
+  - **Names belong to S-OP-2.** A later rename or retirement is S-OP-2's registration (SOP2 item 2), not an amendment of this law. The D law's draft registers further supervision events of its own (its records item). This law needs none of them.
+- **Basis:** OPP:248-251; Q0 §9.4 (Q0:941-953); ENV:654-686; SOP2 items 22 and 23 (SOP2:831-915).
 - **Rejected:** spans from provider-reported timestamps. The provider's clock and claims are not admitted observations.
 - **Forbidden substitutes:**
   - any field of the record entering a semantic identity or digest;
-  - a record synthesized when instrumentation failed (Q0:953).
+  - a record synthesized when instrumentation failed (Q0:953);
+  - **(r2)** an event name outside S-OP-2's registry.
 
-**15. DR-G14 at M3: closure manifests and no-ambient refusals; installation stays at M5 (lead decision; M3P:302).**
+**15. DR-G14 at M3: closure manifests and no-ambient refusals; installation stays at M5 (lead decision; `M3-PLAN-r6.md:467`).**
 - **Decision.**
   - **What M3 does.** It prepares the self-contained closure manifests and the no-ambient-runtime refusals (F4, G2). At the protocol boundary that means two handshake checks, each `PROVIDER.PROTOCOL_VIOLATION` before any source byte on a mismatch:
     - TS2's HelloAck must match the verified signed provider and runtime descriptors, field by field (NE:2973-2984);
@@ -432,7 +547,7 @@ Lead decisions are dated 2026-10-03. They are recorded under the owner's standin
 
     No PATH or system runtime is ever a fallback (BP:715-717; F02:232-241).
   - **What stays at M5.** `crates/lifecycle/src/installation.rs`, the DR-G14 owner module, which COV lists first at M5.
-- **Basis:** COV:4770-4776 (gate milestone M3, owner `installation.rs`); COV:8976 (`installation.rs` at M5); BP:1018.
+- **Basis:** COV:4770-4776 (gate milestone M3, owner `installation.rs`); COV:8976 (`installation.rs` at M5); BP:1018; `M3-PLAN-r6.md:181`.
 - **Rejected:** building `installation.rs` early. It belongs to the M5 lifecycle surface, and M3 needs only the refusal path.
 - **Forbidden substitutes:**
   - ambient Node or a system `rustc` admitted for any reason;
@@ -440,38 +555,44 @@ Lead decisions are dated 2026-10-03. They are recorded under the owner's standin
 
 ### D. Cancellation
 
-**16. The provider-side two-stage cancel (lead decisions in 16a, 16c and 16e).**
+**16. The provider-side two-stage cancel (lead decisions in 16a, 16b, 16c and 16e).**
 - **(a) Stage 1, cooperative**, at the first SIGINT, SIGTERM or SIGHUP before finalization (OPP:329; WS:224-229). For each live provider child the host does two things, in this order:
-  1. Its provider-side participant writes the in-band `Cancel` exactly once: TypeScript `CancelV1` (DLV:1122), Rust `CancelV2` with `reason: "user-interrupt"` (RPP:447-451). It then closes the request side (RPP:714, T023, which sets `requestClosed`; DLV:1146).
+  1. Its provider-side participant writes the in-band `Cancel` exactly once: TypeScript `CancelV1` with `reason: user-interrupt` (DLV:860, DLV:1122), Rust `CancelV2` with `reason: "user-interrupt"` (RPP:447-451). It then closes the request side (RPP:714, T023, which sets `requestClosed`; DLV:1146).
   2. The control plane sends `cancel` with reason `user` (CC:37) as the supervision-scoped announcement that teardown has begun (CPC:375; CPC:489-492, J-5 T-1).
 
-  Both are appended to the host's one merged event order (CPC:466; CPC:469-472, J-1). **Lead decision: the in-band frame goes first,** so the semantic participant sees `Cancel` before any SDK-level abort.
-- **(b) Who may cancel in band.** Only user interruption sends the in-band `Cancel`. Rust's `CancelV2.reason` is exactly `user-interrupt` (RPP:451), and an unsolicited `Cancelled` maps to a provider-protocol fault (DRJ:1850). A deadline, liveness failure, resource breach or supervisor fault uses control `cancel` with reason `deadline` or `supervisor-fault` and the teardown ladder (CPC:489-492). It never uses the in-band frame.
+  Both are appended to the host's one merged event order (CPC:466; CPC:469-472, J-1), and `supervision.cancel.sent` is logged (SOP2:888). **Lead decision: the in-band frame goes first,** so the semantic participant sees `Cancel` before any SDK-level abort.
+- **(b) Who may cancel in band.** Only user interruption sends the in-band `Cancel`. Rust's `CancelV2.reason` is exactly `user-interrupt` (RPP:451), and an unsolicited `Cancelled` maps to a provider-protocol fault (DRJ:1850). **(r2)** TypeScript's `CancelV1.reason` also admits `host-shutdown` (DLV:860). **Lead decision: M3 never sends it.** A deadline, liveness failure, resource breach, supervisor fault, revocation or host shutdown uses control `cancel` with reason `deadline` or `supervisor-fault` and the teardown ladder (CPC:489-492). It never uses the in-band frame.
+  - **Rejected (r2):** TypeScript's `host-shutdown` for non-user teardown. Rust3 has no such value, so the two languages would diverge on fault teardown. And nothing from a faulting or cancelled child is ever admitted (NE:3837-3843), so a cooperative in-band stop buys nothing there. The D law's cancellation item makes the same choice.
 - **(c) After stage 1.**
   - **What may follow.** Only `Cancelled`; then zero-exit and EOF for Rust (P3T:342-364), and EOF for TypeScript (T2O:254-266). TypeScript's `observedPhase` rule for the context interval is unchanged (NE:3296-3302).
   - **Late provider octets** are delivered unmodified to the owning participant, which alone gives them meaning (CPC:462).
   - **The stage-1 grace (lead decision).**
     - **Rust3:** the protocol's own `cancellationGraceMilliseconds`, 5,000 (RPP:119). It is retained with an identical value in `ProtocolLimitsV3` and checked by exact equality in Hello (NE:2929-2941).
-    - **TS2:** `TypeScriptProtocolLimitsV1` has no grace member (NE:2961-2967), so the host's "bounded cleanup grace" (DLV:1146) applies. It is D3's operational constant, provisionally 2 s (OPP:329).
+    - **TS2:** `TypeScriptProtocolLimitsV1` has no grace member (NE:2961-2967), so the host's "bounded cleanup grace" (DLV:1146) applies. It is the D law's operational constant, provisionally 2 s (OPP:329).
 
-    Every bounded wait must exist, be finite, and append a typed event when it expires (CPC:494).
-- **(d) Stage 2, forced.** A second signal, or expiry of the stage-1 grace, forces the kill of the provider's process tree. The provisional escalation from TERM to KILL is 1 s, with a 10 s reaping ceiling (OPP:273). Scratch is removed (DLV:1146; F02:203-204). A second signal forces at once, inside either protocol's grace.
+    **(r2)** The D law's constants table uses both values and "never substitutes its own". J1 adopts the same reading for S-OP-12's second stage (J1 8.5, J1:533).
+
+    Every bounded wait must exist, be finite, and append a typed event when it expires (CPC:494). The event is `supervision.wait.expired` (SOP2:890).
+- **(d) Stage 2, forced.** A second signal, or expiry of the stage-1 grace, forces the kill of the provider's process tree. The provisional escalation from TERM to KILL is 1 s, with a 10 s reaping ceiling (OPP:273). Scratch is removed (DLV:1146; F02:203-204). A second signal forces at once, inside either protocol's grace. `supervision.cancel.forced` is logged with its trigger (SOP2:889).
 - **(e) Outcome (law).**
-  - **The class.** It stays `interrupted` (130). For TypeScript, "absence of Cancelled after a user signal does not overwrite that class with a provider fault" (DLV:1146; DLV:1122). For Rust, a signal before finalization with fate `USER_INTERRUPTED` or `VERIFIED_CANCELLED` takes the `interrupt-before` template (DRJ:1036-1051).
+  - **The class.** It stays `interrupted` (130). For TypeScript, "absence of Cancelled after a user signal does not overwrite that class with a provider fault" (DLV:1146; DLV:1122). For Rust, a signal before finalization with fate `USER_INTERRUPTED` or `VERIFIED_CANCELLED` takes the `interrupt-before` template (DRJ:1036-1051). J1's outcome matrix routes a signal in phase A or B to `interrupted` 130 with no runId (J1 item 10, row 46).
   - **The stage.** A cancelled stage mints nothing and keeps its interrupted termination (NE:3421-3426; NE:3842-3843). Its stage terminal is `cancelled` (NE:2025).
   - **The Run.** "an analysis attempt aborts and leaves no Run" (WS:229). Cancellation is never an incomplete-analysis deficiency or a provider fault.
-- **(f) Scope.** Providers run before the commit. This item therefore covers OPP §5.5 phase A and the provider part of phase B (OPP:334-335). The **commit-phase join** belongs to S-OP-12, owned with the X3D and X7 owners (OPP:417), and is landed by M3-J's J1 law (M3P:170). It covers:
-  - the signal as a FinalGate latch observer;
-  - phases C to E;
-  - X7's latched and CommitUndetermined rows.
-
-  This law decides none of that. Until S-OP-12 is accepted, no signal sets the latch (OPP:340).
+- **(f) Scope (r2: J1 r3).** Providers are live only in OPP §5.5's phase A, as J1 r3 places that phase. Phase A runs "from R0 until `prepare_commit` returns with the attempt row committed", and "includes the durable entry, project admission, the whole analysis and replay". In phase A, "Providers get `cancel`" under this item (J1:500). No provider is live in phase B or later. **r1's "and the provider part of phase B" is withdrawn.**
+  - **The commit-phase join** is J1 r3 item 8, which closes S-OP-12 (J1 successor S15). It covers:
+    - the cancellation latch, a third source for the operation's FinalGate (J1 8.1);
+    - phases A to E, and J1's phase O (J1 8.2);
+    - the outcome-first precedence (J1 8.3);
+    - the output decision point (J1 8.4).
+  - **Its successors.** X3d r9, X4 r8 and X7 r7 (J1 successors S9 to S11) are each reviewed on their own and land with unit J3b. Until then, no signal sets the latch (OPP:340).
+  - **This law decides none of it.**
 - **Basis:**
-  - DLV:1146 (`userCancellation`);
+  - DLV:860 (`CancelV1.reason`), DLV:1146 (`userCancellation`);
   - DLV:1122 (`cancelTransition`);
   - RPP:307-308 and RPP:447-457;
   - DRJ:1848-1852 (`cancellationTotality`);
   - F02:171-177 (host-owned race precedence);
+  - J1 item 8 (J1:457-582);
   - CPC:660-663, tension T-1. CPC records two cancellation carriers for one child and "Scoped control-plane cancel to SUPERVISION level (teardown-announcement) and left in-band Cancel wholly to the host's provider-side participant". CPC reports that tension as unresolved (CPC:657). This item adopts that split as a lead decision for M3. Open question R1 asks the DR-102 owner to confirm it.
 - **Rejected:**
   - **Control-plane-only cancel.** The SDK would then have to synthesize a `Cancelled` frame, which is the control plane authoring a semantic frame (F02:168-170). Or the protocol's own cancel path would starve (CPC:662).
@@ -480,9 +601,10 @@ Lead decisions are dated 2026-10-03. They are recorded under the owner's standin
   - **A single 5 s grace for both.** It lengthens TypeScript cancellation for no protocol reason.
   - **Killing at the first signal.** It loses the clean `Cancelled` path that K7 keeps (OPP:125).
   - **Mapping a missing `Cancelled` to a provider fault** (DLV:1146).
-- **Consequence, recorded.** OPP's cancellation goal (p95 ≤ 2 s from the first signal to exit; OPP:342) may be missed by Rust3 without a second signal, by up to the protocol's 5 s grace. It is a goal, not a threshold (OPP:342), and the measurement reports it.
+- **Consequence, recorded.** OPP's cancellation goal (p95 ≤ 2 s from the first signal to exit; OPP:342) may be missed by Rust3 without a second signal, by up to the protocol's 5 s grace. It is a goal, not a threshold (OPP:342), and the measurement reports it (`M3-PLAN-r6.md:470`, `:623`).
 - **Forbidden substitutes:**
   - an in-band `Cancel` for a non-user reason;
+  - **(r2)** a TypeScript `CancelV1` with `reason: host-shutdown` at M3;
   - a second in-band `Cancel`;
   - a `Cancelled` synthesized by the host or SDK;
   - admitting facts from a cancelled child;
@@ -492,20 +614,21 @@ Lead decisions are dated 2026-10-03. They are recorded under the owner's standin
 ### E. Boundaries this law does not own
 
 **17. Launch rules are the D law's, under O7.**
-- **Decision.** This law states no spawn, environment, descriptor, confinement, grant or scratch-placement rule. The M3-D law alone owns launch rules under O7. It is not yet drafted (M3P:164, M3P:343; and M3P:27: "launch rules have one owner, the D law, and M3-L cites it").
+- **Decision.** This law states no spawn, environment, descriptor, confinement, grant or scratch-placement rule. The D law alone owns launch rules under O7 (`M3-PLAN-r6.md:211`, `:508`; and `:87`: "launch rules have one owner, the D law, and M3-L cites it").
+  - **(r2) The D law's state.** It is a draft under review (r3 at this writing), not accepted. Its confinement section is a placeholder, binding only once O7 is decided as recommended (its own header). This law cites it by role.
 
   This law requires only three things:
   - item 2's cardinality and binding preconditions;
-  - that no provider launches before O7 is decided and D1's primitive exists (M3P:310);
+  - that no provider launches before O7 is decided and D1's primitive exists (`M3-PLAN-r6.md:476`; J1 join J-ζ);
   - that no repository code executes. `workerExecutesRepositoryCode` is the constant `false` (NE:2534-2535), and "Repository execution is disabled by default" (SL:1059).
 
-  This law does not decide O7, and it assumes no outcome of it. The confinement disclaimers stand until their successors are accepted (M3P:321-329): SL:497, SL:1113, AQ:344, NE:2554 and REG:366.
-- **Rejected:** restating the lead's O7 recommendation (M3P:314-319) as law here. That would pre-empt the owner and create a second owner of the launch rules.
+  This law does not decide O7, and it assumes no outcome of it. **(r2)** CF-P's feasibility findings (CFP:231-264, CFP:309-315) are evidence for the owner's decision. They are not a decision, and CF-P claims nothing as enforced (CFP:3). The confinement disclaimers stand until their successors are accepted (`M3-PLAN-r6.md:487-495`): SL:497, SL:1113, AQ:344, NE:2554 and REG:366.
+- **Rejected:** restating the lead's O7 recommendation (`M3-PLAN-r6.md:478-485`), or CF-P's profile, as law here. That would pre-empt the owner and create a second owner of the launch rules.
 - **Forbidden substitutes:**
-  - a launch rule written in any M3 provider unit rather than the D law;
+  - a launch rule written in this law or in any M3 provider unit rather than the D law;
   - any confinement claim before CF-1.
 
-**18. The commit-phase cancellation join is S-OP-12's, landed by M3-J (record).** See item 16f. This law refers to it and does not decide it.
+**18. The commit-phase cancellation join is J1 r3 item 8 (record).** S-OP-12 is closed there (J1 successor S15), and it lands with J3b through X3d r9, X4 r8 and X7 r7. See item 16f. This law refers to it and does not decide it.
 
 ### F. Record corrections
 
@@ -533,85 +656,122 @@ Each correction below is recorded here as current law for M3 and later units. It
 
   > **Current applicability (2026-10-03) — D-372:** the DR-G10 row records the historical TS major 1 / Rust merged major 2 claim and harness. The current selector is QG `items[9]` (TS major 2, Rust major 3, `harness.DR-G10.product-v1`; COV DR-G10); its "pending selector refresh" is discharged there.
 
-**20. F02's stale protocol majors.** F02:220 says the TypeScript selector's major "is **1**", and F02:259 says "The normative Rust contract is **major 2**". The current majors are TS2 and Rust3 (BP:717; NE:2785; QG:202). Those sentences are historical for M3. Their structural rules still bind: one child per key and no reuse (F02:222-224, F02:268-269), and the successor rule (F02:271-273). M3P:142 already forbids the M3 laws to copy the stale majors. A note is proposed for the same batch.
+**20. F02's stale protocol majors.** F02:220 says the TypeScript selector's major "is **1**", and F02:259 says "The normative Rust contract is **major 2**". The current majors are TS2 and Rust3 (BP:717; NE:2785; QG:202). Those sentences are historical for M3. Their structural rules still bind: one child per key and no reuse (F02:222-224, F02:268-269), and the successor rule (F02:271-273). The plan already forbids the M3 laws to copy the stale majors (`M3-PLAN-r6.md:189`). A note is proposed for the same batch.
 
 **21. NE §14's heading.** NE:4203 reads "Host composition corrections (mixed authorship; independent Claude review pending)".
 - **What this record establishes.** The current NE bytes (sha256 `83b99783…`, 329,013 bytes) are a member of `docs/coop/design-corrections/reviews/candidate-subject.v45.json`. That file is the subject of `claude-independent-design.v45`, whose verdict is `ACCEPT`, and QG cites that review for DR-G10 (QG:212-215). So "pending" is not a current fact about these bytes' review status.
 - **What it does not establish.** Whether v45's read scope covered §14 in particular (open question R6).
 - **No edit.** NE is a frozen contract and is not edited.
 
-## Cross-law findings found while drafting
+## Joins checked (r2)
 
-These are recorded for their owners. None changes an accepted outcome.
-- **X1. `cache2` binds the Plan** (item 4). Any changed-scope design needs a D5a IE successor before it can reuse work across an edit. This is the main finding for D5a and for M4's changed-scope decision.
-- **X2. The two cancellation carriers.** CPC's T-1 is reported as unresolved (CPC:657-663). Item 16 adopts CPC's split for M3, and R1 asks the DR-102 owner to confirm it.
-- **X3. OPP §5.5's provisional 2 s grace against Rust3's 5,000 ms protocol grace** (RPP:119; NE:2934). Item 16c reconciles them. OPP's next revision, or S-OP-12, should cite the protocol member.
+Every join this law makes to a law accepted since r1, and to the D law's draft, was read on 2026-10-04.
+
+| Law | Join | Result |
+|---|---|---|
+| **S-OP-2 r6** (accepted) | Items 10, 12, 13 and 14: the record join, the reductions, correlation and the events | **Consistent.** Every event need is registered (item 14). SM-10's unit now follows SOP2:910 (item 9; S-OP-2's R9, SOP2:1041). The `detailCode` row matches item 12.2 (SOP2:844). Counting stderr fits `Reduced::from_capture` (SOP2:837). S-OP-2's two rows beyond r1 (reduced `refusal` detail, unrecorded nonces; SOP2:850) are adopted in items 12.2 and 12.4. |
+| **J1 r3** (accepted) | RequestId and ExecutionId phase (J1 item 2); where a child starts (J-ε, J-ζ; J1 item 5.2); the commit-phase join (J1 item 8); the second stage (J1 8.5); outcome rows 30 and 46 | **Consistent, with r1's phase scope corrected.** Item 13 adopts J1 item 2's reading. Item 2 cites J-ε and J-ζ. Item 16f narrows r1's scope to phase A (J1:500) and defers to J1 item 8. J1 8.5 adopts item 16c's grace, which answers X3 for S-OP-12. Row 30 (worker fault: `PROVIDER.PROTOCOL_VIOLATION`, no facts, Coverage or Run) matches item 5. Row 46 (signal in A or B: `interrupted` 130, no runId) matches item 16e. |
+| **MC r6** (accepted in review) | MC item 20's INC consistency; MC's uses of items 2, 13 and 17 (MC:93, MC:642); MC X-1 and X-3 | **Consistent.** MC item 20's claims hold against r2 unchanged. X-1 is taken into SM-5 and SM-6. X-3 is recorded as X12 and R10. MC's gate, "M3-L is accepted", means L in effect ("Review and effect"). |
+| **ME r3** (accepted) | In-host syntax with no child (ME §G); "no in-process fallback" (ME item 16, reason 5); no producer cache (item 3) | **Consistent.** Item 2 now states the syntax scope, and keeps the fallback bullet ME relies on. |
+| **I1 r2** (accepted) | — | **No join.** I1 cites nothing in this law, and its product chain does not wait for it (`M3-PLAN-r6.md:355`). |
+| **MB r2** (accepted) | Item 17 (MB cites it at r1's lines 494-509) | **Consistent.** Item 17 is kept. |
+| **X12 r4** (accepted) | Pack refusals "reach no evaluation, provider, facts, Coverage or custody call" (X12r4:244) | **Consistent** with item 2: a pack refusal precedes the Plan, so it precedes any child. |
+| **X2 r9** (accepted) | Project admission, the phase from which ProjectId is lawful (OPP:154) | **Consistent.** Item 13 uses only that phase. |
+| **The D law** (draft, r3 at this writing) | Items 2, 9, 12, 13, 14, 16 and 17 | **Consistent.** The D law follows items 12, 13, 14 and 16 (its gate note). Its stderr item departed from r1's item 12.1, and r2 adopts its reading (item 12.1), so the departure closes. Its constants table answers R8 and adopts R9's reading. Its control-codec item proposes X5's tuple. This law defers launch rules to it (item 17). It cites r1 by line (X10). |
+
+## Cross-law findings
+
+These are recorded for their owners. None changes an accepted outcome. Each names the record that must change, if any.
+- **X1. `cache2` binds the Plan** (item 4). Any changed-scope design needs a D5a IE successor before it can reuse work across an edit. This is the main finding for D5a and for M4's changed-scope decision. **Owner:** the identity owner (AQP:546).
+- **X2. The two cancellation carriers.** CPC's T-1 is reported as unresolved (CPC:657-663). Item 16 adopts CPC's split for M3, and R1 asks the DR-102 owner to confirm it. The D law's cancellation item follows the same split.
+- **X3. OPP §5.5's provisional 2 s grace against Rust3's 5,000 ms protocol grace** (RPP:119; NE:2934). Item 16c reconciles them. **r2:** J1 adopts that reading for S-OP-12's second stage (J1 8.5, J1:533), and the D law's constants table adopts it for supervision. **Still to change:** OPP's next revision should cite the protocol member. J1 successor S15 already asks OPP's next revision to cite J1 item 8.
 - **X4. The SDK alias bindings name V1 payloads** (DRC:556-566), while TS2 is current. Item 12.5 records the re-binding, and R2 asks how the DR-125 owners classify it.
-- **X5. The control `select` tuple for TS2 and Rust3 is unfixed.** CC records only a preview witness, `analyzer`/`typescript`/`1` (CC:199-202), and no accepted text binds a `roleSubprotocol` and `subprotocolVersion` for TS2 or Rust3. D2 must fix them with the manifest owner (R3). This law requires only that the tuple be the exact pinned selection, with no translation (F02:164, F02:168-170).
-- **X6. Liveness against synchronous compiler work** (item 12.4). A single-threaded responder can turn a legitimate long phase into a liveness fault. SM-8 measures the exposure, and F, G and D3 resolve it.
-- **X7. Stale record text:** REG:355, F02:220, F02:259 and NE:4203 (items 19-21).
-- **X8. Citation drift.** M3P cites AQP by r4 line numbers, for example "AQP:370-390" for INC-1 to INC-8 (M3P:160). In the live r6 file those obligations are AQP:389-409. This law cites live r6 lines. M3P's next revision may re-pin them.
+- **X5. The control `select` tuple for TS2 and Rust3.** CC records only a preview witness, `analyzer`/`typescript`/`1` (CC:199-202). **r2:** the D law's draft proposes the tuple in its control-codec item: `analyzer`, the provider id (`typescript-semantic` or `rust-semantic`) and the protocol major as an integer, 2 or 3. A manifest-owner record confirming it is in the D law's successor list. X5 stays open until that record is accepted (R3). This law requires only that the tuple be the exact pinned selection, with no translation (F02:164, F02:168-170).
+- **X6. Liveness against synchronous compiler work** (item 12.4). A single-threaded responder can turn a legitimate long phase into a liveness fault. SM-8 measures the exposure, and F, G and the D law resolve it. The D law's draft sets the floor at 2 × SM-8.
+- **X7. Stale record text:** REG:355, F02:220, F02:259 and NE:4203 (items 19-21). **Owner:** the record-hygiene batch (R5).
+- **X8. Citation drift. Resolved.** M3-PLAN r5 re-pinned every AQP line (`M3-PLAN-r6.md:64`, row 12), and its M3-L row now cites AQP:389-409 (`:207`).
+- **X9 (r2). M3-PLAN's sending order and day 0.** The plan says "**Before L can be sent:** S-M, the two sign-offs and O7" (`M3-PLAN-r6.md:445`), and schedules r2 to fill ⟨SM-n⟩ after S-M (`:426`). r2's review rule sends L before both. The gate is unchanged.
+  - **Must change:** M3-PLAN's next revision (a lead record). It should replace `:445` and `:426` with the review rule, and should state that day 0 (`:255`) and "L acceptance" (`:378`) mean L in effect.
+  - **Also stale there:** its O7 risk line (`:524`, Seatbelt "unverified") predates CF-P.
+  - **Until then,** this law's "Review and effect" governs L's own review, and day 0 is unchanged.
+- **X10 (r2). Citations of r1 by line.** These laws and drafts cite r1 by line:
+  - MC r6 (`L:n`);
+  - J1 r3 (`M3L:n`);
+  - S-OP-2 r6 (`M3L:n`);
+  - ME r3 (`L:132`);
+  - MB r2 (`ML:494-509`);
+  - the D law's draft (`ML:n`).
+
+  Each pins r1 (`5e858c05…`), now kept as `PROPOSAL-r1.md`, so every cited line still resolves. r2 keeps every item, X, R and O number, and the substance each of them cites. **What changes:** each re-pins by item at its next revision. No content change is needed in any of them. The D law's draft can now say that its stderr item follows item 12.1 rather than departing from it.
+- **X11 (r2). OPP wording.** OPP:171 says provider stderr is "held in memory" before reduction. Item 12.1 counts without holding, with the same lawful output, and so does the D law's stderr item. OPP:238 names the no-progress record `supervision.no_progress`, while S-OP-2 registers it as `supervision.progress.absent` (SOP2:886). **May change:** OPP's next revision may align both. No outcome changes. **Owner:** OPP's owner (CLI and operability).
+- **X12 (r2; MC X-3). Rust3's prepared-entry bound.** Rust3 retains v2's `maxPreparedOutputEntries` of 256 (RPP:102; RPP:385; NE:2934), beside `maxExpansionRows` and `maxGeneratedFileRows` of 1,000,000 (NE:2933). This law changes no limit (item 1). If 256 governs a prepared manifest's entries, an admitted prepared set of more than 256 entries cannot reach a Rust3 child. That would need a Rust protocol successor, never host-side splitting. At M3 prepared sets are harness-imported (MC O-1), so this bears on G4, not on M3's T2 measurement. **Owner:** the Rust protocol owner (R10, joining MC's R4).
 
 ## Forbidden substitutes
 
 - Any change to a TS2 or Rust3 frame, member, phase, terminal, token, limit or identity version made by this law, a provider unit or the control plane (items 1, 11).
-- A provider process reused across ExecutionIds, Plans or universes; retained after its terminal; pooled or pre-spawned; restarted within an attempt; or replaced by in-process analysis (item 2).
+- A provider process reused across ExecutionIds, Plans or universes; retained after its terminal; pooled or pre-spawned; restarted within an attempt; or replaced by in-process analysis. A provider child for a syntax universe (item 2).
 - Reuse of an authoritative object, a cache entry consumed under another Plan, or a key match treated as admission (item 4).
 - A fact, scope, Coverage entry or view not minted under the current snapshot and Plan (item 5).
 - An unbounded invalidation treated as bounded, or a full-analysis fallback that is not disclosed (item 6).
 - Changed-scope shipped without INC-4's paired equivalence (item 7).
 - A resident or long-lived host or provider at M3 (item 8).
-- A number in this law not taken from S-M's report, or acceptance without S-M (item 9).
+- A number in this law not taken from S-M's report, or this law taking effect without S-M (item 9).
 - Reuse provenance in any semantic payload, digest or Coverage entry, or a Coverage successor carrying provenance (item 10).
 - A new progress, diagnostic or heartbeat message; provider-asserted progress; or parsed stderr (items 11, 12).
-- stderr text, a stderr digest or `fault` detail text in any sink (item 12).
-- A RequestId, RunId or log path given to a child; an identity in a record before its phase; or a worker echo used as a key (item 13).
-- Any operational-record field entering identity, or a record synthesized after an instrumentation failure (item 14).
+- stderr text, a stderr digest, stderr bytes kept in any buffer, or `fault` detail text in any sink (item 12).
+- A RequestId, RunId or log path given to a child; an identity in a record before its phase; a worker echo used as a key; or an unreserved ExecutionId on the wire (item 13).
+- Any operational-record field entering identity; a record synthesized after an instrumentation failure; or an event name outside S-OP-2's registry (item 14).
 - Ambient runtimes or tools, or a closure mismatch downgraded (item 15).
-- An in-band `Cancel` for a non-user reason, sent twice, or synthesized as `Cancelled`; facts admitted from a cancelled child; or a bounded wait with no typed expiry (item 16).
+- An in-band `Cancel` for a non-user reason, with TypeScript's `host-shutdown`, sent twice, or synthesized as `Cancelled`; facts admitted from a cancelled child; or a bounded wait with no typed expiry (item 16).
 - Any launch rule outside the D law, or any confinement claim before CF-1 (item 17).
-- Any decision about the commit-phase cancellation join (item 18).
+- Any decision about the commit-phase cancellation join (items 16f, 18).
 - Any edit to a frozen contract, the register or a D-372-pinned file to apply items 19-21.
+- **(r2)** An ACCEPT in review treated as this law in effect, by this law or by any dependent ("Review and effect").
 
 ## Open questions
 
 ### For the owner
 
-- **O1. O7, hostile-input confinement.** Gate item G9 and blocker B1. The lead's recommendation is at M3P:312-319. This law is drafted so that it does not depend on the outcome.
-- **O2. Sign-off on D3 (the T2 selection) and D13 (the exploratory envelope).** These are gate items G4 and G5 (AQP:543, AQP:554). They are lead work that needs the owner's sign-off.
+- **O1. O7, hostile-input confinement.** Gate item G9 and blocker B1. The lead's recommendation is in ON B1 and at `M3-PLAN-r6.md:478-485`. **r2:** CF-P's evidence is in, and it is summarized in G9. This law is drafted so that it does not depend on the outcome ("What depends on O7 and S-M").
+- **O2. Sign-off on D3 (the T2 selection) and D13 (the exploratory envelope).** These are gate items G4 and G5 (AQP:543, AQP:554) and blocker B3. They are lead work that needs the owner's sign-off. D13 also gates S-M's report. D2's placement sign-off (AQP:542) stays `proposed`. It is not a gate item here (G6).
 - **O3. Conditional on S-M outcome (B).** If the one-shot fixed floor F exceeds the 2 s edit target, M4's changed-scope cannot meet that target under TS2/Rust3. The owner would confirm one of two things:
   - the edit target waits for M5 residency, as D5's staging implies;
   - or D5's staging changes.
 - **O4. Conditional on S-M outcome (C).** If one-shot full analysis misses a medium budget (30 s cold or 8 s warm), that is the D4 revisit AQP:372 names. The owner decides whether to revisit the budgets or the staging.
+- **Flagged for possible reversal (r2):** this revision's three new lead decisions: the review rule, counting stderr without holding it (item 12.1), and never sending TypeScript's `host-shutdown` (item 16b). None blocks.
 
 ### For S-M's data
 
 These are SM-1 to SM-10 (item 9). Each decides or informs the following:
 - **F (SM-1 or SM-3, SM-5, SM-7, SM-9)** decides outcome A, B or C, and so O3 and O4.
 - **SM-2 and SM-4** give T, and show how much changed-scope could save at M4.
-- **SM-6** shows whether a medium TypeScript read set with `node_modules` fits `maxSnapshotEntries` 200,000. If it does not, that is a TS2 limit question, which needs a successor by item 1. It cannot be fixed by host behaviour.
-- **SM-8** sets the floor for D3's health window, or shows that the providers need an independent responder (X6).
-- **SM-3 and SM-4** depend on S-P. If S-P fails, the Rust rows are `incomplete`. Whether the law can be accepted with Rust rows incomplete is a question for the reviewer at that point. The lead's recommendation is no, unless S-P's failure is itself accepted as a finding with a G2 plan.
+- **SM-5 and SM-6** show whether a medium TypeScript read set with `node_modules` fits TS2's `maxSnapshotEntries` of 200,000 and, more tightly, `snapshot2`'s 100,000 rows and 4 MiB descriptor. A TS2 limit miss is a successor question by item 1, and cannot be fixed by host behaviour. A `snapshot2` miss is MC's S-R (MC item 5).
+- **SM-8** sets the floor for the D law's health window, or shows that the providers need an independent responder (X6).
+- **SM-1 and SM-3** also inform the D law's handshake deadline.
+- **SM-3 and SM-4** depend on S-P. If S-P fails, the Rust rows are `incomplete`. Whether the law can take effect with Rust rows incomplete is a question for the delta round's reviewer. The lead's recommendation is no, unless S-P's failure is itself accepted as a finding with a G2 plan.
 - **SM-10** informs OPP §5.2's concurrency ceiling (information only).
 
 ### For other owners and reviewers
 
 - **R1. DR-102 owner.** Confirm item 16's reading of the T-1 split between control and in-band cancellation (CPC:660-663).
 - **R2. DR-125 owners.** Is the SDK alias re-binding from V1 to TS2 payloads (item 12.5) a record join, or does it need an SDK successor?
-- **R3. D2 with the manifest owner.** Fix the control `select` tuple for TS2 and Rust3 (X5).
+- **R3. The D law, with the manifest owner.** Fix the control `select` tuple for TS2 and Rust3 (X5). **r2:** the D law's draft proposes it, with a manifest-owner record in its successor list. R3 closes when that record is accepted.
 - **R4. Identity owner (D5a).** Is a cache-key domain without `planId` admissible under IE §4's no-hidden-input rule (IE:1296-1298)? What re-admission evidence does a reused candidate need under a new snapshot (items 4 and 5)? This is needed before M4 ships changed-scope, not for M3.
 - **R5. The record-hygiene batch.** Add the notes in items 19 and 20 to its re-pinning successor (RH §2).
 - **R6. The lead.** Did the read scope of `claude-independent-design.v45` cover NE §14 (item 21)?
 - **R7. The reviewer.** Is G6 met by Q0 §2's draft specs, or does "the D2 draft" mean a drafted WS/pack successor (AQP:542)?
-- **R8. D3 (supervisor).** Fix the TS2 cleanup grace (provisionally 2 s), the health window, and the TERM-to-KILL escalation and reaping ceiling. Items 12.4 and 16c set their constraints.
-- **R9. Rust protocol owner.** Item 16c reads `cancellationGraceMilliseconds` (RPP:119) as the host's stage-1 wait before a forced kill on automatic expiry, not only as a ceiling. The drafting read found the member in the v4 guard context list (`rust-provider-protocol.v4.json:966`) but not the guard that uses it. Confirm the reading.
+- **R8. The D law (supervisor).** Fix the TS2 cleanup grace, the health window, and the TERM-to-KILL escalation and reaping ceiling. Items 12.4 and 16c set their constraints. **r2: answered in the D law's draft** (its constants table): the TS2 grace is 2 s, provisional; the liveness window is 5 s, raised to at least 2 × SM-8; TERM to KILL is 1 s; the reap ceiling is 10 s, or 5 s under revocation. R8 closes when the D law is accepted.
+- **R9. Rust protocol owner.** Item 16c reads `cancellationGraceMilliseconds` (RPP:119) as the host's stage-1 wait before a forced kill on automatic expiry, not only as a ceiling. The drafting read found the member in the v4 guard context list (`rust-provider-protocol.v4.json:966`) but not the guard that uses it. Confirm the reading. **r2:** the D law's draft and J1 8.5 adopt it, pending this confirmation.
+- **R10 (r2). Rust protocol owner.** X12: does `maxPreparedOutputEntries` 256 (RPP:102, RPP:385) govern a prepared manifest's entries in transport, beside NE's 1,000,000-row bounds? This is MC's R4, asked from this law's side.
+- **R11 (r2). The reviewer.** Is "Review and effect" lawful: an ACCEPT in review, effect only when the gate is met, delta rounds for S-M and O7, and dependents reading "M3-L accepted" as L in effect? Is "What depends on O7 and S-M" complete?
 
 ## Not claimed
 
-- **Measurement.** Nothing has been measured. Every `⟨SM-n⟩` is a placeholder. The only numbers here are owner-approved targets, protocol constants and OPP's provisional values, each cited.
+- **Measurement.** Nothing has been measured. Every `⟨SM-n⟩` is a placeholder. The only numbers here are owner-approved targets, protocol constants, schema bounds, and OPP's and the D law's provisional values, each cited.
 - **Records.** No contract, schema, gate, threshold, register row or pinned file is changed. Items 19-21 are records, and their notes are proposals.
-- **Decisions.** O7 is not decided, and no confinement is claimed. The commit-phase cancellation join is not decided (S-OP-12, M3-J). No launch rule is stated (M3-D).
+- **Decisions.** O7 is not decided, and no confinement is claimed; CF-P's findings are cited as evidence only. The commit-phase cancellation join is not decided (J1 item 8). No launch rule is stated (the D law).
 - **Shipped features.** No changed-scope path, cache or resident host ships at M3. No D5a successor is drafted.
-- **S-OP drafts.** S-OP-2 is not drafted. Item 14 lists only what this law needs from it.
-- **This revision.** No product code, cargo command, test or lead run set was run for it. Product facts come from reading main `2967905`.
-- **Acceptance.** This law is a draft and cannot be accepted until gate items G1, G2, G4, G5, G7 and G9 are met.
+- **Registration.** This law registers no event and no code table. Item 14 names S-OP-2's events and relies on them.
+- **Other laws.** No accepted law is changed by this revision. Cross-law items X3, X5 and X9 to X12 name the records that should change, for their owners.
+- **This revision.** No product code, cargo command, test or lead run set was run for it. Product facts come from reading main `e093e90` with `git show` and `git diff`.
+- **Effect.** An ACCEPT of this revision is "accepted in review". The law takes effect only when gate items G1, G4, G5 and G9 are met and S-M's delta round is accepted.
