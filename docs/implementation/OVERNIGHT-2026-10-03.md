@@ -273,3 +273,4 @@ Times are local.
   - **Lead decision, under E1's predeclared rule:** syntax uses native tree-sitter linked in the host, with `executionModel` `native-linked-v1`. E1 item 18's fallback posture applies. Parser defects are a declared residual risk, and the lead re-decides placement at M4 before CLI `analyze` takes untrusted input. E0's data is the input to that decision, including a non-product diagnostic that reached 1.047 MiB/s without tree serialization.
   - **Measured constants:** `fuelBase` 190,000, `fuelPerByte` 420,000 and `maxMemoryPages` 20,896. These are now relevant only if T-wasm returns at M4.
   - **Review:** the report is sent to GROK2 for a record review.
+- **I1-P accepted at r2 by CODEX2** (ACCEPT-DESIGN-UNIT, no findings) **and bound** at product main `cd5958b`, giving 82 contract successors. Both of I1's design units are bound, so the I1 product chain (I1-a, then I1-b1, I1-c and I1-b2) can start once the machine queue reaches it.
