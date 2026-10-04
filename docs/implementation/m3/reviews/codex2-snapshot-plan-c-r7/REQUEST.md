@@ -20,7 +20,7 @@ The pins are in `hashes.txt`.
   - successor SD-6 (line 1092) and cross-law finding F11 (line 1111).
 
   M3-D cites this law as "MC r5". Row 8 is byte-identical in r5 and r6.
-- **The companion:** J1 r4 (`docs/implementation/m3/host-pipeline-j/PROPOSAL.md`), reviewed separately under `codex2-host-pipeline-j-r4`. It adds row R10a, its ephemeral counterpart ER10a (item 6) and successor S19, which records this narrowing. J1 r3's accepted bytes are pinned for the order R10 to R12.
+- **The companion:** J1 r4 (`docs/implementation/m3/host-pipeline-j/PROPOSAL.md`), reviewed separately by GROK2 under `grok2-host-pipeline-j-r4`. It adds row R10a, its ephemeral counterpart ER10a (item 6) and successor S19, which records this narrowing. J1 r3's accepted bytes are pinned for the order R10 to R12.
 - **The product:** `/Users/sb/code/opensip-ai/opensip` at main `e093e90` (F8b), read-only. r7 cites no product path.
 
 **Scope.** r7 applies **exactly** SD-6's narrowing of item 16's row 8, and changes nothing else. Diff r6 against r7. Every change should belong to SD-6, or to the header and the "r7 changes" table. The one exception is owner question R1's wording. It was already in the live r6 file beside the acceptance note, as your C6-NB-01 asked, and r7 lists it in its table.

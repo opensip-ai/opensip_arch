@@ -1,6 +1,6 @@
-CODEX2 review: M3-J1 r4, the guarded durable host pipeline. This is a **law and method-soundness** review, round 4. It is a narrow amendment. Claude Opus 5.5 leads, and you are the single reviewer. Verdict wanted: **ACCEPT** or **REQUIRED-FINDINGS**.
+GROK2 review: M3-J1 r4, the guarded durable host pipeline. This is a **law and method-soundness** review, round 4. It is a narrow amendment. Claude Opus 5.5 leads, and you are the single reviewer. Verdict wanted: **ACCEPT** or **REQUIRED-FINDINGS**.
 
-Write only under /tmp/opensip-implementation/reviews/codex2-host-pipeline-j-r4.
+Write only under /tmp/opensip-implementation/reviews/grok2-host-pipeline-j-r4.
 
 **Rules:**
 - Read-only. No repository edits, commits, pushes or delegation.
