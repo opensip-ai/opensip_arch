@@ -2,23 +2,25 @@
 
 The owner asked the lead to run autonomously overnight: "if you get blocked, move to the next item and we can discuss any blockers tomorrow morning." This file is the running log, kept by Claude Opus 5.5 as lead.
 
-## Morning summary (updated 2026-10-04 06:40 PDT)
+## Morning summary (updated 2026-10-04 08:35 PDT)
 
-**Where things stand.** M2 is complete and its record is accepted. Since then M3's law and design layer has moved a long way:
+**Where things stand.** M2 is complete. M3's law and design layer is now largely in place.
 - **Laws accepted:**
-  - B r2, I1 r2, E1 r3, J1 r4, S-OP-2 r6, D r3, H r3 and X3c r8;
-  - M3-C r7, accepted in review and effective with L;
-  - M3-PLAN r9, the record of all of this.
-- **Bound in the product lock:** product main is `392499e`, with 83 contract successors: F8b, I1-L, I1-P, B-S1, B-S2, B-S9 and CRC-1.
-- **Accepted, waiting to bind:** RUST3-LIM, which binds after FA-2.
-- **Code integrated:** X4-F1, which fixes M2's last known defect. Its confirmation lane passed 1749/0.
-- **P0, the M3 crate scaffolds:** every lane passed; it is next in Codex's queue.
+  - M3-B r4, I1 r3, E1 r4, J1 r5, S-OP-2 r6, D r5, H r3 and X3c r8;
+  - M3-C r7 and M3-L r5, both accepted in review and taking effect with L's gate;
+  - M3-PLAN r9.
+- **Bound in the product lock:** main `3f6f9a5`, with 93 contract successors and inventory v135. The bound successors are:
+  - F8b, I1-L, I1-P, B-S1, B-S2, B-S9, CRC-1, CR-1, FA-1, SD-5, FA-2, RUST3-LIM, S18, SYN-1, SYN-1F, SYN-NS and S21.
+- **Code integrated:**
+  - X4-F1, which fixes M2's last known defect;
+  - P0, the `crates/components` and `crates/syntax` scaffolds.
 - **In review:**
-  - M3-L r5 (GROK2);
-  - FA-2 r2 (Codex);
-  - FA-1 and SD-5 (Grok);
-  - SYN-1 r2, SYN-NS and SYN-1F (CODEX2).
-- **Being revised:** CR-1 r3, S18 r2 and J-RW r3.
+  - I1-a, the first preview-pack code unit (CODEX2);
+  - X4T r12, the X4-F2 fenced-read expiry law (Codex).
+- **Being drafted or built:**
+  - X3a-2, J-RW r3 and VD2;
+  - SD-7, held for VD2.
+- **M3-L's gate:** FA-2 and RUST3-LIM are met. It now waits only on your O7 and D3/D13 decisions, and on S-M, which needs D13.
 
 **What needs you** (details under "Blockers for the owner" below):
 1. **B1, O7 confinement.** The CF-P evidence supports the recommendation.
