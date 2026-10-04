@@ -599,3 +599,9 @@ Times are local.
 - **Confirmation lane on product main `cca4fe4`** (P0, I1-a and X3a-2 combined): workspace 1750 passed, 0 failed, 3 ignored, including doc tests, in 542 s. That matches X3a-2's 1729 plus 20 doc tests, plus I1-a's one new test. The combination is confirmed.
 - **VD2-a + F8c r1:** Codex raised one finding (VD2A-RF-01). The review-list comparison used Python `==`, so `true` and `1.0` would match line 1. **Direction for r2:** type-strict canonical comparison, plus selector validity per rule 2.3 and negative controls. F8c is refreshed with the new verifier bytes and rebased onto `cca4fe4`.
 - **X3d r9 drafted with CL-1. Lead decision: fold J1's successor S10 into the same r9 before review.** The cancellation latch, window close and state bits belong there because J1 r5, M3-PLAN r9, X3c r8 and M3-L r5 already name "X3d r9" as S10's home. **Rejected:** S10 as r10, which would need record notes in four laws.
+- **X4-F2 implemented and sent to GROK2.** Lanes:
+  - workspace 1739/0/3 twice, plus 18 doc tests;
+  - crash-matrix 1637/0/3;
+  - clippy, fmt, `verify_design`, edges, dependency checkers.
+
+  The **54-row X9 subset is identical to the X9-6 evidence** in both sets (storage census 259 points, kill set 321; host census 218, kill set 271), and release absence passes. No file is added, so there is no inventory successor. Its base is `3f6f9a5`. It shares no file with I1-a or X3a-2, which landed since; a confirmation lane follows integration.

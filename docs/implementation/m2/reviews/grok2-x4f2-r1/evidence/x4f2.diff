@@ -1,0 +1,1007 @@
+diff --git a/crates/security/src/custody/installation_read_fixture.rs b/crates/security/src/custody/installation_read_fixture.rs
+index 7a83412..55c8d87 100644
+--- a/crates/security/src/custody/installation_read_fixture.rs
++++ b/crates/security/src/custody/installation_read_fixture.rs
+@@ -127,6 +127,22 @@ impl ReadFixture {
+     /// The accepted store with these revocation entries and list version.
+     #[cfg(test)]
+     pub(crate) fn write_trust(&self, revocations: Vec<(&'static str, String)>, version: i128) {
++        self.write_trust_issued(revocations, version, None);
++    }
++    /// Unit X4-F2: the accepted store with its bootstrap manifest issued at
++    /// `issued` (X4T-0's knob), which raises its L above the list's issue
++    /// time, so a first read's tEval can pass the list's staleness.
++    #[cfg(test)]
++    pub(crate) fn accept_trust_issued(&self, issued: &'static str) {
++        self.write_trust_issued(Vec::new(), 1, Some(issued));
++    }
++    #[cfg(test)]
++    fn write_trust_issued(
++        &self,
++        revocations: Vec<(&'static str, String)>,
++        version: i128,
++        issued: Option<&'static str>,
++    ) {
+         let current = self
+             .installation
+             .join(format!("trust/stores/{}/state.v1", self.store));
+@@ -141,12 +157,13 @@ impl ReadFixture {
+             panic!("schema")
+         };
+         let before = trust_paths(&self.installation);
+-        crate::trust::write_accepted_trust(
++        crate::trust::write_accepted_trust_issued(
+             &self.installation,
+             &self.store,
+             schema.get(),
+             revocations,
+             version,
++            issued,
+         );
+         // Every new directory and file gets the creator's zero-rights owner
+         // allow, as a private creation would.
+diff --git a/crates/security/src/custody/operation_handoff_tests.rs b/crates/security/src/custody/operation_handoff_tests.rs
+index e0a446d..c59ce31 100644
+--- a/crates/security/src/custody/operation_handoff_tests.rs
++++ b/crates/security/src/custody/operation_handoff_tests.rs
+@@ -148,7 +148,10 @@ fn register(writer: &mut OrdinaryWriteAdmission, project: &Path) -> RegisteredPr
+ /// A fixture whose project is registered by a writer that has since
+ /// released its fence: the project is Eligible, and N holds only the leases.
+ fn eligible(tag: &str) -> (ReadFixture, PathBuf, String) {
+-    let fixture = trusted(tag);
++    eligible_on(trusted(tag), tag)
++}
++/// The same, on a fixture whose trust store the caller has already written.
++fn eligible_on(fixture: ReadFixture, tag: &str) -> (ReadFixture, PathBuf, String) {
+     let project = fixture_project(&fixture);
+     let (mut writer, _trees) = new_writer(&fixture, &format!("{tag}-register"));
+     let registered = register(&mut writer, &project);
+diff --git a/crates/security/src/custody/operation_live_tests.rs b/crates/security/src/custody/operation_live_tests.rs
+index 0145f18..20739c9 100644
+--- a/crates/security/src/custody/operation_live_tests.rs
++++ b/crates/security/src/custody/operation_live_tests.rs
+@@ -428,6 +428,17 @@ fn a_boot_change_fail_stops_the_next_read() {
+ /// wall clock `shift` seconds from `scripted::WALL`. Its monotonic readings
+ /// and boot are the script's own.
+ fn begin_live_shifted(fixture: &ReadFixture, project: &Path, tag: &str, shift: i64) -> Live {
++    try_begin_shifted(fixture, project, tag, shift, |_| {}).unwrap()
++}
++/// The same handoff, which may refuse; `probe` sees each monitor clock
++/// sample before it is returned.
++fn try_begin_shifted(
++    fixture: &ReadFixture,
++    project: &Path,
++    tag: &str,
++    shift: i64,
++    probe: impl Fn(&crate::revocation::Sample) + Send + 'static,
++) -> Result<Live, OperationRefusal> {
+     use super::super::super::operation_guard::{Cadence, GuardSeam};
+     let (mut writer, trees) = new_writer(fixture, tag);
+     let subject = admitted(&mut writer, project);
+@@ -438,26 +449,25 @@ fn begin_live_shifted(fixture: &ReadFixture, project: &Path, tag: &str, shift: i
+             clock: Box::new(move || {
+                 let mut sample = clock.sample()?;
+                 sample.wall_seconds += shift;
++                probe(&sample);
+                 Ok(sample)
+             }),
+             cadence: Cadence::Manual,
+             hook: ObservationHook::live(),
+         }
+     };
+-    let operation = writer
+-        .begin_operation_with(
+-            subject,
+-            WriterLease::AppendWrite,
+-            &inputs(),
+-            &scripted::invocation(),
+-            seam,
+-        )
+-        .unwrap();
+-    Live {
++    let operation = writer.begin_operation_with(
++        subject,
++        WriterLease::AppendWrite,
++        &inputs(),
++        &scripted::invocation(),
++        seam,
++    )?;
++    Ok(Live {
+         operation,
+         clock,
+         _trees: trees,
+-    }
++    })
+ }
+ 
+ #[test]
+@@ -506,6 +516,94 @@ fn a_list_going_stale_during_the_operation_fail_stops_before_any_further_effect(
+     });
+ }
+ 
++#[test]
++fn a_list_already_stale_at_the_first_reads_t_eval_refuses_at_the_lease_free_point() {
++    // Law X4T r12 items 6, 7, 9 and 10 (unit X4-F2). The store's bootstrap
++    // manifest is issued 2026-10-03 (X4T-0's knob), so its L is too and S4's
++    // plausibility bound reaches 2027-01-01T00:00:00Z. Its list, issued
++    // 2026-10-01, is stale strictly after 2026-12-30T00:00:00Z. The first
++    // read's wall clock, and so its tEval, is one second past that.
++    churned(|| {
++        let fixture = ReadFixture::new("x4f2-stale");
++        fixture.accept_trust_issued("2026-10-03T00:00:00Z");
++        let (fixture, project, n) = eligible_on(fixture, "x4f2-stale");
++        let accepted = fs::read(current_path(&fixture)).unwrap();
++        let first_wall = 1_798_588_801; // 2026-12-30T00:00:01Z
++        // At each monitor clock sample: the fence held, and no lease taken.
++        let probed = Arc::new(std::sync::Mutex::new(Vec::<(bool, bool)>::new()));
++        let probe = {
++            let probed = Arc::clone(&probed);
++            let (fence, namespace) = (fence_path(&fixture), namespace_path(&fixture, &n));
++            move |_: &crate::revocation::Sample| {
++                let lock_free = |path: &Path, mode| {
++                    FileLock::try_acquire(File::open(path).unwrap(), mode)
++                        .unwrap()
++                        .is_some()
++                };
++                probed.lock().unwrap().push((
++                    !lock_free(&fence, LockMode::Exclusive),
++                    lock_free(&namespace.join(WRITER_LEASE), LockMode::Exclusive)
++                        && lock_free(&namespace.join(READERS_LEASE), LockMode::Exclusive),
++                ));
++            }
++        };
++        let refusal = match try_begin_shifted(
++            &fixture,
++            &project,
++            "x4f2-stale",
++            first_wall - scripted::WALL,
++            probe,
++        ) {
++            Err(refusal) => refusal,
++            Ok(_) => panic!("the first read admitted a stale store"),
++        };
++        // X4T's own continuation row at the lease-free point: never
++        // `OBSERVER.FAIL_STOP`, never `required-files-changed`.
++        let OperationRefusal::Trust(trust) = &refusal else {
++            panic!("{refusal:?}")
++        };
++        assert_eq!(
++            trust.row,
++            crate::trust::TrustRow::Continuation("core:stale-revocation".into()),
++            "{}",
++            trust.cause
++        );
++        assert_eq!(
++            refusal.row(),
++            OperationRow::Installation(T::TrustContinuation {
++                subject: "core:stale-revocation".into()
++            })
++        );
++        // The monitor's first read ran under the fence before any lease.
++        let probed = probed.lock().unwrap().clone();
++        assert!(!probed.is_empty());
++        assert!(probed.iter().all(|(fence, free)| *fence && *free), "{probed:?}");
++        // The floor publication was confirmed first: F = tEval, and every
++        // stored role state is as accepted.
++        let published = fs::read(current_path(&fixture)).unwrap();
++        assert_ne!(published, accepted);
++        let field = |v: &V, k: &str| match v {
++            V::Object(o) => o[k].clone(),
++            _ => panic!("{k}"),
++        };
++        let (new, old) = (
++            opensip_identity::parse_json(&published).unwrap(),
++            opensip_identity::parse_json(&accepted).unwrap(),
++        );
++        assert_eq!(
++            field(&field(&field(&new, "clock"), "record"), "evalHighWater"),
++            V::String(crate::trust_time::format_timestamp(first_wall).unwrap())
++        );
++        assert_eq!(field(&new, "roles"), field(&old, "roles"));
++        // No X3b floor, carrier or journal record; the fence and N are free.
++        assert!(!fixture.installation.join("trust/carrier-floors").exists());
++        let namespace = namespace_path(&fixture, &n);
++        assert!(!namespace.join("grant-journal.sqlite").exists());
++        assert!(!namespace.join("grant-journal.witness.json").exists());
++        assert!(fence_free(&fixture) && unlocked(&fixture, &n));
++    });
++}
++
+ #[test]
+ fn a_checkpoint_needs_this_operations_own_level_four() {
+     churned(|| {
+diff --git a/crates/security/src/trust.rs b/crates/security/src/trust.rs
+index 010d3f0..37d3651 100644
+--- a/crates/security/src/trust.rs
++++ b/crates/security/src/trust.rs
+@@ -31,6 +31,8 @@ pub(crate) use root_payload::ConfirmedCurrent;
+ pub(crate) use root_payload::ObservationPoint;
+ #[cfg(test)]
+ pub(crate) use root_payload::write_accepted_trust;
++#[cfg(test)]
++pub(crate) use root_payload::write_accepted_trust_issued;
+ #[cfg(target_os = "macos")]
+ pub(crate) use root_payload::{
+     AdmittedCurrentTrust, BootstrapSource, LiveObservation, ObservationHook, Observed,
+diff --git a/crates/security/src/trust/accepted_store_fixture.rs b/crates/security/src/trust/accepted_store_fixture.rs
+index 2ee0648..c90cda3 100644
+--- a/crates/security/src/trust/accepted_store_fixture.rs
++++ b/crates/security/src/trust/accepted_store_fixture.rs
+@@ -23,6 +23,13 @@
+ // TR-CORE, TR-INDEX), a combination item 4's time and revocation inputs do
+ // not give, and the deliberately unlawful X4T-a3 stores (`ChainEnd` other
+ // than `Head`, replaced signers). `AcceptedStore::produced` says which.
++//
++// X4-F2 (law X4T r12 item 13): three test-only time knobs, so a fenced
++// read's tEval can reach an expiry within S4's plausibility bound while the
++// stored roles stay as accepted: the bootstrap manifest's later issue time
++// (which raises A above the list's issue time), the signing root's
++// `expiresAt` and the catalog's `expiresAt`. Each is signed into its document,
++// never edited into stored bytes; with none set, every store is unchanged.
+ use super::core_authentication::tests::{quorum_root, sign};
+ use super::retained_metadata_index::Collection;
+ use crate::trust::trust_outcomes::reference;
+@@ -43,6 +50,12 @@ pub(crate) const STORE: &str = "11111111111111111111111111111111";
+ /// The P0 publication's delivering core, which the store's acceptance keeps.
+ pub(crate) const CORE_CLOSURE: &str =
+     "closure2:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
++/// The default issue time of every signed document but the root.
++const ISSUED: &str = "2026-10-01T00:00:00Z";
++/// The default catalog expiry.
++const CATALOG_EXPIRES: &str = "2027-04-01T00:00:00Z";
++/// The constructed store's acceptance wall (its tEval and L by default).
++const ACCEPTED: &str = "2026-10-02T00:00:00Z";
+ 
+ /// The state a role ends in. Recovery is not offered: it needs a live
+ /// ceremony batch, which is not part of an accepted, retained store.
+@@ -119,6 +132,15 @@ pub(crate) struct Spec {
+     pub(crate) revocation_signers: Option<&'static [usize]>,
+     /// X4T-a3 (test-only): what the closure's `rootChain` records.
+     pub(crate) chain_end: ChainEnd,
++    /// X4-F2 (test-only): the bootstrap manifest's `issuedAt` in place of
++    /// 2026-10-01, the list's issue time. The acceptance's A, and so its L,
++    /// is the newest issue time, so a later one moves S4's plausibility bound
++    /// past the list's staleness.
++    pub(crate) manifest_issued: Option<&'static str>,
++    /// X4-F2 (test-only): the signing root's `expiresAt`.
++    pub(crate) root_expires: Option<&'static str>,
++    /// X4-F2 (test-only): the catalog's `expiresAt`.
++    pub(crate) catalog_expires: Option<&'static str>,
+ }
+ impl Default for Spec {
+     fn default() -> Self {
+@@ -138,6 +160,9 @@ impl Default for Spec {
+             root_signers: Vec::new(),
+             revocation_signers: None,
+             chain_end: ChainEnd::Head,
++            manifest_issued: None,
++            root_expires: None,
++            catalog_expires: None,
+         }
+     }
+ }
+@@ -456,9 +481,13 @@ fn construct(spec: &Spec) -> AcceptedStore {
+ 
+     // Signed documents, public test-only seeds (quorum-roots.json schema 1).
+     let n = spec.roots;
+-    let (chain, chain_pairs) = signed_chain(spec, None);
++    let (chain, chain_pairs) = signed_chain(spec, spec.root_expires);
+     let root = chain[n - 1].clone();
+     let (root_body, root_env) = chain_pairs[n - 1].clone();
++    let catalog_expires = spec.catalog_expires.unwrap_or(CATALOG_EXPIRES);
++    let manifest_issued = spec.manifest_issued.unwrap_or(ISSUED);
++    // The acceptance's tEval and L: its wall, or a later manifest's issue time.
++    let accepted_at = manifest_issued.max(ACCEPTED);
+     let root_version = n as i128;
+     let entries: Vec<String> = spec
+         .revocations
+@@ -485,7 +514,7 @@ fn construct(spec: &Spec) -> AcceptedStore {
+             .unwrap_or(&root_keys(n - 1)[..2]),
+     );
+     let catalog = canonical_text(&format!(
+-        r#"{{"catalogSchema":1,"expiresAt":"2027-04-01T00:00:00Z","issuedAt":"2026-10-01T00:00:00Z","releases":[],"reservedRootCommands":[],"revocationVersionRequired":1,"rootVersionRequired":{root_version},"snapshotVersion":1}}"#,
++        r#"{{"catalogSchema":1,"expiresAt":"{catalog_expires}","issuedAt":"2026-10-01T00:00:00Z","releases":[],"reservedRootCommands":[],"revocationVersionRequired":1,"rootVersionRequired":{root_version},"snapshotVersion":1}}"#,
+     ));
+     let catalog_env = sign(
+         &catalog,
+@@ -512,7 +541,7 @@ fn construct(spec: &Spec) -> AcceptedStore {
+         root_members.push(member(&format!("root-{k}.json"), body));
+     }
+     let manifest = canonical_text(&format!(
+-        r#"{{"issuedAt":"2026-10-01T00:00:00Z","members":{{"artifacts":[],"catalog":{},"envelopes":[{}],"manifests":[],"permissionPolicies":[],"repairMaterial":{{"ridesOn":"DR-110","standing":"absent-by-typed-absence"}},"revocation":{},"rootChain":[{}]}},"payloadKind":"ordinary","payloadSchema":1}}"#,
++        r#"{{"issuedAt":"{manifest_issued}","members":{{"artifacts":[],"catalog":{},"envelopes":[{}],"manifests":[],"permissionPolicies":[],"repairMaterial":{{"ridesOn":"DR-110","standing":"absent-by-typed-absence"}},"revocation":{},"rootChain":[{}]}},"payloadKind":"ordinary","payloadSchema":1}}"#,
+         member("catalog.json", &catalog),
+         envelopes.join(","),
+         member("revocation.json", &revocation),
+@@ -857,8 +886,8 @@ fn construct(spec: &Spec) -> AcceptedStore {
+                 (
+                     "record",
+                     obj([
+-                        ("evalHighWater", s("2026-10-02T00:00:00Z")),
+-                        ("lastAccepted", s("2026-10-02T00:00:00Z")),
++                        ("evalHighWater", s(accepted_at)),
++                        ("lastAccepted", s(accepted_at)),
+                         ("anchor", anchor),
+                         ("rootVersion", int(root_version)),
+                         ("indexSnapshotVersion", int(1)),
+@@ -866,7 +895,7 @@ fn construct(spec: &Spec) -> AcceptedStore {
+                         ("recoveryEpochSerial", int(0)),
+                         ("pendingRecoveryChallenge", V::Null),
+                         ("revocationIssuedAt", s("2026-10-01T00:00:00Z")),
+-                        ("catalogExpiresAt", s("2027-04-01T00:00:00Z")),
++                        ("catalogExpiresAt", s(catalog_expires)),
+                         ("rootExpiresAt", o(&root)["expiresAt"].clone()),
+                     ]),
+                 ),
+@@ -1068,7 +1097,10 @@ fn produce(spec: &Spec) -> Option<AcceptedStore> {
+     let sid = spec.store.clone().unwrap_or_else(|| STORE.to_owned());
+     let p0 = p0_publication(spec, &sid);
+     let n = spec.roots;
+-    let (chain, chain_pairs) = signed_chain(spec, knobs.root_expired.then_some(EXPIRED));
++    let (chain, chain_pairs) = signed_chain(
++        spec,
++        knobs.root_expired.then_some(EXPIRED).or(spec.root_expires),
++    );
+     let root = chain[n - 1].clone();
+     let root_version = n as i128;
+ 
+@@ -1122,7 +1154,7 @@ fn produce(spec: &Spec) -> Option<AcceptedStore> {
+         if knobs.catalog_expired {
+             EXPIRED
+         } else {
+-            "2027-04-01T00:00:00Z"
++            spec.catalog_expires.unwrap_or(CATALOG_EXPIRES)
+         },
+         component
+             .as_ref()
+@@ -1166,7 +1198,8 @@ fn produce(spec: &Spec) -> Option<AcceptedStore> {
+         blobs.extend([body.clone(), envelope.clone()]);
+     }
+     let manifest = canonical_text(&format!(
+-        r#"{{"issuedAt":"2026-10-01T00:00:00Z","members":{{"artifacts":[],"catalog":{},"envelopes":[{}],"manifests":[{}],"permissionPolicies":[],"repairMaterial":{{"ridesOn":"DR-110","standing":"absent-by-typed-absence"}},"revocation":{},"rootChain":[{}]}},"payloadKind":"ordinary","payloadSchema":1}}"#,
++        r#"{{"issuedAt":"{}","members":{{"artifacts":[],"catalog":{},"envelopes":[{}],"manifests":[{}],"permissionPolicies":[],"repairMaterial":{{"ridesOn":"DR-110","standing":"absent-by-typed-absence"}},"revocation":{},"rootChain":[{}]}},"payloadKind":"ordinary","payloadSchema":1}}"#,
++        spec.manifest_issued.unwrap_or(ISSUED),
+         member("catalog.json", &catalog),
+         envelopes
+             .iter()
+diff --git a/crates/security/src/trust/current_trust_admission.rs b/crates/security/src/trust/current_trust_admission.rs
+index 8137c28..fcb6c6e 100644
+--- a/crates/security/src/trust/current_trust_admission.rs
++++ b/crates/security/src/trust/current_trust_admission.rs
+@@ -4,6 +4,8 @@
+ // session or operation here (X4a consumes it). Unit X4-F1 (law X4T r11 item
+ // 6): an observer reread evaluates expiry and staleness at its instant, the
+ // handoff's tEval advanced by the elapsed monotonic time (`HandoffClock`).
++// Unit X4-F2 (law X4T r12 item 6): the fenced read applies them at tEval, as
++// its last decision; a refusal from that clock is not a view (`Admission`).
+ use super::super::admitted_revocations::verify_revocation;
+ use super::super::admitted_trust_records::{self as clock, Phase};
+ use super::super::current_event_trace::LocalTrace;
+@@ -153,7 +155,8 @@ pub(crate) struct TrustEpoch {
+ pub(crate) enum ReadMode {
+     /// The fenced first read: time is admitted. `report` is S4's
+     /// report-only mode (read sessions and doctor): writes are proposed only.
+-    /// X4T-a never performs the write-ahead; that is X4T-b.
++    /// X4T-a never performs the write-ahead; that is X4T-b. Item 6 (r12,
++    /// unit X4-F2): expiry and staleness are evaluated at tEval.
+     Fenced { report: bool },
+     /// An unfenced reread: items 2 to 5, with no time re-admission. Item 6
+     /// (unit X4-F1): expiry and staleness are evaluated at `at`, in UTC
+@@ -237,6 +240,56 @@ impl std::fmt::Debug for PendingWrite {
+         f.debug_struct("PendingWrite").finish_non_exhaustive()
+     }
+ }
++/// Item 6 (r12, unit X4-F2): what an admission ends in. A fenced read whose
++/// `EV-CLOCK` at tEval refuses is never a view. It keeps the read's floors,
++/// its S4 outcome and its pending write-ahead only so that item 7 publishes
++/// the floor before the refusal (item 7, r12). Both are boxed: their sizes
++/// differ by hundreds of bytes.
++#[derive(Debug)]
++enum Admission {
++    View(Box<AdmittedCurrentTrust>),
++    Clocked(Box<ClockedRefusal>),
++}
++/// Item 10 (r12): the continuation row of a fenced read clocked at tEval.
++#[derive(Debug)]
++struct ClockedRefusal {
++    refusal: TrustRefusal,
++    floors: Floors,
++    time: TimeAdmission,
++    pending: Option<PendingWrite>,
++}
++impl Admission {
++    /// The admitted capsule's floors (item 7's check 3).
++    fn floors(&self) -> &Floors {
++        match self {
++            Self::View(view) => &view.floors,
++            Self::Clocked(clocked) => &clocked.floors,
++        }
++    }
++    /// The fenced read's S4 outcome; `None` on a reread.
++    fn time(&self) -> Option<&TimeAdmission> {
++        match self {
++            Self::View(view) => view.time.as_ref(),
++            Self::Clocked(clocked) => Some(&clocked.time),
++        }
++    }
++    /// Item 7: the S4 proposal a fenced, not report-only read keeps.
++    fn take_pending(&mut self) -> Option<PendingWrite> {
++        match self {
++            Self::View(view) => view.pending.take(),
++            Self::Clocked(clocked) => clocked.pending.take(),
++        }
++    }
++    /// The view, or the clocked refusal. Item 7's fenced read calls this
++    /// only after its write-ahead or its closing rechecks; every other
++    /// caller writes nothing.
++    fn into_view(self) -> Result<AdmittedCurrentTrust, TrustRefusal> {
++        match self {
++            Self::View(view) => Ok(*view),
++            Self::Clocked(clocked) => Err(clocked.refusal),
++        }
++    }
++}
+ /// Item 7 (r8/r9): SC-TRUST floors as seconds and counters. A field is
+ /// `None` where the clock phase carries no such floor.
+ #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+@@ -329,7 +382,8 @@ impl AdmittedCurrentTrust {
+     pub(crate) fn time(&self) -> Option<&TimeAdmission> {
+         self.time.as_ref()
+     }
+-    /// (state, established) per role, in `ROLES` order.
++    /// Each role's state, in `ROLES` order, as `EV-CLOCK` gives it at the
++    /// read's instant (item 1, r12); the capsule's stored states are unchanged.
+     pub(crate) fn role_states(&self) -> [(&'static str, &'static str); 6] {
+         std::array::from_fn(|i| (ROLES[i], token(self.roles[i].0)))
+     }
+@@ -974,11 +1028,12 @@ fn admit_bound(
+     inputs: &ViewInputs<'_>,
+     start_bytes: usize,
+     store: &mut impl super::M::Store,
+-) -> Result<AdmittedCurrentTrust, TrustRefusal> {
++) -> Result<Admission, TrustRefusal> {
+     let roles = check_accepted_by(b, capsule, descriptor, bindings.trace(), store)?;
+     // Item 1: the join runs over the bound role states before authentication,
+-    // which needs a live ceremony's evidence for a role in Recovery.
+-    let standing = standing_of(&roles)?;
++    // which needs a live ceremony's evidence for a role in Recovery. The
++    // view's standing is the second join's, over the clocked states (r12).
++    standing_of(&roles)?;
+     let (input, root_admission) = authenticate(b, capsule, descriptor, &roles, store)?;
+     // The root admission is the one `authenticate` opened and checked.
+     let root_admission_ref = field(field(field(capsule, "heads")?, "root")?, "admission")?.clone();
+@@ -1049,6 +1104,27 @@ fn admit_bound(
+                     refusal,
+                 );
+             }
++            // Item 6 (r12, unit X4-F2): EV-CLOCK at tEval, the admission's
++            // last decision, after S4's own refusals. S4's three states at
++            // tEval, which every admitted evaluation carries, go through the
++            // reread's mapping and join. Nothing is recorded: the clocked
++            // states live in the view only. A refusal is not a view; it keeps
++            // the pending write-ahead, which item 7 performs before it.
++            let expired = admission
++                .expired
++                .map_or_else(|| refuse(TrustRow::HostIo, "expiry"), Ok)?;
++            let roles = clock_roles(roles, expired);
++            let standing = match standing_of(&roles) {
++                Ok(standing) => standing,
++                Err(refusal) => {
++                    return Ok(Admission::Clocked(Box::new(ClockedRefusal {
++                        refusal,
++                        floors,
++                        time: admission,
++                        pending,
++                    })));
++                }
++            };
+             // Item 6 (unit X4-F1): the clock the operation's rereads advance.
+             handoff = admission.evaluation.map(|evaluation| HandoffClock {
+                 evaluation,
+@@ -1058,7 +1134,7 @@ fn admit_bound(
+             (roles, standing, Some(admission))
+         }
+     };
+-    Ok(AdmittedCurrentTrust {
++    Ok(Admission::View(Box::new(AdmittedCurrentTrust {
+         roles,
+         standing,
+         epoch: TrustEpoch {
+@@ -1074,7 +1150,7 @@ fn admit_bound(
+         closure,
+         revocation: AdmittedRevocation(heads.revocation),
+         handoff,
+-    })
++    })))
+ }
+ 
+ /// Items 2 and 11: the shared preamble. The store's schema, then the event
+@@ -1087,16 +1163,28 @@ fn preamble(descriptor: &V, expected_store: &V) -> Result<(), TrustRefusal> {
+     check_event_bound(descriptor)
+ }
+ 
++/// The admission over a supplied store and an already-captured capsule, for
++/// every caller but item 7's fenced first read: a clocked refusal (item 6,
++/// r12) is returned as the refusal, and nothing is written here.
++pub(super) fn admit_current_trust(
++    b: &mut super::Budget,
++    expected_store: &V,
++    capsule: &V,
++    inputs: &ViewInputs<'_>,
++    store: &mut impl super::M::Store,
++) -> Result<AdmittedCurrentTrust, TrustRefusal> {
++    admit_current(b, expected_store, capsule, inputs, store)?.into_view()
++}
+ /// The admission over a supplied store and an already-captured capsule (the
+ /// fenced first read takes X3a's retained capsule, item 8). The descriptor
+ /// is loaded through `store` by the capsule's reference.
+-pub(super) fn admit_current_trust(
++fn admit_current(
+     b: &mut super::Budget,
+     expected_store: &V,
+     capsule: &V,
+     inputs: &ViewInputs<'_>,
+     store: &mut impl super::M::Store,
+-) -> Result<AdmittedCurrentTrust, TrustRefusal> {
++) -> Result<Admission, TrustRefusal> {
+     if is_p0(capsule)? {
+         return refuse(TrustRow::NoAdmittedTimeContext, "pre-acceptance");
+     }
+@@ -1137,9 +1225,9 @@ pub(super) fn admit_native(
+     }
+     preamble(&descriptor, expected_store)?;
+     let result = admit_bound_native(b, &capsule, &descriptor, bindings, inputs, start, store);
+-    let view = complete(store, result)?;
++    let admission = complete(store, result)?;
+     current.recheck().or_else(|e| refuse(native_row(&e), e))?;
+-    Ok(view)
++    admission.into_view()
+ }
+ #[cfg(target_os = "macos")]
+ fn admit_bound_native(
+@@ -1150,7 +1238,7 @@ fn admit_bound_native(
+     inputs: &ViewInputs<'_>,
+     start: usize,
+     store: &mut NativeStore<'_>,
+-) -> Result<AdmittedCurrentTrust, TrustRefusal> {
++) -> Result<Admission, TrustRefusal> {
+     admit_bound(b, capsule, descriptor, bindings, inputs, start, store)
+ }
+ #[cfg(target_os = "macos")]
+diff --git a/crates/security/src/trust/current_trust_admission_tests.rs b/crates/security/src/trust/current_trust_admission_tests.rs
+index e804da5..da51a7f 100644
+--- a/crates/security/src/trust/current_trust_admission_tests.rs
++++ b/crates/security/src/trust/current_trust_admission_tests.rs
+@@ -400,6 +400,198 @@ fn a_rereads_clock_follows_x4b_item_4_and_the_role_machine() {
+     }
+ }
+ 
++// Law X4T r12 item 6 (unit X4-F2): expiry at the fenced read. X4T-0's
++// default store cannot reach one there: its L is the list's issue time,
++// 2026-10-01, so S4's plausibility bound stops W at the list's staleness.
++// These stores use item 13's knobs. The acceptance's wall is 2026-10-02.
++
++/// The bootstrap manifest's later issue time. The acceptance admits it (not
++/// beyond its wall plus 24 h), so the store's L is 2026-10-03 and S4's
++/// plausibility bound reaches 2027-01-01T00:00:00Z, past the list's
++/// staleness, which is strictly after 2026-12-30T00:00:00Z.
++const LATER: &str = "2026-10-03T00:00:00Z";
++const STALE_AFTER: &str = "2026-12-30T00:00:00Z";
++/// A fenced read's S4 observation on another boot than the acceptance's
++/// anchor, so no continuity applies: tEval = max(F, W, A) = W here.
++fn fenced_at(wall: &str) -> V {
++    observation_on("boot-2", 9, wall)
++}
++/// A store through X4B's producer (on macOS), with the knobs given.
++fn knobbed(
++    manifest_issued: Option<&'static str>,
++    root_expires: Option<&'static str>,
++    catalog_expires: Option<&'static str>,
++) -> fixture::AcceptedStore {
++    let store = fixture::generate(&Spec {
++        manifest_issued,
++        root_expires,
++        catalog_expires,
++        ..Spec::default()
++    });
++    assert_eq!(store.produced, cfg!(target_os = "macos"));
++    store
++}
++fn tokens(roles: [(State, bool); 6]) -> [(&'static str, &'static str); 6] {
++    std::array::from_fn(|i| (ROLES[i], token(roles[i].0)))
++}
++fn carried_trusted(view: &AdmittedCurrentTrust) {
++    for (role, state) in &view.role_states()[..4] {
++        assert_eq!(*state, "trusted", "{role}");
++    }
++}
++
++#[test]
++fn a_fenced_read_refuses_a_list_already_stale_at_its_t_eval() {
++    let store = knobbed(Some(LATER), None, None);
++    // Exactly the list's issue time plus 90 days: S4's strict `>`.
++    let obs = fenced_at(STALE_AFTER);
++    let view = admit_store(&store, &fenced(false, &obs)).unwrap();
++    assert_eq!(view.standing(), TrustStanding::InstallGateRequiredForNewProcess);
++    carried_trusted(&view);
++    let time = view.time().unwrap();
++    assert_eq!(time.evaluation, Some(utc(STALE_AFTER)));
++    assert_eq!(time.expired, Some((false, false, false)));
++    // One second later, still inside the plausibility bound: the continuation
++    // row, at the lease-free point (item 10).
++    let obs = fenced_at("2026-12-30T00:00:01Z");
++    let refusal = admit_store(&store, &fenced(false, &obs)).unwrap_err();
++    assert_eq!(
++        refusal.row,
++        TrustRow::Continuation("core:stale-revocation".into()),
++        "{}",
++        refusal.cause
++    );
++    assert_eq!(refusal.row.code(), "CONTINUE-CORE-NOT-TRUSTED");
++    assert_eq!(refusal.row.subject().as_deref(), Some("core:stale-revocation"));
++}
++
++#[test]
++fn a_fenced_read_refuses_a_root_already_expired_at_its_t_eval() {
++    // The signing root expires 2026-11-01, inside the default store's window.
++    let store = knobbed(None, Some("2026-11-01T00:00:00Z"), None);
++    let obs = fenced_at("2026-10-31T23:59:59Z");
++    let view = admit_store(&store, &fenced(false, &obs)).unwrap();
++    assert_eq!(view.standing(), TrustStanding::InstallGateRequiredForNewProcess);
++    carried_trusted(&view);
++    // At `expiresAt` (S4's `>=`): the continuation row, never S5's
++    // `ROOT.FINAL_EXPIRED` (item 10, r12).
++    let obs = fenced_at("2026-11-01T00:00:00Z");
++    let refusal = admit_store(&store, &fenced(false, &obs)).unwrap_err();
++    assert_eq!(refusal.row, TrustRow::Continuation("core:expired".into()), "{}", refusal.cause);
++    assert_eq!(refusal.row.code(), "CONTINUE-CORE-NOT-TRUSTED");
++    // Both states true: expiry wins, as `decide` orders them.
++    let store = knobbed(Some(LATER), Some("2026-12-31T00:00:00Z"), None);
++    for (wall, subject) in [
++        ("2026-12-30T00:00:01Z", "core:stale-revocation"),
++        ("2026-12-31T00:00:00Z", "core:expired"),
++    ] {
++        let obs = fenced_at(wall);
++        let refusal = admit_store(&store, &fenced(false, &obs)).unwrap_err();
++        assert_eq!(refusal.row, TrustRow::Continuation(subject.into()), "{wall}");
++    }
++}
++
++#[test]
++fn a_catalog_expired_alone_at_the_fenced_read_is_admitted_existing_only() {
++    let store = knobbed(None, None, Some("2026-11-01T00:00:00Z"));
++    let obs = fenced_at("2026-10-31T23:59:59Z");
++    let view = admit_store(&store, &fenced(false, &obs)).unwrap();
++    assert_eq!(view.standing(), TrustStanding::InstallGateRequiredForNewProcess);
++    let obs = fenced_at("2026-11-01T00:00:00Z");
++    let view = admit_store(&store, &fenced(false, &obs)).unwrap();
++    assert_eq!(view.standing(), TrustStanding::ExistingOnly);
++    assert_eq!(
++        view.role_states(),
++        [
++            ("TR-BUNDLE", "trusted"),
++            ("TR-COMPONENT", "trusted"),
++            ("TR-CORE", "trusted"),
++            ("TR-INDEX", "expired"),
++            ("TR-PROFILE", "unbootstrapped"),
++            ("TR-REPAIR", "unbootstrapped"),
++        ]
++    );
++    // The time admission still carries S4's three states, and the handoff
++    // clock is set for the operation's rereads.
++    let time = view.time().unwrap();
++    assert_eq!(time.expired, Some((false, true, false)));
++    assert_eq!(time.evaluation, Some(utc("2026-11-01T00:00:00Z")));
++    assert!(view.handoff_clock().is_some());
++}
++
++/// Item 6 (r12): the fenced read's clock is X4-F1's mapping and transition
++/// (`clock_roles`, then `standing_of`) over the stored roles at tEval, and
++/// report-only computes the same states, standing and refusal. All three
++/// instants lie inside one store's plausibility window.
++#[test]
++fn the_fenced_reads_clock_is_x4f1s_mapping_and_transition_and_report_only_agrees() {
++    use State::*;
++    const CATALOG: &str = "2026-11-01T00:00:00Z";
++    const ROOT: &str = "2026-12-31T00:00:00Z";
++    let store = knobbed(Some(LATER), Some(ROOT), Some(CATALOG));
++    // The stored roles, as the acceptance recorded them.
++    let stored = [Trusted, Trusted, Trusted, Trusted, Unbootstrapped, Unbootstrapped]
++        .map(|s| (s, s != Unbootstrapped));
++    for wall in [
++        LATER,
++        "2026-10-31T23:59:59Z",
++        CATALOG,
++        STALE_AFTER,
++        "2026-12-30T00:00:01Z",
++        "2026-12-30T23:59:59Z",
++        ROOT,
++        "2027-01-01T00:00:00Z",
++    ] {
++        let t = utc(wall);
++        let expired = (t >= utc(ROOT), t >= utc(CATALOG), t > utc(STALE_AFTER));
++        let clocked = clock_roles(stored, expired);
++        let obs = fenced_at(wall);
++        for report in [false, true] {
++            let got = admit_store(&store, &fenced(report, &obs));
++            match standing_of(&clocked) {
++                Ok(standing) => {
++                    let view = got.unwrap_or_else(|e| panic!("{wall} {report}: {e:?}"));
++                    assert_eq!(view.standing(), standing, "{wall} {report}");
++                    assert_eq!(view.role_states(), tokens(clocked), "{wall} {report}");
++                    assert_eq!(view.time().unwrap().expired, Some(expired), "{wall}");
++                    assert_eq!(view.time().unwrap().report_only, report, "{wall}");
++                }
++                Err(expected) => {
++                    let refusal = got.unwrap_err();
++                    assert_eq!(refusal.row, expected.row, "{wall} {report}: {}", refusal.cause);
++                }
++            }
++        }
++    }
++}
++
++/// Item 6 (r12): each read clocks its own capsule's stored states once. After
++/// a fenced read admitted `ExistingOnly`, a reread at T = tEval gives the same
++/// states and standing; a reread past the list's staleness refuses from its
++/// own stored states (X4-F1).
++#[test]
++fn a_reread_after_a_clocked_fenced_read_clocks_its_own_stored_states() {
++    let store = knobbed(None, None, Some("2026-11-01T00:00:00Z"));
++    let obs = fenced_at("2026-11-01T00:00:00Z");
++    let first = admit_store(&store, &fenced(false, &obs)).unwrap();
++    assert_eq!(first.standing(), TrustStanding::ExistingOnly);
++    let t_eval = first.time().unwrap().evaluation.unwrap();
++    let clock = first.handoff_clock().unwrap();
++    let at = clock.advanced(&obs).unwrap();
++    assert_eq!(at, t_eval);
++    let again = admit_store(&store, &reread_at(at)).unwrap();
++    assert_eq!(again.standing(), first.standing());
++    assert_eq!(again.role_states(), first.role_states());
++    assert!(again.time().is_none());
++    // Past staleness, by monotonic time on the same boot: the reread's own
++    // EV-CLOCK over the stored (all trusted) roles refuses.
++    let elapsed = utc("2026-12-30T00:00:01Z") - t_eval;
++    let later = observation_on("boot-2", 9 + elapsed, "2020-01-01T00:00:00Z");
++    let at = clock.advanced(&later).unwrap();
++    let refusal = admit_store(&store, &reread_at(at)).unwrap_err();
++    assert_eq!(refusal.row, TrustRow::Continuation("core:stale-revocation".into()));
++}
++
+ #[test]
+ fn the_policy_digest_is_the_effective_digest_on_both_reads() {
+     let obs = hour_later();
+diff --git a/crates/security/src/trust/floor_publication.rs b/crates/security/src/trust/floor_publication.rs
+index 19fbd0d..7b0e077 100644
+--- a/crates/security/src/trust/floor_publication.rs
++++ b/crates/security/src/trust/floor_publication.rs
+@@ -18,7 +18,7 @@ use super::super::super::retained_metadata_index::{Budget, Collection};
+ use super::super::super::successor_record_bindings;
+ use super::{
+     AdmittedCurrentTrust, Floors, PendingWrite, ReadMode, TrustRefusal, TrustRow, ViewInputs,
+-    admit_current_trust, complete, field, int, refuse,
++    admit_current, complete, field, int, refuse,
+ };
+ use crate::custody::installation_admission::observe_private_file;
+ use crate::custody::installation_fence::HeldFence;
+@@ -942,6 +942,9 @@ pub(crate) fn build_floor_publication(
+ /// item 7's write-ahead before the view is returned: the floor publication is
+ /// built, verified and published, and the owner advances to the confirmed
+ /// `state.v1`. A confirming admission on the same clock sample writes nothing.
++/// (r12, unit X4-F2) A refusal by item 6's clock at tEval is published where
++/// the view would be returned: after check 3, and after the write-ahead or
++/// the closing rechecks. It is never returned as a view.
+ pub(crate) fn fenced_first_read(
+     work: &mut WorkScope<'_>,
+     fence: &dyn HeldFence,
+@@ -955,10 +958,10 @@ pub(crate) fn fenced_first_read(
+     let uid = fence.supplied_actor().0;
+     fence.recheck().or_else(|e| refuse(TrustRow::HostIo, e))?;
+     owner.recheck(uid, work)?;
+-    let mut view = {
++    let mut admission = {
+         let mut b = Budget::borrowed(work);
+         let mut store = NativeStore::new(fence);
+-        let result = admit_current_trust(
++        let result = admit_current(
+             &mut b,
+             &owner.expected_store,
+             &owner.capsule,
+@@ -968,11 +971,11 @@ pub(crate) fn fenced_first_read(
+         complete(&mut store, result)?
+     };
+     // Check 3 (r9): this hold's own retained floors.
+-    if owner.prior.iter().any(|prior| view.floors().below(prior)) {
++    if owner.prior.iter().any(|prior| admission.floors().below(prior)) {
+         return refuse(TrustRow::Rollback, "fence-hold-floors");
+     }
+-    if let Some(pending) = view.pending.take() {
+-        let time = view
++    if let Some(pending) = admission.take_pending() {
++        let time = admission
+             .time()
+             .cloned()
+             .map_or_else(|| refuse(TrustRow::HostIo, "time"), Ok)?;
+@@ -988,12 +991,13 @@ pub(crate) fn fenced_first_read(
+             // `publish` ends on its reserved confirmation, which is the
+             // owner's recheck; nothing is charged after its first effect.
+             publish(fence, owner, &publication.files, &publication.capsule_raw, work)?;
+-            return Ok(view);
++            // Item 7 (r12): a clocked refusal only after its write-ahead.
++            return admission.into_view();
+         }
+     }
+     fence.recheck().or_else(|e| refuse(TrustRow::HostIo, e))?;
+     owner.recheck(uid, work)?;
+-    Ok(view)
++    admission.into_view()
+ }
+ 
+ #[cfg(test)]
+diff --git a/crates/security/src/trust/floor_publication_tests.rs b/crates/security/src/trust/floor_publication_tests.rs
+index 63d7eb8..293a062 100644
+--- a/crates/security/src/trust/floor_publication_tests.rs
++++ b/crates/security/src/trust/floor_publication_tests.rs
+@@ -756,3 +756,121 @@ fn the_reservation_covers_both_exact_rereads_at_every_growth_boundary() {
+         }
+     })
+ }
++
++// Law X4T r12 items 6, 7 and 12 (unit X4-F2): expiry at the fenced read, on
++// native files. The store's bootstrap manifest is issued 2026-10-03 (X4T-0's
++// knob), so its L is too and S4's plausibility bound reaches
++// 2027-01-01T00:00:00Z; its list, issued 2026-10-01, is stale strictly after
++// 2026-12-30T00:00:00Z.
++fn issued_later() -> Spec {
++    Spec {
++        manifest_issued: Some("2026-10-03T00:00:00Z"),
++        ..Spec::default()
++    }
++}
++const STALE_WALL: &str = "2026-12-30T00:00:01Z";
++fn stale() -> TrustRow {
++    TrustRow::Continuation("core:stale-revocation".into())
++}
++/// The fenced read through X4T-b's `fenced_first_read`, or through X4B-b's
++/// `bootstrapping_first_read`, whose first result here is not F absent.
++fn read_by(
++    site: &Site,
++    owner: &mut RetainedCurrentTrust,
++    inputs: &ViewInputs<'_>,
++    bootstrapping: bool,
++) -> Result<AdmittedCurrentTrust, TrustRefusal> {
++    use super::super::trust_bootstrap::{BootstrapSource, bootstrapping_first_read};
++    if !bootstrapping {
++        return read(site, owner, inputs);
++    }
++    let source = BootstrapSource::unreached();
++    let mut ledger = WorkLedger::new();
++    ledger
++        .scope(|work| {
++            bootstrapping_first_read(work, &site.fence, owner, inputs, &invocation(), &source)
++                .map_err(WorkFailure::Operation)
++        })
++        .map_err(|e| match e {
++            WorkFailure::Operation(refusal) => refusal,
++            WorkFailure::Budget(b) => panic!("ledger {b:?}"),
++        })
++}
++
++#[test]
++fn a_clocked_refusal_comes_after_its_confirmed_write_ahead_and_is_sticky() {
++    for bootstrapping in [false, true] {
++        crate::test_scratch::settled(|| {
++            let site = site(&issued_later());
++            assert!(site.store.produced);
++            let before = fs::read(current_path(&site)).unwrap();
++            let old = opensip_identity::parse_json(&before).unwrap();
++            let mut owner = bound(&site);
++            let obs = observation("boot-2", 100, STALE_WALL);
++            let refusal =
++                read_by(&site, &mut owner, &fenced(false, &obs), bootstrapping).unwrap_err();
++            assert_eq!(refusal.row, stale(), "{bootstrapping}: {}", refusal.cause);
++            assert_eq!(refusal.row.code(), "CONTINUE-CORE-NOT-TRUSTED");
++            // The write-ahead ran first and was confirmed: one publication,
++            // the owner advanced to it, F = tEval and the anchor this sample.
++            assert_eq!(owner.confirmations().len(), 1);
++            let now = fs::read(current_path(&site)).unwrap();
++            assert_eq!(owner.confirmed().unwrap().raw(), now.as_slice());
++            assert_eq!(owner.raw(), now.as_slice());
++            let new = owner.capsule().clone();
++            let record = text(text(&new, "clock"), "record");
++            assert_eq!(text(record, "evalHighWater"), &s(STALE_WALL));
++            assert_eq!(text(record, "anchor"), &obs);
++            let old_record = text(text(&old, "clock"), "record");
++            assert_eq!(text(record, "lastAccepted"), text(old_record, "lastAccepted"));
++            // Nothing is recorded of the clock: every stored role is as
++            // accepted, and no event but the clock write is added.
++            assert_eq!(text(&new, "roles"), text(&old, "roles"));
++            for role in ["TR-BUNDLE", "TR-COMPONENT", "TR-CORE", "TR-INDEX"] {
++                let state = text(text(text(&new, "roles"), role), "state");
++                assert_eq!(state, &s("ST-TRUSTED"), "{role}");
++            }
++            assert_eq!(text(&new, "revision"), &integer(int(text(&old, "revision")).unwrap() + 1));
++            drop(owner);
++            // Sticky: a later invocation with the wall set back below the
++            // boundary evaluates at tEval' = F and refuses the same way. The
++            // sample is anchor-preserving (X4T-R12-NB-01): the same boot, more
++            // than 24 h behind the anchor's continuity, with no excusing
++            // witness, so S4 keeps the anchor; F and L do not advance, and so
++            // nothing is written.
++            let count = files(&site.root).len();
++            let mut next = bound(&site);
++            let back = observation("boot-2", 160, "2026-12-28T00:00:00Z");
++            let refusal =
++                read_by(&site, &mut next, &fenced(false, &back), bootstrapping).unwrap_err();
++            assert_eq!(refusal.row, stale(), "{}", refusal.cause);
++            assert!(next.confirmations().is_empty());
++            assert_eq!(fs::read(current_path(&site)).unwrap(), now);
++            assert_eq!(files(&site.root).len(), count);
++        })
++    }
++}
++
++#[test]
++fn a_report_only_or_horizon_refused_read_of_an_expired_store_writes_nothing() {
++    crate::test_scratch::settled(|| {
++        let site = site(&issued_later());
++        let before = fs::read(current_path(&site)).unwrap();
++        let sample = fs::metadata(current_path(&site)).unwrap().ino();
++        let count = files(&site.root).len();
++        let mut owner = bound(&site);
++        // Report-only: the same clocked refusal, and nothing written.
++        let obs = observation("boot-2", 100, STALE_WALL);
++        let refusal = read(&site, &mut owner, &fenced(true, &obs)).unwrap_err();
++        assert_eq!(refusal.row, stale(), "{}", refusal.cause);
++        // S4's own refusals keep their precedence: a wall beyond A + 90 d is
++        // `beyond-horizon` before any clock, though the list is stale there.
++        let far = observation("boot-3", 9, "2027-01-01T00:00:01Z");
++        let refusal = read(&site, &mut owner, &fenced(false, &far)).unwrap_err();
++        assert_eq!(refusal.row, TrustRow::ClockExcursion("beyond-horizon"));
++        assert!(owner.confirmed().is_none());
++        assert_eq!(fs::read(current_path(&site)).unwrap(), before);
++        assert_eq!(fs::metadata(current_path(&site)).unwrap().ino(), sample);
++        assert_eq!(files(&site.root).len(), count);
++    })
++}
+diff --git a/crates/security/src/trust/root_payload.rs b/crates/security/src/trust/root_payload.rs
+index 9dd580e..176c0ae 100644
+--- a/crates/security/src/trust/root_payload.rs
++++ b/crates/security/src/trust/root_payload.rs
+@@ -929,6 +929,28 @@ pub(crate) fn write_accepted_trust(
+     state_schema: i128,
+     revocations: Vec<(&'static str, String)>,
+     revocation_version: i128,
++) -> &'static str {
++    write_accepted_trust_issued(
++        installation,
++        store,
++        state_schema,
++        revocations,
++        revocation_version,
++        None,
++    )
++}
++/// Unit X4-F2 (law X4T r12 item 12): the same store, with its bootstrap
++/// manifest issued at `manifest_issued` when given (X4T-0's knob), so that a
++/// first read's tEval can pass the list's staleness within S4's plausibility
++/// bound.
++#[cfg(test)]
++pub(crate) fn write_accepted_trust_issued(
++    installation: &std::path::Path,
++    store: &str,
++    state_schema: i128,
++    revocations: Vec<(&'static str, String)>,
++    revocation_version: i128,
++    manifest_issued: Option<&'static str>,
+ ) -> &'static str {
+     use accepted_store_fixture::{CORE_CLOSURE, Spec, generate};
+     let generated = generate(&Spec {
+@@ -936,6 +958,7 @@ pub(crate) fn write_accepted_trust(
+         state_schema,
+         revocations,
+         revocation_version,
++        manifest_issued,
+         ..Spec::default()
+     });
+     generated.write(installation);
