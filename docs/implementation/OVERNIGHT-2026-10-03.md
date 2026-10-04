@@ -8,6 +8,7 @@ The owner asked the lead to run autonomously overnight: "if you get blocked, mov
 |---|---|---|---|
 | B1 | **O7, hostile-input confinement** (M3-PLAN "O7") | Acceptance of M3-L, the provider-protocol law; provider launch; M3-CF's successors. Drafting continues. | <ul><li>Landlock + seccomp + no network on AL2023; Seatbelt on macOS.</li><li>Where confinement is unavailable, disclose it in the result and require containers for untrusted pull requests.</li><li>Run repository code only with RepoExecutionGrantV2, inside confinement.</li></ul> |
 | B3 | **Sign-off on the T2 corpus selection (quality plan D3) and the exploratory envelope (D13)**; both are part of M3-L's acceptance gate | M3-L acceptance only | Approve as reviewed: T2a accepted by GROK2, T2b in review; the envelope accepted inside M3-Q0 r13. |
+| B4 | **OQ-1: what your team's real workspace looks like on disk** (M3-B). That means the package-list file (name and format), whether the root is ever a Git repo, submodules or worktrees, and how Rust and npm packages refer to each other. | Nothing blocks on it; it sharpens D15's admitted shape | M3-B r1 admits a non-repo root with 1–64 disjoint conventional Git member repositories, declared by explicit roots or by Cargo patch and npm `workspaces` readers. |
 | B2 | **The gating precision bar** (quality plan D4 revisit; harness design §8) | Q2 acceptance for gating rules. Nothing tonight. | <ul><li>Observed precision ≥ 0.99, plus a 95% cluster-aware lower bound ≥ 0.95 (about 59 independent repository families with zero errors).</li><li>Rules graduate from advisory to gating as evidence from T2 and T3 accumulates.</li></ul> |
 
 ## Work log
@@ -87,3 +88,10 @@ Times are local.
     - **O-1:** prepared-mode measurement waits for M5, because it would otherwise execute repository code.
     - **O-2:** every core release is a new detector closure, as EC1 made it for the evaluator.
     - **O-3:** large repositories may hit the cap until S-R lands.
+- **M3-B r1 drafted and sent to GROK2.**
+  - **D15 shape:** a non-repo root with 1–64 conventional Git members. X2 r9 reuses the closed Git layout for each member.
+  - **Findings:**
+    - discovery's object and edge caps can't hold large repositories;
+    - NE:1750 strips `[patch]`, which needs successor S5;
+    - B is about 3 days larger than planned.
+  - **OQ-1 added to the blockers as B4.** It is informational.
