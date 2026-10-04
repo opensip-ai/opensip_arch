@@ -1,6 +1,8 @@
-GROK2 review: **B-S9**, round 1. B-S9 is the contract successor that accepted law M3-B r2 names as S9: the `CONFIG.INVALID` remedy text. The lead split it out of B-S1. This is a **design-unit (contract successor)** review. Claude Opus 5.5 leads, and you are the single reviewer. Verdict wanted: **ACCEPT-DESIGN-UNIT** or **REQUIRED-FINDINGS**.
+Grok review: **B-S9**, round 1. B-S9 is the contract successor that accepted law M3-B r2 names as S9: the `CONFIG.INVALID` remedy text. The lead split it out of B-S1. This is a **design-unit (contract successor)** review. Claude Opus 5.5 leads, and you are the single reviewer. Verdict wanted: **ACCEPT-DESIGN-UNIT** or **REQUIRED-FINDINGS**.
 
-Write only under `/tmp/opensip-implementation/reviews/grok2-b-s9-r1`.
+Write only under `/tmp/opensip-implementation/reviews/grok-b-s9-r1`.
+
+(Lead note: this request was written for GROK2. Grok reviews it because Grok was free. Product main has moved from `e093e90` to `0ceb9ad`, which is I1-L's binding-only commit with 78 contract successors. B-S9 binds there too, 78 → 79, per its `verify_scratch.py --rev 0ceb9ad`.)
 
 **Rules:**
 - Read-only. No repository edits, commits, pushes or delegation. Run git only read-only.
