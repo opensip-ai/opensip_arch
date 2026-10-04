@@ -676,3 +676,9 @@ Times are local.
   - **One question passed to CODEX2:** whether X4-F3's edits to X3d's call sites need X3d's own revision. They change no X3d outcome.
 - **J-RW r4 accepted by Codex,** with no required findings. The resume/repair writer is now law. Each L11 crash state is completed inside the next admitted durable write, at its owner's own step, and anything that isn't exactly a known crash prefix keeps its refusal. The observation (stale cd5958b line labels for one mapping) is a record note.
   - **Next:** its successors RW-S1 to RW-S5 are drafted together: X2 r10 with J1's S7, REG v3, X3c r9, X3b r11, and X4T r13 with an X4B r6 note. §RW of X9 r17 follows, then J4a.
+- **X4 r8 round 2: CODEX2 raised one high-severity finding, RF-X4R8-R2-1.**
+  - **What it accepts:** FC is sound once invariant I1 holds at guard creation. `CertainRefusal`, the X4-F3 scope (including X3d's call sites, with a record note) and the lock order all pass.
+  - **The finding:** I1 doesn't hold at entry. A lease-free first read made during unrelated unwinding returns `Ok` after `StopOnUnwind` has bare-latched the gate, so the guard is created latched with no cause. With the placeholder withdrawn, that would become the invariant row.
+  - **Lead decision for round 3:** refuse that handoff before the guard exists, on the existing `FailStop{latched}` path, the row a first read's `AlreadyStopped` already takes. The check is made under the new cause lock at creation, so I1 holds at the guard's actual entry.
+  - **Rejected:** carrying a pre-creation cause into the guard. That adds a second transition rule for one already-covered row.
+  - **NB-X4R8-R2-1:** the "never waits" wording is narrowed to the monitor mutex.

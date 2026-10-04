@@ -1,0 +1,341 @@
+{
+  "reviewer": "CODEX2",
+  "review": "law X4 r8 round 2 / J1 successor S11",
+  "verdict": "REQUIRED-FINDINGS",
+  "requiredFindings": [
+    {
+      "id": "RF-X4R8-R2-1",
+      "severity": "high",
+      "location": "docs/implementation/m2/live-guards-x4/PROPOSAL.md:378-391, :400, :502-518 and :629-633 (I1 initialization, unwind source, X4-F3 scope and placeholder withdrawal)",
+      "problem": "I1's claimed initial state is not established by the cited first-read path. StopOnUnwind also latches an otherwise successful read made while the thread is already unwinding. At the lease-free point it still uses the bare StopObserver; LeaseFree.first_read can return Ok after that destructor has latched the gate, and OperationGuard.start then installs cause=None. The post-creation stop-transition rule cannot repair that initial LATCHED-without-cause state, because later transitions record only if they set LATCHED. With the placeholder withdrawn, a supported unwind latch can now become GuardRefusal::Invariant and lose its existing OBSERVER.FAIL_STOP/observer-fail-stop semantics.",
+      "evidence": [
+        {
+          "path": "crates/security/src/revocation.rs",
+          "lines": "80-91, 129-152",
+          "detail": "The source expressly documents successful reads from destructors during unrelated unwinding. StopOnUnwind::drop tests thread::panicking(), independent of the method's Ok outcome, and runs before read_sampled_with returns."
+        },
+        {
+          "path": "crates/security/src/custody/operation_guard.rs",
+          "lines": "174-189, 372-406",
+          "detail": "first_read accepts (Ok(value), _) without checking the gate after monitor return. start creates Shared.cause as None and spawns the observer without checking the incoming gate or carrying a pre-creation cause."
+        },
+        {
+          "path": "crates/security/src/custody/operation_handoff.rs",
+          "lines": "1015-1044, 1077-1099, 1218-1233",
+          "detail": "The production handoff carries the successful LeaseFree value into OperationGuard.start. No intervening gate-state check prevents the latched value from reaching guard creation. A FirstRead::Monitor(AlreadyStopped) already maps to the existing Live(FailStop { subject: latched }) row at :1085-1088."
+        },
+        {
+          "path": "docs/implementation/m2/live-guards-x4/PROPOSAL.md",
+          "lines": "364, 379-390, 503, 518, 629-633",
+          "detail": "The total transition rule begins only after guard creation and W-9 expressly permits lease-free bare latches. I1's base case assumes every successful first read is unlatched, and a missing cause is then treated as an impossible invariant breach."
+        }
+      ],
+      "counterexample": [
+        "During unrelated unwinding, a destructor starts a native writer operation and its lease-free first read completes successfully; no rule in the law excludes this entry.",
+        "The monitor's success body sees Preparing and builds Ok(value). StopOnUnwind drops while thread::panicking() is true and performs the permitted bare LATCHED fetch_or.",
+        "LeaseFree.first_read returns Ok(value). The handoff can create a state-2 guard with cause=None.",
+        "An observer tick returns AlreadyStopped. Under the old code latched() stores FailStop(latched); under round 2's pure reader it returns Invariant and records nothing.",
+        "A later checkpoint/refusal cannot fill the slot: its transition sees LATCHED already set, so the iff-first-set record rule forbids insertion. The changed row can be the invariant row and finish can see None -> operation-stopped instead of the old recorded observer-fail-stop."
+      ],
+      "fix": "Establish the lease-free-to-guard boundary explicitly in this law and X4-F3's scope. A successful first-read result must not promote a gate latched by its unwind finalizer into a cause-less guard. Either refuse that latched first read/handoff through the existing fail-stop(latched) path before guard creation, or carry the correctly recorded pre-creation first cause into the guard under a fully specified transition rule. Preserve the conservative StopOnUnwind behavior, the existing failure vocabulary and reason, monitor history, and never-reset; do not clear the latch, classify it as CertainRefusal, or authorize an invariant-row exception. Extend source 4 and controls to cover a successful monitor return during unrelated unwinding, especially at the lease-free first read, and prove I1 at the actual guard entry."
+    }
+  ],
+  "nonBlockingObservations": [
+    {
+      "id": "NB-X4R8-R2-1",
+      "location": "docs/implementation/m2/live-guards-x4/PROPOSAL.md:508, :569 and :617 (W-10 and no-wait wording)",
+      "observation": "The protocol avoids waiting for the monitor mutex while latching, and adds no cause-lock wait to successful admission. The stop transition still acquires the cause mutex, so its acquisition can contend. The inherited LD8-2 wording that the observer latch never waits and W-10's unqualified completes without waiting are broader than this protocol proves.",
+      "evidence": [
+        "S11.6:365 requires every stop transition to acquire Shared.cause.",
+        "S11.6:412-414 permits cause acquisition alone or after the monitor lock and leaves successful admission free of cause locking.",
+        "W-10:508 exercises completion while the monitor is held; it does not establish uncontended cause acquisition or a native scheduling bound."
+      ],
+      "fix": "Qualify these statements as no wait for the monitor mutex, no I/O or wait while holding the cause lock, and no added cause-lock wait on successful admission. Keep native scheduling qualification excluded."
+    }
+  ],
+  "priorFindings": [
+    {
+      "id": "RF-X4R8-1",
+      "status": "closed",
+      "reason": "The two D8-1 counterexamples are addressed by FC, typed CertainRefusal, pure latched readers, and required X4-F3 ACCEPT-UNIT/integration before or with J3b (S11.6, S11.9, LD8-6 to LD8-9). This closes the prior ungated-deferral finding; RF-X4R8-R2-1 is a distinct initial-state gap exposed by the expanded invariant."
+    },
+    {
+      "id": "NB-X4R8-1",
+      "status": "closed",
+      "reason": "W-5 explicitly includes step 3, admit refusal, observer tick and both boundary paths, with seams outside the critical section (:478-485)."
+    }
+  ],
+  "noAcceptedOutcomeChanged": false,
+  "noAcceptedOutcomeChangedBasis": "Text and intended production mappings are preserved, but I1's unproved lease-free base case makes the withdrawn placeholder's invariant fallback reachable for an existing unwind fail-stop. Its row and possibly REV reason change without an authorized outcome exception.",
+  "subjectSha256": "eb3bd04c24839f7bb8493a7425097c6580fdb07b3b83f2cfb811ee5d682f87da",
+  "subject": {
+    "path": "docs/implementation/m2/live-guards-x4/PROPOSAL.md",
+    "bytes": 84067,
+    "sha256": "eb3bd04c24839f7bb8493a7425097c6580fdb07b3b83f2cfb811ee5d682f87da"
+  },
+  "preservedSnapshot": {
+    "path": "docs/implementation/m2/live-guards-x4/PROPOSAL-r7.md",
+    "bytes": 26577,
+    "sha256": "fc8490f4e751e486bc4cf6dc15e04eb541672112bda2eab8c15759c31eaf0224"
+  },
+  "diffBase": {
+    "path": "docs/implementation/m2/live-guards-x4/PROPOSAL-r8-round1.md",
+    "bytes": 59840,
+    "sha256": "ee75847192fb9c9a9e2609bdd814e13e0d3733e5b0f2e17c97da7e87b28a8984"
+  },
+  "pinVerification": {
+    "allTwelvePinsMatch": true,
+    "allFiveAcceptanceLinksMatch": true,
+    "round1SubjectMatchesDiffBase": true
+  },
+  "authorities": [
+    {
+      "subject": "docs/implementation/m2/live-guards-x4/PROPOSAL-r7.md",
+      "record": "docs/implementation/m2/reviews/grok-live-guards-x4-r7/review.json",
+      "verdict": "ACCEPT",
+      "recordSha256": "39277075ace6964280b2684fd07fa109badc9d0b4525e8fa84a6a680424f2b84",
+      "subjectSha256": "fc8490f4e751e486bc4cf6dc15e04eb541672112bda2eab8c15759c31eaf0224",
+      "matches": true,
+      "requiredFindings": []
+    },
+    {
+      "subject": "docs/implementation/m3/host-pipeline-j/PROPOSAL-r5.md",
+      "record": "docs/implementation/m3/reviews/codex-host-pipeline-j-r5/review.json",
+      "verdict": "ACCEPT",
+      "recordSha256": "f309446af26041902a00c4b541b0cf1742441c2caba80ab49dc4ee5f26c17e24",
+      "subjectSha256": "4ccb23204b9d072464c3daa63eba8238c0f0425d38ea0da6c93df21711877599",
+      "matches": true,
+      "requiredFindings": []
+    },
+    {
+      "subject": "docs/implementation/m2/commit-session-x3d/PROPOSAL-r9.md",
+      "record": "docs/implementation/m2/reviews/grok2-x3d-r9/review.json",
+      "verdict": "ACCEPT",
+      "recordSha256": "279b790b81b497f261b70386ecf5daa204b3d41a27e240d54c6bd16c072e1668",
+      "subjectSha256": "c727001a44e1ef48ce131b0262cb566e9417ff5537bf3d9446b97ca10a213fdf",
+      "matches": true,
+      "requiredFindings": []
+    },
+    {
+      "subject": "docs/implementation/m2/finalization-x7/PROPOSAL-r7.md",
+      "record": "docs/implementation/m2/reviews/codex2-x7-r7/review.json",
+      "verdict": "ACCEPT",
+      "recordSha256": "82984b4283ab08ccbabc16a65cda9f6ef515846a522fd25b961b7eef14042b21",
+      "subjectSha256": "7757935cdafa3a09a59723597cd23bd185ea45e6a47b5e47e9e5b70b91bc22dc",
+      "matches": true,
+      "requiredFindings": []
+    },
+    {
+      "subject": "docs/implementation/m3/provider-protocol-l/PROPOSAL-r5.md",
+      "record": "docs/implementation/m3/reviews/grok-provider-protocol-l-r5/review.json",
+      "verdict": "ACCEPT",
+      "recordSha256": "1512435dccc0a77c95607d2b8dbbbf2e5e22339ed6f66e674e9bd897b316fa5a",
+      "subjectSha256": "f654ee4e9149e62693ebae8177adcc1f3a8a595b745c1e7503e5f279b80e3e88",
+      "matches": true,
+      "requiredFindings": []
+    }
+  ],
+  "textPreservation": {
+    "onlyChangedLines": [
+      1,
+      17
+    ],
+    "acceptanceNoteBytes": 35,
+    "everyOtherR7LineVerbatim": true
+  },
+  "unchangedRound1Sections": {
+    "**S11.1": true,
+    "**S11.3": true,
+    "**S11.4": true,
+    "- **LD8-1.": true,
+    "- **LD8-2.": true,
+    "- **LD8-5.": true
+  },
+  "sourceCensus": [
+    {
+      "source": 1,
+      "sites": [
+        "operation_guard.rs:256"
+      ],
+      "cause": "Revoked(subject)"
+    },
+    {
+      "source": 2,
+      "sites": [
+        "revocation.rs:150",
+        "operation_guard.rs:260-262"
+      ],
+      "cause": "FailStop with observation failure subject or StopReason subject"
+    },
+    {
+      "source": 3,
+      "sites": [
+        "revocation.rs:190",
+        "operation_guard.rs:570-574"
+      ],
+      "cause": "FailStop(admission-boundary)"
+    },
+    {
+      "source": 4,
+      "sites": [
+        "revocation.rs:88"
+      ],
+      "cause": "FailStop(latched) after creation; StopOnUnwind also acts on successful returns during unrelated unwinding"
+    },
+    {
+      "source": 5,
+      "sites": [
+        "operation_guard.rs:223-224"
+      ],
+      "cause": "FailStop(latched)"
+    },
+    {
+      "source": 6,
+      "sites": [
+        "operation_guard.rs:548-549"
+      ],
+      "cause": "Stale(row)"
+    },
+    {
+      "source": 7,
+      "sites": [
+        "operation_guard.rs:539,542-543"
+      ],
+      "cause": "CertainRefusal; direct refusal Invariant"
+    },
+    {
+      "source": 8,
+      "sites": [
+        "operation_guard.rs:420",
+        "commit_session.rs:562,577,986"
+      ],
+      "cause": "CertainRefusal; outcome carries its own row"
+    },
+    {
+      "source": 9,
+      "sites": [
+        "new cancellation CAS"
+      ],
+      "cause": "Operator(signal) only on first successful latch"
+    }
+  ],
+  "productEvidence": {
+    "heads": {
+      "cca4fe4": "cca4fe48d3cf44c6c73c0e625bd4de769cd34899",
+      "d2c00a9": "d2c00a96c3136fe45b901bc067b6d0ca51f0c9c1",
+      "HEAD": "d2c00a96c3136fe45b901bc067b6d0ca51f0c9c1"
+    },
+    "files": [
+      {
+        "path": "crates/security/src/commit_authority.rs",
+        "bytes": 11784,
+        "sha256": "49e320c5f5fc7b926ff0390ce375c6f2c4af5ffce1e06a3cf8a146cdb85500b0",
+        "sameAtD2c00a9": true,
+        "liveEqualsPinned": true,
+        "inCommitDiff": false
+      },
+      {
+        "path": "crates/security/src/custody/operation_guard.rs",
+        "bytes": 30032,
+        "sha256": "b04ad5ffec751993c3d712f302cbf2b6fc72879369afeb44659f4da15040b99a",
+        "sameAtD2c00a9": true,
+        "liveEqualsPinned": true,
+        "inCommitDiff": false
+      },
+      {
+        "path": "crates/security/src/custody/commit_session.rs",
+        "bytes": 61705,
+        "sha256": "94a6969f62b637c768ce36e3f2a8f369c3c6fac0e331fe231e96085ba4196f24",
+        "sameAtD2c00a9": true,
+        "liveEqualsPinned": true,
+        "inCommitDiff": false
+      },
+      {
+        "path": "crates/security/src/revocation.rs",
+        "bytes": 21176,
+        "sha256": "c8021ac82f8cdb5285252766c5505e18bc19e840dfe136cfccc856abc1514c03",
+        "sameAtD2c00a9": true,
+        "liveEqualsPinned": true,
+        "inCommitDiff": false
+      },
+      {
+        "path": "crates/security/src/custody/operation_handoff.rs",
+        "bytes": 50942,
+        "sha256": "83e0a8b2f937ce4d31041bfef17e7255f292c5cdb4cf03f2dc7c25e5ba90ca05",
+        "sameAtD2c00a9": true,
+        "liveEqualsPinned": true,
+        "inCommitDiff": false
+      }
+    ]
+  },
+  "questions": [
+    {
+      "question": 1,
+      "result": "Prior RF and NB closed; new RF remains",
+      "reason": "For guards that satisfy I1 at entry, CertainRefusal and Stale(row) are recorded with their first latch. Observer ticks only read; AlreadyStopped and pre-/post-window OutsideWindow record nothing. Successful BeforeAdmission/AfterAdmission record Operator. LD8-9 provides the acceptance/integration dependency requested in round 1."
+    },
+    {
+      "question": 2,
+      "result": "REQUIRED-FINDINGS: RF-X4R8-R2-1",
+      "reason": "The nine source classes cover every post-creation latch site in og/rv/cs, including the checkpoint trailing closure, monitor poisoning and StopOnUnwind. FC is inductively sound once I1 holds: only the mutex owner sets LATCHED and inserts iff its prior bit was clear. However the claimed lease-free base case is false for a successful read during unrelated unwinding. The source table should describe all StopOnUnwind triggers rather than only a panic inside the method."
+    },
+    {
+      "question": 3,
+      "result": "PASS within the specified session lifetime",
+      "reason": "CertainRefusal maps to the existing operation-stopped reason. The unlatched finish path still uses None -> OperationStopped; recording CertainRefusal neither changes the latched predicate nor makes revoked true. X3d's outcome already carries the certain refusal's row. Source 7 returns GuardRefusal::Invariant directly; source 8 consumes the only continuing session before another production checkpoint. Synthetic W-6 guard pairs can exercise its defensive invariant row. These internal code changes may land under this law with the X3d record note because no vocabulary, reserve, outcome or production row changes."
+    },
+    {
+      "question": 4,
+      "result": "PASS conditional on the required entry repair",
+      "reason": "With valid I1, a latched reader can only find the first cause after taking the mutex, so it must never insert a placeholder. Returning Invariant without recording is suitable for a genuinely broken invariant, but the current bare lease-free unwind path is not such an impossible caller. FailStop(latched) remains the correct stated cause for post-creation unwind and poisoned-monitor sources."
+    },
+    {
+      "question": 5,
+      "result": "PASS for lock order and admission; NB-X4R8-R2-1 applies",
+      "reason": "The watcher/certain-refusal/stale transitions can take cause alone; monitor-side transitions take monitor then cause. No cause->monitor acquisition is introduced. The cause lock is taken only after callbacks return/unwind, never over observation I/O or a crash hold. Successful admission has no cause-lock acquisition; refusal readers may wait. Monitoring history, bracketing, cadence and stop conservatism must remain. The normal failure's supplied subject must be determined outside the critical section."
+    },
+    {
+      "question": 6,
+      "result": "PASS as a record plus required unit verification",
+      "reason": "Moving existing x4.gate.latch.after after record/release keeps it after the same word operation while avoiding a crash hold with the mutex held. Existing sources must preserve one event per latch call, including repeat calls, and per-thread order. Monitor failure, boundary and trailing latches must not be coalesced or multiplied. S11.12 and X4-F3 ACCEPT-UNIT/lead-set obligations require the source/census and any necessary X9 re-transcription; none was run here."
+    },
+    {
+      "question": 7,
+      "result": "Original coverage note closed; initial-state coverage missing",
+      "reason": "W-5 covers all four readers and both boundary cases. W-6 supplies ordered pairs after entry; W-8 tests both D8-1 schedules plus further interactions; W-9 pins all post-creation setters/recorders; W-10 excludes monitor-lock dependence. These cover LD8-6 to LD8-9 assuming I1 initialization. They do not cover successful lease-free unwinding, so RF-X4R8-R2-1 needs an entry control. Seams are expressly outside the critical section."
+    },
+    {
+      "question": 8,
+      "result": "PASS for ownership/gate; expand X4-F3 scope for RF-X4R8-R2-1",
+      "reason": "Existing sources 1-8 and CertainRefusal belong to X4-F3; Operator/window source 9 remains J3b with the accepted X3d half. A code unit under this amended law, no separate law, is appropriate. X4-F3 requires this law's acceptance, ACCEPT-UNIT, and integration before or with the affected J3b code/controls. Add the lease-free entry obligation; otherwise the stop handle is bound too late for the asserted initial invariant."
+    },
+    {
+      "question": 9,
+      "result": "Text preserved; outcome preservation not established",
+      "reason": "All r7 lines survive except the title and the exact 35-byte acceptance note. Round 1's word, monotonic-state proof and bounds are unchanged in substance. J1/X3d/X7 outcome projection and reason mappings are otherwise preserved, but the reachable pre-creation unwind latch would become an invariant refusal under the withdrawn-placeholder rule. noAcceptedOutcomeChanged is false pending RF-X4R8-R2-1; no exception is authorized."
+    },
+    {
+      "question": 10,
+      "result": "No additional required finding",
+      "reason": "No new public vocabulary, permit producer, durability point, budget, window timing or outcome-first projection is introduced. Unit review must verify cause-lock recovery, nonrecursive held-guard insertion, error-subject capture outside the critical section and exact existing crash-point calls. This is law review, not acceptance of the unintegrated code or native timing qualification."
+    }
+  ],
+  "validation": {
+    "method": "Read-only source inspection and digest/diff audit; no product code or behavioral model executed",
+    "productBuildsRun": false,
+    "productTestsRun": false,
+    "cargoRun": false,
+    "matrixOrLeadSetsRun": false,
+    "delegationUsed": false,
+    "repositoryEditsMade": false,
+    "commitsMade": false,
+    "realOpenSipHomeAccessed": false,
+    "private413FixtureRead": false,
+    "writesConfinedTo": "/tmp/opensip-implementation/reviews/codex2-x4-r8-round2"
+  },
+  "evidenceArtifacts": [
+    "pin-audit.json",
+    "round1-round2.diff",
+    "r7-round2.diff"
+  ]
+}
