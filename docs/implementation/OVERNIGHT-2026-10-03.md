@@ -590,3 +590,4 @@ Times are local.
   - **Checks:** it binds 95 → 96 under the VD2-a tool, and today's tool refuses it, so it fails closed.
   - **Binding:** after VD2-a + F8c.
 - **SD-7 r2 accepted by GROK2** (ACCEPT-DESIGN-UNIT, with the `supersededPassages` list). It binds immediately after VD2-a + F8c is accepted and integrated.
+- **X3a-2 accepted by Grok** (ACCEPT-UNIT; inventory v136 ACCEPT; descriptions ACCEPT-DESIGN-UNIT) **and integrated** at product main `cca4fe4`: 95 contract successors and 96 inventory successors, with v136 selected. Its diff applied cleanly after I1-a, with which it shares no file. **Lead decision:** a confirmation workspace lane on the combined tree runs after X4-F2's X9 sets free the machine, as for X4-F1. C1a's X3a-2 prerequisite is met. The observation (`installation_records.rs:2`'s stale module comment) goes to a follow-up.
