@@ -1,0 +1,431 @@
+--- a/crates/security/src/private_access.rs
++++ b/crates/security/src/private_access.rs
+@@ -781,20 +781,40 @@
+ pub(crate) enum SuffixError {
+     /// C-ACL, when the ACL was omitted.
+     Private(PreparePrivateError),
+-    /// The suffix write, its read-back or its file barrier.
++    /// The suffix write, its early read-back or its file barrier.
+     Write(opensip_platform::NewRegularWriteError),
+     /// The parent's directory barrier.
+     Barrier(std::io::Error),
+-    /// The name no longer opens the written file, or its length is not
+-    /// exactly the owner's.
++    /// After both barriers, the name no longer opens the written file, or
++    /// the capped read-back through it is not exactly the owner's bytes
++    /// followed by the end.
+     Confirm,
++    /// The reopen, a status read or the final read-back failed.
+     ConfirmIo(std::io::Error),
++}
++
++/// The final read-back's positioned read calls. A regular file returns its
++/// bytes and then the end in two; a read that has not reached the end by the
++/// last call refuses.
++#[cfg(target_os = "macos")]
++const SUFFIX_READBACK_CALLS: usize = 4;
++
++/// The final read-back's work: one buffer of the owner's length plus one
++/// byte, and `SUFFIX_READBACK_CALLS` positioned reads into it.
++#[cfg(target_os = "macos")]
++fn suffix_readback_cost(expected: usize) -> Option<opensip_platform::WorkCost> {
++    Some(opensip_platform::WorkCost {
++        objects: 1,
++        edges: SUFFIX_READBACK_CALLS,
++        bytes: expected.checked_add(1)?,
++    })
+ }
+ 
+ /// C-SUFFIX's whole cost after the judgment: C-ACL's sample, append and
+-/// sample when the ACL was omitted, the suffix write with its read-back and
+-/// file barrier, the parent's directory barrier, and the no-follow reopen of
+-/// the name with the two status reads that compare it to the written file.
++/// sample when the ACL was omitted; the suffix write with its early
++/// read-back and file barrier; the parent's directory barrier; the no-follow
++/// reopen of the name with the two status reads that compare it to the
++/// written file; and the final capped read-back through it.
+ #[cfg(target_os = "macos")]
+ fn suffix_cost(
+     name: &str,
+@@ -815,27 +835,79 @@
+     .checked_add(opensip_platform::directory_barrier_cost())?
+     .checked_add(opensip_platform::RetainedDirectory::open_regular_cost(name))?
+     .checked_add(status_read_cost())?
+-    .checked_add(status_read_cost())
++    .checked_add(status_read_cost())?
++    .checked_add(suffix_readback_cost(expected)?)
++}
++
++/// The final read-back (J-RW r4 item 3.2): positioned reads from offset zero
++/// into `buffer` (the owner's length plus one byte), at most
++/// `SUFFIX_READBACK_CALLS`, stopping at the end or a full buffer. `Some(n)`
++/// is the length read when the end was reached within the cap; `None` is a
++/// full buffer, or calls exhausted before the end.
++#[cfg(target_os = "macos")]
++fn read_back_capped(file: &std::fs::File, buffer: &mut [u8]) -> std::io::Result<Option<usize>> {
++    use std::os::unix::fs::FileExt;
++    let mut filled = 0;
++    for _ in 0..SUFFIX_READBACK_CALLS {
++        if filled == buffer.len() {
++            return Ok(None);
++        }
++        match file.read_at(&mut buffer[filled..], filled as u64)? {
++            0 => return Ok(Some(filled)),
++            read => filled += read,
++        }
++    }
++    Ok(None)
+ }
+ 
+ /// C-SUFFIX (J-RW r4 item 3.2; unit J4a): finish an interrupted write in
+-/// place. Its whole cost is reserved before the first effect. C-ACL runs
+-/// first when the ACL was omitted. Then only the missing suffix is written,
+-/// at offset = the existing length, and every byte is read back through the
+-/// judged handle and must equal `expected` exactly, with nothing after it;
+-/// then the file barrier (`F_FULLFSYNC`), the parent's directory barrier, and
+-/// a no-follow reopen of `name` whose device and inode must be the written
+-/// file's and whose length must be exactly `expected`'s. No existing byte is
+-/// rewritten, and nothing is truncated or removed. The caller runs it inside
+-/// its owner's `.repair` scope (item 10).
++/// place. Its whole cost, the final confirmation included, is reserved
++/// before the first effect. C-ACL runs first when the ACL was omitted. Then,
++/// in the law's order:
++/// 1. only the missing suffix is written, at offset = the existing length
++///    (the platform write also reads every byte back through the judged
++///    handle before its barrier);
++/// 2. the file barrier (`F_FULLFSYNC`);
++/// 3. the parent's directory barrier;
++/// 4. a no-follow reopen of `name`, whose device and inode must be the
++///    written file's, and through it an exact-length capped read-back: at
++///    most `expected.len() + 1` bytes from offset zero, which must be
++///    exactly `expected` followed by the end.
++///
++/// No existing byte is rewritten, and nothing is truncated or removed. The
++/// caller runs it inside its owner's `.repair` scope (item 10).
+ #[cfg(target_os = "macos")]
+ pub(crate) fn complete_private_suffix(
++    parent: &opensip_platform::RetainedDirectory,
++    name: &str,
++    prefix: SuffixPrefix<'_>,
++    expected: &[u8],
++    invoking_uid: u32,
++    work: &mut opensip_platform::WorkScope<'_>,
++) -> Result<(), opensip_platform::WorkFailure<SuffixError>> {
++    complete_private_suffix_with(
++        parent,
++        name,
++        prefix,
++        expected,
++        invoking_uid,
++        work,
++        read_back_capped,
++    )
++}
++
++// Private seam: `read_back` is `read_back_capped` in production; tests
++// change the file or fail the read at the confirmation point, after both
++// barriers.
++#[cfg(target_os = "macos")]
++fn complete_private_suffix_with(
+     parent: &opensip_platform::RetainedDirectory,
+     name: &str,
+     prefix: SuffixPrefix<'_>,
+     expected: &[u8],
+     invoking_uid: u32,
+     work: &mut opensip_platform::WorkScope<'_>,
++    read_back: impl FnOnce(&std::fs::File, &mut [u8]) -> std::io::Result<Option<usize>>,
+ ) -> Result<(), opensip_platform::WorkFailure<SuffixError>> {
+     use opensip_platform::{WorkBudgetError, WorkCost, WorkFailure};
+     use std::os::unix::fs::MetadataExt;
+@@ -855,6 +927,8 @@
+     }
+     let confirm_io = |error| WorkFailure::Operation(SuffixError::ConfirmIo(error));
+     let reserve = suffix_cost(name, expected.len(), existing, acl_omitted)
++        .ok_or(WorkFailure::Budget(WorkBudgetError::Arithmetic))?;
++    let readback = suffix_readback_cost(expected.len())
+         .ok_or(WorkFailure::Budget(WorkBudgetError::Arithmetic))?;
+     work.effect(WorkCost::default(), reserve, |post| {
+         if acl_omitted {
+@@ -866,11 +940,14 @@
+             )
+             .map_err(|error| lifted(error, SuffixError::Private))?;
+         }
++        // Steps 1 and 2: the suffix, then `F_FULLFSYNC`.
+         opensip_platform::write_regular_suffix_reserved(file, expected, existing, post)
+             .map_err(|error| lifted(error, SuffixError::Write))?;
++        // Step 3: the parent's barrier.
+         parent
+             .confirm_directory_barrier_reserved(post)
+             .map_err(|error| lifted(error, SuffixError::Barrier))?;
++        // Step 4: the same object by name, then its bytes and its end.
+         post.spend(opensip_platform::RetainedDirectory::open_regular_cost(name))?;
+         let reopened = parent.open_regular(name).map_err(confirm_io)?;
+         post.spend(status_read_cost())?;
+@@ -879,13 +956,15 @@
+             file.metadata().map_err(confirm_io)?,
+             reopened.metadata().map_err(confirm_io)?,
+         );
+-        if held.dev() != named.dev()
+-            || held.ino() != named.ino()
+-            || named.len() != expected.len() as u64
+-        {
++        if held.dev() != named.dev() || held.ino() != named.ino() {
+             return Err(WorkFailure::Operation(SuffixError::Confirm));
+         }
+-        Ok(())
++        post.spend(readback)?;
++        let mut buffer = vec![0u8; readback.bytes];
++        match read_back(&reopened, &mut buffer).map_err(confirm_io)? {
++            Some(read) if read == expected.len() && buffer[..read] == *expected => Ok(()),
++            _ => Err(WorkFailure::Operation(SuffixError::Confirm)),
++        }
+     })
+ }
+ 
+@@ -2050,6 +2129,19 @@
+             expected: &[u8],
+             limits: Option<WorkCost>,
+         ) -> Result<(), WorkFailure<SuffixError>> {
++            suffixed_with(s, name, file, expected, limits, read_back_capped).0
++        }
++        /// Judge P-PREFIX, then run C-SUFFIX with `read_back` at its final
++        /// confirmation, on a ledger limited to `limits`. Also returns the
++        /// completion ledger's `used()`.
++        fn suffixed_with(
++            s: &Scratch,
++            name: &str,
++            file: &fs::File,
++            expected: &[u8],
++            limits: Option<WorkCost>,
++            read_back: impl FnOnce(&fs::File, &mut [u8]) -> std::io::Result<Option<usize>>,
++        ) -> (Result<(), WorkFailure<SuffixError>>, WorkCost) {
+             let mut judge = WorkLedger::new();
+             let prefix = judge.scope(|w| {
+                 match judge_private_prefix(
+@@ -2069,7 +2161,10 @@
+                 Some(limits) => WorkLedger::with_limits(limits).unwrap(),
+                 None => WorkLedger::new(),
+             };
+-            work.scope(|w| complete_private_suffix(&s.parent, name, prefix, expected, s.uid, w))
++            let result = work.scope(|w| {
++                complete_private_suffix_with(&s.parent, name, prefix, expected, s.uid, w, read_back)
++            });
++            (result, work.used())
+         }
+         fn private_file(s: &Scratch, name: &str, bytes: &[u8]) -> fs::File {
+             let file = s.crashed_file(name);
+@@ -2166,12 +2261,25 @@
+             )));
+         }
+ 
+-        // RW-C12 for C-SUFFIX: its whole cost is reserved before the first
+-        // effect, so an unreservable completion writes nothing.
++        // RW-C12 for C-SUFFIX: its whole cost, the final read-back after both
++        // barriers included, is reserved before the first effect, so an
++        // unreservable completion writes nothing, and the exact reservation
++        // covers every step, so nothing is charged outside it.
+         #[test]
+         fn an_unreservable_c_suffix_writes_nothing() {
+             let s = Scratch::new("suffix-budget");
+             let expected = b"0123456789abcdef";
++            let status = WorkCost {
++                objects: 0,
++                edges: 1,
++                bytes: std::mem::size_of::<fs::Metadata>(),
++            };
++            let readback = WorkCost {
++                objects: 1,
++                edges: SUFFIX_READBACK_CALLS,
++                bytes: expected.len() + 1,
++            };
++            assert_eq!(suffix_readback_cost(expected.len()), Some(readback));
+             for (name, omitted) in [("private", false), ("bare", true)] {
+                 let file = if omitted {
+                     s.crashed_file(name)
+@@ -2180,23 +2288,174 @@
+                 };
+                 let existing = if omitted { 0 } else { 4 };
+                 let cost = suffix_cost(name, expected.len(), existing, omitted).unwrap();
+-                let short = WorkCost {
+-                    edges: cost.edges - 1,
+-                    ..cost
++                // The reservation is the sum of every step, the final
++                // confirmation's reopen, status reads and read-back included.
++                let acl_cost = if omitted {
++                    opensip_platform::descriptor_acl_capture_cost()
++                        .checked_add(opensip_platform::append_owner_zero_allow_cost())
++                        .and_then(|c| {
++                            c.checked_add(opensip_platform::descriptor_acl_capture_cost())
++                        })
++                        .unwrap()
++                } else {
++                    WorkCost::default()
+                 };
+-                let result = suffixed(&s, name, &file, expected, Some(short));
+-                assert!(matches!(result, Err(WorkFailure::Budget(_))), "{name}");
+-                assert_eq!(file.metadata().unwrap().len(), existing as u64, "{name}");
+-                assert_eq!(
+-                    acl(&file).acl_state() == CapturedAclState::NotReturned,
+-                    omitted,
+-                    "{name}"
+-                );
+-                suffixed(&s, name, &file, expected, Some(cost)).unwrap();
++                let sum = [
++                    opensip_platform::write_regular_suffix_cost(expected.len(), existing),
++                    opensip_platform::directory_barrier_cost(),
++                    RetainedDirectory::open_regular_cost(name),
++                    status,
++                    status,
++                    readback,
++                ]
++                .into_iter()
++                .fold(acl_cost, |total, step| total.checked_add(step).unwrap());
++                assert_eq!(cost, sum, "{name}");
++                // One edge or one byte short (the read-back buffer's last
++                // byte) refuses on the budget row before the first effect.
++                for short in [
++                    WorkCost {
++                        edges: cost.edges - 1,
++                        ..cost
++                    },
++                    WorkCost {
++                        bytes: cost.bytes - 1,
++                        ..cost
++                    },
++                ] {
++                    let ran = std::cell::Cell::new(false);
++                    let (result, _) =
++                        suffixed_with(&s, name, &file, expected, Some(short), |file, buffer| {
++                            ran.set(true);
++                            read_back_capped(file, buffer)
++                        });
++                    assert!(matches!(result, Err(WorkFailure::Budget(_))), "{name}");
++                    assert!(!ran.get(), "{name}");
++                    assert_eq!(file.metadata().unwrap().len(), existing as u64, "{name}");
++                    assert_eq!(
++                        acl(&file).acl_state() == CapturedAclState::NotReturned,
++                        omitted,
++                        "{name}"
++                    );
++                }
++                // Exactly the reservation: every step, the final read-back
++                // included, runs inside it.
++                let ran = std::cell::Cell::new(0);
++                let (result, used) =
++                    suffixed_with(&s, name, &file, expected, Some(cost), |file, buffer| {
++                        ran.set(ran.get() + 1);
++                        read_back_capped(file, buffer)
++                    });
++                result.unwrap();
++                assert_eq!((used, ran.get()), (cost, 1), "{name}");
+                 assert_eq!(read(&s.root.join(name)), expected);
+             }
+         }
+ 
++        // J4A-RF-01 (J-RW r4 item 3.2): after the suffix write, its file
++        // barrier and the parent's barrier, C-SUFFIX reopens the name, checks
++        // it is the written object, and reads at most `expected.len() + 1`
++        // bytes back through it; only exactly the owner's bytes followed by
++        // the end confirm. A change made at that point, which the write's
++        // own early read-back had already passed, refuses, as does a failed
++        // or unended final read.
++        #[test]
++        fn c_suffix_reads_the_bytes_back_after_both_barriers() {
++            use std::os::unix::fs::FileExt;
++            let s = Scratch::new("suffix-final");
++            let expected = b"{\"leaf\":\"0123456789abcdef\"}\n";
++            let writer = |name: &str| {
++                fs::OpenOptions::new()
++                    .write(true)
++                    .open(s.root.join(name))
++                    .unwrap()
++            };
++            type Hook<'a> =
++                Box<dyn FnOnce(&fs::File, &mut [u8]) -> std::io::Result<Option<usize>> + 'a>;
++            let cases: Vec<(&str, Hook<'_>, &str)> = vec![
++                (
++                    "changed",
++                    Box::new(|file: &fs::File, buffer: &mut [u8]| {
++                        writer("changed").write_at(b"X", 3).unwrap();
++                        read_back_capped(file, buffer)
++                    }),
++                    "confirm",
++                ),
++                (
++                    "longer",
++                    Box::new(|file: &fs::File, buffer: &mut [u8]| {
++                        writer("longer")
++                            .write_at(b"!", expected.len() as u64)
++                            .unwrap();
++                        read_back_capped(file, buffer)
++                    }),
++                    "confirm",
++                ),
++                (
++                    "shorter",
++                    Box::new(|file: &fs::File, buffer: &mut [u8]| {
++                        writer("shorter")
++                            .set_len(expected.len() as u64 - 1)
++                            .unwrap();
++                        read_back_capped(file, buffer)
++                    }),
++                    "confirm",
++                ),
++                (
++                    "failed",
++                    Box::new(|_: &fs::File, _: &mut [u8]| {
++                        Err(std::io::Error::other("injected final read failure"))
++                    }),
++                    "io",
++                ),
++                (
++                    "unended",
++                    Box::new(|_: &fs::File, _: &mut [u8]| Ok(None)),
++                    "confirm",
++                ),
++            ];
++            for (name, hook, want) in cases {
++                let file = private_file(&s, name, &expected[..5]);
++                let (result, _) = suffixed_with(&s, name, &file, expected, None, hook);
++                let got = match result {
++                    Err(WorkFailure::Operation(SuffixError::Confirm)) => "confirm",
++                    Err(WorkFailure::Operation(SuffixError::ConfirmIo(_))) => "io",
++                    other => panic!("{name}: {other:?}"),
++                };
++                assert_eq!(got, want, "{name}");
++            }
++            // The intact case: at the confirmation point the name opens the
++            // written object, which already holds every byte; the read-back
++            // runs once, through that object, and confirms.
++            let file = private_file(&s, "intact", &expected[..5]);
++            let written = file.metadata().unwrap();
++            let ran = std::cell::Cell::new(0);
++            let (result, _) =
++                suffixed_with(&s, "intact", &file, expected, None, |reopened, buffer| {
++                    ran.set(ran.get() + 1);
++                    let named = reopened.metadata().unwrap();
++                    assert_eq!((named.dev(), named.ino()), (written.dev(), written.ino()));
++                    assert_eq!(buffer.len(), expected.len() + 1);
++                    assert_eq!(read(&s.root.join("intact")), expected);
++                    read_back_capped(reopened, buffer)
++                });
++            result.unwrap();
++            assert_eq!(ran.get(), 1);
++            // The native capped read: the end within the cap, a full buffer,
++            // and an empty file.
++            for (bytes, cap, want) in [
++                (&b"abc"[..], 4, Some(3)),
++                (&b"abcd"[..], 4, None),
++                (&b""[..], 1, Some(0)),
++            ] {
++                let path = s.root.join("capped");
++                fs::write(&path, bytes).unwrap();
++                let mut buffer = vec![0u8; cap];
++                let got = read_back_capped(&fs::File::open(&path).unwrap(), &mut buffer).unwrap();
++                assert_eq!(got, want, "{bytes:?}");
++            }
++        }
++
+         // RW-C10 (J-RW r4 item 10): every C-ACL and C-SUFFIX completion in
+         // product source runs inside its owner's `.repair` scope, and the
+         // suffix write is reached only through C-SUFFIX. The traced census

@@ -825,3 +825,4 @@ Times are local.
     - the integration hold.
 - **J2a accepted by Grok** (ACCEPT-UNIT; inventory v137 ACCEPT; no findings) **and integrated** at product main `174aa30`, giving 97 inventory successors with v137 selected. Its code applied cleanly after X4-F3, and `verify_design` passes with the real review and assent pins. E2a (v138) integrates next.
 - **E2a integrated** at product main `b7b87b7`, giving 98 inventory successors with v138 selected. `verify_design` passes with the real pins. A confirmation workspace lane on the combined tree (X4-F3, J2a, E2a) follows, under the lane lock.
+- **J4a r2 written and sent to Codex.** It fixes J4A-RF-01: C-SUFFIX's capped byte read-back now runs after both barriers, through the confirmed same object, with its cost reserved up front, plus a regression test. Rebased onto `1d24900`: X4-F3 touches nothing J4a calls. Workspace 1773/0/3 twice. Integration stays held for §RW.

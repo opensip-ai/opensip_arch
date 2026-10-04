@@ -1,0 +1,3198 @@
+diff --git a/crates/platform/src/filesystem.rs b/crates/platform/src/filesystem.rs
+index c4a656d..fccf1bb 100644
+--- a/crates/platform/src/filesystem.rs
++++ b/crates/platform/src/filesystem.rs
+@@ -59,7 +59,8 @@ mod file_effects;
+ pub use file_effects::{
+     ExclusiveRegularError, ExclusiveRegularOutcome, FileBarrierReceipt, NewRegularWriteError,
+     create_exclusive_regular_cost, write_new_regular_accounted, write_new_regular_cost,
+-    write_new_regular_reserved,
++    write_new_regular_reserved, write_regular_suffix_accounted, write_regular_suffix_cost,
++    write_regular_suffix_reserved,
+ };
+ 
+ mod path_binding;
+diff --git a/crates/platform/src/filesystem/file_effects.rs b/crates/platform/src/filesystem/file_effects.rs
+index 6d795f8..68dd933 100644
+--- a/crates/platform/src/filesystem/file_effects.rs
++++ b/crates/platform/src/filesystem/file_effects.rs
+@@ -220,6 +220,85 @@ fn write_new_regular_reserved_with<'file>(
+     })
+ }
+ 
++/// Published work of one `write_regular_suffix_accounted` or `_reserved`
++/// completing `len` bytes over an existing prefix of `existing` bytes, with
++/// `s = ceil((len - existing) / 64 KiB)` and `n = ceil(len / 64 KiB)`: `s`
++/// positioned writes of at most 64 KiB each, then exactly the verification
++/// of `write_new_regular_cost(len)`: one status read, `n + 1` positioned
++/// reads into the 64 KiB verify buffer, and one file barrier.
++pub fn write_regular_suffix_cost(len: usize, existing: usize) -> WorkCost {
++    let suffix = len.saturating_sub(existing).div_ceil(VERIFY_BUFFER);
++    let chunks = len.div_ceil(VERIFY_BUFFER);
++    let status = status_read_cost();
++    WorkCost {
++        objects: 0,
++        edges: suffix
++            .saturating_add(chunks)
++            .saturating_add(1)
++            .saturating_add(status.edges)
++            .saturating_add(1),
++        bytes: VERIFY_BUFFER.saturating_add(status.bytes),
++    }
++}
++
++/// Complete an interrupted write of `bytes` into an existing regular file
++/// whose first `existing` bytes the caller has already judged equal to
++/// `bytes[..existing]` (J-RW r4 item 3.2, C-SUFFIX; unit J4a). Only the
++/// missing suffix `bytes[existing..]` is written, at offset `existing`: no
++/// existing byte is rewritten and nothing is truncated. Then the same
++/// verification as `write_new_regular_accounted`: the length by `fstat`,
++/// every byte read back from offset zero and compared, the end confirmed,
++/// and the file barrier with no fallback. Charged to `work` for
++/// `write_regular_suffix_cost` before the first write. An empty suffix
++/// (`existing >= bytes.len()`) writes nothing and is refused as `Length`.
++/// Mechanism only: the prefix judgment and every name, custody and barrier
++/// of the parent belong to the caller.
++pub fn write_regular_suffix_accounted<'file>(
++    file: &'file File,
++    bytes: &[u8],
++    existing: usize,
++    work: &mut WorkScope<'_>,
++) -> Result<FileBarrierReceipt<'file>, WorkFailure<NewRegularWriteError>> {
++    work.run(write_regular_suffix_cost(bytes.len(), existing), |_| {
++        write_regular_suffix_charged(file, bytes, existing, native_file_barrier)
++            .map_err(WorkFailure::Operation)
++    })
++}
++
++/// `write_regular_suffix_accounted`, spending its cost from an existing
++/// reservation before the first write, with no second outer charge.
++pub fn write_regular_suffix_reserved<'file>(
++    file: &'file File,
++    bytes: &[u8],
++    existing: usize,
++    post: &mut ReservedPostchecks<'_>,
++) -> Result<FileBarrierReceipt<'file>, WorkFailure<NewRegularWriteError>> {
++    post.scope(|post| {
++        post.spend(write_regular_suffix_cost(bytes.len(), existing))?;
++        write_regular_suffix_charged(file, bytes, existing, native_file_barrier)
++            .map_err(WorkFailure::Operation)
++    })
++}
++
++fn write_regular_suffix_charged<'file>(
++    file: &'file File,
++    bytes: &[u8],
++    existing: usize,
++    barrier: impl FnOnce(&File) -> io::Result<()>,
++) -> Result<FileBarrierReceipt<'file>, NewRegularWriteError> {
++    use NewRegularWriteError as E;
++    let Some(suffix) = bytes.get(existing..).filter(|suffix| !suffix.is_empty()) else {
++        return Err(E::Length {
++            observed: existing as u64,
++        });
++    };
++    crate::crash_barrier!(primitive, "write", write, suffix, |part| write_at(
++        file, part, existing
++    ))
++    .map_err(E::Write)?;
++    verify_written(file, bytes, barrier)
++}
++
+ // Private seam: `barrier` is the native file barrier in production; tests
+ // inject its failure. There is no fallback path to select.
+ fn write_new_regular_charged<'file>(
+@@ -232,6 +311,17 @@ fn write_new_regular_charged<'file>(
+         file, part
+     ))
+     .map_err(E::Write)?;
++    verify_written(file, bytes, barrier)
++}
++
++// The length check, the read-back of every byte from offset zero, the end,
++// and the file barrier, after a write of `bytes` through `file`.
++fn verify_written<'file>(
++    file: &'file File,
++    bytes: &[u8],
++    barrier: impl FnOnce(&File) -> io::Result<()>,
++) -> Result<FileBarrierReceipt<'file>, NewRegularWriteError> {
++    use NewRegularWriteError as E;
+     let status = file.metadata().map_err(E::Status)?;
+     if !status.is_file() || status.len() != bytes.len() as u64 {
+         return Err(E::Length {
+@@ -269,8 +359,13 @@ fn write_new_regular_charged<'file>(
+ 
+ // The positioned writes from offset zero, in bounded chunks.
+ fn write_at_zero(file: &File, bytes: &[u8]) -> io::Result<()> {
++    write_at(file, bytes, 0)
++}
++
++// The positioned writes from `offset`, in bounded chunks.
++fn write_at(file: &File, bytes: &[u8], offset: usize) -> io::Result<()> {
+     for (index, part) in bytes.chunks(VERIFY_BUFFER).enumerate() {
+-        let written = file.write_at(part, (index * VERIFY_BUFFER) as u64)?;
++        let written = file.write_at(part, (offset + index * VERIFY_BUFFER) as u64)?;
+         if written != part.len() {
+             return Err(io::Error::new(
+                 io::ErrorKind::WriteZero,
+@@ -631,4 +726,94 @@ mod tests {
+             Err(WorkFailure::Operation(NewRegularWriteError::ReadBack(_)))
+         ));
+     }
++
++    // J-RW r4 item 3.2 (C-SUFFIX; unit J4a): only the missing suffix is
++    // written, at the existing length, over an unchanged prefix and inode.
++    #[test]
++    fn charged_suffix_write_adds_only_the_missing_bytes_and_verifies_all() {
++        let f = Fixture::new();
++        let dir = f.held();
++        for (name, len, existing) in [
++            ("empty-prefix", 11, 0),
++            ("short", 11, 4),
++            ("last-byte", 11, 10),
++            ("edge", 65_536 + 3, 65_536),
++            ("large", 150_000, 70_000),
++        ] {
++            let bytes = pattern(len);
++            let file = dir.create_exclusive_regular(name).unwrap();
++            file.write_at(&bytes[..existing], 0).unwrap();
++            let inode = file.metadata().unwrap().ino();
++            let cost = write_regular_suffix_cost(len, existing);
++            let mut ledger = WorkLedger::new();
++            let byte_len = ledger
++                .effect(WorkCost::default(), cost, |post| {
++                    let receipt = write_regular_suffix_reserved(&file, &bytes, existing, post)?;
++                    assert!(receipt.is_for(&file));
++                    Ok(receipt.byte_len())
++                })
++                .unwrap();
++            assert_eq!(byte_len, len);
++            assert_eq!(ledger.used(), cost);
++            assert_eq!(fs::read(f.0.join(name)).unwrap(), bytes, "{name}");
++            assert_eq!(fs::metadata(f.0.join(name)).unwrap().ino(), inode);
++        }
++        // The suffix writes are the only writes: a prefix byte that differs
++        // from the expected bytes is never rewritten, so verification fails.
++        let file = dir.create_exclusive_regular("foreign-prefix").unwrap();
++        file.write_at(b"Xbc", 0).unwrap();
++        let mut ledger = WorkLedger::new();
++        let result = ledger.scope(|work| {
++            write_regular_suffix_accounted(&file, b"abcdef", 3, work).map(|r| r.byte_len())
++        });
++        assert!(matches!(
++            result,
++            Err(WorkFailure::Operation(NewRegularWriteError::Mismatch))
++        ));
++        assert_eq!(fs::read(f.0.join("foreign-prefix")).unwrap(), b"Xbcdef");
++        // An empty suffix writes nothing.
++        for existing in [6, 7] {
++            let name = format!("complete-{existing}");
++            let file = dir.create_exclusive_regular(&name).unwrap();
++            file.write_at(b"abcdef", 0).unwrap();
++            let mut ledger = WorkLedger::new();
++            let result = ledger.scope(|work| {
++                write_regular_suffix_accounted(&file, b"abcdef", existing, work)
++                    .map(|r| r.byte_len())
++            });
++            assert!(matches!(
++                result,
++                Err(WorkFailure::Operation(NewRegularWriteError::Length { .. }))
++            ));
++            assert_eq!(fs::read(f.0.join(&name)).unwrap(), b"abcdef");
++        }
++        // One edge or byte short refuses before the write.
++        let cost = write_regular_suffix_cost(6, 2);
++        for limits in [short_edge(cost), short_byte(cost)] {
++            let file = dir
++                .create_exclusive_regular(&format!("short-{}", limits.edges))
++                .unwrap();
++            file.write_at(b"ab", 0).unwrap();
++            let mut ledger = WorkLedger::with_limits(limits).unwrap();
++            let result = ledger.scope(|work| {
++                write_regular_suffix_accounted(&file, b"abcdef", 2, work).map(|r| r.byte_len())
++            });
++            assert!(matches!(result, Err(WorkFailure::Budget(_))));
++            assert_eq!(file.metadata().unwrap().len(), 2);
++        }
++        // (len, existing, suffix writes, reads): the verification is a whole
++        // write's, and only the suffix is written.
++        let status = status_read_cost();
++        for (len, existing, writes, reads) in [(11, 4, 1, 2), (150_000, 70_000, 2, 4)] {
++            assert_eq!(
++                write_regular_suffix_cost(len, existing),
++                WorkCost {
++                    objects: 0,
++                    edges: writes + reads + status.edges + 1,
++                    bytes: VERIFY_BUFFER + status.bytes,
++                },
++                "{len} {existing}"
++            );
++        }
++    }
+ }
+diff --git a/crates/platform/src/lib.rs b/crates/platform/src/lib.rs
+index b23852d..f95fd6b 100644
+--- a/crates/platform/src/lib.rs
++++ b/crates/platform/src/lib.rs
+@@ -41,7 +41,8 @@ pub use filesystem::{
+     NewRegularWriteError, RenameReplaceError, classify_directory_rename,
+     create_exclusive_regular_cost, exclusive_publication_cost, private_directory_stage_cost,
+     rename_replace_cost, write_new_regular_accounted, write_new_regular_cost,
+-    write_new_regular_reserved,
++    write_new_regular_reserved, write_regular_suffix_accounted, write_regular_suffix_cost,
++    write_regular_suffix_reserved,
+ };
+ #[cfg(any(target_os = "macos", target_os = "linux"))]
+ pub use filesystem::{
+diff --git a/crates/security/src/journal_store/carrier_floor.rs b/crates/security/src/journal_store/carrier_floor.rs
+index 2d759d0..6618bb4 100644
+--- a/crates/security/src/journal_store/carrier_floor.rs
++++ b/crates/security/src/journal_store/carrier_floor.rs
+@@ -17,8 +17,8 @@ use super::{
+     carrier_dispatch, reconcile_observations,
+ };
+ use crate::private_access::{
+-    PreparePrivateError, create_private_directory, create_private_regular_file,
+-    observe_private_directory,
++    CreationJudgment, PreparePrivateError, RepairCompletion, complete_private_creation,
++    create_private_directory, create_private_regular_file, judge_private_directory_creation,
+ };
+ use opensip_platform::{
+     FileLock, LockMode, NewRegularWriteError, RenameReplaceError, RetainedDirectory, WorkCost,
+@@ -820,11 +820,36 @@ pub(crate) fn floor_step_observed(
+     location: &CarrierLocation<'_>,
+     work: &mut WorkScope<'_>,
+ ) -> Refused<(FloorStepOutcome, Option<CommittedTail>)> {
++    floor_step_completing(location, work).map(|step| (step.outcome, step.observed))
++}
++
++/// The floor step's whole result (law X3b r11 item 2; unit J4a): what it did,
++/// the committed tail the carrier start must confirm, and the completion of
++/// `trust/carrier-floors/` it performed, if any (J-RW r4's RW-P3).
++#[derive(Debug)]
++pub(crate) struct FloorStep {
++    pub(crate) outcome: FloorStepOutcome,
++    pub(crate) observed: Option<CommittedTail>,
++    pub(crate) completion: Option<RepairCompletion>,
++}
++
++/// The floor step, with its completion of `trust/carrier-floors/` (law X3b
++/// r11 item 2, LD11-1): under the held fence and no project lock, after the
++/// busy probe and the carrier classification, and before the floor is read.
++/// A busy probe skips the step, and the completion with it.
++pub(crate) fn floor_step_completing(
++    location: &CarrierLocation<'_>,
++    work: &mut WorkScope<'_>,
++) -> Refused<FloorStep> {
+     if !canonical_namespace_id(location.namespace_id) {
+         return refuse(CarrierRefusal::NamespaceId);
+     }
+     if !probe_writer_lease(location, work)? {
+-        return Ok((FloorStepOutcome::Skipped, None));
++        return Ok(FloorStep {
++            outcome: FloorStepOutcome::Skipped,
++            observed: None,
++            completion: None,
++        });
+     }
+     // Item 3 step 3 (RF-1): the carrier is classified before the floor is
+     // read at all, so a format-1/2 carrier or a format-3 footprint refuses on
+@@ -838,10 +863,10 @@ pub(crate) fn floor_step_observed(
+         .trust
+         .open_child_directory_if_present_accounted(OsStr::new(FLOORS_NAME), work)
+         .map_err(lift(CarrierRefusal::Io))?;
+-    if let Some(floors) = &floors {
+-        observe_private_directory(floors.as_file(), location.uid, work)
+-            .map_err(lift(CarrierRefusal::Private))?;
+-    }
++    let completion = match &floors {
++        Some(floors) => admit_floor_directory(location, floors, work)?,
++        None => None,
++    };
+     let floor = match &floors {
+         None => FloorObservation::Absent,
+         Some(floors) => observe_floor(floors, location, work)?,
+@@ -861,9 +886,17 @@ pub(crate) fn floor_step_observed(
+                 })?,
+             };
+             write_floor(&floors, location, 1, 0, None, work)?;
+-            Ok((FloorStepOutcome::InitFloorWritten, observed))
++            Ok(FloorStep {
++                outcome: FloorStepOutcome::InitFloorWritten,
++                observed,
++                completion,
++            })
+         }
+-        FloorDecision::ResumeInit => Ok((FloorStepOutcome::InitPending, observed)),
++        FloorDecision::ResumeInit => Ok(FloorStep {
++            outcome: FloorStepOutcome::InitPending,
++            observed,
++            completion,
++        }),
+         FloorDecision::CopyForward(tail) => {
+             let floors = floors.ok_or(WorkFailure::Operation(CarrierRefusal::Quarantine(
+                 Quarantine::FloorLost,
+@@ -876,9 +909,17 @@ pub(crate) fn floor_step_observed(
+                 tail.body.as_deref(),
+                 work,
+             )?;
+-            Ok((FloorStepOutcome::CopiedForward, observed))
++            Ok(FloorStep {
++                outcome: FloorStepOutcome::CopiedForward,
++                observed,
++                completion,
++            })
+         }
+-        FloorDecision::Unchanged => Ok((FloorStepOutcome::Unchanged, observed)),
++        FloorDecision::Unchanged => Ok(FloorStep {
++            outcome: FloorStepOutcome::Unchanged,
++            observed,
++            completion,
++        }),
+         FloorDecision::Quarantine(kind) => refuse(CarrierRefusal::Quarantine(kind)),
+         FloorDecision::NoSuccessor => refuse(CarrierRefusal::NoSuccessor),
+         FloorDecision::Unavailable => refuse(CarrierRefusal::Unreadable),
+@@ -932,6 +973,74 @@ fn observe_witness(
+         OperationalBytesObservation::Unreadable(_) => refuse(CarrierRefusal::Unreadable),
+     }
+ }
++/// The floor step's judgment of an existing `trust/carrier-floors/` (law X3b
++/// r11 item 2; J-RW r4's RW-P3; unit J4a). A directory judged private is
++/// admitted as it stands. One whose ACL is omitted and that holds every
++/// P-ACL clause (J-RW r4 item 3.1: its fixed name, `trust`'s filesystem, the
++/// invoking user, mode exactly `0700`, empty by one bounded scan), judged
++/// before any effect, is completed by C-ACL; then the owner's remaining
++/// steps run: the exact name, the filesystem, its own barrier and `trust`'s,
++/// all in `x3b.floor.directory.repair` (J-RW item 10). Every other state
++/// keeps the host I/O row and is never changed.
++fn admit_floor_directory(
++    location: &CarrierLocation<'_>,
++    floors: &RetainedDirectory,
++    work: &mut WorkScope<'_>,
++) -> Refused<Option<RepairCompletion>> {
++    let prefix = match judge_private_directory_creation(
++        location.trust,
++        OsStr::new(FLOORS_NAME),
++        floors,
++        location.uid,
++        work,
++    )
++    .map_err(lift(CarrierRefusal::Private))?
++    {
++        CreationJudgment::Private(_) => return Ok(None),
++        CreationJudgment::Prefix(prefix) => prefix,
++    };
++    let changed = || {
++        WorkFailure::Operation(CarrierRefusal::Io(io::Error::new(
++            io::ErrorKind::InvalidData,
++            "trust/carrier-floors changed during its completion",
++        )))
++    };
++    let barrier = lift(|e| CarrierRefusal::Create(CreationStep::DirectoryBarrier(e)));
++    opensip_platform::crash_scope!("directory", {
++        opensip_platform::crash_scope!("repair", {
++            complete_private_creation(prefix, location.uid, work)
++                .map_err(lift(CarrierRefusal::Private))?;
++            if !opensip_platform::descriptor_name_matches_accounted(
++                floors.as_file(),
++                OsStr::new(FLOORS_NAME),
++                work,
++            )
++            .map_err(lift(CarrierRefusal::Io))?
++            {
++                return Err(changed());
++            }
++            let device = |file: &File| file.metadata().map(|m| m.dev());
++            if device(floors.as_file())
++                .map_err(|e| WorkFailure::Operation(CarrierRefusal::Io(e)))?
++                != device(location.trust.as_file())
++                    .map_err(|e| WorkFailure::Operation(CarrierRefusal::Io(e)))?
++            {
++                return Err(changed());
++            }
++            floors
++                .confirm_directory_barrier_accounted(work)
++                .map_err(barrier)?;
++            location
++                .trust
++                .confirm_directory_barrier_accounted(work)
++                .map_err(lift(|e| {
++                    CarrierRefusal::Create(CreationStep::DirectoryBarrier(e))
++                }))?;
++            Ok(Some(RepairCompletion::CarrierFloors))
++        })
++    })
++}
++
+ /// `trust/carrier-floors/` on first need, under the fence (item 2): a new
+ /// private directory, its own barrier, then `trust`'s barrier.
+ fn create_floor_directory(
+diff --git a/crates/security/src/journal_store/carrier_floor_tests.rs b/crates/security/src/journal_store/carrier_floor_tests.rs
+index a21ca4f..de6b9a6 100644
+--- a/crates/security/src/journal_store/carrier_floor_tests.rs
++++ b/crates/security/src/journal_store/carrier_floor_tests.rs
+@@ -674,3 +674,200 @@ fn a_short_ledger_writes_no_floor() {
+     ));
+     assert!(!f.floors().exists());
+ }
++
++// Law X3b r11 item 2 (J-RW r4's RW-C1 to RW-C3, RW-C6 and RW-C12 for RW-P3;
++// unit J4a): `trust/carrier-floors/` left by a crash between its exclusive
++// `mkdirat 0700` and its owner allow, made by the step's own create.
++impl Fixture {
++    fn crashed_floors(&self) {
++        let made = WorkLedger::new()
++            .scope(|w| {
++                self.trust
++                    .create_exclusive_directory_accounted(FLOORS_NAME, w)
++            })
++            .unwrap();
++        assert!(matches!(
++            made,
++            opensip_platform::ExclusiveDirectoryOutcome::Created(_)
++        ));
++    }
++    fn floors_acl(&self) -> (opensip_platform::CapturedAclState, Option<(u32, bool)>) {
++        let file = File::open(self.floors()).unwrap();
++        let sample = WorkLedger::new()
++            .scope(|w| opensip_platform::capture_descriptor_acl_accounted(&file, w))
++            .unwrap();
++        let entry = sample.entry(0).map(|e| {
++            (
++                e.rights,
++                e.principal == opensip_platform::CapturedAclPrincipal::User(self.uid),
++            )
++        });
++        (sample.acl_state(), entry)
++    }
++    fn floors_identity(&self) -> (u64, u64, u32) {
++        let m = fs::symlink_metadata(self.floors()).unwrap();
++        (m.dev(), m.ino(), m.mode())
++    }
++    fn floors_names(&self) -> Vec<String> {
++        let mut names = fs::read_dir(self.floors())
++            .unwrap()
++            .map(|e| e.unwrap().file_name().into_string().unwrap())
++            .collect::<Vec<_>>();
++        names.sort();
++        names
++    }
++    fn completing(&self) -> Refused<FloorStep> {
++        WorkLedger::new().scope(|w| floor_step_completing(&self.location(), w))
++    }
++}
++
++// RW-C1, RW-C3 and RW-C6: the floor step completes the crashed directory
++// with exactly the one zero-rights owner allow, its mode and inode
++// unchanged, then writes the INIT floor as a fresh step does; the next floor
++// step completes nothing.
++#[test]
++fn a_crashed_carrier_floors_directory_is_completed_by_the_floor_step() {
++    let control = Fixture::new();
++    assert_eq!(
++        control.completing().unwrap().outcome,
++        FloorStepOutcome::InitFloorWritten
++    );
++    let f = Fixture::new();
++    f.crashed_floors();
++    let before = f.floors_identity();
++    assert_eq!(
++        f.floors_acl(),
++        (opensip_platform::CapturedAclState::NotReturned, None)
++    );
++    let step = f.completing().unwrap();
++    assert_eq!(step.outcome, FloorStepOutcome::InitFloorWritten);
++    assert_eq!(step.observed, Some(CommittedTail::init()));
++    assert_eq!(step.completion, Some(RepairCompletion::CarrierFloors));
++    assert_eq!(
++        f.floors_acl(),
++        (
++            opensip_platform::CapturedAclState::Entries(1),
++            Some((0, true))
++        )
++    );
++    assert_eq!(f.floors_identity(), before);
++    assert_eq!(f.floors_identity().2 & 0o7777, 0o700);
++    assert_eq!(f.floors_names(), control.floors_names());
++    assert_eq!(
++        fs::read(f.floor_path()).unwrap(),
++        fs::read(control.floor_path()).unwrap()
++    );
++    assert_eq!(f.create().unwrap(), CreationOutcome::Created);
++    let again = f.completing().unwrap();
++    assert_eq!(again.outcome, FloorStepOutcome::Unchanged);
++    assert_eq!(again.completion, None);
++    assert_eq!(control.completing().unwrap().completion, None);
++    // The operation's floor step carries the completion to the handoff.
++    let g = Fixture::new();
++    g.crashed_floors();
++    let floor = WorkLedger::new()
++        .scope(|w| super::operation::operation_floor_step(&g.location(), w))
++        .unwrap();
++    assert_eq!(floor.outcome(), &FloorStepOutcome::InitFloorWritten);
++    assert_eq!(floor.completion(), Some(RepairCompletion::CarrierFloors));
++}
++
++// RW-C2 for RW-P3's neighbours (N-P1): each keeps today's host I/O row and
++// nothing changes. A busy probe skips the step and the completion with it,
++// and a carrier refused by classification is refused first (LD11-1).
++#[test]
++fn the_floor_steps_neighbours_keep_their_rows_and_are_unchanged() {
++    let unchanged = |f: &Fixture, before: &((u64, u64, u32), Vec<String>)| {
++        assert_eq!(
++            f.floors_acl().0,
++            opensip_platform::CapturedAclState::NotReturned
++        );
++        assert_eq!(&(f.floors_identity(), f.floors_names()), before);
++        assert!(!f.floor_path().exists());
++    };
++    // A directory that holds an entry.
++    let f = Fixture::new();
++    f.crashed_floors();
++    fs::write(f.floors().join("stray"), b"kept").unwrap();
++    let before = (f.floors_identity(), f.floors_names());
++    assert_eq!(refusal(f.completing()).row(), CarrierRow::HostIo);
++    unchanged(&f, &before);
++    // A mode other than exactly `0700`.
++    let f = Fixture::new();
++    f.crashed_floors();
++    fs::set_permissions(f.floors(), fs::Permissions::from_mode(0o750)).unwrap();
++    let before = (f.floors_identity(), f.floors_names());
++    assert_eq!(refusal(f.completing()).row(), CarrierRow::HostIo);
++    unchanged(&f, &before);
++    // A busy `writer.lease`: skipped, nothing read, written or completed.
++    let f = Fixture::new();
++    f.crashed_floors();
++    let before = (f.floors_identity(), f.floors_names());
++    let held = FileLock::try_acquire(
++        File::options()
++            .read(true)
++            .write(true)
++            .open(f.namespace_path.join("writer.lease"))
++            .unwrap(),
++        LockMode::Exclusive,
++    )
++    .unwrap()
++    .unwrap();
++    let skipped = f.completing().unwrap();
++    assert_eq!(
++        (skipped.outcome, skipped.observed, skipped.completion),
++        (FloorStepOutcome::Skipped, None, None)
++    );
++    unchanged(&f, &before);
++    drop(held);
++    // A format-2 carrier is refused by classification before the judgment.
++    let f = Fixture::new();
++    f.crashed_floors();
++    let c = rusqlite::Connection::open(f.carrier()).unwrap();
++    let _: String = c
++        .query_row("PRAGMA journal_mode=WAL", [], |r| r.get(0))
++        .unwrap();
++    c.execute_batch(super::super::inherited_schema::DDL2)
++        .unwrap();
++    drop(c);
++    let before = (f.floors_identity(), f.floors_names());
++    assert_eq!(refusal(f.completing()).row(), CarrierRow::InheritedCarrier);
++    unchanged(&f, &before);
++}
++
++// RW-C12: a ledger that covers the judgment but not C-ACL's reservation
++// refuses on the budget row before the append.
++#[test]
++fn an_unreservable_carrier_floors_completion_writes_nothing() {
++    let admit = |f: &Fixture, work: &mut WorkLedger| {
++        let floors =
++            RetainedDirectory::from_retained_handle(File::open(f.floors()).unwrap()).unwrap();
++        work.scope(|w| admit_floor_directory(&f.location(), &floors, w))
++    };
++    let measured = Fixture::new();
++    measured.crashed_floors();
++    let mut work = WorkLedger::new();
++    assert_eq!(
++        admit(&measured, &mut work).unwrap(),
++        Some(RepairCompletion::CarrierFloors)
++    );
++    let barrier = opensip_platform::directory_barrier_cost();
++    let tail = opensip_platform::descriptor_name_observation_cost()
++        .checked_add(barrier)
++        .and_then(|c| c.checked_add(barrier))
++        .unwrap();
++    let used = work.used();
++    let f = Fixture::new();
++    f.crashed_floors();
++    let mut short = WorkLedger::with_limits(WorkCost {
++        edges: used.edges - tail.edges - 1,
++        ..used
++    })
++    .unwrap();
++    let result = admit(&f, &mut short);
++    assert!(matches!(result, Err(WorkFailure::Budget(_))), "{result:?}");
++    assert_eq!(
++        f.floors_acl().0,
++        opensip_platform::CapturedAclState::NotReturned
++    );
++}
+diff --git a/crates/security/src/journal_store/carrier_operation.rs b/crates/security/src/journal_store/carrier_operation.rs
+index 540ed83..6b7127e 100644
+--- a/crates/security/src/journal_store/carrier_operation.rs
++++ b/crates/security/src/journal_store/carrier_operation.rs
+@@ -42,10 +42,11 @@ pub(crate) use super::rollover::{RolloverStep, TestPoints, end_step_after_exhaus
+ use super::start::{EndInput, carrier_start, end_step};
+ pub(crate) use super::start::{EndOutcome, StartReconciliation};
+ use super::{
+-    CarrierLocation, CarrierRefusal, CommittedTail, CreationOutcome, FloorStepOutcome, Refused,
+-    create_carrier, floor_step_observed, refuse,
++    CarrierLocation, CarrierRefusal, CommittedTail, CreationOutcome, FloorStep, FloorStepOutcome,
++    Refused, create_carrier, floor_step_completing, refuse,
+ };
+ use crate::custody::operation_handoff::CarrierPlace;
++use crate::private_access::RepairCompletion;
+ use opensip_platform::WorkScope;
+ 
+ impl<'a> CarrierLocation<'a> {
+@@ -63,18 +64,26 @@ impl<'a> CarrierLocation<'a> {
+     }
+ }
+ 
+-/// Item 3's result at the lease-free point: what the floor step did, and the
++/// Item 3's result at the lease-free point: what the floor step did, the
+ /// committed tail the carrier start must confirm (absent only when the probe
+-/// found `writer.lease` busy and the step was skipped). Private, not Clone.
++/// found `writer.lease` busy and the step was skipped), and the floor step's
++/// completion of `trust/carrier-floors/`, if any (X3b r11 item 2). Private,
++/// not Clone.
+ #[derive(Debug)]
+ pub(crate) struct OperationFloor {
+     outcome: FloorStepOutcome,
+     observed: Option<CommittedTail>,
++    completion: Option<RepairCompletion>,
+ }
+ impl OperationFloor {
+     pub(crate) fn outcome(&self) -> &FloorStepOutcome {
+         &self.outcome
+     }
++    /// J-RW r4's RW-P3: the floor step completed `trust/carrier-floors/`. J-RW
++    /// item 7's record, returned here until O1 lands.
++    pub(crate) fn completion(&self) -> Option<RepairCompletion> {
++        self.completion
++    }
+ }
+ 
+ /// Item 3: the floor step, under the fence with no project lock held, before
+@@ -85,9 +94,16 @@ pub(crate) fn operation_floor_step(
+     work: &mut WorkScope<'_>,
+ ) -> Refused<OperationFloor> {
+     // X9: `x3b.floor` (law X9 r1 item 5).
+-    let (outcome, observed) =
+-        opensip_platform::crash_scope!("x3b.floor", { floor_step_observed(location, work) })?;
+-    Ok(OperationFloor { outcome, observed })
++    let FloorStep {
++        outcome,
++        observed,
++        completion,
++    } = opensip_platform::crash_scope!("x3b.floor", { floor_step_completing(location, work) })?;
++    Ok(OperationFloor {
++        outcome,
++        observed,
++        completion,
++    })
+ }
+ 
+ /// Item 4's start, as the operation holds it: the append lock (item 6), the
+@@ -144,7 +160,9 @@ pub(crate) fn operation_start(
+     floor: OperationFloor,
+     work: &mut WorkScope<'_>,
+ ) -> Refused<OperationCarrier> {
+-    let OperationFloor { outcome, observed } = floor;
++    let OperationFloor {
++        outcome, observed, ..
++    } = floor;
+     let Some(expected) = observed else {
+         return refuse(CarrierRefusal::Busy);
+     };
+diff --git a/crates/security/src/lib.rs b/crates/security/src/lib.rs
+index 2008d02..d3e4880 100644
+--- a/crates/security/src/lib.rs
++++ b/crates/security/src/lib.rs
+@@ -229,15 +229,18 @@ mod initial_installation;
+ 
+ #[allow(dead_code)]
+ mod private_access;
++/// J-RW r4 item 7's record of one completion, returned in its owner's typed
++/// result until O1's `host.repair.completed` lands (unit J4a).
++pub use private_access::RepairCompletion;
+ 
+ // Store-data custody for storage's per-project directories and files (X3c).
+ #[cfg(target_os = "macos")]
+ mod store_custody;
+ #[cfg(target_os = "macos")]
+ pub use store_custody::{
+-    StoreCustodyRefusal, StoreDirectoryDisposition, StoreFileCreation,
+-    admit_existing_store_directory, create_or_admit_store_directory, create_store_file,
+-    open_store_file,
++    StoreCustodyRefusal, StoreDirectoryDisposition, StoreFileAdmission, StoreFileCreation,
++    admit_existing_store_directory, admit_or_complete_store_file, create_or_admit_store_directory,
++    create_store_file, open_store_file,
+ };
+ 
+ #[allow(dead_code)]
+diff --git a/crates/security/src/private_access.rs b/crates/security/src/private_access.rs
+index 4d88e29..7c055ae 100644
+--- a/crates/security/src/private_access.rs
++++ b/crates/security/src/private_access.rs
+@@ -378,6 +378,596 @@ impl From<PrivateAccessRefusal> for PreparePrivateError {
+     }
+ }
+ 
++/// J-RW r4 item 7's operational record of one completion: its closed `kind`
++/// code and its item 4 state. `host.repair.completed` is O1's: until O1
++/// lands no event is emitted, and each owner returns this value in its typed
++/// result only (unit J4a's uses; J4b to J4d add theirs).
++#[derive(Debug, Clone, Copy, PartialEq, Eq)]
++pub enum RepairCompletion {
++    /// RW-P1: an X3c store directory (`projects`, `projects/N`, `objects`,
++    /// `objects/sha256`) completed by C-ACL.
++    StoreDirectory,
++    /// RW-P2: the length-0 `ledger.sqlite` completed by C-ACL.
++    LedgerFile,
++    /// RW-P3: `trust/carrier-floors/` completed by C-ACL.
++    CarrierFloors,
++}
++impl RepairCompletion {
++    /// Item 7's closed `kind` code.
++    pub fn kind(self) -> &'static str {
++        match self {
++            Self::StoreDirectory => "store-directory",
++            Self::LedgerFile => "ledger-file",
++            Self::CarrierFloors => "carrier-floors",
++        }
++    }
++    /// Item 4's state ID.
++    pub fn state(self) -> &'static str {
++        match self {
++            Self::StoreDirectory => "RW-P1",
++            Self::LedgerFile => "RW-P2",
++            Self::CarrierFloors => "RW-P3",
++        }
++    }
++}
++
++/// P-ACL's clauses 2 and 3 (J-RW r4 item 3.1) on one sample: the ACL is
++/// omitted (`NotReturned`; a NOACL sentinel or present ACL is not omission)
++/// and the object has the fresh path's private shape (owner, exact mode, one
++/// link for a file).
++fn omitted_private_shape(
++    kind: PrivateObjectKind,
++    invoking_uid: u32,
++    metadata: &DescriptorMetadata,
++    state: CapturedAclState,
++) -> bool {
++    state == CapturedAclState::NotReturned && private_shape(kind, invoking_uid, metadata).is_ok()
++}
++
++/// The P-ACL judgment of an existing object, taken before any effect.
++pub(crate) enum CreationJudgment<'f> {
++    /// Judged private as it stands: the owner's ordinary admission, with
++    /// exactly the observation it takes today. Nothing is completed.
++    Private(Box<DescriptorAclCapture>),
++    /// P-ACL holds: the object is exactly the crash prefix of a fresh private
++    /// creation. Only `complete_private_creation` consumes it.
++    Prefix(CreationPrefix<'f>),
++}
++
++/// Proof that P-ACL held for the judged handle. Not Clone; made only by the
++/// judgments here.
++pub(crate) struct CreationPrefix<'f> {
++    object: &'f std::fs::File,
++    kind: PrivateObjectKind,
++}
++
++/// The refusal an ACL-omitted object took before J-RW: an omitted ACL is not
++/// privacy. Every state that is not exactly P-ACL's keeps it.
++#[cfg(target_os = "macos")]
++fn omitted<T>() -> Result<T, opensip_platform::WorkFailure<PreparePrivateError>> {
++    Err(opensip_platform::WorkFailure::Operation(
++        PreparePrivateError::Access(PrivateAccessRefusal::AclNotReturned),
++    ))
++}
++
++/// Run one charged native observation for a P-ACL clause. A budget refusal
++/// stays the budget row. A native failure only leaves the clause unproven,
++/// so it is `None` and the object keeps its existing refusal.
++#[cfg(target_os = "macos")]
++fn observed<T>(
++    work: &mut opensip_platform::WorkScope<'_>,
++    cost: opensip_platform::WorkCost,
++    observe: impl FnOnce() -> Option<T>,
++) -> Result<Option<T>, opensip_platform::WorkFailure<PreparePrivateError>> {
++    work.run(cost, |_| Ok(observe()))
++}
++
++/// One status read of the parent, for clause 1's filesystem.
++#[cfg(target_os = "macos")]
++fn status_read_cost() -> opensip_platform::WorkCost {
++    opensip_platform::WorkCost {
++        objects: 0,
++        edges: 1,
++        bytes: std::mem::size_of::<std::fs::Metadata>(),
++    }
++}
++
++/// The bounded empty-directory scan: its `openat(".")` stream, the union
++/// mount check, `fdopendir`, at most three entries (`.`, `..`, and the read
++/// that ends the stream or finds another entry) and `closedir`.
++#[cfg(target_os = "macos")]
++fn empty_scan_cost() -> opensip_platform::WorkCost {
++    opensip_platform::WorkCost {
++        objects: 2,
++        edges: 7,
++        bytes: EMPTY_SCAN_NAME_BYTES,
++    }
++}
++/// The name bytes the empty scan admits before it stops.
++#[cfg(target_os = "macos")]
++const EMPTY_SCAN_NAME_BYTES: usize = 3 * 256;
++
++/// P-ACL clause 1 (J-RW r4 item 3.1): the object is at the owner's fixed
++/// `name` and on its parent's filesystem. Charged before it runs.
++#[cfg(target_os = "macos")]
++fn at_fixed_name(
++    parent: &opensip_platform::RetainedDirectory,
++    name: &std::ffi::OsStr,
++    object: &std::fs::File,
++    metadata: &DescriptorMetadata,
++    work: &mut opensip_platform::WorkScope<'_>,
++) -> Result<bool, opensip_platform::WorkFailure<PreparePrivateError>> {
++    use std::os::unix::fs::MetadataExt;
++    let parent_device = observed(work, status_read_cost(), || {
++        parent.as_file().metadata().ok().map(|m| m.dev())
++    })?;
++    if parent_device != Some(metadata.device) {
++        return Ok(false);
++    }
++    match opensip_platform::descriptor_name_matches_accounted(object, name, work) {
++        Ok(bound) => Ok(bound),
++        Err(opensip_platform::WorkFailure::Budget(budget)) => {
++            Err(opensip_platform::WorkFailure::Budget(budget))
++        }
++        Err(opensip_platform::WorkFailure::Operation(_)) => Ok(false),
++    }
++}
++
++/// C-ACL's predicate P-ACL over an existing directory (J-RW r4 item 3.1;
++/// unit J4a), judged through the owner's retained `parent`, no-follow,
++/// charged, and before any effect:
++/// 1. at its fixed `name` and on its parent's filesystem;
++/// 2. owned by the invoking user, mode exactly `0700`;
++/// 3. its ACL omitted;
++/// 4. no entry but `.` and `..`, by one bounded scan.
++///
++/// The first sample is exactly `observe_private_directory`'s, so a directory
++/// judged private, or refused for any reason but an omitted ACL, ends exactly
++/// as it does there. An omitted ACL that fails any other clause keeps its
++/// existing refusal. Nothing here writes.
++#[cfg(target_os = "macos")]
++pub(crate) fn judge_private_directory_creation<'f>(
++    parent: &opensip_platform::RetainedDirectory,
++    name: &std::ffi::OsStr,
++    directory: &'f opensip_platform::RetainedDirectory,
++    invoking_uid: u32,
++    work: &mut opensip_platform::WorkScope<'_>,
++) -> Result<CreationJudgment<'f>, opensip_platform::WorkFailure<PreparePrivateError>> {
++    let kind = PrivateObjectKind::Directory;
++    let sample = match judge_or_omitted(kind, invoking_uid, directory.as_file(), work)? {
++        Judged::Private(sample) => return Ok(CreationJudgment::Private(Box::new(sample))),
++        Judged::Omitted(sample) => sample,
++    };
++    if !omitted_private_shape(kind, invoking_uid, sample.metadata(), sample.acl_state())
++        || !at_fixed_name(parent, name, directory.as_file(), sample.metadata(), work)?
++    {
++        return omitted();
++    }
++    let empty = observed(work, empty_scan_cost(), || {
++        directory
++            .visit_entry_names(3, EMPTY_SCAN_NAME_BYTES, |entry| {
++                if entry == b"." || entry == b".." {
++                    Ok(())
++                } else {
++                    Err(())
++                }
++            })
++            .ok()
++    })?;
++    if empty.is_none() {
++        return omitted();
++    }
++    Ok(CreationJudgment::Prefix(CreationPrefix {
++        object: directory.as_file(),
++        kind,
++    }))
++}
++
++/// C-ACL's predicate P-ACL over an existing regular file (J-RW r4 item
++/// 3.1; unit J4a), as for a directory, with clauses 2 and 4 read for a file:
++/// mode exactly `0600` and one link, and length 0. The first sample is
++/// exactly the private-file judgment's. A file that must instead hold a
++/// strict prefix of the owner's bytes (item 3.2's targets) is judged by
++/// `judge_private_prefix`, whose completion runs C-ACL first.
++#[cfg(target_os = "macos")]
++pub(crate) fn judge_private_file_creation<'f>(
++    parent: &opensip_platform::RetainedDirectory,
++    name: &std::ffi::OsStr,
++    file: &'f std::fs::File,
++    invoking_uid: u32,
++    work: &mut opensip_platform::WorkScope<'_>,
++) -> Result<CreationJudgment<'f>, opensip_platform::WorkFailure<PreparePrivateError>> {
++    let kind = PrivateObjectKind::RegularFile;
++    let sample = match judge_or_omitted(kind, invoking_uid, file, work)? {
++        Judged::Private(sample) => return Ok(CreationJudgment::Private(Box::new(sample))),
++        Judged::Omitted(sample) => sample,
++    };
++    if !omitted_private_shape(kind, invoking_uid, sample.metadata(), sample.acl_state())
++        || !at_fixed_name(parent, name, file, sample.metadata(), work)?
++    {
++        return omitted();
++    }
++    if sample.metadata().size != 0 {
++        return omitted();
++    }
++    Ok(CreationJudgment::Prefix(CreationPrefix {
++        object: file,
++        kind,
++    }))
++}
++
++#[cfg(target_os = "macos")]
++enum Judged {
++    Private(DescriptorAclCapture),
++    Omitted(DescriptorAclCapture),
++}
++/// The ordinary private judgment's one sample: private, the omitted ACL
++/// that P-ACL may complete, or the existing refusal.
++#[cfg(target_os = "macos")]
++fn judge_or_omitted(
++    kind: PrivateObjectKind,
++    invoking_uid: u32,
++    object: &std::fs::File,
++    work: &mut opensip_platform::WorkScope<'_>,
++) -> Result<Judged, opensip_platform::WorkFailure<PreparePrivateError>> {
++    let sample =
++        opensip_platform::capture_descriptor_acl_accounted(object, work).map_err(lift_capture)?;
++    match assess_private_descendant_capture(kind, invoking_uid, &sample) {
++        Ok(()) => Ok(Judged::Private(sample)),
++        Err(PrivateAccessRefusal::AclNotReturned) => Ok(Judged::Omitted(sample)),
++        Err(refusal) => Err(opensip_platform::WorkFailure::Operation(
++            PreparePrivateError::Access(refusal),
++        )),
++    }
++}
++
++/// C-ACL (J-RW r4 item 3.1; unit J4a): append exactly one zero-rights owner
++/// allow and sample again, through the fresh path's own step
++/// (`prepare_fresh_private_sample`), with its sample, append and sample
++/// reserved before the append, as that step reserves them. The new sample
++/// must judge private, or the object refuses; the allow stays, as on the
++/// fresh path. No mode bit, other ACE, name or byte changes. The caller runs
++/// it, and the owner's remaining steps, inside its `.repair` scope (item 10).
++#[cfg(target_os = "macos")]
++pub(crate) fn complete_private_creation(
++    prefix: CreationPrefix<'_>,
++    invoking_uid: u32,
++    work: &mut opensip_platform::WorkScope<'_>,
++) -> Result<DescriptorAclCapture, opensip_platform::WorkFailure<PreparePrivateError>> {
++    prepare_fresh_private_sample(prefix.kind, invoking_uid, prefix.object, work)
++}
++
++/// A positioned reader from offset zero that leaves the handle's shared
++/// offset alone.
++#[cfg(target_os = "macos")]
++struct FromStart<'f> {
++    file: &'f std::fs::File,
++    offset: u64,
++}
++#[cfg(target_os = "macos")]
++impl std::io::Read for FromStart<'_> {
++    fn read(&mut self, buffer: &mut [u8]) -> std::io::Result<usize> {
++        use std::os::unix::fs::FileExt;
++        let read = self.file.read_at(buffer, self.offset)?;
++        self.offset += read as u64;
++        Ok(read)
++    }
++}
++
++/// What a bounded read of at most `expected.len() + 1` bytes found.
++#[cfg(target_os = "macos")]
++enum PrefixRead {
++    Equal,
++    /// A strict prefix of this length (the empty prefix included).
++    StrictPrefix(usize),
++    Neither,
++}
++/// P-PREFIX's content clause (J-RW r4 item 3.2): one bounded, charged read
++/// of at most `expected.len() + 1` bytes from offset zero, whose length must
++/// also be the sampled `size`. A native read failure leaves the clause
++/// unproven (`Neither`).
++#[cfg(target_os = "macos")]
++fn read_prefix(
++    file: &std::fs::File,
++    size: u64,
++    expected: &[u8],
++    work: &mut opensip_platform::WorkScope<'_>,
++) -> Result<PrefixRead, opensip_platform::WorkFailure<PreparePrivateError>> {
++    if expected.is_empty() {
++        return Ok(if size == 0 {
++            PrefixRead::Equal
++        } else {
++            PrefixRead::Neither
++        });
++    }
++    let reader = FromStart { file, offset: 0 };
++    let Ok(bytes) = opensip_platform::read_bounded_observed(reader, expected.len(), work)? else {
++        return Ok(PrefixRead::Neither);
++    };
++    Ok(if bytes.len() as u64 != size {
++        PrefixRead::Neither
++    } else if bytes == expected {
++        PrefixRead::Equal
++    } else if expected.starts_with(&bytes) {
++        PrefixRead::StrictPrefix(bytes.len())
++    } else {
++        PrefixRead::Neither
++    })
++}
++
++/// P-PREFIX's judgment of a regular file at an owner's fixed name (J-RW r4
++/// item 3.2; unit J4a), before any effect.
++pub(crate) enum PrefixJudgment<'f> {
++    /// Exactly the owner's bytes, judged private: the ordinary admission.
++    /// Nothing is completed.
++    Equal(DescriptorAclCapture),
++    /// P-PREFIX holds. Only `complete_private_suffix` consumes it.
++    Prefix(SuffixPrefix<'f>),
++    /// A private file whose bytes are neither exactly equal to nor a strict
++    /// prefix of the owner's: foreign or corrupt. The owner keeps its row.
++    Neither(DescriptorAclCapture),
++}
++
++/// Proof that P-PREFIX held for the judged handle: the existing length and
++/// whether C-ACL must run first. Not Clone.
++pub(crate) struct SuffixPrefix<'f> {
++    file: &'f std::fs::File,
++    existing: usize,
++    acl_omitted: bool,
++}
++
++/// P-PREFIX (J-RW r4 item 3.2) over the regular file `name` under the
++/// owner's retained `parent`, for the exact bytes `expected` the owner's
++/// step writes there, judged before any effect:
++/// - P-ACL clauses 1 and 2: the fixed name, the parent's filesystem, the
++///   invoking user, mode exactly `0600`, one link;
++/// - the ACL omitted (C-ACL then runs first) or judged private;
++/// - the bytes, by one bounded read of at most `expected.len() + 1`, a
++///   strict prefix of `expected` (the empty prefix included).
++///
++/// A private file holding exactly `expected` is `Equal`, the owner's
++/// ordinary admission, with no clause added to it. Any other private file
++/// that is not P-PREFIX is `Neither`, for the owner's own row. An omitted
++/// ACL that is not P-PREFIX, and every other refusal of the private
++/// judgment, keeps that judgment's existing refusal. Nothing here writes.
++#[cfg(target_os = "macos")]
++pub(crate) fn judge_private_prefix<'f>(
++    parent: &opensip_platform::RetainedDirectory,
++    name: &std::ffi::OsStr,
++    file: &'f std::fs::File,
++    expected: &[u8],
++    invoking_uid: u32,
++    work: &mut opensip_platform::WorkScope<'_>,
++) -> Result<PrefixJudgment<'f>, opensip_platform::WorkFailure<PreparePrivateError>> {
++    let kind = PrivateObjectKind::RegularFile;
++    match judge_or_omitted(kind, invoking_uid, file, work)? {
++        Judged::Private(sample) => {
++            let existing = match read_prefix(file, sample.metadata().size, expected, work)? {
++                PrefixRead::Equal => return Ok(PrefixJudgment::Equal(sample)),
++                PrefixRead::Neither => return Ok(PrefixJudgment::Neither(sample)),
++                PrefixRead::StrictPrefix(existing) => existing,
++            };
++            if !at_fixed_name(parent, name, file, sample.metadata(), work)? {
++                return Ok(PrefixJudgment::Neither(sample));
++            }
++            Ok(PrefixJudgment::Prefix(SuffixPrefix {
++                file,
++                existing,
++                acl_omitted: false,
++            }))
++        }
++        Judged::Omitted(sample) => {
++            if !omitted_private_shape(kind, invoking_uid, sample.metadata(), sample.acl_state())
++                || !at_fixed_name(parent, name, file, sample.metadata(), work)?
++            {
++                return omitted();
++            }
++            match read_prefix(file, sample.metadata().size, expected, work)? {
++                PrefixRead::StrictPrefix(existing) => Ok(PrefixJudgment::Prefix(SuffixPrefix {
++                    file,
++                    existing,
++                    acl_omitted: true,
++                })),
++                PrefixRead::Equal | PrefixRead::Neither => omitted(),
++            }
++        }
++    }
++}
++
++/// Why C-SUFFIX stopped. The file only ever holds a prefix of the owner's
++/// bytes, or all of them; nothing is truncated or removed.
++#[cfg(target_os = "macos")]
++#[derive(Debug)]
++pub(crate) enum SuffixError {
++    /// C-ACL, when the ACL was omitted.
++    Private(PreparePrivateError),
++    /// The suffix write, its early read-back or its file barrier.
++    Write(opensip_platform::NewRegularWriteError),
++    /// The parent's directory barrier.
++    Barrier(std::io::Error),
++    /// After both barriers, the name no longer opens the written file, or
++    /// the capped read-back through it is not exactly the owner's bytes
++    /// followed by the end.
++    Confirm,
++    /// The reopen, a status read or the final read-back failed.
++    ConfirmIo(std::io::Error),
++}
++
++/// The final read-back's positioned read calls. A regular file returns its
++/// bytes and then the end in two; a read that has not reached the end by the
++/// last call refuses.
++#[cfg(target_os = "macos")]
++const SUFFIX_READBACK_CALLS: usize = 4;
++
++/// The final read-back's work: one buffer of the owner's length plus one
++/// byte, and `SUFFIX_READBACK_CALLS` positioned reads into it.
++#[cfg(target_os = "macos")]
++fn suffix_readback_cost(expected: usize) -> Option<opensip_platform::WorkCost> {
++    Some(opensip_platform::WorkCost {
++        objects: 1,
++        edges: SUFFIX_READBACK_CALLS,
++        bytes: expected.checked_add(1)?,
++    })
++}
++
++/// C-SUFFIX's whole cost after the judgment: C-ACL's sample, append and
++/// sample when the ACL was omitted; the suffix write with its early
++/// read-back and file barrier; the parent's directory barrier; the no-follow
++/// reopen of the name with the two status reads that compare it to the
++/// written file; and the final capped read-back through it.
++#[cfg(target_os = "macos")]
++fn suffix_cost(
++    name: &str,
++    expected: usize,
++    existing: usize,
++    acl_omitted: bool,
++) -> Option<opensip_platform::WorkCost> {
++    let acl = if acl_omitted {
++        opensip_platform::descriptor_acl_capture_cost()
++            .checked_add(opensip_platform::append_owner_zero_allow_cost())?
++            .checked_add(opensip_platform::descriptor_acl_capture_cost())?
++    } else {
++        opensip_platform::WorkCost::default()
++    };
++    acl.checked_add(opensip_platform::write_regular_suffix_cost(
++        expected, existing,
++    ))?
++    .checked_add(opensip_platform::directory_barrier_cost())?
++    .checked_add(opensip_platform::RetainedDirectory::open_regular_cost(name))?
++    .checked_add(status_read_cost())?
++    .checked_add(status_read_cost())?
++    .checked_add(suffix_readback_cost(expected)?)
++}
++
++/// The final read-back (J-RW r4 item 3.2): positioned reads from offset zero
++/// into `buffer` (the owner's length plus one byte), at most
++/// `SUFFIX_READBACK_CALLS`, stopping at the end or a full buffer. `Some(n)`
++/// is the length read when the end was reached within the cap; `None` is a
++/// full buffer, or calls exhausted before the end.
++#[cfg(target_os = "macos")]
++fn read_back_capped(file: &std::fs::File, buffer: &mut [u8]) -> std::io::Result<Option<usize>> {
++    use std::os::unix::fs::FileExt;
++    let mut filled = 0;
++    for _ in 0..SUFFIX_READBACK_CALLS {
++        if filled == buffer.len() {
++            return Ok(None);
++        }
++        match file.read_at(&mut buffer[filled..], filled as u64)? {
++            0 => return Ok(Some(filled)),
++            read => filled += read,
++        }
++    }
++    Ok(None)
++}
++
++/// C-SUFFIX (J-RW r4 item 3.2; unit J4a): finish an interrupted write in
++/// place. Its whole cost, the final confirmation included, is reserved
++/// before the first effect. C-ACL runs first when the ACL was omitted. Then,
++/// in the law's order:
++/// 1. only the missing suffix is written, at offset = the existing length
++///    (the platform write also reads every byte back through the judged
++///    handle before its barrier);
++/// 2. the file barrier (`F_FULLFSYNC`);
++/// 3. the parent's directory barrier;
++/// 4. a no-follow reopen of `name`, whose device and inode must be the
++///    written file's, and through it an exact-length capped read-back: at
++///    most `expected.len() + 1` bytes from offset zero, which must be
++///    exactly `expected` followed by the end.
++///
++/// No existing byte is rewritten, and nothing is truncated or removed. The
++/// caller runs it inside its owner's `.repair` scope (item 10).
++#[cfg(target_os = "macos")]
++pub(crate) fn complete_private_suffix(
++    parent: &opensip_platform::RetainedDirectory,
++    name: &str,
++    prefix: SuffixPrefix<'_>,
++    expected: &[u8],
++    invoking_uid: u32,
++    work: &mut opensip_platform::WorkScope<'_>,
++) -> Result<(), opensip_platform::WorkFailure<SuffixError>> {
++    complete_private_suffix_with(
++        parent,
++        name,
++        prefix,
++        expected,
++        invoking_uid,
++        work,
++        read_back_capped,
++    )
++}
++
++// Private seam: `read_back` is `read_back_capped` in production; tests
++// change the file or fail the read at the confirmation point, after both
++// barriers.
++#[cfg(target_os = "macos")]
++fn complete_private_suffix_with(
++    parent: &opensip_platform::RetainedDirectory,
++    name: &str,
++    prefix: SuffixPrefix<'_>,
++    expected: &[u8],
++    invoking_uid: u32,
++    work: &mut opensip_platform::WorkScope<'_>,
++    read_back: impl FnOnce(&std::fs::File, &mut [u8]) -> std::io::Result<Option<usize>>,
++) -> Result<(), opensip_platform::WorkFailure<SuffixError>> {
++    use opensip_platform::{WorkBudgetError, WorkCost, WorkFailure};
++    use std::os::unix::fs::MetadataExt;
++    let SuffixPrefix {
++        file,
++        existing,
++        acl_omitted,
++    } = prefix;
++    fn lifted<E>(
++        error: WorkFailure<E>,
++        map: impl FnOnce(E) -> SuffixError,
++    ) -> WorkFailure<SuffixError> {
++        match error {
++            WorkFailure::Budget(budget) => WorkFailure::Budget(budget),
++            WorkFailure::Operation(error) => WorkFailure::Operation(map(error)),
++        }
++    }
++    let confirm_io = |error| WorkFailure::Operation(SuffixError::ConfirmIo(error));
++    let reserve = suffix_cost(name, expected.len(), existing, acl_omitted)
++        .ok_or(WorkFailure::Budget(WorkBudgetError::Arithmetic))?;
++    let readback = suffix_readback_cost(expected.len())
++        .ok_or(WorkFailure::Budget(WorkBudgetError::Arithmetic))?;
++    work.effect(WorkCost::default(), reserve, |post| {
++        if acl_omitted {
++            prepare_fresh_private_sample_reserved(
++                PrivateObjectKind::RegularFile,
++                invoking_uid,
++                file,
++                post,
++            )
++            .map_err(|error| lifted(error, SuffixError::Private))?;
++        }
++        // Steps 1 and 2: the suffix, then `F_FULLFSYNC`.
++        opensip_platform::write_regular_suffix_reserved(file, expected, existing, post)
++            .map_err(|error| lifted(error, SuffixError::Write))?;
++        // Step 3: the parent's barrier.
++        parent
++            .confirm_directory_barrier_reserved(post)
++            .map_err(|error| lifted(error, SuffixError::Barrier))?;
++        // Step 4: the same object by name, then its bytes and its end.
++        post.spend(opensip_platform::RetainedDirectory::open_regular_cost(name))?;
++        let reopened = parent.open_regular(name).map_err(confirm_io)?;
++        post.spend(status_read_cost())?;
++        post.spend(status_read_cost())?;
++        let (held, named) = (
++            file.metadata().map_err(confirm_io)?,
++            reopened.metadata().map_err(confirm_io)?,
++        );
++        if held.dev() != named.dev() || held.ino() != named.ino() {
++            return Err(WorkFailure::Operation(SuffixError::Confirm));
++        }
++        post.spend(readback)?;
++        let mut buffer = vec![0u8; readback.bytes];
++        match read_back(&reopened, &mut buffer).map_err(confirm_io)? {
++            Some(read) if read == expected.len() && buffer[..read] == *expected => Ok(()),
++            _ => Err(WorkFailure::Operation(SuffixError::Confirm)),
++        }
++    })
++}
++
+ pub(crate) fn assess_private_descendant_capture(
+     kind: PrivateObjectKind,
+     invoking_uid: u32,
+@@ -1067,4 +1657,916 @@ mod tests {
+         drop(file);
+         let _ = File::open(&file_path);
+     }
++
++    // ------------------------------------------------------------------
++    // J-RW r4 items 3.1 and 3.2 (unit J4a): C-ACL over P-ACL, and C-SUFFIX
++    // over P-PREFIX, on the primitives themselves.
++
++    #[test]
++    fn p_acl_shape_needs_an_omitted_acl_and_the_fresh_paths_exact_shape() {
++        let dir = metadata(PrivateObjectKind::Directory, 10);
++        let file = metadata(PrivateObjectKind::RegularFile, 10);
++        let omitted = CapturedAclState::NotReturned;
++        assert!(omitted_private_shape(
++            PrivateObjectKind::Directory,
++            10,
++            &dir,
++            omitted
++        ));
++        assert!(omitted_private_shape(
++            PrivateObjectKind::RegularFile,
++            10,
++            &file,
++            omitted
++        ));
++        // Clause 3: a NOACL sentinel or a present ACL is not omission.
++        for state in [
++            CapturedAclState::NoAclSentinel,
++            CapturedAclState::Entries(0),
++            CapturedAclState::Entries(1),
++        ] {
++            assert!(!omitted_private_shape(
++                PrivateObjectKind::Directory,
++                10,
++                &dir,
++                state
++            ));
++        }
++        // Clause 2: the owner, the exact mode, one link, the kind.
++        assert!(!omitted_private_shape(
++            PrivateObjectKind::Directory,
++            11,
++            &dir,
++            omitted
++        ));
++        for mode in [0o750, 0o705, 0o1700, 0o2700, 0o4700, 0o500] {
++            let shaped = DescriptorMetadata {
++                mode: DIRECTORY | mode,
++                ..dir
++            };
++            assert!(
++                !omitted_private_shape(PrivateObjectKind::Directory, 10, &shaped, omitted),
++                "{mode:o}"
++            );
++        }
++        for mode in [0o640, 0o604, 0o400, 0o700] {
++            let shaped = DescriptorMetadata {
++                mode: REGULAR | mode,
++                ..file
++            };
++            assert!(
++                !omitted_private_shape(PrivateObjectKind::RegularFile, 10, &shaped, omitted),
++                "{mode:o}"
++            );
++        }
++        let linked = DescriptorMetadata { links: 2, ..file };
++        assert!(!omitted_private_shape(
++            PrivateObjectKind::RegularFile,
++            10,
++            &linked,
++            omitted
++        ));
++        assert!(!omitted_private_shape(
++            PrivateObjectKind::RegularFile,
++            10,
++            &dir,
++            omitted
++        ));
++        assert!(!omitted_private_shape(
++            PrivateObjectKind::Directory,
++            10,
++            &file,
++            omitted
++        ));
++    }
++
++    #[test]
++    fn repair_completion_codes_are_item_7s_closed_table() {
++        assert_eq!(
++            [
++                RepairCompletion::StoreDirectory,
++                RepairCompletion::LedgerFile,
++                RepairCompletion::CarrierFloors
++            ]
++            .map(|c| (c.kind(), c.state())),
++            [
++                ("store-directory", "RW-P1"),
++                ("ledger-file", "RW-P2"),
++                ("carrier-floors", "RW-P3")
++            ]
++        );
++    }
++
++    #[cfg(target_os = "macos")]
++    mod completion {
++        use super::super::*;
++        use opensip_platform::{
++            CapturedAclPrincipal, ExclusiveDirectoryOutcome, ExclusiveRegularOutcome,
++            RetainedDirectory, WorkCost, WorkFailure, WorkLedger,
++        };
++        use std::fs;
++        use std::os::unix::fs::{MetadataExt, PermissionsExt};
++        use std::path::{Path, PathBuf};
++
++        pub(super) struct Scratch {
++            pub(super) root: PathBuf,
++            pub(super) parent: RetainedDirectory,
++            pub(super) uid: u32,
++        }
++        impl Scratch {
++            pub(super) fn new(tag: &str) -> Self {
++                let nonce: String = opensip_platform::request_entropy()
++                    .unwrap()
++                    .iter()
++                    .map(|b| format!("{b:02x}"))
++                    .collect();
++                let root =
++                    crate::test_scratch::temp_dir().join(format!("opensip-j4a-{tag}-{nonce}"));
++                fs::create_dir(&root).unwrap();
++                fs::set_permissions(&root, fs::Permissions::from_mode(0o700)).unwrap();
++                let parent =
++                    RetainedDirectory::from_retained_handle(fs::File::open(&root).unwrap())
++                        .unwrap();
++                let uid = fs::metadata(&root).unwrap().uid();
++                Self { root, parent, uid }
++            }
++            /// The owner's exclusive `mkdirat 0700`, stopped before its owner
++            /// allow: a crash at `create.after` (J-RW r4 RW-P1, RW-P3).
++            pub(super) fn crashed_directory(&self, name: &str) -> RetainedDirectory {
++                match WorkLedger::new()
++                    .scope(|w| self.parent.create_exclusive_directory_accounted(name, w))
++                    .unwrap()
++                {
++                    ExclusiveDirectoryOutcome::Created(directory) => directory,
++                    ExclusiveDirectoryOutcome::EntryExists => panic!("{name} exists"),
++                }
++            }
++            /// The owner's exclusive `0600` create, stopped before its owner
++            /// allow: a crash at `create.after` (RW-P2, RW-R5, RW-T1).
++            pub(super) fn crashed_file(&self, name: &str) -> fs::File {
++                match WorkLedger::new()
++                    .scope(|w| self.parent.create_exclusive_regular_accounted(name, w))
++                    .unwrap()
++                {
++                    ExclusiveRegularOutcome::Created(file) => file,
++                    ExclusiveRegularOutcome::EntryExists => panic!("{name} exists"),
++                }
++            }
++        }
++        impl Drop for Scratch {
++            fn drop(&mut self) {
++                let _ = fs::remove_dir_all(&self.root);
++            }
++        }
++        pub(super) fn acl(file: &fs::File) -> DescriptorAclCapture {
++            WorkLedger::new()
++                .scope(|w| opensip_platform::capture_descriptor_acl_accounted(file, w))
++                .unwrap()
++        }
++        /// Exactly the fresh path's ACL: one zero-rights allow for the user.
++        pub(super) fn one_zero_owner_allow(file: &fs::File, uid: u32) -> bool {
++            let sample = acl(file);
++            sample.acl_state() == CapturedAclState::Entries(1)
++                && sample.entry(0).is_some_and(|entry| {
++                    entry.flags & ACE_KIND_MASK == ACE_PERMIT
++                        && entry.rights == 0
++                        && entry.principal == CapturedAclPrincipal::User(uid)
++                })
++        }
++        fn omitted_refusal<T>(result: Result<T, WorkFailure<PreparePrivateError>>) -> bool {
++            matches!(
++                result,
++                Err(WorkFailure::Operation(PreparePrivateError::Access(
++                    PrivateAccessRefusal::AclNotReturned
++                )))
++            )
++        }
++        fn judged_directory(
++            parent: &RetainedDirectory,
++            name: &str,
++            directory: &RetainedDirectory,
++            uid: u32,
++        ) -> Result<bool, WorkFailure<PreparePrivateError>> {
++            WorkLedger::new().scope(|w| {
++                judge_private_directory_creation(
++                    parent,
++                    std::ffi::OsStr::new(name),
++                    directory,
++                    uid,
++                    w,
++                )
++                .map(|judgment| matches!(judgment, CreationJudgment::Prefix(_)))
++            })
++        }
++        fn dev() -> RetainedDirectory {
++            // devfs: a directory on another filesystem than the scratch.
++            RetainedDirectory::from_retained_handle(fs::File::open("/dev").unwrap()).unwrap()
++        }
++
++        // RW-C6 and RW-C3 for a directory: P-ACL holds only for the exact
++        // crash prefix, and C-ACL appends exactly one zero-rights owner
++        // allow, with no mode bit changed; a second judgment admits it.
++        #[test]
++        fn c_acl_completes_exactly_a_crashed_private_directory_once() {
++            let s = Scratch::new("dir");
++            let directory = s.crashed_directory("prefix");
++            let before = fs::metadata(s.root.join("prefix")).unwrap();
++            assert_eq!(
++                acl(directory.as_file()).acl_state(),
++                CapturedAclState::NotReturned
++            );
++            let mut work = WorkLedger::new();
++            let sample = work
++                .scope(|w| {
++                    let judged = judge_private_directory_creation(
++                        &s.parent,
++                        std::ffi::OsStr::new("prefix"),
++                        &directory,
++                        s.uid,
++                        w,
++                    )?;
++                    let CreationJudgment::Prefix(prefix) = judged else {
++                        panic!("expected P-ACL to hold");
++                    };
++                    complete_private_creation(prefix, s.uid, w)
++                })
++                .unwrap();
++            assert_eq!(sample.acl_state(), CapturedAclState::Entries(1));
++            assert!(one_zero_owner_allow(directory.as_file(), s.uid));
++            let after = fs::metadata(s.root.join("prefix")).unwrap();
++            assert_eq!((after.dev(), after.ino()), (before.dev(), before.ino()));
++            assert_eq!(after.mode(), before.mode());
++            assert_eq!(after.mode() & 0o7777, 0o700);
++            assert_eq!(fs::read_dir(s.root.join("prefix")).unwrap().count(), 0);
++            // CR-3: the completed directory is the ordinary admission.
++            assert!(matches!(
++                judged_directory(&s.parent, "prefix", &directory, s.uid),
++                Ok(false)
++            ));
++            assert!(one_zero_owner_allow(directory.as_file(), s.uid));
++        }
++
++        // RW-C6: negating each P-ACL clause in turn keeps the existing
++        // refusal (an omitted ACL is not privacy) and changes nothing.
++        #[test]
++        fn every_negated_p_acl_clause_keeps_the_refusal_and_writes_nothing() {
++            let s = Scratch::new("negated");
++            // Clause 4: an entry inside.
++            let full = s.crashed_directory("full");
++            fs::write(s.root.join("full/entry"), b"").unwrap();
++            // Clause 2: the mode.
++            let loose = s.crashed_directory("loose");
++            fs::set_permissions(s.root.join("loose"), fs::Permissions::from_mode(0o750)).unwrap();
++            let plain = s.crashed_directory("plain");
++            let devfs = dev();
++            let cases: [(&str, &RetainedDirectory, &RetainedDirectory, &str, u32); 5] = [
++                ("non-empty", &s.parent, &full, "full", s.uid),
++                ("mode", &s.parent, &loose, "loose", s.uid),
++                ("owner", &s.parent, &plain, "plain", s.uid + 1),
++                // Clause 1: the fixed name, and the parent's filesystem.
++                ("name", &s.parent, &plain, "other", s.uid),
++                ("filesystem", &devfs, &plain, "plain", s.uid),
++            ];
++            for (case, parent, directory, name, uid) in cases {
++                let mut work = WorkLedger::new();
++                let result = work.scope(|w| {
++                    judge_private_directory_creation(
++                        parent,
++                        std::ffi::OsStr::new(name),
++                        directory,
++                        uid,
++                        w,
++                    )
++                    .map(|_| ())
++                });
++                assert!(omitted_refusal(result), "{case}");
++                assert_eq!(
++                    acl(directory.as_file()).acl_state(),
++                    CapturedAclState::NotReturned,
++                    "{case}"
++                );
++            }
++            assert!(s.root.join("full/entry").exists());
++            assert_eq!(
++                fs::metadata(s.root.join("loose")).unwrap().mode() & 0o7777,
++                0o750
++            );
++            // Clause 3: a present ACL is judged as it stands.
++            let shared = s.crashed_directory("shared");
++            assert!(
++                std::process::Command::new("/bin/chmod")
++                    .args(["+a", "group:everyone allow list"])
++                    .arg(s.root.join("shared"))
++                    .status()
++                    .unwrap()
++                    .success()
++            );
++            let mut work = WorkLedger::new();
++            let result = work.scope(|w| {
++                judge_private_directory_creation(
++                    &s.parent,
++                    std::ffi::OsStr::new("shared"),
++                    &shared,
++                    s.uid,
++                    w,
++                )
++                .map(|_| ())
++            });
++            assert!(matches!(
++                result,
++                Err(WorkFailure::Operation(PreparePrivateError::Access(
++                    PrivateAccessRefusal::ForeignAclAccess
++                )))
++            ));
++            assert_eq!(
++                acl(shared.as_file()).acl_state(),
++                CapturedAclState::Entries(1)
++            );
++        }
++
++        // RW-C6 and RW-C3 for a file: only a length-0, `0600`, one-link
++        // file at its name and on its parent's filesystem is completed.
++        #[test]
++        fn c_acl_completes_exactly_a_crashed_length_zero_file() {
++            let s = Scratch::new("file");
++            let file = s.crashed_file("ledger");
++            let before = file.metadata().unwrap();
++            let judge = |parent: &RetainedDirectory, name: &str, file: &fs::File, uid: u32| {
++                let mut work = WorkLedger::new();
++                work.scope(|w| {
++                    match judge_private_file_creation(
++                        parent,
++                        std::ffi::OsStr::new(name),
++                        file,
++                        uid,
++                        w,
++                    )? {
++                        CreationJudgment::Prefix(prefix) => {
++                            complete_private_creation(prefix, uid, w).map(|_| true)
++                        }
++                        CreationJudgment::Private(_) => Ok(false),
++                    }
++                })
++            };
++            // Negated clauses first: each keeps the refusal and changes nothing.
++            assert!(omitted_refusal(judge(&s.parent, "other", &file, s.uid)));
++            assert!(omitted_refusal(judge(&dev(), "ledger", &file, s.uid)));
++            assert!(omitted_refusal(judge(
++                &s.parent,
++                "ledger",
++                &file,
++                s.uid + 1
++            )));
++            let long = s.crashed_file("long");
++            std::io::Write::write_all(&mut &long, b"x").unwrap();
++            assert!(omitted_refusal(judge(&s.parent, "long", &long, s.uid)));
++            let loose = s.crashed_file("loose");
++            loose
++                .set_permissions(fs::Permissions::from_mode(0o640))
++                .unwrap();
++            assert!(omitted_refusal(judge(&s.parent, "loose", &loose, s.uid)));
++            let linked = s.crashed_file("linked");
++            fs::hard_link(s.root.join("linked"), s.root.join("linked-2")).unwrap();
++            assert!(omitted_refusal(judge(&s.parent, "linked", &linked, s.uid)));
++            for f in [&file, &long, &loose, &linked] {
++                assert_eq!(acl(f).acl_state(), CapturedAclState::NotReturned);
++            }
++            // The crash prefix itself.
++            assert!(matches!(judge(&s.parent, "ledger", &file, s.uid), Ok(true)));
++            assert!(one_zero_owner_allow(&file, s.uid));
++            let after = file.metadata().unwrap();
++            assert_eq!(
++                (after.dev(), after.ino(), after.mode(), after.len()),
++                (before.dev(), before.ino(), before.mode(), 0)
++            );
++            assert!(matches!(
++                judge(&s.parent, "ledger", &file, s.uid),
++                Ok(false)
++            ));
++            assert!(one_zero_owner_allow(&file, s.uid));
++        }
++
++        // RW-C12: an unreservable completion refuses on the budget row
++        // before its append; exactly its reservation suffices.
++        #[test]
++        fn an_unreservable_c_acl_refuses_before_its_append() {
++            let s = Scratch::new("budget");
++            let reservation = opensip_platform::descriptor_acl_capture_cost()
++                .checked_add(opensip_platform::append_owner_zero_allow_cost())
++                .and_then(|c| c.checked_add(opensip_platform::descriptor_acl_capture_cost()))
++                .unwrap();
++            for (name, limits, completes) in [
++                (
++                    "short",
++                    WorkCost {
++                        edges: reservation.edges - 1,
++                        ..reservation
++                    },
++                    false,
++                ),
++                ("exact", reservation, true),
++            ] {
++                let directory = s.crashed_directory(name);
++                let mut judge = WorkLedger::new();
++                let mut complete = WorkLedger::with_limits(limits).unwrap();
++                let result = judge.scope(|w| {
++                    let CreationJudgment::Prefix(prefix) = judge_private_directory_creation(
++                        &s.parent,
++                        std::ffi::OsStr::new(name),
++                        &directory,
++                        s.uid,
++                        w,
++                    )?
++                    else {
++                        panic!("expected P-ACL to hold");
++                    };
++                    Ok(complete.scope(|w| complete_private_creation(prefix, s.uid, w)))
++                });
++                let completed = result.unwrap();
++                assert_eq!(completed.is_ok(), completes, "{name}");
++                if !completes {
++                    assert!(matches!(completed, Err(WorkFailure::Budget(_))));
++                    assert_eq!(
++                        acl(directory.as_file()).acl_state(),
++                        CapturedAclState::NotReturned
++                    );
++                } else {
++                    assert!(one_zero_owner_allow(directory.as_file(), s.uid));
++                    assert_eq!(complete.used(), reservation);
++                }
++            }
++        }
++
++        fn prefix_of(
++            s: &Scratch,
++            name: &str,
++            file: &fs::File,
++            expected: &[u8],
++        ) -> Result<String, WorkFailure<PreparePrivateError>> {
++            WorkLedger::new().scope(|w| {
++                Ok(
++                    match judge_private_prefix(
++                        &s.parent,
++                        std::ffi::OsStr::new(name),
++                        file,
++                        expected,
++                        s.uid,
++                        w,
++                    )? {
++                        PrefixJudgment::Equal(_) => "equal".to_owned(),
++                        PrefixJudgment::Neither(_) => "neither".to_owned(),
++                        PrefixJudgment::Prefix(p) => {
++                            format!("prefix {} {}", p.existing, p.acl_omitted)
++                        }
++                    },
++                )
++            })
++        }
++        fn suffixed(
++            s: &Scratch,
++            name: &str,
++            file: &fs::File,
++            expected: &[u8],
++            limits: Option<WorkCost>,
++        ) -> Result<(), WorkFailure<SuffixError>> {
++            suffixed_with(s, name, file, expected, limits, read_back_capped).0
++        }
++        /// Judge P-PREFIX, then run C-SUFFIX with `read_back` at its final
++        /// confirmation, on a ledger limited to `limits`. Also returns the
++        /// completion ledger's `used()`.
++        fn suffixed_with(
++            s: &Scratch,
++            name: &str,
++            file: &fs::File,
++            expected: &[u8],
++            limits: Option<WorkCost>,
++            read_back: impl FnOnce(&fs::File, &mut [u8]) -> std::io::Result<Option<usize>>,
++        ) -> (Result<(), WorkFailure<SuffixError>>, WorkCost) {
++            let mut judge = WorkLedger::new();
++            let prefix = judge.scope(|w| {
++                match judge_private_prefix(
++                    &s.parent,
++                    std::ffi::OsStr::new(name),
++                    file,
++                    expected,
++                    s.uid,
++                    w,
++                )? {
++                    PrefixJudgment::Prefix(prefix) => Ok(prefix),
++                    _ => panic!("expected P-PREFIX to hold"),
++                }
++            });
++            let prefix = prefix.unwrap();
++            let mut work = match limits {
++                Some(limits) => WorkLedger::with_limits(limits).unwrap(),
++                None => WorkLedger::new(),
++            };
++            let result = work.scope(|w| {
++                complete_private_suffix_with(&s.parent, name, prefix, expected, s.uid, w, read_back)
++            });
++            (result, work.used())
++        }
++        fn private_file(s: &Scratch, name: &str, bytes: &[u8]) -> fs::File {
++            let file = s.crashed_file(name);
++            WorkLedger::new()
++                .scope(|w| {
++                    prepare_fresh_private_sample(PrivateObjectKind::RegularFile, s.uid, &file, w)
++                })
++                .unwrap();
++            std::io::Write::write_all(&mut &file, bytes).unwrap();
++            file
++        }
++        fn read(path: &Path) -> Vec<u8> {
++            fs::read(path).unwrap()
++        }
++
++        // RW-C7: P-PREFIX and C-SUFFIX. The prefix's inode and bytes are
++        // unchanged and only the suffix is written; a file that is neither
++        // equal nor a strict prefix refuses; an exactly equal file takes
++        // the ordinary admission.
++        #[test]
++        fn c_suffix_writes_only_the_missing_bytes_of_a_strict_prefix() {
++            let s = Scratch::new("suffix");
++            let expected = b"{\"markerSchema\":1,\"projectId\":\"p\"}\n";
++            // A private, torn file (RW-R6, RW-T2).
++            let torn = private_file(&s, "torn", &expected[..9]);
++            let inode = torn.metadata().unwrap().ino();
++            assert_eq!(
++                prefix_of(&s, "torn", &torn, expected).unwrap(),
++                "prefix 9 false"
++            );
++            suffixed(&s, "torn", &torn, expected, None).unwrap();
++            assert_eq!(read(&s.root.join("torn")), expected);
++            assert_eq!(fs::metadata(s.root.join("torn")).unwrap().ino(), inode);
++            assert!(one_zero_owner_allow(&torn, s.uid));
++            assert_eq!(prefix_of(&s, "torn", &torn, expected).unwrap(), "equal");
++            // A private, empty file: the empty prefix.
++            let empty = private_file(&s, "empty", b"");
++            assert_eq!(
++                prefix_of(&s, "empty", &empty, expected).unwrap(),
++                "prefix 0 false"
++            );
++            suffixed(&s, "empty", &empty, expected, None).unwrap();
++            assert_eq!(read(&s.root.join("empty")), expected);
++            // A zero-length file whose ACL was omitted (RW-R5, RW-T1): C-ACL
++            // runs first, then C-SUFFIX.
++            let bare = s.crashed_file("bare");
++            assert_eq!(
++                prefix_of(&s, "bare", &bare, expected).unwrap(),
++                "prefix 0 true"
++            );
++            suffixed(&s, "bare", &bare, expected, None).unwrap();
++            assert_eq!(read(&s.root.join("bare")), expected);
++            assert!(one_zero_owner_allow(&bare, s.uid));
++            assert_eq!(
++                fs::metadata(s.root.join("bare")).unwrap().mode() & 0o7777,
++                0o600
++            );
++            // Exactly equal and private: the ordinary admission.
++            let exact = private_file(&s, "exact", expected);
++            assert_eq!(prefix_of(&s, "exact", &exact, expected).unwrap(), "equal");
++            // Neither equal nor a strict prefix: foreign, kept as it is.
++            let longer = [&expected[..], b"!"].concat();
++            for (name, bytes) in [
++                ("other", &b"{\"markerSchema\":2"[..]),
++                ("longer", &longer[..]),
++            ] {
++                let file = private_file(&s, name, bytes);
++                assert_eq!(prefix_of(&s, name, &file, expected).unwrap(), "neither");
++                assert_eq!(read(&s.root.join(name)), bytes);
++            }
++            // A private prefix at another name or filesystem is not P-PREFIX.
++            let elsewhere = private_file(&s, "elsewhere", &expected[..3]);
++            assert_eq!(
++                prefix_of(&s, "moved", &elsewhere, expected).unwrap(),
++                "neither"
++            );
++            // With the ACL omitted, anything but P-PREFIX keeps the refusal.
++            for (name, bytes) in [("bare-other", &b"x"[..]), ("bare-exact", &expected[..])] {
++                let file = s.crashed_file(name);
++                std::io::Write::write_all(&mut &file, bytes).unwrap();
++                assert!(omitted_refusal(prefix_of(&s, name, &file, expected)));
++                assert_eq!(acl(&file).acl_state(), CapturedAclState::NotReturned);
++                assert_eq!(read(&s.root.join(name)), bytes);
++            }
++            let loose = s.crashed_file("bare-loose");
++            loose
++                .set_permissions(fs::Permissions::from_mode(0o644))
++                .unwrap();
++            assert!(omitted_refusal(prefix_of(
++                &s,
++                "bare-loose",
++                &loose,
++                expected
++            )));
++        }
++
++        // RW-C12 for C-SUFFIX: its whole cost, the final read-back after both
++        // barriers included, is reserved before the first effect, so an
++        // unreservable completion writes nothing, and the exact reservation
++        // covers every step, so nothing is charged outside it.
++        #[test]
++        fn an_unreservable_c_suffix_writes_nothing() {
++            let s = Scratch::new("suffix-budget");
++            let expected = b"0123456789abcdef";
++            let status = WorkCost {
++                objects: 0,
++                edges: 1,
++                bytes: std::mem::size_of::<fs::Metadata>(),
++            };
++            let readback = WorkCost {
++                objects: 1,
++                edges: SUFFIX_READBACK_CALLS,
++                bytes: expected.len() + 1,
++            };
++            assert_eq!(suffix_readback_cost(expected.len()), Some(readback));
++            for (name, omitted) in [("private", false), ("bare", true)] {
++                let file = if omitted {
++                    s.crashed_file(name)
++                } else {
++                    private_file(&s, name, b"0123")
++                };
++                let existing = if omitted { 0 } else { 4 };
++                let cost = suffix_cost(name, expected.len(), existing, omitted).unwrap();
++                // The reservation is the sum of every step, the final
++                // confirmation's reopen, status reads and read-back included.
++                let acl_cost = if omitted {
++                    opensip_platform::descriptor_acl_capture_cost()
++                        .checked_add(opensip_platform::append_owner_zero_allow_cost())
++                        .and_then(|c| {
++                            c.checked_add(opensip_platform::descriptor_acl_capture_cost())
++                        })
++                        .unwrap()
++                } else {
++                    WorkCost::default()
++                };
++                let sum = [
++                    opensip_platform::write_regular_suffix_cost(expected.len(), existing),
++                    opensip_platform::directory_barrier_cost(),
++                    RetainedDirectory::open_regular_cost(name),
++                    status,
++                    status,
++                    readback,
++                ]
++                .into_iter()
++                .fold(acl_cost, |total, step| total.checked_add(step).unwrap());
++                assert_eq!(cost, sum, "{name}");
++                // One edge or one byte short (the read-back buffer's last
++                // byte) refuses on the budget row before the first effect.
++                for short in [
++                    WorkCost {
++                        edges: cost.edges - 1,
++                        ..cost
++                    },
++                    WorkCost {
++                        bytes: cost.bytes - 1,
++                        ..cost
++                    },
++                ] {
++                    let ran = std::cell::Cell::new(false);
++                    let (result, _) =
++                        suffixed_with(&s, name, &file, expected, Some(short), |file, buffer| {
++                            ran.set(true);
++                            read_back_capped(file, buffer)
++                        });
++                    assert!(matches!(result, Err(WorkFailure::Budget(_))), "{name}");
++                    assert!(!ran.get(), "{name}");
++                    assert_eq!(file.metadata().unwrap().len(), existing as u64, "{name}");
++                    assert_eq!(
++                        acl(&file).acl_state() == CapturedAclState::NotReturned,
++                        omitted,
++                        "{name}"
++                    );
++                }
++                // Exactly the reservation: every step, the final read-back
++                // included, runs inside it.
++                let ran = std::cell::Cell::new(0);
++                let (result, used) =
++                    suffixed_with(&s, name, &file, expected, Some(cost), |file, buffer| {
++                        ran.set(ran.get() + 1);
++                        read_back_capped(file, buffer)
++                    });
++                result.unwrap();
++                assert_eq!((used, ran.get()), (cost, 1), "{name}");
++                assert_eq!(read(&s.root.join(name)), expected);
++            }
++        }
++
++        // J4A-RF-01 (J-RW r4 item 3.2): after the suffix write, its file
++        // barrier and the parent's barrier, C-SUFFIX reopens the name, checks
++        // it is the written object, and reads at most `expected.len() + 1`
++        // bytes back through it; only exactly the owner's bytes followed by
++        // the end confirm. A change made at that point, which the write's
++        // own early read-back had already passed, refuses, as does a failed
++        // or unended final read.
++        #[test]
++        fn c_suffix_reads_the_bytes_back_after_both_barriers() {
++            use std::os::unix::fs::FileExt;
++            let s = Scratch::new("suffix-final");
++            let expected = b"{\"leaf\":\"0123456789abcdef\"}\n";
++            let writer = |name: &str| {
++                fs::OpenOptions::new()
++                    .write(true)
++                    .open(s.root.join(name))
++                    .unwrap()
++            };
++            type Hook<'a> =
++                Box<dyn FnOnce(&fs::File, &mut [u8]) -> std::io::Result<Option<usize>> + 'a>;
++            let cases: Vec<(&str, Hook<'_>, &str)> = vec![
++                (
++                    "changed",
++                    Box::new(|file: &fs::File, buffer: &mut [u8]| {
++                        writer("changed").write_at(b"X", 3).unwrap();
++                        read_back_capped(file, buffer)
++                    }),
++                    "confirm",
++                ),
++                (
++                    "longer",
++                    Box::new(|file: &fs::File, buffer: &mut [u8]| {
++                        writer("longer")
++                            .write_at(b"!", expected.len() as u64)
++                            .unwrap();
++                        read_back_capped(file, buffer)
++                    }),
++                    "confirm",
++                ),
++                (
++                    "shorter",
++                    Box::new(|file: &fs::File, buffer: &mut [u8]| {
++                        writer("shorter")
++                            .set_len(expected.len() as u64 - 1)
++                            .unwrap();
++                        read_back_capped(file, buffer)
++                    }),
++                    "confirm",
++                ),
++                (
++                    "failed",
++                    Box::new(|_: &fs::File, _: &mut [u8]| {
++                        Err(std::io::Error::other("injected final read failure"))
++                    }),
++                    "io",
++                ),
++                (
++                    "unended",
++                    Box::new(|_: &fs::File, _: &mut [u8]| Ok(None)),
++                    "confirm",
++                ),
++            ];
++            for (name, hook, want) in cases {
++                let file = private_file(&s, name, &expected[..5]);
++                let (result, _) = suffixed_with(&s, name, &file, expected, None, hook);
++                let got = match result {
++                    Err(WorkFailure::Operation(SuffixError::Confirm)) => "confirm",
++                    Err(WorkFailure::Operation(SuffixError::ConfirmIo(_))) => "io",
++                    other => panic!("{name}: {other:?}"),
++                };
++                assert_eq!(got, want, "{name}");
++            }
++            // The intact case: at the confirmation point the name opens the
++            // written object, which already holds every byte; the read-back
++            // runs once, through that object, and confirms.
++            let file = private_file(&s, "intact", &expected[..5]);
++            let written = file.metadata().unwrap();
++            let ran = std::cell::Cell::new(0);
++            let (result, _) =
++                suffixed_with(&s, "intact", &file, expected, None, |reopened, buffer| {
++                    ran.set(ran.get() + 1);
++                    let named = reopened.metadata().unwrap();
++                    assert_eq!((named.dev(), named.ino()), (written.dev(), written.ino()));
++                    assert_eq!(buffer.len(), expected.len() + 1);
++                    assert_eq!(read(&s.root.join("intact")), expected);
++                    read_back_capped(reopened, buffer)
++                });
++            result.unwrap();
++            assert_eq!(ran.get(), 1);
++            // The native capped read: the end within the cap, a full buffer,
++            // and an empty file.
++            for (bytes, cap, want) in [
++                (&b"abc"[..], 4, Some(3)),
++                (&b"abcd"[..], 4, None),
++                (&b""[..], 1, Some(0)),
++            ] {
++                let path = s.root.join("capped");
++                fs::write(&path, bytes).unwrap();
++                let mut buffer = vec![0u8; cap];
++                let got = read_back_capped(&fs::File::open(&path).unwrap(), &mut buffer).unwrap();
++                assert_eq!(got, want, "{bytes:?}");
++            }
++        }
++
++        // RW-C10 (J-RW r4 item 10): every C-ACL and C-SUFFIX completion in
++        // product source runs inside its owner's `.repair` scope, and the
++        // suffix write is reached only through C-SUFFIX. The traced census
++        // of the lawful first commit is pinned by the crash-matrix lane's
++        // census tests, which this unit leaves unchanged.
++        #[test]
++        fn every_completion_runs_inside_a_repair_scope() {
++            let crates = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
++            let mut sources = Vec::new();
++            for krate in fs::read_dir(crates).unwrap() {
++                collect(&krate.unwrap().path().join("src"), &mut sources);
++            }
++            sources.sort();
++            let mut sites = Vec::new();
++            for path in &sources {
++                let text = product_text(&fs::read_to_string(path).unwrap());
++                let repair = repair_blocks(&text);
++                let file = path.strip_prefix(crates).unwrap().display().to_string();
++                for call in ["complete_private_creation(", "complete_private_suffix("] {
++                    for (at, _) in text.match_indices(call) {
++                        if text[..at].ends_with("fn ") {
++                            continue;
++                        }
++                        assert!(
++                            repair.iter().any(|(start, end)| *start < at && at < *end),
++                            "{file}: {call} outside a repair scope"
++                        );
++                        sites.push((file.clone(), call));
++                    }
++                }
++                if !file.starts_with("platform/") {
++                    for (at, _) in text.match_indices("write_regular_suffix_") {
++                        let cost = text[at..].starts_with("write_regular_suffix_cost(");
++                        let suffix = file == "security/src/private_access.rs"
++                            && text[at..].starts_with("write_regular_suffix_reserved(");
++                        assert!(cost || suffix, "{file}: the suffix write outside C-SUFFIX");
++                    }
++                }
++            }
++            // Unit J4a's uses (RW-P1, RW-P2, RW-P3); J4b and J4d extend this
++            // list by name.
++            assert_eq!(
++                sites,
++                [
++                    (
++                        "security/src/journal_store/carrier_floor.rs".to_owned(),
++                        "complete_private_creation("
++                    ),
++                    (
++                        "security/src/store_custody.rs".to_owned(),
++                        "complete_private_creation("
++                    ),
++                    (
++                        "security/src/store_custody.rs".to_owned(),
++                        "complete_private_creation("
++                    ),
++                ]
++            );
++        }
++        fn collect(dir: &Path, found: &mut Vec<PathBuf>) {
++            let Ok(entries) = fs::read_dir(dir) else {
++                return;
++            };
++            for entry in entries {
++                let path = entry.unwrap().path();
++                if path.is_dir() {
++                    collect(&path, found);
++                } else if path.extension().is_some_and(|e| e == "rs")
++                    && !path.to_string_lossy().ends_with("_tests.rs")
++                {
++                    found.push(path);
++                }
++            }
++        }
++        /// The production text: line comments dropped, and the trailing
++        /// `#[cfg(test)] mod tests` module cut off.
++        fn product_text(source: &str) -> String {
++            let mut text = String::new();
++            for line in source.lines() {
++                let code = match line.find("//") {
++                    Some(at) => &line[..at],
++                    None => line,
++                };
++                text.push_str(code);
++                text.push('\n');
++            }
++            match text.find("#[cfg(test)]\nmod tests {") {
++                Some(at) => text[..at].to_owned(),
++                None => text,
++            }
++        }
++        /// The byte spans of every `crash_scope!("repair", { … })` block.
++        fn repair_blocks(text: &str) -> Vec<(usize, usize)> {
++            let mut spans = Vec::new();
++            for (at, open) in text.match_indices("crash_scope!(\"repair\", {") {
++                let mut depth = 0usize;
++                for (offset, c) in text[at + open.len() - 1..].char_indices() {
++                    match c {
++                        '{' => depth += 1,
++                        '}' => {
++                            depth -= 1;
++                            if depth == 0 {
++                                spans.push((at, at + open.len() - 1 + offset));
++                                break;
++                            }
++                        }
++                        _ => {}
++                    }
++                }
++            }
++            spans
++        }
++    }
+ }
+diff --git a/crates/security/src/store_custody.rs b/crates/security/src/store_custody.rs
+index fdd932f..2f7f4d6 100644
+--- a/crates/security/src/store_custody.rs
++++ b/crates/security/src/store_custody.rs
+@@ -4,9 +4,19 @@
+ //! file. These are store data, not trust state; the caller holds the namespace
+ //! writer lease. Nothing here selects a store, admits a namespace or grants a
+ //! commit; the parent handle and its admission are the caller's.
++//!
++//! Law X3c r9 items 1 and 2 (J-RW r4's RW-S3; unit J4a): on the write path
++//! only, create-or-admit and `admit_or_complete_store_file` complete a store
++//! directory or a length-0 store file that a crash left between its exclusive
++//! create and its zero-rights owner allow (states RW-P1 and RW-P2), by C-ACL
++//! over P-ACL (J-RW item 3.1), inside the owner's `.repair` scope (item 10).
++//! Every other existing object is judged as it stands and never changed, and
++//! the read paths' admissions here complete nothing.
+ use crate::private_access::{
+-    PreparePrivateError, PrivateObjectKind, assess_private_descendant_capture,
+-    create_private_regular_file, observe_private_directory, prepare_fresh_private_sample,
++    CreationJudgment, PreparePrivateError, PrivateObjectKind, RepairCompletion,
++    assess_private_descendant_capture, complete_private_creation, create_private_regular_file,
++    judge_private_directory_creation, judge_private_file_creation, observe_private_directory,
++    prepare_fresh_private_sample,
+ };
+ use opensip_platform::{
+     ExclusiveDirectoryError, ExclusiveDirectoryOutcome, RetainedDirectory, WorkFailure, WorkScope,
+@@ -17,11 +27,25 @@ use std::{ffi::OsStr, fs::File, io, os::unix::fs::MetadataExt};
+ const ELOOP: i32 = 62;
+ const ENOTDIR: i32 = 20;
+ 
+-/// Whether a directory step made the directory or admitted an existing one.
++/// Whether a directory step made the directory, admitted an existing one, or
++/// completed one a crash left without its owner allow.
+ #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+ pub enum StoreDirectoryDisposition {
+     Created,
+     Admitted,
++    /// RW-P1 (law X3c r9 item 1; J-RW r4 item 3.1): an existing empty `0700`
++    /// directory with its ACL omitted, completed by C-ACL, then admitted by
++    /// the step's remaining checks and barriers.
++    Completed,
++}
++impl StoreDirectoryDisposition {
++    /// J-RW r4 item 7's record of the completion this step performed, if any.
++    pub fn completion(self) -> Option<RepairCompletion> {
++        match self {
++            Self::Completed => Some(RepairCompletion::StoreDirectory),
++            Self::Created | Self::Admitted => None,
++        }
++    }
+ }
+ 
+ /// Why store-data custody refused. Every variant is a refusal; none is absence.
+@@ -107,7 +131,14 @@ fn device(file: &File) -> Result<u64, WorkFailure<StoreCustodyRefusal>> {
+ /// create with the zero-rights owner allow, or, only on a raw `EEXIST`, a
+ /// fresh no-follow admission of the existing entry judged private. Either way
+ /// the exact name, the parent's filesystem, the directory's own barrier and
+-/// then the parent's barrier follow. An existing mode or ACL is never changed.
++/// then the parent's barrier follow. An existing mode is never changed, and
++/// an existing ACL only as law X3c r9 item 1 completes it: an existing entry
++/// whose ACL is omitted and that holds every P-ACL clause (J-RW r4 item 3.1:
++/// its fixed name, its parent's filesystem, the invoking user, mode exactly
++/// `0700`, empty by one bounded scan) gains exactly the one zero-rights owner
++/// allow of the fresh path, judged before any effect, and the remaining
++/// checks and barriers then run in the caller's scope with `repair` added
++/// (`Completed`). Any other omitted ACL keeps its refusal.
+ pub fn create_or_admit_store_directory(
+     parent: &RetainedDirectory,
+     name: &str,
+@@ -150,10 +181,45 @@ pub fn create_or_admit_store_directory(
+             else {
+                 return refuse(StoreCustodyRefusal::NameChanged);
+             };
+-            observe_private_directory(existing.as_file(), invoking_uid, work).map_err(lift)?;
+-            (existing, StoreDirectoryDisposition::Admitted)
++            match judge_private_directory_creation(
++                parent,
++                OsStr::new(name),
++                &existing,
++                invoking_uid,
++                work,
++            )
++            .map_err(lift)?
++            {
++                CreationJudgment::Private(_) => (existing, StoreDirectoryDisposition::Admitted),
++                // RW-P1: C-ACL, then the step's remaining checks and barriers,
++                // in the owner's scope with `repair` added (J-RW r4 item 10).
++                CreationJudgment::Prefix(prefix) => {
++                    return opensip_platform::crash_scope!("repair", {
++                        complete_private_creation(prefix, invoking_uid, work).map_err(lift)?;
++                        finish_store_directory(
++                            parent,
++                            name,
++                            existing,
++                            StoreDirectoryDisposition::Completed,
++                            work,
++                        )
++                    });
++                }
++            }
+         }
+     };
++    finish_store_directory(parent, name, directory, disposition, work)
++}
++
++/// Create-or-admit's remaining steps: the exact name, the parent's
++/// filesystem, the directory's own barrier, then the parent's barrier.
++fn finish_store_directory(
++    parent: &RetainedDirectory,
++    name: &str,
++    directory: RetainedDirectory,
++    disposition: StoreDirectoryDisposition,
++    work: &mut WorkScope<'_>,
++) -> Result<(RetainedDirectory, StoreDirectoryDisposition), WorkFailure<StoreCustodyRefusal>> {
+     if !opensip_platform::descriptor_name_matches_accounted(
+         directory.as_file(),
+         OsStr::new(name),
+@@ -257,7 +323,18 @@ pub fn open_store_file(
+     if name.is_empty() || name == "." || name == ".." || name.contains(['/', '\\', '\0']) {
+         return refuse(StoreCustodyRefusal::Name);
+     }
+-    let file = work.run(RetainedDirectory::open_regular_cost(name), |_| {
++    let file = open_regular_no_follow(parent, name, work)?;
++    judge_store_file(&file, invoking_uid, work)?;
++    Ok(file)
++}
++
++/// The charged no-follow open of an existing regular store file.
++fn open_regular_no_follow(
++    parent: &RetainedDirectory,
++    name: &str,
++    work: &mut WorkScope<'_>,
++) -> Result<File, WorkFailure<StoreCustodyRefusal>> {
++    work.run(RetainedDirectory::open_regular_cost(name), |_| {
+         parent.open_regular(name).map_err(|error| {
+             WorkFailure::Operation(if error.raw_os_error() == Some(ELOOP) {
+                 StoreCustodyRefusal::Symlink
+@@ -267,9 +344,75 @@ pub fn open_store_file(
+                 StoreCustodyRefusal::Io(error)
+             })
+         })
+-    })?;
+-    judge_store_file(&file, invoking_uid, work)?;
+-    Ok(file)
++    })
++}
++
++/// The write path's admission of an existing store file (law X3c r9 item 2).
++#[derive(Debug)]
++pub enum StoreFileAdmission {
++    /// Judged private as it stands, exactly as `open_store_file` judges it.
++    Admitted(File),
++    /// RW-P2 (law X3c r9 item 2; J-RW r4 item 3.1): a length-0 file left by a
++    /// crash between its exclusive create and its owner allow, completed by
++    /// C-ACL.
++    Completed(File),
++}
++impl StoreFileAdmission {
++    /// J-RW r4 item 7's record of the completion this admission performed.
++    pub fn completion(&self) -> Option<RepairCompletion> {
++        match self {
++            Self::Completed(_) => Some(RepairCompletion::LedgerFile),
++            Self::Admitted(_) => None,
++        }
++    }
++    /// The judged handle.
++    pub fn into_file(self) -> File {
++        match self {
++            Self::Admitted(file) | Self::Completed(file) => file,
++        }
++    }
++}
++
++/// `open_store_file` for the owner's write path (law X3c r9 item 2; unit
++/// J4a): the same no-follow open and private judgment, except that a file
++/// whose ACL is omitted and that holds every P-ACL clause (J-RW r4 item 3.1:
++/// its fixed name, its parent's filesystem, the invoking user, mode exactly
++/// `0600`, one link, length 0) and the owner's own clause `resumable` (for
++/// the ledger, no `-wal`) is completed by C-ACL, judged before any effect,
++/// inside the caller's scope with `repair` added. Every other state keeps
++/// `open_store_file`'s refusal and is never changed. The read paths keep
++/// `open_store_file`, which completes nothing.
++pub fn admit_or_complete_store_file(
++    parent: &RetainedDirectory,
++    name: &str,
++    invoking_uid: u32,
++    resumable: impl FnOnce(&mut WorkScope<'_>) -> Result<bool, WorkFailure<StoreCustodyRefusal>>,
++    work: &mut WorkScope<'_>,
++) -> Result<StoreFileAdmission, WorkFailure<StoreCustodyRefusal>> {
++    if name.is_empty() || name == "." || name == ".." || name.contains(['/', '\\', '\0']) {
++        return refuse(StoreCustodyRefusal::Name);
++    }
++    let file = open_regular_no_follow(parent, name, work)?;
++    let prefix =
++        match judge_private_file_creation(parent, OsStr::new(name), &file, invoking_uid, work)
++            .map_err(lift)?
++        {
++            CreationJudgment::Private(_) => return Ok(StoreFileAdmission::Admitted(file)),
++            CreationJudgment::Prefix(prefix) => prefix,
++        };
++    // An owner clause that does not hold, or cannot be observed, leaves the
++    // state unproven: it keeps `open_store_file`'s refusal.
++    match resumable(work) {
++        Ok(true) => {}
++        Ok(false) | Err(WorkFailure::Operation(_)) => {
++            return refuse(StoreCustodyRefusal::NotPrivate);
++        }
++        Err(WorkFailure::Budget(budget)) => return Err(WorkFailure::Budget(budget)),
++    }
++    opensip_platform::crash_scope!("repair", {
++        complete_private_creation(prefix, invoking_uid, work).map_err(lift)?;
++    });
++    Ok(StoreFileAdmission::Completed(file))
+ }
+ 
+ /// Judge an already open store file as a private regular file.
+@@ -288,3 +431,299 @@ fn judge_store_file(
+     assess_private_descendant_capture(PrivateObjectKind::RegularFile, invoking_uid, &sample)
+         .map_err(|_| WorkFailure::Operation(StoreCustodyRefusal::NotPrivate))
+ }
++
++// Law X3c r9 item 12a (J-RW r4's controls for RW-P1 and RW-P2; unit J4a),
++// at the store custody step, on scratch directories under the per-process
++// scratch parent. Each crash state is made by the owner's own exclusive
++// create, stopped before its owner allow.
++#[cfg(test)]
++mod tests {
++    use super::*;
++    use opensip_platform::{
++        CapturedAclPrincipal, CapturedAclState, ExclusiveRegularOutcome, WorkCost, WorkLedger,
++    };
++    use std::fs;
++    use std::os::unix::fs::PermissionsExt;
++    use std::path::PathBuf;
++
++    struct Scratch {
++        root: PathBuf,
++        parent: RetainedDirectory,
++        uid: u32,
++    }
++    impl Scratch {
++        fn new() -> Self {
++            let nonce: String = opensip_platform::request_entropy()
++                .unwrap()
++                .iter()
++                .map(|b| format!("{b:02x}"))
++                .collect();
++            let root = crate::test_scratch::temp_dir().join(format!("opensip-j4a-store-{nonce}"));
++            fs::create_dir(&root).unwrap();
++            fs::set_permissions(&root, fs::Permissions::from_mode(0o700)).unwrap();
++            let parent =
++                RetainedDirectory::from_retained_handle(File::open(&root).unwrap()).unwrap();
++            let uid = fs::metadata(&root).unwrap().uid();
++            Self { root, parent, uid }
++        }
++        /// The step's own `mkdirat 0700`, killed before the owner allow.
++        fn crashed_directory(&self, name: &str) {
++            let made = WorkLedger::new()
++                .scope(|w| self.parent.create_exclusive_directory_accounted(name, w))
++                .unwrap();
++            assert!(matches!(made, ExclusiveDirectoryOutcome::Created(_)));
++        }
++        /// The step's own exclusive `0600` create, killed before the allow.
++        fn crashed_file(&self, name: &str) -> File {
++            match WorkLedger::new()
++                .scope(|w| self.parent.create_exclusive_regular_accounted(name, w))
++                .unwrap()
++            {
++                ExclusiveRegularOutcome::Created(file) => file,
++                ExclusiveRegularOutcome::EntryExists => panic!("{name} exists"),
++            }
++        }
++        fn directory(
++            &self,
++            name: &str,
++            work: &mut WorkLedger,
++        ) -> Result<StoreDirectoryDisposition, WorkFailure<StoreCustodyRefusal>> {
++            work.scope(|w| create_or_admit_store_directory(&self.parent, name, self.uid, w))
++                .map(|(_, disposition)| disposition)
++        }
++        fn file(
++            &self,
++            name: &str,
++            resumable: bool,
++            work: &mut WorkLedger,
++        ) -> Result<StoreFileAdmission, WorkFailure<StoreCustodyRefusal>> {
++            work.scope(|w| {
++                admit_or_complete_store_file(&self.parent, name, self.uid, |_| Ok(resumable), w)
++            })
++        }
++        fn acl(&self, name: &str) -> (CapturedAclState, Option<(u32, CapturedAclPrincipal)>) {
++            let file = File::open(self.root.join(name)).unwrap();
++            let sample = WorkLedger::new()
++                .scope(|w| opensip_platform::capture_descriptor_acl_accounted(&file, w))
++                .unwrap();
++            let entry = sample.entry(0).map(|e| (e.rights, e.principal));
++            (sample.acl_state(), entry)
++        }
++        fn identity(&self, name: &str) -> (u64, u64, u32) {
++            let m = fs::symlink_metadata(self.root.join(name)).unwrap();
++            (m.dev(), m.ino(), m.mode())
++        }
++    }
++    impl Drop for Scratch {
++        fn drop(&mut self) {
++            let _ = fs::remove_dir_all(&self.root);
++        }
++    }
++    fn not_private<T: std::fmt::Debug>(result: Result<T, WorkFailure<StoreCustodyRefusal>>) {
++        assert!(
++            matches!(
++                result,
++                Err(WorkFailure::Operation(StoreCustodyRefusal::NotPrivate))
++            ),
++            "{result:?}"
++        );
++    }
++
++    // RW-C1, RW-C3 and RW-C6 for RW-P1 at the step: the crashed directory is
++    // completed once, gaining exactly the one zero-rights owner allow with
++    // its mode, inode and (empty) contents unchanged, then is admitted.
++    #[test]
++    fn a_crashed_store_directory_is_completed_then_admitted() {
++        let s = Scratch::new();
++        s.crashed_directory("projects");
++        let before = s.identity("projects");
++        assert_eq!(s.acl("projects").0, CapturedAclState::NotReturned);
++        let mut work = WorkLedger::new();
++        let disposition = s.directory("projects", &mut work).unwrap();
++        assert_eq!(disposition, StoreDirectoryDisposition::Completed);
++        assert_eq!(
++            disposition.completion(),
++            Some(RepairCompletion::StoreDirectory)
++        );
++        assert_eq!(
++            s.acl("projects"),
++            (
++                CapturedAclState::Entries(1),
++                Some((0, CapturedAclPrincipal::User(s.uid)))
++            )
++        );
++        assert_eq!(s.identity("projects"), before);
++        assert_eq!(fs::read_dir(s.root.join("projects")).unwrap().count(), 0);
++        let again = s.directory("projects", &mut WorkLedger::new()).unwrap();
++        assert_eq!(again, StoreDirectoryDisposition::Admitted);
++        assert_eq!(again.completion(), None);
++        assert_eq!(s.acl("projects").0, CapturedAclState::Entries(1));
++        // A fresh directory is still created with no completion.
++        let fresh = s.directory("objects", &mut WorkLedger::new()).unwrap();
++        assert_eq!(fresh, StoreDirectoryDisposition::Created);
++        assert_eq!(fresh.completion(), None);
++    }
++
++    // RW-C2 for RW-P1's neighbours (N-P1): each keeps the custody refusal it
++    // takes today and is left exactly as it was.
++    #[test]
++    fn every_other_existing_store_directory_keeps_its_refusal() {
++        let s = Scratch::new();
++        s.crashed_directory("full");
++        fs::write(s.root.join("full/leftover"), b"").unwrap();
++        s.crashed_directory("loose");
++        fs::set_permissions(s.root.join("loose"), fs::Permissions::from_mode(0o750)).unwrap();
++        s.crashed_directory("shared");
++        assert!(
++            std::process::Command::new("/bin/chmod")
++                .args(["+a", "group:everyone allow list"])
++                .arg(s.root.join("shared"))
++                .status()
++                .unwrap()
++                .success()
++        );
++        for name in ["full", "loose", "shared"] {
++            let before = (s.identity(name), s.acl(name));
++            not_private(s.directory(name, &mut WorkLedger::new()));
++            assert_eq!((s.identity(name), s.acl(name)), before, "{name}");
++        }
++        assert!(s.root.join("full/leftover").exists());
++        // Another invoking user.
++        s.crashed_directory("theirs");
++        let mut work = WorkLedger::new();
++        not_private(work.scope(|w| {
++            create_or_admit_store_directory(&s.parent, "theirs", s.uid + 1, w).map(|_| ())
++        }));
++        assert_eq!(s.acl("theirs").0, CapturedAclState::NotReturned);
++        // A link or a file at the name is a kind refusal, as today.
++        std::os::unix::fs::symlink(s.root.join("full"), s.root.join("link")).unwrap();
++        fs::write(s.root.join("plain"), b"").unwrap();
++        for name in ["link", "plain"] {
++            let result = s.directory(name, &mut WorkLedger::new());
++            assert!(
++                matches!(
++                    result,
++                    Err(WorkFailure::Operation(StoreCustodyRefusal::NotADirectory))
++                ),
++                "{name}: {result:?}"
++            );
++        }
++    }
++
++    /// The step's remaining work after C-ACL: the name sample and the two
++    /// barriers (the filesystem samples are uncharged, as before).
++    fn directory_tail() -> WorkCost {
++        let barrier = opensip_platform::directory_barrier_cost();
++        opensip_platform::descriptor_name_observation_cost()
++            .checked_add(barrier)
++            .and_then(|c| c.checked_add(barrier))
++            .unwrap()
++    }
++    fn one_edge_short(used: WorkCost, tail: WorkCost) -> WorkCost {
++        WorkCost {
++            objects: used.objects,
++            edges: used.edges - tail.edges - 1,
++            bytes: used.bytes,
++        }
++    }
++
++    // RW-C12 for RW-P1: a ledger that covers the judgment but not C-ACL's
++    // reservation refuses on the budget row before the append.
++    #[test]
++    fn an_unreservable_store_directory_completion_writes_nothing() {
++        let measured = Scratch::new();
++        measured.crashed_directory("projects");
++        let mut work = WorkLedger::new();
++        measured.directory("projects", &mut work).unwrap();
++        let s = Scratch::new();
++        s.crashed_directory("projects");
++        let mut short =
++            WorkLedger::with_limits(one_edge_short(work.used(), directory_tail())).unwrap();
++        let result = s.directory("projects", &mut short);
++        assert!(matches!(result, Err(WorkFailure::Budget(_))), "{result:?}");
++        assert_eq!(s.acl("projects").0, CapturedAclState::NotReturned);
++    }
++
++    // RW-C1, RW-C3 and RW-C6 for RW-P2 at the step, and its owner clause:
++    // a length-0 file is completed only when the owner's clause holds.
++    #[test]
++    fn a_crashed_length_zero_store_file_is_completed_only_when_resumable() {
++        let s = Scratch::new();
++        let file = s.crashed_file("ledger.sqlite");
++        let before = s.identity("ledger.sqlite");
++        // The owner's clause (no `-wal`) fails: today's refusal, unchanged.
++        not_private(s.file("ledger.sqlite", false, &mut WorkLedger::new()));
++        assert_eq!(s.acl("ledger.sqlite").0, CapturedAclState::NotReturned);
++        let admission = s
++            .file("ledger.sqlite", true, &mut WorkLedger::new())
++            .unwrap();
++        assert_eq!(admission.completion(), Some(RepairCompletion::LedgerFile));
++        assert!(matches!(admission, StoreFileAdmission::Completed(_)));
++        assert_eq!(
++            s.acl("ledger.sqlite"),
++            (
++                CapturedAclState::Entries(1),
++                Some((0, CapturedAclPrincipal::User(s.uid)))
++            )
++        );
++        assert_eq!(s.identity("ledger.sqlite"), before);
++        assert_eq!(file.metadata().unwrap().len(), 0);
++        let again = s
++            .file("ledger.sqlite", true, &mut WorkLedger::new())
++            .unwrap();
++        assert!(matches!(again, StoreFileAdmission::Admitted(_)));
++        assert_eq!(again.completion(), None);
++        assert_eq!(s.acl("ledger.sqlite").0, CapturedAclState::Entries(1));
++    }
++
++    // RW-C2 for RW-P2's neighbours: each keeps today's refusal, the owner's
++    // clause is never consulted, and nothing changes.
++    #[test]
++    fn every_other_existing_store_file_keeps_its_refusal() {
++        let s = Scratch::new();
++        let long = s.crashed_file("long");
++        std::io::Write::write_all(&mut &long, b"x").unwrap();
++        let loose = s.crashed_file("loose");
++        loose
++            .set_permissions(fs::Permissions::from_mode(0o644))
++            .unwrap();
++        s.crashed_file("linked");
++        fs::hard_link(s.root.join("linked"), s.root.join("linked-again")).unwrap();
++        for name in ["long", "loose", "linked"] {
++            let before = (s.identity(name), s.acl(name));
++            let mut work = WorkLedger::new();
++            not_private(work.scope(|w| {
++                admit_or_complete_store_file(
++                    &s.parent,
++                    name,
++                    s.uid,
++                    |_| panic!("{name}: the owner's clause was consulted"),
++                    w,
++                )
++            }));
++            assert_eq!((s.identity(name), s.acl(name)), before, "{name}");
++        }
++        assert_eq!(fs::read(s.root.join("long")).unwrap(), b"x");
++        // The read paths' `open_store_file` completes nothing.
++        s.crashed_file("read");
++        not_private(WorkLedger::new().scope(|w| open_store_file(&s.parent, "read", s.uid, w)));
++        assert_eq!(s.acl("read").0, CapturedAclState::NotReturned);
++    }
++
++    // RW-C12 for RW-P2: C-ACL is the admission's last charge, so one edge
++    // short of the measured total refuses before the append.
++    #[test]
++    fn an_unreservable_store_file_completion_writes_nothing() {
++        let measured = Scratch::new();
++        measured.crashed_file("ledger.sqlite");
++        let mut work = WorkLedger::new();
++        measured.file("ledger.sqlite", true, &mut work).unwrap();
++        let s = Scratch::new();
++        s.crashed_file("ledger.sqlite");
++        let mut short =
++            WorkLedger::with_limits(one_edge_short(work.used(), WorkCost::default())).unwrap();
++        let result = s.file("ledger.sqlite", true, &mut short);
++        assert!(matches!(result, Err(WorkFailure::Budget(_))), "{result:?}");
++        assert_eq!(s.acl("ledger.sqlite").0, CapturedAclState::NotReturned);
++    }
++}
+diff --git a/crates/storage/src/ledger_store/project_ledger.rs b/crates/storage/src/ledger_store/project_ledger.rs
+index fc3faca..1f58299 100644
+--- a/crates/storage/src/ledger_store/project_ledger.rs
++++ b/crates/storage/src/ledger_store/project_ledger.rs
+@@ -13,8 +13,8 @@ use super::{
+ };
+ use opensip_platform::{RetainedDirectory, WorkCost, WorkFailure, WorkScope};
+ use opensip_security::{
+-    StoreCustodyRefusal, StoreDirectoryDisposition, StoreFileCreation,
+-    create_or_admit_store_directory, create_store_file, open_store_file,
++    RepairCompletion, StoreCustodyRefusal, StoreDirectoryDisposition, StoreFileCreation,
++    admit_or_complete_store_file, create_or_admit_store_directory, create_store_file,
+ };
+ use rusqlite::OpenFlags;
+ use std::{
+@@ -187,11 +187,17 @@ impl NamespaceDirectory {
+ }
+ pub(crate) struct ObjectDirectory {
+     directory: RetainedDirectory,
++    disposition: (StoreDirectoryDisposition, StoreDirectoryDisposition),
+ }
+ impl ObjectDirectory {
+     pub(crate) fn retained(&self) -> &RetainedDirectory {
+         &self.directory
+     }
++    /// `objects/` and `objects/sha256/`: created, admitted, or completed
++    /// (law X3c r9 item 1, J-RW r4's RW-P1).
++    pub(crate) fn dispositions(&self) -> (StoreDirectoryDisposition, StoreDirectoryDisposition) {
++        self.disposition
++    }
+ }
+ 
+ /// Why X3c-1 refused. Each maps to one item 10 row through `row`.
+@@ -332,15 +338,18 @@ pub(crate) fn admit_object_directory(
+     work: &mut WorkScope<'_>,
+ ) -> Refused<ObjectDirectory> {
+     // X9: `x3c.object`'s directories (law X9 r1 item 5).
+-    let (objects, _) = opensip_platform::crash_scope!("x3c.object.objects", {
++    let (objects, first) = opensip_platform::crash_scope!("x3c.object.objects", {
+         create_or_admit_store_directory(&namespace.directory, OBJECTS, location.uid, work)
+     })
+     .map_err(custody)?;
+-    let (directory, _) = opensip_platform::crash_scope!("x3c.object.sha256", {
++    let (directory, second) = opensip_platform::crash_scope!("x3c.object.sha256", {
+         create_or_admit_store_directory(&objects, SHA256, location.uid, work)
+     })
+     .map_err(custody)?;
+-    Ok(ObjectDirectory { directory })
++    Ok(ObjectDirectory {
++        directory,
++        disposition: (first, second),
++    })
+ }
+ 
+ /// Item 2's outcome.
+@@ -359,11 +368,19 @@ pub(crate) struct AdmittedLedger {
+     file: File,
+     path: PathBuf,
+     disposition: LedgerDisposition,
++    completion: Option<RepairCompletion>,
+ }
+ impl AdmittedLedger {
+     pub(crate) fn disposition(&self) -> LedgerDisposition {
+         self.disposition
+     }
++    /// Law X3c r9 item 2 (J-RW r4's RW-P2): the file's own completion, when
++    /// a length-0 file without its owner allow was completed before the
++    /// resumable-empty path (`Resumed`) ran. J-RW item 7's record, returned
++    /// here until O1 lands.
++    pub(crate) fn completion(&self) -> Option<RepairCompletion> {
++        self.completion
++    }
+ }
+ 
+ /// The path still names the retained file (device and inode).
+@@ -529,14 +546,36 @@ fn create_or_open_ledger_scoped(
+     work: &mut WorkScope<'_>,
+ ) -> Refused<AdmittedLedger> {
+     let path = location.ledger_path();
++    let mut completion = None;
+     let (file, disposition) =
+         match create_store_file(&namespace.directory, LEDGER, location.uid, work)
+             .map_err(custody)?
+         {
+             StoreFileCreation::Created(file) => (file, LedgerDisposition::Created),
+             StoreFileCreation::Exists => {
+-                let file = open_store_file(&namespace.directory, LEDGER, location.uid, work)
+-                    .map_err(custody)?;
++                // X3c r9 item 2 (RW-P2): a length-0 file without its owner
++                // allow, and with no `-wal` beside it, is completed by C-ACL;
++                // the resumable-empty path below then runs.
++                let admission = admit_or_complete_store_file(
++                    &namespace.directory,
++                    LEDGER,
++                    location.uid,
++                    |w| {
++                        namespace
++                            .directory
++                            .observe_child_absent_accounted(OsStr::new(LEDGER_WAL), w)
++                            .map_err(|error| match error {
++                                WorkFailure::Budget(b) => WorkFailure::Budget(b),
++                                WorkFailure::Operation(e) => {
++                                    WorkFailure::Operation(StoreCustodyRefusal::Io(e))
++                                }
++                            })
++                    },
++                    work,
++                )
++                .map_err(custody)?;
++                completion = admission.completion();
++                let file = admission.into_file();
+                 let empty = file
+                     .metadata()
+                     .map_err(|e| WorkFailure::Operation(ProjectLedgerRefusal::Io(e)))?
+@@ -559,6 +598,7 @@ fn create_or_open_ledger_scoped(
+                         file,
+                         path,
+                         disposition: LedgerDisposition::Existing,
++                        completion,
+                     });
+                 }
+             }
+@@ -573,6 +613,7 @@ fn create_or_open_ledger_scoped(
+         file,
+         path,
+         disposition,
++        completion,
+     })
+ }
+ 
+diff --git a/crates/storage/src/ledger_store/project_ledger_tests.rs b/crates/storage/src/ledger_store/project_ledger_tests.rs
+index 2ff6abf..48f15fd 100644
+--- a/crates/storage/src/ledger_store/project_ledger_tests.rs
++++ b/crates/storage/src/ledger_store/project_ledger_tests.rs
+@@ -619,3 +619,291 @@ fn no_x3c1_path_deletes_renames_or_publishes() {
+     }
+     let _ = PAIR_DDL;
+ }
++
++// ---------------------------------------------------------------- J4a
++// Law X3c r9 item 12a (J-RW r4's RW-C1 to RW-C3 and RW-C6 for RW-P1 and
++// RW-P2; unit J4a): each crash state is made by the owner's own exclusive
++// create, stopped before its owner allow, under the same fixture and lease.
++
++/// The owner's `mkdirat 0700` of `name`, killed before its owner allow.
++fn crashed_directory(parent: &RetainedDirectory, name: &str) {
++    let made = WorkLedger::new()
++        .scope(|w| parent.create_exclusive_directory_accounted(name, w))
++        .unwrap();
++    assert!(matches!(
++        made,
++        opensip_platform::ExclusiveDirectoryOutcome::Created(_)
++    ));
++}
++/// The owner's exclusive `0600` create of `name`, killed before its allow.
++fn crashed_file(parent: &RetainedDirectory, name: &str) {
++    let made = WorkLedger::new()
++        .scope(|w| parent.create_exclusive_regular_accounted(name, w))
++        .unwrap();
++    assert!(matches!(
++        made,
++        opensip_platform::ExclusiveRegularOutcome::Created(_)
++    ));
++}
++fn retained(path: &Path) -> RetainedDirectory {
++    RetainedDirectory::from_retained_handle(fs::File::open(path).unwrap()).unwrap()
++}
++fn acl_state(path: &Path) -> opensip_platform::CapturedAclState {
++    let file = fs::File::open(path).unwrap();
++    WorkLedger::new()
++        .scope(|w| opensip_platform::capture_descriptor_acl_accounted(&file, w))
++        .unwrap()
++        .acl_state()
++}
++/// Exactly the fresh path's ACL: one zero-rights allow for the user.
++fn fresh_acl(path: &Path, uid: u32) -> bool {
++    let file = fs::File::open(path).unwrap();
++    let sample = WorkLedger::new()
++        .scope(|w| opensip_platform::capture_descriptor_acl_accounted(&file, w))
++        .unwrap();
++    sample.acl_state() == opensip_platform::CapturedAclState::Entries(1)
++        && sample.entry(0).is_some_and(|entry| {
++            entry.rights == 0
++                && entry.principal == opensip_platform::CapturedAclPrincipal::User(uid)
++        })
++}
++/// Every name under `stores/S`, with its kind, permission bits and whether
++/// its ACL is exactly the fresh path's.
++fn layout_tree(s: &Scratch) -> Vec<(PathBuf, bool, u32, bool)> {
++    fn walk(s: &Scratch, dir: &Path, out: &mut Vec<(PathBuf, bool, u32, bool)>) {
++        for entry in fs::read_dir(dir).unwrap() {
++            let path = entry.unwrap().path();
++            let m = fs::symlink_metadata(&path).unwrap();
++            out.push((
++                path.strip_prefix(&s.store_path).unwrap().to_owned(),
++                m.is_dir(),
++                m.permissions().mode() & 0o7777,
++                fresh_acl(&path, s.uid),
++            ));
++            if m.is_dir() {
++                walk(s, &path, out);
++            }
++        }
++    }
++    let mut out = Vec::new();
++    walk(s, &s.store_path, &mut out);
++    out.sort();
++    out
++}
++type Dispositions = (
++    (StoreDirectoryDisposition, StoreDirectoryDisposition),
++    (StoreDirectoryDisposition, StoreDirectoryDisposition),
++    LedgerDisposition,
++    Option<RepairCompletion>,
++);
++/// `admit_layout`'s three X3c-1 steps, as `prepare_commit` runs them.
++fn layout(s: &Scratch, work: &mut WorkLedger) -> Dispositions {
++    let location = s.location();
++    let namespace = operation(work, |w| admit_namespace_directory(&location, w)).unwrap();
++    let objects = operation(work, |w| admit_object_directory(&location, &namespace, w)).unwrap();
++    let ledger = operation(work, |w| create_or_open_ledger(&location, &namespace, w)).unwrap();
++    (
++        namespace.dispositions(),
++        objects.dispositions(),
++        ledger.disposition(),
++        ledger.completion(),
++    )
++}
++fn identity(path: &Path) -> (u64, u64, u32) {
++    let m = fs::symlink_metadata(path).unwrap();
++    (m.dev(), m.ino(), m.mode())
++}
++
++// RW-C1 and RW-C3 for RW-P1, at each of the four store directories: the
++// owner's step completes the crashed directory, and the layout it reaches
++// is exactly a fresh layout's, names, modes and ACLs alike. A second
++// request completes nothing.
++#[test]
++fn each_crashed_store_directory_completes_to_the_fresh_layout() {
++    use StoreDirectoryDisposition::{Admitted as A, Completed as C, Created as F};
++    let control = Scratch::new();
++    assert_eq!(
++        layout(&control, &mut WorkLedger::new()),
++        ((F, F), (F, F), LedgerDisposition::Created, None)
++    );
++    let fresh = layout_tree(&control);
++    for (target, expected) in [
++        ("projects", ((C, F), (F, F))),
++        ("namespace", ((A, C), (F, F))),
++        ("objects", ((A, A), (C, F))),
++        ("sha256", ((A, A), (A, C))),
++    ] {
++        let s = Scratch::new();
++        let location = s.location();
++        let mut work = WorkLedger::new();
++        let projects = s.store_path.join("projects");
++        let crashed = match target {
++            "projects" => {
++                crashed_directory(&s.store, "projects");
++                projects
++            }
++            "namespace" => {
++                operation(&mut work, |w| {
++                    create_or_admit_store_directory(&s.store, "projects", s.uid, w).map_err(custody)
++                })
++                .unwrap();
++                crashed_directory(&retained(&projects), N);
++                s.namespace_path()
++            }
++            _ => {
++                let namespace =
++                    operation(&mut work, |w| admit_namespace_directory(&location, w)).unwrap();
++                let objects = s.namespace_path().join("objects");
++                if target == "objects" {
++                    crashed_directory(&namespace.directory, "objects");
++                    objects
++                } else {
++                    operation(&mut work, |w| {
++                        create_or_admit_store_directory(&namespace.directory, "objects", s.uid, w)
++                            .map_err(custody)
++                    })
++                    .unwrap();
++                    crashed_directory(&retained(&objects), "sha256");
++                    objects.join("sha256")
++                }
++            }
++        };
++        assert_eq!(
++            acl_state(&crashed),
++            opensip_platform::CapturedAclState::NotReturned
++        );
++        let before = identity(&crashed);
++        let (namespace, objects, ledger, file) = layout(&s, &mut work);
++        assert_eq!((namespace, objects), expected, "{target}");
++        let completed = [namespace.0, namespace.1, objects.0, objects.1]
++            .into_iter()
++            .filter_map(StoreDirectoryDisposition::completion)
++            .collect::<Vec<_>>();
++        assert_eq!(completed, [RepairCompletion::StoreDirectory], "{target}");
++        assert_eq!(
++            (ledger, file),
++            (LedgerDisposition::Created, None),
++            "{target}"
++        );
++        assert_eq!(identity(&crashed), before, "{target}");
++        assert_eq!(layout_tree(&s), fresh, "{target}");
++        assert_eq!(
++            layout(&s, &mut WorkLedger::new()),
++            ((A, A), (A, A), LedgerDisposition::Existing, None),
++            "{target}"
++        );
++        assert_eq!(layout_tree(&s), fresh, "{target}");
++        assert!(!work.is_failed());
++    }
++}
++
++// RW-C1 and RW-C3 for RW-P2: the crashed length-0 ledger is completed by
++// C-ACL, then X3c item 2's resumable-empty path commits the selected schema
++// in the same file; a second request admits it and completes nothing.
++#[test]
++fn a_crashed_ledger_file_completes_to_the_selected_schema() {
++    let s = Scratch::new();
++    let location = s.location();
++    let mut work = WorkLedger::new();
++    let namespace = operation(&mut work, |w| admit_namespace_directory(&location, w)).unwrap();
++    crashed_file(&namespace.directory, "ledger.sqlite");
++    let path = s.namespace_path().join("ledger.sqlite");
++    assert_eq!(
++        acl_state(&path),
++        opensip_platform::CapturedAclState::NotReturned
++    );
++    let before = identity(&path);
++    let ledger = operation(&mut work, |w| {
++        create_or_open_ledger(&location, &namespace, w)
++    })
++    .unwrap();
++    assert_eq!(ledger.disposition(), LedgerDisposition::Resumed);
++    assert_eq!(ledger.completion(), Some(RepairCompletion::LedgerFile));
++    assert!(verify_selected_schema(&open_existing(&path, true).unwrap()).unwrap());
++    let after = identity(&path);
++    assert_eq!((after.0, after.1, after.2), (before.0, before.1, before.2));
++    assert!(fresh_acl(&path, s.uid));
++    drop(ledger);
++    let again = operation(&mut work, |w| {
++        create_or_open_ledger(&location, &namespace, w)
++    })
++    .unwrap();
++    assert_eq!(again.disposition(), LedgerDisposition::Existing);
++    assert_eq!(again.completion(), None);
++    assert!(!work.is_failed());
++}
++
++// RW-C2 for RW-P1's and RW-P2's neighbours (N-P1, and RW-P2 with a `-wal`
++// beside it): each ends on today's row and subject, with nothing changed.
++#[test]
++fn the_store_states_neighbours_keep_their_rows_and_are_unchanged() {
++    // N-P1: a non-empty `objects/` whose ACL is omitted (RW-N6's state).
++    let s = Scratch::new();
++    let location = s.location();
++    let mut work = WorkLedger::new();
++    let namespace = operation(&mut work, |w| admit_namespace_directory(&location, w)).unwrap();
++    crashed_directory(&namespace.directory, "objects");
++    let objects = s.namespace_path().join("objects");
++    fs::write(objects.join("stray"), b"kept").unwrap();
++    assert_eq!(
++        row(operation(&mut WorkLedger::new(), |w| {
++            admit_object_directory(&location, &namespace, w)
++        })),
++        ProjectLedgerRow::Custody("private")
++    );
++    assert_eq!(
++        acl_state(&objects),
++        opensip_platform::CapturedAclState::NotReturned
++    );
++    assert_eq!(fs::read(objects.join("stray")).unwrap(), b"kept");
++    assert!(!objects.join("sha256").exists());
++    // N-P1: a crashed `projects/` whose mode is no longer exactly `0700`.
++    let s = Scratch::new();
++    crashed_directory(&s.store, "projects");
++    let projects = s.store_path.join("projects");
++    fs::set_permissions(&projects, fs::Permissions::from_mode(0o750)).unwrap();
++    let location = s.location();
++    assert_eq!(
++        row(operation(&mut WorkLedger::new(), |w| {
++            admit_namespace_directory(&location, w)
++        })),
++        ProjectLedgerRow::Custody("private")
++    );
++    assert_eq!(
++        acl_state(&projects),
++        opensip_platform::CapturedAclState::NotReturned
++    );
++    assert!(!projects.join(N).exists());
++    // RW-P2's neighbours: a `-wal` beside it, a byte in it, a second link.
++    for case in ["wal", "byte", "link"] {
++        let s = Scratch::new();
++        let location = s.location();
++        let mut work = WorkLedger::new();
++        let namespace = operation(&mut work, |w| admit_namespace_directory(&location, w)).unwrap();
++        crashed_file(&namespace.directory, "ledger.sqlite");
++        let path = s.namespace_path().join("ledger.sqlite");
++        match case {
++            "wal" => fs::write(s.namespace_path().join("ledger.sqlite-wal"), b"").unwrap(),
++            "byte" => fs::write(&path, b"x").unwrap(),
++            _ => fs::hard_link(&path, s.namespace_path().join("second")).unwrap(),
++        }
++        let before = (identity(&path), fs::read(&path).unwrap());
++        assert_eq!(
++            row(operation(&mut work, |w| create_or_open_ledger(
++                &location, &namespace, w
++            ))),
++            ProjectLedgerRow::Custody("private"),
++            "{case}"
++        );
++        assert_eq!(
++            acl_state(&path),
++            opensip_platform::CapturedAclState::NotReturned,
++            "{case}"
++        );
++        assert_eq!(
++            (identity(&path), fs::read(&path).unwrap()),
++            before,
++            "{case}"
++        );
++    }
++}
