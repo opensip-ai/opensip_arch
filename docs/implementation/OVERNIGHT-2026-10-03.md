@@ -548,3 +548,4 @@ Times are local.
   - A signal ends `interrupted` (130) unless a required analysis or verify step's commit returned undetermined. That case (rule 1) is exit 4 with `DURABILITY.COMMIT_FAILED`, no runId, and the ExecutionId disclosed for recovery.
   - A commit latched after FinalGate (rule 2) is exit 4 through `DELIVERY.REQUIRED_FAILED`, with its runId.
   - The commit's returned outcome decides. No new code. It binds 91 → 92.
+- **SYN-NS accepted at r2 by GROK2 and bound** at product main `6190e66`, giving 92 contract successors. All of E1's successors (SYN-1, SYN-1F, SYN-NS) are now bound. M3-B r3 drew one finding: the directory-custody row's "as above" now resolves to the wrong code pair. The lead fixes it as r4.

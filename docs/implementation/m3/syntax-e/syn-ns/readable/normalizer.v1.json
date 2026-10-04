@@ -1,0 +1,1759 @@
+{
+  "artifact": "opensip.syntax.normalizer-specification",
+  "bodies": {
+    "law": [
+      "A body is the node a row's bodies rule selects: the node in the rule's field of a node of the rule's kind, or, for a child rule, that node's first named child of the child kind. Its span is that node's half-open byte range [start, end) in the snapshot file bytes. These are native-evidence section 6.3's function, method, closure or lambda, impl item and block bodies; a block body is one of the row's block-kind rules (a class static block; a Rust unsafe, async, const, try or gen block), never the block of an if, a loop or a function.",
+      "Bodies nest: a body inside another body is a body of its own, and both are owed.",
+      "bodyKind is function, method, lambda, impl or block. A Rust function_item is a method when the methodWhen clause holds. bodyKind is descriptive: it enters no identity.",
+      "An import-only body is excluded as a clone candidate at every level (native-evidence section 6.3): a body whose span node is one of the row's statementContainers, has at least one named child, and whose named children are all of the row's importOnly kinds or importOnly commentKinds. A kept body is hashed over its exact bytes; no statement inside a kept body is stripped.",
+      "Body identity and owed bodies follow native-evidence section 6 and identity-and-evidence section 3: languageId is the row's body language (typescript for both the typescript and tsx rows), dialect is {grammarVariant}, and the level's normalisationVersion is the digest of the level specification the closure's normalization map names. The parameters above decide which bodies become candidates."
+    ]
+  },
+  "controlFlow": {
+    "law": [
+      "Scope. One graph per body whose bodyKind is function, method, lambda or block; an impl body has none. Edges are intra-body: a nested body is its own graph and is opaque inside the enclosing one. Each edge is one inert control-flow candidate {from, to, edgeKind}; edges are a set, so a repeated edge is one candidate. Its one anchor is the from node's span, or the body span for entry.",
+      "Lists. For a statementLists record without a field, List(L) is the named children of L that are not of the row's nonStatements kinds. For a record with a field, List(L) is only the named children of L in that field, minus nonStatements; so a switch_case value is never a statement. When the body node is a statementLists node, its List is the graph's top-level sequence; otherwise (an expression body) the graph has no flow node.",
+      "Flow nodes and selection. The role tables are the only authority for descent. A flow node S takes the role whose kind is S's own kind, or, for a Rust expression_statement, its expression child's kind; that node is S's effective node, and every role field and child below is read on it. The role selects exactly these children of the effective node: branch, the nodes in its consequence and alternative fields, where an alternative of the role's alternativeChild kind is replaced by its first named child that is not of a nonStatements kind; pretest loop, posttest loop, infinite loop and labeled, the node in its body field; try, the node in its body field, the body field of the node in its handler field and the body field of the node in its finalizer field; block, the effective node itself when it is a statementLists node, else its child of the role's child kind; switch, each child of a case kind of the node in its body field, as that case's list; match, the node in the armValue field of each arm-kind child of the node in its body field, when that node is a block. A selected node that is a statementLists node is transparent: its List members are flow nodes, in order. Any other selected node is a single statement: it is itself a flow node. Nothing else is entered: an expression, a list no role selects, and a selected node that a bodies rule selects as a body of its own are not decomposed, and opacity takes precedence over a role. A flow node with no role is simple; so is a flow node whose effective node has no role.",
+      "Identities. P is the body owner's full subject chain: the owner's container chain (its strict ancestors), followed by the owner's own segment (the segment of its declares rule marked container, or of its containers rule). entry and exit are P followed by entry:@0 and exit:@0. A flow node's identity is P, then a stmt segment for each enclosing flow node of this graph, outermost first, then its own stmt segment. A stmt segment's name is the flow node's kind (the wrapper's kind for a Rust expression_statement), and its ordinal counts the earlier flow nodes of this graph, in preorder, with the same kind and the same enclosing-flow-node chain. P ends in the owner's own segment, which the subject law makes unique, so no two graphs share an identity; within a graph the stmt chain and ordinal are unique. No byte offset, line or column enters.",
+      "first(X): for a selected transparent list, its first flow node, or, when the list has none, the list's continuation (the next rule); for a selected single statement, that flow node. In the block rule, first(list) is the first List member of the block's selected list, never the block flow node itself.",
+      "next(S): the flow node after S in its list. When S is the last of its list, or a single statement, next is the list owner's continuation: exit for the body; next(B) for a block role B, for a branch, consequence or alternative of B, for a labeled body of B, for a match arm value of B, and for the finalizer of a try B; B itself, as a loop edge, for the body of a loop B (for a posttest loop B, its test); first of the next switch case with a flow node, else next(switch), for a switch case body; and first(finalizer) when the try has a finalizer with a flow node, else next(try), for a try body or a catch body. An edge to a target that is none goes to the target's continuation instead, by the same rules.",
+      "Posttest entry. For a flow node X, enter(X) is enter(first(body of X)) when X is a posttest loop whose body has a flow node, and X otherwise. Every edge target named in the edge rules is passed through enter, except the two edges that reach a posttest loop's test: the end of its body (by next) and a continue that targets it. So a do...while body always runs before its first test, whether it is reached from entry, a branch, a fallthrough, a break or a label.",
+      "Edges. (1) entry to first(body) as fallthrough, or entry to exit when the body has no flow node (an expression body has none). (2) A simple node S: S to next(S), fallthrough, or loop when next is reached as the end of a loop body. (3) block: S to first(list), fallthrough. (4) branch: S to first(consequence) as branch-true; S to first(alternative) as branch-false when there is an alternative, else S to next(S) as branch-false; an alternative holding another branch makes that branch the alternative's flow node. (5) pretest loop: S to first(body) as branch-true (S to S as loop when the body has no flow node); S to next(S) as branch-false, except a for_statement whose condition is absent or empty. (6) posttest loop: S is the loop's test, reached after its body: S to first(body) as branch-true (S to S as loop when the body has no flow node); S to next(S) as branch-false. The body's end reaches S as loop (rule 2), and a continue reaches S (rule 15). (7) infinite loop: S to first(body) as fallthrough; the body's end to S as loop; no other exit but break. (8) switch: for each case in order, S to the first flow node of that case or a later one as branch-true (branch-false for the default case); with no default case, S to next(S) as branch-false. (9) match: for each arm, S to first(the arm value) as branch-true when the value is a block with a flow node, else S to next(S) as branch-true. (10) try: S to first(try body) as fallthrough; with a handler, S to first(handler body) as exception. (11) labeled: S to first(body) as fallthrough. (12) return: S to exit as return. (13) throw: S to first(handler body) of the innermost enclosing try in this body whose try body contains S and which has a handler, as throw; else S to exit as throw. (14) break: S to next(T) as fallthrough, where T is the innermost enclosing loop or switch (a JavaScript-family row) or loop (Rust), or the node carrying the named label. (15) continue: S to T as loop, where T is the innermost enclosing loop or the loop carrying the named label (for a labeled_statement, the loop in its body); for a posttest loop T is its test. (16) Rust early return: a flow node S with a try_expression in its own part (S's subtree minus its nested flow nodes and minus nested bodies and nested try_block nodes) also gets S to exit as return.",
+      "Stated simplifications. A finally clause is entered only by normal completion and by the try's exception edge; a return, break, continue or throw that a finally would intercept goes to its stated target. Control flow inside an expression is not decomposed: an if, match, loop or block that is not a flow node (a let initializer, a call argument) belongs to its enclosing flow node, and a short-circuit operator, conditional expression, optional chain, await or yield adds no edge; nor is a Rust let-else alternative decomposed. Unreachable flow nodes keep their outgoing edges."
+    ]
+  },
+  "conventions": {
+    "nodeKinds": "A kind, kinds, child, descendant, firstChild, whenChild, parentKinds, grandparentKinds, within, leaves or other kind-list value names a visible, public, NAMED symbol of the row's grammar exactly as its SymbolTableV1 lists it (named true, visible true). An anonymous or whenAnonymous value names a visible ANONYMOUS symbol of the row's grammar by its exact name. A field or fields value names a field of SymbolTableV1's field list, and, where the same object names a kind, a field the grammar's node-types.json declares on that kind (on the child kind, where a rule names a child and a field). Grammar admission refuses any other name (native.syntax-normalizer-kind-unknown, step A12, as contract successor SYN-1 states it).",
+    "order": "Array order is part of these bytes. A rule list is applied in the order written; the first rule that matches a node decides.",
+    "tree": "Rules read the validated tree of a parsed file (native-evidence section 1.2): the preorder of visible nodes, with their symbols, fields, flags and byte ranges. A file that is not parsed yields no body, no token stream and no syntax fact."
+  },
+  "declares": {
+    "law": [
+      "For each node of a parsed code file that a declares rule matches (in the whole file, not only in bodies), the host derives one inert declares candidate: declared is the rule's subject, container is the subject of the nearest enclosing container (the file subject when there is none), declarationKind is the rule's, and its one source-text anchor is the matched node's span (a binding's identifier span for a bindings rule).",
+      "A name rule declares the text of the node in its field. A names rule declares each node in its field. A bindings rule declares each binding of the pattern in its field (or of each named child, for a rule without a field), by the row's patternLaw; bindings of one pattern with the same name are one declaration, anchored at the first.",
+      "A rule with when holds only if the named condition holds; otherwise the next rule is tried.",
+      "Data-document rows declare nothing (native-evidence section 1.2). No resolution is claimed: an identifier is not a reference and a call is not an edge."
+    ],
+    "when": {
+      "binding-kind": "the for_in_statement has a kind field holding one of the anonymous tokens var, let, const or using; without one, its left is an assignment target and declares nothing",
+      "has-field": "the node has a child in the rule's field",
+      "in-impl-or-trait": "the node's parent is a declaration_list whose parent is an impl_item or a trait_item"
+    }
+  },
+  "literals": {
+    "law": [
+      "For each node of a literal rule's kind in a parsed code file, the host derives one inert literal candidate: owner is the subject of the nearest enclosing container (the file subject when there is none), literalKind is the rule's, and its one anchor is the node's span. A node of a literal kind inside another literal node (a string inside a template substitution) is a literal of its own.",
+      "valueText is derived from the node's exact source text in three steps. (1) Each C0 or C1 control character (U+0000 to U+001F, U+007F to U+009F) becomes the six characters backslash, u and four uppercase hexadecimal digits of its code point. (2) The result is put in Unicode Normalization Form C. (3) If it is longer than 4,096 characters it becomes its first 3,996 characters, U+2026, \"sha256:\" and the 64 lowercase hexadecimal digits of the SHA-256 of step 2's UTF-8 bytes. valueText is a representation, not an injective encoding: the anchor locates the exact bytes."
+    ]
+  },
+  "near": {
+    "algorithmId": "near-v1",
+    "law": [
+      "Input: the L3-identifier-insensitive token stream of every owed, kept body (import-only bodies excluded) with at least minTokensNear tokens, under the level specification the closure's normalization map names for L3.",
+      "A shingle is a run of 5 consecutive tokens, encoded as the concatenation of the 5 tokens' framed encodings (u16be kind length, kind bytes, u32be value length, value bytes). A body's shingle set is the set of its shingles.",
+      "Two bodies with the same body language (languageId) are similar when 1,000,000 times the size of the intersection of their shingle sets is at least nearThresholdMillionths times the size of their union. Their similarityMillionths is the floor of 1,000,000 times intersection over union. Bodies of different body languages are never compared, so a group is never typescript+javascript in this mode.",
+      "A group is a connected component, with at least two members, of the graph whose vertices are the bodies and whose edges are the similar pairs. It is a CloneCandidateGroupV2 with mode near, evidenceLevel similar-candidate, authority candidate-only, language the body language, grouping connected-component and scoreMeaning minimum-member-best-neighbor. members are the bodies' candidate body ids (law M3-E1 item 14a: \"sb1:\" and the hex SHA-256 of the canonical {grammarId, path, startByte, endByte}) in ascending byte order. matchedEdges are the group's similar pairs as {left, right, similarityMillionths} with left before right in byte order, sorted by left and then right. similarityMillionths is the minimum, over members, of each member's best edge.",
+      "Group retention, the envelope and its pair follow native-evidence section 1.2 (contract successor SYN-1). A near group is a candidate, never a fact."
+    ]
+  },
+  "normalizerId": "opensip.syntax.normalizer",
+  "normalizerVersion": "1",
+  "parameters": {
+    "maxCandidatesPerGroup": 4096,
+    "maxGroupsPerUniverse": 1000000,
+    "minBodyBytes": 64,
+    "minOccurrences": 2,
+    "minTokensLevels": 20,
+    "minTokensNear": 50,
+    "nearThresholdMillionths": 800000,
+    "source": "native-evidence.md section 6.2 (selected parameters), copied; a difference is a defect of these bytes"
+  },
+  "rows": [
+    {
+      "bodies": [
+        {
+          "bodyKind": "function",
+          "field": "body",
+          "kind": "function_declaration"
+        },
+        {
+          "bodyKind": "function",
+          "field": "body",
+          "kind": "generator_function_declaration"
+        },
+        {
+          "bodyKind": "function",
+          "field": "body",
+          "kind": "function_expression"
+        },
+        {
+          "bodyKind": "function",
+          "field": "body",
+          "kind": "generator_function"
+        },
+        {
+          "bodyKind": "method",
+          "field": "body",
+          "kind": "method_definition"
+        },
+        {
+          "bodyKind": "lambda",
+          "field": "body",
+          "kind": "arrow_function"
+        },
+        {
+          "bodyKind": "block",
+          "field": "body",
+          "kind": "class_static_block"
+        }
+      ],
+      "containers": [
+        {
+          "kind": "arrow_function",
+          "tag": "lambda"
+        },
+        {
+          "kind": "function_expression",
+          "tag": "lambda"
+        },
+        {
+          "kind": "generator_function",
+          "tag": "lambda"
+        },
+        {
+          "kind": "class",
+          "tag": "type"
+        },
+        {
+          "kind": "class_static_block",
+          "tag": "block"
+        }
+      ],
+      "controlFlow": {
+        "nonStatements": [
+          "comment",
+          "html_comment"
+        ],
+        "roleLaw": "Every other flow node is simple. with_statement takes the labeled role (its body is selected). An else_clause alternative is replaced by its first named child that is not a comment (a statement_block, an if_statement or any other statement). A try's handler body is the body field of its catch_clause, and its finalizer body the body field of its finally_clause. A switch_case or switch_default list is only its body field nodes; its value is excluded.",
+        "roles": [
+          {
+            "alternative": "alternative",
+            "alternativeChild": "else_clause",
+            "consequence": "consequence",
+            "kind": "if_statement",
+            "role": "branch"
+          },
+          {
+            "body": "body",
+            "kind": "while_statement",
+            "role": "pretest-loop"
+          },
+          {
+            "body": "body",
+            "condition": "condition",
+            "kind": "for_statement",
+            "role": "pretest-loop"
+          },
+          {
+            "body": "body",
+            "kind": "for_in_statement",
+            "role": "pretest-loop"
+          },
+          {
+            "body": "body",
+            "kind": "do_statement",
+            "role": "posttest-loop"
+          },
+          {
+            "body": "body",
+            "cases": [
+              "switch_case",
+              "switch_default"
+            ],
+            "default": "switch_default",
+            "kind": "switch_statement",
+            "role": "switch"
+          },
+          {
+            "body": "body",
+            "finalizer": "finalizer",
+            "finalizerBody": "finally_clause",
+            "handler": "handler",
+            "handlerBody": "catch_clause",
+            "kind": "try_statement",
+            "role": "try"
+          },
+          {
+            "body": "body",
+            "kind": "labeled_statement",
+            "label": "label",
+            "role": "labeled"
+          },
+          {
+            "body": "body",
+            "kind": "with_statement",
+            "role": "labeled"
+          },
+          {
+            "kind": "return_statement",
+            "role": "return"
+          },
+          {
+            "kind": "throw_statement",
+            "role": "throw"
+          },
+          {
+            "kind": "break_statement",
+            "label": "label",
+            "role": "break"
+          },
+          {
+            "kind": "continue_statement",
+            "label": "label",
+            "role": "continue"
+          },
+          {
+            "kind": "statement_block",
+            "role": "block"
+          }
+        ],
+        "statementLists": [
+          {
+            "kind": "statement_block"
+          },
+          {
+            "field": "body",
+            "kind": "switch_case"
+          },
+          {
+            "field": "body",
+            "kind": "switch_default"
+          }
+        ]
+      },
+      "declares": [
+        {
+          "container": true,
+          "declarationKind": "function",
+          "kind": "function_declaration",
+          "name": {
+            "field": "name"
+          }
+        },
+        {
+          "container": true,
+          "declarationKind": "function",
+          "kind": "generator_function_declaration",
+          "name": {
+            "field": "name"
+          }
+        },
+        {
+          "container": true,
+          "declarationKind": "function",
+          "kind": "function_expression",
+          "name": {
+            "field": "name"
+          },
+          "when": "has-field"
+        },
+        {
+          "container": true,
+          "declarationKind": "function",
+          "kind": "generator_function",
+          "name": {
+            "field": "name"
+          },
+          "when": "has-field"
+        },
+        {
+          "container": true,
+          "declarationKind": "method",
+          "kind": "method_definition",
+          "name": {
+            "field": "name"
+          }
+        },
+        {
+          "container": true,
+          "declarationKind": "type",
+          "kind": "class_declaration",
+          "name": {
+            "field": "name"
+          }
+        },
+        {
+          "container": true,
+          "declarationKind": "type",
+          "kind": "class",
+          "name": {
+            "field": "name"
+          },
+          "when": "has-field"
+        },
+        {
+          "bindings": {
+            "field": "name"
+          },
+          "declarationKind": "variable",
+          "kind": "variable_declarator"
+        },
+        {
+          "bindings": {
+            "field": "parameter"
+          },
+          "declarationKind": "parameter",
+          "kind": "catch_clause"
+        },
+        {
+          "bindings": {
+            "field": "left"
+          },
+          "declarationKind": "variable",
+          "kind": "for_in_statement",
+          "when": "binding-kind"
+        },
+        {
+          "bindings": {
+            "field": "parameter"
+          },
+          "declarationKind": "parameter",
+          "kind": "arrow_function",
+          "when": "has-field"
+        },
+        {
+          "declarationKind": "field",
+          "kind": "field_definition",
+          "name": {
+            "field": "property"
+          }
+        },
+        {
+          "bindings": {},
+          "declarationKind": "parameter",
+          "kind": "formal_parameters"
+        }
+      ],
+      "grammarId": "javascript",
+      "importOnly": {
+        "commentKinds": [
+          "comment",
+          "html_comment"
+        ],
+        "kinds": [
+          "import_statement"
+        ]
+      },
+      "literals": [
+        {
+          "kind": "string",
+          "literalKind": "string"
+        },
+        {
+          "kind": "template_string",
+          "literalKind": "template"
+        },
+        {
+          "kind": "number",
+          "literalKind": "number"
+        },
+        {
+          "kind": "true",
+          "literalKind": "boolean"
+        },
+        {
+          "kind": "false",
+          "literalKind": "boolean"
+        },
+        {
+          "kind": "null",
+          "literalKind": "null"
+        },
+        {
+          "kind": "regex",
+          "literalKind": "regex"
+        }
+      ],
+      "parameterLaw": "A formal_parameters bindings rule takes each named child of formal_parameters as a pattern.",
+      "patternLaw": {
+        "descend": [
+          {
+            "into": "named-children",
+            "kind": "object_pattern"
+          },
+          {
+            "into": "named-children",
+            "kind": "array_pattern"
+          },
+          {
+            "field": "value",
+            "kind": "pair_pattern"
+          },
+          {
+            "field": "left",
+            "kind": "assignment_pattern"
+          },
+          {
+            "field": "left",
+            "kind": "object_assignment_pattern"
+          },
+          {
+            "into": "named-children",
+            "kind": "rest_pattern"
+          }
+        ],
+        "law": "The bindings of a pattern node P: if P is a leaf kind it binds its own text; if P matches a descend rule, the bindings of each node the rule reaches (its named children, or the node in its field), in order; any other node binds nothing (a member or subscript target, undefined, this, a default value, a computed key or a type annotation).",
+        "leaves": [
+          "identifier",
+          "shorthand_property_identifier_pattern"
+        ]
+      },
+      "statementContainers": [
+        "statement_block"
+      ]
+    },
+    {
+      "bodies": [
+        {
+          "bodyKind": "function",
+          "field": "body",
+          "kind": "function_item",
+          "methodWhen": {
+            "grandparentKinds": [
+              "impl_item",
+              "trait_item"
+            ],
+            "parentKinds": [
+              "declaration_list"
+            ]
+          }
+        },
+        {
+          "bodyKind": "lambda",
+          "field": "body",
+          "kind": "closure_expression"
+        },
+        {
+          "bodyKind": "impl",
+          "field": "body",
+          "kind": "impl_item"
+        },
+        {
+          "bodyKind": "block",
+          "child": "block",
+          "kind": "unsafe_block"
+        },
+        {
+          "bodyKind": "block",
+          "child": "block",
+          "kind": "async_block"
+        },
+        {
+          "bodyKind": "block",
+          "field": "body",
+          "kind": "const_block"
+        },
+        {
+          "bodyKind": "block",
+          "child": "block",
+          "kind": "try_block"
+        },
+        {
+          "bodyKind": "block",
+          "child": "block",
+          "kind": "gen_block"
+        }
+      ],
+      "containers": [
+        {
+          "kind": "closure_expression",
+          "tag": "lambda"
+        },
+        {
+          "kind": "impl_item",
+          "tag": "impl"
+        },
+        {
+          "kind": "unsafe_block",
+          "tag": "block"
+        },
+        {
+          "kind": "async_block",
+          "tag": "block"
+        },
+        {
+          "kind": "const_block",
+          "tag": "block"
+        },
+        {
+          "kind": "try_block",
+          "tag": "block"
+        },
+        {
+          "kind": "gen_block",
+          "tag": "block"
+        }
+      ],
+      "controlFlow": {
+        "earlyReturn": {
+          "kind": "try_expression",
+          "opaque": [
+            "closure_expression",
+            "async_block",
+            "const_block",
+            "try_block",
+            "gen_block",
+            "function_item"
+          ]
+        },
+        "nonStatements": [
+          "line_comment",
+          "block_comment",
+          "attribute_item",
+          "inner_attribute_item",
+          "label"
+        ],
+        "roleLaw": "A flow node takes the role of its own kind, or, for an expression_statement, the role of its expression child, its effective node; every role field and child is read on the effective node, while identity, order and anchor stay the wrapper's. An else_clause alternative is replaced by its first named child that is not a nonStatements kind (a block or an if_expression). Every other flow node is simple: a let_declaration (a let-else alternative is not decomposed), an item, a macro_invocation, an unsafe_block, async_block, const_block, try_block or gen_block (each a body of its own, opaque here), and any other expression. The last named child of a block that is an expression without a semicolon is a flow node like any other; its normal completion is the block's. A loop carries its label in a label child; break and continue name one in theirs.",
+        "roles": [
+          {
+            "alternative": "alternative",
+            "alternativeChild": "else_clause",
+            "consequence": "consequence",
+            "kind": "if_expression",
+            "role": "branch"
+          },
+          {
+            "body": "body",
+            "kind": "while_expression",
+            "role": "pretest-loop"
+          },
+          {
+            "body": "body",
+            "kind": "for_expression",
+            "role": "pretest-loop"
+          },
+          {
+            "body": "body",
+            "kind": "loop_expression",
+            "role": "infinite-loop"
+          },
+          {
+            "armValue": "value",
+            "arms": "match_arm",
+            "body": "body",
+            "kind": "match_expression",
+            "role": "match"
+          },
+          {
+            "kind": "block",
+            "role": "block"
+          },
+          {
+            "kind": "return_expression",
+            "role": "return"
+          },
+          {
+            "kind": "break_expression",
+            "labelChild": "label",
+            "role": "break"
+          },
+          {
+            "kind": "continue_expression",
+            "labelChild": "label",
+            "role": "continue"
+          }
+        ],
+        "statementLists": [
+          {
+            "kind": "block"
+          }
+        ]
+      },
+      "declares": [
+        {
+          "container": true,
+          "declarationKind": "method",
+          "kind": "function_item",
+          "name": {
+            "field": "name"
+          },
+          "when": "in-impl-or-trait"
+        },
+        {
+          "container": true,
+          "declarationKind": "function",
+          "kind": "function_item",
+          "name": {
+            "field": "name"
+          }
+        },
+        {
+          "declarationKind": "method",
+          "kind": "function_signature_item",
+          "name": {
+            "field": "name"
+          },
+          "when": "in-impl-or-trait"
+        },
+        {
+          "declarationKind": "function",
+          "kind": "function_signature_item",
+          "name": {
+            "field": "name"
+          }
+        },
+        {
+          "container": true,
+          "declarationKind": "type",
+          "kind": "struct_item",
+          "name": {
+            "field": "name"
+          }
+        },
+        {
+          "container": true,
+          "declarationKind": "type",
+          "kind": "enum_item",
+          "name": {
+            "field": "name"
+          }
+        },
+        {
+          "container": true,
+          "declarationKind": "type",
+          "kind": "union_item",
+          "name": {
+            "field": "name"
+          }
+        },
+        {
+          "container": true,
+          "declarationKind": "type",
+          "kind": "trait_item",
+          "name": {
+            "field": "name"
+          }
+        },
+        {
+          "declarationKind": "type",
+          "kind": "type_item",
+          "name": {
+            "field": "name"
+          }
+        },
+        {
+          "declarationKind": "type",
+          "kind": "associated_type",
+          "name": {
+            "field": "name"
+          }
+        },
+        {
+          "container": true,
+          "declarationKind": "module",
+          "kind": "mod_item",
+          "name": {
+            "field": "name"
+          }
+        },
+        {
+          "declarationKind": "variable",
+          "kind": "const_item",
+          "name": {
+            "field": "name"
+          }
+        },
+        {
+          "declarationKind": "variable",
+          "kind": "static_item",
+          "name": {
+            "field": "name"
+          }
+        },
+        {
+          "declarationKind": "field",
+          "kind": "field_declaration",
+          "name": {
+            "field": "name"
+          }
+        },
+        {
+          "container": true,
+          "declarationKind": "field",
+          "kind": "enum_variant",
+          "name": {
+            "field": "name"
+          }
+        },
+        {
+          "bindings": {
+            "field": "pattern"
+          },
+          "declarationKind": "variable",
+          "kind": "let_declaration"
+        },
+        {
+          "bindings": {
+            "field": "pattern"
+          },
+          "declarationKind": "parameter",
+          "kind": "parameter"
+        },
+        {
+          "bindings": {},
+          "declarationKind": "parameter",
+          "kind": "closure_parameters"
+        },
+        {
+          "bindings": {
+            "field": "pattern"
+          },
+          "declarationKind": "variable",
+          "kind": "match_arm"
+        },
+        {
+          "bindings": {
+            "field": "pattern"
+          },
+          "declarationKind": "variable",
+          "kind": "let_condition"
+        },
+        {
+          "bindings": {
+            "field": "pattern"
+          },
+          "declarationKind": "variable",
+          "kind": "for_expression"
+        }
+      ],
+      "grammarId": "rust",
+      "importOnly": {
+        "commentKinds": [
+          "line_comment",
+          "block_comment"
+        ],
+        "kinds": [
+          "use_declaration",
+          "extern_crate_declaration",
+          "inner_attribute_item"
+        ]
+      },
+      "literals": [
+        {
+          "kind": "string_literal",
+          "literalKind": "string"
+        },
+        {
+          "kind": "raw_string_literal",
+          "literalKind": "string"
+        },
+        {
+          "kind": "char_literal",
+          "literalKind": "string"
+        },
+        {
+          "kind": "integer_literal",
+          "literalKind": "number"
+        },
+        {
+          "kind": "float_literal",
+          "literalKind": "number"
+        },
+        {
+          "kind": "boolean_literal",
+          "literalKind": "boolean"
+        }
+      ],
+      "parameterLaw": "A closure_parameters bindings rule takes each named child as a pattern, and a parameter child by its own rule's pattern field; a self_parameter binds nothing.",
+      "patternLaw": {
+        "bindingForms": [
+          {
+            "child": "identifier",
+            "kind": "ref_pattern"
+          },
+          {
+            "child": "identifier",
+            "kind": "mut_pattern"
+          },
+          {
+            "firstChild": "identifier",
+            "kind": "captured_pattern"
+          },
+          {
+            "field": "pattern",
+            "kind": "let_declaration",
+            "whenChild": "mutable_specifier"
+          },
+          {
+            "field": "pattern",
+            "kind": "parameter",
+            "whenChild": "mutable_specifier"
+          },
+          {
+            "field": "name",
+            "kind": "field_pattern",
+            "whenChild": "mutable_specifier"
+          },
+          {
+            "field": "name",
+            "kind": "field_pattern",
+            "whenAnonymous": "ref"
+          }
+        ],
+        "descend": [
+          {
+            "into": "named-children",
+            "kind": "mut_pattern"
+          },
+          {
+            "into": "named-children",
+            "kind": "ref_pattern"
+          },
+          {
+            "into": "named-children",
+            "kind": "reference_pattern"
+          },
+          {
+            "into": "named-children",
+            "kind": "captured_pattern"
+          },
+          {
+            "into": "named-children",
+            "kind": "tuple_pattern"
+          },
+          {
+            "into": "named-children",
+            "kind": "slice_pattern"
+          },
+          {
+            "into": "named-children",
+            "kind": "or_pattern"
+          },
+          {
+            "field": "type",
+            "into": "named-children-except-field",
+            "kind": "tuple_struct_pattern"
+          },
+          {
+            "field": "type",
+            "into": "named-children-except-field",
+            "kind": "struct_pattern"
+          },
+          {
+            "field": "pattern",
+            "kind": "field_pattern"
+          },
+          {
+            "field": "condition",
+            "into": "named-children-except-field",
+            "kind": "match_pattern"
+          }
+        ],
+        "law": "The bindings of a pattern node P are found by descent: P, and every node a descend rule reaches from it (its named children, its named children except the node in its field for -except-field, or the node in its field), recursively. Only a binding form binds. An identifier binds its text when it is the identifier child of a ref_pattern (ref x) or of a mut_pattern (mut x, and ref mut x through the mut_pattern inside the ref_pattern), the first named child of a captured_pattern (x @ p), or the whole pattern field of a let_declaration or a parameter that has a mutable_specifier child (let mut x; fn f(mut x: T)). A shorthand_field_identifier binds its text when its field_pattern has a mutable_specifier child or the anonymous ref token (S { mut a }, S { ref a }). These are bindings by Rust's grammar: a binding mode or an @ cannot apply to a path. Every other identifier or shorthand_field_identifier inside a pattern is an ambiguous pattern identifier and binds nothing. Rust resolves it either as a binding or as a constant, static, unit struct, unit variant or other item path, by the items in scope, which a syntax-only reading cannot see. This includes a plain let x, a plain parameter, a plain closure parameter, a plain for pattern, any bare identifier in a match arm, an if let, a while let or a let-else, a raw identifier r#x, and a primitive-type name that the grammar spells as an identifier. Neither capitalization, a raw-identifier prefix, a naming lint nor an irrefutable position decides it. Any other node binds nothing (a path, a literal, a range, _, .., self).",
+        "statedLimit": "Conservative, by design. Ordinary unmodified locals and parameters (let x, fn f(x: T), |x|, for x in, and match, if-let and while-let bindings) are neither declared nor renamed, because the pinned grammar cannot prove they are bindings. This is a recall limit of declares extraction and of L3, never a permission to treat an ambiguous identifier as a binding. Widening it needs an independently reviewed rule that proves the binding classification; naming convention is not proof."
+      },
+      "statementContainers": [
+        "block",
+        "declaration_list"
+      ]
+    },
+    {
+      "bodies": [
+        {
+          "bodyKind": "function",
+          "field": "body",
+          "kind": "function_declaration"
+        },
+        {
+          "bodyKind": "function",
+          "field": "body",
+          "kind": "generator_function_declaration"
+        },
+        {
+          "bodyKind": "function",
+          "field": "body",
+          "kind": "function_expression"
+        },
+        {
+          "bodyKind": "function",
+          "field": "body",
+          "kind": "generator_function"
+        },
+        {
+          "bodyKind": "method",
+          "field": "body",
+          "kind": "method_definition"
+        },
+        {
+          "bodyKind": "lambda",
+          "field": "body",
+          "kind": "arrow_function"
+        },
+        {
+          "bodyKind": "block",
+          "field": "body",
+          "kind": "class_static_block"
+        }
+      ],
+      "containers": [
+        {
+          "kind": "arrow_function",
+          "tag": "lambda"
+        },
+        {
+          "kind": "function_expression",
+          "tag": "lambda"
+        },
+        {
+          "kind": "generator_function",
+          "tag": "lambda"
+        },
+        {
+          "kind": "class",
+          "tag": "type"
+        },
+        {
+          "kind": "class_static_block",
+          "tag": "block"
+        }
+      ],
+      "controlFlow": {
+        "nonStatements": [
+          "comment",
+          "html_comment"
+        ],
+        "roleLaw": "Every other flow node is simple. with_statement takes the labeled role (its body is selected). An else_clause alternative is replaced by its first named child that is not a comment (a statement_block, an if_statement or any other statement). A try's handler body is the body field of its catch_clause, and its finalizer body the body field of its finally_clause. A switch_case or switch_default list is only its body field nodes; its value is excluded.",
+        "roles": [
+          {
+            "alternative": "alternative",
+            "alternativeChild": "else_clause",
+            "consequence": "consequence",
+            "kind": "if_statement",
+            "role": "branch"
+          },
+          {
+            "body": "body",
+            "kind": "while_statement",
+            "role": "pretest-loop"
+          },
+          {
+            "body": "body",
+            "condition": "condition",
+            "kind": "for_statement",
+            "role": "pretest-loop"
+          },
+          {
+            "body": "body",
+            "kind": "for_in_statement",
+            "role": "pretest-loop"
+          },
+          {
+            "body": "body",
+            "kind": "do_statement",
+            "role": "posttest-loop"
+          },
+          {
+            "body": "body",
+            "cases": [
+              "switch_case",
+              "switch_default"
+            ],
+            "default": "switch_default",
+            "kind": "switch_statement",
+            "role": "switch"
+          },
+          {
+            "body": "body",
+            "finalizer": "finalizer",
+            "finalizerBody": "finally_clause",
+            "handler": "handler",
+            "handlerBody": "catch_clause",
+            "kind": "try_statement",
+            "role": "try"
+          },
+          {
+            "body": "body",
+            "kind": "labeled_statement",
+            "label": "label",
+            "role": "labeled"
+          },
+          {
+            "body": "body",
+            "kind": "with_statement",
+            "role": "labeled"
+          },
+          {
+            "kind": "return_statement",
+            "role": "return"
+          },
+          {
+            "kind": "throw_statement",
+            "role": "throw"
+          },
+          {
+            "kind": "break_statement",
+            "label": "label",
+            "role": "break"
+          },
+          {
+            "kind": "continue_statement",
+            "label": "label",
+            "role": "continue"
+          },
+          {
+            "kind": "statement_block",
+            "role": "block"
+          }
+        ],
+        "statementLists": [
+          {
+            "kind": "statement_block"
+          },
+          {
+            "field": "body",
+            "kind": "switch_case"
+          },
+          {
+            "field": "body",
+            "kind": "switch_default"
+          }
+        ]
+      },
+      "declares": [
+        {
+          "container": true,
+          "declarationKind": "function",
+          "kind": "function_declaration",
+          "name": {
+            "field": "name"
+          }
+        },
+        {
+          "container": true,
+          "declarationKind": "function",
+          "kind": "generator_function_declaration",
+          "name": {
+            "field": "name"
+          }
+        },
+        {
+          "container": true,
+          "declarationKind": "function",
+          "kind": "function_expression",
+          "name": {
+            "field": "name"
+          },
+          "when": "has-field"
+        },
+        {
+          "container": true,
+          "declarationKind": "function",
+          "kind": "generator_function",
+          "name": {
+            "field": "name"
+          },
+          "when": "has-field"
+        },
+        {
+          "container": true,
+          "declarationKind": "method",
+          "kind": "method_definition",
+          "name": {
+            "field": "name"
+          }
+        },
+        {
+          "container": true,
+          "declarationKind": "type",
+          "kind": "class_declaration",
+          "name": {
+            "field": "name"
+          }
+        },
+        {
+          "container": true,
+          "declarationKind": "type",
+          "kind": "class",
+          "name": {
+            "field": "name"
+          },
+          "when": "has-field"
+        },
+        {
+          "bindings": {
+            "field": "name"
+          },
+          "declarationKind": "variable",
+          "kind": "variable_declarator"
+        },
+        {
+          "bindings": {
+            "field": "parameter"
+          },
+          "declarationKind": "parameter",
+          "kind": "catch_clause"
+        },
+        {
+          "bindings": {
+            "field": "left"
+          },
+          "declarationKind": "variable",
+          "kind": "for_in_statement",
+          "when": "binding-kind"
+        },
+        {
+          "bindings": {
+            "field": "parameter"
+          },
+          "declarationKind": "parameter",
+          "kind": "arrow_function",
+          "when": "has-field"
+        },
+        {
+          "container": true,
+          "declarationKind": "type",
+          "kind": "abstract_class_declaration",
+          "name": {
+            "field": "name"
+          }
+        },
+        {
+          "container": true,
+          "declarationKind": "type",
+          "kind": "interface_declaration",
+          "name": {
+            "field": "name"
+          }
+        },
+        {
+          "declarationKind": "type",
+          "kind": "type_alias_declaration",
+          "name": {
+            "field": "name"
+          }
+        },
+        {
+          "container": true,
+          "declarationKind": "type",
+          "kind": "enum_declaration",
+          "name": {
+            "field": "name"
+          }
+        },
+        {
+          "declarationKind": "field",
+          "kind": "enum_body",
+          "names": {
+            "field": "name"
+          }
+        },
+        {
+          "declarationKind": "field",
+          "kind": "enum_assignment",
+          "name": {
+            "field": "name"
+          }
+        },
+        {
+          "container": true,
+          "declarationKind": "namespace",
+          "kind": "internal_module",
+          "name": {
+            "field": "name"
+          }
+        },
+        {
+          "container": true,
+          "declarationKind": "namespace",
+          "kind": "module",
+          "name": {
+            "field": "name"
+          }
+        },
+        {
+          "declarationKind": "function",
+          "kind": "function_signature",
+          "name": {
+            "field": "name"
+          }
+        },
+        {
+          "declarationKind": "method",
+          "kind": "method_signature",
+          "name": {
+            "field": "name"
+          }
+        },
+        {
+          "declarationKind": "method",
+          "kind": "abstract_method_signature",
+          "name": {
+            "field": "name"
+          }
+        },
+        {
+          "declarationKind": "field",
+          "kind": "property_signature",
+          "name": {
+            "field": "name"
+          }
+        },
+        {
+          "declarationKind": "field",
+          "kind": "public_field_definition",
+          "name": {
+            "field": "name"
+          }
+        },
+        {
+          "bindings": {
+            "field": "pattern"
+          },
+          "declarationKind": "parameter",
+          "kind": "required_parameter"
+        },
+        {
+          "bindings": {
+            "field": "pattern"
+          },
+          "declarationKind": "parameter",
+          "kind": "optional_parameter"
+        }
+      ],
+      "grammarId": "tsx",
+      "importOnly": {
+        "commentKinds": [
+          "comment",
+          "html_comment"
+        ],
+        "kinds": [
+          "import_statement",
+          "import_alias",
+          "ambient_declaration"
+        ]
+      },
+      "literals": [
+        {
+          "kind": "string",
+          "literalKind": "string"
+        },
+        {
+          "kind": "template_string",
+          "literalKind": "template"
+        },
+        {
+          "kind": "number",
+          "literalKind": "number"
+        },
+        {
+          "kind": "true",
+          "literalKind": "boolean"
+        },
+        {
+          "kind": "false",
+          "literalKind": "boolean"
+        },
+        {
+          "kind": "null",
+          "literalKind": "null"
+        },
+        {
+          "kind": "regex",
+          "literalKind": "regex"
+        }
+      ],
+      "parameterLaw": "A formal_parameters child is a required_parameter or optional_parameter, whose own rule takes its pattern field.",
+      "patternLaw": {
+        "descend": [
+          {
+            "into": "named-children",
+            "kind": "object_pattern"
+          },
+          {
+            "into": "named-children",
+            "kind": "array_pattern"
+          },
+          {
+            "field": "value",
+            "kind": "pair_pattern"
+          },
+          {
+            "field": "left",
+            "kind": "assignment_pattern"
+          },
+          {
+            "field": "left",
+            "kind": "object_assignment_pattern"
+          },
+          {
+            "into": "named-children",
+            "kind": "rest_pattern"
+          }
+        ],
+        "law": "The bindings of a pattern node P: if P is a leaf kind it binds its own text; if P matches a descend rule, the bindings of each node the rule reaches (its named children, or the node in its field), in order; any other node binds nothing (a member or subscript target, undefined, this, a default value, a computed key or a type annotation).",
+        "leaves": [
+          "identifier",
+          "shorthand_property_identifier_pattern"
+        ]
+      },
+      "statementContainers": [
+        "statement_block"
+      ]
+    },
+    {
+      "bodies": [
+        {
+          "bodyKind": "function",
+          "field": "body",
+          "kind": "function_declaration"
+        },
+        {
+          "bodyKind": "function",
+          "field": "body",
+          "kind": "generator_function_declaration"
+        },
+        {
+          "bodyKind": "function",
+          "field": "body",
+          "kind": "function_expression"
+        },
+        {
+          "bodyKind": "function",
+          "field": "body",
+          "kind": "generator_function"
+        },
+        {
+          "bodyKind": "method",
+          "field": "body",
+          "kind": "method_definition"
+        },
+        {
+          "bodyKind": "lambda",
+          "field": "body",
+          "kind": "arrow_function"
+        },
+        {
+          "bodyKind": "block",
+          "field": "body",
+          "kind": "class_static_block"
+        }
+      ],
+      "containers": [
+        {
+          "kind": "arrow_function",
+          "tag": "lambda"
+        },
+        {
+          "kind": "function_expression",
+          "tag": "lambda"
+        },
+        {
+          "kind": "generator_function",
+          "tag": "lambda"
+        },
+        {
+          "kind": "class",
+          "tag": "type"
+        },
+        {
+          "kind": "class_static_block",
+          "tag": "block"
+        }
+      ],
+      "controlFlow": {
+        "nonStatements": [
+          "comment",
+          "html_comment"
+        ],
+        "roleLaw": "Every other flow node is simple. with_statement takes the labeled role (its body is selected). An else_clause alternative is replaced by its first named child that is not a comment (a statement_block, an if_statement or any other statement). A try's handler body is the body field of its catch_clause, and its finalizer body the body field of its finally_clause. A switch_case or switch_default list is only its body field nodes; its value is excluded.",
+        "roles": [
+          {
+            "alternative": "alternative",
+            "alternativeChild": "else_clause",
+            "consequence": "consequence",
+            "kind": "if_statement",
+            "role": "branch"
+          },
+          {
+            "body": "body",
+            "kind": "while_statement",
+            "role": "pretest-loop"
+          },
+          {
+            "body": "body",
+            "condition": "condition",
+            "kind": "for_statement",
+            "role": "pretest-loop"
+          },
+          {
+            "body": "body",
+            "kind": "for_in_statement",
+            "role": "pretest-loop"
+          },
+          {
+            "body": "body",
+            "kind": "do_statement",
+            "role": "posttest-loop"
+          },
+          {
+            "body": "body",
+            "cases": [
+              "switch_case",
+              "switch_default"
+            ],
+            "default": "switch_default",
+            "kind": "switch_statement",
+            "role": "switch"
+          },
+          {
+            "body": "body",
+            "finalizer": "finalizer",
+            "finalizerBody": "finally_clause",
+            "handler": "handler",
+            "handlerBody": "catch_clause",
+            "kind": "try_statement",
+            "role": "try"
+          },
+          {
+            "body": "body",
+            "kind": "labeled_statement",
+            "label": "label",
+            "role": "labeled"
+          },
+          {
+            "body": "body",
+            "kind": "with_statement",
+            "role": "labeled"
+          },
+          {
+            "kind": "return_statement",
+            "role": "return"
+          },
+          {
+            "kind": "throw_statement",
+            "role": "throw"
+          },
+          {
+            "kind": "break_statement",
+            "label": "label",
+            "role": "break"
+          },
+          {
+            "kind": "continue_statement",
+            "label": "label",
+            "role": "continue"
+          },
+          {
+            "kind": "statement_block",
+            "role": "block"
+          }
+        ],
+        "statementLists": [
+          {
+            "kind": "statement_block"
+          },
+          {
+            "field": "body",
+            "kind": "switch_case"
+          },
+          {
+            "field": "body",
+            "kind": "switch_default"
+          }
+        ]
+      },
+      "declares": [
+        {
+          "container": true,
+          "declarationKind": "function",
+          "kind": "function_declaration",
+          "name": {
+            "field": "name"
+          }
+        },
+        {
+          "container": true,
+          "declarationKind": "function",
+          "kind": "generator_function_declaration",
+          "name": {
+            "field": "name"
+          }
+        },
+        {
+          "container": true,
+          "declarationKind": "function",
+          "kind": "function_expression",
+          "name": {
+            "field": "name"
+          },
+          "when": "has-field"
+        },
+        {
+          "container": true,
+          "declarationKind": "function",
+          "kind": "generator_function",
+          "name": {
+            "field": "name"
+          },
+          "when": "has-field"
+        },
+        {
+          "container": true,
+          "declarationKind": "method",
+          "kind": "method_definition",
+          "name": {
+            "field": "name"
+          }
+        },
+        {
+          "container": true,
+          "declarationKind": "type",
+          "kind": "class_declaration",
+          "name": {
+            "field": "name"
+          }
+        },
+        {
+          "container": true,
+          "declarationKind": "type",
+          "kind": "class",
+          "name": {
+            "field": "name"
+          },
+          "when": "has-field"
+        },
+        {
+          "bindings": {
+            "field": "name"
+          },
+          "declarationKind": "variable",
+          "kind": "variable_declarator"
+        },
+        {
+          "bindings": {
+            "field": "parameter"
+          },
+          "declarationKind": "parameter",
+          "kind": "catch_clause"
+        },
+        {
+          "bindings": {
+            "field": "left"
+          },
+          "declarationKind": "variable",
+          "kind": "for_in_statement",
+          "when": "binding-kind"
+        },
+        {
+          "bindings": {
+            "field": "parameter"
+          },
+          "declarationKind": "parameter",
+          "kind": "arrow_function",
+          "when": "has-field"
+        },
+        {
+          "container": true,
+          "declarationKind": "type",
+          "kind": "abstract_class_declaration",
+          "name": {
+            "field": "name"
+          }
+        },
+        {
+          "container": true,
+          "declarationKind": "type",
+          "kind": "interface_declaration",
+          "name": {
+            "field": "name"
+          }
+        },
+        {
+          "declarationKind": "type",
+          "kind": "type_alias_declaration",
+          "name": {
+            "field": "name"
+          }
+        },
+        {
+          "container": true,
+          "declarationKind": "type",
+          "kind": "enum_declaration",
+          "name": {
+            "field": "name"
+          }
+        },
+        {
+          "declarationKind": "field",
+          "kind": "enum_body",
+          "names": {
+            "field": "name"
+          }
+        },
+        {
+          "declarationKind": "field",
+          "kind": "enum_assignment",
+          "name": {
+            "field": "name"
+          }
+        },
+        {
+          "container": true,
+          "declarationKind": "namespace",
+          "kind": "internal_module",
+          "name": {
+            "field": "name"
+          }
+        },
+        {
+          "container": true,
+          "declarationKind": "namespace",
+          "kind": "module",
+          "name": {
+            "field": "name"
+          }
+        },
+        {
+          "declarationKind": "function",
+          "kind": "function_signature",
+          "name": {
+            "field": "name"
+          }
+        },
+        {
+          "declarationKind": "method",
+          "kind": "method_signature",
+          "name": {
+            "field": "name"
+          }
+        },
+        {
+          "declarationKind": "method",
+          "kind": "abstract_method_signature",
+          "name": {
+            "field": "name"
+          }
+        },
+        {
+          "declarationKind": "field",
+          "kind": "property_signature",
+          "name": {
+            "field": "name"
+          }
+        },
+        {
+          "declarationKind": "field",
+          "kind": "public_field_definition",
+          "name": {
+            "field": "name"
+          }
+        },
+        {
+          "bindings": {
+            "field": "pattern"
+          },
+          "declarationKind": "parameter",
+          "kind": "required_parameter"
+        },
+        {
+          "bindings": {
+            "field": "pattern"
+          },
+          "declarationKind": "parameter",
+          "kind": "optional_parameter"
+        }
+      ],
+      "grammarId": "typescript",
+      "importOnly": {
+        "commentKinds": [
+          "comment",
+          "html_comment"
+        ],
+        "kinds": [
+          "import_statement",
+          "import_alias",
+          "ambient_declaration"
+        ]
+      },
+      "literals": [
+        {
+          "kind": "string",
+          "literalKind": "string"
+        },
+        {
+          "kind": "template_string",
+          "literalKind": "template"
+        },
+        {
+          "kind": "number",
+          "literalKind": "number"
+        },
+        {
+          "kind": "true",
+          "literalKind": "boolean"
+        },
+        {
+          "kind": "false",
+          "literalKind": "boolean"
+        },
+        {
+          "kind": "null",
+          "literalKind": "null"
+        },
+        {
+          "kind": "regex",
+          "literalKind": "regex"
+        }
+      ],
+      "parameterLaw": "A formal_parameters child is a required_parameter or optional_parameter, whose own rule takes its pattern field.",
+      "patternLaw": {
+        "descend": [
+          {
+            "into": "named-children",
+            "kind": "object_pattern"
+          },
+          {
+            "into": "named-children",
+            "kind": "array_pattern"
+          },
+          {
+            "field": "value",
+            "kind": "pair_pattern"
+          },
+          {
+            "field": "left",
+            "kind": "assignment_pattern"
+          },
+          {
+            "field": "left",
+            "kind": "object_assignment_pattern"
+          },
+          {
+            "into": "named-children",
+            "kind": "rest_pattern"
+          }
+        ],
+        "law": "The bindings of a pattern node P: if P is a leaf kind it binds its own text; if P matches a descend rule, the bindings of each node the rule reaches (its named children, or the node in its field), in order; any other node binds nothing (a member or subscript target, undefined, this, a default value, a computed key or a type annotation).",
+        "leaves": [
+          "identifier",
+          "shorthand_property_identifier_pattern"
+        ]
+      },
+      "statementContainers": [
+        "statement_block"
+      ]
+    }
+  ],
+  "schemaVersion": 1,
+  "standing": "The native normalizer specification of the syntax universe (the grammar bundle's normalizer.specificationDigest member, native-evidence section 1.2): which spans are bodies, how syntax subjects are named, which nodes declare, which tokens are literals, the intra-body control-flow edges and near-v1. Contract successor SYN-NS of law M3-E1 (items 13 and 14). It does not select any level's specification: identity-and-evidence section 3's normalization map does, and each level specification is complete for its level.",
+  "subjects": {
+    "law": [
+      "A syntax subject identity is the SubjectIdV1 text \"syntax:\" + esc(path) + \"#\" + chain, where path is the anchor's snapshot path and chain is the segments of the subject joined by \"/\". The file itself is the subject with the empty chain.",
+      "A segment is tag + \":\" + esc(name) + \"@\" + ordinal. tag is the declarationKind of a declares rule, or the tag of a containers rule (lambda, type, impl or block) for an anonymous container, or stmt, entry or exit for a control-flow node. name is the declared name's exact source text (empty for an anonymous container and for entry and exit; the node kind for stmt). For a Rust impl_item, name is the text of its trait field, \" for \", and the text of its type field when it has a trait, else the text of its type field, with every run of ASCII whitespace replaced by one space and leading and trailing whitespace removed.",
+      "esc(s) is s's UTF-8 bytes with every byte outside 0x21 to 0x7E, and each of the bytes % # / @ :, written as % and two uppercase hexadecimal digits. The text is therefore ASCII, NFC and free of controls, and esc is injective.",
+      "ordinal is the decimal count of earlier segments, in preorder of the file, with the same tag and escaped name and the same parent chain. It is 0 for the first. No byte offset, line number or column enters a subject identity (identity-and-evidence finding-key2), so inserting a blank line changes no subject.",
+      "A container is a node matched by a declares rule marked container, or by a containers rule. When a declares rule marked container holds for a node (a named function or class expression), its segment is that rule's; otherwise the containers rule's (an anonymous one, with the empty name). The chain of a node is the segments of its enclosing containers (its strict ancestors), outermost first. A declared subject is its container chain plus its own segment.",
+      "A SubjectIdV1 text longer than 4,096 characters makes the file truncated:nodes (law M3-E1 item 11): no fact from the file, and the identity is never shortened."
+    ]
+  }
+}

@@ -1,0 +1,71 @@
+{
+  "verdict": "ACCEPT-DESIGN-UNIT",
+  "reviewer": "GROK2",
+  "unit": "syntax-e-syn-ns",
+  "round": "r2",
+  "subjectManifestSha256": "adc20c45caf7c28b4f590ebae7cf38f08d826ba632d592e566db9ad865da85ed",
+  "successor": {
+    "path": "docs/implementation/m3/syntax-e/syn-ns/successor.json",
+    "bytes": 6975,
+    "sha256": "180f49350f5fb243ff535f472df60226928fb46089f978a0e647d49ed0bb3e58"
+  },
+  "requiredFindings": [],
+  "nonBlockingObservations": [
+    {
+      "id": "NB-SYNNS-3",
+      "location": "syn-ns/evidence/spec_syn_ns.py SCOPE_LAW_RUST bodyDisqualifiers and RUST_L3.bodyDisqualifiers; tree-sitter-rust v0.24.2 grammar.js function_item and test/corpus/declarations.txt Attributes",
+      "observation": "The body disqualifier walks the selected body node. In the pinned Rust grammar an outer attribute is a preceding sibling of function_item, not a descendant of its body block: the corpus tree for #[test] fn test_foo() {} is attribute_item then function_item whose body is an empty block. A body such as #[attr] fn f() { let mut x = 1; x } therefore still renames the explicit let mut binding. An attribute_item or inner_attribute_item inside the block, including one on an inner item, does disqualify that body. This matches NE §6.3's body span, which is the block, and it is a recall limit on item-level attribute macros.",
+      "recommendation": "No change for this unit. E2c should implement the walk on the body node. A later revision that wants item-level attribute macros inside the same recall limit can disqualify a body whose owner is immediately preceded by a contiguous run of attribute_item siblings."
+    }
+  ],
+  "findingResolution": [
+    {
+      "id": "RF-SYNNS-1",
+      "round": "r1",
+      "status": "resolved",
+      "resolution": "line_terminators() sets significant on every row except rust. TOKEN_LAW keeps a CR/LF whitespace gap as one opensip:line-break token whose value is 0x0A, and L2_LAW replaces a non-directive comment that contains U+000A, U+000D, U+2028 or U+2029 with one line-break token, then merges consecutive line-break tokens. JSX text stays in the jsx_text token the pinned scanner emits; a JSX gap is newline-led indentation and becomes a line-break. The asi-return-newline and asi-comment-newline fixtures stay distinct at L1 and L2, and the r1 insignificant override collides again."
+    },
+    {
+      "id": "RF-SYNNS-2",
+      "round": "r1",
+      "status": "resolved",
+      "resolution": "RUST_PATTERN_LAW binds only ref_pattern/identifier, mut_pattern/identifier, captured_pattern's first identifier, a let_declaration or parameter pattern that has mutable_specifier, and a field_pattern name with mutable_specifier or the anonymous ref token. Those are the shapes in tree-sitter-rust v0.24.2. Every other identifier in a pattern is an ambiguous pattern identifier, binds nothing, and is non-renamable under R4. statedLimit records the declares and L3 recall loss. The same pattern law feeds declares."
+    },
+    {
+      "id": "RF-SYNNS-3",
+      "round": "r1",
+      "status": "resolved",
+      "resolution": "token_tree is in RUST_ATOMIC, so a macro token tree is one exact-byte token at L1 through L3. The macro-token-tree-atomic fixture keeps (left /*one*/ right) distinct from (left /*two*/ right) at L2, and removing token_tree from atomic kinds reproduces the r1 collision. bodyDisqualifiers are a use_wildcard, any macro_invocation, and any attribute_item or inner_attribute_item in the body. The visible-name and format-capture guards are gone from disqualifying."
+    },
+    {
+      "id": "RF-SYNNS-4",
+      "round": "r1",
+      "status": "resolved",
+      "resolution": "CONTROL_FLOW_LAW states List with and without a field, and selection uses only the role tables: Rust expression_statement reads fields on its expression child, an else_clause alternative is replaced by its first named non-nonStatements child, a selected statementLists node is transparent, any other selected node is one flow node, and opacity wins over a role. The Rust unsafe_block role is removed. switch_case lists only its body field. try reads the body field of the catch_clause in handler and of the finally_clause in finalizer, which are the fields in the pinned JavaScript grammar."
+    },
+    {
+      "id": "RF-SYNNS-5",
+      "round": "r1",
+      "status": "resolved",
+      "resolution": "enter(X) goes to the first flow node of a posttest loop's body, and every edge target passes through enter except the body's end and a continue, which reach the test. The test's true edge is branch-true back to the body and its false edge leaves. The cf-do-while graph enters at the if, sends continue and the end of work() to the do_statement, and sends the test's false edge to after()."
+    },
+    {
+      "id": "RF-SYNNS-6",
+      "round": "r1",
+      "status": "resolved",
+      "resolution": "P is the owner's container chain plus the owner's own segment. entry and exit are P/entry:@0 and P/exit:@0. Flow-node ordinals count inside that graph. The two-function fixture gives syntax:a.js#function:f@0/... and syntax:a.js#function:g@0/.... The checker reproduces the r1 collision under a strict-ancestor prefix."
+    },
+    {
+      "id": "NB-SYNNS-1",
+      "round": "r1",
+      "status": "resolved",
+      "resolution": "L3_LAW Resolution says a binding-site occurrence resolves directly to the binding that site introduces. Other occurrences use scope lookup, and a Rust let applies sequential lookup to reference occurrences in its own value, type, and alternative."
+    },
+    {
+      "id": "NB-SYNNS-2",
+      "round": "r1",
+      "status": "resolved",
+      "resolution": "verify_scratch.py --rev 218465f reads design-lock.json and tools/verify_design.py from that commit. It passes, 91 contract successors to 92. --chain stays at 92 because the lock already binds SYN-1 and SYN-1F and the script skips a bound unit other than SYN-NS."
+    }
+  ]
+}
