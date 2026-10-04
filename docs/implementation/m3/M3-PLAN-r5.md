@@ -40,12 +40,6 @@ Draft r5. Claude Opus 5.5, implementation lead. **Planning record: not law, not 
 - **The overnight log, ON:** `docs/implementation/OVERNIGHT-2026-10-03.md`, cited by entry.
 - Product paths are under `opensip/`.
 
-## r6 changes
-
-r6 answers GROK2's r5 review and changes nothing else. r5 is preserved as `M3-PLAN-r5.md`.
-- **RF-1:** B2 now cites HD §5.6, §5.8 and OI-3. It states the accepted gating floor (a 0.99 lower bound, k_min 299) and that 59 is the zero-error count for the lead's proposed 0.95 bound.
-- **RF-2:** G7 now records that S-OP-2 r3 received required findings and that r4 is in review.
-
 ## r5 changes
 
 | # | Change | Source |
@@ -438,7 +432,7 @@ ML's gate table was written on 2026-10-03, before T2b and S-OP-2 existed. Its ne
 | G4 | D3 sign-off | **open: owner (B3)** | AQP:543 |
 | G5 | D13 sign-off | **open: owner (B3).** Its mechanisms were accepted in Q0 r13. | AQP:554; HD OI-1 |
 | G6 | D2 draft | **met on the lead's reading** (Q0 §2). The sign-off is separate. | ML G6; AQP:542 |
-| G7 | S-OP-2 drafted | **met.** The drafts exist. r1, r2 and r3 each received required findings from Codex (r3: `reviews/codex-s-op-2-r3/status.json`, REQUIRED-FINDINGS), and r4 is in review. | ON; `reviews/codex-s-op-2-r3/status.json` |
+| G7 | S-OP-2 drafted | **met.** r3 is with Codex (ASSIGNED); r1 and r2 had required findings. | ON; `reviews/codex-s-op-2-r3/status.json` |
 | G8 | O1 | **decided in ML item 11** (lead decision). It becomes final when L is accepted. | ML G8 |
 | G9 | O7 decided | **open: owner (B1)** | ON B1 |
 
@@ -530,7 +524,7 @@ Items 2 to 4 add enforced hardening and a disclosure. They must stay distinct fr
 | # | Decision | What it blocks | Lead recommendation |
 |---|---|---|---|
 | B1 | **O7**, hostile-input confinement | M3-L acceptance (G9), so day 0; provider launch; C3b's adapter; CF-1 and CF-2; M5-EX | As in "O7" above |
-| B2 | **The gating precision bar** (the quality plan's D4 revisit; HD §5.6, HD §5.8 and OI-3) | Q2 acceptance for **gating** rules only. Nothing in M3's DAG, and not M3-X. | The accepted gating floor is a 95% cluster-aware lower bound ≥ 0.99, which needs k_min = 299 independent zero-error families (HD §5.6, §5.8). The lead recommends observed precision ≥ 0.99 plus a lower bound ≥ 0.95; with zero errors, 59 families meet that 0.95 bound. Rules graduate from advisory to gating as evidence from T2 and T3 accumulates. **Note:** T2 has 10 held-out families (T2R:296), so no rule can meet either bar on T2 alone (HD OI-3). |
+| B2 | **The gating precision bar** (the quality plan's D4 revisit; HD §8) | Q2 acceptance for **gating** rules only. Nothing in M3's DAG, and not M3-X. | Observed precision ≥ 0.99, plus a 95% cluster-aware lower bound ≥ 0.95, which needs about 59 independent families with zero errors. Rules graduate from advisory to gating as T2 and T3 evidence accumulates. **Note:** T2 has 10 held-out families (T2R:296), so no rule can meet the bar on T2 alone (HD OI-3). |
 | B3 | **The D3 sign-off** (the T2 selection) and the **D13 sign-off** (the exploratory envelope) | M3-L gate items G4 and G5, so day 0. D13 also gates S-M's report. | Approve as reviewed: T2a and T2b are accepted by GROK2; ENV was accepted inside Q0 r13. |
 | B4 | **OQ-1:** the owner's real workspace on disk (MB item 27) | Nothing. It sharpens D15's admitted shape and T3's multi-repo instance. | MB r2 admits a non-repo root with 1–64 disjoint conventional Git member repositories. Members are declared by explicit roots or by the Cargo patch and npm `workspaces` readers. |
 
