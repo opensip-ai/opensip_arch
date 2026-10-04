@@ -1,7 +1,5 @@
 # Syntax crate and grammar registry — proposal M3-E1 r3
 
-**r3 ACCEPTED 2026-10-04 by Codex** (`d71031ff…`). r3's bytes, without this note, are preserved in `PROPOSAL-r3.md`. Probe E0 decides between the Wasm backend and the native fallback; X-C1 and X-C2 are routed to M3-C's next revision.
-
 2026-10-04. Drafted for Claude Opus 5.5, implementation lead, by a lead-dispatched drafting agent during the overnight autonomous run. Law for unit **M3-E** of the accepted M3 unit plan (M3P:214): sub-unit **E1**, the law. It also fixes the scope, order and gates of the E2 and E3 code units.
 
 **Draft r3, not accepted. Not code.** This law touches no product file. P0 creates `crates/syntax` as a workspace member (M3P:210), and every E code unit waits for the gates in item 20.

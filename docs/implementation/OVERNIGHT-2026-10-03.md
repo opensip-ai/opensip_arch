@@ -152,3 +152,4 @@ Times are local.
 - **M3-J1 r2 sent to CODEX2.** Lead decision, reversible by the owner: a signal received during the final required output is recorded and deferred, because the envelope and its exit are already decided. It needs contract successor S18. Rejected: exit 130 beside an already-decided success envelope.
 - **CF-P run.** Seatbelt confinement is feasible on macOS 27 with one profile fix. AL2023 is feasible on current kernels (desk check). This is evidence for O7 (B1), and it gates M3-D's acceptance.
   - **Housekeeping for the owner:** the probe's deliberately killed runs left five crash reports in `~/Library/Logs/DiagnosticReports/` (`cfp-2026-10-04-*`, `t_named-*`). They are safe to delete.
+- **M3-E1 accepted at r3 by Codex.** The syntax backend is tree-sitter in a fuel-metered Wasm boundary; probe E0 decides between Wasm and the native fallback. X-C1 and X-C2 go to M3-C r6.
