@@ -562,3 +562,4 @@ Times are local.
   - **Interim:** D r5's reading rule (SD-5's row is read through D's predicate) covers it; D4 is far off.
   - **Rejected:** accepting NE7 now (citation drift and an unenforced hazard), and an erratum on another line (two class lists for one route).
 - **M3-B r4 accepted by GROK2,** with no required findings. Its three wording observations are applied as recording text.
+- **S21 accepted at r2 by Grok and bound** at product main `3f6f9a5`, giving 93 contract successors. J3d's durable signal wiring, J-C14's rule-1/2 cases, J-C15b's phase-C projections and rows S12-C/S12-U are now unblocked on S21.
