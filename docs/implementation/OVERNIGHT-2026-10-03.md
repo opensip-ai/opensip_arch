@@ -620,3 +620,5 @@ Times are local.
   - **Owed:** X4 r8 (S11, the gate word) and X7 r7 (S9, the row projection). J3b can't land before X4 r8 is accepted.
 - **X4-F2 accepted by GROK2 and integrated** at product main `988f6ed`. The integrated diff is byte-identical to the reviewed subject. M2's carry-in X4-F2 is closed, so both observer-expiry gaps are fixed. A confirmation workspace lane on the combined tree follows.
 - **X3d r9 accepted by Grok,** with no required findings. J1's S10 is now law: the ExecutionId reservation, the cancellation latch and window, and the operator-stop row. X3c r8's CL-1 is recorded. J3a, the reservation, can proceed. J3b, the latch, waits for X4 r8 (S11).
+- **VD2-a + F8c accepted by Codex (r2) and integrated** at product main `d761121`. `verify_design` now admits explicit contract passage supersession, with no generator rebuild.
+- **SD-7 r2 bound** at `d2c00a9` as the **first contract passage supersession** (`contractPassageSupersessions: 1`), giving 97 contract successors. SD-5's NE:3540 row now matches D r5, item 25's row is in place, and NE remains the selected contract with no copy.
