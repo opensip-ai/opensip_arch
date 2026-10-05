@@ -1,7 +1,5 @@
 # The replay-to-commit join — proposal X5 r4
 
-**r4 ACCEPTED 2026-10-04 by GROK2** (`2734f74b…`; `reviews/grok-x5-r4-x9-r17-s12/x5/`), with no required findings. It is J1's successor S8. r4's bytes, without this note, are preserved in `PROPOSAL-r4.md`.
-
 2026-10-01. Claude Opus 5.5, implementation lead. Law for unit X5 of `EXIT-PLAN.md`, under the build plan's opaque-prerequisite decision (lines 25–70: `RunCandidate`, `ReplayedRun`, `CommitSession`, `PreparedCommit`), its M2 row (line 886: "Evaluator replay; … host fact_admission/finalization") and failure case F01, and under the accepted laws X3d r3 (items 1, 3 step 1 and 10), X3c r7, X4 r7 and X2 r5. Items 1 to 6 contain lead decisions made under the owner's standing direction to proceed on the lead's recommendation; each names the alternative it rejects. r2 answers Grok X5 r1 RF-1: a missing retained object or blob is unavailable evidence, not an input refusal. r1 bytes are preserved in PROPOSAL-r1.md. Not code. Library only: no CLI command is wired.
 
 **r3 (2026-10-01) corrects a contradiction found while X5a was being built.** r2 bytes are preserved in PROPOSAL-r2.md (sha256 `d2a1f585517b19a6c07b5a6267875dd2d728c05ffa1a7c49bd62cf4a33454365`, the subject Grok accepted). r3 ACCEPTED by Grok on 2026-10-03.
