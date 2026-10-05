@@ -873,3 +873,8 @@ Times are local.
   - **Its lock scripts now hold a HELD flag.** Its host half reran after the deadlock.
 - **X3c-3 accepted by GROK2 (ACCEPT-UNIT, no findings) and integrated** at product main `43ea32a`, giving storage 403 required runs. The integrated diff is byte-identical to the reviewed subject, and `verify_design` passes. GROK2 left the rerun to after integration. **The integration evidence starts now on `43ea32a`:** release absence, two full sets of both targets and the real `check`, all serialized under the lane lock.
 - **Confirmation lane on product `b7b87b7`** (X4-F3, J2a and E2a combined): workspace 1807 passed, 0 failed, 3 ignored, including doc tests. That equals the earlier 1758 plus X4-F3's 12 and J2a's 37; E2a's tests are Python. The combination is confirmed. I1-b1 and X3c-3 have landed since, and X3c-3's integration evidence covers that tree.
+- **O1 law r1: Codex accepted both S-OP-2 recording units** (S-OP-2-P and S-OP-2-R, ACCEPT-DESIGN-UNIT). Their binding is held until O1-a integrates, as S-OP-2 item 24 says ("when M3-O's first code unit lands").
+- **The law itself drew one P2 finding.** O1-p re-exports `dispose` from a crate that only O1-a creates, but has no O1-a dependency.
+  - **Lead decision for r2:** the re-export moves to O1-S, which already depends on O1-a and O1-p, so O1-p stays platform-only and still need not wait for J4a.
+  - **Rejected:** adding an O1-a edge to O1-p.
+  - **Also corrected in r2:** three count observations. There are 4 production `debug_assert` sites, not 9; 143 production `let _ =` lines, not 140; and the stale request self-pin is refreshed.
