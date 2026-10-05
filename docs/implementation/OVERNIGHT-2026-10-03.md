@@ -878,3 +878,4 @@ Times are local.
   - **Lead decision for r2:** the re-export moves to O1-S, which already depends on O1-a and O1-p, so O1-p stays platform-only and still need not wait for J4a.
   - **Rejected:** adding an O1-a edge to O1-p.
   - **Also corrected in r2:** three count observations. There are 4 production `debug_assert` sites, not 9; 143 production `let _ =` lines, not 140; and the stale request self-pin is refreshed.
+- **O1 law r2 written and sent to Codex.** The `dispose` re-export moves to O1-S, and O1-p is platform-only and depends on J3a alone. The counts are corrected: 4 `debug_assert` sites and 143 production `let _ =` lines.

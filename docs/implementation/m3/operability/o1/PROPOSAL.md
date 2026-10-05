@@ -1,23 +1,38 @@
-# The O1 operability law: proposal M3-O1 r1
+# The O1 operability law: proposal M3-O1 r2
 
 2026-10-04. Drafted for Claude Opus 5.5, implementation lead, by a lead-dispatched drafting agent during the overnight autonomous run. Law for code unit **O1** of the accepted M3 unit plan's M3-O row (M3P:317). It fixes where O1's code lives, how records travel without `tracing`, who mints identities, which sinks run at M3, how the operational record reaches the harness, who registers which event, how enforcement starts, and how S-OP-2 is recorded. It defines O1's code units: **O1-a**, **O1-p**, **O1-b**, **O1-c** and **O1-S**.
 
-**Draft r1, not accepted. Not code.** This law touches no product file. Product main is `b7b87b7` (E2a).
+**Draft r2, not accepted. Not code.** This law touches no product file. Its product base stays `b7b87b7` (E2a), the commit Codex checked r1 against; see "r2 changes" for what has integrated since.
+
+**History.** r1 (`PROPOSAL-r1.md`, sha256 `ac3f12fa…`, 73,886 bytes) was reviewed by Codex (`reviews/codex-o1-law-r1`). The verdict was REQUIRED-FINDINGS, with one required finding at P2 (M3-O1-RF-01) and three non-blocking observations (M3-O1-NB-01 to NB-03). The same review accepted the two S-OP-2 recording units, S-OP-2-P and S-OP-2-R, as ACCEPT-DESIGN-UNIT (`reviews/codex-o1-law-r1/s-op-2-p`, `.../s-op-2-r`); their binding is held until O1-a integrates. r2 answers RF-01, NB-02 and NB-03, records Codex's answers to the open questions, and changes nothing else of substance. NB-01 concerns the request, and r2's request answers it.
 
 **Why a law.** O1's implementation agent read the accepted operability plan and S-OP-2 r6, then stopped before coding, as instructed, and reported nine gaps, G1 to G9. S-OP-2 leaves several of them to M3-O in so many words: "M3-O chooses its crate" (SOP2:161), and it does not decide "the choice of `tracing`; crate placement" (SOP2:1032). "Problem" restates each gap with its facts.
 
 **Standings.** This law pins accepted snapshots only (Short names).
 - **Accepted and pinned:** S-OP-2 r6 (Codex, ACCEPT-DESIGN-UNIT), the operability plan r3, M3-PLAN r10, M3-D r5, J-RW r4, and the Q0 harness design r13 with its envelope schema.
 - **Accepted in review, effective with L:** M3-L r5. This law takes no rule from L. It cites L's items 13 and 14 only for the events L needs, and those events are emitted only once L is in effect (item 16).
-- **Not yet bound:** S-OP-2 itself. Its item 24 says the lead records it when M3-O's first code unit lands. Item 22 records it, in two design units reviewed in the same request.
+- **Not yet bound:** S-OP-2 itself. Its item 24 says the lead records it when M3-O's first code unit lands. Item 22 records it in two design units, S-OP-2-P and S-OP-2-R, which Codex accepted with r1's review; their binding is held until O1-a integrates.
 
 **Lead decisions.** Every item marked "lead decision" is dated 2026-10-04. It is made under the owner's standing direction to decide on the lead's recommendation and to block only where no recommendation exists. Each names the alternatives it rejects, and the owner may reverse any of them. Items marked "law" restate what accepted text already requires. Items marked "record" change nothing.
 
-**One finding beyond the brief.** S-OP-2's recording cannot bind as its item 24 writes it. Its two overrides name SDK4 and DRC as parents, and neither file is in the design the product lock selects. Item 22 records S-OP-2 in two units, a parent selection and the recording, and a local binding check confirms both the refusal and the fix.
+**One finding beyond the brief.** S-OP-2's recording cannot bind as its item 24 writes it. Its two overrides name SDK4 and DRC as parents, and neither file is in the design the product lock selects. Item 22 records S-OP-2 in two units, a parent selection and the recording, and a local binding check confirms both the refusal and the fix. Codex accepted both units (r2).
+
+## r2 changes and review responses
+
+r1 is preserved as `PROPOSAL-r1.md` (`ac3f12fa…`), the reviewed subject. Each lead decision below is recorded in the overnight log (ON, lines 876-880).
+
+| Finding | Items | Change |
+|---|---|---|
+| **M3-O1-RF-01** (O1-p re-exports `dispose` from a crate it does not depend on; P2) | 20, 23 | **Lead decision: the re-export moves to O1-S.** r1 gave O1-p "operability's re-export of `dispose`", but `crates/operability` is created only by O1-a, and O1-p's row named only J3a and the J4a question. So the graph let O1-p start with a target file that did not exist.<br>- **O1-p is platform-only:** CPU time in `clock.rs`, the harness-descriptor admission, `disposition.rs` and the `lib.rs` lines. It touches no operability file. It depends on **J3a only**, and still need not wait for the held J4a (lead answer Q2).<br>- **O1-S carries the re-export.** It already depends on O1-a, which creates the crate, and on O1-p, which creates the helper, so the move adds no edge to O1-S. O1-S is also the first unit that migrates call sites to `dispose`.<br>- **Rejected:** an O1-a edge on O1-p. It would hold O1-p, and with it O1-b's CPU-time field, behind O1-a's three days for one re-export line nobody uses before O1-S. **Also rejected:** the re-export in O1-b, which does not use `dispose`.<br>- **The edge change for M3P r11 (X-O3):** O1-p's only dependency is J3a (no O1-a, no J4a); O1-S keeps O1-a and O1-p and carries the re-export. |
+| **M3-O1-NB-02** (the `debug_assert!` count) | 13; Q1 | **Corrected: 4 production `debug_assert!` sites, not 9:** `crates/security/src/trust/floor_publication.rs:702`, `crates/security/src/trust/trust_bootstrap.rs:956`, and `crates/storage/src/blob_store.rs:81` and `:98`. r1's 9 counted every `debug_assert` text match; the other five are four crash-matrix compile-refusal attributes and one test guard string. O1-b re-audits the measured artifact's sites at launch, as Codex recommends. The optimized `harness` profile stands. |
+| **M3-O1-NB-03** (the `let _ =` baseline) | Problem; 19; 20 | **Corrected: 143 production lines, not 140:** platform 56, security 73, storage 10, cli 3, lifecycle 1. r1 had also dropped the 3 lines of `crates/security/src/custody/installation_read_fixture.rs`, which the stated path rule does not exclude; the count now follows the rule, with no extra exclusion. So 129 of the 143 production lines are in platform and security, and 163 of the 306 lines are in test-only files. The ratchet is still seeded from the actual O1-a integration base (item 19). Placement and sequencing are unchanged. |
+| **M3-O1-NB-01** (the request's stale self-pin) | none | Request only. r1's `hashes.txt` pinned `REQUEST.md` before the lead added answers Q1 and Q2. r2's request is a new directory and pins its own final bytes. |
+| Open questions | Open questions | **Recorded as answered.** The lead answered Q1 and Q2 in r1's request, and Codex found both sound. Codex's review answers Q3 to Q8 (`REVIEW.md`, "Decisions and contract alignment", 1 to 8). The section now records each answer. |
+| Context | Short names | **Not re-pinned.** Since r1, product main has moved to `43ea32a`: I1-b1 at `083ad5c`, then X3c-3 at `43ea32a`. r2 keeps `b7b87b7` as its product base, so every product citation is still the one Codex checked. X3c-3's integration meets one of O1-S's three waits; item 23's in-flight lists describe 2026-10-04 at `b7b87b7` and are not refreshed here. |
 
 ## Short names
 
-Lines were checked against the files named here on 2026-10-04. Each sha256 prefix is the first 8 hex of the exact file pinned in this law's review request (`reviews/codex-o1-law-r1/hashes.txt`).
+Lines were checked against the files named here on 2026-10-04. Each sha256 prefix is the first 8 hex of the exact file pinned in this law's review request (`reviews/codex-o1-law-r2/hashes.txt`).
 
 | Name | Document | Standing | sha256 |
 |---|---|---|---|
@@ -33,7 +48,9 @@ Lines were checked against the files named here on 2026-10-04. Each sha256 prefi
 | **APP** | `docs/coop/completion/architecture-application.v1.json` | the D-369 application; in the selected design base | `15b3932a…` |
 | **SDK4** | `docs/coop/artifacts/component-sdk-contract.v4.json` | DR-125's inherited contract; not in the selected design | `c53d541f…` |
 | **DRC** | `docs/coop/completion/distribution-runtime-completion.v2.md` | the D.SDK selection of §8; not in the selected design | `9ab2874e…` |
-| **SOP2-U** | `docs/implementation/m3/operability/s-op-2/s-op-2-r/README.md` and the two units' records | the S-OP-2 recording, in review in the same request | pinned in the request |
+| **SOP2-U** | `docs/implementation/m3/operability/s-op-2/s-op-2-r/README.md` and the two units' records | the S-OP-2 recording, accepted by Codex as ACCEPT-DESIGN-UNIT (`reviews/codex-o1-law-r1/s-op-2-p`, `.../s-op-2-r`); binding held until O1-a integrates | pinned in the request |
+| **MO1-r1** | `docs/implementation/m3/operability/o1/PROPOSAL-r1.md` | this law's r1, reviewed by Codex (REQUIRED-FINDINGS; `reviews/codex-o1-law-r1`) | `ac3f12fa…` |
+| **ON** | `docs/implementation/OVERNIGHT-2026-10-03.md@99de7516b` | the overnight log at arch commit `99de7516b`, read with `git show`; the r2 lead decisions at lines 876-880 | `46838c0d…` |
 | **VD** | `tools/verify_design.py` at product `b7b87b7` | the design verifier | `7b313de6…` |
 
 Product paths are under `opensip/` at `b7b87b7`. In-flight units' files were read in their own worktrees with read-only `git status` and `git diff` on 2026-10-04.
@@ -53,7 +70,7 @@ This law may be reviewed and accepted now.
 - **Who must emit.** Host emits most events. Storage must emit the two `storage.commit.*` events (SOP2:891-892), and components must emit D3a's (MD:681-703). Neither storage nor components may depend on host (inventory v138's package edges).
 - **Who owns the identities.** The RequestId is an opaque `RequestContext` inside host's crate-private `RequestAuthority` (`crates/host/src/request.rs:18-55`). J3a, in flight, changes that file and moves `RequestIdentity` and a reserved ExecutionId type into `crates/platform/src/lib.rs` (J3a's worktree). `PublishedCommit` is storage's (`crates/storage/src/commit.rs:66-75`, `:103`).
 - **No lawful channel to the harness.** OPP sends the operational record to the log file and the exploratory envelope at M3 (OPP:248). There is no file before S-OP-1, stderr is off by default and its switches are S-OP-6's (OPP:226), the environment is forbidden (SOP2 item 21), and a new sink needs an S-OP-2 successor (SOP2:236).
-- **Enforcement sites today.** 306 `let _ =` lines in 150 files, of which 140 lines are in production paths (platform 56, security 70, storage 10, cli 3, lifecycle 1); direct stdio in 30 files; environment reads in 16; `process::Command` in 29; `process::exit` only in `crates/platform/src/crash_barrier.rs`.
+- **Enforcement sites today.** 306 `let _ =` lines in 150 files, of which 143 lines are in production paths (platform 56, security 73, storage 10, cli 3, lifecycle 1; r2, NB-03); direct stdio in 30 files; environment reads in 16; `process::Command` in 29; `process::exit` only in `crates/platform/src/crash_barrier.rs`.
 
 **The nine gaps.**
 
@@ -145,7 +162,7 @@ This law may be reviewed and accepted now.
   - **CPU time.** `getrusage(RUSAGE_SELF)`, user plus system time, in `crates/platform/src/clock.rs`, beside the existing clock observations. It feeds `host.phase.completed`'s `cpu` (SOP2:909).
   - **The harness descriptor.** One admission of an inherited write descriptor (S-OP-2b item 4): `fstat` shows a FIFO or a regular file, `fcntl(F_GETFL)` shows it writable, and `fcntl(F_SETFD, FD_CLOEXEC)` keeps it from children. It returns an owned writer. It is a mechanism only; S-OP-2b decides when the host uses it.
   - **`dispose` and `Disposition`** (item 20), in a new `crates/platform/src/disposition.rs`.
-- **Why one leg.** Each addition is re-exported from `crates/platform/src/lib.rs`, and that file is in both J3a's and J4a's diffs. O1-a therefore touches no platform file, and O1-p carries every platform change at once.
+- **Why one leg.** Each addition is re-exported from `crates/platform/src/lib.rs`, and that file is in both J3a's and J4a's diffs. O1-a therefore touches no platform file, and O1-p carries every platform change at once. **(r2, RF-01)** O1-p touches no operability file either: operability's re-export of `dispose` is O1-S's (item 20).
 - **Rejected:** any `unsafe` in operability, including `File::from_raw_fd(3)`. Operability forbids unsafe code, and platform owns OS calls.
 
 ### 3. SHA-256 and the keyed path tag (lead decision; G3)
@@ -328,7 +345,7 @@ This law may be reviewed and accepted now.
   - the stream's first record is `log.stream.opened` with `sink: harness`;
   - **`recordSha256`** in the exploratory envelope (ENV `operationalRecords[].recordSha256`) is the SHA-256 of the exact bytes the harness driver read from descriptor 3 for that invocation. The host computes nothing for it;
   - the harness reads the stream only through SOP2 item 13a's reader.
-- **The measured build.** Q6 measures the build that carries the record (Q0:951, "Instrumentation stays at the same preregistered setting"). With this decision the measured host is built with debug assertions on. O1-b adds a Cargo profile, `harness`, that inherits `release` and sets `debug-assertions = true` and `overflow-checks = false`, so the measured code is optimized. At `b7b87b7` production code has 9 `debug_assert!` sites and no other `cfg(debug_assertions)` branch beyond the feature refusals. Open question Q1 asks Q0's owner to confirm.
+- **The measured build.** Q6 measures the build that carries the record (Q0:951, "Instrumentation stays at the same preregistered setting"). With this decision the measured host is built with debug assertions on. O1-b adds a Cargo profile, `harness`, that inherits `release` and sets `debug-assertions = true` and `overflow-checks = false`, so the measured code is optimized. At `b7b87b7` production code has **4** `debug_assert!` sites (r2, NB-02): `crates/security/src/trust/floor_publication.rs:702`, `crates/security/src/trust/trust_bootstrap.rs:956`, and `crates/storage/src/blob_store.rs:81` and `:98`. It has no other `cfg(debug_assertions)` branch beyond the feature refusals. O1-b re-audits the measured artifact's sites at launch. The lead answered Q1 with this profile, and Codex found it sound.
 - **Rejected:** gating phase timings on S-OP-1's file sink and accepting `record-missing` until then. M3-M's exploratory report needs phase timings at M3 (M3P:316).
 
 ### 14. The phase vocabulary (lead decision)
@@ -446,7 +463,7 @@ Until an owner wires its phase, the phase is absent, and Q0 reports `phase-missi
   - A file's count must equal its row. A larger count fails. A smaller count also fails until the row is lowered in the same change, so the list only ratchets down.
   - A file with an occurrence and no row fails.
   - Rows are sorted. No product source file changes for the list.
-- **Tests are out of scope (decision).** Test-only paths (`*/tests/**`, `*_tests.rs`, `*/benches/**`) are not scanned. Tests are not product behaviour: they print, spawn helper processes and read their fixtures' environment by design, and 166 of the 306 `let _ =` lines are in test-only files. Inline `#[cfg(test)]` modules inside production files *are* counted, because the scan reads text, not `cfg`. They sit in the counts until O1-S's clippy lints, which do see `cfg`, replace the text counts for stdio and environment.
+- **Tests are out of scope (decision).** Test-only paths (`*/tests/**`, `*_tests.rs`, `*/benches/**`) are not scanned. Tests are not product behaviour: they print, spawn helper processes and read their fixtures' environment by design, and 163 of the 306 `let _ =` lines are in test-only files (r2, NB-03). Inline `#[cfg(test)]` modules inside production files *are* counted, because the scan reads text, not `cfg`. They sit in the counts until O1-S's clippy lints, which do see `cfg`, replace the text counts for stdio and environment.
 - **The same tool** carries the lock check (item 4) and the release-absence check (item 10).
 - **Negative controls** (`tools/tests/test_check_operability.py`), each on a scratch copy of a small fixture tree, each failing for its named reason:
   - a planted direct stderr write, an ambient environment read, a raw spawn and a `process::exit`;
@@ -474,9 +491,12 @@ Until an owner wires its phase, the phase is absent, and Q0 reports `phase-missi
   | `TestOnly` | test-support code compiled only under a test `cfg` or a test-only feature | only in test-only files or listed test-support modules |
   | `Infallible` | the callee cannot fail for this receiver, for example `fmt::Write` into a `String` | none |
 
-- **Placement: platform**, in `crates/platform/src/disposition.rs`, delivered by O1-p. 126 of the 140 production `let _ =` lines are in platform (56) and security (70), and neither can depend on operability. Operability re-exports it. It is a code annotation, not policy authority. CH14-O lists the file.
+- **Placement: platform**, in `crates/platform/src/disposition.rs`, delivered by O1-p. 129 of the 143 production `let _ =` lines are in platform (56) and security (73) (r2, NB-03), and neither can depend on operability. It is a code annotation, not policy authority. CH14-O lists the file.
+- **The re-export (r2, RF-01; lead decision).** Operability re-exports `dispose` and `Disposition` for host, storage and components. The re-export is O1-S's, because O1-S depends on both O1-a, which creates `crates/operability`, and O1-p, which creates the helper. O1-p stays platform-only.
 - **Rejected:**
   - **In operability.** Unreachable from platform and security.
+  - **(r2) An O1-a edge on O1-p,** so that O1-p could carry the re-export. It would hold O1-p, and with it O1-b's CPU time, behind O1-a for one line that nothing uses before O1-S.
+  - **(r2) The re-export in O1-b.** O1-b does not use `dispose`.
   - **A copy per crate.** Five copies of one closed enum.
   - **In contracts.** Contracts holds generated inert carriers (`crates/contracts/src/lib.rs:1-3`).
 
@@ -484,6 +504,7 @@ Until an owner wires its phase, the phase is absent, and Q0 reports `phase-missi
 
 - **Decision.** O1-S runs after J3a, J4a and X3c-3 integrate, because their files hold most sites: security's custody, `private_access.rs` and `journal_store`, storage's ledger and commit files, and platform's `filesystem.rs`, `lib.rs` and `crash_barrier.rs`.
   - **Per-crate lints** under `[lints.clippy]` in each crate's own `Cargo.toml`, with explicit values, because `check_package_edges.py` refuses inherited workspace values (`tools/check_package_edges.py:25-31`): `print_stdout`, `print_stderr`, `dbg_macro`, `disallowed_methods` and `let_underscore_must_use`. A workspace `clippy.toml` lists the disallowed methods: `std::env::var`, `var_os`, `vars`, `vars_os`, `std::process::Command::new`, `std::process::exit` and `std::process::abort`. Each audited site gets an `#[allow(...)]` naming its owner, matching the exception list.
+  - **The re-export (r2, RF-01).** O1-S first adds operability's re-export of `dispose` and `Disposition` (item 20).
   - **The migration.** Every production `let _ =` on a `Result` becomes `dispose(...)` with its member. The exception list's counts fall to the audited residue.
   - **Library and binary targets only.** Test targets stay out of scope (item 19).
   - **X9's `crash_barrier.rs`** keeps its exit sites as the crash path's lawful sites. O1-S lists them and changes no barrier code.
@@ -504,7 +525,7 @@ Until an owner wires its phase, the phase is absent, and Q0 reports `phase-missi
   - **S-OP-2-P** selects the exact SDK4 and DRC bytes that APP pins, at their own paths, with APP as its only parent and no override. This is `control-source-v1`'s form, which selected the existing, unselected `control-completion.schema.v3.json`. Selection binds bytes only.
   - **S-OP-2-R** is item 24's recording: it pins `PROPOSAL-r6.md`'s accepted bytes as a candidate and makes the two insertion-only overrides, with item 24's sentences character for character.
 
-  Both reviews list `"supersededPassages": []`. Both units bind before, or with, O1-a's integration, S-OP-2-P first.
+  Both reviews list `"supersededPassages": []`. Both units bind before, or with, O1-a's integration, S-OP-2-P first. **(r2)** Codex accepted both, as ACCEPT-DESIGN-UNIT, in r1's review; their binding is held until O1-a integrates.
 - **The local binding check** ran in a throwaway detached worktree of product main `b7b87b7`, with a private 0700 TMPDIR, in Python only, serving SCRATCH review and assent pins from memory as CRC-2's check did. The worktree was then removed. The request pins the output. S-OP-2-R alone refuses with exactly that message. S-OP-2-P alone, and S-OP-2-P then S-OP-2-R, pass with and without the implementation check, and leave everything outside the contract chain equal to the baseline. Nine refusal probes refuse, or pass, as expected.
 - **Rejected:**
   - **One unit.** It cannot bind.
@@ -544,7 +565,7 @@ Until an owner wires its phase, the phase is absent, and Q0 reports `phase-missi
 | **O1-C8** | The checker's negative controls (item 19). | 19 | O1-a |
 | **O1-C9** | The harness sink: S-OP-2b's C-13; phases nest by the fixed parents; `at` is monotonic within each span; `not-applicable` rows carry zero `wall` and `cpu`; `cpu` comes from `getrusage`. | 13, 14 | O1-b |
 | **O1-C10** | Each `generated-contract` table equals its generated module's members, and its descriptor's sha256 equals the module's reviewed bytes; a changed module refuses registration; `host.termination.decided` is emitted once, before the freeze, with the decided class and exit. | 17 | O1-c |
-| **O1-C11** | `dispose` compiles to nothing observable; the checker's `TestOnly` and `ShutdownPath` rules hold on the real tree. | 20 | O1-p |
+| **O1-C11** | `dispose` compiles to nothing observable; the checker's `TestOnly` and `ShutdownPath` rules hold on the real tree. **(r2)** O1-S adds: operability's re-export names platform's items, so `opensip_operability::dispose` and `opensip_platform::dispose` are one function. | 20 | O1-p; the re-export leg in O1-S |
 | **O1-C12** | The CPU-time call is non-decreasing across calls and returns a typed error on failure; the descriptor admission refuses a closed descriptor, a read-only one and a directory, and sets close-on-exec. | 2 | O1-p |
 
 ## J. Units
@@ -561,14 +582,14 @@ Until an owner wires its phase, the phase is absent, and Q0 reports `phase-missi
 | Unit | Content | Controls | Depends on | Size | Must not touch while J3a, J4a, X3c-3 or E2s is in flight |
 |---|---|---|---|---|---|
 | **O1-a** | `crates/operability` (items 1, 3, 5 to 7, 9 to 12, O1-a's rows of 16, 18); the workspace member and its `Cargo.lock` entry; host's edge, the capability set held by the metadata host, finalization in `outcomes.rs` and `doctor_ingress.rs` with the bootstrap backstops; feature forwarding in host and `apps/cli`; `tools/check_operability.py`, `tools/operability/exceptions.json`, `tools/tests/test_check_operability.py` and a `tools/README.md` section; the inventory successor | C-1, C-2, C-4 to C-8, C-10, C-11 (O1-a legs); O1-C1 to O1-C8 | P0 (met); S-OP-2 r6 (accepted); this law. S-OP-2-P and S-OP-2-R bound before or with its integration | L (3 days) | every platform file (O1-p's); `request.rs` and `admission_tests.rs` (J3a); every storage and security file; generated contracts, `schemas/**`, `tools/contracts/**`, `tools/identity/**` (E2s); `tools/check_crash_matrix.py` (X3c-3) |
-| **O1-p** | platform: CPU time in `clock.rs`; the harness-descriptor admission; `disposition.rs`; the `mod` and `pub use` lines in `lib.rs`; operability's re-export of `dispose` | O1-C11, O1-C12 | J3a integrated (it holds `lib.rs`); J4a: open question Q2 | S (1 day) | `lib.rs` until J3a integrates; `filesystem.rs` and `filesystem/file_effects.rs` (J4a); `crash_barrier.rs` (J3a, X9) |
+| **O1-p** | platform only: CPU time in `clock.rs`; the harness-descriptor admission; `disposition.rs`; the `mod` and `pub use` lines in `lib.rs`. **(r2, RF-01)** No operability file: the re-export of `dispose` is O1-S's. | O1-C11 (its platform leg), O1-C12 | **J3a integrated** (it holds `lib.rs`), and nothing else: not O1-a (r2, RF-01), and not the held J4a, because the two `lib.rs` hunks are disjoint and the later unit rebases (lead answer Q2) | S (1 day) | `lib.rs` until J3a integrates; `filesystem.rs` and `filesystem/file_effects.rs` (J4a); `crash_barrier.rs` (J3a, X9); **(r2)** every file under `crates/operability/` |
 | **O1-b** | the harness sink under S-OP-2b; `PhaseOutcome`, `host.phase.started` and `host.phase.completed`; the span API; host's `request` and metadata `delivery` phases; the `harness` Cargo profile; feature forwarding; the harness marker in `release-absence` | O1-C4 (its feature), O1-C9; C-4 and C-7 legs on the harness sink | O1-a; O1-p; **S-OP-2b accepted and bound**; the RequestId scope wired (J3a or J3a-o) | M (2 days) | as O1-a; `registry.rs` is shared with D3a, so the second to integrate rebases |
 | **O1-c** | the contracts-generator change and its own generator review; the regenerated modules; `host.termination.decided`, `config.value.resolved` and `not_published`'s `termination` field; the termination emission | C-2's generated legs; O1-C10 | O1-a; **E2s integrated** | M (2 days) | it starts only after E2s; until then, every E2s file |
-| **O1-S** | the sweep (item 21): per-crate lints, `clippy.toml`, the `dispose` migration, the lowered exception list | O1-C8 rerun on the swept tree; clippy on the lanes' feature sets | O1-a; O1-p; **J3a, J4a and X3c-3 integrated** | M (2 days) | it starts only after all three; then any unit in flight at its start |
+| **O1-S** | the sweep (item 21): **(r2, RF-01)** operability's re-export of `dispose` and `Disposition`; per-crate lints, `clippy.toml`, the `dispose` migration, the lowered exception list | O1-C8 rerun on the swept tree; O1-C11's re-export leg; clippy on the lanes' feature sets | O1-a; O1-p; **J3a, J4a and X3c-3 integrated** | M (2 days) | it starts only after all three; then any unit in flight at its start |
 
 - **Review.** Each unit is reviewed `ACCEPT-UNIT`; units that add files carry an inventory successor with an `inventoryCandidateAssessment`. O1-c's generator change is also a generator successor (item 17).
 - **Effect on M3P** (M3P:556, :531): M3P sized O1 at 4 days, and D3a needs S-OP-2's registry by day 5. **O1-a's 3 days meet that.** O1-p, O1-b, O1-c and O1-S are off the host chain. O1-b gates M3-M's phase timings (M3P:316). J3d needs O1-a and O1-b (M3P:313 lists "O1" among J3d's waits). M3-X needs every O1 unit (M3P:319).
-- **New dependency edges** for M3P r11: D3a on O1-a; J3d on O1-a and O1-b; M3-M on O1-b; O1-b on J3a or J3a-o and on S-OP-2b; O1-c on E2s; O1-S on J3a, J4a and X3c-3.
+- **New dependency edges** for M3P r11: D3a on O1-a; J3d on O1-a and O1-b; M3-M on O1-b; O1-b on J3a or J3a-o and on S-OP-2b; O1-c on E2s; O1-S on J3a, J4a and X3c-3. **(r2, RF-01)** O1-p depends on J3a only: no edge on O1-a, and none on J4a. O1-S keeps its edges on O1-a and O1-p and carries operability's re-export of `dispose`.
 
 ---
 
@@ -578,7 +599,7 @@ Each item names the law or record that must change. None blocks this law's accep
 
 - **X-O1. S-OP-2b,** the harness instrumentation sink. An owed contract successor to S-OP-2 r6. Its exact text is the next section. The lead drafts it as its own design unit next; it is not drafted as a unit here. It gates O1-b.
 - **X-O2. CH14-O** (record, at the next CH14 refresh). Add the `opensip-operability` package row (`crates/operability/`, "Safe operational records: the event registry, typed fields, sinks and loss accounting", dependency `opensip-platform`); add `opensip-operability` to host's, storage's and components' proposed direct dependencies; add `crates/platform/src/disposition.rs` under platform (item 1).
-- **X-O3. M3-PLAN r11** (record). The M3-O row: the in-house transport replaces "`tracing`" (M3P:317, :232, :743); O1's units and edges from item 23; J3a-o; S-OP-2-P and S-OP-2-R; S-OP-2b among the law rounds before O1-b.
+- **X-O3. M3-PLAN r11** (record). The M3-O row: the in-house transport replaces "`tracing`" (M3P:317, :232, :743); O1's units and edges from item 23, **including r2's edge change: O1-p depends on J3a only, and O1-S carries the `dispose` re-export**; J3a-o; S-OP-2-P and S-OP-2-R; S-OP-2b among the law rounds before O1-b.
 - **X-O4. OPP's next record.** §3.1's framework line and §8's M3 row (OPP:145, :379) now read "the in-house transport (M3-O1 item 4)"; §4.1's M3 carrier (OPP:248) is S-OP-2b's harness sink, beside the file sink once S-OP-1 lands.
 - **X-O5. M3-D's next record.** Item 21's provider and supervision events are registered by D3a, with the `tool` domain, and D3a wires K11's spawned-pid construction from D1a's handle (items 8 and 16).
 - **X-O6. J-RW's next record.** Item 7's `host.repair.completed` is registered by O1-a; J4's units emit it from host (item 16). "The first J4 unit after O1, or O1 itself, adds the event" (JRW:496) is settled: O1 adds it.
@@ -627,18 +648,20 @@ This is the exact successor text the lead owes. It is drafted as its own design 
 - **Enforcement:** a sweep edit (lints or `dispose` migration) in O1-a; an exception count that rises; a `TestOnly` or `ShutdownPath` disposition outside its allowed files.
 - **Sequencing:** editing a file an in-flight unit holds (item 23); binding S-OP-2-R without S-OP-2-P before it.
 
-## Open questions for the reviewer
+## Open questions: answered in r1's review
 
-**None needs the owner.** Every choice carries the lead's recommendation.
+**None needs the owner.** r1 asked Q1 to Q8. The lead answered Q1 and Q2 in r1's request, and Codex's review found both sound. Codex's review answers Q3 to Q8 (`reviews/codex-o1-law-r1/REVIEW.md`, "Decisions and contract alignment"). r2 asks no new question.
 
-- **Q1 (the measured build).** Under items 10 and 13, Q6 measures a host built with debug assertions on, in the optimized `harness` profile. At `b7b87b7` that activates 9 production `debug_assert!` sites and no other branch. Is that acceptable as Q0's "preregistered setting" (Q0:951)? **Recommendation:** yes, labelled in Q0's next record (X-O7). The alternative, a release-absence check as the only refusal, departs from the lead's decision.
-- **Q2 (O1-p and J4a).** O1-p's `lib.rs` hunk, at the clock re-export (`lib.rs:96`), is disjoint from J4a's (`:41-47`). J4a is accepted but held for X3c-3 and §RW, so it is rebased before integration anyway. **Recommendation:** O1-p integrates after J3a and, if J4a is still held, before it, with J4a's rebase-only recheck noting the hunk. The alternative is that O1-p waits for J4a, which delays O1-b and O1-S.
-- **Q3 (overlapping provider phases).** At concurrency above 1, sibling `provider` phases overlap, so "elapsed minus the sum of the top-level phases" can be negative. Q6 runs at concurrency 1 (Q0 §9.6). **Recommendation:** no aggregate phase at M3; S-OP-6's `--timings` revisits it. The alternative is a `providers` parent over every `provider` span.
-- **Q4 (CH14).** Is a record note enough for a new package (item 1), or does it need a CH14 passage successor?
-- **Q5 (S-OP-2-P).** Is selecting SDK4 and DRC in `control-source-v1`'s form lawful, given SDK4's own `CANDIDATE-NOT-APPLIED` header? The recording's README asks the same (R3).
-- **Q6 (mint arguments).** Is a mint method that takes an identity's fixed-width value, held only by the owner, within SOP2 item 8(b), given the forbidden substitute "a P1 or P2 constructor that takes text, bytes or a parsed value" (SOP2:988)? **Recommendation:** yes. The mint is the provenance, and no public constructor takes bytes.
-- **Q7 (O1-a's size).** O1-a carries most of S-OP-2. Should it integrate as two reviewed commits: the vocabulary, wire schema and reader; then the transport, sinks and wiring?
-- **Q8 (the SHA-256 choice).** Is a second, in-house SHA-256, proved by known-answer tests, better than an identity edge (option (a)) or a policy row for `sha2-const-stable` (option (b))?
+| Question | Answer | Where it lands |
+|---|---|---|
+| **Q1, the measured build** | **Lead answer:** an optimized `harness` profile, release optimization with debug assertions on, so Q6 measures optimized code; the release artifact never carries the harness feature. Rejected: measuring a debug build. **Codex:** sound, provided it stays the same preregistered setting for every measured sample. The site count is 4, not 9 (NB-02). | item 13; X-O7 |
+| **Q2, O1-p and J4a** | **Lead answer:** O1-p may land before the held J4a; the `lib.rs` hunks are disjoint (J4a at `:41-47`, O1-p at the clock re-export, `:96`), and the later unit rebases. Rejected: holding O1-p behind J4a's §RW gate. **Codex:** sound. RF-01 was a separate issue, now fixed. | item 23, O1-p's row |
+| **Q3, overlapping provider phases** | **Codex:** Q0 §9.6 runs at concurrency 1. Above it, overlapping siblings can give negative unattributed time, which Q0's typed rejection already covers; the law defers an aggregate parent to S-OP-6. | item 14 |
+| **Q4, CH14** | **Codex:** a record note is enough. CH14's table is a generated proposal that grants no component authority (CH14:271-275); the reviewed inventory and manifest edges carry the authority. | item 1; X-O2 |
+| **Q5, S-OP-2-P** | **Codex:** sound. P selects APP's pinned parents, and R records item 24 faithfully; both accepted. | item 22 |
+| **Q6, mint arguments** | **Codex:** a fixed-width value passed through an owner-held mint is within SOP2 item 8(b); it creates no ambient public byte constructor. | items 7 and 8 |
+| **Q7, O1-a's size** | **Codex:** one `ACCEPT-UNIT` boundary is defensible, because its codec, capability and accounting controls are coupled. The three days stay an unmeasured planning estimate. | item 23 |
+| **Q8, the SHA-256 choice** | **Codex:** the in-house SHA-256 and HMAC fit the platform-only edge and the unsafe-code ban. The known-answer, padding-boundary and independent-reference controls are necessary implementation gates; no hashing code is accepted by this law's review. | item 3; O1-C3 |
 
 ## Not claimed
 
