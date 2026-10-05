@@ -864,3 +864,4 @@ Times are local.
     - mechanically rewriting the corpus digests;
     - leaving existing stores broken.
   - **For the morning summary:** this is a reversible lead decision that bears on your data. The law and HSR-1 are being drafted, for Grok.
+- **I1-b1 accepted by CODEX2 (ACCEPT-UNIT, no findings) and integrated** at product main `083ad5c`. The integrated diff is byte-identical to the reviewed subject, and `verify_design` passes. The I1 chain's next units are I1-c (the pack row; I1-P is bound) and I1-b2 (semantics; L).
