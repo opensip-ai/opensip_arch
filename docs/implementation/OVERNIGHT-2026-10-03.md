@@ -855,3 +855,12 @@ Times are local.
   - **Lead answers:**
     - **Q1:** an optimized `harness` profile with debug assertions on, so Q6 measures optimized code.
     - **Q2:** O1-p may land before the held J4a.
+- **E2s stopped before review, correctly.** Its materialization is exact, but it changes the native-v2 digest (`e5834d37…` → `93a39da8…`) and the enumeration-plan digest (`10627cb6…` → `cc29483f…`). The product admits a retained record only on the compiled schema's exact digest.
+  - **Effect on tests:** 66 tests fail across 12 independently derived corpora, one of them X9's run-candidate corpus.
+  - **Effect on real data:** runs already retained in your real stores would be refused on replay.
+  - **Lead decision: historical schema readers (HSR).** An identity-owner contract successor admits a retained record against the exactly selected earlier schema bytes, by exact digest, from a closed reader set extended only by successor. New records carry the current digests. Existing corpora stay byte for byte and become the historical-reader proof. E2s is re-scoped to land with or after HSR-a.
+  - **Rejected:**
+    - re-deriving the 12 corpora, which doesn't help existing stores and changes X9's input;
+    - mechanically rewriting the corpus digests;
+    - leaving existing stores broken.
+  - **For the morning summary:** this is a reversible lead decision that bears on your data. The law and HSR-1 are being drafted, for Grok.
