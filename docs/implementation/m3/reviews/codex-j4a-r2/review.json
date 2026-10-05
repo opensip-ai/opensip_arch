@@ -1,0 +1,134 @@
+{
+  "reviewer": "Codex",
+  "unit": "J4a",
+  "round": 2,
+  "verdict": "ACCEPT-UNIT",
+  "requiredFindings": [],
+  "subjectSha256": "9c6496aeaca917a489a9ac2bc997c424339f7169942a57559ce717cc0aa60461",
+  "baseCommit": "1d24900230397e4959cfd6734879259341e5cb93",
+  "subjectBytes": 137310,
+  "worktree": "/Users/sb/code/opensip-ai/opensip-j4a",
+  "previousSubjectSha256": "4fbe89f1684846c70f1da639549669a31ee98775e526760f65bfcdede69f8bda",
+  "r1ToR2DeltaSha256": "cda40970243b85efc1bf501db6da5000af7d2d7e72807b5cd93d843a098a0576",
+  "closedFindings": [
+    {
+      "id": "J4A-RF-01",
+      "status": "CLOSED",
+      "reason": "The final capped byte/end check now follows the suffix write, F_FULLFSYNC and the parent's directory barrier. It reads the no-follow reopened object after matching its device and inode to the held written handle, and the entire buffer/read cost is reserved before the first effect.",
+      "evidence": [
+        {
+          "path": "crates/security/src/private_access.rs",
+          "lines": [
+            805,
+            839
+          ],
+          "purpose": "Read-back cost is included in the whole C-SUFFIX reservation."
+        },
+        {
+          "path": "crates/security/src/private_access.rs",
+          "lines": [
+            848,
+            860
+          ],
+          "purpose": "At most four positioned reads into a buffer of expected length plus one; only observed EOF returns Some."
+        },
+        {
+          "path": "crates/security/src/private_access.rs",
+          "lines": [
+            929,
+            966
+          ],
+          "purpose": "Reservation precedes ACL append/write; both barriers and identity confirmation precede final byte/end verification."
+        },
+        {
+          "path": "crates/security/src/private_access.rs",
+          "lines": [
+            2269,
+            2348
+          ],
+          "purpose": "Private and ACL-omitted cases refuse with one edge or one byte short before mutation; exact limits cover the final confirmation."
+        },
+        {
+          "path": "crates/security/src/private_access.rs",
+          "lines": [
+            2363,
+            2460
+          ],
+          "purpose": "Post-barrier changed, longer, shorter, failed, unended and intact cases exercise final confirmation; native capped reader cases cover EOF/full buffer/empty."
+        }
+      ]
+    }
+  ],
+  "assessment": {
+    "finalConfirmation": "Production complete_private_suffix delegates to the private implementation with read_back_capped. The early platform verification remains unchanged, but completion now also requires post-barrier expected bytes and EOF on the confirmed reopened inode. A full buffer, short/different bytes or no EOF within four calls returns Confirm; read I/O returns ConfirmIo.",
+    "reservation": "suffix_readback_cost checks expected length plus one and adds one object, four edges and that buffer size. suffix_cost includes it in the reservation taken by work.effect before C-ACL or the suffix write. post.spend occurs before allocating or reading. Exact limits and one-edge/one-byte-short limits cover both private and omitted-ACL inputs.",
+    "regression": "The private read-back seam is bound to the native capped reader in production. The regression changes content or length at the final confirmation point after both native barriers, injects read failure/no end, and verifies intact same-inode success and native reader cap outcomes. This closes the specific pre-barrier-only gap.",
+    "delta": "Reconstructing r1 against 1d24900 and applying the pinned r1-to-r2 patch reproduces every current subject file exactly. Only private_access.rs differs from r1, limited to C-SUFFIX final confirmation, its private helper and its tests. Platform write_new_regular/write_regular_suffix, C-ACL, P-PREFIX, RW-P1/P2/P3 uses, typed results and scopes are unchanged.",
+    "rebase": "All 11 J4a-owned base files are byte-identical between d2c00a9 and 1d24900. Sixteen selected existing harness/primitive source and required-runs paths have identical Git blob IDs. X4-F3's operation_handoff change concerns guard-start error mapping, retaining the OperationFloor handoff. No changed J4a callee or seam was found.",
+    "priorRulings": "r1 calls 1-3, 5-7 and 10 remain accepted as the lead's carried rulings. Call 4's correction and call 8's finding are closed by the final reserved read. Call 9 and its integration hold remain unchanged.",
+    "inventory": "No file added, removed or renamed. No inventory successor, subjectManifestSha256 or inventoryCandidateAssessment is required. The three descriptions remain owed to the next description batch."
+  },
+  "integrationConstraints": [
+    "X3c-3 integrates first.",
+    "Hold J4a product integration until X9 r17 section RW is accepted.",
+    "Integrate in one commit with exactly the six RW-F00 storage re-transcriptions and a full storage lead set; this review does not judge those six rows.",
+    "Section RW records the four exact repair names and RW-K5's empty kill set.",
+    "The three stale descriptions go to the next description batch.",
+    "Rebase onto the integration base after acceptance, preserving the reviewed change and validating the integration context."
+  ],
+  "reviewBoundaries": {
+    "repositoryEdits": false,
+    "commits": false,
+    "pushes": false,
+    "delegation": false,
+    "crashMatrixRunSets": false,
+    "realOpenSipHomeAccessed": false,
+    "private413FixtureRead": false,
+    "gitWorktreeOnly": true
+  },
+  "reviewedAtUtc": "2026-10-05T01:27:26.078154+00:00",
+  "validation": {
+    "independentMinimumLanes": [
+      {
+        "lane": "libs",
+        "command": "cargo test -p opensip-platform -p opensip-security -p opensip-storage --lib --locked --offline --no-fail-fast",
+        "exitCode": 0,
+        "seconds": 318,
+        "passed": 1413,
+        "failed": 0,
+        "ignored": 3,
+        "testBinaries": 3,
+        "newTestsPassed": 23,
+        "log": "lanes/libs.log",
+        "result": "lanes/libs.result"
+      },
+      {
+        "lane": "feature",
+        "command": "cargo test -p opensip-platform -p opensip-security -p opensip-storage -p opensip-host --features crash-matrix --all-targets --no-fail-fast --locked --offline",
+        "exitCode": 0,
+        "seconds": 541,
+        "passed": 1671,
+        "failed": 0,
+        "ignored": 3,
+        "testBinaries": 10,
+        "newTestsPassed": 23,
+        "log": "lanes/feature.log",
+        "result": "lanes/feature.result"
+      }
+    ],
+    "all31PinsMatched": true,
+    "subjectUnchangedAfterLanes": true,
+    "all23NewTestsPassedInBothLanes": true,
+    "featurePinsPassed": [
+      "the_integrated_path_reaches_only_scoped_points_and_its_census_is_pinned",
+      "the_ledger_path_reaches_only_scoped_points_and_its_census_is_pinned",
+      "every_test_feature_site_is_on_the_pinned_list",
+      "no_manifest_enables_the_crash_matrix_feature"
+    ],
+    "deltaVerification": "delta-verification.json",
+    "testEnvironment": "nice -n 19; private 0700 Darwin-user TMPDIR; isolated HOME/CARGO_HOME; CARGO_TARGET_DIR under this review directory; --locked --offline",
+    "cargoCache": "Seeded by filesystem clones of r1 cache/target under this output directory; source/fingerprint timestamps preserved and current tests rerun, including the new r2 regression.",
+    "laneLock": "Each Cargo invocation waited for mkdir to acquire opensip-lanes.lock and ran rmdir immediately after Cargo exited, only for its owned lock.",
+    "broaderLeadEvidence": "Pinned lead workspace, doc, build/fmt/clippy, drift/design/policy results inspected; only the requested minimum lanes were independently rerun."
+  }
+}
