@@ -1,0 +1,28 @@
+Flip check (lead, 2026-10-04): the BASE test files at 083ad5c (policy_pack_tests.rs 3b9f3032..., configuration_tests.rs 8c38c802...)
+over I1-c's product bytes (pack-registry.json d08a85de..., the new document 96675a5e..., policy.rs fd60e44c...), in a scratch copy
+of the worktree (rsync without target/.git/node_modules/python-packages), under the lane lock; script: flip-check.sh.
+
+cargo test -p opensip-evaluator --lib -- pack_tests: test result: FAILED. 13 passed; 3 failed; 0 ignored; 0 measured; 23 filtered out; finished in 4.98s
+test policy::pack_tests::source_pin_release_build_holds_no_test_row_or_runtime_read ... FAILED
+test policy::pack_tests::release_registry_has_zero_rows_and_every_row_passes_item_6 ... FAILED
+test policy::pack_tests::nt1_wrong_pack_identity_is_not_bundled ... FAILED
+
+cargo test -p opensip-host --lib -- configuration::tests: test result: FAILED. 7 passed; 3 failed; 0 ignored; 0 measured; 175 filtered out; finished in 1.80s
+test configuration::tests::rows_1_2_and_3a_emit_the_x12_0_remedy_byte_for_byte ... FAILED
+test configuration::tests::nt1_wrong_pack_identity_is_row_1_with_the_presented_id ... FAILED
+test configuration::tests::every_row_maps_to_its_published_route_and_generated_members ... FAILED
+
+Panic sites (base line numbers):
+evaluator.log:panicked at crates/evaluator/src/policy_pack_tests.rs:614:5
+evaluator.log:panicked at crates/evaluator/src/policy_pack_tests.rs:583:5
+evaluator.log:panicked at crates/evaluator/src/policy_pack_tests.rs:171:37
+host.log:panicked at crates/host/src/configuration_tests.rs:26:39
+host.log:panicked at crates/host/src/configuration_tests.rs:26:39
+host.log:panicked at crates/host/src/configuration_tests.rs:26:39
+
+Evaluator: the three tests are the law's ranges :151-175 (171: named(RELEASE_PACKS, ...pack:1).unwrap_err()), :580-600 (583: rows.len() == 0)
+and :603-640 (614: the exact RELEASE_PACKS const text).
+Host: all three panic in refuse()'s unwrap_err (26:39). nt1_wrong_pack_identity_is_row_1_with_the_presented_id is the law's :102-134.
+every_row_maps_to_its_published_route_and_generated_members and rows_1_2_and_3a_emit_the_x12_0_remedy_byte_for_byte both call every_row(),
+whose row-1 input named("opensip.preview.typescript.pack:1") (base :244) now admits: stop item 1.
+Every other pack and configuration test passes unchanged.
