@@ -867,3 +867,7 @@ Times are local.
 - **I1-b1 accepted by CODEX2 (ACCEPT-UNIT, no findings) and integrated** at product main `083ad5c`. The integrated diff is byte-identical to the reviewed subject, and `verify_design` passes. The I1 chain's next units are I1-c (the pack row; I1-P is bound) and I1-b2 (semantics; L).
 - **I1-c started** (the preview pack's row, the pack document, the release entry and the flipped tests), for CODEX2. It takes inventory v140 on J3a's staged v139.
 - **X5 r4 (J1's S8) and X9 r17 round 2 (§S12, with X4 r8's `latch.after` note) accepted by GROK2,** with no findings. NBO-1, a citation detail for `CancelPhase` O, goes to the §RW round. **J3b's law prerequisites are now all met:** J3a, S8, S9, S10, S11 with X4-F3 integrated, and S12.
+- **X3c-3 implemented and sent to GROK2.** It is the storage re-commit: 11 files, no new file, 22 RC rows (storage goes to 403), and 10 tests. Workspace 1748/0/3 twice.
+  - **Census:** exactly §RC.3's predictions (storage 261 points and 327 kill points, union 389).
+  - **Lead sets:** two full sets of both targets pass, and the repetitions agree. 362 of 381 storage runs are identical to C's, and the other 19 are exactly §RC.5's.
+  - **Its lock scripts now hold a HELD flag.** Its host half reran after the deadlock.
