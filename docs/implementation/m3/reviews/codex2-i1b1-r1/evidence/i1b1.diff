@@ -1,0 +1,389 @@
+diff --git a/crates/evaluator/src/policy.rs b/crates/evaluator/src/policy.rs
+index 3a1d618..8720953 100644
+--- a/crates/evaluator/src/policy.rs
++++ b/crates/evaluator/src/policy.rs
+@@ -223,16 +223,35 @@ fn has_string(v: &V, s: &str) -> bool {
+         false
+     }
+ }
++/// The op law of `cycle-representative` (law M3-I1 item 2.2), which the rule
++/// law also requires: the atom is its rule's whole emitWhen (`root`); it reads
++/// `imports` at `resolved-target`; `filters` is `[]`; `endpoint` and
++/// `evidence` are absent; and the rule's subjectKind is `file`. A compiled
++/// program carries no subjectEnumeration (`None`), so its pass leaves the kind
++/// to the policy pass, which check_program_laws runs first over the same rules.
++fn cycle_representative_law(atom: &V, subject_kind: Option<&str>, root: bool) -> bool {
++    root && member_is(atom, "relation", "imports")
++        && member_is(atom, "minResolution", "resolved-target")
++        && optional(atom, "filters") == Some(&V::Array(Vec::new()))
++        && optional(atom, "endpoint").is_none()
++        && optional(atom, "evidence").is_none()
++        && subject_kind.is_none_or(|k| k == "file")
++}
+ // Inputs below are internal: both complete documents have passed the registered
+ // schema before these checks. In particular no caller can bypass FieldFilter
+ // shape admission or add an atom.subjectKind field forbidden by that schema.
+ fn atom_law(
+     atom: &V,
+     subject_kind: Option<&str>,
++    root: bool,
+     registry: &V,
+     reader: &mut Meter,
+ ) -> Result<bool, PolicyAdmissionError> {
+     reader.step()?;
++    let cycle = member_is(atom, "op", "cycle-representative");
++    if cycle && !cycle_representative_law(atom, subject_kind, root) {
++        return Ok(false);
++    }
+     let rel = text(field(atom, "relation")?)?;
+     let Some(spec) = optional(field(registry, "relations")?, rel) else {
+         return Ok(false);
+@@ -266,6 +285,9 @@ fn atom_law(
+     };
+     // The program path's first registry kind is deterministic selected behavior.
+     // It must not be replaced with a different policy-enumeration requirement.
++    // For cycle-representative alone, its op law's "the subject is a file"
++    // replaces this source-kind check: its subject is the importer's file, not
++    // the importer symbol (law M3-I1 item 2.2).
+     let kind = match subject_kind {
+         Some("export") => Some("symbol"),
+         Some(k) => Some(k),
+@@ -281,9 +303,10 @@ fn atom_law(
+             }
+         }),
+     };
+-    if !kinds
+-        .iter()
+-        .any(|v| matches!(v,V::String(s)if Some(s.as_str())==kind))
++    if !cycle
++        && !kinds
++            .iter()
++            .any(|v| matches!(v,V::String(s)if Some(s.as_str())==kind))
+     {
+         return Ok(false);
+     }
+@@ -358,7 +381,7 @@ fn rule_law(
+             }
+             "not" => stack.push((field(node, "operand")?, depth + 1)),
+             _ => {
+-                if !atom_law(node, Some(kind), registry, reader)? {
++                if !atom_law(node, Some(kind), depth == 1, registry, reader)? {
+                     return Ok(Some("POLICY.UNKNOWN_RULE"));
+                 }
+                 if let Some(evidence) = optional(node, "evidence")
+@@ -621,14 +644,20 @@ fn check_program_laws(
+         }
+     }
+     for rule in array(field(program, "rules")?)? {
+-        let mut stack = vec![field(rule, "emitWhen")?];
+-        while let Some(node) = stack.pop() {
++        // Each node carries whether it is the rule's whole emitWhen.
++        let mut stack = vec![(field(rule, "emitWhen")?, true)];
++        while let Some((node, root)) = stack.pop() {
+             reader.step()?;
+             match text(field(node, "op")?)? {
+-                "and" | "or" => stack.extend(array(field(node, "operands")?)?.iter().rev()),
+-                "not" => stack.push(field(node, "operand")?),
++                "and" | "or" => stack.extend(
++                    array(field(node, "operands")?)?
++                        .iter()
++                        .rev()
++                        .map(|n| (n, false)),
++                ),
++                "not" => stack.push((field(node, "operand")?, false)),
+                 _ => {
+-                    if !atom_law(node, None, &registry, reader)? {
++                    if !atom_law(node, None, root, &registry, reader)? {
+                         return Err(PolicyAdmissionError::Refused(format!(
+                             "POLICY_ATOM_NOT_ADMISSIBLE:program:{}:POLICY.UNKNOWN_RULE",
+                             text(field(rule, "ruleId")?)?
+diff --git a/crates/evaluator/src/policy_pack_tests.rs b/crates/evaluator/src/policy_pack_tests.rs
+index 00da5de..16fd172 100644
+--- a/crates/evaluator/src/policy_pack_tests.rs
++++ b/crates/evaluator/src/policy_pack_tests.rs
+@@ -1,6 +1,7 @@
+ //! Law X12 r3 item 10, evaluator side (unit X12a). The synthetic test registry
+ //! below is compiled only under cfg(test); a source pin shows that no
+-//! production path names it.
++//! production path names it. The last tests are law M3-I1 item 2.2's op law
++//! for `cycle-representative` (unit I1-b1), on synthetic test packs.
+ extern crate std;
+ use super::*;
+ use alloc::{string::ToString, vec};
+@@ -871,3 +872,276 @@ fn check_plan_pack_joins_analysis_spec_and_policy_digest() {
+         Err(PolicyAdmissionError::RegistryLaw)
+     ));
+ }
++
++/// Law M3-I1 item 2.1's atom, as the preview pack's one rule writes it.
++const CYCLE: &str = r#"{"filters":[],"minResolution":"resolved-target","op":"cycle-representative","relation":"imports"}"#;
++const EXISTS_FILE: &str =
++    r#"{"filters":[],"minResolution":"enumerated","op":"exists","relation":"file"}"#;
++const EXISTS_IMPORTS: &str =
++    r#"{"filters":[],"minResolution":"resolved-target","op":"exists","relation":"imports"}"#;
++const UNKNOWN_RULE: &str = "POLICY_RULE_NOT_ADMISSIBLE:policy:no-consumer:POLICY.UNKNOWN_RULE";
++fn json(raw: &str) -> V {
++    parse_json(raw.as_bytes()).unwrap()
++}
++/// CYCLE with each (member, JSON value) set.
++fn cycle_with(members: &[(&str, &str)]) -> String {
++    let mut atom = json(CYCLE);
++    for (member, value) in members {
++        put(&mut atom, &format!("/{member}"), json(value));
++    }
++    String::from_utf8(bytes_of(&atom)).unwrap()
++}
++/// The bundled test document with its one rule's emitWhen, subjectKind and,
++/// when given, evidenceUse replaced.
++fn rule_document(emit_when: &str, subject_kind: &str, evidence_use: Option<&str>) -> Vec<u8> {
++    let mut doc = test_document();
++    put(&mut doc, "/rules/0/emitWhen", json(emit_when));
++    put(
++        &mut doc,
++        "/rules/0/subjectEnumeration/subjectKind",
++        s(subject_kind),
++    );
++    if let Some(rows) = evidence_use {
++        put(&mut doc, "/rules/0/evidenceUse", json(rows));
++    }
++    bytes_of(&doc)
++}
++/// Admit `raw` as the one document of a one-row cfg(test) registry.
++fn admit_test_pack(raw: &[u8]) -> Result<AdmittedPack, PackRefusal> {
++    let (rows, doc, _) = one_row(raw, &digest_hex(&raw_sha256(raw)), &["fixture"]);
++    let documents = [("pack.json", doc.as_slice())];
++    let registry = PackRegistry {
++        rows: &rows,
++        documents: &documents,
++    };
++    named(&registry, TEST_ID)
++}
++fn rule_law_fault() -> PackRefusal {
++    PackRefusal::HostInvariant {
++        subject: format!("pack:{TEST_ID}"),
++        defect: PackDefect::RuleLaw(UNKNOWN_RULE.into()),
++    }
++}
++/// The emitWhen violations of item 2.2, each schema-admissible. Each of the
++/// atom's own violations would pass the shared atom law with the kind check
++/// skipped, except `evidence`, which a native relation also refuses.
++fn cycle_emit_when_violations() -> Vec<(&'static str, String)> {
++    vec![
++        ("under not", format!(r#"{{"op":"not","operand":{CYCLE}}}"#)),
++        (
++            "an operand of and",
++            format!(r#"{{"op":"and","operands":[{CYCLE},{EXISTS_FILE}]}}"#),
++        ),
++        (
++            "an operand of or",
++            format!(r#"{{"op":"or","operands":[{EXISTS_FILE},{CYCLE}]}}"#),
++        ),
++        (
++            "both operands of and",
++            format!(r#"{{"op":"and","operands":[{CYCLE},{CYCLE}]}}"#),
++        ),
++        (
++            "under not under and",
++            format!(
++                r#"{{"op":"and","operands":[{{"op":"not","operand":{CYCLE}}},{EXISTS_FILE}]}}"#
++            ),
++        ),
++        (
++            "relation references",
++            cycle_with(&[
++                ("relation", r#""references""#),
++                ("minResolution", r#""resolved-binding""#),
++            ]),
++        ),
++        (
++            "relation file",
++            cycle_with(&[
++                ("relation", r#""file""#),
++                ("minResolution", r#""enumerated""#),
++            ]),
++        ),
++        (
++            "rung syntactic-specifier",
++            cycle_with(&[("minResolution", r#""syntactic-specifier""#)]),
++        ),
++        (
++            "a subject filter",
++            cycle_with(&[(
++                "filters",
++                r#"[{"cmp":"prefix","field":"subject","value":"src/"}]"#,
++            )]),
++        ),
++        (
++            "a resolution filter",
++            cycle_with(&[(
++                "filters",
++                r#"[{"cmp":"eq","field":"resolution","value":"resolved-target"}]"#,
++            )]),
++        ),
++        (
++            "endpoint target",
++            cycle_with(&[("endpoint", r#""target""#)]),
++        ),
++        (
++            "endpoint source",
++            cycle_with(&[("endpoint", r#""source""#)]),
++        ),
++        ("evidence", cycle_with(&[("evidence", r#""runtime""#)])),
++    ]
++}
++
++#[test]
++fn cycle_representative_test_pack_admits_under_its_op_law() {
++    // Law M3-I1 item 2.2: the atom is the rule's whole emitWhen over file
++    // subjects. Its op law replaces imports' source-kind check (symbol), so
++    // the file-kind rule now admits through both passes, policy and program.
++    let raw = rule_document(CYCLE, "file", None);
++    let admitted = admit_test_pack(&raw).unwrap();
++    assert_eq!(admitted.pack_id(), TEST_ID);
++    assert_eq!(admitted.policy_digest(), raw_sha256(&raw));
++    let rules = array(field(admitted.program(), "rules").unwrap()).unwrap();
++    assert_eq!(rules.len(), 1);
++    assert_eq!(field(&rules[0], "emitWhen").unwrap(), &json(CYCLE));
++    assert_eq!(
++        admitted.program_digest(),
++        raw_sha256(&canonical_bytes(admitted.program()).unwrap())
++    );
++    // The same identity again is the same admission.
++    assert_eq!(admit_test_pack(&raw).unwrap().program(), admitted.program());
++    // "For this op only": every other op keeps the shared law. An imports
++    // atom over file subjects still fails the source-kind check, and over
++    // symbol subjects it admits, in any position.
++    assert_eq!(
++        admit_test_pack(&rule_document(EXISTS_IMPORTS, "file", None)).unwrap_err(),
++        rule_law_fault()
++    );
++    for emit_when in [
++        String::from(EXISTS_IMPORTS),
++        format!(r#"{{"op":"not","operand":{EXISTS_IMPORTS}}}"#),
++    ] {
++        admit_test_pack(&rule_document(&emit_when, "symbol", None)).unwrap();
++    }
++}
++
++#[test]
++fn cycle_representative_op_law_violations_are_row_4_rule_law() {
++    // Each violation of item 2.2 in a bundled document is X12 row 4 with the
++    // rule-law detail POLICY.UNKNOWN_RULE, never a schema refusal.
++    let mut cases: Vec<(&str, Vec<u8>)> = cycle_emit_when_violations()
++        .into_iter()
++        .map(|(name, emit_when)| (name, rule_document(&emit_when, "file", None)))
++        .collect();
++    for kind in ["symbol", "export", "package"] {
++        cases.push((kind, rule_document(CYCLE, kind, None)));
++    }
++    // Declared evidence is still refused by the op law, not admitted, and an
++    // undeclared one is POLICY.UNKNOWN_RULE, not IMPORT.ABSENT_FOR_PREDICATE.
++    cases.push((
++        "declared evidence",
++        rule_document(
++            &cycle_with(&[("evidence", r#""runtime""#)]),
++            "file",
++            Some(r#"[{"kind":"runtime","requirement":"required"}]"#),
++        ),
++    ));
++    assert_eq!(cases.len(), 17);
++    for (name, raw) in &cases {
++        let refusal = admit_test_pack(raw).unwrap_err();
++        assert_eq!(refusal, rule_law_fault(), "{name}");
++        assert_eq!(refusal.subject(), format!("pack:{TEST_ID}"));
++    }
++    // `n` is the schema's to refuse (PDS:339-363), before the rule law.
++    let raw = rule_document(&cycle_with(&[("n", "0")]), "file", None);
++    assert_eq!(
++        admit_test_pack(&raw).unwrap_err(),
++        PackRefusal::HostInvariant {
++            subject: format!("pack:{TEST_ID}"),
++            defect: PackDefect::Schema,
++        }
++    );
++}
++
++#[test]
++fn cycle_representative_op_law_holds_in_the_program_pass() {
++    // A compiled program reaching this pass equals its policy's compilation
++    // (compile_program here, RULE_PROGRAM_COMPILATION_JOIN for a retained one),
++    // so the program pass is exercised directly: a lawful policy beside a
++    // program whose emitWhen breaks item 2.2.
++    let meter = || Meter {
++        budget: TraversalBudget {
++            steps: PACK_TRAVERSAL_STEPS,
++            depth: 1,
++            descriptor_work: PACK_SCHEMA_WORK,
++        },
++    };
++    let compile = |policy: &V| compile_program(&mut meter(), &s(TEST_SHA), policy).unwrap();
++    let policy = test_document();
++    let program_with = |emit_when: &str| {
++        let mut program = compile(&policy);
++        put(&mut program, "/rules/0/emitWhen", json(emit_when));
++        program
++    };
++    assert_eq!(
++        check_program_laws(&mut meter(), &policy, &program_with(CYCLE)),
++        Ok(())
++    );
++    for (name, emit_when) in cycle_emit_when_violations() {
++        assert_eq!(
++            check_program_laws(&mut meter(), &policy, &program_with(&emit_when)),
++            Err(PolicyAdmissionError::Refused(
++                "POLICY_ATOM_NOT_ADMISSIBLE:program:no-consumer:POLICY.UNKNOWN_RULE".into()
++            )),
++            "{name}"
++        );
++    }
++    // A program carries no subjectEnumeration: the kind is the policy pass's,
++    // which runs first over the same rules.
++    for (kind, expected) in [
++        ("file", Ok(())),
++        (
++            "symbol",
++            Err(PolicyAdmissionError::Refused(UNKNOWN_RULE.into())),
++        ),
++    ] {
++        let policy = parse_json(&rule_document(CYCLE, kind, None)).unwrap();
++        assert_eq!(
++            check_program_laws(&mut meter(), &policy, &compile(&policy)),
++            expected,
++            "{kind}"
++        );
++    }
++}
++
++#[test]
++fn cycle_representative_op_law_stands_alone() {
++    // Item 2.2's conjuncts, independent of the atom registry. Through
++    // admission, two of them are also implied by the shared atom law today:
++    // no other relation's ladder holds `resolved-target`, and a native
++    // relation refuses `evidence`. Each still refuses on its own here.
++    let lawful = json(CYCLE);
++    assert!(cycle_representative_law(&lawful, Some("file"), true));
++    assert!(cycle_representative_law(&lawful, None, true));
++    assert!(!cycle_representative_law(&lawful, Some("file"), false));
++    assert!(!cycle_representative_law(&lawful, None, false));
++    for kind in ["symbol", "export", "package"] {
++        assert!(!cycle_representative_law(&lawful, Some(kind), true));
++    }
++    for members in [
++        &[("relation", r#""references""#)][..],
++        &[("minResolution", r#""syntactic-specifier""#)][..],
++        &[(
++            "filters",
++            r#"[{"cmp":"prefix","field":"subject","value":"src/"}]"#,
++        )][..],
++        &[("endpoint", r#""source""#)][..],
++        &[("endpoint", r#""target""#)][..],
++        &[("evidence", r#""runtime""#)][..],
++    ] {
++        let atom = json(&cycle_with(members));
++        assert!(
++            !cycle_representative_law(&atom, Some("file"), true),
++            "{members:?}"
++        );
++        assert!(!cycle_representative_law(&atom, None, true), "{members:?}");
++    }
++}
