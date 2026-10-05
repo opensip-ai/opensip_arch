@@ -871,3 +871,4 @@ Times are local.
   - **Census:** exactly §RC.3's predictions (storage 261 points and 327 kill points, union 389).
   - **Lead sets:** two full sets of both targets pass, and the repetitions agree. 362 of 381 storage runs are identical to C's, and the other 19 are exactly §RC.5's.
   - **Its lock scripts now hold a HELD flag.** Its host half reran after the deadlock.
+- **X3c-3 accepted by GROK2 (ACCEPT-UNIT, no findings) and integrated** at product main `43ea32a`, giving storage 403 required runs. The integrated diff is byte-identical to the reviewed subject, and `verify_design` passes. GROK2 left the rerun to after integration. **The integration evidence starts now on `43ea32a`:** release absence, two full sets of both targets and the real `check`, all serialized under the lane lock.

@@ -1,0 +1,53 @@
+# X3c-3 r1 — ACCEPT-UNIT
+
+Storage re-commit under X3c r8 and X9 r17 §RC. Subject is the uncommitted diff in `/Users/sb/code/opensip-ai/opensip-x3c3` at `d2c00a96c3136fe45b901bc067b6d0ca51f0c9c1`: `git diff d2c00a9` is 491754 bytes, sha256 `bb86dd404622ecd4433356e0b1c0c706740ed630ca371430966c917042fd1802`, 11 files, +1522 −94. Nothing is staged. No file is added, removed, or renamed. `~/Library/Application Support/OpenSIP` was absent. No cargo ran, so no lane lock was taken.
+
+Product main is `083ad5c`. The commits since `d2c00a9` (binding, X4-F3, J2a, E2a, I1-b1) do not touch these eleven files.
+
+## Law pins
+
+Reviewed against the snapshots. Each acceptance `subjectSha256` matches `hashes.txt`.
+
+- X3c r8 `PROPOSAL-r8.md`, 66778 bytes, `ba638efbacda47fdddb32bfe5c4e035752c772812cf62fd63bf5766bf38760b7` (GROK2 ACCEPT).
+- X9 r17 §RC `PROPOSAL-r17-RC.md`, 235499 bytes, `89fc47ff2ac17c0628cfdd68fce26fcc6eb6416b54e0cca78f61c5c474ff375c` (Grok ACCEPT).
+- X3d r9 `PROPOSAL-r9.md`, 97231 bytes, `c727001a44e1ef48ce131b0262cb566e9417ff5537bf3d9446b97ca10a213fdf` (Grok ACCEPT). CL-1 restates step 3.8. This diff changes no X3d file.
+
+Every other `hashes.txt` pin matched the named file, except the pin of `REQUEST.md` itself. That pin is the committed request with the Lead notes section removed (44846 bytes, `04194174…`). The file followed here is the committed request, 46013 bytes, `1d84e1daaaa1d0c9e78a099243a856d2821c0e5c6a5f749fc50fcdd4b190c2ad`. The 1167-byte difference is only that section.
+
+## Staging
+
+`PreparedLedger::stage` reads standing inside the open level-3 transaction, after the operation and RunId join checks and before any insert. `run_standing` checks the material DDL, reads R's current availability through `load_current_availability`, and `EXISTS` a `commit_run_material` row for R under the attempt's store generation digest and N. R is the receipt RunId. Neither row is `First`. Both is `Committed`. Exactly one is `LedgerError::OneSidedRun`, mapped by `classify_staging` to `ProjectLedgerRefusal::Corrupt` (`LEDGER.CORRUPT`). The read does not call `paired_run`, so it does not read an attempt row, phase, SEAL, object, or staging residue.
+
+A first commit is charged `FIRST_COMMIT_COST` plus the availability and pin bytes, then staged as r7 stages it, including the `stage-availability` and `stage-pins` barriers. A re-commit refuses a non-empty declared pin set on the invariant row before the comparison, charges `COMPARE_COST` plus the attempt's own manifest and inventory lengths, and compares the least-`execution` material row (`ORDER BY execution LIMIT 1`; `execution` is TEXT, default BINARY collation, fixed length 38). Lengths are compared first. Equal lengths are the only path that reads the two bodies. A difference is the invariant row. The receipt pair and Run material are then staged as r7 stages them. Availability and pins stay inside `standing == RunStanding::First`.
+
+r7's 16/128/64 KiB `STAGE_COST` is two equal halves. The reservation before the standing read is `STAGE_COST + STANDING_COST + COMMIT_COST` plus the receipt, association, manifest, and inventory bytes. `STANDING_COST` is 2/8/4 KiB. `COMPARE_COST` is 2/8/64. A first commit's total is r7's plus `STANDING_COST`. Both charges precede the first insert, and a re-commit is not charged `FIRST_COMMIT_COST`. A missing material row between the two comparison statements is `run_material_missing`, which classifies as the invariant row.
+
+`commit.rs` changes only the module comment and the `stage` doc comment. The values handed to staging are unchanged. No DDL, crash point, public type, outcome, or row is added.
+
+## Tests
+
+The ten item 12b tests are present and assert the law's results: two facade commits of one candidate, both `Committed`, sequence 2, one availability row, empty pin tables, byte-identical material, earlier rows kept, two SEALs; standing after a dropped pre-`COMMIT` attempt (generation 0, sequence 1) and after a landed `fail-after` hook (sequence 2, one availability row); regeneration mismatch at equal length and at a longer inventory, invariant row, only the attempt row added; both one-sided deletions, `LedgerCorrupt`; a generation-1 `purged` successor left current; the same Run in N2 as a first commit there with N's dump unchanged; three commits each recovering `CommittedHistorically` for that attempt's own journal sequence; a re-commit staging its own rows and no availability or pins; a declared pin refused before any insert; and each branch's reservation exact, one unit short refused on the budget row with nothing inserted.
+
+## Matrix and transcription
+
+`transcribe_x3c3.py` was rerun on `git show d2c00a9:` of storage's required-runs file. The output is the worktree file: 403 rows, 209604 bytes, sha256 `292f81059aa78b417bcb357fc2f6d55968afc46370a74f41575d2be3b9c9d1ca`, canonical. The 381 landed row objects are unchanged. The 22 appended rows are the RC.4 identities, each `"units": ["X3c"]` and `"unit": "X3c-3"`, with expected-key counts 19, eight times 11, two times 16, two times 13, four times 11, 13, two times 12, 6, 8. No identity repeats. `UNIT_VALUES` admits `"X3c-3"` beside `"X9-6"`, and `check-unit` has no such choice. The new test covers that reading.
+
+The `recommit` part is appended after the refused end, on its own fresh root: unarmed E1 outside the census, then unarmed E2 whose trace is the part, with the RC.3 harness checks. `x96_parts` order is commit, recover, sweep, refused-end, recommit. Observed values are `availabilityRows`, `materialRows`, `materialIdentical` (manifest and inventory, columns 4 and 5), `commitSequences` (association column 3, numeric order), `pinRows`, `revs`, `<n>.objectsLinked`, `<n>.stages`, and, for an `unchanged` child that finishes or is killed, `<n>.ledgerRowsKept` and `<n>.objectsKept`. The finish path still records the existing compared ladder entry. The kill path records only the two new values. `R2.objectsLinked` comes from `trace_values`. `R2.commitSequence` is inserted only when R2 has an association. `"r2"` accepts `same` and absent as the candidate, `distinct` as before, and any other value as a harness error, in both script forms. `R5.sameRunId` is `runs.len() >= 2` and every SEAL naming `runs[0]`. `delete-availability` requires exactly one availability row, then deletes it through `lifted`. `plant-availability` copies the `of` child's generation-0 retained row, found through that child's material `execution`, and replaces the RunId in the column and the body. `run-out` is passed to every step-form commit child, under the run scratch, and is not scored. The distinct child writes the non-distinct candidate's RunId, which is the R the plant is for.
+
+Census evidence matches RC.3: storage 259→261 points and 321→327 kill-set points; union 321→323 and 383→389; added names `reopen-confirm.before` and `.after` at 82 each; `file-barrier.before` and `.after` 82→164; `link.after` stays 82; kill set adds the eight predicted points and removes the two `#41` points. Host census is 218 points. The first four storage parts are recorded equal to C's trace. Coverage before transcription leaves exactly RC-2's eight points uncovered, with `killedOutsideKillSet` exactly the two F03 `#41` points. Coverage after transcription has those eight killed and the same two points outside the kill set.
+
+## Lead evidence, rerun here
+
+The lead sets remain the evidence for the dirty worktree. Storage 403/403 and host 98/98, two repetitions, diff sha256 unchanged at each set's head and tail. This review reran `precheck_x3c3.py` on those four run directories. The output is byte-identical to the pinned `lead-precheck.json` (59558 bytes, `c6b386c7d4add18d405b146019bb1300c9237eb8015bd28783acb8c162c72159`): passed, 501 runs, storage census 261/327 with 313 killed, host 218/271 with 81 killed, union 323 points and kill set 389 with all 389 killed, `killedOutsideKillSet` exactly the two `#41` points, two tolerated storage outside-kill refusals, L1–L11, repetitions agree. Normalized maps: storage `90ba2116…` (95 distinct), host `ede9384c…` (18). `matrixPass` is false.
+
+The real `check` over the same pair was rerun and refuses with exactly `storage: matrix product is not the reviewed clean commit`. That is the clean-commit condition. The precheck applies the checker's other conditions and passes.
+
+Against C, each lead repetition has host 98/98 equal and storage 362 of 381 landed runs equal. The other 19 are RC.5's 19, all PASS. Eighteen end `Committed(latched=false)` at `commit#3`. F33 `run-material-inventory` stays `Refused(Invariant)` and differs only in child traces (O-1). F49 `reader-skewed-by-append` is the only `normalizedSha256` change. R3 `nextWriter` is `next-writer=committed` on F12 `fail-after-evidence-commit`, both F23 deletions, and F40 `fail-after-evidence-commit`. No expected value was re-transcribed. The 22 dev rows are Pass.
+
+## Judgment calls and observations
+
+Calls 1–16 are accepted, as are O-1, O-2, and O-3. No file was added, and inventory v136 contains all eleven paths, so there is no inventory successor. v137 and v138 are untouched. The standing identity is the receipt RunId after r7's join check. The split reservation is the reading of item 9 that charges the standing read up front and charges availability and pins only on a first commit. The comparison's second statement, the `OneSidedRun` variant, the pin check before the comparison, the existing commit hook, the lifted trigger hook, the `Debug` spelling at the facade, kept-state values only on the two new keys when a child is killed, `run-out` on step-form commit children, the plant lookup, the R2 counts, the precheck's single tolerated refusal, and `"r2": "same"` on the ladders that run R2 all match the law text they implement. O-1 is an unscored shorter path to the same invariant refusal. O-2 compares bytes before `stage_run_material` parses them, which is item 6a.3's order. O-3 is the stated integration order: J4a follows this unit, and §RW's rows are not in this file.
+
+## What remains on C′
+
+`"rerun": "after-integration"`. The census-only cargo runs, a fresh release-absence record, and two full sets of both targets stay with the lead on the integrated commit, serialized under the lane lock, as with X9-6. Those runs include X4-F3. On that clean commit the real `check` is expected to pass on these bytes. This unit's rows do not include §RW. Availability regeneration, a pin-declaring re-commit's join rule, re-commit across store generations, the resume and repair writer, deduplicating per-attempt Run material, §S12, and §RW are outside this unit.
