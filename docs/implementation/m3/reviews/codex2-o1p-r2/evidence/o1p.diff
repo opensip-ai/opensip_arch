@@ -1,0 +1,420 @@
+diff --git a/crates/platform/src/clock.rs b/crates/platform/src/clock.rs
+index d2c6549..d1fc8ed 100644
+--- a/crates/platform/src/clock.rs
++++ b/crates/platform/src/clock.rs
+@@ -153,6 +153,58 @@ pub(crate) fn ticks_to_duration(
+     })?;
+     Ok(Duration::new(seconds, (nanos % 1_000_000_000) as u32))
+ }
++/// User plus system CPU time of this process, from `getrusage(RUSAGE_SELF)`.
++/// Law M3-O1 item 2. It feeds `host.phase.completed`'s `cpu` once that event exists.
++#[allow(unsafe_code)]
++pub fn process_cpu_time() -> Result<Duration, ClockError> {
++    // SAFETY: rusage is a plain integer struct. Zero is a value getrusage overwrites.
++    let mut usage: libc::rusage = unsafe { std::mem::zeroed() };
++    // SAFETY: usage is a live writable rusage, and RUSAGE_SELF is the fixed target.
++    let code = unsafe { libc::getrusage(libc::RUSAGE_SELF, &mut usage) };
++    if code != 0 {
++        return cpu_time_from_status(code, io::Error::last_os_error(), &usage);
++    }
++    rusage_duration(&usage)
++}
++pub(crate) fn cpu_time_from_status(
++    code: i32,
++    failure: io::Error,
++    usage: &libc::rusage,
++) -> Result<Duration, ClockError> {
++    if code != 0 {
++        return Err(error("process cpu time")(failure));
++    }
++    rusage_duration(usage)
++}
++fn clock_i64(value: impl Into<i64>) -> i64 {
++    value.into()
++}
++fn rusage_duration(usage: &libc::rusage) -> Result<Duration, ClockError> {
++    let user = timeval_duration(
++        clock_i64(usage.ru_utime.tv_sec),
++        clock_i64(usage.ru_utime.tv_usec),
++    )?;
++    let system = timeval_duration(
++        clock_i64(usage.ru_stime.tv_sec),
++        clock_i64(usage.ru_stime.tv_usec),
++    )?;
++    user.checked_add(system)
++        .ok_or(ClockError::InvalidObservation(
++            "process cpu time overflowed",
++        ))
++}
++fn timeval_duration(seconds: i64, micros: i64) -> Result<Duration, ClockError> {
++    if seconds < 0 || !(0..1_000_000).contains(&micros) {
++        return Err(ClockError::InvalidObservation(
++            "process cpu time is not a duration",
++        ));
++    }
++    let seconds = u64::try_from(seconds)
++        .map_err(|_| ClockError::InvalidObservation("process cpu time is not a duration"))?;
++    let nanos = u32::try_from(micros * 1_000)
++        .map_err(|_| ClockError::InvalidObservation("process cpu time is not a duration"))?;
++    Ok(Duration::new(seconds, nanos))
++}
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+@@ -197,4 +249,24 @@ mod tests {
+         // VM restore, scheduler stall, or security trust-clock admission.
+         assert_eq!(a.read_span(), a.monotonic_after() - a.monotonic_before());
+     }
++    #[test]
++    #[allow(unsafe_code)]
++    fn process_cpu_time_is_non_decreasing_and_a_failed_call_is_typed() {
++        let first = process_cpu_time().unwrap();
++        let second = process_cpu_time().unwrap();
++        assert!(second >= first);
++        let usage = unsafe { std::mem::zeroed() };
++        match cpu_time_from_status(-1, io::Error::from_raw_os_error(libc::EFAULT), &usage) {
++            Err(ClockError::Unavailable { operation, source }) => {
++                assert_eq!(operation, "process cpu time");
++                assert_eq!(source.raw_os_error(), Some(libc::EFAULT));
++            }
++            other => panic!("expected a typed cpu-time failure, got {other:?}"),
++        }
++        let mut negative = usage;
++        negative.ru_utime.tv_usec = -1;
++        assert!(cpu_time_from_status(0, io::Error::from_raw_os_error(0), &negative).is_err());
++        negative.ru_utime.tv_usec = 1_000_000;
++        assert!(cpu_time_from_status(0, io::Error::from_raw_os_error(0), &negative).is_err());
++    }
+ }
+diff --git a/crates/platform/src/disposition.rs b/crates/platform/src/disposition.rs
+new file mode 100644
+index 0000000..2c52d90
+--- /dev/null
++++ b/crates/platform/src/disposition.rs
+@@ -0,0 +1,37 @@
++//! `dispose` consumes a `Result` and does nothing else.
++//! Law M3-O1 item 20. O1-S migrates call sites; this unit only provides the helper.
++
++/// Why a consumed failure changes no result.
++#[derive(Clone, Copy, Debug, Eq, PartialEq)]
++pub enum Disposition {
++    /// Cleanup after the outcome is decided. Its failure changes no result.
++    BestEffortCleanup,
++    /// The failure is already carried by a typed result or a record.
++    AlreadyReported,
++    /// Termination or crash path, where nothing more can be reported.
++    /// The checker allows this only in the listed termination files.
++    ShutdownPath,
++    /// Test-support code compiled only under a test `cfg` or a test-only feature.
++    /// The checker allows this only in a test-only file.
++    TestOnly,
++    /// The callee cannot fail for this receiver.
++    Infallible,
++}
++
++/// Consume `result`. No record, no I/O and no allocation.
++pub fn dispose<T, E>(_result: Result<T, E>, _why: Disposition) {}
++
++#[cfg(test)]
++mod tests {
++    use super::{Disposition, dispose};
++
++    #[test]
++    fn dispose_consumes_a_result_and_returns_nothing() {
++        dispose(Ok::<u8, &str>(1), Disposition::Infallible);
++        dispose(
++            Err::<u8, &str>("already carried"),
++            Disposition::AlreadyReported,
++        );
++        dispose(Ok::<(), std::io::Error>(()), Disposition::BestEffortCleanup);
++    }
++}
+diff --git a/crates/platform/src/disposition_tests.rs b/crates/platform/src/disposition_tests.rs
+new file mode 100644
+index 0000000..24b447c
+--- /dev/null
++++ b/crates/platform/src/disposition_tests.rs
+@@ -0,0 +1,7 @@
++use super::{Disposition, dispose};
++
++#[test]
++fn restricted_dispositions_exist_for_the_later_sweep() {
++    dispose(Ok::<(), &str>(()), Disposition::TestOnly);
++    dispose(Err::<(), &str>("closed"), Disposition::ShutdownPath);
++}
+diff --git a/crates/platform/src/harness_descriptor.rs b/crates/platform/src/harness_descriptor.rs
+new file mode 100644
+index 0000000..9199d03
+--- /dev/null
++++ b/crates/platform/src/harness_descriptor.rs
+@@ -0,0 +1,248 @@
++//! Admission of inherited harness descriptor 3.
++//! Law M3-O1 item 2 and S-OP-2b item 4. This is the mechanism only:
++//! the host decides when to call it.
++
++use std::fs::File;
++use std::io;
++use std::os::fd::FromRawFd;
++
++/// Descriptor the harness driver inherits to the host.
++pub const HARNESS_DESCRIPTOR: i32 = 3;
++
++/// The inherited descriptor is not a writable FIFO or regular file.
++#[derive(Debug)]
++pub enum HarnessDescriptorError {
++    /// `fstat` failed. A closed descriptor is `EBADF`.
++    Unavailable(io::Error),
++    /// Not a FIFO and not a regular file. A directory is this refusal.
++    WrongType,
++    /// Open, but `O_ACCMODE` is not write-only or read-write.
++    NotWritable,
++    /// `fcntl` failed while reading or setting the status flags.
++    Flag(io::Error),
++}
++impl std::fmt::Display for HarnessDescriptorError {
++    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
++        match self {
++            Self::Unavailable(source) => write!(formatter, "harness descriptor: {source}"),
++            Self::WrongType => {
++                write!(
++                    formatter,
++                    "harness descriptor is not a fifo or a regular file"
++                )
++            }
++            Self::NotWritable => write!(formatter, "harness descriptor is not writable"),
++            Self::Flag(source) => write!(formatter, "harness descriptor flags: {source}"),
++        }
++    }
++}
++impl std::error::Error for HarnessDescriptorError {
++    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
++        match self {
++            Self::Unavailable(source) | Self::Flag(source) => Some(source),
++            Self::WrongType | Self::NotWritable => None,
++        }
++    }
++}
++
++/// Admit descriptor 3 when it is an open writable FIFO or regular file.
++/// Sets close-on-exec on that descriptor and returns a new close-on-exec
++/// duplicate. The file owns only the duplicate, so another call cannot alias
++/// it. Failure leaves descriptor 3 unowned.
++pub fn admit_harness_descriptor() -> Result<File, HarnessDescriptorError> {
++    // SAFETY: stat is a plain integer struct. Zero is a value fstat overwrites.
++    let mut info: libc::stat = unsafe { std::mem::zeroed() };
++    // SAFETY: info is a live writable stat, and the descriptor number is the fixed harness channel.
++    let stated = unsafe { libc::fstat(HARNESS_DESCRIPTOR, &mut info) };
++    if stated != 0 {
++        return Err(HarnessDescriptorError::Unavailable(
++            io::Error::last_os_error(),
++        ));
++    }
++    let kind = info.st_mode & libc::S_IFMT;
++    if kind != libc::S_IFIFO && kind != libc::S_IFREG {
++        return Err(HarnessDescriptorError::WrongType);
++    }
++    // SAFETY: F_GETFL reads the status flags of the fixed descriptor.
++    let flags = unsafe { libc::fcntl(HARNESS_DESCRIPTOR, libc::F_GETFL) };
++    if flags < 0 {
++        return Err(HarnessDescriptorError::Flag(io::Error::last_os_error()));
++    }
++    let access = flags & libc::O_ACCMODE;
++    if access != libc::O_WRONLY && access != libc::O_RDWR {
++        return Err(HarnessDescriptorError::NotWritable);
++    }
++    // SAFETY: F_SETFD replaces the descriptor flags of the inherited channel with close-on-exec.
++    let set = unsafe { libc::fcntl(HARNESS_DESCRIPTOR, libc::F_SETFD, libc::FD_CLOEXEC) };
++    if set < 0 {
++        return Err(HarnessDescriptorError::Flag(io::Error::last_os_error()));
++    }
++    // SAFETY: F_DUPFD_CLOEXEC returns a new descriptor. No other owner holds it,
++    // and descriptor 3 stays open as the inherited channel.
++    let owned = unsafe { libc::fcntl(HARNESS_DESCRIPTOR, libc::F_DUPFD_CLOEXEC, 0) };
++    if owned < 0 {
++        return Err(HarnessDescriptorError::Flag(io::Error::last_os_error()));
++    }
++    // SAFETY: `owned` is a fresh descriptor from the call above.
++    Ok(unsafe { File::from_raw_fd(owned) })
++}
++
++#[cfg(test)]
++mod tests {
++    use std::fs::{self, File, OpenOptions};
++    use std::io::Write;
++    use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
++    use std::os::unix::ffi::OsStrExt;
++    use std::path::PathBuf;
++    use std::sync::atomic::{AtomicU64, Ordering};
++
++    use super::{HarnessDescriptorError, admit_harness_descriptor};
++
++    struct RestoredFd3 {
++        saved: Option<OwnedFd>,
++    }
++    impl RestoredFd3 {
++        fn install(source: std::os::fd::RawFd) -> Self {
++            let saved = duplicate_current();
++            let installed = unsafe { libc::dup2(source, 3) };
++            assert_eq!(installed, 3, "dup2 onto descriptor 3");
++            Self { saved }
++        }
++        fn close_descriptor() -> Self {
++            let saved = duplicate_current();
++            if saved.is_some() {
++                let closed = unsafe { libc::close(3) };
++                assert_eq!(closed, 0, "close descriptor 3");
++            }
++            Self { saved }
++        }
++    }
++    impl Drop for RestoredFd3 {
++        fn drop(&mut self) {
++            match self.saved.take() {
++                Some(saved) => {
++                    let restored = unsafe { libc::dup2(saved.as_raw_fd(), 3) };
++                    assert_eq!(restored, 3, "restore descriptor 3");
++                }
++                None => {
++                    let closed = unsafe { libc::close(3) };
++                    assert!(closed == 0 || closed == -1);
++                }
++            }
++        }
++    }
++    fn duplicate_current() -> Option<OwnedFd> {
++        let existing = unsafe { libc::fcntl(3, libc::F_GETFD) };
++        if existing < 0 {
++            return None;
++        }
++        let duplicated = unsafe { libc::dup(3) };
++        assert!(duplicated >= 0, "dup of descriptor 3");
++        Some(unsafe { OwnedFd::from_raw_fd(duplicated) })
++    }
++    fn scratch() -> PathBuf {
++        static N: AtomicU64 = AtomicU64::new(0);
++        let n = N.fetch_add(1, Ordering::Relaxed);
++        let path = std::env::temp_dir().join(format!("opensip-o1p-{}-{n}", std::process::id()));
++        fs::create_dir_all(&path).unwrap();
++        path
++    }
++    fn flags_are_close_on_exec(file: &File) -> bool {
++        raw_is_close_on_exec(file.as_raw_fd())
++    }
++    fn raw_is_close_on_exec(fd: i32) -> bool {
++        let flags = unsafe { libc::fcntl(fd, libc::F_GETFD) };
++        flags >= 0 && flags & libc::FD_CLOEXEC != 0
++    }
++
++    #[test]
++    fn admit_harness_descriptor_refuses_closed_readonly_and_directory_and_sets_cloexec() {
++        let dir = scratch();
++        let closed = RestoredFd3::close_descriptor();
++        match admit_harness_descriptor() {
++            Err(HarnessDescriptorError::Unavailable(source)) => {
++                assert_eq!(source.raw_os_error(), Some(libc::EBADF));
++            }
++            other => panic!("expected a closed descriptor, got {other:?}"),
++        }
++        drop(closed);
++
++        let read_only_path = dir.join("read-only");
++        fs::write(&read_only_path, b"x").unwrap();
++        let read_only = File::open(&read_only_path).unwrap();
++        let guard = RestoredFd3::install(read_only.as_raw_fd());
++        assert!(matches!(
++            admit_harness_descriptor(),
++            Err(HarnessDescriptorError::NotWritable)
++        ));
++        drop(guard);
++        drop(read_only);
++
++        let directory = File::open(&dir).unwrap();
++        let guard = RestoredFd3::install(directory.as_raw_fd());
++        assert!(matches!(
++            admit_harness_descriptor(),
++            Err(HarnessDescriptorError::WrongType)
++        ));
++        drop(guard);
++        drop(directory);
++
++        let regular_path = dir.join("regular");
++        let mut regular = OpenOptions::new()
++            .write(true)
++            .create(true)
++            .truncate(true)
++            .open(&regular_path)
++            .unwrap();
++        regular.write_all(b"w").unwrap();
++        let guard = RestoredFd3::install(regular.as_raw_fd());
++        let mut first = admit_harness_descriptor().unwrap();
++        let mut second = admit_harness_descriptor().unwrap();
++        assert_ne!(first.as_raw_fd(), 3);
++        assert_ne!(second.as_raw_fd(), 3);
++        assert_ne!(first.as_raw_fd(), second.as_raw_fd());
++        assert!(flags_are_close_on_exec(&first));
++        assert!(flags_are_close_on_exec(&second));
++        assert!(raw_is_close_on_exec(3));
++        first.write_all(b"one").unwrap();
++        drop(first);
++        let unrelated_path = dir.join("unrelated");
++        let unrelated = OpenOptions::new()
++            .write(true)
++            .create(true)
++            .truncate(true)
++            .open(&unrelated_path)
++            .unwrap();
++        second.write_all(b"two").unwrap();
++        drop(second);
++        drop(unrelated);
++        assert_eq!(fs::read(&unrelated_path).unwrap(), b"");
++        assert_eq!(fs::read(&regular_path).unwrap(), b"wonetwo");
++        assert!(raw_is_close_on_exec(3));
++        drop(guard);
++        drop(regular);
++
++        let fifo_path = dir.join("fifo");
++        let fifo_bytes = std::ffi::CString::new(fifo_path.as_os_str().as_bytes()).unwrap();
++        let created = unsafe { libc::mkfifo(fifo_bytes.as_ptr(), 0o600) };
++        assert_eq!(created, 0, "mkfifo");
++        let opened = unsafe {
++            libc::open(
++                fifo_bytes.as_ptr(),
++                libc::O_RDWR | libc::O_NONBLOCK | libc::O_CLOEXEC,
++            )
++        };
++        assert!(opened >= 0, "open fifo");
++        let fifo = unsafe { File::from_raw_fd(opened) };
++        let guard = RestoredFd3::install(fifo.as_raw_fd());
++        let admitted = admit_harness_descriptor().unwrap();
++        assert_ne!(admitted.as_raw_fd(), 3);
++        assert!(flags_are_close_on_exec(&admitted));
++        assert!(raw_is_close_on_exec(3));
++        drop(admitted);
++        drop(guard);
++        drop(fifo);
++
++        fs::remove_dir_all(&dir).unwrap();
++    }
++}
+diff --git a/crates/platform/src/lib.rs b/crates/platform/src/lib.rs
+index 367621e..c9155d5 100644
+--- a/crates/platform/src/lib.rs
++++ b/crates/platform/src/lib.rs
+@@ -257,7 +257,16 @@ mod linux;
+ #[allow(unsafe_code)]
+ mod macos;
+ #[cfg(any(target_os = "macos", target_os = "linux"))]
+-pub use clock::{ClockError, ClockObservation, observe_clock};
++pub use clock::{ClockError, ClockObservation, observe_clock, process_cpu_time};
++#[cfg(any(target_os = "macos", target_os = "linux"))]
++#[allow(unsafe_code)]
++mod harness_descriptor;
++#[cfg(any(target_os = "macos", target_os = "linux"))]
++pub use harness_descriptor::{HarnessDescriptorError, admit_harness_descriptor};
++mod disposition;
++pub use disposition::{Disposition, dispose};
++#[cfg(test)]
++mod disposition_tests;
+ 
+ #[cfg(any(target_os = "macos", target_os = "linux"))]
+ pub use filesystem::{
