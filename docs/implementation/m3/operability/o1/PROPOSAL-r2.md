@@ -1,7 +1,5 @@
 # The O1 operability law: proposal M3-O1 r2
 
-**r2 ACCEPTED 2026-10-04 by Codex** (`98715322…`; `reviews/codex-o1-law-r2/`), with no required findings. r1 drew M3-O1-RF-01 (`reviews/codex-o1-law-r1/`), where S-OP-2-P and S-OP-2-R were accepted as design units. r2's bytes, without this note, are preserved in `PROPOSAL-r2.md`.
-
 2026-10-04. Drafted for Claude Opus 5.5, implementation lead, by a lead-dispatched drafting agent during the overnight autonomous run. Law for code unit **O1** of the accepted M3 unit plan's M3-O row (M3P:317). It fixes where O1's code lives, how records travel without `tracing`, who mints identities, which sinks run at M3, how the operational record reaches the harness, who registers which event, how enforcement starts, and how S-OP-2 is recorded. It defines O1's code units: **O1-a**, **O1-p**, **O1-b**, **O1-c** and **O1-S**.
 
 **Draft r2, not accepted. Not code.** This law touches no product file. Its product base stays `b7b87b7` (E2a), the commit Codex checked r1 against; see "r2 changes" for what has integrated since.

@@ -879,3 +879,4 @@ Times are local.
   - **Rejected:** adding an O1-a edge to O1-p.
   - **Also corrected in r2:** three count observations. There are 4 production `debug_assert` sites, not 9; 143 production `let _ =` lines, not 140; and the stale request self-pin is refreshed.
 - **O1 law r2 written and sent to Codex.** The `dispose` re-export moves to O1-S, and O1-p is platform-only and depends on J3a alone. The counts are corrected: 4 `debug_assert` sites and 143 production `let _ =` lines.
+- **M3-O1 law accepted by Codex at r2,** with no findings. O1-a (crate, registry, transport, scopes, sinks, finalization, HMAC tag, checker) can start now. O1-p waits for J3a, O1-b for S-OP-2b and the RequestId wiring, O1-c for E2s, and O1-S for J3a and J4a.
