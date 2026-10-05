@@ -846,3 +846,12 @@ Times are local.
   - the K6 census deferred to S-OP-7.
 
   Units: O1-a, O1-b, O1-c and O1-S.
+- **M3-O1 law and the S-OP-2 recording written and sent to Codex.**
+  - **The recording needs two units.** SDK4 and DRC aren't in the selected design, so S-OP-2-P first selects APP's pinned bytes with no override, and S-OP-2-R then makes item 24's two plain overrides. Local verify passes: 102, then 103 successors.
+  - **SHA-256 is written in-house** inside `crates/operability`, the only option that adds no crate and keeps the single edge to platform.
+  - **`dispose` lives in platform,** because 126 of the 140 production `let _ =` sites are in platform and security.
+  - **A fifth unit, O1-p,** holds platform's CPU-time call, descriptor admission and `dispose`.
+  - **No production record exists until the RequestId mint is wired** (likely a small J3a follow-up leg, J3a-o).
+  - **Lead answers:**
+    - **Q1:** an optimized `harness` profile with debug assertions on, so Q6 measures optimized code.
+    - **Q2:** O1-p may land before the held J4a.
