@@ -833,3 +833,16 @@ Times are local.
 - **I1-b1 implemented and sent to CODEX2.** It covers the `cycle-representative` op law in `policy.rs`, for both passes. 2 files, no new file, 4 tests; all 12 mutants killed; workspace 1742/0/3 twice. I1-a's `fixturePath` observation goes to the next unit that edits `atom-registry.json`.
 - **J4a accepted by Codex at r2** (ACCEPT-UNIT; J4A-RF-01 closed). Integration is held, as ruled: after X3c-3, and together with X9 r17 §RW's RW-F00 re-transcription of the six storage rows and a full storage lead set. **Next:** draft §RW (J-RW's RW-S6) as X9 r17 round 3 once round 2 (§S12) is accepted.
 - **O1 started** (operability: `tracing`, the S-OP-2 vocabulary, sinks, bounds, phase spans, the operational record), for Grok. The agent first checks whether the plan and S-OP-2 are precise enough to code from. If they aren't, it reports a gap list and I draft an O1 law instead.
+- **O1 needs a law first.** The agent stopped after reading, as instructed. The plan and S-OP-2 leave crate placement, scope minting, the operational record's form and channel, sink enabling at M3 and the enforcement mechanism open. `tracing` can't pass the dependency policy, and S-OP-2 isn't bound yet (its item 24).
+- **The M3-O1 law and the S-OP-2 recording unit are being drafted,** for Codex. Lead decisions:
+  - a new `crates/operability` depending only on platform;
+  - no `tracing`: an in-house transport, which S-OP-2 item 10 permits, and in-house HMAC;
+  - O1 ships scope types, and owners wire the real mints;
+  - a harness-only instrumentation sink behind a non-default feature, which needs a narrow successor, S-OP-2b;
+  - a dev-only stderr feature, with production constants ending every record `unpersisted`;
+  - the loss summary stays unrendered until S-OP-6;
+  - a source-scan checker with per-file exception counts now, and a sequenced lint sweep (O1-S) later;
+  - the termination tables after E2s;
+  - the K6 census deferred to S-OP-7.
+
+  Units: O1-a, O1-b, O1-c and O1-S.
