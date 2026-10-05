@@ -1,0 +1,203 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "Codex",
+  "subject": "X9 r17 round 3, section RW",
+  "subjectPath": "docs/implementation/m2/crash-matrix-x9/PROPOSAL.md",
+  "subjectBytes": 332138,
+  "subjectSha256": "118a9a9835933da722691d1477a3f574e7ffd9deca73f7c21af7c6217c581aff",
+  "diffBase": {
+    "path": "docs/implementation/m2/crash-matrix-x9/PROPOSAL-r17-S12.md",
+    "bytes": 278697,
+    "sha256": "6b208ccf7d1b0ce5c18ec0329724fbc103de8b18d9abae0b02a6ac0856f397f3"
+  },
+  "verdict": "REQUIRED-FINDINGS",
+  "requiredFindings": [
+    {
+      "id": "X9-RW-RF-01",
+      "severity": "P2",
+      "title": "Correct J4a's predicted census delta to four point names",
+      "location": {
+        "path": "docs/implementation/m2/crash-matrix-x9/PROPOSAL.md",
+        "line": 2245,
+        "section": "RW.3"
+      },
+      "problem": "RW.3 predicts that J4a's RW-K4 and RW-K7 states add 8 census points and 8 kill-set points. The two preceding bullets name only four distinct durability points: before/after directory-barrier in each of two repair scopes, each with two occurrences. The matrix census counts distinct names, so this is four census points, eight trace events and eight sampled kill-set points. RW.7 requires J4e to match RW.3 and stop on a contradiction, so the stated eight-point census delta would reject the correctly transcribed census.",
+      "evidence": [
+        {
+          "path": "docs/implementation/m2/crash-matrix-x9/PROPOSAL.md",
+          "line": 2242,
+          "detail": "K4 adds directory-barrier.before and .after under x3c.ledger-create.projects.repair, each with two occurrences."
+        },
+        {
+          "path": "docs/implementation/m2/crash-matrix-x9/PROPOSAL.md",
+          "line": 2243,
+          "detail": "K7 has the same two-name shape under x3b.floor.directory.repair."
+        },
+        {
+          "revision": "43ea32a",
+          "path": "crates/platform/src/crash_barrier/driver.rs",
+          "line": 552,
+          "detail": "Census::from_exit increments occurrences on the existing same-name point and adds a new CensusPoint only for a new name."
+        },
+        {
+          "revision": "43ea32a",
+          "path": "crates/security/src/crash_matrix_support/run_record.rs",
+          "line": 263,
+          "detail": "census_json emits one points array entry per CensusPoint, with its separate occurrences member."
+        },
+        {
+          "revision": "43ea32a",
+          "path": "tools/check_crash_matrix.py",
+          "line": 476,
+          "detail": "censusPoints is len(census.points); kill_set at lines 173-180 samples occurrence ordinals separately."
+        },
+        {
+          "path": "docs/implementation/m2/crash-matrix-x9/PROPOSAL.md",
+          "line": 2523,
+          "detail": "J4e must match the RW.3 prediction; line 2532 makes any contradiction a stop requiring a further law correction."
+        }
+      ],
+      "requestedChange": "State that J4a's two repair start states contribute four new census point names, each occurring twice, hence eight physical durability events and eight kill-set points. Keep the eight RW-K rows unchanged. Use the four-name census delta in every related prediction/gate; other units' contributions remain to be derived from their own censuses.",
+      "leadDecisionDisagreement": false
+    }
+  ],
+  "nonBlockingObservations": [
+    {
+      "id": "X9-RW-NB-01",
+      "location": {
+        "path": "docs/implementation/m2/crash-matrix-x9/PROPOSAL.md",
+        "line": 2214,
+        "section": "RW.3"
+      },
+      "observation": "The checker does not require every dynamic census scope as a releaseAbsence.strings entry. At 43ea32a, registry() returns only static SCOPES; check_set uses wanted={OPENSIP_X9_, *scopes}, and the release scan uses those same registered parent strings. Adding repair census points does not extend that list.",
+      "recommendation": "Correct the explanation to say the existing scan covers registered owner prefixes, which occur in every full repair scope name, together with the feature-disabled macro's bare-block expansion. If explicit dynamic-name scan entries are intended instead, assign that extension to J4e.",
+      "whyNonBlocking": "The existing registered-prefix byte scan covers the full names' prefixes; the source guard also removes repair instrumentation in a release build. This is an inaccurate explanation of existing coverage, not an identified release leak."
+    },
+    {
+      "id": "X9-RW-NB-02",
+      "location": {
+        "path": "docs/implementation/m2/crash-matrix-x9/PROPOSAL.md",
+        "line": 2511,
+        "section": "RW.6 / LD-RW-11"
+      },
+      "observation": "LD-RW-11 deliberately defers narrowing L11's reason until J4e, whereas accepted J-RW r4 item 10 at line 651 says the interim reason names states not yet covered by a passing row. The conservative intermediate reason and passing RW-F00 records are a reasonable staging choice; the retirement gate itself is unchanged.",
+      "recommendation": "Include this explicit recording-policy refinement in the owed J-RW record revision alongside LD-RW-6, so the interim L11 wording is not described as a verbatim transcription of r4's reason-update sentence."
+    }
+  ],
+  "assessments": {
+    "rowFaithfulness": "The RW-F00, RW-D1, RW-K1-K10, RW-N1-N12 and RW-B outcomes match accepted J-RW r4 item 10, including N-L0, K5's explicit empty kill set, both N-P2 variants, the three N-R9 variants and conditional trust-leaf visits. The new census count has the required correction.",
+    "sixJ4aCells": "Exactly the six identified storage F00 cells, with five form-B and one form-A expected objects. R1/R3 and scripts, identities, selection and labels remain as prescribed; R2 commits, gains the witness alternatives, and the five x3c R4 values become UAU.",
+    "nbo1Citation": "Record correction only; no expected value changes.",
+    "leadDecisions": {
+      "LD-RW-1": "Accept F00 for pre-attempt repair and neighbour rows and F30 for contention; no new case grammar or admission outcome.",
+      "LD-RW-2": "Accept variants that retain old identities and distinguish repair point plus start state.",
+      "LD-RW-3": "Accept existing RW-F00 selection unchanged; new rows belong to J-RW and J4e, with J4e outside check-unit subsets.",
+      "LD-RW-4": "Accept the scope rule and exact names, including the four accepted J4a directory names and nested C-REG steps.",
+      "LD-RW-5": "Accept explicit create.after#6 kills reported outside the sampled kill set, preserving the existing full-check behavior.",
+      "LD-RW-6": "Accept each sub-unit's own F00 cells with its integration and full lead set; the typed completion join remains J4e's.",
+      "LD-RW-7": "Accept scored typed completion kind codes, final-effect idempotence and the separate trust-leaf reference condition.",
+      "LD-RW-8": "Accept one three-child ladder, with R1/R4 for each child that drew an ExecutionId and a single next writer.",
+      "LD-RW-9": "Accept lawful crash prefixes plus narrowly defined mutations and neighbour-object preservation, allowing earlier lawful effects.",
+      "LD-RW-10": "Accept both ledger-with-WAL custody variants and a private marker for the missing-row negative case.",
+      "LD-RW-11": "Accept the conservative interim L11 text and unchanged two-condition retirement gate; record the refinement against J-RW as noted in X9-RW-NB-02."
+    },
+    "otherR17Sections": "No row changes outside RW. Exactly the three declared diff hunks.",
+    "l11Retirement": "Both J4e's passing complete RW lead set and J4c's RW-C5 pins are required. N-L0 retains the ledger limit; power loss stays L1; neighbours remain executed rows."
+  },
+  "validation": {
+    "pins": [
+      {
+        "path": "docs/implementation/m2/crash-matrix-x9/PROPOSAL.md",
+        "bytes": 332138,
+        "sha256": "118a9a9835933da722691d1477a3f574e7ffd9deca73f7c21af7c6217c581aff",
+        "matches": true
+      },
+      {
+        "path": "docs/implementation/m2/crash-matrix-x9/PROPOSAL-r17-S12.md",
+        "bytes": 278697,
+        "sha256": "6b208ccf7d1b0ce5c18ec0329724fbc103de8b18d9abae0b02a6ac0856f397f3",
+        "matches": true
+      },
+      {
+        "path": "docs/implementation/m2/crash-matrix-x9/PROPOSAL-r17-RC.md",
+        "bytes": 235499,
+        "sha256": "89fc47ff2ac17c0628cfdd68fce26fcc6eb6416b54e0cca78f61c5c474ff375c",
+        "matches": true
+      },
+      {
+        "path": "docs/implementation/m2/crash-matrix-x9/PROPOSAL-r16.md",
+        "bytes": 185750,
+        "sha256": "f08efe95deba681f2940a043c80c91b4faae4e4c804ca5865c024e0e083c0a85",
+        "matches": true
+      },
+      {
+        "path": "docs/implementation/m3/resume-repair-jrw/PROPOSAL-r4.md",
+        "bytes": 118261,
+        "sha256": "9c53bce7185399511340b3313d55379395cd7029d375cb7006a514f859ab617f",
+        "matches": true
+      },
+      {
+        "path": "docs/implementation/m3/resume-repair-jrw/PROPOSAL.md",
+        "bytes": 118687,
+        "sha256": "f147384b9d8d95b23ef15337187662ac388d5996be6d2e568b8a4f46b1f11aca",
+        "matches": true
+      }
+    ],
+    "diffHunks": [
+      "@@ -1,4 +1,6 @@",
+      "@@ -2126,7 +2128,7 @@",
+      "@@ -2134,14 +2136,432 @@"
+    ],
+    "scope": "RW plus NBO-1 citation only; round-2 acceptance note recognized as prior metadata.",
+    "otherSectionsRowsChanged": false,
+    "pinnedProductBase": "43ea32a6419c961cec1e0ba30d7dd791acbd7f49",
+    "observedProductHead": "2ea15719f8c4c194d47876ec7d0db248bb379523",
+    "sourceRule": "Product source inspected through git show 43ea32a; accepted J4a sources reconstructed in memory from the pinned diff against 1d24900. No dirty worktree was used as an authority.",
+    "requiredRuns": [
+      {
+        "revision": "43ea32a",
+        "path": "crates/storage/tests/fixtures/crash-matrix/required-runs.v1.json",
+        "bytes": 209604,
+        "sha256": "292f81059aa78b417bcb357fc2f6d55968afc46370a74f41575d2be3b9c9d1ca",
+        "rows": 403,
+        "f00Rows": 174
+      },
+      {
+        "revision": "43ea32a",
+        "path": "crates/host/tests/fixtures/crash-matrix/required-runs.v1.json",
+        "bytes": 53953,
+        "sha256": "80e4a02eb2862e1e5d5d2e3f395707d1b775a0cafd7bdf06b0e188e0e65090d5",
+        "rows": 98,
+        "f00Rows": 0
+      }
+    ],
+    "f00Checks": "174 F00 rows equal the 083ad5c rows; exactly 57 currently refused cells; six J4a indices, identities, old expectations and metadata agree; committed forms have 89 before-draw, 22 UC-window and 6 later rows.",
+    "repairPrediction": {
+      "pointNames": [
+        "x3c.ledger-create.projects.repair/directory-barrier.before",
+        "x3c.ledger-create.projects.repair/directory-barrier.after",
+        "x3b.floor.directory.repair/directory-barrier.before",
+        "x3b.floor.directory.repair/directory-barrier.after"
+      ],
+      "censusPoints": 4,
+      "occurrencesPerName": 2,
+      "physicalDurabilityEvents": 8,
+      "killSetPoints": 8,
+      "killPoints": [
+        "x3c.ledger-create.projects.repair/directory-barrier.before#1",
+        "x3c.ledger-create.projects.repair/directory-barrier.before#2",
+        "x3c.ledger-create.projects.repair/directory-barrier.after#1",
+        "x3c.ledger-create.projects.repair/directory-barrier.after#2",
+        "x3b.floor.directory.repair/directory-barrier.before#1",
+        "x3b.floor.directory.repair/directory-barrier.before#2",
+        "x3b.floor.directory.repair/directory-barrier.after#1",
+        "x3b.floor.directory.repair/directory-barrier.after#2"
+      ]
+    },
+    "nbo1": "SOP2 r6 line 871 names A-E; J1 r6 line 588 registers O. The changed bullet retains A-E/O spelling, ordering and no-signal value.",
+    "method": "Read-only hashes, full unified diff, accepted-law and source inspection, and in-memory arithmetic/JSON checks. Python used the pinned 3.14.6 interpreter with -I -B at nice -n 19.",
+    "boundaries": "Only review.json and REVIEW.md written under the requested output directory. No repository edits, commit, push, delegation, Cargo, lane lock access, crash-matrix execution or build/test lanes. No real OpenSIP home or private 413 UUID fixture accessed.",
+    "limits": "Predicted repair traces and future J4b-J4e implementation were not executed. This is a law review, not code-unit or matrix evidence acceptance."
+  },
+  "reviewedAtUtc": "2026-10-05T06:19:35.694598+00:00"
+}

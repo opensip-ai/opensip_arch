@@ -1,7 +1,5 @@
 # The crash, lock and revocation matrix — proposal X9 r17
 
-**r17 round 3 (§RW) ACCEPTED 2026-10-04 by Codex** (`312f4de0…`; `reviews/codex-crash-matrix-x9-r17-rw-r2/`), with no required findings. Under LD-17-1 these bytes, without this note, are preserved in `PROPOSAL-r17-RW.md` and, as r17's third section, in `PROPOSAL-r17.md`. X9-RW-RF-01 is closed. X9-RW-NB-01 and X9-RW-NB-02 stay non-blocking.
-
 **r17 round 2 (§S12 and X4 r8's `latch.after` record note) ACCEPTED 2026-10-04 by GROK2** (`6b208ccf…`; `reviews/grok-x5-r4-x9-r17-s12/x9/`), with no required findings. Under LD-17-1 these bytes, without this note, are preserved in `PROPOSAL-r17-S12.md`. §RW stays reserved. NBO-1 (S12.7 cites SOP2:871 for `CancelPhase` A–E, while O is J1's registration, J1r6:588) is a record note for the §RW round.
 
 **r17 round 1 (the section frame and §RC) ACCEPTED 2026-10-04 by Grok** (`89fc47ff…`; `reviews/grok-crash-matrix-x9-r17-rc/`), with no required findings. Under LD-17-1, r17 is accepted section by section. These bytes, without this note, are preserved in `PROPOSAL-r17-RC.md`. §S12 and §RW stay reserved until their own rounds.

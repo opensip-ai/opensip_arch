@@ -1,7 +1,5 @@
 # The crash, lock and revocation matrix — proposal X9 r17
 
-**r17 round 3 (§RW) ACCEPTED 2026-10-04 by Codex** (`312f4de0…`; `reviews/codex-crash-matrix-x9-r17-rw-r2/`), with no required findings. Under LD-17-1 these bytes, without this note, are preserved in `PROPOSAL-r17-RW.md` and, as r17's third section, in `PROPOSAL-r17.md`. X9-RW-RF-01 is closed. X9-RW-NB-01 and X9-RW-NB-02 stay non-blocking.
-
 **r17 round 2 (§S12 and X4 r8's `latch.after` record note) ACCEPTED 2026-10-04 by GROK2** (`6b208ccf…`; `reviews/grok-x5-r4-x9-r17-s12/x9/`), with no required findings. Under LD-17-1 these bytes, without this note, are preserved in `PROPOSAL-r17-S12.md`. §RW stays reserved. NBO-1 (S12.7 cites SOP2:871 for `CancelPhase` A–E, while O is J1's registration, J1r6:588) is a record note for the §RW round.
 
 **r17 round 1 (the section frame and §RC) ACCEPTED 2026-10-04 by Grok** (`89fc47ff…`; `reviews/grok-crash-matrix-x9-r17-rc/`), with no required findings. Under LD-17-1, r17 is accepted section by section. These bytes, without this note, are preserved in `PROPOSAL-r17-RC.md`. §S12 and §RW stay reserved until their own rounds.
@@ -2140,7 +2138,7 @@ These are J3b's additions to host's matrix target, its support surface, the cras
 
 ### §RW. J-RW's section (J-RW item 10 and successor RW-S6; units J4a to J4e)
 
-**Round 3, 2026-10-04. Not accepted.** X9-RW-RF-01's correction: J4a's census delta is four point names, each occurring twice. The eight RW-K rows are unchanged.
+**Round 3, 2026-10-04. Not accepted.**
 
 #### RW.1 What §RW carries and what it decides
 
@@ -2244,7 +2242,7 @@ These are J3b's additions to host's matrix target, its support surface, the cras
 - **RW-K4** (`projects/`): the completion's block is C-ACL, the exact name, the filesystem, then the directory's own barrier and its parent's (`store_custody.rs:195-206`, `finish_store_directory` at `:213-236`). C-ACL's append is no point. So the sub-part adds `x3c.ledger-create.projects.repair/directory-barrier.before` and `.after`, two occurrences each. All four points are in the kill set (`n = 2`).
 - **RW-K7** (`trust/carrier-floors/`): the same shape (`carrier_floor.rs:1009-1038`). It adds `x3b.floor.directory.repair/directory-barrier.before` and `.after`, two occurrences each, all four in the kill set.
 - **RW-K5** (`ledger.sqlite`): C-ACL alone, in `x3c.ledger-create.repair` (`store_custody.rs:412-414`). **RW-K5's kill set is empty, and RW-K5 has no row** (J4A1 call 10). Its sub-part stays in the census, and its check pins the emptiness. A kill in the resumable-empty path that follows leaves RW-L1 under the existing names, which RW-F00 and RW-K6 cover.
-- **So J4a's two repair start states add four census point names, each occurring twice (eight durability events), and eight kill-set points,** and remove none. The eight RW-K rows stay as RW.5 lists them. J4b, J4c and J4d add only the names their own censuses contribute, counted the same way. J4e's census-only run states the totals before transcription (RW.7).
+- **So J4a's states add 8 census points and 8 kill-set points,** and remove none. J4b's, J4c's and J4d's sub-parts add theirs by the same rule. J4e's census-only run states the totals before transcription (RW.7).
 - **What RW-K does not reach.** RW-K4 starts at `projects/` only. The other three store directories run the same `finish_store_directory` under their own `.repair` names. RW-F00's R2 reaches each of them unarmed, and no RW-K row kills there. That is J-RW's census rule, and §RW does not widen it.
 
 **Lead decision LD-RW-5: `x4t.floor-publication.dependency/create.after#6` is killed outside the kill set.**
@@ -2522,7 +2520,7 @@ That is 15 rows: J-RW's twelve, RW-N10's three variants, and RW-N7's two (LD-RW-
 | **J4b** | RW-F00's 46 RW-R cells | unchanged | the same, on its integration commit |
 | **J4c** | RW-F00's two RW-L1 cells, only if RW-C5's pins hold. Under N-L0 it transcribes nothing | unchanged | the same, if it lands C-LEDGER. Under N-L0 it lands only RW-C5's negative controls, which no matrix child reaches, and owes no lead set under §RW |
 | **J4d** | RW-F00's three RW-T cells | unchanged | the same, on its integration commit |
-| **J4e** | RW-D1, RW-K, RW-N and RW-B, with `"unit": "J4e"`; `R2.completions` on the 57 RW-F00 rows | The `repair` part added. J4a's two states add four census point names, each occurring twice, and eight kill-set points, as RW.3 predicts; every other sub-part contributes only the `.repair` names its own census adds; nothing else moves | J-RW's one serialized lead set (JRWr4:652): storage's 403 rows plus §RW's new rows, and host's rows |
+| **J4e** | RW-D1, RW-K, RW-N and RW-B, with `"unit": "J4e"`; `R2.completions` on the 57 RW-F00 rows | The `repair` part added. J4a's two states as RW.3 predicts; every other sub-part reaches only `.repair` points it adds; nothing else moves | J-RW's one serialized lead set (JRWr4:652): storage's 403 rows plus §RW's new rows, and host's rows |
 
 - **Order.** X3c-3 integrated first, at `43ea32a` (J4A2's constraint). J4a integrates next, once this round is accepted (J4A2). J4b and J4d follow J4a, and J4c may integrate at any point (JRWr4:670). J4e integrates last.
 - **Each unit, before its lead set.** On its integration candidate, each unit:
