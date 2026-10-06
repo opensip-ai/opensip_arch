@@ -1,0 +1,156 @@
+diff --git a/Users/sb/code/opensip-ai/opensip-k1-determinism/tools/quality/determinism.py b/Users/sb/code/opensip-ai/opensip-k1-determinism/tools/quality/determinism.py
+new file mode 100644
+index 0000000..d4a2061
+--- /dev/null
++++ b/Users/sb/code/opensip-ai/opensip-k1-determinism/tools/quality/determinism.py
+@@ -0,0 +1,56 @@
++"""QD-18 exact same-lane comparisons of independently admitted projections.
++
++The caller establishes identical semantic input closure, a shared runner lane,
++and complete Plan-bound identity populations. RequestId, ExecutionId and timing
++are outside the projection. This performs no runs or environment mutation and
++does not establish the V0-V4 execution schedule, lane freeze or qualification.
++"""
++from canonical import canonical, pin
++from records import require
++
++KINDS = ('scope', 'fact', 'coverage', 'view', 'finding')
++
++
++def _observation(row):
++    require(type(row) is dict and set(row) == {
++        'inputClosureDigest', 'lane', 'planId', 'identities'}, 'DETERMINISM_SHAPE')
++    require(pin(row['inputClosureDigest']), 'DETERMINISM_CLOSURE_PIN')
++    for key in ('lane', 'planId'):
++        value = row[key]
++        require(type(value) is str and 1 <= len(value) <= 4096,
++                'DETERMINISM_LABEL')
++    populations = row['identities']
++    require(type(populations) is dict and set(populations) == set(KINDS),
++            'DETERMINISM_IDENTITY_KINDS')
++    for population in populations.values():
++        require(type(population) is list and all(type(value) is str and
++                1 <= len(value) <= 4096 for value in population),
++                'DETERMINISM_IDENTITY_ARRAY')
++        require(population == sorted(set(population), key=canonical),
++                'DETERMINISM_IDENTITY_SET')
++    canonical(row)
++
++
++def compare_same_lane(baseline, observed):
++    """Compare every identity category and refuse inapplicable comparisons.
++
++    The input object is a local declared projection, not a wire carrier or an
++    admission of the IDs it contains. Every category must be supplied, including
++    genuinely empty ones; hashing or sampling a selected subset is not offered.
++    The caller proves that every supplied category is its complete population.
++    Cross-lane comparisons need semantic payloads/correspondence, never this
++    identity comparator. Different input closures are not a determinism test.
++    Equal closures and lane but unequal Plans fail even with identical IDs.
++    """
++    _observation(baseline)
++    _observation(observed)
++    require(baseline['inputClosureDigest'] == observed['inputClosureDigest'],
++            'DETERMINISM_INPUTS_DIFFER')
++    require(baseline['lane'] == observed['lane'], 'DETERMINISM_CROSS_LANE')
++    changed = [kind for kind in KINDS if
++               baseline['identities'][kind] != observed['identities'][kind]]
++    plan_drift = baseline['planId'] != observed['planId']
++    return {'deterministic': not plan_drift and not changed,
++            'planIdDrift': plan_drift, 'changedIdentityKinds': changed,
++            'projectionAdmissionEstablished': False,
++            'variantScheduleEstablished': False, 'productQualification': False}
+diff --git a/Users/sb/code/opensip-ai/opensip-k1-determinism/tools/quality/test_determinism.py b/Users/sb/code/opensip-ai/opensip-k1-determinism/tools/quality/test_determinism.py
+new file mode 100644
+index 0000000..783f767
+--- /dev/null
++++ b/Users/sb/code/opensip-ai/opensip-k1-determinism/tools/quality/test_determinism.py
+@@ -0,0 +1,88 @@
++"""Independent QD-18 equality/drift controls, no producer or environment edits."""
++import copy
++import pathlib
++import sys
++import unittest
++sys.path.insert(0,str(pathlib.Path(__file__).resolve().parent))
++from canonical import Refusal, canonical
++from determinism import KINDS, compare_same_lane
++
++
++def observation():
++    return {'inputClosureDigest':'a'*64,'lane':'synthetic-lane','planId':'synthetic-plan',
++            'identities':{kind:[kind+'-synthetic-1'] for kind in KINDS}}
++
++
++class DeterminismTests(unittest.TestCase):
++    def test_identical_projection_is_locally_equal_without_admission(self):
++        a=observation();r=compare_same_lane(a,copy.deepcopy(a))
++        self.assertTrue(r['deterministic'])
++        self.assertFalse(r['planIdDrift'])
++        self.assertEqual(r['changedIdentityKinds'],[])
++        for key in ('projectionAdmissionEstablished','variantScheduleEstablished','productQualification'):
++            self.assertIs(r[key],False)
++
++    def test_each_contract_identity_category_changes_fail(self):
++        a=observation()
++        for kind in KINDS:
++            b=copy.deepcopy(a);b['identities'][kind]=[kind+'-synthetic-2']
++            r=compare_same_lane(a,b)
++            self.assertFalse(r['deterministic']);self.assertEqual(r['changedIdentityKinds'],[kind])
++
++    def test_added_and_removed_population_member_fail(self):
++        a=observation()
++        for kind in KINDS:
++            for population in ([], sorted(a['identities'][kind]+[kind+'-synthetic-2'],key=canonical)):
++                b=copy.deepcopy(a);b['identities'][kind]=population
++                self.assertFalse(compare_same_lane(a,b)['deterministic'])
++
++    def test_plan_drift_is_failure_even_with_all_ids_equal(self):
++        a=observation();b=dict(a,planId='different-synthetic-plan')
++        r=compare_same_lane(a,b)
++        self.assertTrue(r['planIdDrift']);self.assertFalse(r['deterministic'])
++        self.assertEqual(r['changedIdentityKinds'],[])
++
++    def test_plan_and_population_drift_both_remain_visible(self):
++        a=observation();b=copy.deepcopy(a);b['planId']='different-synthetic-plan'
++        b['identities']['scope']=[];b['identities']['finding']=[]
++        r=compare_same_lane(a,b)
++        self.assertTrue(r['planIdDrift']);self.assertEqual(r['changedIdentityKinds'],['scope','finding'])
++
++    def test_different_inputs_are_refused_not_determinism_scored(self):
++        a=observation()
++        with self.assertRaises(Refusal):compare_same_lane(a,dict(a,inputClosureDigest='b'*64))
++
++    def test_cross_lane_ids_are_not_expected_to_equal(self):
++        a=observation()
++        with self.assertRaises(Refusal):compare_same_lane(a,dict(a,lane='other-lane'))
++
++    def test_per_invocation_ids_and_timings_are_not_projection_fields(self):
++        a=observation()
++        for key in ('RequestId','ExecutionId','elapsedNanos'):
++            with self.assertRaises(Refusal):compare_same_lane(a,dict(a,**{key:'synthetic'}))
++
++    def test_all_five_populations_required_and_duplicates_refused(self):
++        a=observation()
++        for kind in KINDS:
++            b=copy.deepcopy(a);del b['identities'][kind]
++            with self.assertRaises(Refusal):compare_same_lane(a,b)
++            b=copy.deepcopy(a);b['identities'][kind]*=2
++            with self.assertRaises(Refusal):compare_same_lane(a,b)
++        b=copy.deepcopy(a);b['identities']['fact']=['z','a']
++        with self.assertRaises(Refusal):compare_same_lane(a,b)
++
++    def test_exact_shapes_pins_types_and_unicode(self):
++        a=observation()
++        for b in (None,{},dict(a,inputClosureDigest='A'*64),dict(a,planId=False),
++                  dict(a,lane=''),dict(a,planId='\ud800')):
++            with self.assertRaises(Refusal):compare_same_lane(a,b)
++        b=copy.deepcopy(a);b['identities']['fact']=[False]
++        with self.assertRaises(Refusal):compare_same_lane(a,b)
++
++    def test_empty_complete_populations_and_input_preservation(self):
++        a=observation();a['identities']={kind:[] for kind in KINDS};before=copy.deepcopy(a)
++        self.assertTrue(compare_same_lane(a,copy.deepcopy(a))['deterministic'])
++        self.assertEqual(a,before)
++
++
++if __name__=='__main__':unittest.main()
