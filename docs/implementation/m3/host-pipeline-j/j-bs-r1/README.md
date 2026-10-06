@@ -1,0 +1,3 @@
+# J-BS/S13 r1
+
+A complete successor copy of the selected invocation5 schema with an in-place optional backupStatus append and conditional presence, exactly M3-J1 r6 item9. It changes no other JSON value, $id/major or envelope7 source. Product schema and all closed generation outputs are a separate reviewed code leg after design acceptance; no source/registry/code byte is changed by this staged draft. The design binds only after that leg integrates. J3d remains the first emitter and owns its actual creation/notice/envelope controls. This draft runs only read-only design schema checks; no creator, provider, generator/compiler, installation, held tree, private413 or real-home operation occurs.

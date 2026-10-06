@@ -1,0 +1,21 @@
+"""Read-only proposed admission-source join; no schema selection or runtime minting authority."""
+import argparse,copy,hashlib,json,pathlib
+def pin(root,row):
+ b=(root/row['path']).read_bytes();assert type(row['bytes']) is int and len(b)==row['bytes'] and hashlib.sha256(b).hexdigest()==row['sha256'],row['path']
+def main():
+ p=argparse.ArgumentParser();p.add_argument('--architecture',type=pathlib.Path,required=True);p.add_argument('--product',type=pathlib.Path,required=True);p.add_argument('--jbs-stage',type=pathlib.Path,required=True);p.add_argument('--jbs-product',type=pathlib.Path,required=True);a=p.parse_args();local=pathlib.Path(__file__).parent;authority=json.loads((local/'authority.json').read_bytes());prefix='docs/implementation/m3/host-pipeline-j/j-bs-admission-r1'
+ for row in authority['architecture']:pin(a.architecture,row)
+ for row in authority['productBefore']:pin(a.product,row)
+ pin(a.jbs_stage,authority['acceptedJbsSchema']);pin(a.jbs_product,authority['candidateGeneratorClosure'])
+ before=json.loads((a.product/'schemas/admission-registry.json').read_bytes());before_map=json.loads((a.product/'schemas/admission-source-map.json').read_bytes());registry=json.loads((local.parent/'schemas/admission-registry.json').read_bytes());mapping=json.loads((local.parent/'product/schemas/admission-source-map.json').read_bytes());target='schemas/sources/invocation-v5.schema.json';schema=authority['acceptedJbsSchema'];assert registry['aliases']==before['aliases'] and not any(r['sourcePath']==target for r in registry['aliases'])
+ restored=copy.deepcopy(registry);old=next(r for r in before['sources'] if r['sourcePath']==target);new=next(r for r in restored['sources'] if r['sourcePath']==target);assert {k:new[k] for k in ('bytes','sha256')}=={k:schema[k] for k in ('bytes','sha256')};new.update({k:old[k] for k in ('bytes','sha256')});assert restored==before
+ restored_map=copy.deepcopy(mapping);restored_map['registryArchitectureSource']=before_map['registryArchitectureSource'];next(r for r in restored_map['sources'] if r['implementationPath']==target)['architectureSource']=next(r for r in before_map['sources'] if r['implementationPath']==target)['architectureSource'];assert restored_map==before_map
+ raw=(local.parent/'schemas/admission-registry.json').read_bytes();assert mapping['registryArchitectureSource']=={'path':prefix+'/schemas/admission-registry.json','bytes':len(raw),'sha256':hashlib.sha256(raw).hexdigest()}
+ by_path={r['sourcePath']:r for r in registry['sources']};assert len(by_path)==len(registry['sources']);assert [r['schemaId'] for r in registry['sources']]==sorted({r['schemaId'] for r in registry['sources']});assert len(mapping['sources'])==len(by_path);checked=0
+ for row in mapping['sources']:
+  path=row['implementationPath'];source=by_path[path];ref=row['architectureSource'];assert row['schemaId']==source['schemaId'];assert {k:ref[k] for k in ('bytes','sha256')}=={k:source[k] for k in ('bytes','sha256')}
+  owner=a.jbs_stage if path==target else a.architecture;pin(owner,ref);impl=a.jbs_product if path==target else a.product;raw=(impl/path).read_bytes();assert raw==(owner/ref['path']).read_bytes();assert json.loads(raw)['$id']==row['schemaId'];checked+=1
+ for row in registry['aliases']:assert {k:v for k,v in row.items() if k!='logicalDocument'}==by_path[row['sourcePath']]
+ closure=json.loads((a.jbs_product/'tools/contracts/generator-closure.json').read_bytes());assert not any(r['path'] in ['schemas/admission-registry.json','schemas/admission-source-map.json'] for r in closure['files']);assert checked==authority['sourceCount'];assert len(registry['aliases'])==authority['aliasCount'];assert not pathlib.Path('/Users/sb/Library/Application Support/OpenSIP').exists()
+ print(json.dumps({'passed':True,'standing':'J-BS proposed admission-source selection join only; independent acceptance and strict public verification still required','exactCurrentSourcesJoined':checked,'aliasesUnchanged':len(registry['aliases']),'invocationAliases':0,'onlyInvocation5SourcePinChanged':True,'onlyMappingInvocation5AndRegistryPinChanged':True,'sameSchemaIdMajorAndPath':True,'generatorClosureUnchanged':True,'generatorRan':False,'consumerRan':False,'installationAbsent':True,'productQualification':False},indent=2))
+if __name__=='__main__':main()
