@@ -1,0 +1,236 @@
+diff --git a/tools/quality/q6_comparison.py b/tools/quality/q6_comparison.py
+new file mode 100644
+index 0000000..9ffe166
+--- /dev/null
++++ b/tools/quality/q6_comparison.py
+@@ -0,0 +1,89 @@
++"""Q0 r13 §9.5 core-analyze budget arithmetic, never Q6 qualification.
++
++Caller admits driver/runner/settlement/operational evidence and selects a reviewed
++baseline and its retained basis. This component checks only supplied samples,
++basis-projection equality and the published arithmetic. It runs no workload,
++selects no baseline, verifies no review and decides no D12/D13 equivalence.
++"""
++from canonical import Refusal, canonical
++from measurement import summarize_slots
++
++# AQP r5 §5.2: only these core-analyze absolute bounds have been selected.
++ABSOLUTE = {
++    'small': {'cold': 5_000_000_000, 'warm': 2_000_000_000, 'bytes': 1 << 30},
++    'medium': {'cold': 30_000_000_000, 'warm': 8_000_000_000, 'bytes': 2 << 30},
++    'large': {'cold': 120_000_000_000, 'warm': 30_000_000_000, 'bytes': 4 << 30},
++}
++
++
++def _baseline(value):
++    if value is not None and (type(value) is not int or not 1 <= value <= 2**64 - 1):
++        raise Refusal('POSITIVE_BASELINE_OR_NULL_REQUIRED')
++
++
++def _basis(value):
++    # An internal projection, not a new baseline-advance record format:
++    # [measurement, reset, cache policy including charge ownership,
++    #  kernel release, runner class, cgroup entry method].
++    # The caller extracts all six coordinates from admitted retained records.
++    if value is not None:
++        if type(value) is not list or len(value) != 6:
++            raise Refusal('EXACT_BASELINE_BASIS_PROJECTION_REQUIRED')
++        canonical(value)
++
++
++def compare_core(size_class, reset, slots, baseline_elapsed, baseline_memory,
++                 current_basis, baseline_basis):
++    """Return a local arithmetic diagnosis over supplied slot evidence.
++
++    Size-class selection, all evidence/basis provenance and qualification stay
++    with the caller. The internal six-coordinate basis projection preserves CAN
++    types and full nested cache/charge policy. Compatible charged memory must be
++    cgroupMemoryPeak, match this reset and match every coordinate byte-exactly.
++    No RSS denominator, compatibility flag, baseline discovery or fallback.
++
++    Incomplete takes precedence even when every number is present. Missing
++    baseline numbers/basis or an incompatible charged basis gives no-baseline.
++    Otherwise within requires both inclusive rational ratios and the absolute
++    elapsed bound. Absolute charged-memory comparison is informational only and
++    never changes status: D13's process-tree-RSS equivalence remains undecided.
++    Very-large/first-use/edit bounds are not selected here. This API handles only
++    the three named core-analyze size classes; it refuses all other classes.
++    Returned status is arithmetic only, not a valid ENV row or qualification.
++    """
++    if type(size_class) is not str or size_class not in ABSOLUTE:
++        raise Refusal('UNSELECTED_CORE_ABSOLUTE_BOUND')
++    _baseline(baseline_elapsed)
++    _baseline(baseline_memory)
++    _basis(current_basis)
++    _basis(baseline_basis)
++    samples = summarize_slots(reset, slots)
++    compatible = (current_basis is not None and baseline_basis is not None
++                  and current_basis[0] == 'cgroupMemoryPeak'
++                  and type(current_basis[0]) is str
++                  and current_basis[1] == reset and type(current_basis[1]) is str
++                  and canonical(current_basis) == canonical(baseline_basis))
++    elapsed, memory = samples['medianElapsedNanos'], samples['maxCgroupMemoryPeakBytes']
++    time_ratio = (None if elapsed is None or baseline_elapsed is None
++                  else 5 * elapsed <= 6 * baseline_elapsed)
++    memory_ratio = (None if memory is None or baseline_memory is None or not compatible
++                    else 4 * memory <= 5 * baseline_memory)
++    absolute_time = None if elapsed is None else elapsed <= ABSOLUTE[size_class][reset]
++    absolute_charge = ('not-applicable' if memory is None else
++                       'at-or-below-absolute-figure' if memory <= ABSOLUTE[size_class]['bytes']
++                       else 'above-absolute-figure')
++    if samples['incomplete']:
++        status = 'incomplete'
++    elif baseline_elapsed is None or baseline_memory is None or not compatible:
++        status = 'no-baseline'
++    else:
++        status = 'within' if time_ratio and memory_ratio and absolute_time else 'over'
++    return {
++        'status': status,
++        'medianElapsedNanos': elapsed,
++        'maxCgroupMemoryPeakBytes': memory,
++        'elapsedRatioWithin': time_ratio,
++        'chargedMemoryRatioWithin': memory_ratio,
++        'absoluteElapsedWithin': absolute_time,
++        'absoluteChargeComparison': absolute_charge,
++    }
+diff --git a/tools/quality/test_q6_comparison.py b/tools/quality/test_q6_comparison.py
+new file mode 100644
+index 0000000..6f8fc75
+--- /dev/null
++++ b/tools/quality/test_q6_comparison.py
+@@ -0,0 +1,135 @@
++"""Owned arithmetic controls; no runner, baseline admission or measurement."""
++import copy
++import pathlib
++import sys
++import unittest
++sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
++from canonical import Refusal
++from q6_comparison import compare_core
++
++
++def slots(elapsed=100, peak=100, reset='cold'):
++    result = [{'slot': {'kind': 'warmup', 'index': i}, 'reasons': []} for i in range(3)]
++    if reset == 'warm':
++        result.append({'slot': {'kind': 'priming', 'index': 0}, 'reasons': []})
++    result.extend({'slot': {'kind': 'measured', 'index': i}, 'reasons': [],
++                   'elapsedNanos': elapsed, 'cgroupMemoryPeakBytes': peak,
++                   'rootReapedElapsedNanos': None} for i in range(7))
++    return result
++
++
++def basis(reset='cold'):
++    return ['cgroupMemoryPeak', reset, {'cache': 'owned-cache', 'chargeOwner': 'fresh-leaf'},
++            'owned-kernel', {'class': 'owned-runner'}, 'owned-entry']
++
++
++def compare(rows=None, size='small', reset='cold', elapsed=100, memory=100,
++            current=None, baseline=None):
++    current = basis(reset) if current is None else current
++    baseline = basis(reset) if baseline is None else baseline
++    return compare_core(size, reset, slots(reset=reset) if rows is None else rows,
++                        elapsed, memory, current, baseline)
++
++
++class ComparisonTests(unittest.TestCase):
++    def test_inclusive_rational_thresholds_and_one_unit_over(self):
++        self.assertEqual(compare(slots(120, 125))['status'], 'within')
++        self.assertEqual(compare(slots(121, 125))['status'], 'over')
++        self.assertEqual(compare(slots(120, 126))['status'], 'over')
++
++    def test_large_integer_ratios_have_no_float_rounding_or_overflow(self):
++        baseline = 2**64 - 1
++        row = compare(slots(1, baseline), elapsed=baseline, memory=baseline)
++        self.assertTrue(row['elapsedRatioWithin'])
++        self.assertTrue(row['chargedMemoryRatioWithin'])
++        self.assertEqual(row['status'], 'within')
++        boundary = (baseline * 4 + 4) // 5
++        self.assertTrue(compare(slots(1, baseline), memory=boundary)['chargedMemoryRatioWithin'])
++        self.assertFalse(compare(slots(1, baseline), memory=boundary - 1)['chargedMemoryRatioWithin'])
++
++    def test_absolute_elapsed_is_a_separate_required_bound(self):
++        self.assertEqual(compare(slots(5_000_000_000, 1), elapsed=10_000_000_000)['status'], 'within')
++        row = compare(slots(5_000_000_001, 1), elapsed=10_000_000_000)
++        self.assertTrue(row['elapsedRatioWithin'])
++        self.assertFalse(row['absoluteElapsedWithin'])
++        self.assertEqual(row['status'], 'over')
++
++    def test_each_selected_cold_warm_bound(self):
++        for size, cold, warm in [('small', 5, 2), ('medium', 30, 8), ('large', 120, 30)]:
++            for reset, seconds in [('cold', cold), ('warm', warm)]:
++                value = seconds * 1_000_000_000
++                self.assertEqual(compare(slots(value, 1, reset), size, reset, value, 1)['status'], 'within')
++                self.assertEqual(compare(slots(value + 1, 1, reset), size, reset, value + 1, 1)['status'], 'over')
++
++    def test_charge_absolute_figure_never_sets_status(self):
++        for size, figure in [('small', 1 << 30), ('medium', 2 << 30), ('large', 4 << 30)]:
++            row = compare(slots(1, figure + 1), size=size, memory=figure + 1)
++            self.assertEqual(row['status'], 'within')
++            self.assertEqual(row['absoluteChargeComparison'], 'above-absolute-figure')
++            self.assertEqual(compare(slots(1, figure), size=size, memory=figure)['absoluteChargeComparison'], 'at-or-below-absolute-figure')
++
++    def test_every_basis_coordinate_must_agree(self):
++        for index in range(6):
++            other = basis()
++            other[index] = 'different'
++            self.assertEqual(compare(baseline=other)['status'], 'no-baseline')
++        other = basis()
++        other[2]['chargeOwner'] = 'old-leaf'
++        self.assertEqual(compare(baseline=other)['status'], 'no-baseline')
++
++    def test_basis_equality_is_typed_not_python_numeric_equality(self):
++        a, b = basis(), basis()
++        a[4], b[4] = {'v': 1}, {'v': True}
++        self.assertEqual(compare(current=a, baseline=b)['status'], 'no-baseline')
++
++    def test_matching_rss_or_other_reset_is_not_a_charged_baseline(self):
++        for index, value in [(0, 'peakRssBytes'), (1, 'warm')]:
++            a = basis(); a[index] = value
++            self.assertEqual(compare(current=a, baseline=copy.deepcopy(a))['status'], 'no-baseline')
++
++    def test_missing_number_or_basis_is_no_baseline(self):
++        self.assertEqual(compare(elapsed=None)['status'], 'no-baseline')
++        self.assertEqual(compare(memory=None)['status'], 'no-baseline')
++        for current, baseline in [(None, basis()), (basis(), None)]:
++            self.assertEqual(compare_core('small', 'cold', slots(), 100, 100, current, baseline)['status'], 'no-baseline')
++
++    def test_warmup_failure_precedes_baseline_and_keeps_numbers(self):
++        rows = slots(); rows[0]['reasons'] = ['record-missing']
++        row = compare(rows, elapsed=None)
++        self.assertEqual(row['status'], 'incomplete')
++        self.assertEqual(row['medianElapsedNanos'], 100)
++        self.assertEqual(row['maxCgroupMemoryPeakBytes'], 100)
++
++    def test_macos_root_reaped_time_is_never_a_budget_input(self):
++        rows = slots()
++        for r in rows[3:]:
++            r.update(reasons=['settlement-unverified-platform', 'memory-peak-unavailable-platform'],
++                     elapsedNanos=None, cgroupMemoryPeakBytes=None, rootReapedElapsedNanos=1)
++        row = compare(rows)
++        self.assertEqual(row['status'], 'incomplete')
++        self.assertIsNone(row['medianElapsedNanos'])
++        self.assertIsNone(row['elapsedRatioWithin'])
++        self.assertEqual(row['absoluteChargeComparison'], 'not-applicable')
++
++    def test_summarizer_recomputes_median_and_maximum_from_all_seven(self):
++        rows = slots()
++        for r, e, m in zip(rows[3:], [3, 1, 7, 4, 6, 5, 2], [8, 9, 10, 11, 12, 13, 14]):
++            r['elapsedNanos'], r['cgroupMemoryPeakBytes'] = e, m
++        row = compare(rows)
++        self.assertEqual(row['medianElapsedNanos'], 4)
++        self.assertEqual(row['maxCgroupMemoryPeakBytes'], 14)
++
++    def test_invalid_baseline_types_and_incomplete_sample_evidence_refuse(self):
++        for value in [True, 0, -1, 1.0, '1', 2**64]:
++            with self.assertRaises(Refusal): compare(elapsed=value)
++            with self.assertRaises(Refusal): compare(memory=value)
++        with self.assertRaises(Refusal): compare(slots()[:-1])
++        for projection in [True, [], basis() + ['extra'], ['cgroupMemoryPeak', 'cold', 1.0, 'k', 'r', 'e']]:
++            with self.assertRaises(Refusal): compare(baseline=projection)
++
++    def test_very_large_or_unnamed_absolute_bound_is_not_invented(self):
++        for size in ['very-large', 'first-use', 'edit', True]:
++            with self.assertRaises(Refusal): compare(size=size)
++
++
++if __name__ == '__main__': unittest.main()
