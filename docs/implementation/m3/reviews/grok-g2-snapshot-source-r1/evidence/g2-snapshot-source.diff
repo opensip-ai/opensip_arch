@@ -1,0 +1,383 @@
+diff --git a/providers/rust/src/lib.rs b/providers/rust/src/lib.rs
+index 086575c..746d84b 100644
+--- a/providers/rust/src/lib.rs
++++ b/providers/rust/src/lib.rs
+@@ -2,3 +2,4 @@
+ //!
+ //! These components do not authorize provider launch or advertise capabilities.
+ pub mod sealed_vfs;
++pub mod source_snapshot;
+diff --git a/providers/rust/src/source_snapshot.rs b/providers/rust/src/source_snapshot.rs
+new file mode 100644
+index 0000000..1e3b9c3
+--- /dev/null
++++ b/providers/rust/src/source_snapshot.rs
+@@ -0,0 +1,368 @@
++//! Bind every declared snapshot source row to hash-checked retained bytes.
++//!
++//! This is a pure compiler-input constructor. The caller admits capture,
++//! completeness, configuration/scope/VCS joins and transport seals before use.
++//! Dependency and prepared sources are separate inputs, not inferred here.
++
++use crate::sealed_vfs::SealedSource;
++use opensip_identity::{
++    IdentityDomain, JsonValue, LogicalPath, RetainedInputError, RetainedInputs,
++};
++use std::collections::BTreeMap;
++use std::io;
++use std::path::PathBuf;
++use std::sync::Arc;
++
++#[derive(Debug)]
++pub enum SnapshotSourceError {
++    Retained(RetainedInputError),
++    RowRepresentation,
++    Namespace(io::Error),
++}
++
++impl From<RetainedInputError> for SnapshotSourceError {
++    fn from(value: RetainedInputError) -> Self {
++        Self::Retained(value)
++    }
++}
++
++/// Recompute the named snapshot2 descriptor and load its entire sourceInventory.
++///
++/// There is no extension/language/ignore filter, empty-file exclusion, or path
++/// walk. Every row must have retained bytes of its declared digest and length.
++/// Repeated content shares owned immutable bytes; unrelated retained blobs do
++/// not become source paths. Success establishes only this descriptor/byte join,
++/// not full snapshot admission, semantic context or provider launch authority.
++pub fn from_snapshot(
++    inputs: &RetainedInputs<'_>,
++    snapshot_id: &str,
++    directory: PathBuf,
++    schema_work: usize,
++) -> Result<SealedSource, SnapshotSourceError> {
++    let snapshot = inputs.object(snapshot_id, IdentityDomain::Snapshot, schema_work)?;
++    let JsonValue::Object(descriptor) = snapshot.descriptor() else {
++        return Err(SnapshotSourceError::RowRepresentation);
++    };
++    let Some(JsonValue::Array(rows)) = descriptor.get("sourceInventory") else {
++        return Err(SnapshotSourceError::RowRepresentation);
++    };
++    let mut content: BTreeMap<[u8; 32], Arc<[u8]>> = BTreeMap::new();
++    let mut entries = Vec::with_capacity(rows.len());
++    for row in rows {
++        let JsonValue::Object(row) = row else {
++            return Err(SnapshotSourceError::RowRepresentation);
++        };
++        let Some(JsonValue::String(path)) = row.get("path") else {
++            return Err(SnapshotSourceError::RowRepresentation);
++        };
++        let path = LogicalPath::parse(path).map_err(|_| SnapshotSourceError::RowRepresentation)?;
++        let Some(JsonValue::String(sha256)) = row.get("sha256") else {
++            return Err(SnapshotSourceError::RowRepresentation);
++        };
++        let digest = raw_digest(sha256).ok_or(SnapshotSourceError::RowRepresentation)?;
++        let Some(JsonValue::Integer(length)) = row.get("bytes") else {
++            return Err(SnapshotSourceError::RowRepresentation);
++        };
++        let length =
++            u64::try_from(length.get()).map_err(|_| SnapshotSourceError::RowRepresentation)?;
++        // Check each length even when several paths name the same content.
++        let bytes = match content.entry(digest) {
++            std::collections::btree_map::Entry::Vacant(entry) => {
++                let blob = inputs.blob(digest)?;
++                blob.require_length(length)?;
++                entry.insert(Arc::from(blob.bytes()))
++            }
++            std::collections::btree_map::Entry::Occupied(entry) => {
++                let bytes = entry.into_mut();
++                if u64::try_from(bytes.len()) != Ok(length) {
++                    return Err(RetainedInputError::BlobLength.into());
++                }
++                bytes
++            }
++        };
++        entries.push((PathBuf::from(path.as_str()), Arc::clone(bytes)));
++    }
++    SealedSource::new(directory, entries).map_err(SnapshotSourceError::Namespace)
++}
++
++fn raw_digest(value: &str) -> Option<[u8; 32]> {
++    if value.len() != 64 {
++        return None;
++    }
++    fn digit(byte: u8) -> Option<u8> {
++        match byte {
++            b'0'..=b'9' => Some(byte - b'0'),
++            b'a'..=b'f' => Some(byte - b'a' + 10),
++            _ => None,
++        }
++    }
++    let mut result = [0; 32];
++    for (index, bytes) in value.as_bytes().chunks_exact(2).enumerate() {
++        result[index] = (digit(bytes[0])? << 4) | digit(bytes[1])?;
++    }
++    Some(result)
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    use opensip_identity::{
++        IdentityCandidate, JsonInteger, ObjectInput, RegisteredSchemas, canonical_bytes,
++        digest_hex, raw_sha256,
++    };
++    use std::path::Path;
++    use std::sync::OnceLock;
++
++    const WORK: usize = 10_000_000;
++    fn schemas() -> &'static RegisteredSchemas {
++        static REGISTRY: OnceLock<RegisteredSchemas> = OnceLock::new();
++        REGISTRY.get_or_init(|| {
++            // Owned tests read only the public, exactly pinned schema sources.
++            let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
++            let raw: Vec<_> = RegisteredSchemas::source_requirements()
++                .iter()
++                .map(|pin| std::fs::read(root.join(pin.source_path())).unwrap())
++                .collect();
++            RegisteredSchemas::from_sources(&raw.iter().map(Vec::as_slice).collect::<Vec<_>>())
++                .unwrap()
++        })
++    }
++    fn object(entries: impl IntoIterator<Item = (&'static str, JsonValue)>) -> JsonValue {
++        JsonValue::Object(
++            entries
++                .into_iter()
++                .map(|(name, value)| (name.into(), value))
++                .collect(),
++        )
++    }
++    fn text(value: &str) -> JsonValue {
++        JsonValue::String(value.into())
++    }
++    fn number(value: usize) -> JsonValue {
++        JsonValue::Integer(JsonInteger::new(value as i128).unwrap())
++    }
++    fn row(path: &str, bytes: &[u8]) -> JsonValue {
++        object([
++            ("path", text(path)),
++            ("sha256", text(&digest_hex(&raw_sha256(bytes)))),
++            ("bytes", number(bytes.len())),
++        ])
++    }
++    fn descriptor(rows: Vec<JsonValue>) -> JsonValue {
++        object([
++            ("schemaVersion", number(2)),
++            ("projectId", text(&format!("prj1-{}", "0".repeat(64)))),
++            ("sourceInventory", JsonValue::Array(rows)),
++            ("resolvedConfigDigest", text(&"a".repeat(64))),
++            ("scopeDigest", text(&"b".repeat(64))),
++            ("vcsDigest", text(&"c".repeat(64))),
++        ])
++    }
++    type FixtureInputs = (
++        String,
++        BTreeMap<String, ObjectInput>,
++        BTreeMap<[u8; 32], Vec<u8>>,
++    );
++    fn inputs(descriptor: JsonValue, bytes: &[&[u8]]) -> FixtureInputs {
++        let raw = canonical_bytes(&descriptor).unwrap();
++        let id = IdentityCandidate::from_json(schemas(), IdentityDomain::Snapshot, &raw, WORK)
++            .unwrap()
++            .identifier()
++            .to_owned();
++        let objects = BTreeMap::from([(
++            id.clone(),
++            ObjectInput {
++                domain: IdentityDomain::Snapshot,
++                descriptor,
++            },
++        )]);
++        let blobs = bytes
++            .iter()
++            .map(|raw| (raw_sha256(raw), raw.to_vec()))
++            .collect();
++        (id, objects, blobs)
++    }
++    fn load(
++        id: &str,
++        objects: &BTreeMap<String, ObjectInput>,
++        blobs: &BTreeMap<[u8; 32], Vec<u8>>,
++    ) -> Result<SealedSource, SnapshotSourceError> {
++        from_snapshot(
++            &RetainedInputs::new(schemas(), objects, blobs),
++            id,
++            PathBuf::from("/virtual/snapshot"),
++            WORK,
++        )
++    }
++
++    #[test]
++    fn includes_all_declared_files_and_shares_identical_content() {
++        let rows = vec![
++            row("README.md", b"text"),
++            row("copy.bin", b"\xff"),
++            row("data.bin", b"\xff"),
++            row("empty", b""),
++            row("src/lib.rs", b"pub fn value() {}"),
++        ];
++        let (id, objects, blobs) = inputs(
++            descriptor(rows),
++            &[b"text", b"\xff", b"", b"pub fn value() {}", b"unrelated"],
++        );
++        let source = load(&id, &objects, &blobs).unwrap();
++        for path in ["README.md", "copy.bin", "data.bin", "empty", "src/lib.rs"] {
++            assert!(source.file_exists(Path::new(path)), "{path}");
++        }
++        assert!(!source.file_exists(Path::new("unrelated")));
++        let one = source.read_binary_file(Path::new("copy.bin")).unwrap();
++        let two = source.read_binary_file(Path::new("data.bin")).unwrap();
++        assert!(Arc::ptr_eq(&one, &two));
++        assert_eq!(
++            source.read_binary_file(Path::new("empty")).unwrap().len(),
++            0
++        );
++        assert_eq!(
++            source.read_file(Path::new("data.bin")).unwrap_err().kind(),
++            io::ErrorKind::InvalidData
++        );
++    }
++
++    #[test]
++    fn missing_declared_blob_refuses_entire_namespace() {
++        let (id, objects, blobs) = inputs(
++            descriptor(vec![row("a.rs", b"a"), row("b.rs", b"b")]),
++            &[b"a"],
++        );
++        assert!(matches!(
++            load(&id, &objects, &blobs),
++            Err(SnapshotSourceError::Retained(
++                RetainedInputError::MissingBlob(_)
++            ))
++        ));
++    }
++
++    #[test]
++    fn bytes_substituted_under_a_digest_refuse() {
++        let (id, objects, mut blobs) =
++            inputs(descriptor(vec![row("lib.rs", b"original")]), &[b"original"]);
++        blobs.insert(raw_sha256(b"original"), b"tampered".to_vec());
++        assert!(matches!(
++            load(&id, &objects, &blobs),
++            Err(SnapshotSourceError::Retained(
++                RetainedInputError::BlobDigest
++            ))
++        ));
++    }
++
++    #[test]
++    fn wrong_length_refuses_even_for_shared_digest() {
++        let mut second = row("b.rs", b"same");
++        let JsonValue::Object(ref mut fields) = second else {
++            unreachable!()
++        };
++        fields.insert("bytes".into(), number(3));
++        let (id, objects, blobs) =
++            inputs(descriptor(vec![row("a.rs", b"same"), second]), &[b"same"]);
++        assert!(matches!(
++            load(&id, &objects, &blobs),
++            Err(SnapshotSourceError::Retained(
++                RetainedInputError::BlobLength
++            ))
++        ));
++    }
++
++    #[test]
++    fn descriptor_substitution_under_snapshot_id_refuses() {
++        let (id, mut objects, blobs) =
++            inputs(descriptor(vec![row("lib.rs", b"owned")]), &[b"owned"]);
++        let JsonValue::Object(ref mut fields) = objects.get_mut(&id).unwrap().descriptor else {
++            unreachable!()
++        };
++        fields.insert("scopeDigest".into(), text(&"d".repeat(64)));
++        assert!(matches!(
++            load(&id, &objects, &blobs),
++            Err(SnapshotSourceError::Retained(
++                RetainedInputError::ObjectIdentity
++            ))
++        ));
++    }
++
++    #[test]
++    fn foreign_object_domain_cannot_supply_a_snapshot() {
++        let (id, mut objects, blobs) =
++            inputs(descriptor(vec![row("lib.rs", b"owned")]), &[b"owned"]);
++        objects.get_mut(&id).unwrap().domain = IdentityDomain::Closure;
++        assert!(matches!(
++            load(&id, &objects, &blobs),
++            Err(SnapshotSourceError::Retained(
++                RetainedInputError::ObjectDomain
++            ))
++        ));
++    }
++
++    #[test]
++    fn declared_file_directory_collision_refuses() {
++        let (id, objects, blobs) = inputs(
++            descriptor(vec![row("src", b"file"), row("src/lib.rs", b"owned")]),
++            &[b"file", b"owned"],
++        );
++        assert!(matches!(
++            load(&id, &objects, &blobs),
++            Err(SnapshotSourceError::Namespace(_))
++        ));
++    }
++
++    #[test]
++    fn empty_declared_inventory_has_no_ambient_fallback() {
++        let (id, objects, blobs) = inputs(descriptor(vec![]), &[b"extra"]);
++        let source = load(&id, &objects, &blobs).unwrap();
++        assert!(!source.file_exists(Path::new("/etc/hosts")));
++        assert!(!source.file_exists(Path::new("extra")));
++    }
++
++    #[test]
++    fn owned_namespace_survives_retained_input_replacement() {
++        let (id, objects, mut blobs) =
++            inputs(descriptor(vec![row("lib.rs", b"owned")]), &[b"owned"]);
++        let source = load(&id, &objects, &blobs).unwrap();
++        blobs.insert(raw_sha256(b"owned"), b"replacement".to_vec());
++        drop(objects);
++        drop(blobs);
++        assert_eq!(source.read_file(Path::new("lib.rs")).unwrap(), "owned");
++    }
++
++    #[test]
++    fn recomputed_hash_does_not_waive_shape_path_or_order_checks() {
++        for rows in [
++            vec![row("b.rs", b"b"), row("a.rs", b"a")],
++            vec![row("a.rs", b"a"), row("a.rs", b"a")],
++            vec![row("../escape.rs", b"a")],
++            vec![row("a\\b.rs", b"a")],
++        ] {
++            let descriptor = descriptor(rows);
++            // A supplied raw hash is deliberately not an admitted candidate.
++            let id = format!(
++                "snapshot2:{}",
++                digest_hex(
++                    &opensip_identity::hash_canonical_value("snapshot", &descriptor).unwrap()
++                )
++            );
++            let objects = BTreeMap::from([(
++                id.clone(),
++                ObjectInput {
++                    domain: IdentityDomain::Snapshot,
++                    descriptor,
++                },
++            )]);
++            let blobs = BTreeMap::from([
++                (raw_sha256(b"a"), b"a".to_vec()),
++                (raw_sha256(b"b"), b"b".to_vec()),
++            ]);
++            assert!(matches!(
++                load(&id, &objects, &blobs),
++                Err(SnapshotSourceError::Retained(
++                    RetainedInputError::Candidate(_)
++                ))
++            ));
++        }
++    }
++}
