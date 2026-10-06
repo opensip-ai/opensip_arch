@@ -1,0 +1,161 @@
+diff --git a/Users/sb/code/opensip-ai/opensip-k1-truth-input/tools/quality/test_truth_input.py b/Users/sb/code/opensip-ai/opensip-k1-truth-input/tools/quality/test_truth_input.py
+new file mode 100644
+index 0000000..963168c
+--- /dev/null
++++ b/Users/sb/code/opensip-ai/opensip-k1-truth-input/tools/quality/test_truth_input.py
+@@ -0,0 +1,98 @@
++"""Independent full-closure mutations; no repository corpus or producer."""
++import copy
++import hashlib
++import pathlib
++import sys
++import unittest
++sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
++from canonical import Refusal
++from records import HARD_COMPONENTS, carry_comparison
++from truth_input import truth_input
++
++PINS = dict(configuration_digest='1'*64, dependency_source_set_id='sha256:'+'2'*64,
++            prepared_output_set_id='sha256:'+'3'*64, resolution_environment_digest='4'*64)
++BASE = [['src/main.ts', '100644', 'a'*64]]
++
++
++class TruthInputTests(unittest.TestCase):
++    def test_exact_independently_written_preimage(self):
++        expected = (b'{"configurationDigest":"' + b'1'*64 +
++            b'","dependencySourceSetId":"sha256:' + b'2'*64 +
++            b'","preparedOutputSetId":"sha256:' + b'3'*64 +
++            b'","resolutionEnvironmentDigest":"' + b'4'*64 +
++            b'","snapshotInventory":[["src/main.ts","100644","' + b'a'*64 + b'"]]}')
++        self.assertEqual(truth_input(BASE, **PINS)['truthInputDigest'],
++                         hashlib.sha256(expected).hexdigest())
++
++    def test_add_previously_absent_resolution_candidate(self):
++        old = truth_input(BASE, **PINS)['truthInputDigest']
++        for path in ('missing.ts', 'src/index.ts', 'new-crate/Cargo.toml', 'generated/calls.rs'):
++            rows = sorted(BASE + [[path, '100644', 'b'*64]])
++            self.assertNotEqual(old, truth_input(rows, **PINS)['truthInputDigest'])
++
++    def test_deletion_content_mode_and_rename_each_invalidate(self):
++        old = truth_input(BASE, **PINS)['truthInputDigest']
++        for rows in ([], [['src/main.ts','100644','b'*64]],
++                     [['src/main.ts','100755','a'*64]], [['src/alias.ts','100644','a'*64]]):
++            self.assertNotEqual(old, truth_input(rows, **PINS)['truthInputDigest'])
++
++    def test_every_external_resolution_input_invalidate(self):
++        old = truth_input(BASE, **PINS)['truthInputDigest']
++        for key in PINS:
++            changed = dict(PINS, **{key:('sha256:' if key.endswith('_id') else '')+'5'*64})
++            self.assertNotEqual(old, truth_input(BASE, **changed)['truthInputDigest'])
++
++    def test_symlink_literal_target_digest_is_retained(self):
++        rows=[['alias.ts','120000',hashlib.sha256(b'src/main.ts').hexdigest()]]
++        changed=[['alias.ts','120000',hashlib.sha256(b'src/other.ts').hexdigest()]]
++        self.assertNotEqual(truth_input(rows, **PINS),truth_input(changed, **PINS))
++
++    def test_no_detector_input_and_no_narrowed_closure_switch(self):
++        for key in ('evidenceRefs','messageParameters','witnesses','narrowed'):
++            with self.assertRaises(TypeError):truth_input(BASE, **PINS, **{key:[]})
++
++    def test_order_duplicates_prefixes_and_casefold_collisions_refuse(self):
++        for rows in ([['z','100644','a'*64],['a','100644','b'*64]], BASE+BASE,
++                     [['src','100644','a'*64]]+BASE,
++                     [['A.ts','100644','a'*64],['a.ts','100644','a'*64]]):
++            with self.assertRaises(Refusal):truth_input(rows, **PINS)
++
++    def test_closed_modes_and_pins_and_row_shapes(self):
++        for rows in (None, {}, [tuple(BASE[0])], [['src/a','160000','a'*64]],
++                     [['src/a','100644','A'*64]], [['../a','100644','a'*64]],
++                     [['src/a','100644','a'*64,'extra']]):
++            with self.assertRaises(Refusal):truth_input(rows, **PINS)
++        for bad in (None, False, '', 'a'*63, 'A'*64):
++            with self.assertRaises(Refusal):truth_input(BASE, **dict(PINS,configuration_digest=bad))
++
++    def test_native_prefix_and_absent_preparation_preserved(self):
++        self.assertNotEqual(truth_input(BASE, **PINS), truth_input(BASE, **dict(PINS,prepared_output_set_id=None)))
++        for key in ('dependency_source_set_id','prepared_output_set_id'):
++            for value in ('a'*64,'sha256:'+'A'*64,False):
++                with self.assertRaises(Refusal):truth_input(BASE, **dict(PINS, **{key:value}))
++        with self.assertRaises(Refusal):truth_input(BASE, **dict(PINS,dependency_source_set_id=None))
++
++    def test_oversized_complete_inventory_refuses_without_projection(self):
++        rows = [[str(i).zfill(6)+'x'*100,'100644','a'*64] for i in range(25000)]
++        with self.assertRaises(Refusal):truth_input(rows, **PINS)
++
++    def test_input_preservation_and_no_admission_claim(self):
++        rows=copy.deepcopy(BASE); result=truth_input(rows, **PINS)
++        self.assertEqual(rows, BASE)
++        for key in ('snapshotAdmissionEstablished','resolutionAdmissionEstablished','productQualification'):
++            self.assertIs(result[key],False)
++
++    def test_default_closure_blocks_existing_carry_on_addition(self):
++        old={k:'a'*64 for k in HARD_COMPONENTS}
++        old['truthInputDigest']=truth_input(BASE, **PINS)['truthInputDigest']
++        new=dict(old,truthInputDigest=truth_input(sorted(BASE+[['missing.ts','100644','b'*64]]), **PINS)['truthInputDigest'])
++        self.assertFalse(carry_comparison(old,new,{}, {})['carried'])
++        self.assertTrue(carry_comparison(old,new,{}, {})['requeue'])
++        self.assertTrue(carry_comparison(old,old,{}, {})['carried'])
++
++    def test_empty_snapshot_still_commits_resolution_inputs(self):
++        self.assertNotEqual(truth_input([], **PINS),truth_input([], **dict(PINS,prepared_output_set_id=None)))
++
++
++if __name__ == '__main__':
++    unittest.main()
+diff --git a/Users/sb/code/opensip-ai/opensip-k1-truth-input/tools/quality/truth_input.py b/Users/sb/code/opensip-ai/opensip-k1-truth-input/tools/quality/truth_input.py
+new file mode 100644
+index 0000000..7715fae
+--- /dev/null
++++ b/Users/sb/code/opensip-ai/opensip-k1-truth-input/tools/quality/truth_input.py
+@@ -0,0 +1,51 @@
++"""QD-5 default truth-input closure over separately admitted complete inputs.
++
++Local preimage encoding, not a product fact identity or ENV carrier. The caller
++establishes completeness of the selected snapshot and admission of toolchain,
++closure, configuration, dependency and prepared-output identities. Native set IDs retain Sha256Text sha256: prefixes; absent
++preparation retains null. A partial
++inventory cannot acquire complete standing from this hash. No narrowed closure.
++"""
++from canonical import canonical, pin, sha256
++from records import require
++from store import check_paths
++
++
++def truth_input(snapshot, *, configuration_digest, dependency_source_set_id,
++                prepared_output_set_id, resolution_environment_digest):
++    """Hash the full QD-22 blob inventory plus all QD-5 resolution inputs.
++
++    snapshot is the UTF-8-path-sorted array [path, Git mode, content SHA-256],
++    including symlinks (whose content is their literal target) and executable
++    files. Directory prefixes are implicit. Excluded pinned gitlinks have no
++    blob row in the selected QD-22 inventory. No detector output is accepted.
++    The resolution environment digest commits to the independently admitted
++    pinned toolchain and closure identities; none is inferred or fabricated.
++    CAN's byte/depth bounds apply to this local complete preimage. An oversized
++    inventory refuses; it is never truncated, sampled or replaced by witnesses.
++    """
++    require(type(snapshot) is list, 'TRI_INVENTORY_ARRAY')
++    for row in snapshot:
++        require(type(row) is list and len(row) == 3, 'TRI_INVENTORY_ROW')
++        path, mode, content = row
++        require(type(mode) is str and mode in ('100644', '100755', '120000')
++                and pin(content), 'TRI_INVENTORY_ROW')
++    check_paths([row[0] for row in snapshot])
++    require(snapshot == sorted(snapshot, key=lambda row: row[0].encode('utf-8')),
++            'TRI_INVENTORY_ORDER')
++    fields = {'configurationDigest': configuration_digest,
++              'dependencySourceSetId': dependency_source_set_id,
++              'preparedOutputSetId': prepared_output_set_id,
++              'resolutionEnvironmentDigest': resolution_environment_digest}
++    require(pin(configuration_digest) and pin(resolution_environment_digest),
++            'TRI_RESOLUTION_PIN')
++    native_pin = lambda value: type(value) is str and value.startswith('sha256:') and pin(value[7:])
++    require(native_pin(dependency_source_set_id) and
++            (prepared_output_set_id is None or native_pin(prepared_output_set_id)),
++            'TRI_NATIVE_ID')
++    preimage = dict(snapshotInventory=snapshot, **fields)
++    raw = canonical(preimage)
++    return {'truthInputDigest': sha256(raw),
++            'snapshotAdmissionEstablished': False,
++            'resolutionAdmissionEstablished': False,
++            'productQualification': False}
