@@ -1,0 +1,13 @@
+# X9 harness host-Git metadata follow-up r1
+
+Read and follow exactly. Write only REVIEW.md and review.json in this directory. Do not edit either repository/worktree. Do not use GROK2/w6.
+
+Review only this new metadata follow-up on /Users/sb/code/opensip-ai/opensip-x9-metadata, detached6bbd158f460ac31f22101206b86c511924ed6ec2. Only crates/storage/tests/commit_tests.rs and crates/host/tests/commit_matrix_tests.rs change. subject.json pins exact source/diff/authorities, and the staged architecture manifest under /tmp/opensip-implementation/x9-metadata-stage pins README/source record/check script/check report/logs. Current inventory163 already contains both paths; no inventory/design-lock change. Do not reopen or re-review accepted X3c-3, J3a, O1p or other code units.
+
+Under this machine's mandated PATH, git is absent; real Git is /usr/bin/git. The two X9 metadata helpers now select that absolute executable on macOS only, keeping existing PATH resolution elsewhere. Git subprocesses unset GIT_CONFIG_COUNT/GIT_DIR/GIT_WORK_TREE and set GIT_CONFIG_NOSYSTEM=1/GIT_CONFIG_GLOBAL=/dev/null. Every metadata command requires success before stdout may establish a commit/cleanliness/toolchain value. A nonzero status must refuse, not make empty git-status stdout mean clean. This introduces no global Git config, PATH/HOME override, tool installation, public API/outcome, new matrix row/barrier/census/trace/expected value/normalization/timing/limits/clock or product library change.
+
+Four fresh scoped tests (two per target) exercise real product metadata under the pinned PATH and expected failure on a missing Git ref. Targeted warning-denied Clippy passed for both targets. Checks own one ordinary nice10 lane/private0700 TMPDIR and explicit absolute C/link/archive/SDK tools. rustfmt skips children on the two integration files. No matrix row/set, fixture or private413 UUID read occurs; installation remains absent. Read exact source/diff/scripts/logs and perform read-only pin/invariant checks. Do not run Cargo/compiler/formatter/acquisition/test/script commands. Write only REVIEW.md and review.json.
+
+X3c-3's accepted code remains a base. Its post-integration release/census/two whole clean-commit lead sets/real check are still outstanding and follow only after this exact unit integrates. Current metadata tests do not prove a matrix pass or qualify the product. J4a/RW and O1a/SOP/owner gates remain held as named.
+
+Return ACCEPT-UNIT or REJECT-UNIT, requiredFindings, subjectSha256 exact diff, subjectManifestSha256 exact architecture manifest and inventorySuccessorRequired false with the two paths already-in-inventory observation. No new path/design selection is proposed. Write only REVIEW.md and review.json.

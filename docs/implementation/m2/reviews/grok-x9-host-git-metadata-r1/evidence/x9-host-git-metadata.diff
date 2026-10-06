@@ -1,0 +1,158 @@
+diff --git a/crates/host/tests/commit_matrix_tests.rs b/crates/host/tests/commit_matrix_tests.rs
+index 52fb2f0..df32be5 100644
+--- a/crates/host/tests/commit_matrix_tests.rs
++++ b/crates/host/tests/commit_matrix_tests.rs
+@@ -1002,13 +1002,70 @@ fn repository() -> PathBuf {
+     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
+ }
+ fn command(program: &str, args: &[&str]) -> String {
+-    let out = std::process::Command::new(program)
+-        .args(args)
+-        .current_dir(repository())
++    // The pinned macOS build PATH contains Rust and Homebrew, not /usr/bin.
++    let executable = if cfg!(target_os = "macos") && program == "git" {
++        "/usr/bin/git"
++    } else {
++        program
++    };
++    let mut command = std::process::Command::new(executable);
++    command.args(args).current_dir(repository());
++    if program == "git" {
++        command
++            .env_remove("GIT_CONFIG_COUNT")
++            .env_remove("GIT_DIR")
++            .env_remove("GIT_WORK_TREE")
++            .env("GIT_CONFIG_NOSYSTEM", "1")
++            .env("GIT_CONFIG_GLOBAL", "/dev/null");
++    }
++    let out = command
+         .output()
+-        .unwrap_or_else(|e| panic!("{program}: {e}"));
++        .unwrap_or_else(|e| panic!("{executable}: {e}"));
++    assert!(out.status.success(), "{executable} metadata command failed");
+     String::from_utf8_lossy(&out.stdout).trim().to_owned()
+ }
++
++#[test]
++fn x9_metadata_product_uses_host_git_with_pinned_path() {
++    let record = product();
++    assert_eq!(record.commit.len(), 40);
++    assert!(
++        record
++            .commit
++            .bytes()
++            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
++    );
++    assert!(record.toolchain.starts_with("rustc "));
++    let expected = std::process::Command::new(if cfg!(target_os = "macos") {
++        "/usr/bin/git"
++    } else {
++        "git"
++    })
++    .args(["status", "--porcelain"])
++    .current_dir(repository())
++    .env_remove("GIT_CONFIG_COUNT")
++    .env_remove("GIT_DIR")
++    .env_remove("GIT_WORK_TREE")
++    .env("GIT_CONFIG_NOSYSTEM", "1")
++    .env("GIT_CONFIG_GLOBAL", "/dev/null")
++    .output()
++    .unwrap();
++    assert!(expected.status.success());
++    assert_eq!(record.worktree_clean, expected.stdout.is_empty());
++}
++#[test]
++#[should_panic(expected = "metadata command failed")]
++fn x9_metadata_command_failure_refuses() {
++    command(
++        "git",
++        &[
++            "rev-parse",
++            "--verify",
++            "refs/opensip-x9-metadata-missing-control",
++        ],
++    );
++}
++
+ fn product() -> Product {
+     Product {
+         commit: command("git", &["rev-parse", "HEAD"]),
+diff --git a/crates/storage/tests/commit_tests.rs b/crates/storage/tests/commit_tests.rs
+index d920cd1..5a48fe6 100644
+--- a/crates/storage/tests/commit_tests.rs
++++ b/crates/storage/tests/commit_tests.rs
+@@ -1081,13 +1081,70 @@ fn repository() -> PathBuf {
+     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
+ }
+ fn command(program: &str, args: &[&str]) -> String {
+-    let out = std::process::Command::new(program)
+-        .args(args)
+-        .current_dir(repository())
++    // The pinned macOS build PATH contains Rust and Homebrew, not /usr/bin.
++    let executable = if cfg!(target_os = "macos") && program == "git" {
++        "/usr/bin/git"
++    } else {
++        program
++    };
++    let mut command = std::process::Command::new(executable);
++    command.args(args).current_dir(repository());
++    if program == "git" {
++        command
++            .env_remove("GIT_CONFIG_COUNT")
++            .env_remove("GIT_DIR")
++            .env_remove("GIT_WORK_TREE")
++            .env("GIT_CONFIG_NOSYSTEM", "1")
++            .env("GIT_CONFIG_GLOBAL", "/dev/null");
++    }
++    let out = command
+         .output()
+-        .unwrap_or_else(|e| panic!("{program}: {e}"));
++        .unwrap_or_else(|e| panic!("{executable}: {e}"));
++    assert!(out.status.success(), "{executable} metadata command failed");
+     String::from_utf8_lossy(&out.stdout).trim().to_owned()
+ }
++
++#[test]
++fn x9_metadata_product_uses_host_git_with_pinned_path() {
++    let record = product();
++    assert_eq!(record.commit.len(), 40);
++    assert!(
++        record
++            .commit
++            .bytes()
++            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
++    );
++    assert!(record.toolchain.starts_with("rustc "));
++    let expected = std::process::Command::new(if cfg!(target_os = "macos") {
++        "/usr/bin/git"
++    } else {
++        "git"
++    })
++    .args(["status", "--porcelain"])
++    .current_dir(repository())
++    .env_remove("GIT_CONFIG_COUNT")
++    .env_remove("GIT_DIR")
++    .env_remove("GIT_WORK_TREE")
++    .env("GIT_CONFIG_NOSYSTEM", "1")
++    .env("GIT_CONFIG_GLOBAL", "/dev/null")
++    .output()
++    .unwrap();
++    assert!(expected.status.success());
++    assert_eq!(record.worktree_clean, expected.stdout.is_empty());
++}
++#[test]
++#[should_panic(expected = "metadata command failed")]
++fn x9_metadata_command_failure_refuses() {
++    command(
++        "git",
++        &[
++            "rev-parse",
++            "--verify",
++            "refs/opensip-x9-metadata-missing-control",
++        ],
++    );
++}
++
+ fn product() -> Product {
+     Product {
+         commit: command("git", &["rev-parse", "HEAD"]),
