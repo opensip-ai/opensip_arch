@@ -1,0 +1,442 @@
+diff --git a/Users/sb/code/opensip-ai/opensip-k1-envelope/tools/quality/envelope_shape.py b/Users/sb/code/opensip-ai/opensip-k1-envelope/tools/quality/envelope_shape.py
+new file mode 100644
+index 0000000..5406ee0
+--- /dev/null
++++ b/Users/sb/code/opensip-ai/opensip-k1-envelope/tools/quality/envelope_shape.py
+@@ -0,0 +1,102 @@
++"""Pinned Q0 r13 ENV structure and CAN ordering, not evidence acceptance.
++
++Use isolated Python -I -B -S and an explicit retained contracts dependency
++snapshot. The caller owns that snapshot and prevents concurrent mutation.
++No acquisition, producer, measurement, qualification or schema successor.
++"""
++import hashlib
++import importlib
++import json
++import stat
++import sys
++from pathlib import Path
++
++from canonical import Refusal, canonical, digest, parse
++
++SCHEMA_SHA256 = '71f682d125c956eaec7a0f015fc8a0203f78b15f4538935f7beab45a398a2eb6'
++SCHEMA_BYTES = 60241
++PACKAGES_SHA256 = 'bd1ebac8f2efec1a5a88e35f8628c12ba67764c1e601e5aca773fecdf3178a82'
++DEPENDENCIES = ('jsonschema', 'jsonschema_specifications', 'referencing',
++                'rpds', 'attrs', 'attr')
++
++
++def _dependencies(packages, manifest_raw):
++    if not (sys.flags.isolated and sys.flags.no_site and sys.dont_write_bytecode):
++        raise Refusal('ISOLATED_NO_SITE_NO_BYTECODE_REQUIRED')
++    if type(manifest_raw) is not bytes or hashlib.sha256(manifest_raw).hexdigest() != PACKAGES_SHA256:
++        raise Refusal('DEPENDENCY_MANIFEST_PIN')
++    packages = Path(packages)
++    if packages.is_symlink() or not packages.is_dir():
++        raise Refusal('DEPENDENCY_DIRECTORY')
++    packages = packages.resolve(strict=True)
++    expected = json.loads(manifest_raw)['files']
++    by_path = {row['path']: row for row in expected}
++    actual = []
++    for path in sorted(packages.rglob('*'), key=lambda p: p.relative_to(packages).as_posix()):
++        info = path.lstat()
++        if stat.S_ISDIR(info.st_mode):
++            continue
++        if not stat.S_ISREG(info.st_mode):
++            raise Refusal('DEPENDENCY_NONREGULAR')
++        relative = path.relative_to(packages).as_posix()
++        if relative not in by_path or info.st_size != by_path[relative]['bytes']:
++            raise Refusal('DEPENDENCY_SNAPSHOT_PIN')
++        raw = path.read_bytes()
++        actual.append({'path': path.relative_to(packages).as_posix(), 'bytes': len(raw),
++                       'sha256': hashlib.sha256(raw).hexdigest()})
++    if actual != expected:
++        raise Refusal('DEPENDENCY_SNAPSHOT_PIN')
++    # Refuse cached ambient dependencies before resolving any package import.
++    for name, module in tuple(sys.modules.items()):
++        if name.split('.')[0] in DEPENDENCIES:
++            origin = getattr(module, '__file__', None)
++            if origin is None or not Path(origin).resolve().is_relative_to(packages):
++                raise Refusal('AMBIENT_DEPENDENCY')
++    sys.path.insert(0, str(packages))
++    try:
++        return importlib.import_module('jsonschema')
++    finally:
++        sys.path.pop(0)
++
++
++def shape_validator(schema_raw, packages, manifest_raw):
++    """Construct only the pinned structural validator; format is annotation.
++
++    ENV uses JSON Schema's default format-annotation semantics. Timestamp
++    provenance and semantic date-time admission are separate from this layer.
++    Dependencies are the existing host-specific preparation snapshot, never
++    downloaded, installed or discovered from ambient site packages here.
++    """
++    if type(schema_raw) is not bytes or len(schema_raw) != SCHEMA_BYTES or hashlib.sha256(schema_raw).hexdigest() != SCHEMA_SHA256:
++        raise Refusal('ENV_SCHEMA_PIN')
++    schema = parse(schema_raw)
++    library = _dependencies(packages, manifest_raw)
++
++    def order(validator, selected, instance, subschema):
++        if type(instance) is not list or selected == 'sequence':
++            return
++        if selected != 'canonical-set':
++            raise Refusal('ENV_ORDER_UNSELECTED')
++        previous = None
++        for item in instance:
++            raw = canonical(item)
++            if previous is not None and raw <= previous:
++                yield library.ValidationError('ENV_CANONICAL_SET')
++                return
++            previous = raw
++
++    selected = library.validators.extend(library.Draft202012Validator,
++                                         {'x-opensip-order': order})
++    validator = selected(schema)
++
++    def validate(raw):
++        value = parse(raw)
++        error = next(validator.iter_errors(value), None)
++        if error is not None:
++            # Fixed diagnostic; do not interpolate candidate record contents.
++            raise Refusal('ENV_SHAPE_OR_ORDER')
++        return {'schemaSha256': SCHEMA_SHA256, 'canonicalDigest': digest(value),
++                'structuralAdmission': True, 'crossRowEvidenceValidated': False,
++                'productQualification': False}
++
++    return validate
+diff --git a/Users/sb/code/opensip-ai/opensip-k1-envelope/tools/quality/test_envelope_shape.py b/Users/sb/code/opensip-ai/opensip-k1-envelope/tools/quality/test_envelope_shape.py
+new file mode 100644
+index 0000000..5ab4c28
+--- /dev/null
++++ b/Users/sb/code/opensip-ai/opensip-k1-envelope/tools/quality/test_envelope_shape.py
+@@ -0,0 +1,328 @@
++"""Synthetic ENV structures, never observations or qualification evidence."""
++import copy
++import json
++import pathlib
++import shutil
++import sys
++import tempfile
++import types
++import unittest
++
++sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
++from canonical import Refusal, canonical
++from envelope_shape import shape_validator
++
++ROOT = pathlib.Path(__file__).resolve().parents[2]
++# Exact schema is external architecture authority, supplied explicitly.
++SCHEMA = ROOT.parent / 'opensip_arch/docs/implementation/m3/harness/exploratory-quality-envelope.schema.v1-r13.json'
++PACKAGES = ROOT.parent / 'opensip/tools/contracts/python-packages'
++MANIFEST = (ROOT / 'tools/contracts/python-packages.json').read_bytes()
++# Hand-owned synthetic values, no producer output or real ledger/corpus pins.
++SYNTHETIC = json.loads(r'''
++{
++  "schemaMajor": 1,
++  "standing": "exploratory-never-promoted",
++  "qualificationEvidence": false,
++  "declaration": "Exploratory measurement. Not G13 evidence, not qualification evidence, never promoted. A qualification run re-executes from scratch on the D12 lanes against the held-out set.",
++  "roundId": "synthetic",
++  "measuredAt": "2026-10-06T00:00:00Z",
++  "product": {
++    "commit": "0000000000000000000000000000000000000000",
++    "treeClean": true,
++    "hostDigest": "0000000000000000000000000000000000000000000000000000000000000000",
++    "providerClosureDigest": "0000000000000000000000000000000000000000000000000000000000000000"
++  },
++  "harness": {
++    "commit": "0000000000000000000000000000000000000000",
++    "harnessDigest": "0000000000000000000000000000000000000000000000000000000000000000",
++    "scoringHarnessDigest": "0000000000000000000000000000000000000000000000000000000000000000"
++  },
++  "corpus": {
++    "t1ManifestDigest": "0000000000000000000000000000000000000000000000000000000000000000",
++    "t2ManifestDigest": "0000000000000000000000000000000000000000000000000000000000000000",
++    "caseSetDigest": "0000000000000000000000000000000000000000000000000000000000000000",
++    "familyMapDigest": "0000000000000000000000000000000000000000000000000000000000000000",
++    "heldOutSetDigest": "0000000000000000000000000000000000000000000000000000000000000000",
++    "heldOutIncluded": false,
++    "t3": {
++      "present": false,
++      "localManifestDigest": "0000000000000000000000000000000000000000000000000000000000000000"
++    }
++  },
++  "ledger": {
++    "ledgerDigest": "0000000000000000000000000000000000000000000000000000000000000000",
++    "headRecordDigest": "0000000000000000000000000000000000000000000000000000000000000000",
++    "freezeRecordDigest": "0000000000000000000000000000000000000000000000000000000000000000"
++  },
++  "definitions": {
++    "metricDefinitionsDigest": "0000000000000000000000000000000000000000000000000000000000000000",
++    "preregistrationDigest": "0000000000000000000000000000000000000000000000000000000000000000",
++    "ruleSpecSetDigest": "0000000000000000000000000000000000000000000000000000000000000000",
++    "rubricSetDigest": "0000000000000000000000000000000000000000000000000000000000000000",
++    "designRecordDigest": "0000000000000000000000000000000000000000000000000000000000000000"
++  },
++  "runner": {
++    "runnerClass": "d12-reference",
++    "runnerId": "synthetic",
++    "cpuModel": "synthetic",
++    "logicalCpus": 1,
++    "memoryBytes": 1,
++    "osVersion": "synthetic",
++    "osBuild": "synthetic",
++    "kernel": "synthetic",
++    "filesystem": "synthetic",
++    "concurrency": 1,
++    "networkDisabled": false,
++    "compilerDigest": "0000000000000000000000000000000000000000000000000000000000000000",
++    "runtimeDigest": "0000000000000000000000000000000000000000000000000000000000000000",
++    "measurementToolDigest": "0000000000000000000000000000000000000000000000000000000000000000",
++    "cacheState": "synthetic",
++    "calibration": {
++      "kernelRelease": "synthetic",
++      "memoryPeakVerified": false,
++      "nsdelegate": false,
++      "cgroupEntry": "clone-into",
++      "leafOverheadPpm": 0
++    }
++  },
++  "tools": [],
++  "rs3Observations": [],
++  "batchObservations": [],
++  "cgroupLeaves": [],
++  "operationalRecords": [],
++  "unqualifiedAdvisoryRules": [],
++  "results": {
++    "q1": {
++      "cells": []
++    },
++    "q2": {
++      "strata": [],
++      "repositories": []
++    },
++    "q3": {
++      "strata": [],
++      "mutants": []
++    },
++    "q4": {
++      "status": "zero",
++      "mustAbstainCases": 0,
++      "unsupportedDeterminateNegatives": 0,
++      "falseCompletenessClaims": 0,
++      "deficiencyMismatches": 0
++    },
++    "q5": {
++      "survival": [],
++      "determinism": []
++    },
++    "q6": {
++      "workloads": [
++        {
++          "workloadId": "synthetic",
++          "workflow": "core-analyze",
++          "reset": "cold",
++          "control": "clean",
++          "sizeClass": "small",
++          "warmupRuns": 3,
++          "batchId": "0000000000000000000000000000000000000000000000000000000000000000",
++          "batchOrdinal": 1,
++          "final": false,
++          "answerableCases": 0,
++          "determinateCases": 0,
++          "yieldPpm": 0,
++          "phaseTimingsPresent": false,
++          "phaseAbsenceReason": "record-missing",
++          "unattributedNanos": 0,
++          "q6Labelled": false,
++          "status": "within",
++          "elapsedNanos": [
++            7,
++            1,
++            6,
++            2,
++            5,
++            3,
++            4
++          ],
++          "medianElapsedNanos": 4,
++          "cgroupMemoryPeakBytes": [
++            1,
++            1,
++            1,
++            1,
++            1,
++            1,
++            1
++          ],
++          "maxCgroupMemoryPeakBytes": 1,
++          "baselineMedianNanos": 1,
++          "baselineCgroupMemoryPeakBytes": 1,
++          "baselineBasisDigest": "0000000000000000000000000000000000000000000000000000000000000000",
++          "absoluteChargeComparison": "at-or-below-absolute-figure"
++        }
++      ]
++    },
++    "q7": {
++      "status": "measured",
++      "rules": [
++        {
++          "ruleId": "synthetic",
++          "findingPopulation": 0,
++          "sampleSize": 0,
++          "smallPopulation": false,
++          "fieldsRequired": 0,
++          "fieldsPresent": 0,
++          "proofJoinsChecked": 0,
++          "proofJoinFailures": 0,
++          "scoreHistogram": [
++            0,
++            0,
++            0,
++            0,
++            0
++          ],
++          "scoreSum": 0,
++          "itemsAtMostTwo": 0,
++          "itemsAtMostTwoDispositioned": 0,
++          "gatingOrRepairInSample": 0,
++          "gatingOrRepairDispositioned": 0,
++          "medianTriageMillis": 0,
++          "accepted": 0,
++          "dismissed": 0
++        }
++      ]
++    },
++    "q8": {
++      "status": "measured",
++      "shapes": [
++        {
++          "shapeId": "synthetic",
++          "manualCorrections": 0
++        }
++      ]
++    }
++  }
++}
++''')
++
++
++class EnvelopeTests(unittest.TestCase):
++    @classmethod
++    def setUpClass(cls):
++        cls.validate = staticmethod(shape_validator(SCHEMA.read_bytes(), PACKAGES, MANIFEST))
++
++    def altered(self, change):
++        value = copy.deepcopy(SYNTHETIC)
++        change(value)
++        with self.assertRaises(Refusal):
++            self.validate(canonical(value))
++
++    def test_shape_is_not_a_measurement_or_qualification_assent(self):
++        result = self.validate(canonical(SYNTHETIC))
++        self.assertTrue(result['structuralAdmission'])
++        self.assertFalse(result['crossRowEvidenceValidated'])
++        self.assertFalse(result['productQualification'])
++        # q6 has no leaves, operational records or observations and is still
++        # structurally valid. The cross-row validator must reject those joins.
++        self.assertEqual(SYNTHETIC['cgroupLeaves'], [])
++
++    def test_root_and_nested_fields_closed(self):
++        self.altered(lambda x: x.update(extra=True))
++        self.altered(lambda x: x['runner']['calibration'].update(extra=True))
++        self.altered(lambda x: x['results']['q6']['workloads'][0].update(extra=True))
++
++    def test_required_root_and_nested_members(self):
++        self.altered(lambda x: x.pop('ledger'))
++        self.altered(lambda x: x['ledger'].pop('freezeRecordDigest'))
++        self.altered(lambda x: x['results']['q6']['workloads'][0].pop('baselineBasisDigest'))
++
++    def test_qualification_and_standing_constants(self):
++        self.altered(lambda x: x.update(qualificationEvidence=True))
++        self.altered(lambda x: x.update(standing='qualified'))
++        self.altered(lambda x: x.update(schemaMajor=True))
++        self.altered(lambda x: x.update(declaration='qualified'))
++
++    def test_exact_integer_boolean_separation_and_range(self):
++        self.altered(lambda x: x['runner'].update(logicalCpus=True))
++        self.altered(lambda x: x['runner'].update(memoryBytes=0))
++        self.altered(lambda x: x['results']['q4'].update(mustAbstainCases=-1))
++        self.altered(lambda x: x['results']['q6']['workloads'][0].update(yieldPpm=1000001))
++
++    def test_fixed_enumerations_and_digest_spelling(self):
++        self.altered(lambda x: x['runner'].update(runnerClass='arbitrary'))
++        self.altered(lambda x: x['ledger'].update(ledgerDigest='A'*64))
++        self.altered(lambda x: x['ledger'].update(ledgerDigest='0'*64+'\n'))
++        self.altered(lambda x: x['product'].update(commit='0'*39))
++
++    def test_conditional_baselines(self):
++        self.altered(lambda x: x['results']['q6']['workloads'][0].update(baselineMedianNanos=None))
++        self.altered(lambda x: x['results']['q6']['workloads'][0].update(baselineBasisDigest=None))
++
++    def test_fixed_seven_sample_positions(self):
++        self.altered(lambda x: x['results']['q6']['workloads'][0].update(elapsedNanos=[1]*6))
++        self.altered(lambda x: x['results']['q6']['workloads'][0].update(elapsedNanos=[1]*8))
++        self.altered(lambda x: x['results']['q6']['workloads'][0].update(elapsedNanos=[1]*6+[None]))
++
++    def test_sequence_positions_preserved_without_sorting_or_deduplication(self):
++        value = copy.deepcopy(SYNTHETIC)
++        value['results']['q7']['rules'][0]['scoreHistogram'] = [3,0,2,1,0]
++        before = canonical(value)
++        self.validate(before)
++        self.assertEqual(canonical(value), before)
++        self.assertEqual(value['results']['q6']['workloads'][0]['elapsedNanos'], [7,1,6,2,5,3,4])
++
++    def test_canonical_sets_sorted_unique_even_nested(self):
++        value = copy.deepcopy(SYNTHETIC)
++        rules = value['results']['q8']['shapes']
++        rules.append({'shapeId':'another', 'manualCorrections':1})
++        rules.sort(key=canonical)
++        self.validate(canonical(value))
++        rules.reverse()
++        with self.assertRaises(Refusal): self.validate(canonical(value))
++        rules[:] = [rules[0], copy.deepcopy(rules[0])]
++        with self.assertRaises(Refusal): self.validate(canonical(value))
++
++    def test_array_and_string_limits(self):
++        self.altered(lambda x: x['results']['q1'].update(cells=[{}]*4097))
++        self.altered(lambda x: x.update(roundId='x'*4097))
++        self.altered(lambda x: x.update(measuredAt='x'*65))
++
++    def test_record_parser_duplicates_floats_and_bounds(self):
++        for raw in (b'{"standing":1,"standing":2}', b'{"schemaMajor":1.0}',
++                    b'['*33+b'0'+b']'*33, b' '* (4*1024*1024+1)):
++            with self.assertRaises(Refusal): self.validate(raw)
++
++    def test_format_remains_annotation_and_provenance_remains_unproved(self):
++        value = copy.deepcopy(SYNTHETIC)
++        value['measuredAt'] = 'synthetic annotation'
++        self.assertFalse(self.validate(canonical(value))['crossRowEvidenceValidated'])
++
++    def test_schema_and_dependency_manifest_pins(self):
++        for raw in (SCHEMA.read_bytes()+b'\n', SCHEMA.read_bytes().replace(b'D13',b'D14')):
++            with self.assertRaises(Refusal): shape_validator(raw, PACKAGES, MANIFEST)
++        with self.assertRaises(Refusal): shape_validator(SCHEMA.read_bytes(), PACKAGES, MANIFEST+b' ')
++
++    def test_dependency_snapshot_tampering_missing_extra_and_links(self):
++        with tempfile.TemporaryDirectory() as name:
++            root = pathlib.Path(name)/'packages'
++            for mode in ('changed','missing','extra','linked'):
++                if root.exists(): shutil.rmtree(root)
++                shutil.copytree(PACKAGES, root)
++                target = root/'jsonschema/__init__.py'
++                if mode=='changed': target.write_bytes(target.read_bytes()+b'\n')
++                if mode=='missing': target.unlink()
++                if mode=='extra': (root/'extra.py').write_text('')
++                if mode=='linked': target.unlink(); target.symlink_to(PACKAGES/'jsonschema/__init__.py')
++                with self.assertRaises(Refusal): shape_validator(SCHEMA.read_bytes(), root, MANIFEST)
++
++    def test_preloaded_ambient_dependency_refuses_before_import(self):
++        name = 'jsonschema.ambient_control'
++        fake = types.ModuleType(name); fake.__file__ = '/tmp/ambient-control.py'
++        sys.modules[name] = fake
++        try:
++            with self.assertRaises(Refusal): shape_validator(SCHEMA.read_bytes(), PACKAGES, MANIFEST)
++        finally:
++            del sys.modules[name]
++
++
++if __name__ == '__main__':
++    unittest.main()
