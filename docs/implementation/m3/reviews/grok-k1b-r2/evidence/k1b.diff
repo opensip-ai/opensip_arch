@@ -1,0 +1,327 @@
+diff --git a/Users/sb/code/opensip-ai/opensip-k1b-r2/tools/quality/confidence.py b/Users/sb/code/opensip-ai/opensip-k1b-r2/tools/quality/confidence.py
+new file mode 100644
+index 0000000..5cc657b
+--- /dev/null
++++ b/Users/sb/code/opensip-ai/opensip-k1b-r2/tools/quality/confidence.py
+@@ -0,0 +1,168 @@
++"""K1b: Q0 r13 section 5, exact rational decisions.
++
++The result is a harness statistic, never authority.
++
++The caller supplies a separately admitted stratum and evidence set, frozen
++sample denominators, family independence, and exposure standing. This module
++does not infer any of those premises from labels or sample counts. K1c owns
++ledger/adjudication ingestion and emission of the full exploratory envelope;
++the returned components use Q0 r13's draft ENV vocabulary, without claiming
++D13 has approved that carrier. Downgrade is two calls at the preregistered
++fixed targets; no target tuning or qualification decision is performed here.
++
++Self-test: python3.14 -I -B tools/quality/test_confidence.py
++"""
++from fractions import Fraction
++from math import comb, prod
++
++ALPHA = Fraction(1, 20)
++TARGETS = (Fraction(99, 100), Fraction(9, 10))
++SCALE = 1_000_000
++
++
++def count(value):
++    if type(value) is not int or not 0 <= value <= 2**64-1:
++        raise ValueError("COUNT_REQUIRED")
++    return value
++
++
++def tail(n, x, p):
++    """P(Bin(n,p)>=x), using integers before one exact division."""
++    count(n)
++    count(x)
++    if type(p) is not Fraction or x > n or not 0 <= p <= 1:
++        raise ValueError("BINOMIAL_INPUT")
++    if x == n:
++        return p**n
++    if x == n-1:
++        return p**(n-1) * (n-(n-1)*p)
++    a, b = p.numerator, p.denominator
++    return Fraction(sum(comb(n, i) * a**i * (b-a)**(n-i) for i in range(x, n+1)), b**n)
++
++
++def ppm_floor(predicate):
++    """Largest q whose exact q/10^6 is no larger than the lower bound."""
++    lo, hi = 0, SCALE + 1
++    while hi-lo > 1:
++        mid = (lo+hi)//2
++        if predicate(Fraction(mid, SCALE)):
++            lo = mid
++        else:
++            hi = mid
++    return lo
++
++
++def cp(n, x):
++    count(n)
++    count(x)
++    if x > n:
++        raise ValueError("BINOMIAL_INPUT")
++    if not x:
++        return 0
++    return ppm_floor(lambda p: tail(n, x, p) <= ALPHA)
++
++
++def product_lower(families):
++    """families are (settled true, sampled denominator), chosen before labels."""
++    ratios = []
++    for true, sampled in families:
++        count(true)
++        count(sampled)
++        if not sampled or true > sampled:
++            raise ValueError("FAMILY_COUNTS")
++        ratios.append(Fraction(true, sampled))
++    if not ratios:
++        return 0
++    p = ALPHA * prod(ratios)
++    return ppm_floor(lambda q: q**len(ratios) <= p)
++
++
++def k_min(target):
++    if type(target) is not Fraction or target not in TARGETS:
++        raise ValueError("FIXED_TARGET_REQUIRED")
++    k = 1
++    while target**k > ALPHA:
++        k += 1
++    return k
++
++
++def statistic(families, corpus_count, target, *, stratum, evidence_set):
++    """One stratum/evidence set only; no merging, qualification or waiver.
++
++    Each family's true/false/unclear/pending counts partition its preregistered
++    sampled denominator. The caller supplies admitted independence and exposure
++    standing; this library cannot infer either from counts or names.
++    """
++    if type(target) is not Fraction or target not in TARGETS:
++        raise ValueError("FIXED_TARGET_REQUIRED")
++    if evidence_set not in ("held-out", "development"):
++        raise ValueError("EVIDENCE_SET_REQUIRED")
++    if type(stratum) is not dict or set(stratum) != {"ruleId", "language", "mode"}:
++        raise ValueError("STRATUM_REQUIRED")
++    if any(type(v) is not str or not 1 <= len(v) <= 4096 for v in stratum.values()):
++        raise ValueError("STRATUM_REQUIRED")
++    try:
++        for value in stratum.values():
++            value.encode("utf-8", "strict")
++    except UnicodeError as exc:
++        raise ValueError("STRATUM_REQUIRED") from exc
++    if stratum["language"] not in ("ts", "js", "rust", "python", "syntax-only"):
++        raise ValueError("STRATUM_REQUIRED")
++    if type(families) is not dict or any(type(key) is not str or not key for key in families):
++        raise ValueError("UNIQUE_FAMILY_MAP_REQUIRED")
++    observed, pending, not_true, false_total, unclear_total = [], 0, 0, 0, 0
++    for family in families.values():
++        values = [count(family[k]) for k in ("true", "false", "unclear", "pending", "sampled")]
++        true, false, unclear, waiting, sampled = values
++        if not sampled or true+false+unclear+waiting != sampled:
++            raise ValueError("FAMILY_COUNTS")
++        pending += waiting
++        not_true += false+unclear
++        false_total += false
++        unclear_total += unclear
++        observed.append((true, sampled))
++    k = len(observed)
++    single = all(a == 1 for _, a in observed)
++    method = "clopper-pearson-independent" if single else "cluster-product-bound"
++    if not k:
++        method = "none"
++    t = sum(t for t, _ in observed)
++    lower = cp(k, t) if single else product_lower(observed)
++    pass_bound = (tail(k, t, target) <= ALPHA if t else False) if single else (
++        bool(observed) and prod(Fraction(t, a) for t, a in observed) * ALPHA >= target**k)
++    sampled = count(sum(a for _, a in observed))
++    result = {"stratum": dict(stratum), "evidenceSet": evidence_set,
++              "method": method, "lowerBoundPpm": lower, "families": k,
++              "estimand": "family-weighted conservative precision", "targetPpm": int(target*SCALE),
++              "assumption": "Families are treated as independent draws from the population of repositories the claim is about; T2 is purposely selected, not randomly sampled.",
++              "qualification": False}
++    if corpus_count is not None:
++        n = count(corpus_count)
++        if sampled > n:
++            raise ValueError("SAMPLE_EXCEEDS_CORPUS")
++        result["populations"] = {"corpusFindings": n, "sampledFindings": sampled,
++                                "settledFindings": t+not_true, "pendingFindings": pending,
++                                "unlabelledFindings": n-sampled, "trueCount": t,
++                                "falseCount": false_total, "unclearCount": unclear_total}
++    if pending:
++        result.update(status="NOT-YET-ADJUDICATED", statusReason="pending-adjudication")
++        return result
++    if corpus_count is None:
++        result.update(status="INSUFFICIENT-EVIDENCE", statusReason="guard-unavailable")
++        return result
++    n = count(corpus_count)
++    u = n-t-not_true
++    verified, optimistic = (Fraction(t, n), Fraction(t+u, n)) if n else (Fraction(0), Fraction(0))
++    result.update(guardVerifiedPpm=(verified*SCALE).__floor__(), guardOptimisticPpm=(optimistic*SCALE).__ceil__(),
++                  censusPrecisionPpm=(verified*SCALE).__floor__() if u == 0 else None)
++    if not n or k < k_min(target):
++        result.update(status="INSUFFICIENT-EVIDENCE", statusReason="no-findings" if not n else "below-k-min")
++    elif optimistic < target:
++        result.update(status="FAIL", statusReason="census-below-target")
++    elif verified < target:
++        result.update(status="INSUFFICIENT-EVIDENCE", statusReason="guard-unverified")
++    elif pass_bound:
++        result.update(status="PASS", statusReason="none")
++    else:
++        result.update(status="INSUFFICIENT-EVIDENCE", statusReason="bound-below-target")
++    return result
+diff --git a/Users/sb/code/opensip-ai/opensip-k1b-r2/tools/quality/test_confidence.py b/Users/sb/code/opensip-ai/opensip-k1b-r2/tools/quality/test_confidence.py
+new file mode 100644
+index 0000000..127edd2
+--- /dev/null
++++ b/Users/sb/code/opensip-ai/opensip-k1b-r2/tools/quality/test_confidence.py
+@@ -0,0 +1,147 @@
++"""Synthetic K1b controls; no measured or qualification data."""
++import importlib.util
++from pathlib import Path
++import unittest
++from fractions import Fraction
++from itertools import product
++from decimal import Decimal
++
++spec = importlib.util.spec_from_file_location("confidence", Path(__file__).with_name("confidence.py"))
++m = importlib.util.module_from_spec(spec)
++spec.loader.exec_module(m)
++
++
++def statistic(rows, corpus, target):
++    return m.statistic(rows, corpus, target, stratum={"ruleId": "synthetic-rule", "language": "rust", "mode": "source-only"}, evidence_set="development")
++
++
++def families(k, true=1, false=0, unclear=0, pending=0):
++    return {str(i): {"true": true, "false": false, "unclear": unclear, "pending": pending,
++                     "sampled": true+false+unclear+pending} for i in range(k)}
++
++
++class Confidence(unittest.TestCase):
++    def test_exact_reference_values(self):
++        for n,x,want in [(299,299,990030),(29,29,901855),(473,472,990010),(46,45,900975)]:
++            self.assertEqual(m.cp(n,x),want)
++        for rows,want in [([(100,100)]*3,368403),([(1,1)]*30,904966),([(1,1)]*29+[(9,10)],901793),([(1,1)]*29+[(1,2)],884296)]:
++            self.assertEqual(m.product_lower(rows),want)
++
++    def test_exact_minima_and_adjacent_rounding(self):
++        self.assertEqual([m.k_min(t) for t in m.TARGETS],[299,29])
++        self.assertEqual(m.cp(298,298),989997)
++        self.assertEqual(m.cp(28,28),898534)
++        self.assertEqual(m.cp(472,471) < 990000,True)
++        self.assertEqual(m.cp(45,44) < 900000,True)
++
++    def test_family_method_chosen_from_sample_structure(self):
++        result=statistic(families(299),299,m.TARGETS[0])
++        self.assertEqual(result['method'],'clopper-pearson-independent')
++        self.assertEqual(result['status'],'PASS')
++        result=statistic(families(299,true=2),598,m.TARGETS[0])
++        self.assertEqual(result['method'],'cluster-product-bound')
++        self.assertEqual(result['status'],'PASS')
++
++    def test_zero_family_product_and_unclear(self):
++        self.assertEqual(m.cp(10,0),0)
++        self.assertEqual(m.product_lower([(1,1),(0,3)]),0)
++        result=statistic(families(300,true=0,unclear=1),300,m.TARGETS[0])
++        self.assertEqual(result['lowerBoundPpm'],0)
++        self.assertEqual(result['status'],'FAIL')
++
++    def test_pending_precedes_every_status(self):
++        for n in (None,1,10000):
++            result=statistic(families(1,true=0,pending=1),n,m.TARGETS[0])
++            self.assertEqual(result['status'],'NOT-YET-ADJUDICATED')
++
++    def test_minimum_precedes_optimistic_failure(self):
++        result=statistic(families(3,true=0,false=100),300,m.TARGETS[0])
++        self.assertEqual(result['status'],'INSUFFICIENT-EVIDENCE')
++        self.assertEqual(result['statusReason'],'below-k-min')
++
++    def test_unlabelled_cannot_be_sample_ratio_pass(self):
++        result=statistic(families(100),10099,m.TARGETS[1])
++        self.assertEqual(result['status'],'INSUFFICIENT-EVIDENCE')
++        self.assertEqual(result['statusReason'],'guard-unverified')
++        self.assertIsNone(result['censusPrecisionPpm'])
++
++    def test_optimistic_guard_failure(self):
++        result=statistic(families(300,true=1,false=1),700,m.TARGETS[1])
++        self.assertEqual(result['status'],'FAIL')
++
++    def test_guard_unavailable(self):
++        result=statistic(families(299),None,m.TARGETS[0])
++        self.assertEqual(result['statusReason'],'guard-unavailable')
++
++    def test_guard_holds_bound_does_not(self):
++        rows=families(299)
++        rows['0']={'true':0,'false':1,'unclear':0,'pending':0,'sampled':1}
++        result=statistic(rows,299,m.TARGETS[0])
++        self.assertEqual(result['statusReason'],'bound-below-target')
++
++    def test_product_partial_information(self):
++        rows=families(299)
++        rows['0']={'true':999999,'false':1,'unclear':0,'pending':0,'sampled':1000000}
++        result=statistic(rows,1000298,m.TARGETS[0])
++        self.assertEqual(result['status'],'PASS')
++
++    def test_count_and_partition_refusals(self):
++        for value in (-1,True,1.0):
++            with self.assertRaises(ValueError):m.cp(value,0)
++        for rows in (families(1,true=0),families(1)):
++            with self.assertRaises(ValueError):statistic(rows,0,m.TARGETS[0])
++        with self.assertRaises(ValueError):statistic([],0,m.TARGETS[0])
++        with self.assertRaises(ValueError):statistic(families(1),1,Fraction(95,100))
++
++    def test_binomial_tail_against_all_binary_sequences(self):
++        for n in range(1,8):
++            for p in (Fraction(1,4), Fraction(2,3), Fraction(0), Fraction(1)):
++                distribution = [Fraction(0)] * (n+1)
++                for bits in product((0,1),repeat=n):
++                    probability = Fraction(1)
++                    for bit in bits:
++                        probability *= p if bit else 1-p
++                    distribution[sum(bits)] += probability
++                for x in range(n+1):
++                    self.assertEqual(m.tail(n,x,p),sum(distribution[x:]))
++
++    def test_zero_findings_and_count_conservation(self):
++        result=statistic({},0,m.TARGETS[0])
++        self.assertEqual(result['method'],'none')
++        self.assertEqual(result['statusReason'],'no-findings')
++        result=statistic(families(30,true=9,false=1),330,m.TARGETS[1])
++        counts=result['populations']
++        self.assertEqual(counts['corpusFindings'],counts['sampledFindings']+counts['unlabelledFindings'])
++        self.assertEqual(counts['sampledFindings'],counts['settledFindings']+counts['pendingFindings'])
++        self.assertEqual(counts['settledFindings'],counts['trueCount']+counts['falseCount']+counts['unclearCount'])
++
++    def test_context_required_and_preserved(self):
++        context={'ruleId':'synthetic-rule','language':'rust','mode':'source-only'}
++        result=m.statistic(families(299),299,m.TARGETS[0],stratum=context,evidence_set='held-out')
++        self.assertEqual(result['evidenceSet'],'held-out')
++        self.assertEqual(result['stratum'],context)
++        self.assertFalse(result['qualification'])
++        for bad in ('mixed','all'):
++            with self.assertRaises(ValueError):m.statistic(families(1),1,m.TARGETS[0],stratum=context,evidence_set=bad)
++        with self.assertRaises(ValueError):m.statistic(families(1),1,m.TARGETS[0],stratum={},evidence_set='development')
++
++    def test_integer_range_and_rational_probability(self):
++        with self.assertRaises(ValueError):m.cp(2**64,0)
++        with self.assertRaises(ValueError):m.tail(5,2,0.9)
++
++    def test_fixed_targets_require_fraction_type(self):
++        # Decimal compares equal to Fraction but its exponentiation rounds.
++        for target in (Decimal('0.99'),Decimal('0.90'),0.99,0.90,True):
++            with self.assertRaises(ValueError):m.k_min(target)
++            with self.assertRaises(ValueError):statistic(families(300,true=2),600,target)
++
++    def test_method_and_bound_do_not_use_corpus_as_denominator(self):
++        rows=families(30,true=9,false=1)
++        first=statistic(rows,300,m.TARGETS[1])
++        second=statistic(rows,10000,m.TARGETS[1])
++        self.assertEqual(first['lowerBoundPpm'],second['lowerBoundPpm'])
++        self.assertEqual(first['method'],second['method'])
++        self.assertNotEqual(first['guardVerifiedPpm'],second['guardVerifiedPpm'])
++
++
++if __name__=='__main__':unittest.main()
