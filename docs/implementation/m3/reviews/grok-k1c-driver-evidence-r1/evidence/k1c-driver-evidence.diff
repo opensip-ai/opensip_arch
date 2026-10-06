@@ -1,0 +1,366 @@
+diff --git a/Users/sb/code/opensip-ai/opensip-k1c-driver-evidence/tools/quality/driver_evidence.py b/Users/sb/code/opensip-ai/opensip-k1c-driver-evidence/tools/quality/driver_evidence.py
+new file mode 100644
+index 0000000..c0aeb39
+--- /dev/null
++++ b/Users/sb/code/opensip-ai/opensip-k1c-driver-evidence/tools/quality/driver_evidence.py
+@@ -0,0 +1,154 @@
++"""Q0 r13 §9.5 driver evidence joins and retry/final selection.
++
++Pure cross-row component: no workload, cgroup or instrumentation execution.
++Schema admission, physical settlement/isolation proof, sample accounting,
++phase records, compatible baselines and D12 eligibility remain separate checks.
++"""
++from canonical import canonical, digest, pin
++from measurement import RUN_REASONS, _slot
++from records import require
++
++
++ABSENT_REASONS = frozenset({
++    "cgroup-unavailable", "cgroup-v1-only", "cgroup-no-delegation",
++    "memory-peak-unavailable-platform", "cgroup-escape-unprevented",
++    "cgroup-isolation-unverified",
++})
++
++
++def _label(value):
++    require(type(value) is str and 1 <= len(value) <= 4096, "LABEL_REQUIRED")
++
++
++def _count(value, *, positive=False, maximum=2**64 - 1):
++    require(type(value) is int and (1 if positive else 0) <= value <= maximum,
++            "EXACT_COUNT_REQUIRED")
++
++
++def batch_id(round_id, workload_id, workflow, reset, control, ordinal):
++    """QD-20's canonical ordered six-tuple, with the CAN unframed SHA-256."""
++    _label(round_id)
++    _label(workload_id)
++    require(type(workflow) is str and workflow in {
++        "core-analyze", "first-use", "prep-invalidating-edit"}, "WORKFLOW_REQUIRED")
++    require(type(reset) is str and reset in {"cold", "warm"}, "RESET_REQUIRED")
++    require(type(control) is str and control in {
++        "clean", "missing-input", "stale-prepared", "broken-build"}, "CONTROL_REQUIRED")
++    require(type(ordinal) is int and ordinal in {1, 2}, "BATCH_ORDINAL_REQUIRED")
++    return digest([round_id, workload_id, workflow, reset, control, ordinal])
++
++
++def _reasons(row, expected):
++    incomplete = row["status"] == "incomplete"
++    if not incomplete:
++        require("slotReasons" not in row, "COMPLETE_ROW_REASON_FIELD")
++        return {}
++    rows = row.get("slotReasons")
++    require(type(rows) is list and 1 <= len(rows) <= len(expected), "SLOT_REASONS_REQUIRED")
++    by_slot = {}
++    for item in rows:
++        require(type(item) is dict and set(item) == {"slot", "reasons"}, "SLOT_REASON_SHAPE")
++        key = _slot(item["slot"])
++        require(key in expected and key not in by_slot, "SLOT_REASON_COVERAGE")
++        reasons = item["reasons"]
++        require(type(reasons) is list and 1 <= len(reasons) <= 16 and
++                all(type(r) is str and r in RUN_REASONS for r in reasons), "RUN_REASONS_REQUIRED")
++        require(reasons == sorted(set(reasons), key=canonical), "RUN_REASONS_CANONICAL_SET")
++        by_slot[key] = frozenset(reasons)
++    require(rows == sorted(rows, key=canonical), "SLOT_REASONS_CANONICAL_SET")
++    return by_slot
++
++
++def validate_driver_evidence(round_id, workloads, leaves, observations):
++    """Check the component's identity, coverage, uniqueness and orphan rules.
++
++    Workloads are full Q6 rows after separate closed-schema checks; this
++    component reads their key/status/reasons/final fields only. Leaf and batch
++    observation shapes are closed here. Returned counts prove no measurement.
++    """
++    _label(round_id)
++    require(type(workloads) is list and len(workloads) <= 4096, "WORKLOAD_ARRAY")
++    require(type(leaves) is list and len(leaves) <= 100000, "LEAF_ARRAY")
++    require(type(observations) is list and len(observations) <= 100000, "OBSERVATION_ARRAY")
++    canonical({"workloads": workloads, "cgroupLeaves": leaves,
++               "batchObservations": observations})
++    batches, groups = {}, {}
++    for row in workloads:
++        required = {"workloadId", "workflow", "reset", "control", "batchId",
++                    "batchOrdinal", "final", "status"}
++        require(type(row) is dict and required <= row.keys(), "BATCH_KEY_FIELDS")
++        expected_id = batch_id(round_id, row["workloadId"], row["workflow"],
++                               row["reset"], row["control"], row["batchOrdinal"])
++        require(type(row["batchId"]) is str and row["batchId"] == expected_id,
++                "BATCH_ID_MISMATCH")
++        require(expected_id not in batches, "DUPLICATE_BATCH")
++        require(type(row["final"]) is bool, "FINAL_BOOLEAN_REQUIRED")
++        require(type(row["status"]) is str and row["status"] in {
++            "within", "over", "no-baseline", "incomplete"}, "Q6_STATUS_REQUIRED")
++        slots = {("warmup", i) for i in range(3)} | {("measured", i) for i in range(7)}
++        if row["reset"] == "warm":
++            slots.add(("priming", 0))
++        batches[expected_id] = (slots, _reasons(row, slots))
++        key = (row["workloadId"], row["workflow"], row["reset"], row["control"])
++        groups.setdefault(key, []).append(row)
++    for rows in groups.values():
++        by_ordinal = {row["batchOrdinal"]: row for row in rows}
++        require(1 in by_ordinal, "INITIAL_BATCH_MISSING")
++        if 2 in by_ordinal:
++            require(by_ordinal[1]["status"] in {"over", "incomplete"}, "RETRY_WITHOUT_FAILURE")
++        last = max(by_ordinal)
++        require(all(row["final"] == (row["batchOrdinal"] == last) for row in rows),
++                "FINAL_MUST_BE_LAST_BATCH")
++
++    observed = set()
++    observation_fields = {"batchId", "loadAverageMilli", "cpuFrequencyPolicy",
++                          "swapBytesInUse", "powerState", "corpusStoreLocal",
++                          "onlineCpusBefore", "onlineCpusAfter"}
++    for row in observations:
++        require(type(row) is dict and set(row) == observation_fields, "OBSERVATION_SHAPE")
++        bid = row["batchId"]
++        require(pin(bid) and bid in batches and bid not in observed, "OBSERVATION_BATCH_JOIN")
++        _count(row["loadAverageMilli"])
++        _count(row["swapBytesInUse"])
++        _label(row["cpuFrequencyPolicy"])
++        _label(row["powerState"])
++        require(type(row["corpusStoreLocal"]) is bool, "OBSERVATION_LOCAL_BOOLEAN")
++        for field in ("onlineCpusBefore", "onlineCpusAfter"):
++            cpus = row[field]
++            require(type(cpus) is list and len(cpus) <= 4096, "CPU_SET_REQUIRED")
++            for cpu in cpus:
++                _count(cpu, maximum=65535)
++            require(cpus == sorted(set(cpus), key=canonical), "CPU_CANONICAL_SET")
++        observed.add(bid)
++    require(observed == batches.keys(), "OBSERVATION_COVERAGE")
++
++    leaf_fields = {"batchId", "slot", "leafName", "leafInode", "absentReason"}
++    seen, created_names = set(), set()
++    absent = 0
++    for row in leaves:
++        require(type(row) is dict and set(row) == leaf_fields, "LEAF_SHAPE")
++        bid = row["batchId"]
++        require(pin(bid) and bid in batches, "LEAF_BATCH_JOIN")
++        slot = _slot(row["slot"])
++        slots, reasons = batches[bid]
++        key = bid, slot
++        require(slot in slots and key not in seen, "LEAF_SLOT_COVERAGE")
++        if row["leafName"] is None:
++            reason = row["absentReason"]
++            require(row["leafInode"] is None and type(reason) is str and
++                    reason in ABSENT_REASONS and reason in reasons.get(slot, ()),
++                    "ABSENT_LEAF_REASON_JOIN")
++            absent += 1
++        else:
++            name = f"run-{bid}-{slot[0]}-{slot[1]}"
++            require(type(row["leafName"]) is str and row["leafName"] == name and
++                    row["absentReason"] is None, "CREATED_LEAF_SHAPE")
++            _count(row["leafInode"], positive=True)
++            require(name not in created_names, "DUPLICATE_CREATED_LEAF")
++            created_names.add(name)
++        seen.add(key)
++    expected = {(bid, slot) for bid, (slots, _) in batches.items() for slot in slots}
++    require(seen == expected, "LEAF_COVERAGE")
++    return {"batches": len(batches), "slots": len(expected),
++            "createdLeaves": len(created_names), "absentLeaves": absent,
++            "productQualification": False}
+diff --git a/Users/sb/code/opensip-ai/opensip-k1c-driver-evidence/tools/quality/test_driver_evidence.py b/Users/sb/code/opensip-ai/opensip-k1c-driver-evidence/tools/quality/test_driver_evidence.py
+new file mode 100644
+index 0000000..b4193bc
+--- /dev/null
++++ b/Users/sb/code/opensip-ai/opensip-k1c-driver-evidence/tools/quality/test_driver_evidence.py
+@@ -0,0 +1,200 @@
++"""Synthetic driver-evidence joins; no workload/producer or measurement."""
++import copy
++import hashlib
++import pathlib
++import sys
++import unittest
++
++sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
++from canonical import Refusal, canonical
++from driver_evidence import batch_id, validate_driver_evidence
++
++
++def slots(reset):
++    keys = [("warmup", i) for i in range(3)] + [("measured", i) for i in range(7)]
++    return ([("priming", 0)] if reset == "warm" else []) + keys
++
++
++def slot(kind, index):
++    return {"kind": kind, "index": index}
++
++
++def data(reset="cold", ordinal=1, status="no-baseline", final=True, reason=None):
++    bid = batch_id("round", "workload", "core-analyze", reset, "clean", ordinal)
++    row = {"workloadId": "workload", "workflow": "core-analyze", "reset": reset,
++           "control": "clean", "batchId": bid, "batchOrdinal": ordinal,
++           "status": status, "final": final}
++    if reason:
++        row["slotReasons"] = sorted(
++            [{"slot": slot(k, i), "reasons": [reason]} for k, i in slots(reset)],
++            key=canonical)
++    leaves = [{"batchId": bid, "slot": slot(k, i),
++               "leafName": None if reason else f"run-{bid}-{k}-{i}",
++               "leafInode": None if reason else 1,
++               "absentReason": reason} for k, i in slots(reset)]
++    observation = {"batchId": bid, "loadAverageMilli": 0, "cpuFrequencyPolicy": "fixed",
++                   "swapBytesInUse": 0, "powerState": "AC", "corpusStoreLocal": True,
++                   "onlineCpusBefore": [0, 1, 2, 3], "onlineCpusAfter": [0, 1, 2, 3]}
++    return [row], leaves, [observation]
++
++
++class EvidenceTests(unittest.TestCase):
++    def check(self, parts):
++        return validate_driver_evidence("round", *parts)
++
++    def test_canonical_tuple_matches_independent_literal_preimage(self):
++        raw = b'["round","workload","core-analyze","cold","clean",1]'
++        self.assertEqual(batch_id("round", "workload", "core-analyze", "cold", "clean", 1),
++                         hashlib.sha256(raw).hexdigest())
++        original = ["round", "workload", "core-analyze", "cold", "clean", 1]
++        alternatives = ["next", "other", "first-use", "warm", "missing-input", 2]
++        for index, replacement in enumerate(alternatives):
++            changed = list(original)
++            changed[index] = replacement
++            self.assertNotEqual(batch_id(*original), batch_id(*changed))
++
++    def test_complete_cold_and_warm_batches(self):
++        for reset, count in (("cold", 10), ("warm", 11)):
++            result = self.check(data(reset))
++            self.assertEqual(result["slots"], count)
++            self.assertEqual(result["createdLeaves"], count)
++            self.assertEqual(result["absentLeaves"], 0)
++            self.assertFalse(result["productQualification"])
++
++    def test_every_absent_host_reason_and_no_duplicate_null_leaf(self):
++        for reason in ("cgroup-unavailable", "cgroup-v1-only", "cgroup-no-delegation",
++                       "memory-peak-unavailable-platform", "cgroup-escape-unprevented",
++                       "cgroup-isolation-unverified"):
++            result = self.check(data("warm", status="incomplete", reason=reason))
++            self.assertEqual(result["absentLeaves"], 11)
++            self.assertEqual(result["createdLeaves"], 0)
++
++    def test_last_retry_is_final_even_if_worse(self):
++        for first, second in (("over", "within"), ("over", "over"),
++                              ("incomplete", "over"), ("over", "incomplete")):
++            one = data(status=first, final=False,
++                       reason="cgroup-unavailable" if first == "incomplete" else None)
++            two = data(ordinal=2, status=second,
++                       reason="cgroup-unavailable" if second == "incomplete" else None)
++            combined = tuple(a + b for a, b in zip(one, two))
++            self.assertEqual(self.check(combined)["batches"], 2)
++            combined[0][0]["final"], combined[0][1]["final"] = True, False
++            with self.assertRaises(Refusal):
++                self.check(combined)
++
++    def test_retry_needs_retained_failed_initial_batch(self):
++        with self.assertRaises(Refusal):
++            self.check(data(ordinal=2))
++        for status in ("within", "no-baseline"):
++            one, two = data(status=status, final=False), data(ordinal=2)
++            with self.assertRaises(Refusal):
++                self.check(tuple(a + b for a, b in zip(one, two)))
++
++    def test_batch_identity_duplicates_and_final_boolean(self):
++        parts = data()
++        parts[0][0]["batchId"] = "0" * 64
++        with self.assertRaises(Refusal):
++            self.check(parts)
++        parts = data()
++        parts[0].append(copy.deepcopy(parts[0][0]))
++        with self.assertRaises(Refusal):
++            self.check(parts)
++        parts = data()
++        parts[0][0]["final"] = 1
++        with self.assertRaises(Refusal):
++            self.check(parts)
++        parts[0][0]["final"] = False
++        with self.assertRaises(Refusal):
++            self.check(parts)
++
++    def test_leaf_exact_coverage_no_orphans_or_duplicates(self):
++        for corrupt in (lambda p: p[1].pop(), lambda p: p[1].append(copy.deepcopy(p[1][0])),
++                        lambda p: p[1][0].update(batchId="0" * 64),
++                        lambda p: p[1][0].update(slot=slot("priming", 0)),
++                        lambda p: p[1][0].update(leafName=p[1][1]["leafName"]),
++                        lambda p: p[1][0].update(leafInode=True),
++                        lambda p: p[1][0].update(leafInode=0)):
++            parts = data()
++            corrupt(parts)
++            with self.assertRaises(Refusal):
++                self.check(parts)
++
++    def test_observation_exact_coverage_no_orphans_or_duplicates(self):
++        for corrupt in (lambda p: p[2].clear(), lambda p: p[2].append(copy.deepcopy(p[2][0])),
++                        lambda p: p[2][0].update(batchId="0" * 64),
++                        lambda p: p[2][0].update(corpusStoreLocal=1),
++                        lambda p: p[2][0].update(onlineCpusBefore=[0, 0]),
++                        lambda p: p[2][0].update(onlineCpusBefore=[True]),
++                        lambda p: p[2][0].update(onlineCpusBefore=[65536]),
++                        lambda p: p[2][0].update(loadAverageMilli=-1)):
++            parts = data()
++            corrupt(parts)
++            with self.assertRaises(Refusal):
++                self.check(parts)
++
++    def test_after_creation_reason_cannot_be_an_absent_leaf(self):
++        for reason in ("cgroup-read-failed", "cgroup-not-empty", "record-missing"):
++            with self.assertRaises(Refusal):
++                self.check(data(status="incomplete", reason=reason))
++
++    def test_missing_operational_record_never_removes_driver_leaf(self):
++        parts = data()
++        parts[0][0].update(status="incomplete", slotReasons=[
++            {"slot": slot("warmup", 0), "reasons": ["record-missing"]}])
++        self.assertEqual(self.check(parts)["createdLeaves"], 10)
++        parts[1].pop(0)
++        with self.assertRaises(Refusal):
++            self.check(parts)
++
++    def test_absent_reason_must_match_that_specific_slot(self):
++        parts = data(status="incomplete", reason="cgroup-unavailable")
++        parts[0][0]["slotReasons"].pop(0)
++        with self.assertRaises(Refusal):
++            self.check(parts)
++        parts = data(status="incomplete", reason="cgroup-unavailable")
++        parts[1][0]["leafInode"] = 1
++        with self.assertRaises(Refusal):
++            self.check(parts)
++
++    def test_reason_status_and_canonical_uniqueness(self):
++        edits = [lambda p: p[0][0].update(slotReasons=[]),
++                 lambda p: p[0][0].update(status="within"),
++                 lambda p: p[0][0]["slotReasons"].append(copy.deepcopy(p[0][0]["slotReasons"][0])),
++                 lambda p: p[0][0]["slotReasons"][0].update(reasons=["cgroup-unavailable"] * 2),
++                 lambda p: p[0][0]["slotReasons"][0].update(reasons=["event-loss"])]
++        for edit in edits:
++            parts = data(status="incomplete", reason="cgroup-unavailable")
++            edit(parts)
++            with self.assertRaises(Refusal):
++                self.check(parts)
++        parts = data()
++        parts[0][0]["slotReasons"] = []
++        with self.assertRaises(Refusal):
++            self.check(parts)
++
++    def test_multiple_keys_do_not_mix_retry_groups(self):
++        one, two = data(), data("warm")
++        combined = tuple(a + b for a, b in zip(one, two))
++        result = self.check(combined)
++        self.assertEqual(result["batches"], 2)
++        self.assertEqual(result["slots"], 21)
++
++    def test_no_mutation_and_empty_unmeasured_population(self):
++        parts = data()
++        before = copy.deepcopy(parts)
++        self.check(parts)
++        self.assertEqual(parts, before)
++        self.assertEqual(self.check(([], [], []))["batches"], 0)
++
++    def test_key_fields_refuse_aliases_bool_and_unbounded_labels(self):
++        base = ["round", "workload", "core-analyze", "cold", "clean", 1]
++        for index, value in ((0, ""), (1, "a" * 4097), (2, "analyze"),
++                             (3, "flushed"), (4, "broken"), (5, True), (5, 3)):
++            key = list(base)
++            key[index] = value
++            with self.assertRaises(Refusal):
++                batch_id(*key)
++
++
++if __name__ == "__main__":
++    unittest.main()
