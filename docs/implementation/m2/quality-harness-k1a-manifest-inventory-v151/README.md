@@ -1,0 +1,3 @@
+# K1a T2 documentary manifest compatibility — additive inventory v151
+
+Parent v150 retained by value; one harness test file added and existing corpus.py changed. Packages and pending decisions unchanged. 103 inherited descriptions projected by stable path. Requires Grok ACCEPT-UNIT and root assent. The accepted T2 documentary manifest has finite observational decimals outside CAN harness record fields. Parse that bounded document with exact Decimal metadata, retaining the original byte pin and duplicate/non-finite/UTF8/depth refusals. CAN record serialization/parser and receipt validation remain unchanged. No T2 source, network acquisition, real adjudication, qualification, O1-a completion or S-OP binding is claimed by this unit.

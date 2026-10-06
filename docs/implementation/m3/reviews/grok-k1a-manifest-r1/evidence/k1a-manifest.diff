@@ -1,0 +1,181 @@
+diff --git a/tools/quality/corpus.py b/tools/quality/corpus.py
+index ee2acde..da1ff49 100644
+--- a/tools/quality/corpus.py
++++ b/tools/quality/corpus.py
+@@ -1,15 +1,63 @@
+ """Harness-only corpus acquisition CLI. Runs use store.verify directly."""
+ import argparse
++from decimal import Decimal
++import json
+ import sys
+ from pathlib import Path
+ 
+ # Explicit local imports allow the documented -I -B invocation.
+ sys.path.insert(0, str(Path(__file__).resolve().parent))
+-from canonical import Refusal, canonical, parse, sha256
++from canonical import MAX_BYTES, Refusal, canonical, sha256
+ from records import require
+ from store import verify, workspace
+ 
+ 
++def manifest_document(raw):
++    """Read the byte-pinned T2 documentary JSON, not a CAN harness record.
++
++    T2's observed shape/size statistics contain finite decimal metadata.
++    Preserve those exactly as Decimal; pins still hash the original bytes.
++    Values entering CAN admission records remain subject to canonical().
++    No canonical encoder or harness record parser is changed here.
++    """
++    require(type(raw) is bytes and len(raw) <= MAX_BYTES, "MANIFEST-UNREADABLE")
++
++    def pairs(items):
++        result = {}
++        for key, value in items:
++            require(key not in result, "MANIFEST-UNREADABLE")
++            result[key] = value
++        return result
++
++    def invalid(_):
++        raise Refusal("MANIFEST-UNREADABLE")
++
++    def admitted(value, depth=0):
++        require(not (type(value) in (dict, list) and depth >= 32), "MANIFEST-UNREADABLE")
++        if type(value) is dict:
++            for key, child in value.items():
++                admitted(key, depth + 1)
++                admitted(child, depth + 1)
++        elif type(value) is list:
++            for child in value:
++                admitted(child, depth + 1)
++        elif type(value) is str:
++            value.encode("utf-8", "strict")
++        elif type(value) is Decimal:
++            require(value.is_finite(), "MANIFEST-UNREADABLE")
++        else:
++            require(value is None or type(value) in (int, bool), "MANIFEST-UNREADABLE")
++
++    try:
++        document = json.loads(raw.decode("utf-8", "strict"), object_pairs_hook=pairs,
++                              parse_float=Decimal, parse_constant=invalid)
++        require(type(document) is dict, "MANIFEST-UNREADABLE")
++        admitted(document)
++        return document
++    except (ValueError, UnicodeError, RecursionError) as exc:
++        raise Refusal("MANIFEST-UNREADABLE") from exc
++
++
+ def main():
+     parser = argparse.ArgumentParser(description=__doc__)
+     parser.add_argument("action", choices=("fetch", "verify", "workspace"))
+@@ -22,7 +70,7 @@ def main():
+     args = parser.parse_args()
+     try:
+         raw = args.manifest.read_bytes()
+-        manifest = parse(raw)
++        manifest = manifest_document(raw)
+         entries = {r["id"]: r for r in manifest["repositories"]}
+         require(len(entries) == len(manifest["repositories"]), "MANIFEST-UNREADABLE")
+         require(manifest["treeDigestAlgorithm"]["id"] == "opensip-qd22-tree-sha256/1"
+diff --git a/Users/sb/code/opensip-ai/opensip-k1a-manifest/tools/quality/test_corpus_manifest.py b/Users/sb/code/opensip-ai/opensip-k1a-manifest/tools/quality/test_corpus_manifest.py
+new file mode 100644
+index 0000000..ac39e5f
+--- /dev/null
++++ b/Users/sb/code/opensip-ai/opensip-k1a-manifest/tools/quality/test_corpus_manifest.py
+@@ -0,0 +1,97 @@
++"""T2 documentary decimals regression; no network or public source reads."""
++import contextlib
++from decimal import Decimal
++import io
++import json
++import pathlib
++import sys
++import tempfile
++import unittest
++from unittest.mock import patch
++
++sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
++from canonical import MAX_BYTES, Refusal, canonical, parse, sha256
++import corpus
++
++
++def document():
++    return {
++        "kind": "opensip-t2-corpus-manifest", "schemaVersion": "2-draft",
++        "treeDigestAlgorithm": {"id": "opensip-qd22-tree-sha256/1"},
++        "contentDigestAlgorithm": {"id": "opensip-t2-content-sha256/1-draft"},
++        "repositories": [{"id": "synthetic", "shapeEvidence": {"rustCfgPerKloc": 19.3}}],
++        "workspaces": [],
++    }
++
++
++class ManifestReaderTests(unittest.TestCase):
++    def test_document_decimals_preserved_exactly(self):
++        raw = b'{"observations":{"density":19.3,"tiny":1e-20},"id":"entry"}'
++        result = corpus.manifest_document(raw)
++        self.assertEqual(result["observations"]["density"], Decimal("19.3"))
++        self.assertEqual(result["observations"]["tiny"], Decimal("1e-20"))
++        self.assertEqual(result["id"], "entry")
++        with self.assertRaises(Refusal): parse(raw)
++        with self.assertRaises(Refusal): canonical(result)
++
++    def test_real_manifest_shape_reaches_offline_verification(self):
++        raw = json.dumps(document(), indent=2).encode()
++        captured = []
++        def verify(path, entry):
++            captured.append(entry)
++            return {"treeDigest": "a" * 64}
++        with tempfile.TemporaryDirectory() as tmp:
++            path = pathlib.Path(tmp)/"manifest.json"
++            path.write_bytes(raw)
++            args = ["corpus.py", "verify", "--manifest", str(path), "--store", tmp, "--id", "synthetic"]
++            # Store path is selected using the entry treeDigest, unrelated to
++            # the observational decimal. Retain that required pin explicitly.
++            doc = document()
++            doc["repositories"][0]["treeDigest"] = {"value": "a" * 64}
++            path.write_text(json.dumps(doc, indent=2))
++            with patch.object(sys, "argv", args), patch.object(corpus, "verify", verify), contextlib.redirect_stdout(io.StringIO()) as out:
++                self.assertEqual(corpus.main(), 0)
++            self.assertEqual(json.loads(out.getvalue())["entry"], "synthetic")
++        self.assertEqual(len(captured), 1)
++        self.assertEqual(captured[0]["shapeEvidence"]["rustCfgPerKloc"], Decimal("19.3"))
++
++    def test_fetch_receives_original_manifest_byte_digest(self):
++        # Mock the network boundary; the CLI must pin exact documentary bytes.
++        calls = []
++        def acquire(entry, manifest_digest, store, temp_root, *, local):
++            calls.append((manifest_digest, entry["shapeEvidence"]["rustCfgPerKloc"]))
++            return {"entry": entry["id"]}
++        with tempfile.TemporaryDirectory() as tmp:
++            path = pathlib.Path(tmp)/"manifest.json"
++            raw = json.dumps(document(), indent=2).encode() + b"\n"
++            path.write_bytes(raw)
++            args = ["corpus.py", "fetch", "--manifest", str(path), "--store", tmp,
++                    "--temp-root", tmp, "--id", "synthetic"]
++            with patch.object(sys, "argv", args), patch("fetch.acquire", acquire), contextlib.redirect_stdout(io.StringIO()):
++                self.assertEqual(corpus.main(), 0)
++        self.assertEqual(calls, [(sha256(raw), Decimal("19.3"))])
++
++    def test_malformed_document_refused(self):
++        for raw in (b'{"a":1,"a":2}', b'{"nested":{"a":1,"a":2}}',
++                    b'{"x":NaN}', b'{"x":Infinity}', b'{"x":-Infinity}',
++                    b'{"x":"\\ud800"}', b'{"x":"\xff"}', b'[]', b'null', b'{',
++                    b'{} extra', b'{"n":01}'):
++            with self.subTest(raw=raw), self.assertRaises(Refusal):
++                corpus.manifest_document(raw)
++
++    def test_document_limits_and_exact_input_type(self):
++        for raw in ("{}", bytearray(b"{}"), b" " * (MAX_BYTES + 1)):
++            with self.assertRaises(Refusal): corpus.manifest_document(raw)
++        accepted = b'{"a":' + b'['*31 + b'0' + b']'*31 + b'}'
++        self.assertIsInstance(corpus.manifest_document(accepted), dict)
++        refused = b'{"a":' + b'['*32 + b'0' + b']'*32 + b'}'
++        with self.assertRaises(Refusal): corpus.manifest_document(refused)
++
++    def test_consumed_document_decimal_cannot_enter_can_receipt(self):
++        # A decimal in an actual receipt field is still rejected by CAN.
++        parsed = corpus.manifest_document(b'{"licence":{"decimal":1.25}}')
++        with self.assertRaises(Refusal): canonical(parsed["licence"])
++
++
++if __name__ == "__main__":
++    unittest.main()
