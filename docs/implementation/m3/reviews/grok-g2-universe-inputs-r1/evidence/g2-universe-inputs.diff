@@ -1,0 +1,1118 @@
+diff --git a/providers/rust/src/lib.rs b/providers/rust/src/lib.rs
+index 0c4fee9..7003bc6 100644
+--- a/providers/rust/src/lib.rs
++++ b/providers/rust/src/lib.rs
+@@ -10,3 +10,6 @@ pub mod config_snapshot;
+ 
+ /// Declared universe/context field joins; no full universe or context admission.
+ pub mod universe_context;
++
++/// Declared retained Rust universe/snapshot joins; no full context or universe admission.
++pub mod universe_inputs;
+diff --git a/providers/rust/src/universe_inputs.rs b/providers/rust/src/universe_inputs.rs
+new file mode 100644
+index 0000000..6564e32
+--- /dev/null
++++ b/providers/rust/src/universe_inputs.rs
+@@ -0,0 +1,324 @@
++//! Declared retained-input joins for Rust universe authoring.
++//! These pure observations do not admit native context or bind a Plan.
++
++use crate::universe_context::{
++    UniverseContextChecks, UniverseContextError, check_declared_universe_context,
++};
++use opensip_identity::{
++    DigestError, FramedCandidate, GraphError, IdentityDomain, JsonInteger, JsonValue,
++    NativeFrameSet, RetainedInputError, RetainedInputs, hash_canonical_value,
++};
++use std::collections::{BTreeMap, BTreeSet};
++
++#[derive(Debug)]
++pub enum UniverseInputError {
++    Context(UniverseContextError),
++    Frame(GraphError),
++    Retained(RetainedInputError),
++    Digest(DigestError),
++    Representation,
++    Missing(&'static str),
++    Mismatch(&'static str),
++}
++
++/// The selected optional records must be supplied; unselected records refuse.
++pub struct UniverseInputRequest<'a> {
++    pub universe_digest: [u8; 32],
++    pub context_digest: [u8; 32],
++    pub expected_host_digest: [u8; 32],
++    pub snapshot_id: &'a str,
++    pub prepared_digest: Option<[u8; 32]>,
++    pub ownership_digest: Option<[u8; 32]>,
++}
++
++/// Inert identity/descriptor joins. No compiler or enumerator is qualified.
++#[derive(Debug)]
++pub struct UniverseInputChecks {
++    fields: UniverseContextChecks,
++    snapshot_id: String,
++    has_ownership: bool,
++}
++impl UniverseInputChecks {
++    pub fn field_checks(&self) -> &UniverseContextChecks {
++        &self.fields
++    }
++    pub fn snapshot_id(&self) -> &str {
++        &self.snapshot_id
++    }
++    /// Presence alone grants no body dialect or clone identity, including partial enumeration.
++    pub fn has_ownership(&self) -> bool {
++        self.has_ownership
++    }
++}
++
++/// Compose the mandatory field joins with §2.1 retained-record/snapshot joins.
++///
++/// Required dependency/features frames are resolved by their declared full H.
++/// Selected prepared/ownership inputs must have the exact named digest/domain;
++/// optional absent inputs stay absent, including caller-supplied unselected bytes.
++/// The snapshot2 descriptor is recomputed, not a caller-provided path catalog.
++/// This checks descriptor correspondence, not every snapshot source/blob, nested
++/// package/artifact closure, producer correctness or context admission. Full
++/// bind_rust_universe still needs an admitted context and admitted nested inputs;
++/// success here does not mint one, authorize execution or send NativeContextVerified.
++/// No filesystem/tool/compiler/provider operation is performed.
++pub fn check_declared_universe_inputs(
++    inputs: &RetainedInputs<'_>,
++    request: &UniverseInputRequest<'_>,
++    schema_work: usize,
++) -> Result<UniverseInputChecks, UniverseInputError> {
++    let checks = check_declared_universe_context(
++        inputs,
++        request.universe_digest,
++        request.context_digest,
++        request.expected_host_digest,
++        schema_work,
++    )
++    .map_err(UniverseInputError::Context)?;
++    let universe = inputs
++        .frame_candidate(
++            request.universe_digest,
++            NativeFrameSet::SemanticUniverse,
++            schema_work,
++        )
++        .map_err(UniverseInputError::Frame)?;
++    let context = inputs
++        .frame_candidate(request.context_digest, NativeFrameSet::Context, schema_work)
++        .map_err(UniverseInputError::Frame)?;
++    let u = map(universe.descriptor())?;
++    let c = map(context.descriptor())?;
++    let snapshot = inputs
++        .object(request.snapshot_id, IdentityDomain::Snapshot, schema_work)
++        .map_err(UniverseInputError::Retained)?;
++    let mut inventory = BTreeMap::new();
++    for row in array(field(map(snapshot.descriptor())?, "sourceInventory")?)? {
++        let row = map(row)?;
++        inventory.insert(text(field(row, "path")?)?, row);
++    }
++    let dep = nested(
++        inputs,
++        sha_id(field(u, "dependencySourceSetId")?)?,
++        "native.dependency-source-set.v1",
++        schema_work,
++    )?;
++    if field(map(dep.descriptor())?, "lockfileIdentity")? != field(u, "lockfileIdentity")? {
++        return Err(UniverseInputError::Mismatch("dependency.lockfileIdentity"));
++    }
++    let features = nested(
++        inputs,
++        sha_id(field(u, "unifiedFeaturesId")?)?,
++        "native.unified-features.rust.v1",
++        schema_work,
++    )?;
++    let features = map(features.descriptor())?;
++    for name in ["targetTriple", "resolverVersion"] {
++        if field(features, name)? != field(c, name)? {
++            return Err(UniverseInputError::Mismatch(name));
++        }
++    }
++    let prepared = selected(
++        inputs,
++        field(u, "preparedOutputSetId")?,
++        request.prepared_digest,
++        "native.prepared-output-set.v3",
++        "preparedOutputSet",
++        schema_work,
++    )?;
++    if let Some(prepared) = prepared {
++        let p = map(field(map(prepared.descriptor())?, "preparation")?)?;
++        if field(p, "dependencySourceSetId")? != field(u, "dependencySourceSetId")? {
++            return Err(UniverseInputError::Mismatch(
++                "prepared.dependencySourceSetId",
++            ));
++        }
++        if field(p, "toolchain")? != field(c, "toolchain")? {
++            return Err(UniverseInputError::Mismatch("prepared.toolchain"));
++        }
++        let cfg_id = field(p, "cfgSetId")?;
++        let mut found = false;
++        for row in array(field(u, "cfgSets")?)? {
++            if field(map(row)?, "cfgSetId")? == cfg_id {
++                found = true;
++            }
++        }
++        if !found {
++            return Err(UniverseInputError::Mismatch("prepared.cfgSetId"));
++        }
++        let kind = if text(field(p, "kind")?)? == "imported-descriptor" {
++            "imported-inert"
++        } else {
++            "host-prepared"
++        };
++        if text(field(u, "preparedResolution")?)? != kind {
++            return Err(UniverseInputError::Mismatch("prepared.kind"));
++        }
++    }
++    let ownership = selected(
++        inputs,
++        field(u, "sourceUnitOwnershipId")?,
++        request.ownership_digest,
++        "native.source-unit-ownership.v1",
++        "sourceUnitOwnership",
++        schema_work,
++    )?;
++    if let Some(ownership) = &ownership {
++        let o = map(ownership.descriptor())?;
++        let mut units = BTreeSet::new();
++        for unit in array(field(o, "units")?)? {
++            let unit = map(unit)?;
++            let projection = JsonValue::Object(BTreeMap::from([
++                (
++                    "schemaVersion".into(),
++                    JsonValue::Integer(
++                        JsonInteger::new(1).map_err(|_| UniverseInputError::Representation)?,
++                    ),
++                ),
++                ("markerPath".into(), field(unit, "markerPath")?.clone()),
++                ("targetKind".into(), field(unit, "targetKind")?.clone()),
++                ("targetName".into(), field(unit, "targetName")?.clone()),
++            ]));
++            let derived = hash_canonical_value("native.compilation-unit.v1", &projection)
++                .map_err(UniverseInputError::Digest)?;
++            if sha_id(field(unit, "unitId")?)? != derived {
++                return Err(UniverseInputError::Mismatch("ownership.unitId"));
++            }
++            let id = text(field(unit, "unitId")?)?;
++            if !units.insert(id) {
++                return Err(UniverseInputError::Mismatch("ownership.duplicateUnitId"));
++            }
++            require_path(
++                &inventory,
++                field(unit, "markerPath")?,
++                "ownership.markerPath",
++            )?;
++            if matches!(field(unit, "targetEdition")?, JsonValue::Null)
++                && !map(field(u, "edition")?)?.contains_key(text(field(unit, "crateName")?)?)
++            {
++                return Err(UniverseInputError::Mismatch("ownership.crateName"));
++            }
++        }
++        for id in array(field(o, "selectedUnitIds")?)? {
++            if !units.contains(text(id)?) {
++                return Err(UniverseInputError::Mismatch("ownership.selectedUnitIds"));
++            }
++        }
++        for row in array(field(o, "ownership")?)? {
++            let row = map(row)?;
++            require_path(&inventory, field(row, "path")?, "ownership.path")?;
++            if !units.contains(text(field(row, "unitId")?)?) {
++                return Err(UniverseInputError::Mismatch("ownership.rowUnitId"));
++            }
++        }
++    }
++    let lock = map(field(u, "lockfileIdentity")?)?;
++    let lock_row = inventory
++        .get(text(field(lock, "path")?)?)
++        .ok_or(UniverseInputError::Mismatch("snapshot.lockfilePath"))?;
++    if field(lock_row, "sha256")? != field(lock, "contentSha256")? {
++        return Err(UniverseInputError::Mismatch("snapshot.lockfileDigest"));
++    }
++    for path in array(field(u, "crateRootPaths")?)? {
++        require_path(&inventory, path, "snapshot.crateRoot")?;
++    }
++    for path in array(field(
++        map(field(c, "configProjection")?)?,
++        "replacedSnapshotConfigs",
++    )?)? {
++        require_path(&inventory, path, "snapshot.replacedConfig")?;
++    }
++    Ok(UniverseInputChecks {
++        fields: checks,
++        snapshot_id: snapshot.identifier().to_owned(),
++        has_ownership: ownership.is_some(),
++    })
++}
++fn nested<'a>(
++    inputs: &RetainedInputs<'a>,
++    sha: [u8; 32],
++    domain: &str,
++    work: usize,
++) -> Result<FramedCandidate<'a>, UniverseInputError> {
++    let frame = inputs
++        .frame_candidate(sha, NativeFrameSet::Nested, work)
++        .map_err(UniverseInputError::Frame)?;
++    if frame.domain() != domain {
++        return Err(UniverseInputError::Mismatch("nested.domain"));
++    }
++    Ok(frame)
++}
++fn selected<'a>(
++    inputs: &RetainedInputs<'a>,
++    value: &JsonValue,
++    supplied: Option<[u8; 32]>,
++    domain: &str,
++    name: &'static str,
++    work: usize,
++) -> Result<Option<FramedCandidate<'a>>, UniverseInputError> {
++    if matches!(value, JsonValue::Null) {
++        if supplied.is_some() {
++            return Err(UniverseInputError::Mismatch(name));
++        }
++        return Ok(None);
++    }
++    let sha = supplied.ok_or(UniverseInputError::Missing(name))?;
++    if sha != sha_id(value)? {
++        return Err(UniverseInputError::Mismatch(name));
++    }
++    Ok(Some(nested(inputs, sha, domain, work)?))
++}
++fn require_path(
++    inventory: &BTreeMap<&str, &BTreeMap<String, JsonValue>>,
++    value: &JsonValue,
++    name: &'static str,
++) -> Result<(), UniverseInputError> {
++    if !inventory.contains_key(text(value)?) {
++        return Err(UniverseInputError::Mismatch(name));
++    }
++    Ok(())
++}
++fn map(value: &JsonValue) -> Result<&BTreeMap<String, JsonValue>, UniverseInputError> {
++    match value {
++        JsonValue::Object(v) => Ok(v),
++        _ => Err(UniverseInputError::Representation),
++    }
++}
++fn field<'a>(
++    value: &'a BTreeMap<String, JsonValue>,
++    key: &str,
++) -> Result<&'a JsonValue, UniverseInputError> {
++    value.get(key).ok_or(UniverseInputError::Representation)
++}
++fn text(value: &JsonValue) -> Result<&str, UniverseInputError> {
++    match value {
++        JsonValue::String(v) => Ok(v),
++        _ => Err(UniverseInputError::Representation),
++    }
++}
++fn array(value: &JsonValue) -> Result<&[JsonValue], UniverseInputError> {
++    match value {
++        JsonValue::Array(v) => Ok(v),
++        _ => Err(UniverseInputError::Representation),
++    }
++}
++fn sha_id(value: &JsonValue) -> Result<[u8; 32], UniverseInputError> {
++    let text = text(value)?
++        .strip_prefix("sha256:")
++        .ok_or(UniverseInputError::Representation)?;
++    if text.len() != 64 {
++        return Err(UniverseInputError::Representation);
++    }
++    let mut result = [0; 32];
++    for (i, pair) in text.as_bytes().chunks_exact(2).enumerate() {
++        let digit = |b| match b {
++            b'0'..=b'9' => Ok(b - b'0'),
++            b'a'..=b'f' => Ok(b - b'a' + 10),
++            _ => Err(UniverseInputError::Representation),
++        };
++        result[i] = digit(pair[0])? << 4 | digit(pair[1])?;
++    }
++    Ok(result)
++}
++
++#[cfg(test)]
++#[path = "universe_inputs_tests.rs"]
++mod tests;
+diff --git a/providers/rust/src/universe_inputs_tests.rs b/providers/rust/src/universe_inputs_tests.rs
+new file mode 100644
+index 0000000..3c510a2
+--- /dev/null
++++ b/providers/rust/src/universe_inputs_tests.rs
+@@ -0,0 +1,771 @@
++use super::*;
++use opensip_identity::digest_hex;
++use opensip_identity::{
++    IdentityCandidate, JsonInteger, ObjectInput, RegisteredSchemas, canonical_bytes, hash_preimage,
++    raw_sha256,
++};
++use std::path::Path;
++use std::sync::OnceLock;
++
++const WORK: usize = 10_000_000;
++fn schemas() -> &'static RegisteredSchemas {
++    static REGISTRY: OnceLock<RegisteredSchemas> = OnceLock::new();
++    REGISTRY.get_or_init(|| {
++        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
++        let raw: Vec<_> = RegisteredSchemas::source_requirements()
++            .iter()
++            .map(|pin| std::fs::read(root.join(pin.source_path())).unwrap())
++            .collect();
++        RegisteredSchemas::from_sources(&raw.iter().map(Vec::as_slice).collect::<Vec<_>>()).unwrap()
++    })
++}
++fn object(entries: impl IntoIterator<Item = (&'static str, JsonValue)>) -> JsonValue {
++    JsonValue::Object(
++        entries
++            .into_iter()
++            .map(|(key, value)| (key.into(), value))
++            .collect(),
++    )
++}
++fn text(value: &str) -> JsonValue {
++    JsonValue::String(value.into())
++}
++fn number(value: usize) -> JsonValue {
++    JsonValue::Integer(JsonInteger::new(value as i128).unwrap())
++}
++fn hash_text(bytes: &[u8]) -> JsonValue {
++    text(&digest_hex(&raw_sha256(bytes)))
++}
++fn fields(value: &mut JsonValue) -> &mut BTreeMap<String, JsonValue> {
++    let JsonValue::Object(value) = value else {
++        panic!("owned object fixture")
++    };
++    value
++}
++struct Fixture {
++    objects: BTreeMap<String, ObjectInput>,
++    blobs: BTreeMap<[u8; 32], Vec<u8>>,
++    context: JsonValue,
++    universe: JsonValue,
++    dependency: JsonValue,
++    features: JsonValue,
++    snapshot: JsonValue,
++    prepared: Option<JsonValue>,
++    ownership: Option<JsonValue>,
++}
++impl Fixture {
++    fn new() -> Self {
++        let context = object([
++            ("schemaVersion", number(2)),
++            ("targetTriple", text("aarch64-apple-darwin")),
++            ("hostTriple", text("aarch64-apple-darwin")),
++            (
++                "toolchain",
++                object([
++                    ("cargoVersion", text("1.95.0")),
++                    ("rustCommitHash", text(&"0".repeat(40))),
++                    ("rustcDevLlvmDigest", text(&"1".repeat(64))),
++                    ("rustcVersion", text("1.95.0")),
++                    ("standardLibraryComponentDigests", JsonValue::Array(vec![])),
++                    ("sysrootDigest", hash_text(b"unadmitted sysroot fixture")),
++                    ("targetTriple", text("aarch64-apple-darwin")),
++                ]),
++            ),
++            (
++                "toolClosure",
++                object([
++                    ("ar", hash_text(b"ar")),
++                    ("cargo", hash_text(b"cargo")),
++                    ("closureId", text(&format!("closure2:{}", "0".repeat(64)))),
++                    ("linker", hash_text(b"linker")),
++                    ("procMacroServer", hash_text(b"proc")),
++                    ("rustc", hash_text(b"rustc")),
++                ]),
++            ),
++            ("baseCfg", JsonValue::Array(vec![text("unix")])),
++            ("resolverVersion", number(3)),
++            (
++                "dependencySourceSetId",
++                text(&format!("sha256:{}", "a".repeat(64))),
++            ),
++            (
++                "unifiedFeaturesId",
++                text(&format!("sha256:{}", "b".repeat(64))),
++            ),
++            ("preparedOutputSetId", JsonValue::Null),
++            (
++                "configProjection",
++                object([
++                    ("schemaVersion", number(2)),
++                    ("ancestorCarrierVerified", JsonValue::Bool(true)),
++                    ("cargoHome", text("private-empty")),
++                    ("claimsCargoSwitch", JsonValue::Bool(false)),
++                    ("environmentProjection", text("none")),
++                    ("honoredKeys", JsonValue::Array(vec![])),
++                    ("projectionSha256", hash_text(b"unadmitted config fixture")),
++                    ("replacedSnapshotConfigs", JsonValue::Array(vec![])),
++                    (
++                        "rustflags",
++                        object([
++                            ("executableSelected", JsonValue::Bool(false)),
++                            ("honored", JsonValue::Array(vec![])),
++                            ("stripped", JsonValue::Array(vec![])),
++                        ]),
++                    ),
++                    ("strippedKeys", JsonValue::Array(vec![])),
++                ]),
++            ),
++        ]);
++        let universe = object([
++            ("schemaVersion", number(2)),
++            ("edition", object([("owned", number(2024))])),
++            (
++                "lockfileIdentity",
++                object([
++                    ("path", text("Cargo.lock")),
++                    ("contentSha256", hash_text(b"owned lock")),
++                    ("lockfileVersion", number(4)),
++                ]),
++            ),
++            (
++                "dependencySourceSetId",
++                map(&context).unwrap()["dependencySourceSetId"].clone(),
++            ),
++            (
++                "unifiedFeaturesId",
++                map(&context).unwrap()["unifiedFeaturesId"].clone(),
++            ),
++            ("nativeContextId", JsonValue::Null),
++            (
++                "cfgSets",
++                JsonValue::Array(vec![
++                    cfg("primary", &["unix"]),
++                    cfg("test", &["test", "unix"]),
++                ]),
++            ),
++            (
++                "rustflags",
++                map(&map(&context).unwrap()["configProjection"]).unwrap()["rustflags"].clone(),
++            ),
++            ("crateRootPaths", JsonValue::Array(vec![text("src/lib.rs")])),
++            (
++                "configProjectionSha256",
++                text(&digest_hex(
++                    &hash_canonical_value(
++                        "native.cargo-config-projection.v2",
++                        &map(&context).unwrap()["configProjection"],
++                    )
++                    .unwrap(),
++                )),
++            ),
++            ("preparedResolution", text("none")),
++            ("executionCapableResolution", JsonValue::Bool(false)),
++            ("preparedOutputSetId", JsonValue::Null),
++            ("sourceUnitOwnershipId", JsonValue::Null),
++        ]);
++
++        let dependency = object([
++            ("schemaVersion", number(1)),
++            ("language", text("rust")),
++            (
++                "lockfileIdentity",
++                map(&universe).unwrap()["lockfileIdentity"].clone(),
++            ),
++            ("packages", JsonValue::Array(vec![])),
++            (
++                "completeness",
++                object([
++                    ("state", text("complete")),
++                    ("missing", JsonValue::Array(vec![])),
++                ]),
++            ),
++        ]);
++        let features = object([
++            ("schemaVersion", number(1)),
++            ("resolverVersion", number(3)),
++            ("targetTriple", text("aarch64-apple-darwin")),
++            ("activated", JsonValue::Array(vec![])),
++            (
++                "computedBy",
++                object([
++                    ("producer", text("opensip-cargo-adapter")),
++                    ("producerBuildId", text("owned fixture")),
++                ]),
++            ),
++        ]);
++        let snapshot = object([
++            ("schemaVersion", number(2)),
++            ("projectId", text(&format!("prj1-{}", "0".repeat(64)))),
++            (
++                "sourceInventory",
++                JsonValue::Array(vec![
++                    row("Cargo.lock", b"owned lock"),
++                    row("Cargo.toml", b"owned manifest"),
++                    row("src/lib.rs", b"owned source"),
++                ]),
++            ),
++            ("resolvedConfigDigest", hash_text(b"owned config")),
++            ("scopeDigest", hash_text(b"owned scope")),
++            ("vcsDigest", hash_text(b"owned vcs")),
++        ]);
++        Self {
++            objects: BTreeMap::new(),
++            blobs: BTreeMap::new(),
++            context,
++            universe,
++            dependency,
++            features,
++            snapshot,
++            prepared: None,
++            ownership: None,
++        }
++    }
++    fn frame(&mut self, domain: &str, value: &JsonValue) -> [u8; 32] {
++        let bytes = hash_preimage(domain, value).unwrap();
++        let sha = raw_sha256(&bytes);
++        self.blobs.insert(sha, bytes);
++        sha
++    }
++    fn ids(&mut self) -> Ids {
++        let dependency = self.frame("native.dependency-source-set.v1", &self.dependency.clone());
++        let features = self.frame("native.unified-features.rust.v1", &self.features.clone());
++        for (name, sha) in [
++            ("dependencySourceSetId", dependency),
++            ("unifiedFeaturesId", features),
++        ] {
++            for record in [&mut self.context, &mut self.universe] {
++                fields(record).insert(name.into(), id_text(sha));
++            }
++        }
++        let prepared = self
++            .prepared
++            .clone()
++            .map(|p| self.frame("native.prepared-output-set.v3", &p));
++        for record in [&mut self.context, &mut self.universe] {
++            fields(record).insert(
++                "preparedOutputSetId".into(),
++                prepared.map(id_text).unwrap_or(JsonValue::Null),
++            );
++        }
++        let ownership = self
++            .ownership
++            .clone()
++            .map(|o| self.frame("native.source-unit-ownership.v1", &o));
++        fields(&mut self.universe).insert(
++            "sourceUnitOwnershipId".into(),
++            ownership.map(id_text).unwrap_or(JsonValue::Null),
++        );
++        let projection = &map(&self.context).unwrap()["configProjection"];
++        fields(&mut self.universe).insert(
++            "configProjectionSha256".into(),
++            text(&digest_hex(
++                &hash_canonical_value("native.cargo-config-projection.v2", projection).unwrap(),
++            )),
++        );
++        let c = self.frame("native.context.rust.v2", &self.context.clone());
++        fields(&mut self.universe).insert("nativeContextId".into(), id_text(c));
++        let u = self.frame("native.semantic-universe.rust.v2", &self.universe.clone());
++        let snapshot = IdentityCandidate::from_json(
++            schemas(),
++            IdentityDomain::Snapshot,
++            &canonical_bytes(&self.snapshot).unwrap(),
++            WORK,
++        )
++        .unwrap()
++        .identifier()
++        .to_owned();
++        self.objects.insert(
++            snapshot.clone(),
++            ObjectInput {
++                domain: IdentityDomain::Snapshot,
++                descriptor: self.snapshot.clone(),
++            },
++        );
++        Ids {
++            u,
++            c,
++            snapshot,
++            prepared,
++            ownership,
++        }
++    }
++    fn check(&self, ids: &Ids) -> Result<UniverseInputChecks, UniverseInputError> {
++        check_declared_universe_inputs(
++            &RetainedInputs::new(schemas(), &self.objects, &self.blobs),
++            &UniverseInputRequest {
++                universe_digest: ids.u,
++                context_digest: ids.c,
++                expected_host_digest: ids.c,
++                snapshot_id: &ids.snapshot,
++                prepared_digest: ids.prepared,
++                ownership_digest: ids.ownership,
++            },
++            WORK,
++        )
++    }
++    fn prepare(&mut self, kind: &str) {
++        let dep =
++            hash_canonical_value("native.dependency-source-set.v1", &self.dependency).unwrap();
++        let imported = kind == "imported-descriptor";
++        self.prepared = Some(object([
++            ("schemaVersion", number(3)),
++            ("rows", JsonValue::Array(vec![])),
++            (
++                "preparation",
++                object([
++                    ("kind", text(kind)),
++                    (
++                        "authorizationId",
++                        if imported {
++                            JsonValue::Null
++                        } else {
++                            id_text([3; 32])
++                        },
++                    ),
++                    (
++                        "importId",
++                        if imported {
++                            text(&format!("import2:{}", "3".repeat(64)))
++                        } else {
++                            JsonValue::Null
++                        },
++                    ),
++                    (
++                        "toolchain",
++                        map(&self.context).unwrap()["toolchain"].clone(),
++                    ),
++                    ("dependencySourceSetId", id_text(dep)),
++                    ("cfgSetId", text("primary")),
++                    (
++                        "producer",
++                        object([("id", text("external")), ("version", text("owned"))]),
++                    ),
++                ]),
++            ),
++        ]));
++        fields(&mut self.universe).insert(
++            "preparedResolution".into(),
++            text(if imported {
++                "imported-inert"
++            } else {
++                "host-prepared"
++            }),
++        );
++        fields(&mut self.universe)
++            .insert("executionCapableResolution".into(), JsonValue::Bool(true));
++    }
++    fn own(&mut self) {
++        let p = object([
++            ("schemaVersion", number(1)),
++            ("markerPath", text("Cargo.toml")),
++            ("targetKind", text("lib")),
++            ("targetName", text("owned")),
++        ]);
++        let id = id_text(hash_canonical_value("native.compilation-unit.v1", &p).unwrap());
++        self.ownership = Some(object([
++            ("schemaVersion", number(1)),
++            ("enumeration", text("complete")),
++            (
++                "units",
++                JsonValue::Array(vec![object([
++                    ("unitId", id.clone()),
++                    ("markerPath", text("Cargo.toml")),
++                    ("crateName", text("owned")),
++                    ("targetKind", text("lib")),
++                    ("targetName", text("owned")),
++                    ("targetEdition", JsonValue::Null),
++                ])]),
++            ),
++            ("selectedUnitIds", JsonValue::Array(vec![id.clone()])),
++            (
++                "ownership",
++                JsonValue::Array(vec![object([("path", text("src/lib.rs")), ("unitId", id)])]),
++            ),
++        ]));
++    }
++}
++fn cfg(id: &str, values: &[&str]) -> JsonValue {
++    object([
++        ("cfgSetId", text(id)),
++        (
++            "cfg",
++            JsonValue::Array(values.iter().map(|s| text(s)).collect()),
++        ),
++    ])
++}
++
++struct Ids {
++    u: [u8; 32],
++    c: [u8; 32],
++    snapshot: String,
++    prepared: Option<[u8; 32]>,
++    ownership: Option<[u8; 32]>,
++}
++fn id_text(sha: [u8; 32]) -> JsonValue {
++    text(&format!("sha256:{}", digest_hex(&sha)))
++}
++fn row(path: &str, bytes: &[u8]) -> JsonValue {
++    object([
++        ("path", text(path)),
++        ("sha256", hash_text(bytes)),
++        ("bytes", number(bytes.len())),
++    ])
++}
++fn unit_mut(f: &mut Fixture) -> &mut BTreeMap<String, JsonValue> {
++    let JsonValue::Array(units) = fields(f.ownership.as_mut().unwrap())
++        .get_mut("units")
++        .unwrap()
++    else {
++        panic!("owned fixture")
++    };
++    fields(&mut units[0])
++}
++#[test]
++fn required_records_and_snapshot_descriptor_join_without_admitting_context() {
++    let mut f = Fixture::new();
++    let ids = f.ids();
++    let checked = f.check(&ids).unwrap();
++    assert_eq!(checked.snapshot_id(), ids.snapshot);
++    assert_eq!(checked.field_checks().universe_digest(), ids.u);
++    assert!(!checked.has_ownership());
++    assert!(!f.blobs.contains_key(&raw_sha256(b"owned source"))); // Descriptor correspondence only.
++}
++#[test]
++fn dependency_and_features_are_required_retained_exact_frames() {
++    for domain in [
++        "native.dependency-source-set.v1",
++        "native.unified-features.rust.v1",
++    ] {
++        let mut f = Fixture::new();
++        let ids = f.ids();
++        let record = if domain.ends_with("set.v1") {
++            &f.dependency
++        } else {
++            &f.features
++        };
++        let sha = hash_canonical_value(domain, record).unwrap();
++        let old = f.blobs.remove(&sha).unwrap();
++        assert!(matches!(f.check(&ids), Err(UniverseInputError::Frame(_))));
++        f.blobs.insert(sha, b"substitution".to_vec());
++        assert!(matches!(f.check(&ids), Err(UniverseInputError::Frame(_))));
++        f.blobs.insert(sha, old);
++        f.check(&ids).unwrap();
++    }
++}
++#[test]
++fn dependency_lock_identity_is_not_an_opaque_id() {
++    let mut f = Fixture::new();
++    fields(
++        fields(&mut f.dependency)
++            .get_mut("lockfileIdentity")
++            .unwrap(),
++    )
++    .insert("lockfileVersion".into(), number(3));
++    let ids = f.ids();
++    assert!(matches!(
++        f.check(&ids),
++        Err(UniverseInputError::Mismatch("dependency.lockfileIdentity"))
++    ));
++}
++#[test]
++fn feature_target_and_resolver_join_context() {
++    for name in ["targetTriple", "resolverVersion"] {
++        let mut f = Fixture::new();
++        fields(&mut f.features).insert(
++            name.into(),
++            if name == "targetTriple" {
++                text("owned-other-target")
++            } else {
++                number(2)
++            },
++        );
++        let ids = f.ids();
++        assert!(matches!(f.check(&ids),Err(UniverseInputError::Mismatch(n)) if n==name));
++    }
++}
++#[test]
++fn selected_preparation_requires_supplied_exact_record_and_unselected_refuses() {
++    let mut f = Fixture::new();
++    let mut ids = f.ids();
++    ids.prepared = Some([0; 32]);
++    assert!(matches!(
++        f.check(&ids),
++        Err(UniverseInputError::Mismatch("preparedOutputSet"))
++    ));
++    f.prepare("imported-descriptor");
++    let mut ids = f.ids();
++    let real = ids.prepared.take();
++    assert!(matches!(
++        f.check(&ids),
++        Err(UniverseInputError::Missing("preparedOutputSet"))
++    ));
++    ids.prepared = Some([0; 32]);
++    assert!(matches!(
++        f.check(&ids),
++        Err(UniverseInputError::Mismatch("preparedOutputSet"))
++    ));
++    ids.prepared = real;
++    f.check(&ids).unwrap();
++    f.blobs.remove(&real.unwrap());
++    assert!(matches!(f.check(&ids), Err(UniverseInputError::Frame(_))));
++}
++#[test]
++fn both_preparation_kinds_are_inert_and_join_dependency_toolchain_and_cfg() {
++    for kind in ["authorized-execution", "imported-descriptor"] {
++        let mut f = Fixture::new();
++        f.prepare(kind);
++        let ids = f.ids();
++        assert!(
++            f.check(&ids)
++                .unwrap()
++                .field_checks()
++                .consumed_prepared_products()
++        );
++        for key in ["dependencySourceSetId", "toolchain", "cfgSetId", "kind"] {
++            let mut f = Fixture::new();
++            f.prepare(kind);
++            let prep = fields(
++                fields(f.prepared.as_mut().unwrap())
++                    .get_mut("preparation")
++                    .unwrap(),
++            );
++            match key {
++                "dependencySourceSetId" => {
++                    prep.insert(key.into(), id_text([7; 32]));
++                }
++                "toolchain" => {
++                    fields(prep.get_mut(key).unwrap())
++                        .insert("cargoVersion".into(), text("owned-other-version"));
++                }
++                "cfgSetId" => {
++                    prep.insert(key.into(), text("unselected"));
++                }
++                _ => {
++                    prep.insert(
++                        key.into(),
++                        text(if kind == "imported-descriptor" {
++                            "authorized-execution"
++                        } else {
++                            "imported-descriptor"
++                        }),
++                    );
++                }
++            }
++            let ids = f.ids();
++            let expected = match key {
++                "dependencySourceSetId" => "prepared.dependencySourceSetId",
++                "toolchain" => "prepared.toolchain",
++                "cfgSetId" => "prepared.cfgSetId",
++                _ => "prepared.kind",
++            };
++            assert!(matches!(f.check(&ids),Err(UniverseInputError::Mismatch(n)) if n==expected));
++        }
++    }
++}
++#[test]
++fn ownership_presence_never_qualifies_enumeration_or_body_dialect() {
++    for state in ["complete", "partial"] {
++        let mut f = Fixture::new();
++        f.own();
++        fields(f.ownership.as_mut().unwrap()).insert("enumeration".into(), text(state));
++        let ids = f.ids();
++        assert!(f.check(&ids).unwrap().has_ownership());
++    }
++}
++#[test]
++fn selected_ownership_requires_exact_supplied_retained_frame_and_absence_stays_absent() {
++    let mut f = Fixture::new();
++    let mut ids = f.ids();
++    ids.ownership = Some([0; 32]);
++    assert!(matches!(
++        f.check(&ids),
++        Err(UniverseInputError::Mismatch("sourceUnitOwnership"))
++    ));
++    f.own();
++    let mut ids = f.ids();
++    let real = ids.ownership.take();
++    assert!(matches!(
++        f.check(&ids),
++        Err(UniverseInputError::Missing("sourceUnitOwnership"))
++    ));
++    ids.ownership = Some([0; 32]);
++    assert!(matches!(
++        f.check(&ids),
++        Err(UniverseInputError::Mismatch("sourceUnitOwnership"))
++    ));
++    ids.ownership = real;
++    f.check(&ids).unwrap();
++    f.blobs.remove(&real.unwrap());
++    assert!(matches!(f.check(&ids), Err(UniverseInputError::Frame(_))));
++}
++#[test]
++fn ownership_unit_identity_is_derived_from_closed_metadata_and_default_crate_exists() {
++    let mut f = Fixture::new();
++    f.own();
++    unit_mut(&mut f).insert("unitId".into(), id_text([0; 32]));
++    let ids = f.ids();
++    assert!(matches!(
++        f.check(&ids),
++        Err(UniverseInputError::Mismatch("ownership.unitId"))
++    ));
++    let mut f = Fixture::new();
++    f.own();
++    unit_mut(&mut f).insert("crateName".into(), text("unlisted"));
++    let ids = f.ids();
++    assert!(matches!(
++        f.check(&ids),
++        Err(UniverseInputError::Mismatch("ownership.crateName"))
++    ));
++    unit_mut(&mut f).insert("targetEdition".into(), number(2021));
++    let ids = f.ids();
++    f.check(&ids).unwrap();
++}
++#[test]
++fn ownership_selection_and_rows_name_declared_units_and_snapshot_paths() {
++    let mut f = Fixture::new();
++    f.own();
++    fields(f.ownership.as_mut().unwrap()).insert(
++        "selectedUnitIds".into(),
++        JsonValue::Array(vec![id_text([0; 32])]),
++    );
++    let ids = f.ids();
++    assert!(matches!(
++        f.check(&ids),
++        Err(UniverseInputError::Mismatch("ownership.selectedUnitIds"))
++    ));
++    for (key, value, expected) in [
++        ("path", text("unlisted.rs"), "ownership.path"),
++        ("unitId", id_text([0; 32]), "ownership.rowUnitId"),
++    ] {
++        let mut f = Fixture::new();
++        f.own();
++        let JsonValue::Array(rows) = fields(f.ownership.as_mut().unwrap())
++            .get_mut("ownership")
++            .unwrap()
++        else {
++            panic!("owned fixture")
++        };
++        fields(&mut rows[0]).insert(key.into(), value);
++        let ids = f.ids();
++        assert!(matches!(f.check(&ids),Err(UniverseInputError::Mismatch(n)) if n==expected));
++    }
++}
++#[test]
++fn snapshot_lock_roots_config_and_unit_markers_must_correspond() {
++    for path in ["Cargo.lock", "src/lib.rs", "Cargo.toml"] {
++        let mut f = Fixture::new();
++        f.own();
++        let JsonValue::Array(rows) = fields(&mut f.snapshot).get_mut("sourceInventory").unwrap()
++        else {
++            panic!("owned fixture")
++        };
++        rows.retain(|row| map(row).unwrap()["path"] != text(path));
++        let ids = f.ids();
++        let expected = match path {
++            "Cargo.lock" => "snapshot.lockfilePath",
++            "src/lib.rs" => "ownership.path",
++            _ => "ownership.markerPath",
++        };
++        assert!(matches!(f.check(&ids),Err(UniverseInputError::Mismatch(n)) if n==expected));
++    }
++    let mut f = Fixture::new();
++    fields(&mut f.universe).insert(
++        "crateRootPaths".into(),
++        JsonValue::Array(vec![text("unlisted.rs")]),
++    );
++    let ids = f.ids();
++    assert!(matches!(
++        f.check(&ids),
++        Err(UniverseInputError::Mismatch("snapshot.crateRoot"))
++    ));
++    let mut f = Fixture::new();
++    fields(fields(&mut f.context).get_mut("configProjection").unwrap()).insert(
++        "replacedSnapshotConfigs".into(),
++        JsonValue::Array(vec![text(".cargo/config.toml")]),
++    );
++    let ids = f.ids();
++    assert!(matches!(
++        f.check(&ids),
++        Err(UniverseInputError::Mismatch("snapshot.replacedConfig"))
++    ));
++    let mut f = Fixture::new();
++    let JsonValue::Array(rows) = fields(&mut f.snapshot).get_mut("sourceInventory").unwrap() else {
++        panic!("owned fixture")
++    };
++    fields(&mut rows[0]).insert("sha256".into(), hash_text(b"wrong lock"));
++    let ids = f.ids();
++    assert!(matches!(
++        f.check(&ids),
++        Err(UniverseInputError::Mismatch("snapshot.lockfileDigest"))
++    ));
++}
++#[test]
++fn stale_snapshot_shape_or_context_field_disagreement_refuses_composed_check() {
++    let mut f = Fixture::new();
++    let ids = f.ids();
++    let stored = f.objects.get_mut(&ids.snapshot).unwrap();
++    fields(&mut stored.descriptor).insert("vcsDigest".into(), hash_text(b"changed"));
++    assert!(matches!(
++        f.check(&ids),
++        Err(UniverseInputError::Retained(_))
++    ));
++    let mut f = Fixture::new();
++    fields(&mut f.universe).insert(
++        "rustflags".into(),
++        object([
++            ("honored", JsonValue::Array(vec![text("--cfg=owned")])),
++            ("stripped", JsonValue::Array(vec![])),
++            ("executableSelected", JsonValue::Bool(false)),
++        ]),
++    );
++    let ids = f.ids();
++    assert!(matches!(
++        f.check(&ids),
++        Err(UniverseInputError::Context(
++            UniverseContextError::FieldMismatch("rustflags")
++        ))
++    ));
++}
++#[test]
++fn registered_foreign_nested_domain_cannot_replace_selected_features() {
++    let mut f = Fixture::new();
++    let mut ids = f.ids();
++    let sha = hash_canonical_value("native.dependency-source-set.v1", &f.dependency).unwrap();
++    for record in [&mut f.context, &mut f.universe] {
++        fields(record).insert("unifiedFeaturesId".into(), id_text(sha));
++    }
++    ids.c = f.frame("native.context.rust.v2", &f.context.clone());
++    fields(&mut f.universe).insert("nativeContextId".into(), id_text(ids.c));
++    ids.u = f.frame("native.semantic-universe.rust.v2", &f.universe.clone());
++    assert!(matches!(
++        f.check(&ids),
++        Err(UniverseInputError::Mismatch("nested.domain"))
++    ));
++}
++#[test]
++fn unit_h_identity_accepts_hash_character_in_canonical_marker_path() {
++    let mut f = Fixture::new();
++    f.own();
++    let marker = "nested#owned/Cargo.toml";
++    let projected = object([
++        ("schemaVersion", number(1)),
++        ("markerPath", text(marker)),
++        ("targetKind", text("lib")),
++        ("targetName", text("owned")),
++    ]);
++    let id = id_text(hash_canonical_value("native.compilation-unit.v1", &projected).unwrap());
++    unit_mut(&mut f).insert("markerPath".into(), text(marker));
++    unit_mut(&mut f).insert("unitId".into(), id.clone());
++    fields(f.ownership.as_mut().unwrap())
++        .insert("selectedUnitIds".into(), JsonValue::Array(vec![id.clone()]));
++    fields(f.ownership.as_mut().unwrap()).insert(
++        "ownership".into(),
++        JsonValue::Array(vec![object([("path", text("src/lib.rs")), ("unitId", id)])]),
++    );
++    let JsonValue::Array(rows) = fields(&mut f.snapshot).get_mut("sourceInventory").unwrap() else {
++        panic!("owned fixture")
++    };
++    rows.insert(2, row(marker, b"owned nested manifest"));
++    let ids = f.ids();
++    assert!(f.check(&ids).unwrap().has_ownership());
++}
