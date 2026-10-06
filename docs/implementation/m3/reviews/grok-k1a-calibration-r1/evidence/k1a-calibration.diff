@@ -1,0 +1,199 @@
+diff --git a/Users/sb/code/opensip-ai/opensip-k1a-calibration/tools/quality/calibration.py b/Users/sb/code/opensip-ai/opensip-k1a-calibration/tools/quality/calibration.py
+new file mode 100644
+index 0000000..6368fed
+--- /dev/null
++++ b/Users/sb/code/opensip-ai/opensip-k1a-calibration/tools/quality/calibration.py
+@@ -0,0 +1,61 @@
++"""Q0 r13 section 4.3 / QD-8's pure calibration arithmetic.
++
++Inputs are a caller's declared per-voter queues and independently pre-settled
++expected answers. This component neither validates source/provenance nor
++registers voters, conducts blind voting, excludes votes or requeues items.
++"""
++from canonical import canonical
++from records import require
++
++
++def _label(value):
++    require(type(value) is str and 1 <= len(value) <= 4096, "LABEL_REQUIRED")
++
++
++def evaluate_calibration(voter_id, queues):
++    """Compute calibration-result fields; insufficient coverage fails the bar.
++
++    Each local API queue has queueId, totalItems (including calibration), and
++    items. Each item has itemId, expected (true/false), and observed
++    (true/false/unclear). No expected answer is inferred from detector output.
++    Queue assignment and original size are trusted caller inputs, not evidence
++    established by this function. All declared queues must meet the 10% rate.
++    """
++    _label(voter_id)
++    require(type(queues) is list and len(queues) <= 4096, "QUEUE_ARRAY")
++    canonical({"voterId": voter_id, "queues": queues})
++    seen_queues, seen_items = set(), set()
++    n = correct = known_false = false_labelled_true = 0
++    rate_met = True
++    for queue in queues:
++        require(type(queue) is dict and set(queue) == {"queueId", "totalItems", "items"},
++                "QUEUE_SHAPE")
++        qid = queue["queueId"]
++        _label(qid)
++        require(qid not in seen_queues, "DUPLICATE_QUEUE")
++        seen_queues.add(qid)
++        size = queue["totalItems"]
++        require(type(size) is int and 0 <= size <= 2**64 - 1, "QUEUE_SIZE")
++        items = queue["items"]
++        require(type(items) is list and len(items) <= size, "CALIBRATION_ITEMS")
++        rate_met = rate_met and len(items) * 10 >= size
++        for item in items:
++            require(type(item) is dict and set(item) == {"itemId", "expected", "observed"},
++                    "CALIBRATION_ITEM_SHAPE")
++            iid = item["itemId"]
++            _label(iid)
++            require(iid not in seen_items, "DUPLICATE_CALIBRATION_ITEM")
++            seen_items.add(iid)
++            expected, observed = item["expected"], item["observed"]
++            require(type(expected) is str and expected in {"true", "false"},
++                    "KNOWN_ANSWER_REQUIRED")
++            require(type(observed) is str and observed in {"true", "false", "unclear"},
++                    "OBSERVED_LABEL_REQUIRED")
++            n += 1
++            correct += observed == expected
++            known_false += expected == "false"
++            false_labelled_true += expected == "false" and observed == "true"
++    return {"voterId": voter_id, "items": n, "correct": correct,
++            "knownFalseLabelledTrue": false_labelled_true,
++            "passed": rate_met and n >= 5 and known_false >= 2 and
++                      correct * 10 >= 9 * n and false_labelled_true == 0}
+diff --git a/Users/sb/code/opensip-ai/opensip-k1a-calibration/tools/quality/test_calibration.py b/Users/sb/code/opensip-ai/opensip-k1a-calibration/tools/quality/test_calibration.py
+new file mode 100644
+index 0000000..89ecdc1
+--- /dev/null
++++ b/Users/sb/code/opensip-ai/opensip-k1a-calibration/tools/quality/test_calibration.py
+@@ -0,0 +1,126 @@
++"""Synthetic QD-8 controls; no real calibration or source adjudication."""
++import copy
++import pathlib
++import sys
++import unittest
++
++sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
++from canonical import Refusal
++from calibration import evaluate_calibration
++
++
++def queue(n=10, size=100, false_count=2, queue_id="queue"):
++    items = [{"itemId": f"{queue_id}-{i}",
++              "expected": "false" if i < false_count else "true",
++              "observed": "false" if i < false_count else "true"}
++             for i in range(n)]
++    return {"queueId": queue_id, "totalItems": size, "items": items}
++
++
++class CalibrationTests(unittest.TestCase):
++    def test_literal_ninety_percent_boundary(self):
++        q = queue()
++        q["items"][-1]["observed"] = "unclear"
++        self.assertEqual(evaluate_calibration("v", [q]), {
++            "voterId": "v", "items": 10, "correct": 9,
++            "knownFalseLabelledTrue": 0, "passed": True})
++        q["items"][-2]["observed"] = "false"
++        self.assertFalse(evaluate_calibration("v", [q])["passed"])
++
++    def test_false_positive_veto_even_at_ninety_nine_percent(self):
++        q = queue(100, 1000)
++        q["items"][0]["observed"] = "true"
++        self.assertEqual(evaluate_calibration("v", [q]), {
++            "voterId": "v", "items": 100, "correct": 99,
++            "knownFalseLabelledTrue": 1, "passed": False})
++
++    def test_unclear_known_false_is_incorrect_without_false_positive(self):
++        q = queue()
++        q["items"][0]["observed"] = "unclear"
++        r = evaluate_calibration("v", [q])
++        self.assertTrue(r["passed"])
++        self.assertEqual((r["correct"], r["knownFalseLabelledTrue"]), (9, 0))
++
++    def test_rate_integer_boundary(self):
++        q = queue(5, 50)
++        self.assertTrue(evaluate_calibration("v", [q])["passed"])
++        q["totalItems"] = 51
++        self.assertFalse(evaluate_calibration("v", [q])["passed"])
++
++    def test_rate_is_per_queue_not_pooled(self):
++        a, b = queue(20, 20, queue_id="a"), queue(5, 100, queue_id="b")
++        self.assertFalse(evaluate_calibration("v", [a, b])["passed"])
++        b["totalItems"] = 50
++        self.assertTrue(evaluate_calibration("v", [a, b])["passed"])
++
++    def test_minimum_items_is_per_voter_round(self):
++        self.assertFalse(evaluate_calibration("v", [queue(4, 40)])["passed"])
++        a, b = queue(3, 30, queue_id="a"), queue(2, 20, queue_id="b")
++        self.assertTrue(evaluate_calibration("v", [a, b])["passed"])
++
++    def test_two_known_false_required(self):
++        self.assertFalse(evaluate_calibration("v", [queue(false_count=1)])["passed"])
++        self.assertTrue(evaluate_calibration("v", [queue(false_count=2)])["passed"])
++
++    def test_empty_round_never_passes(self):
++        self.assertEqual(evaluate_calibration("v", []), {
++            "voterId": "v", "items": 0, "correct": 0,
++            "knownFalseLabelledTrue": 0, "passed": False})
++        self.assertFalse(evaluate_calibration("v", [queue(0, 0, 0)])["passed"])
++
++    def test_missing_calibration_in_nonempty_queue_fails(self):
++        self.assertFalse(evaluate_calibration("v", [queue(), queue(0, 1, 0, "b")])["passed"])
++
++    def test_no_duplicate_items_in_or_between_queues(self):
++        for same_queue in (True, False):
++            a, b = queue(queue_id="a"), queue(queue_id="b")
++            if same_queue:
++                a["items"][1]["itemId"] = a["items"][0]["itemId"]
++            else:
++                b["items"][0]["itemId"] = a["items"][0]["itemId"]
++            with self.assertRaises(Refusal):
++                evaluate_calibration("v", [a, b])
++        with self.assertRaises(Refusal):
++            evaluate_calibration("v", [queue(), queue()])
++
++    def test_closed_shapes_and_labels(self):
++        for target, key, value in [("queue", "extra", 1), ("item", "extra", 1),
++                                   ("item", "expected", "unclear"),
++                                   ("item", "expected", True), ("item", "observed", False),
++                                   ("item", "observed", "other"), ("item", "itemId", "")]:
++            q = queue()
++            (q if target == "queue" else q["items"][0])[key] = value
++            with self.assertRaises(Refusal):
++                evaluate_calibration("v", [q])
++
++    def test_exact_count_bounds(self):
++        for size in (True, 100.0, -1, 2**64, "100", 9):
++            q = queue()
++            q["totalItems"] = size
++            with self.assertRaises(Refusal):
++                evaluate_calibration("v", [q])
++        q = queue(size=2**64 - 1)
++        self.assertFalse(evaluate_calibration("v", [q])["passed"])
++
++    def test_inputs_immutable_and_queue_order_irrelevant(self):
++        qs = [queue(queue_id="a"), queue(queue_id="b")]
++        before = copy.deepcopy(qs)
++        result = evaluate_calibration("v", qs)
++        self.assertEqual(qs, before)
++        self.assertEqual(result, evaluate_calibration("v", list(reversed(qs))))
++
++    def test_labels_and_container_limits(self):
++        for voter in (True, "", "x" * 4097):
++            with self.assertRaises(Refusal):
++                evaluate_calibration(voter, [])
++        for qs in ({}, [queue()] * 4097):
++            with self.assertRaises(Refusal):
++                evaluate_calibration("v", qs)
++        q = queue()
++        q["queueId"] = "x" * 4097
++        with self.assertRaises(Refusal):
++            evaluate_calibration("v", [q])
++
++
++if __name__ == "__main__":
++    unittest.main()

@@ -1,0 +1,13 @@
+# K1a calibration arithmetic component r1
+
+Read and follow this request exactly. Write only REVIEW.md and review.json in this directory. Do not edit any repository or worktree. Reviewer is Grok w2:p1; do not use another pane.
+
+Review the two exact product files on detached worktree /Users/sb/code/opensip-ai/opensip-k1a-calibration, base 5d7d72c17746b015d6faa6a81cfc3374e9fdc1bd. The complete pins are subject.json; diff is evidence/k1a-calibration.diff. Architecture staging is /tmp/opensip-implementation/k1a-calibration-bind. Review staged README, inventory v148, successor record and subject manifest as one additive unit.
+
+Authority: Q0 DESIGN-r13.md section 4.3 / QD-8, with field vocabulary section 3.2 calibration-result. It is a pure followup to bound K1a ledger tooling. No real voting, source provenance attestation, qualification, physical driver, O1-a completion or S-OP bind is claimed. Expected answers must already be independently settled, and original per-voter queue sizes/assignments must already be established by callers. Shapes queueId/totalItems/items and itemId/expected/observed are local function API, not additions to the envelope or ledger law. Returned voterId/items/correct/knownFalseLabelledTrue/passed are existing calibration-result fields; helper does not append a ledger record. Caller must declare every queue.
+
+Check per-queue rate rather than pooling; aggregate minimum five items and two known-false per voter/round; exact >=0.90 accuracy counting unclear as incorrect; zero false-labelled-true veto independent of accuracy; duplicate and exact-type refusals; no mutation. Local admission bounds provide bounded work within CAN, not new contract member lists. Run nice -n 10 /opt/homebrew/Cellar/python@3.14/3.14.6/bin/python3.14 -I -B tools/quality/test_calibration.py from this worktree. Python-only needs no lane lock. Do not run any Cargo, Rust fixture, producer or corpus fetch. No HOME assignment; leave ~/Library/Application Support/OpenSIP absent. Never read private 413 UUID fixture.
+
+Assess inventory additive strict superset, sorted unique files, unchanged inherited rows/packages/pendingDecisions, all 103 inherited descriptions projected by stable path, no SCRATCH committed lock. No lock changes are proposed in this worktree.
+
+JSON must include verdict ACCEPT-UNIT or REJECT-UNIT, requiredFindings, subjectSha256 matching diff, and subjectManifestSha256 matching subject pin. Include inventoryCandidateAssessment with candidate path/bytes/sha256, parent path/bytes/sha256, successorRecord path/bytes/sha256, verdict ACCEPT or REJECT, requiredFindings. Only acceptance after exact pin and substantive checks. Report component limitations without representing full K1a/harness/qualification completion.
