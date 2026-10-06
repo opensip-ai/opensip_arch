@@ -1,0 +1,653 @@
+diff --git a/providers/rust/src/lib.rs b/providers/rust/src/lib.rs
+index ede68e9..0c4fee9 100644
+--- a/providers/rust/src/lib.rs
++++ b/providers/rust/src/lib.rs
+@@ -7,3 +7,6 @@ pub mod source_snapshot;
+ 
+ /// Declared Cargo projection/snapshot byte joins; no carrier or execution admission.
+ pub mod config_snapshot;
++
++/// Declared universe/context field joins; no full universe or context admission.
++pub mod universe_context;
+diff --git a/providers/rust/src/universe_context.rs b/providers/rust/src/universe_context.rs
+new file mode 100644
+index 0000000..d9fc427
+--- /dev/null
++++ b/providers/rust/src/universe_context.rs
+@@ -0,0 +1,169 @@
++//! Declared Rust universe/context field joins for compiler authoring.
++//! Success is an inert observation, not bind_rust_universe or native admission.
++
++use opensip_identity::{
++    DigestError, GraphError, JsonValue, NativeFrameSet, RetainedInputs, digest_hex,
++    hash_canonical_value,
++};
++use std::collections::{BTreeMap, BTreeSet};
++
++#[derive(Debug)]
++pub enum UniverseContextError {
++    Frame(GraphError),
++    Digest(DigestError),
++    Representation,
++    ForeignContext,
++    ForeignUniverse,
++    HostContextMismatch,
++    FieldMismatch(&'static str),
++    MissingBaseCfg,
++    DuplicateCfgSetId,
++}
++
++/// Field agreement only. No context, universe, Plan or execution authority.
++#[derive(Debug)]
++pub struct UniverseContextChecks {
++    context_digest: [u8; 32],
++    universe_digest: [u8; 32],
++    cfg_set_count: usize,
++    consumed_prepared_products: bool,
++}
++impl UniverseContextChecks {
++    pub fn context_digest(&self) -> [u8; 32] {
++        self.context_digest
++    }
++    pub fn universe_digest(&self) -> [u8; 32] {
++        self.universe_digest
++    }
++    pub fn cfg_set_count(&self) -> usize {
++        self.cfg_set_count
++    }
++    /// Resolution meaning only; imported inert products never grant execution.
++    pub fn consumed_prepared_products(&self) -> bool {
++        self.consumed_prepared_products
++    }
++}
++
++/// Recompute both exact current frames and check the §2.1 overlapping fields.
++///
++/// The caller owns host context selection/admission. The expected digest is
++/// compared to the full context H; the universe must name that same context.
++/// Dependencies/features/prepared records and ownership, tool/configuration
++/// semantics, editions, snapshot correspondence, signatures and full context
++/// admission remain outstanding. This function deliberately does not implement
++/// bind_rust_universe: a successful observation cannot authorize Plan binding,
++/// provider execution or a NativeContextVerified message. It performs no ambient
++/// filesystem read and invokes no tool. cfg sequences retain their declared order.
++pub fn check_declared_universe_context(
++    inputs: &RetainedInputs<'_>,
++    universe_digest: [u8; 32],
++    context_digest: [u8; 32],
++    expected_host_digest: [u8; 32],
++    schema_work: usize,
++) -> Result<UniverseContextChecks, UniverseContextError> {
++    let context = inputs
++        .frame_candidate(context_digest, NativeFrameSet::Context, schema_work)
++        .map_err(UniverseContextError::Frame)?;
++    if context.domain() != "native.context.rust.v2" {
++        return Err(UniverseContextError::ForeignContext);
++    }
++    let universe = inputs
++        .frame_candidate(
++            universe_digest,
++            NativeFrameSet::SemanticUniverse,
++            schema_work,
++        )
++        .map_err(UniverseContextError::Frame)?;
++    if universe.domain() != "native.semantic-universe.rust.v2" {
++        return Err(UniverseContextError::ForeignUniverse);
++    }
++    if context.digest() != expected_host_digest {
++        return Err(UniverseContextError::HostContextMismatch);
++    }
++    let c = map(context.descriptor())?;
++    let u = map(universe.descriptor())?;
++    if text(field(u, "nativeContextId")?)? != format!("sha256:{}", digest_hex(&context.digest())) {
++        return Err(UniverseContextError::FieldMismatch("nativeContextId"));
++    }
++    for name in [
++        "dependencySourceSetId",
++        "unifiedFeaturesId",
++        "preparedOutputSetId",
++    ] {
++        if field(u, name)? != field(c, name)? {
++            return Err(UniverseContextError::FieldMismatch(name));
++        }
++    }
++    let projection = field(c, "configProjection")?;
++    if field(u, "rustflags")? != field(map(projection)?, "rustflags")? {
++        return Err(UniverseContextError::FieldMismatch("rustflags"));
++    }
++    let projection_digest = hash_canonical_value("native.cargo-config-projection.v2", projection)
++        .map_err(UniverseContextError::Digest)?;
++    if text(field(u, "configProjectionSha256")?)? != digest_hex(&projection_digest) {
++        return Err(UniverseContextError::FieldMismatch(
++            "configProjectionSha256",
++        ));
++    }
++    let prepared = text(field(u, "preparedResolution")?)? != "none";
++    if field(u, "executionCapableResolution")? != &JsonValue::Bool(prepared) {
++        return Err(UniverseContextError::FieldMismatch(
++            "executionCapableResolution",
++        ));
++    }
++    if matches!(field(u, "preparedOutputSetId")?, JsonValue::Null) == prepared {
++        return Err(UniverseContextError::FieldMismatch("preparedOutputSetId"));
++    }
++    let base = array(field(c, "baseCfg")?)?
++        .iter()
++        .map(text)
++        .collect::<Result<BTreeSet<_>, _>>()?;
++    let sets = array(field(u, "cfgSets")?)?;
++    let mut ids = BTreeSet::new();
++    for row in sets {
++        let row = map(row)?;
++        if !ids.insert(text(field(row, "cfgSetId")?)?) {
++            return Err(UniverseContextError::DuplicateCfgSetId);
++        }
++        let cfg = array(field(row, "cfg")?)?
++            .iter()
++            .map(text)
++            .collect::<Result<BTreeSet<_>, _>>()?;
++        if !base.is_subset(&cfg) {
++            return Err(UniverseContextError::MissingBaseCfg);
++        }
++    }
++    Ok(UniverseContextChecks {
++        context_digest: context.digest(),
++        universe_digest: universe.digest(),
++        cfg_set_count: sets.len(),
++        consumed_prepared_products: prepared,
++    })
++}
++fn map(value: &JsonValue) -> Result<&BTreeMap<String, JsonValue>, UniverseContextError> {
++    match value {
++        JsonValue::Object(v) => Ok(v),
++        _ => Err(UniverseContextError::Representation),
++    }
++}
++fn field<'a>(
++    value: &'a BTreeMap<String, JsonValue>,
++    key: &str,
++) -> Result<&'a JsonValue, UniverseContextError> {
++    value.get(key).ok_or(UniverseContextError::Representation)
++}
++fn text(value: &JsonValue) -> Result<&str, UniverseContextError> {
++    match value {
++        JsonValue::String(v) => Ok(v),
++        _ => Err(UniverseContextError::Representation),
++    }
++}
++fn array(value: &JsonValue) -> Result<&[JsonValue], UniverseContextError> {
++    match value {
++        JsonValue::Array(v) => Ok(v),
++        _ => Err(UniverseContextError::Representation),
++    }
++}
++#[cfg(test)]
++#[path = "universe_context_tests.rs"]
++mod tests;
+diff --git a/providers/rust/src/universe_context_tests.rs b/providers/rust/src/universe_context_tests.rs
+new file mode 100644
+index 0000000..661d668
+--- /dev/null
++++ b/providers/rust/src/universe_context_tests.rs
+@@ -0,0 +1,461 @@
++use super::*;
++use opensip_identity::{
++    JsonInteger, ObjectInput, RegisteredSchemas, canonical_bytes, hash_preimage, raw_sha256,
++};
++use std::path::Path;
++use std::sync::OnceLock;
++
++const WORK: usize = 10_000_000;
++fn schemas() -> &'static RegisteredSchemas {
++    static REGISTRY: OnceLock<RegisteredSchemas> = OnceLock::new();
++    REGISTRY.get_or_init(|| {
++        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
++        let raw: Vec<_> = RegisteredSchemas::source_requirements()
++            .iter()
++            .map(|pin| std::fs::read(root.join(pin.source_path())).unwrap())
++            .collect();
++        RegisteredSchemas::from_sources(&raw.iter().map(Vec::as_slice).collect::<Vec<_>>()).unwrap()
++    })
++}
++fn object(entries: impl IntoIterator<Item = (&'static str, JsonValue)>) -> JsonValue {
++    JsonValue::Object(
++        entries
++            .into_iter()
++            .map(|(key, value)| (key.into(), value))
++            .collect(),
++    )
++}
++fn text(value: &str) -> JsonValue {
++    JsonValue::String(value.into())
++}
++fn number(value: usize) -> JsonValue {
++    JsonValue::Integer(JsonInteger::new(value as i128).unwrap())
++}
++fn hash_text(bytes: &[u8]) -> JsonValue {
++    text(&digest_hex(&raw_sha256(bytes)))
++}
++fn fields(value: &mut JsonValue) -> &mut BTreeMap<String, JsonValue> {
++    let JsonValue::Object(value) = value else {
++        panic!("owned object fixture")
++    };
++    value
++}
++struct Fixture {
++    objects: BTreeMap<String, ObjectInput>,
++    blobs: BTreeMap<[u8; 32], Vec<u8>>,
++    context: JsonValue,
++    universe: JsonValue,
++}
++impl Fixture {
++    fn new() -> Self {
++        let context = object([
++            ("schemaVersion", number(2)),
++            ("targetTriple", text("aarch64-apple-darwin")),
++            ("hostTriple", text("aarch64-apple-darwin")),
++            (
++                "toolchain",
++                object([
++                    ("cargoVersion", text("1.95.0")),
++                    ("rustCommitHash", text(&"0".repeat(40))),
++                    ("rustcDevLlvmDigest", text(&"1".repeat(64))),
++                    ("rustcVersion", text("1.95.0")),
++                    ("standardLibraryComponentDigests", JsonValue::Array(vec![])),
++                    ("sysrootDigest", hash_text(b"unadmitted sysroot fixture")),
++                    ("targetTriple", text("aarch64-apple-darwin")),
++                ]),
++            ),
++            (
++                "toolClosure",
++                object([
++                    ("ar", hash_text(b"ar")),
++                    ("cargo", hash_text(b"cargo")),
++                    ("closureId", text(&format!("closure2:{}", "0".repeat(64)))),
++                    ("linker", hash_text(b"linker")),
++                    ("procMacroServer", hash_text(b"proc")),
++                    ("rustc", hash_text(b"rustc")),
++                ]),
++            ),
++            ("baseCfg", JsonValue::Array(vec![text("unix")])),
++            ("resolverVersion", number(3)),
++            (
++                "dependencySourceSetId",
++                text(&format!("sha256:{}", "a".repeat(64))),
++            ),
++            (
++                "unifiedFeaturesId",
++                text(&format!("sha256:{}", "b".repeat(64))),
++            ),
++            ("preparedOutputSetId", JsonValue::Null),
++            (
++                "configProjection",
++                object([
++                    ("schemaVersion", number(2)),
++                    ("ancestorCarrierVerified", JsonValue::Bool(true)),
++                    ("cargoHome", text("private-empty")),
++                    ("claimsCargoSwitch", JsonValue::Bool(false)),
++                    ("environmentProjection", text("none")),
++                    ("honoredKeys", JsonValue::Array(vec![])),
++                    ("projectionSha256", hash_text(b"unadmitted config fixture")),
++                    ("replacedSnapshotConfigs", JsonValue::Array(vec![])),
++                    (
++                        "rustflags",
++                        object([
++                            ("executableSelected", JsonValue::Bool(false)),
++                            ("honored", JsonValue::Array(vec![])),
++                            ("stripped", JsonValue::Array(vec![])),
++                        ]),
++                    ),
++                    ("strippedKeys", JsonValue::Array(vec![])),
++                ]),
++            ),
++        ]);
++        let universe = object([
++            ("schemaVersion", number(2)),
++            ("edition", object([("owned", number(2024))])),
++            (
++                "lockfileIdentity",
++                object([
++                    ("path", text("Cargo.lock")),
++                    ("contentSha256", hash_text(b"owned lock")),
++                    ("lockfileVersion", number(4)),
++                ]),
++            ),
++            (
++                "dependencySourceSetId",
++                map(&context).unwrap()["dependencySourceSetId"].clone(),
++            ),
++            (
++                "unifiedFeaturesId",
++                map(&context).unwrap()["unifiedFeaturesId"].clone(),
++            ),
++            ("nativeContextId", JsonValue::Null),
++            (
++                "cfgSets",
++                JsonValue::Array(vec![
++                    cfg("primary", &["unix"]),
++                    cfg("test", &["test", "unix"]),
++                ]),
++            ),
++            (
++                "rustflags",
++                map(&map(&context).unwrap()["configProjection"]).unwrap()["rustflags"].clone(),
++            ),
++            ("crateRootPaths", JsonValue::Array(vec![text("src/lib.rs")])),
++            (
++                "configProjectionSha256",
++                text(&digest_hex(
++                    &hash_canonical_value(
++                        "native.cargo-config-projection.v2",
++                        &map(&context).unwrap()["configProjection"],
++                    )
++                    .unwrap(),
++                )),
++            ),
++            ("preparedResolution", text("none")),
++            ("executionCapableResolution", JsonValue::Bool(false)),
++            ("preparedOutputSetId", JsonValue::Null),
++            ("sourceUnitOwnershipId", JsonValue::Null),
++        ]);
++        Self {
++            objects: BTreeMap::new(),
++            blobs: BTreeMap::new(),
++            context,
++            universe,
++        }
++    }
++    fn ids(&mut self) -> ([u8; 32], [u8; 32]) {
++        let c = hash_preimage("native.context.rust.v2", &self.context).unwrap();
++        let cs = raw_sha256(&c);
++        self.blobs.insert(cs, c);
++        fields(&mut self.universe).insert(
++            "nativeContextId".into(),
++            text(&format!("sha256:{}", digest_hex(&cs))),
++        );
++        let u = hash_preimage("native.semantic-universe.rust.v2", &self.universe).unwrap();
++        let us = raw_sha256(&u);
++        self.blobs.insert(us, u);
++        (us, cs)
++    }
++    fn check(
++        &self,
++        us: [u8; 32],
++        cs: [u8; 32],
++        host: [u8; 32],
++    ) -> Result<UniverseContextChecks, UniverseContextError> {
++        check_declared_universe_context(
++            &RetainedInputs::new(schemas(), &self.objects, &self.blobs),
++            us,
++            cs,
++            host,
++            WORK,
++        )
++    }
++    fn prepared(&mut self, kind: &str) {
++        let id = text(&format!("sha256:{}", "c".repeat(64)));
++        fields(&mut self.context).insert("preparedOutputSetId".into(), id.clone());
++        fields(&mut self.universe).insert("preparedOutputSetId".into(), id);
++        fields(&mut self.universe).insert("preparedResolution".into(), text(kind));
++        fields(&mut self.universe)
++            .insert("executionCapableResolution".into(), JsonValue::Bool(true));
++    }
++}
++fn cfg(id: &str, values: &[&str]) -> JsonValue {
++    object([
++        ("cfgSetId", text(id)),
++        (
++            "cfg",
++            JsonValue::Array(values.iter().map(|s| text(s)).collect()),
++        ),
++    ])
++}
++
++#[test]
++fn valid_owned_field_agreement_is_inert_and_preserves_cfg_sequences() {
++    let mut f = Fixture::new();
++    let (u, c) = f.ids();
++    let result = f.check(u, c, c).unwrap();
++    assert_eq!(result.context_digest(), c);
++    assert_eq!(result.universe_digest(), u);
++    assert_eq!(result.cfg_set_count(), 2);
++    assert!(!result.consumed_prepared_products());
++    assert!(f.objects.is_empty()); // No snapshot/nested records: deliberately not full binding.
++    assert_eq!(
++        map(&f.universe).unwrap()["cfgSets"],
++        JsonValue::Array(vec![
++            cfg("primary", &["unix"]),
++            cfg("test", &["test", "unix"])
++        ])
++    );
++}
++#[test]
++fn preparation_meaning_for_both_kinds_is_no_execution_grant() {
++    for kind in ["host-prepared", "imported-inert"] {
++        let mut f = Fixture::new();
++        f.prepared(kind);
++        let (u, c) = f.ids();
++        assert!(f.check(u, c, c).unwrap().consumed_prepared_products());
++        assert!(f.objects.is_empty());
++    }
++}
++#[test]
++fn each_overlapping_nested_identity_must_match() {
++    for name in [
++        "dependencySourceSetId",
++        "unifiedFeaturesId",
++        "preparedOutputSetId",
++    ] {
++        let mut f = Fixture::new();
++        fields(&mut f.universe).insert(name.into(), text(&format!("sha256:{}", "d".repeat(64))));
++        let (u, c) = f.ids();
++        assert!(matches!(f.check(u,c,c), Err(UniverseContextError::FieldMismatch(n)) if n==name));
++    }
++}
++#[test]
++fn flag_sequences_must_agree_including_order_and_stripped_values() {
++    for name in ["honored", "stripped"] {
++        let mut f = Fixture::new();
++        let flags = if name == "honored" {
++            vec![text("--cfg=owned"), text("--cfg=second")]
++        } else {
++            vec![
++                object([("flag", text("@owned")), ("reason", text("response-file"))]),
++                object([
++                    ("flag", text("--owned")),
++                    ("reason", text("not-allowlisted")),
++                ]),
++            ]
++        };
++        fields(fields(&mut f.universe).get_mut("rustflags").unwrap())
++            .insert(name.into(), JsonValue::Array(flags.clone()));
++        let (u, c) = f.ids();
++        assert!(matches!(
++            f.check(u, c, c),
++            Err(UniverseContextError::FieldMismatch("rustflags"))
++        ));
++        let value = map(&f.universe).unwrap()["rustflags"].clone();
++        fields(fields(&mut f.context).get_mut("configProjection").unwrap())
++            .insert("rustflags".into(), value);
++        let projection = &map(&f.context).unwrap()["configProjection"];
++        fields(&mut f.universe).insert(
++            "configProjectionSha256".into(),
++            text(&digest_hex(
++                &hash_canonical_value("native.cargo-config-projection.v2", projection).unwrap(),
++            )),
++        );
++        let (u, c) = f.ids();
++        f.check(u, c, c).unwrap();
++        fields(fields(&mut f.universe).get_mut("rustflags").unwrap()).insert(
++            name.into(),
++            JsonValue::Array(flags.into_iter().rev().collect()),
++        );
++        let (u, c) = f.ids();
++        assert!(matches!(
++            f.check(u, c, c),
++            Err(UniverseContextError::FieldMismatch("rustflags"))
++        ));
++    }
++}
++#[test]
++fn raw_projection_file_and_canonical_record_hashes_are_not_projection_h() {
++    for canonical in [false, true] {
++        let mut f = Fixture::new();
++        let projection = &map(&f.context).unwrap()["configProjection"];
++        let value = if canonical {
++            text(&digest_hex(&raw_sha256(
++                &canonical_bytes(projection).unwrap(),
++            )))
++        } else {
++            map(projection).unwrap()["projectionSha256"].clone()
++        };
++        fields(&mut f.universe).insert("configProjectionSha256".into(), value);
++        let (u, c) = f.ids();
++        assert!(matches!(
++            f.check(u, c, c),
++            Err(UniverseContextError::FieldMismatch(
++                "configProjectionSha256"
++            ))
++        ));
++    }
++}
++#[test]
++fn preparation_boolean_and_nullable_id_are_bidirectionally_checked() {
++    let mut f = Fixture::new();
++    fields(&mut f.universe).insert("executionCapableResolution".into(), JsonValue::Bool(true));
++    let (u, c) = f.ids();
++    assert!(matches!(
++        f.check(u, c, c),
++        Err(UniverseContextError::FieldMismatch(
++            "executionCapableResolution"
++        ))
++    ));
++    let mut f = Fixture::new();
++    fields(&mut f.universe).insert("preparedResolution".into(), text("imported-inert"));
++    fields(&mut f.universe).insert("executionCapableResolution".into(), JsonValue::Bool(true));
++    let (u, c) = f.ids();
++    assert!(matches!(
++        f.check(u, c, c),
++        Err(UniverseContextError::FieldMismatch("preparedOutputSetId"))
++    ));
++    let mut f = Fixture::new();
++    f.prepared("host-prepared");
++    fields(&mut f.universe).insert("preparedResolution".into(), text("none"));
++    fields(&mut f.universe).insert("executionCapableResolution".into(), JsonValue::Bool(false));
++    let (u, c) = f.ids();
++    assert!(matches!(
++        f.check(u, c, c),
++        Err(UniverseContextError::FieldMismatch("preparedOutputSetId"))
++    ));
++    let mut f = Fixture::new();
++    f.prepared("imported-inert");
++    fields(&mut f.universe).insert("executionCapableResolution".into(), JsonValue::Bool(false));
++    let (u, c) = f.ids();
++    assert!(matches!(
++        f.check(u, c, c),
++        Err(UniverseContextError::FieldMismatch(
++            "executionCapableResolution"
++        ))
++    ));
++}
++#[test]
++fn every_cfg_set_contains_all_base_members() {
++    let mut f = Fixture::new();
++    fields(&mut f.context).insert(
++        "baseCfg".into(),
++        JsonValue::Array(vec![text("unix"), text("owned")]),
++    );
++    let (u, c) = f.ids();
++    assert!(matches!(
++        f.check(u, c, c),
++        Err(UniverseContextError::MissingBaseCfg)
++    ));
++    fields(&mut f.universe).insert(
++        "cfgSets".into(),
++        JsonValue::Array(vec![
++            cfg("primary", &["unix", "owned"]),
++            cfg("test", &["unix", "test"]),
++        ]),
++    );
++    let (u, c) = f.ids();
++    assert!(matches!(
++        f.check(u, c, c),
++        Err(UniverseContextError::MissingBaseCfg)
++    ));
++}
++#[test]
++fn distinct_cfg_payloads_do_not_license_duplicate_set_ids() {
++    let mut f = Fixture::new();
++    fields(&mut f.universe).insert(
++        "cfgSets".into(),
++        JsonValue::Array(vec![
++            cfg("primary", &["unix"]),
++            cfg("primary", &["test", "unix"]),
++        ]),
++    );
++    let (u, c) = f.ids();
++    assert!(matches!(
++        f.check(u, c, c),
++        Err(UniverseContextError::DuplicateCfgSetId)
++    ));
++}
++#[test]
++fn full_context_and_universe_named_context_must_match() {
++    let mut f = Fixture::new();
++    let (u, c) = f.ids();
++    assert!(matches!(
++        f.check(u, c, [0; 32]),
++        Err(UniverseContextError::HostContextMismatch)
++    ));
++    fields(&mut f.context).insert("hostTriple".into(), text("owned-other-host"));
++    let (new_u, new_c) = f.ids();
++    assert_ne!(new_c, c);
++    assert!(matches!(
++        f.check(new_u, new_c, c),
++        Err(UniverseContextError::HostContextMismatch)
++    ));
++    assert!(matches!(
++        f.check(u, new_c, new_c),
++        Err(UniverseContextError::FieldMismatch("nativeContextId"))
++    ));
++}
++#[test]
++fn missing_tampered_and_noncanonical_frames_refuse_before_field_joins() {
++    let mut f = Fixture::new();
++    let (u, c) = f.ids();
++    let bytes = f.blobs.remove(&u).unwrap();
++    assert!(matches!(
++        f.check(u, c, c),
++        Err(UniverseContextError::Frame(_))
++    ));
++    f.blobs.insert(u, b"substitution".to_vec());
++    assert!(matches!(
++        f.check(u, c, c),
++        Err(UniverseContextError::Frame(_))
++    ));
++    let mut noncanonical = bytes;
++    noncanonical.push(b'\n');
++    let bad = raw_sha256(&noncanonical);
++    f.blobs.insert(bad, noncanonical);
++    assert!(matches!(
++        f.check(bad, c, c),
++        Err(UniverseContextError::Frame(_))
++    ));
++}
++#[test]
++fn wrong_frame_sets_and_shape_unknowns_refuse() {
++    let mut f = Fixture::new();
++    let (u, c) = f.ids();
++    assert!(matches!(
++        f.check(c, c, c),
++        Err(UniverseContextError::Frame(_))
++    ));
++    assert!(matches!(
++        f.check(u, u, u),
++        Err(UniverseContextError::Frame(_))
++    ));
++    fields(&mut f.universe).insert("unknown".into(), JsonValue::Bool(true));
++    let (u, c) = f.ids();
++    assert!(matches!(
++        f.check(u, c, c),
++        Err(UniverseContextError::Frame(_))
++    ));
++}
