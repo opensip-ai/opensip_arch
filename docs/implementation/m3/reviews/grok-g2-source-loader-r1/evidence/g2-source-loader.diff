@@ -1,0 +1,300 @@
+diff --git a/providers/rust/src/compiler_adapter.rs b/providers/rust/src/compiler_adapter.rs
+new file mode 100644
+index 0000000..7a7f03c
+--- /dev/null
++++ b/providers/rust/src/compiler_adapter.rs
+@@ -0,0 +1,30 @@
++//! Pinned rustc-private bridge, compiled in the coherent G2 authoring lane.
++//!
++//! Not connected to the development provider entry point. The caller must
++//! install this loader in `rustc_interface::interface::Config::file_loader`.
++//! Other compiler reads, tool closures, environment and prepared-output
++//! substitution require their separate admissions and integration.
++
++use super::sealed_vfs::SealedSource;
++use rustc_span::source_map::FileLoader;
++use std::io;
++use std::path::{Path, PathBuf};
++use std::sync::Arc;
++
++impl FileLoader for SealedSource {
++    fn file_exists(&self, path: &Path) -> bool {
++        SealedSource::file_exists(self, path)
++    }
++
++    fn read_file(&self, path: &Path) -> io::Result<String> {
++        SealedSource::read_file(self, path)
++    }
++
++    fn read_binary_file(&self, path: &Path) -> io::Result<Arc<[u8]>> {
++        SealedSource::read_binary_file(self, path)
++    }
++
++    fn current_directory(&self) -> io::Result<PathBuf> {
++        Ok(SealedSource::current_directory(self))
++    }
++}
+diff --git a/providers/rust/src/lib.rs b/providers/rust/src/lib.rs
+new file mode 100644
+index 0000000..086575c
+--- /dev/null
++++ b/providers/rust/src/lib.rs
+@@ -0,0 +1,4 @@
++//! Components for the Rust compiler adapter under development.
++//!
++//! These components do not authorize provider launch or advertise capabilities.
++pub mod sealed_vfs;
+diff --git a/providers/rust/src/sealed_vfs.rs b/providers/rust/src/sealed_vfs.rs
+new file mode 100644
+index 0000000..ba9abf5
+--- /dev/null
++++ b/providers/rust/src/sealed_vfs.rs
+@@ -0,0 +1,248 @@
++//! Source reads over an immutable, caller-admitted set of bytes.
++//!
++//! Admission of the snapshot, dependency sources, generated inert outputs,
++//! digests and symlink targets precedes construction. This module does not
++//! perform those admissions, load compiler metadata, or confine a process.
++
++use std::collections::BTreeMap;
++use std::io;
++use std::path::{Component, Path, PathBuf};
++use std::sync::Arc;
++
++/// An immutable source namespace with no filesystem fallback.
++///
++/// The caller supplies an absolute virtual working directory and canonical,
++/// relative names from its already admitted source set. Names remain case
++/// sensitive; this component does not discover files or resolve symlinks.
++#[derive(Debug)]
++pub struct SealedSource {
++    directory: PathBuf,
++    files: BTreeMap<PathBuf, Arc<[u8]>>,
++}
++
++impl SealedSource {
++    pub fn new(
++        directory: PathBuf,
++        entries: impl IntoIterator<Item = (PathBuf, Arc<[u8]>)>,
++    ) -> io::Result<Self> {
++        let mut canonical = PathBuf::new();
++        for component in directory.components() {
++            match component {
++                Component::RootDir | Component::Normal(_) => canonical.push(component),
++                _ => return Err(invalid_path()),
++            }
++        }
++        if !directory.is_absolute()
++            || canonical.as_os_str() != directory.as_os_str()
++            || directory.to_str().is_none()
++        {
++            return Err(invalid_path());
++        }
++        let mut files = BTreeMap::new();
++        for (name, bytes) in entries {
++            let mut canonical = PathBuf::new();
++            for component in name.components() {
++                match component {
++                    Component::Normal(_) => canonical.push(component),
++                    _ => return Err(invalid_path()),
++                }
++            }
++            if canonical.as_os_str().is_empty()
++                || canonical.as_os_str() != name.as_os_str()
++                || name.to_str().is_none()
++                || files.insert(name, bytes).is_some()
++            {
++                return Err(invalid_path());
++            }
++        }
++        // A file cannot also be an ancestor directory of another file.
++        for name in files.keys() {
++            if name
++                .ancestors()
++                .skip(1)
++                .any(|parent| files.contains_key(parent))
++            {
++                return Err(invalid_path());
++            }
++        }
++        Ok(Self { directory, files })
++    }
++
++    /// Explicit virtual cwd; never reads the process working directory.
++    pub fn current_directory(&self) -> PathBuf {
++        self.directory.clone()
++    }
++
++    pub fn file_exists(&self, path: &Path) -> bool {
++        self.relative_name(path)
++            .is_some_and(|name| self.files.contains_key(&name))
++    }
++
++    /// Preserve admitted binary bytes, including non-UTF-8 data.
++    pub fn read_binary_file(&self, path: &Path) -> io::Result<Arc<[u8]>> {
++        self.relative_name(path)
++            .and_then(|name| self.files.get(&name).cloned())
++            .ok_or_else(|| io::Error::from(io::ErrorKind::NotFound))
++    }
++
++    /// Text loading refuses invalid UTF-8 rather than replacing bytes.
++    pub fn read_file(&self, path: &Path) -> io::Result<String> {
++        let bytes = self.read_binary_file(path)?;
++        std::str::from_utf8(&bytes)
++            .map(str::to_owned)
++            .map_err(|_| io::Error::from(io::ErrorKind::InvalidData))
++    }
++
++    fn relative_name(&self, path: &Path) -> Option<PathBuf> {
++        path.to_str()?;
++        let path = if path.is_absolute() {
++            path.strip_prefix(&self.directory).ok()?
++        } else {
++            path
++        };
++        let mut name = PathBuf::new();
++        for component in path.components() {
++            match component {
++                Component::Normal(value) => name.push(value),
++                Component::CurDir => {}
++                Component::ParentDir => {
++                    if !name.pop() {
++                        return None;
++                    }
++                }
++                _ => return None,
++            }
++        }
++        Some(name)
++    }
++}
++
++fn invalid_path() -> io::Error {
++    io::Error::from(io::ErrorKind::InvalidInput)
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    fn source() -> SealedSource {
++        SealedSource::new(
++            PathBuf::from("/virtual/source"),
++            [
++                (
++                    PathBuf::from("src/lib.rs"),
++                    Arc::from(&b"pub fn value() -> u8 { 7 }"[..]),
++                ),
++                (PathBuf::from("data.bin"), Arc::from(&b"\x00\xff\r\n"[..])),
++            ],
++        )
++        .unwrap()
++    }
++
++    #[test]
++    fn relative_absolute_and_lexical_module_reads_share_bytes() {
++        let source = source();
++        let relative = source.read_binary_file(Path::new("src/lib.rs")).unwrap();
++        for path in [
++            "/virtual/source/src/lib.rs",
++            "./src/lib.rs",
++            "src/nested/../lib.rs",
++        ] {
++            let other = source.read_binary_file(Path::new(path)).unwrap();
++            assert!(Arc::ptr_eq(&relative, &other));
++        }
++        assert_eq!(source.current_directory(), Path::new("/virtual/source"));
++    }
++
++    #[test]
++    fn binary_preserved_and_text_refuses_invalid_utf8() {
++        let source = source();
++        assert_eq!(
++            &*source.read_binary_file(Path::new("data.bin")).unwrap(),
++            b"\x00\xff\r\n"
++        );
++        assert_eq!(
++            source.read_file(Path::new("data.bin")).unwrap_err().kind(),
++            io::ErrorKind::InvalidData
++        );
++    }
++
++    #[test]
++    fn absent_and_outside_paths_never_fall_back() {
++        let source = source();
++        for path in [
++            "/etc/hosts",
++            "missing.rs",
++            "../source/src/lib.rs",
++            "src/../../src/lib.rs",
++            "/virtual/source-other/src/lib.rs",
++            "src",
++            "SRC/lib.rs",
++        ] {
++            assert!(!source.file_exists(Path::new(path)), "{path}");
++            assert_eq!(
++                source.read_file(Path::new(path)).unwrap_err().kind(),
++                io::ErrorKind::NotFound
++            );
++        }
++    }
++
++    #[test]
++    fn namespace_refuses_duplicate_and_file_directory_collisions() {
++        for names in [
++            ["file", "file"],
++            ["file", "file/child"],
++            ["file/child", "file"],
++        ] {
++            assert!(
++                SealedSource::new(
++                    PathBuf::from("/virtual"),
++                    names.map(|name| (PathBuf::from(name), Arc::from(&b""[..])))
++                )
++                .is_err()
++            );
++        }
++    }
++
++    #[test]
++    fn namespace_refuses_noncanonical_entries() {
++        for name in [
++            "",
++            "/absolute",
++            "./file",
++            "../file",
++            "a/../file",
++            "a//file",
++            "a/./file",
++            "file/",
++        ] {
++            assert!(
++                SealedSource::new(
++                    PathBuf::from("/virtual"),
++                    [(PathBuf::from(name), Arc::from(&b""[..]))]
++                )
++                .is_err(),
++                "{name}"
++            );
++        }
++        for directory in [
++            "relative",
++            "/virtual/../source",
++            "/virtual//source",
++            "/virtual/./source",
++            "/virtual/",
++        ] {
++            assert!(
++                SealedSource::new(PathBuf::from(directory), []).is_err(),
++                "{directory}"
++            );
++        }
++    }
++
++    #[test]
++    fn empty_namespace_is_not_an_ambient_source_catalog() {
++        let source = SealedSource::new(PathBuf::from("/virtual"), []).unwrap();
++        assert!(!source.file_exists(Path::new("/etc/hosts")));
++        assert!(!source.file_exists(Path::new("lib.rs")));
++    }
++}

@@ -1,0 +1,9 @@
+# Rust G2 source-loader authoring component
+
+This unit implements immutable source reads and the pinned rustc-private FileLoader bridge in the already planned sealed_vfs.rs and compiler_adapter.rs. The additive library entry exposes only the standard-library source component. The development provider binary still fails before reading requests. This is one authored G2 component, not completion of G2 or G2-v.
+
+Caller admission of full snapshot/dependency/generated inert bytes, raw hashes, logical paths, symlink targets, NativeContextV2, prepared macro-site substitutions, metadata and signed tool closure remains separate. The loader neither discovers sources nor falls back to physical files. Compiler metadata/dynamic-library/environment accesses are outside FileLoader; this unit makes no process-confinement or repository-code-execution-prevention claim. No worker, T1 producer or corpus compiler is launched by the evidence. Tests analyze only owned, dependency-free literals and stop at after_analysis before codegen/output.
+
+Six unit tests and warning-denied Clippy pass. The coherent official 1.95 compiler/std/dev components match the archived S-P archive pins. The private-API driver analyzes an in-memory module and binary/text includes; absent module and binary reads refuse even with physical decoys present, and invalid UTF-8 text refuses. Bootstrap applies only to trusted wrapper compilation; analysis runs without it. The authoring host uses the explicit system linker for the wrapper build; no production closure/toolchain selection is inferred. All checks own the shared lane, use nice10 and private0700 TMPDIR, and leave the installation absent.
+
+The inventory is v156 plus one library path. Every inherited row, package, pending decision and 103 effective description projections is preserved. O1-a law gaps, O7/D1b launch, G1 and prepared-output/metadata integration, S-M/D13, D12 and T1 freeze remain outstanding.
