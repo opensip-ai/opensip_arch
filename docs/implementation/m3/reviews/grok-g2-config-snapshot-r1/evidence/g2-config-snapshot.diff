@@ -1,0 +1,567 @@
+diff --git a/providers/rust/src/lib.rs b/providers/rust/src/lib.rs
+index 6d4f2c3..ede68e9 100644
+--- a/providers/rust/src/lib.rs
++++ b/providers/rust/src/lib.rs
+@@ -4,3 +4,6 @@
+ pub mod compiler_tools;
+ pub mod sealed_vfs;
+ pub mod source_snapshot;
++
++/// Declared Cargo projection/snapshot byte joins; no carrier or execution admission.
++pub mod config_snapshot;
+diff --git a/providers/rust/src/config_snapshot.rs b/providers/rust/src/config_snapshot.rs
+new file mode 100644
+index 0000000..ab274a8
+--- /dev/null
++++ b/providers/rust/src/config_snapshot.rs
+@@ -0,0 +1,169 @@
++//! Declared Cargo configuration/snapshot byte joins for compiler authoring.
++//!
++//! These observations do not verify an ancestor carrier, admit configuration
++//! semantics, create a materialization, invoke Cargo or authorize execution.
++
++use opensip_identity::{
++    DigestError, GraphError, IdentityDomain, JsonValue, NativeFrameSet, RetainedInputError,
++    RetainedInputs, hash_canonical_value,
++};
++use std::collections::{BTreeMap, BTreeSet};
++use std::sync::Arc;
++
++#[derive(Debug)]
++pub enum ConfigSnapshotError {
++    Frame(GraphError),
++    Retained(RetainedInputError),
++    Digest(DigestError),
++    Representation,
++    ForeignContext,
++    ReplacementInventory,
++    HostContextMismatch,
++}
++impl From<RetainedInputError> for ConfigSnapshotError {
++    fn from(value: RetainedInputError) -> Self {
++        Self::Retained(value)
++    }
++}
++
++/// Inert retained bytes and observed identities; no materialization authority.
++#[derive(Debug)]
++pub struct ConfigSnapshotChecks {
++    context_digest: [u8; 32],
++    projection_identity: [u8; 32],
++    projected_file: Arc<[u8]>,
++    replacement_count: usize,
++}
++impl ConfigSnapshotChecks {
++    pub fn context_digest(&self) -> [u8; 32] {
++        self.context_digest
++    }
++    /// H(native.cargo-config-projection.v2, record), not the raw file hash.
++    pub fn projection_identity(&self) -> [u8; 32] {
++        self.projection_identity
++    }
++    pub fn projected_file(&self) -> &[u8] {
++        &self.projected_file
++    }
++    pub fn replacement_count(&self) -> usize {
++        self.replacement_count
++    }
++}
++
++/// Retain the declared projected file and join all replaced snapshot configs.
++///
++/// Recompute the exact current Rust context frame and snapshot2 descriptor.
++/// CC-5 covers .cargo/config and .cargo/config.toml at any snapshot directory;
++/// their exact set must equal replacedSnapshotConfigs, with every original's
++/// hash and byte length checked. The projected file is retained by its raw
++/// projectionSha256; its bytes are not parsed or used to admit honored flags.
++/// The H identity of the entire projection record is computed separately.
++///
++/// Caller supplies its admitted host context selection and owns full snapshot,
++/// configuration semantics, carrier/environment/signature and process admission.
++/// A schema constant such as ancestorCarrierVerified proves no filesystem check
++/// occurred here. Success permits no Cargo/compiler invocation or ambient read.
++pub fn check_declared_config(
++    inputs: &RetainedInputs<'_>,
++    snapshot_id: &str,
++    context_digest: [u8; 32],
++    expected_host_digest: [u8; 32],
++    schema_work: usize,
++) -> Result<ConfigSnapshotChecks, ConfigSnapshotError> {
++    let context = inputs
++        .frame_candidate(context_digest, NativeFrameSet::Context, schema_work)
++        .map_err(ConfigSnapshotError::Frame)?;
++    if context.domain() != "native.context.rust.v2" {
++        return Err(ConfigSnapshotError::ForeignContext);
++    }
++    let projection_value = field(map(context.descriptor())?, "configProjection")?;
++    let projection = map(projection_value)?;
++    let snapshot = inputs.object(snapshot_id, IdentityDomain::Snapshot, schema_work)?;
++    let rows = array(field(map(snapshot.descriptor())?, "sourceInventory")?)?;
++    let mut originals = BTreeMap::new();
++    for row in rows {
++        let row = map(row)?;
++        let path = text(field(row, "path")?)?;
++        if config_path(path) {
++            originals.insert(path, row);
++        }
++    }
++    let replacements = array(field(projection, "replacedSnapshotConfigs")?)?
++        .iter()
++        .map(text)
++        .collect::<Result<BTreeSet<_>, _>>()?;
++    if replacements != originals.keys().copied().collect() {
++        return Err(ConfigSnapshotError::ReplacementInventory);
++    }
++    for row in originals.values() {
++        let sha = raw_digest(text(field(row, "sha256")?)?)?;
++        let JsonValue::Integer(length) = field(row, "bytes")? else {
++            return Err(ConfigSnapshotError::Representation);
++        };
++        let length =
++            u64::try_from(length.get()).map_err(|_| ConfigSnapshotError::Representation)?;
++        inputs.blob(sha)?.require_length(length)?;
++    }
++    let projected = inputs.blob(raw_digest(text(field(projection, "projectionSha256")?)?)?)?;
++    let projection_identity =
++        hash_canonical_value("native.cargo-config-projection.v2", projection_value)
++            .map_err(ConfigSnapshotError::Digest)?;
++    if context.digest() != expected_host_digest {
++        return Err(ConfigSnapshotError::HostContextMismatch);
++    }
++    Ok(ConfigSnapshotChecks {
++        context_digest: context.digest(),
++        projection_identity,
++        projected_file: Arc::from(projected.bytes()),
++        replacement_count: replacements.len(),
++    })
++}
++
++fn config_path(path: &str) -> bool {
++    matches!(path, ".cargo/config" | ".cargo/config.toml")
++        || path.ends_with("/.cargo/config")
++        || path.ends_with("/.cargo/config.toml")
++}
++fn map(value: &JsonValue) -> Result<&BTreeMap<String, JsonValue>, ConfigSnapshotError> {
++    match value {
++        JsonValue::Object(value) => Ok(value),
++        _ => Err(ConfigSnapshotError::Representation),
++    }
++}
++fn field<'a>(
++    value: &'a BTreeMap<String, JsonValue>,
++    key: &str,
++) -> Result<&'a JsonValue, ConfigSnapshotError> {
++    value.get(key).ok_or(ConfigSnapshotError::Representation)
++}
++fn text(value: &JsonValue) -> Result<&str, ConfigSnapshotError> {
++    match value {
++        JsonValue::String(value) => Ok(value),
++        _ => Err(ConfigSnapshotError::Representation),
++    }
++}
++fn array(value: &JsonValue) -> Result<&[JsonValue], ConfigSnapshotError> {
++    match value {
++        JsonValue::Array(value) => Ok(value),
++        _ => Err(ConfigSnapshotError::Representation),
++    }
++}
++fn raw_digest(value: &str) -> Result<[u8; 32], ConfigSnapshotError> {
++    if value.len() != 64 {
++        return Err(ConfigSnapshotError::Representation);
++    }
++    let mut result = [0; 32];
++    for (i, pair) in value.as_bytes().chunks_exact(2).enumerate() {
++        let digit = |b| match b {
++            b'0'..=b'9' => Ok(b - b'0'),
++            b'a'..=b'f' => Ok(b - b'a' + 10),
++            _ => Err(ConfigSnapshotError::Representation),
++        };
++        result[i] = digit(pair[0])? << 4 | digit(pair[1])?;
++    }
++    Ok(result)
++}
++
++#[cfg(test)]
++#[path = "config_snapshot_tests.rs"]
++mod tests;
+diff --git a/providers/rust/src/config_snapshot_tests.rs b/providers/rust/src/config_snapshot_tests.rs
+new file mode 100644
+index 0000000..cd30ed2
+--- /dev/null
++++ b/providers/rust/src/config_snapshot_tests.rs
+@@ -0,0 +1,375 @@
++use super::*;
++use opensip_identity::{
++    IdentityCandidate, JsonInteger, ObjectInput, RegisteredSchemas, canonical_bytes, digest_hex,
++    hash_preimage, raw_sha256,
++};
++use std::path::Path;
++use std::sync::OnceLock;
++
++const WORK: usize = 10_000_000;
++fn schemas() -> &'static RegisteredSchemas {
++    static REGISTRY: OnceLock<RegisteredSchemas> = OnceLock::new();
++    REGISTRY.get_or_init(|| {
++        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
++        let raw: Vec<_> = RegisteredSchemas::source_requirements()
++            .iter()
++            .map(|pin| std::fs::read(root.join(pin.source_path())).unwrap())
++            .collect();
++        RegisteredSchemas::from_sources(&raw.iter().map(Vec::as_slice).collect::<Vec<_>>()).unwrap()
++    })
++}
++fn object(entries: impl IntoIterator<Item = (&'static str, JsonValue)>) -> JsonValue {
++    JsonValue::Object(
++        entries
++            .into_iter()
++            .map(|(key, value)| (key.into(), value))
++            .collect(),
++    )
++}
++fn text(value: &str) -> JsonValue {
++    JsonValue::String(value.into())
++}
++fn number(value: usize) -> JsonValue {
++    JsonValue::Integer(JsonInteger::new(value as i128).unwrap())
++}
++fn hash_text(bytes: &[u8]) -> JsonValue {
++    text(&digest_hex(&raw_sha256(bytes)))
++}
++fn row(path: &str, bytes: &[u8]) -> JsonValue {
++    object([
++        ("path", text(path)),
++        ("sha256", hash_text(bytes)),
++        ("bytes", number(bytes.len())),
++    ])
++}
++fn fields(value: &mut JsonValue) -> &mut BTreeMap<String, JsonValue> {
++    let JsonValue::Object(value) = value else {
++        panic!("owned object fixture")
++    };
++    value
++}
++struct Fixture {
++    objects: BTreeMap<String, ObjectInput>,
++    blobs: BTreeMap<[u8; 32], Vec<u8>>,
++    context: JsonValue,
++    snapshot: JsonValue,
++    tools_id: String,
++    dev_id: String,
++}
++impl Fixture {
++    fn new() -> Self {
++        let mut fixture = Self {
++            objects: BTreeMap::new(),
++            blobs: BTreeMap::new(),
++            context: JsonValue::Null,
++            snapshot: object([
++                ("schemaVersion", number(2)),
++                ("projectId", text(&format!("prj1-{}", "0".repeat(64)))),
++                ("sourceInventory", JsonValue::Array(vec![])),
++                ("resolvedConfigDigest", text(&"a".repeat(64))),
++                ("scopeDigest", text(&"b".repeat(64))),
++                ("vcsDigest", text(&"c".repeat(64))),
++            ]),
++            tools_id: format!("closure2:{}", "0".repeat(64)),
++            dev_id: format!("closure2:{}", "1".repeat(64)),
++        };
++        fixture.context = object([
++            ("schemaVersion", number(2)),
++            ("targetTriple", text("aarch64-apple-darwin")),
++            ("hostTriple", text("aarch64-apple-darwin")),
++            (
++                "toolchain",
++                object([
++                    ("cargoVersion", text("1.95.0")),
++                    ("rustCommitHash", text(&"0".repeat(40))),
++                    (
++                        "rustcDevLlvmDigest",
++                        text(fixture.dev_id.strip_prefix("closure2:").unwrap()),
++                    ),
++                    ("rustcVersion", text("1.95.0")),
++                    ("standardLibraryComponentDigests", JsonValue::Array(vec![])),
++                    ("sysrootDigest", hash_text(b"unadmitted sysroot fixture")),
++                    ("targetTriple", text("aarch64-apple-darwin")),
++                ]),
++            ),
++            (
++                "toolClosure",
++                object([
++                    ("ar", hash_text(b"ar")),
++                    ("cargo", hash_text(b"cargo")),
++                    ("closureId", text(&fixture.tools_id)),
++                    ("linker", hash_text(b"linker")),
++                    ("procMacroServer", hash_text(b"proc")),
++                    ("rustc", hash_text(b"rustc")),
++                ]),
++            ),
++            ("baseCfg", JsonValue::Array(vec![text("unix")])),
++            ("resolverVersion", number(3)),
++            (
++                "dependencySourceSetId",
++                text(&format!("sha256:{}", "a".repeat(64))),
++            ),
++            (
++                "unifiedFeaturesId",
++                text(&format!("sha256:{}", "b".repeat(64))),
++            ),
++            ("preparedOutputSetId", JsonValue::Null),
++            (
++                "configProjection",
++                object([
++                    ("schemaVersion", number(2)),
++                    ("ancestorCarrierVerified", JsonValue::Bool(true)),
++                    ("cargoHome", text("private-empty")),
++                    ("claimsCargoSwitch", JsonValue::Bool(false)),
++                    ("environmentProjection", text("none")),
++                    ("honoredKeys", JsonValue::Array(vec![])),
++                    ("projectionSha256", hash_text(b"unadmitted config fixture")),
++                    ("replacedSnapshotConfigs", JsonValue::Array(vec![])),
++                    (
++                        "rustflags",
++                        object([
++                            ("executableSelected", JsonValue::Bool(false)),
++                            ("honored", JsonValue::Array(vec![])),
++                            ("stripped", JsonValue::Array(vec![])),
++                        ]),
++                    ),
++                    ("strippedKeys", JsonValue::Array(vec![])),
++                ]),
++            ),
++        ]);
++
++        fixture.projection_field("projectionSha256", hash_text(b"owned projected file"));
++        fixture.blobs.insert(
++            raw_sha256(b"owned projected file"),
++            b"owned projected file".to_vec(),
++        );
++        fixture
++    }
++    fn projection_field(&mut self, name: &str, value: JsonValue) {
++        fields(
++            fields(&mut self.context)
++                .get_mut("configProjection")
++                .unwrap(),
++        )
++        .insert(name.into(), value);
++    }
++    fn rows(&mut self, rows: Vec<JsonValue>, replacements: &[&str]) {
++        fields(&mut self.snapshot).insert("sourceInventory".into(), JsonValue::Array(rows));
++        self.projection_field(
++            "replacedSnapshotConfigs",
++            JsonValue::Array(replacements.iter().map(|p| text(p)).collect()),
++        );
++    }
++    fn ids(&mut self) -> (String, [u8; 32]) {
++        let raw = canonical_bytes(&self.snapshot).unwrap();
++        let id = IdentityCandidate::from_json(schemas(), IdentityDomain::Snapshot, &raw, WORK)
++            .unwrap()
++            .identifier()
++            .to_owned();
++        self.objects.insert(
++            id.clone(),
++            ObjectInput {
++                domain: IdentityDomain::Snapshot,
++                descriptor: self.snapshot.clone(),
++            },
++        );
++        let frame = hash_preimage("native.context.rust.v2", &self.context).unwrap();
++        let sha = raw_sha256(&frame);
++        self.blobs.insert(sha, frame);
++        (id, sha)
++    }
++    fn check(
++        &self,
++        id: &str,
++        sha: [u8; 32],
++        host: [u8; 32],
++    ) -> Result<ConfigSnapshotChecks, ConfigSnapshotError> {
++        check_declared_config(
++            &RetainedInputs::new(schemas(), &self.objects, &self.blobs),
++            id,
++            sha,
++            host,
++            WORK,
++        )
++    }
++}
++
++#[test]
++fn projected_file_raw_hash_and_projection_h_identity_remain_distinct() {
++    let mut f = Fixture::new();
++    f.rows(
++        vec![
++            row(".cargo/config", b"legacy"),
++            row("nested/.cargo/config.toml", b"nested"),
++        ],
++        &["nested/.cargo/config.toml", ".cargo/config"],
++    );
++    f.blobs.insert(raw_sha256(b"legacy"), b"legacy".to_vec());
++    f.blobs.insert(raw_sha256(b"nested"), b"nested".to_vec());
++    let (id, sha) = f.ids();
++    let result = f.check(&id, sha, sha).unwrap();
++    let projection = map(&f.context).unwrap().get("configProjection").unwrap();
++    assert_eq!(result.projected_file(), b"owned projected file");
++    assert_eq!(result.context_digest(), sha);
++    assert_eq!(result.replacement_count(), 2);
++    assert_eq!(
++        result.projection_identity(),
++        hash_canonical_value("native.cargo-config-projection.v2", projection).unwrap()
++    );
++    assert_ne!(
++        result.projection_identity(),
++        raw_sha256(result.projected_file())
++    );
++    assert_ne!(
++        result.projection_identity(),
++        raw_sha256(&canonical_bytes(projection).unwrap())
++    );
++    // Closure/sysroot/dependency/feature admission is intentionally absent.
++    assert!(!f.objects.contains_key(&f.tools_id));
++}
++#[test]
++fn empty_config_set_is_not_a_cargo_carrier_admission() {
++    let mut f = Fixture::new();
++    f.rows(
++        vec![row("lib.rs", b"unretained source outside these joins")],
++        &[],
++    );
++    let (id, sha) = f.ids();
++    assert_eq!(f.check(&id, sha, sha).unwrap().replacement_count(), 0);
++}
++#[test]
++fn cc5_path_matching_is_exact_at_any_directory() {
++    let mut f = Fixture::new();
++    f.rows(
++        vec![
++            row(".cargo/config.toml.bak", b"ignored"),
++            row("config.toml", b"ignored"),
++            row("x.cargo/config", b"ignored"),
++        ],
++        &[],
++    );
++    let (id, sha) = f.ids();
++    assert!(f.check(&id, sha, sha).is_ok());
++}
++#[test]
++fn omitted_actual_config_refuses_even_when_context_recomputes() {
++    let mut f = Fixture::new();
++    f.rows(vec![row("nested/.cargo/config.toml", b"original")], &[]);
++    let (id, sha) = f.ids();
++    assert!(matches!(
++        f.check(&id, sha, sha),
++        Err(ConfigSnapshotError::ReplacementInventory)
++    ));
++}
++#[test]
++fn nonexistent_or_nonconfig_replacement_refuses() {
++    for path in [
++        "missing/.cargo/config",
++        "config.toml",
++        ".cargo/config.toml.bak",
++    ] {
++        let mut f = Fixture::new();
++        f.rows(vec![row("config.toml", b"nonconfig")], &[path]);
++        let (id, sha) = f.ids();
++        assert!(matches!(
++            f.check(&id, sha, sha),
++            Err(ConfigSnapshotError::ReplacementInventory)
++        ));
++    }
++}
++#[test]
++fn originals_must_be_retained_with_exact_raw_hash_and_length() {
++    for mode in 0..3 {
++        let mut f = Fixture::new();
++        let mut original = row(".cargo/config", b"original");
++        if mode == 2 {
++            fields(&mut original).insert("bytes".into(), number(99));
++        }
++        f.rows(vec![original], &[".cargo/config"]);
++        if mode != 0 {
++            f.blobs.insert(
++                raw_sha256(b"original"),
++                if mode == 1 {
++                    b"tampered".to_vec()
++                } else {
++                    b"original".to_vec()
++                },
++            );
++        }
++        let (id, sha) = f.ids();
++        assert!(matches!(
++            f.check(&id, sha, sha),
++            Err(ConfigSnapshotError::Retained(_))
++        ));
++    }
++}
++#[test]
++fn projected_file_must_be_retained_under_its_raw_digest() {
++    for mode in 0..2 {
++        let mut f = Fixture::new();
++        if mode == 0 {
++            f.blobs.remove(&raw_sha256(b"owned projected file"));
++        } else {
++            f.blobs
++                .insert(raw_sha256(b"owned projected file"), b"tampered".to_vec());
++        }
++        let (id, sha) = f.ids();
++        assert!(matches!(
++            f.check(&id, sha, sha),
++            Err(ConfigSnapshotError::Retained(_))
++        ));
++    }
++}
++#[test]
++fn projection_record_digest_does_not_substitute_for_file_digest() {
++    let mut f = Fixture::new();
++    let projection = map(&f.context).unwrap().get("configProjection").unwrap();
++    let canonical = canonical_bytes(projection).unwrap();
++    let h = hash_preimage("native.cargo-config-projection.v2", projection).unwrap();
++    for bytes in [&canonical, &h] {
++        f.blobs.insert(raw_sha256(bytes), bytes.clone());
++    }
++    // Same raw file key holding a canonical record or H frame fails byte hashing.
++    f.blobs.insert(raw_sha256(b"owned projected file"), h);
++    let (id, sha) = f.ids();
++    assert!(matches!(
++        f.check(&id, sha, sha),
++        Err(ConfigSnapshotError::Retained(
++            RetainedInputError::BlobDigest
++        ))
++    ));
++}
++#[test]
++fn host_comparison_covers_context_outside_config_projection() {
++    let mut f = Fixture::new();
++    let (id, old) = f.ids();
++    fields(&mut f.context).insert("hostTriple".into(), text("another-host"));
++    let (_, new) = f.ids();
++    assert!(matches!(
++        f.check(&id, new, old),
++        Err(ConfigSnapshotError::HostContextMismatch)
++    ));
++}
++#[test]
++fn stale_snapshot_identifier_refuses_descriptor_substitution() {
++    let mut f = Fixture::new();
++    let (id, sha) = f.ids();
++    fields(&mut f.objects.get_mut(&id).unwrap().descriptor)
++        .insert("scopeDigest".into(), text(&"d".repeat(64)));
++    assert!(matches!(
++        f.check(&id, sha, sha),
++        Err(ConfigSnapshotError::Retained(
++            RetainedInputError::ObjectIdentity
++        ))
++    ));
++}
++#[test]
++fn retained_projection_bytes_are_owned_after_inputs_change() {
++    let mut f = Fixture::new();
++    let (id, sha) = f.ids();
++    let checked = f.check(&id, sha, sha).unwrap();
++    f.blobs
++        .insert(raw_sha256(b"owned projected file"), b"replacement".to_vec());
++    drop(f);
++    assert_eq!(checked.projected_file(), b"owned projected file");
++}
