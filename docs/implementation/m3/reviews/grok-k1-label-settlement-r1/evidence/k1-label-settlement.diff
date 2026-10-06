@@ -1,0 +1,162 @@
+diff --git a/Users/sb/code/opensip-ai/opensip-k1-label-settlement/tools/quality/label_settlement.py b/Users/sb/code/opensip-ai/opensip-k1-label-settlement/tools/quality/label_settlement.py
+new file mode 100644
+index 0000000..a82637c
+--- /dev/null
++++ b/Users/sb/code/opensip-ai/opensip-k1-label-settlement/tools/quality/label_settlement.py
+@@ -0,0 +1,69 @@
++"""Pure Q0 r13 §4.5-4.6 label-settlement decision after voter admission.
++
++Caller admits the roster, rule-author/conflict exclusion, calibration,
++blindness, item/rubric joins and independent group identity before this API.
++No registration, ledger append, presentation, queue or real adjudication.
++"""
++from canonical import canonical
++from records import require
++
++LABELS = frozenset({'true', 'false', 'unclear'})
++
++
++def _label(value):
++    require(type(value) is str and value in LABELS, 'SETTLEMENT_LABEL')
++
++
++def decide_settlement(groups, gating_or_repair, expert=None):
++    """Apply the two-group table; agents from one family remain one group.
++
++    Local API groups are {groupId, kind, labels}. The caller's admitted groupId
++    is the human identity for human groups or the vendor model lineage for
++    agent groups, not a model instance or shared implementation context. Agent
++    implementation context disqualifies that voter before grouping (§4.5).
++    An expert input is {label, rationale}; caller establishes that it belongs
++    to the designated registered human domain expert and is blind to detector
++    evidence. It is the final expert decision, never a third procedural vote.
++    """
++    require(type(gating_or_repair) is bool, 'SETTLEMENT_COST_CLASS')
++    require(type(groups) is list and len(groups) == 2, 'TWO_VOTE_GROUPS_REQUIRED')
++    canonical({'groups': groups, 'expert': expert})
++    identities, labels = set(), []
++    human = False
++    for row in groups:
++        require(type(row) is dict and set(row) == {'groupId', 'kind', 'labels'},
++                'SETTLEMENT_GROUP_SHAPE')
++        gid, kind, votes = row['groupId'], row['kind'], row['labels']
++        require(type(gid) is str and 1 <= len(gid) <= 4096, 'SETTLEMENT_GROUP_ID')
++        require(type(kind) is str and kind in {'human', 'agent'}, 'SETTLEMENT_GROUP_KIND')
++        key = (kind, gid)
++        require(key not in identities, 'DUPLICATE_VOTE_GROUP')
++        identities.add(key)
++        require(type(votes) is list and bool(votes), 'SETTLEMENT_GROUP_LABELS')
++        if kind == 'human':
++            human = True
++            require(len(votes) == 1, 'ONE_VOTE_PER_HUMAN')
++        for vote in votes:
++            _label(vote)
++        # QD-10: disagreement inside a model family is one unclear vote.
++        labels.append(votes[0] if all(v == votes[0] for v in votes) else 'unclear')
++    require(human, 'HUMAN_VOTE_REQUIRED')
++    reasons = []
++    if labels[0] != labels[1]:
++        reasons.append('disagreement')
++    if gating_or_repair and 'unclear' in labels:
++        reasons.append('unclear-gating')
++    if not reasons:
++        require(expert is None, 'EXPERT_WITHOUT_ESCALATION')
++        return {'status': 'resolved', 'label': labels[0], 'method': 'agreement',
++                'escalationReasons': [], 'productQualification': False}
++    if expert is None:
++        return {'status': 'pending', 'label': None, 'method': None,
++                'escalationReasons': reasons, 'productQualification': False}
++    require(type(expert) is dict and set(expert) == {'label', 'rationale'},
++            'SETTLEMENT_EXPERT_SHAPE')
++    _label(expert['label'])
++    require(type(expert['rationale']) is str and bool(expert['rationale']),
++            'EXPERT_RATIONALE_REQUIRED')
++    return {'status': 'resolved', 'label': expert['label'], 'method': 'expert',
++            'escalationReasons': reasons, 'productQualification': False}
+diff --git a/Users/sb/code/opensip-ai/opensip-k1-label-settlement/tools/quality/test_label_settlement.py b/Users/sb/code/opensip-ai/opensip-k1-label-settlement/tools/quality/test_label_settlement.py
+new file mode 100644
+index 0000000..3ad4a08
+--- /dev/null
++++ b/Users/sb/code/opensip-ai/opensip-k1-label-settlement/tools/quality/test_label_settlement.py
+@@ -0,0 +1,81 @@
++"""Independent transcription of the QD-10 settlement table, synthetic only."""
++import copy
++import pathlib
++import sys
++import unittest
++
++sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
++from canonical import Refusal
++from label_settlement import decide_settlement
++
++
++def groups(a, b, kind='agent'):
++    return [{'groupId':'person-a', 'kind':'human', 'labels':[a]},
++            {'groupId':'family-b', 'kind':kind, 'labels':[b]}]
++
++
++class SettlementTests(unittest.TestCase):
++    def test_all_nine_label_pairs_both_cost_classes(self):
++        for a in ('true','false','unclear'):
++            for b in ('true','false','unclear'):
++                for gated in (False,True):
++                    r = decide_settlement(groups(a,b), gated)
++                    settles = a == b and (a != 'unclear' or not gated)
++                    self.assertEqual(r['status'], 'resolved' if settles else 'pending')
++                    self.assertEqual(r['label'], a if settles else None)
++                    self.assertEqual(r['method'], 'agreement' if settles else None)
++                    self.assertFalse(r['productQualification'])
++
++    def test_same_family_is_one_vote_and_internal_disagreement_unclear(self):
++        value = groups('true','true')
++        value[1]['labels'] = ['true','false','true']
++        r = decide_settlement(value, False)
++        self.assertEqual(r['status'],'pending')
++        self.assertEqual(r['escalationReasons'],['disagreement'])
++        value[0]['labels'] = ['unclear']
++        self.assertEqual(decide_settlement(value,False)['label'],'unclear')
++        self.assertEqual(decide_settlement(value,True)['status'],'pending')
++
++    def test_more_same_family_agents_cannot_overrule_human(self):
++        value = groups('false','true')
++        value[1]['labels'] *= 100
++        self.assertEqual(decide_settlement(value,False)['status'],'pending')
++
++    def test_two_agents_never_stand_alone(self):
++        value = groups('true','true'); value[0]['kind'] = 'agent'
++        with self.assertRaises(Refusal): decide_settlement(value,False)
++
++    def test_two_distinct_humans_can_agree(self):
++        self.assertEqual(decide_settlement(groups('false','false','human'),True)['label'],'false')
++
++    def test_a_duplicate_human_is_not_two_votes(self):
++        value = groups('true','true','human');value[1]['groupId']=value[0]['groupId']
++        with self.assertRaises(Refusal): decide_settlement(value,False)
++        value = groups('true','true');value[0]['labels'].append('true')
++        with self.assertRaises(Refusal): decide_settlement(value,False)
++
++    def test_third_procedural_vote_never_settles(self):
++        value = groups('true','false');value.append({'kind':'human','groupId':'person-c','labels':['true']})
++        with self.assertRaises(Refusal): decide_settlement(value,False)
++
++    def test_final_expert_decision_including_unclear(self):
++        for label in ('true','false','unclear'):
++            for gated in (False,True):
++                r = decide_settlement(groups('true','false'),gated,{'label':label,'rationale':'synthetic source.rs:1; admitted configuration'})
++                self.assertEqual((r['label'],r['method']), (label,'expert'))
++        with self.assertRaises(Refusal): decide_settlement(groups('true','false'),False,{'label':'true','rationale':''})
++        with self.assertRaises(Refusal): decide_settlement(groups('true','true'),False,{'label':'false','rationale':'source.rs:1'})
++
++    def test_cost_class_types_and_group_shapes(self):
++        for cost in (0,1,None,'gating'):
++            with self.assertRaises(Refusal): decide_settlement(groups('true','true'),cost)
++        mutations = [lambda x:x[0].update(extra=True), lambda x:x[1].update(labels=[]),
++                     lambda x:x[1].update(kind='model'), lambda x:x[1].update(groupId=''),
++                     lambda x:x[1].update(labels=['unknown']), lambda x:x[1].update(labels=[True])]
++        for change in mutations:
++            value = copy.deepcopy(groups('true','true'));change(value)
++            with self.assertRaises(Refusal): decide_settlement(value,False)
++
++
++if __name__ == '__main__':
++    unittest.main()
