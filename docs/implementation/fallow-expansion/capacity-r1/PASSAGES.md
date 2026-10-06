@@ -1,0 +1,145 @@
+# FX-CAP-1 exact passages
+
+## docs/implementation/m3/syntax-e/syn-1f/design/foundation/identity-schemas.v3.json {"jsonPointer": "/$defs/analysis-spec/properties/requestedCapabilities/maxItems"}
+
+Before:
+~~~text
+1024
+~~~
+After:
+~~~text
+11264
+~~~
+
+## docs/implementation/m3/syntax-e/syn-1f/design/foundation/identity-schemas.v3.json {"jsonPointer": "/$defs/plan/properties/nativeContextDigests/maxItems"}
+
+Before:
+~~~text
+128
+~~~
+After:
+~~~text
+1024
+~~~
+
+## docs/coop/design-corrections/workflows/schemas/common.schema.json {"jsonPointer": "/$defs/CapabilityAvailabilityStepV1/properties/notices/maxItems"}
+
+Before:
+~~~text
+1024
+~~~
+After:
+~~~text
+11264
+~~~
+
+## docs/coop/design-corrections/workflows/schemas/evaluator3/common.schema.json {"jsonPointer": "/$defs/CapabilityAvailabilityStepV1/properties/notices/maxItems"}
+
+Before:
+~~~text
+1024
+~~~
+After:
+~~~text
+11264
+~~~
+
+## docs/v2/contracts/product-v1/native-evidence.md {"line": 1115}
+
+Before:
+~~~text
+- **Composed per step, because 1024 is the analysis-spec bound.** Each analysis
+~~~
+After:
+~~~text
+- **Composed per step, because 11264 is the analysis-spec bound.** Each analysis
+~~~
+
+## docs/v2/contracts/product-v1/native-evidence.md {"line": 1117}
+
+Before:
+~~~text
+  (`{stepId, noticeCount, notices[≤1024]}`), and the invocation carries
+~~~
+After:
+~~~text
+  (`{stepId, noticeCount, notices[≤11264]}`), and the invocation carries
+~~~
+
+## docs/v2/contracts/product-v1/native-evidence.md {"line": 1119}
+
+Before:
+~~~text
+  truncate — 1024 is exactly the `analysis-spec.requestedCapabilities` bound and
+~~~
+After:
+~~~text
+  truncate — 11264 is exactly the `analysis-spec.requestedCapabilities` bound and
+~~~
+
+## docs/v2/contracts/product-v1/workflows-and-surfaces.md {"line": 1317}
+
+Before:
+~~~text
+`{stepId, noticeCount, notices[≤1024]}` — because 1024 is the
+~~~
+After:
+~~~text
+`{stepId, noticeCount, notices[≤11264]}` — because 11264 is the
+~~~
+
+## docs/v2/contracts/product-v1/native-evidence.md {"line": 3534}
+
+Before:
+~~~text
+| bounded selection array exceeds its published bound, without truncation: the scope-descriptor arrays (workspaceRoots1024, pathPrefixes/excludedPathPrefixes65536) or the analysis-spec `requestedCapabilities` (1024, which the matrix-fixed default exceeds from94 TypeScript units) | | `request-rejected` (2) | `REQUEST.UNSATISFIABLE` | `PROJECT.SCOPE_LIMIT`, subject `field:count>limit`; pre-Plan for the refused analysis step, which mints no `plan2`/`run3` |
+~~~
+After:
+~~~text
+| bounded selection array exceeds its published bound, without truncation: the scope-descriptor arrays (workspaceRoots1024, pathPrefixes/excludedPathPrefixes65536) or the analysis-spec `requestedCapabilities` (11264 under FX-CAP-1; all other bounded-selection fields keep their own limits) | | `request-rejected` (2) | `REQUEST.UNSATISFIABLE` | `PROJECT.SCOPE_LIMIT`, subject `field:count>limit`; pre-Plan for the refused analysis step, which mints no `plan2`/`run3` |
+~~~
+
+## docs/v2/contracts/product-v1/native-evidence.md {"line": 4276}
+
+Before:
+~~~text
+A **bounded selection array** that exceeds its published schema bound refuses REQUEST.UNSATISFIABLE (request-rejected, exit2), public detail PROJECT.SCOPE_LIMIT and subject `field:count>limit`; it is never truncated. **Seven** fields are bounded this way, across **three record families**, and the subject always names which one overflowed. The **scope descriptor** family contributes three: workspaceRoots has limit1024 (distinct roots after co-located unit deduplication), and pathPrefixes/excludedPathPrefixes each65536; thus1025..4096 valid discovered unit roots produce this typed scope refusal, while more than4096 first-party unit directories produce PROJECT.WORKSPACE_UNIT_LIMIT earlier. The **analysis-spec** array `requestedCapabilities` has limit1024, and it overflows for a reason worth stating: the matrix-fixed default requests one row per (discovered unit, capability whose cell is not NOT-SELECTED), which is11 capabilities per TypeScript unit and10 per Rust unit, so93 TypeScript units fit, at1023 rows - one row under the bound, not exactly at it - and94 do not, at1034. Units94..1024 are therefore ordinary repositories the scope law admits and the default analysis cannot express, and they refuse HERE rather than through a generic schema exception that carries no typed scope projection — no public detail, no class or exit, no `field:count>limit` subject and no per-field remedy — even though its own structured fields do identify the failing path and the bound. The public code is shared across host/native scope admission; callers must narrow explicit selection — for `requestedCapabilities` that means fewer workspace roots for the invocation, or an explicit `analysis.capabilities` selection carrying its own provenance. The **Plan** family contributes the remaining three, and they are reachable by ordinary valid selections that every earlier bound admits: `nativeContextDigests` has limit128 and carries one member per DISTINCT admitted native context, so an inventory-only or otherwise narrow capability selection keeps `requestedCapabilities` far below its own1024 while129 units whose compiler closure, standard library and effective options differ pass the workspace bound and cannot be expressed in the Plan; `importIds` has limit256 while the selecting field `semantic-configuration.evidence.importIds` admits1024, so257 imported evidence records are an admitted configuration and an unrepresentable Plan; and `semanticClosures` has limit128 while `policyPackIds` admits128 packs that need not share closures. Those three are accounted **before plan2 is minted**, on the PROSPECTIVE Plan assembled from an already-admitted request, so a refusal mints no Plan and no Run for the refused step. They are **not** a retained-record check: an externally retained Plan over its bound is a corrupt or malformed retained record and keeps its schema-first refusal and this section's origin-dependent routing, because re-deriving a caller's remedy from already-committed bytes would misreport a corrupt store as an oversized request. Only an ACTUAL array over its bound refuses on cardinality; a missing field, null, boolean, number, string or object is a shape the schema owns and reaches it untouched. When more than one array of an assembled prospective Plan overflows at once the subject is the first in the published `$defs/plan` declaration order — `semanticClosures`, `nativeContextDigests`, `importIds` — so one request always yields one subject and narrowing makes deterministic progress. That order governs the prospective-Plan boundary, among the fields present there. It is not an ordering claim about the whole request: `nativeContextDigests` is also accounted at the earlier producer boundary that computes, admission-validates and deduplicates the native contexts, and an overflow refuses there before any prospective Plan is assembled. Native ScopeRefusal retains detail, D9 and observed bound fields for the host's closed termination projection, and is already field-generic, so all seven fields use one law and one code: the remedy class is identical — narrow the selection explicitly, nothing was truncated — which is why widening it across the further record families adds no public code, while each field keeps its OWN remedy wording because what a caller narrows differs per field.
+~~~
+After:
+~~~text
+A **bounded selection array** that exceeds its published schema bound refuses REQUEST.UNSATISFIABLE (request-rejected, exit2), public detail PROJECT.SCOPE_LIMIT and subject `field:count>limit`; it is never truncated. **Seven** fields are bounded this way, across **three record families**, and the subject always names which one overflowed. The **scope descriptor** family contributes three: workspaceRoots has limit1024 (distinct roots after co-located unit deduplication), and pathPrefixes/excludedPathPrefixes each65536; thus1025..4096 valid discovered unit roots produce this typed scope refusal, while more than4096 first-party unit directories produce PROJECT.WORKSPACE_UNIT_LIMIT earlier. The **analysis-spec** array `requestedCapabilities` has limit11264 (contract successor FX-CAP-1). The current selected matrix requests11 capabilities per TypeScript unit and10 per Rust unit, so1024 all-TypeScript selected language program units require11264 rows and fit the cardinality bound. Colocated TypeScript and Rust units count separately for this sizing target while workspaceRoots still deduplicates their root. This raises no root, file, path, record-byte, frame, stage, dependency or work bound and does not guarantee that every1024-unit input fits those independent bounds. There is no new1024-unit admission ceiling. A matrix expansion reassesses this target by a reviewed successor; it does not silently raise this constant. The public code is shared across host/native scope admission; callers must narrow explicit selection — for `requestedCapabilities` that means fewer workspace roots for the invocation, or an explicit `analysis.capabilities` selection carrying its own provenance. The **Plan** family contributes the remaining three, and they are reachable by ordinary valid selections that every earlier bound admits: `nativeContextDigests` has limit1024 (FX-CAP-1) and carries one member per DISTINCT admitted native context, so an inventory-only or otherwise narrow capability selection keeps `requestedCapabilities` far below its own11264 while1025 distinct admitted contexts cannot be expressed in the Plan, including when colocated language units share selected workspace roots; identical full context descriptors still deduplicate; `importIds` has limit256 while the selecting field `semantic-configuration.evidence.importIds` admits1024, so257 imported evidence records are an admitted configuration and an unrepresentable Plan; and `semanticClosures` has limit128 while `policyPackIds` admits128 packs that need not share closures. Those three are accounted **before plan2 is minted**, on the PROSPECTIVE Plan assembled from an already-admitted request, so a refusal mints no Plan and no Run for the refused step. They are **not** a retained-record check: an externally retained Plan over its bound is a corrupt or malformed retained record and keeps its schema-first refusal and this section's origin-dependent routing, because re-deriving a caller's remedy from already-committed bytes would misreport a corrupt store as an oversized request. Only an ACTUAL array over its bound refuses on cardinality; a missing field, null, boolean, number, string or object is a shape the schema owns and reaches it untouched. When more than one array of an assembled prospective Plan overflows at once the subject is the first in the published `$defs/plan` declaration order — `semanticClosures`, `nativeContextDigests`, `importIds` — so one request always yields one subject and narrowing makes deterministic progress. That order governs the prospective-Plan boundary, among the fields present there. It is not an ordering claim about the whole request: `nativeContextDigests` is also accounted at the earlier producer boundary that computes, admission-validates and deduplicates the native contexts, and an overflow refuses there before any prospective Plan is assembled. Native ScopeRefusal retains detail, D9 and observed bound fields for the host's closed termination projection, and is already field-generic, so all seven fields use one law and one code: the remedy class is identical — narrow the selection explicitly, nothing was truncated — which is why widening it across the further record families adds no public code, while each field keeps its OWN remedy wording because what a caller narrows differs per field.
+~~~
+
+## docs/v2/contracts/product-v1/native-evidence.md {"line": 4280}
+
+Before:
+~~~text
+What this refusal is **not**. It is not a truncation: no capability is dropped, no root is dropped, and the matrix-fixed default and every advertised capability promise are unchanged. It is not a host defect: the host computed the default correctly and the *request* simply cannot be expressed within a published bound, so it is `request-rejected`/`REQUEST.UNSATISFIABLE` and never `host-invariant`. It is not a licence to shard the invocation, execute extra steps or raise a bound — any of those would be a new product capability and none is selected here. And it is **pre-Plan for the analysis step it refuses**: that step mints no `plan2` and no `run3`. That is a statement about the step, not about attribution - the request and the invocation keep their ordinary operational attribution under the workflow law, and any earlier step of the same invocation that already committed an outcome keeps it. A pure helper `ValidationError` is not a public termination, which is exactly why the typed refusal exists.
+~~~
+After:
+~~~text
+What this refusal is **not**. It is not a truncation: no capability is dropped, no root is dropped, and the matrix-fixed default and every advertised capability promise are unchanged. It is not a host defect: the host computed the default correctly and the *request* simply cannot be expressed within a published bound, so it is `request-rejected`/`REQUEST.UNSATISFIABLE` and never `host-invariant`. It is not a licence to shard the invocation, execute extra steps or raise a bound — those require their own selection. FX-CAP-1 selects only the two coordinated identity array maxima and both per-step notice maxima; sharding and extra invocation steps remain unselected. And it is **pre-Plan for the analysis step it refuses**: that step mints no `plan2` and no `run3`. That is a statement about the step, not about attribution - the request and the invocation keep their ordinary operational attribution under the workflow law, and any earlier step of the same invocation that already committed an outcome keeps it. A pure helper `ValidationError` is not a public termination, which is exactly why the typed refusal exists.
+~~~
+
+## docs/v2/contracts/product-v1/identity-and-evidence.md {"line": 214}
+
+Before:
+~~~text
+major and reviewed migration, not a permissive parser. One reviewed exception: the M3-I1 successor appends the single member `cycle-representative` to the closed `operation` vocabularies of proof-bundle `predicateProofs[]` and of `program-predicate`, under their existing majors and without migration. It changes no other field, member, bound, order, recipe or prefix. No record admitted before that successor can carry the member, because the member becomes admissible in a policy only through the same successor. So every existing record keeps its bytes, identity, validity and replay result, and `finding-key2`, whose descriptor names no operation, is unaffected. A reader that selects the successor's schema bytes admits records with or without the member under the same majors. A reader that does not refuses the member as a schema mismatch and never coerces, ignores or drops it. A second reviewed exception (contract successor HSR-1): contract successors SYN-1 and SYN-1F of law M3-E1 append the single member `source-parse-error` to the closed `NativeCause` vocabulary of the native evidence schemas and of its five foundation copies, under their existing majors and without migration. It adds no other member and changes no field, bound, recipe or prefix of any record. The member takes its code-point place in each list, and no record names a list position. No record admitted before those successors carries the member. Unlike the first exception, this one changes the exact bytes of two documents that retained records name by digest: `native/native-evidence.schemas.v2.json` and `foundation/enumeration-plan.schema.v1.json`. Their earlier selected bytes stay readable as historical schema readers (HSR-1, at the end of the payload registry section below). So here too every existing record keeps its bytes, identity, validity and replay result. Every other schema or domain change keeps this rule. A later reviewed exception that changes the bytes of a document a retained record names by digest adds exactly one historical schema reader for that document, by its own successor.
+~~~
+After:
+~~~text
+major and reviewed migration, not a permissive parser. One reviewed exception: the M3-I1 successor appends the single member `cycle-representative` to the closed `operation` vocabularies of proof-bundle `predicateProofs[]` and of `program-predicate`, under their existing majors and without migration. It changes no other field, member, bound, order, recipe or prefix. No record admitted before that successor can carry the member, because the member becomes admissible in a policy only through the same successor. So every existing record keeps its bytes, identity, validity and replay result, and `finding-key2`, whose descriptor names no operation, is unaffected. A reader that selects the successor's schema bytes admits records with or without the member under the same majors. A reader that does not refuses the member as a schema mismatch and never coerces, ignores or drops it. A second reviewed exception (contract successor HSR-1): contract successors SYN-1 and SYN-1F of law M3-E1 append the single member `source-parse-error` to the closed `NativeCause` vocabulary of the native evidence schemas and of its five foundation copies, under their existing majors and without migration. It adds no other member and changes no field, bound, recipe or prefix of any record. The member takes its code-point place in each list, and no record names a list position. No record admitted before those successors carries the member. Unlike the first exception, this one changes the exact bytes of two documents that retained records name by digest: `native/native-evidence.schemas.v2.json` and `foundation/enumeration-plan.schema.v1.json`. Their earlier selected bytes stay readable as historical schema readers (HSR-1, at the end of the payload registry section below). So here too every existing record keeps its bytes, identity, validity and replay result. Every other schema or domain change keeps this rule. A later reviewed exception that changes the bytes of a document a retained record names by digest adds exactly one historical schema reader for that document, by its own successor. A third narrowly scoped reviewed exception (FX-CAP-1): analysis-spec.requestedCapabilities.maxItems increases from 1024 to 11264; plan.nativeContextDigests.maxItems increases from 128 to 1024; CapabilityAvailabilityStepV1.notices.maxItems increases from 1024 to 11264 in both workflow common schema versions. Existing majors, fields, domains, preimages, meanings and authority are retained. Every earlier admitted record preserves its exact bytes, identity and replay result; older readers may refuse the larger sets and never truncate or reinterpret them. No directly registered payload-schema document changes, so no historical payload reader row is added; retained schema dependency closures remain exact. All other schema/domain changes and HSR reader-extension rules retain their prior law.
+~~~
+
+## docs/implementation/m3/syntax-e/syn-1f/design/foundation/identity-schemas.v3.json {"jsonPointer": "/x-opensip-evaluator-profile/majorLaw"}
+
+Before:
+~~~text
+Changed output domains dispatch explicitly to version3 records and prefixes. Frozen version2 bytes remain historical; no coercion or permissive mixed-version parse. Unchanged ancestors referenced by digest retain their existing identifier majors; their values change if committed input/schema bytes change. The single additive operation member authorized by identity-and-evidence §3's reviewed M3-I1 exception keeps proof3 and the program-predicate schemaVersion; it is not a permissive mixed-version parse. The single additive NativeCause member source-parse-error, authorized by identity-and-evidence section 3's second reviewed exception (contract successors SYN-1, SYN-1F and HSR-1), keeps every identifier major as well. Retained records that name the earlier native evidence or enumeration plan schema bytes by digest are read by HSR-1's historical schema readers and keep their identifiers.
+~~~
+After:
+~~~text
+Changed output domains dispatch explicitly to version3 records and prefixes. Frozen version2 bytes remain historical; no coercion or permissive mixed-version parse. Unchanged ancestors referenced by digest retain their existing identifier majors; their values change if committed input/schema bytes change. The single additive operation member authorized by identity-and-evidence §3's reviewed M3-I1 exception keeps proof3 and the program-predicate schemaVersion; it is not a permissive mixed-version parse. The single additive NativeCause member source-parse-error, authorized by identity-and-evidence section 3's second reviewed exception (contract successors SYN-1, SYN-1F and HSR-1), keeps every identifier major as well. Retained records that name the earlier native evidence or enumeration plan schema bytes by digest are read by HSR-1's historical schema readers and keep their identifiers. A third narrowly scoped reviewed exception (FX-CAP-1): analysis-spec.requestedCapabilities.maxItems increases from 1024 to 11264; plan.nativeContextDigests.maxItems increases from 128 to 1024; CapabilityAvailabilityStepV1.notices.maxItems increases from 1024 to 11264 in both workflow common schema versions. Existing majors, fields, domains, preimages, meanings and authority are retained. Every earlier admitted record preserves its exact bytes, identity and replay result; older readers may refuse the larger sets and never truncate or reinterpret them. No directly registered payload-schema document changes, so no historical payload reader row is added; retained schema dependency closures remain exact. All other schema/domain changes and HSR reader-extension rules retain their prior law.
+~~~
+

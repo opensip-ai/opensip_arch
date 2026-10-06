@@ -1,0 +1,39 @@
+# FX-PLAN-1 expansion implementation amendment
+
+Status: proposed for independent review. This amendment becomes applicable only after its exact subject is accepted and the referenced foundational contract successors are bound. Owner authority is the 2026-10-05 instruction to proceed with Grok2. It changes no existing qualification threshold or unrelated accepted unit.
+
+## Selected delivery and exact integration discipline
+
+The expansion uses the 1024-selected-program-unit whole-workspace cardinality target and a shared Vue/Svelte/Astro/CSS model with staged adapters. The target is subject to explicit unchanged byte/work axes and independent performance qualification. Exact contract subjects, not mutable proposal names, govern code. Product baseline for this amendment is `f5f5b4d20eca34ab2312b3ffc141c378da326afe`; integration rechecks current main, lock tail, generators and in-flight subjects.
+
+For capacity, the authoritative scope is the accepted FX-CAP-1 record's two identity maxima, two availability maxima, identity-major exception and native/workflow passage changes. For components, it is the accepted FX-COMP-1 record's extraction schema, validation/mapping reference and native insertion. The exact proposed prerequisites are capacity-r2/subject.json SHA-256 `2148a4824286f0046fef02e070e3b0fe51c19a34fc6bd191820c6d3bf04e557d` and components-r1/subject.json SHA-256 `98683a4efafd88eef33c45f99ce697cbe6a31ff2927ec7aad44baf78752ea018`. Neither is selected merely by this plan review; both require separate acceptance and binding. A changed prerequisite requires a new reviewed amendment before selection. This planning successor carries no contract passage override and cannot itself widen a schema or capability.
+
+## Immediate units and consumer amendments
+
+| Local unit | Implementable obligation | Prerequisites and integration ordering | Mandatory review/qualification |
+|---|---|---|---|
+| FX-CAP-M | Materialize selected complete identity/common schema copies and exact source/registry/generation pins; preserve historical readers and old records | FX-CAP-1 bound; coordinate with HSR-a and E2s so an older same-family materialization cannot overwrite the widened meanings. One generator-changing integration at a time | Exact selected-byte audit, generator/dependency checks, old retained records unchanged, same-major exception scope and older-reader refusal |
+| FX-CAP-H | Native context production, analysis-spec pre-Plan admission, Plan cardinality and every availability renderer use selected schema bounds without truncation | FX-CAP-M; amend C2 context checks, C4 Plan checks and B availability selection consumers. Existing/in-flight code needs a scoped follow-up; not-started owners incorporate the accepted law | Exact-bound/+1, formerly failing94 TS defaults,129 distinct contexts, ownership tuple, schema-vs-cardinality ordering, per-step notice parity and retained-origin controls |
+| FX-CAP-Q | Measure and publish the supported multi-axis capacity envelope | FX-CAP-H, real provider pipeline, K/Q frozen workload definitions and selected runner budgets; S-R/S-B remain separate prerequisites where the workload crosses their bounds | Original full source universe, cross-unit consumers, cold/warm/replay/cancellation and process-tree resource measurements; no success claimed from serializer fixtures |
+| FX-SOURCE-V | Implement the pure original partition/map validator and exact span translator in the syntax source-model owner; host supplies admitted immutable source/closure/blob inputs | FX-COMP-1 bound; syntax API and inventory owner select exact placement/interface in a reviewed code unit. No identity→syntax dependency reversal or authority constructor | Reference fixtures plus independent source-content, Unicode, invalid map, stale source, missing retention and no-authority controls |
+
+These local identifiers do not reserve official M3 labels or inventory versions. The lead maps them to actual isolated units and exact file inventories before implementation. FX-CAP-M must not merge ahead of a materialization that would replace it with narrower predecessor bytes. If HSR/E2s can consume the accepted capacity schema directly, a reviewed consolidation can remove duplicate materialization, preserving both laws and exact reader/registry controls.
+
+No already accepted code is retroactively accepted under new semantics. Review subjects remain frozen; each affected implementer records a rebase or follow-up. Unaffected storage/security/repair units continue. Main integration checks the actual lock tail instead of assuming a reserved successor count or inventory number.
+
+## Ordered design and delivery backlog
+
+| Design/delivery family | Required exact design before code | Existing owner intersections | Relation to current implementation |
+|---|---|---|---|
+| Additional framework recognizers | Static evidence/entry-point tables, IDs/versions, ambiguity, schema enums/reference and historical parameter readers | B host registry/discovery; C4 recognition parameter; F committed consumption; H completeness | Draft next; widen registry and consumers together. Recognition never implies complete template resolution |
+| Vue/Svelte/Astro/CSS adapters | Pinned grammar/compiler closures, complete extraction algorithms, supported dialect/version profiles, input inventory and per-relation admission/Coverage bridges | E syntax; F semantic provider; B/C membership; H admission; I explanations | Common validator first, then independently reviewed adapters in target-repository priority order. Existing seven-language grammar bundle is not widened by the foundation |
+| Complexity and style candidates | Exact metric/normalization/contribution specifications, closed facts/capabilities, output and independently adjudicated strata | E/F extraction; H; I evaluator/pack; K/Q qualification | Advisory/exploratory first; qualified standing requires the accepted quality method. Matrix widening explicitly reassesses FX-CAP-1 |
+| Public-API and security candidates | Exact signature/consumer or source/sink propositions, unresolved populations, verifier import correspondence and output claims | F; H native/import planes; I; K/Q | Independent analyzer families; no generic graph query is relabeled missing, no pattern is called a proved vulnerability |
+| Snapshot-backed editor | Closed query/projection lifecycle, versions/staleness, scheduling/cancellation and exact existing repair handoff | Query/reporting; J repair; O observations | Implement after query/repair interfaces stabilize; an editor cannot manufacture authoritative evidence. Unsaved buffers require a separate successor |
+| Maintenance ranking | Admitted input factors, formula/version, missing data, deterministic ties and explanations | Existing candidate/history/runtime queries and reporting | Later consumer work; no gating or repair authority comes from ranking |
+
+The backlog is selected product direction and a requirement to produce the named exact downstream laws, not acceptance of unspecified grammar pins, metrics, public capabilities or delivery dates. Each downstream law receives its own frozen subject, review and binding. Release scope records implemented and qualified adapters/families individually; it never advertises full component support from foundational model acceptance alone.
+
+## Plan state reporting
+
+The implementation plan records, per affected owner, its precise accepted base, consumed successor manifest/digest, code review subject, generation dependencies, current integration head and mandatory follow-up. Only accepted laws change dependency edges. No duration estimate or critical-path retiming is invented by this amendment; the lead supplies those after concrete code-unit scoping. Product qualification remains separate from design and unit acceptance.
