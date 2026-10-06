@@ -1,0 +1,3 @@
+# K1b advisory allocation — additive inventory v149
+
+Parent v148 retained by value; two harness tooling files added. Packages and pending decisions unchanged. 103 inherited descriptions projected by stable path. Requires Grok ACCEPT-UNIT and root assent. QD-24 pure allocation and selection only: call before labels, separately per admitted stratum and evidence set. Caller establishes complete populations, frozen preregistration, membership and exposure. SHA-256 stream and partial Fisher-Yates are fixed implementation choices; QD-24 fixes literal seed, water-filling and uniform without-replacement selection. Repository-level disclosure, evidence ingestion, ledger freeze and qualification remain separate. No owner sign-off, O1-a completion or S-OP binding.
