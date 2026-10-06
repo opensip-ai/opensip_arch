@@ -1,0 +1,1127 @@
+diff --git a/Users/sb/code/opensip-ai/opensip-k1a/tools/quality/README.md b/Users/sb/code/opensip-ai/opensip-k1a/tools/quality/README.md
+new file mode 100644
+index 0000000..b764d5f
+--- /dev/null
++++ b/Users/sb/code/opensip-ai/opensip-k1a/tools/quality/README.md
+@@ -0,0 +1,40 @@
++# K1a quality harness inputs
++
++Implementation of Q0 r13 sections 1, 3 and 10 and the accepted T2b fetch
++specification. Harness tooling only; no product command, producer execution,
++measurement, adjudication result or qualification claim.
++
++Use the pinned Python with `-I -B`:
++
++```
++python3.14 -I -B tools/quality/corpus.py fetch --manifest MANIFEST --store STORE --temp-root PRIVATE_TMP --id ENTRY
++python3.14 -I -B tools/quality/corpus.py verify --manifest MANIFEST --store STORE --id ENTRY
++python3.14 -I -B tools/quality/corpus.py workspace --manifest MANIFEST --store STORE --workspaces WORKSPACES --id WORKSPACE
++python3.14 -I -B tools/quality/test_quality.py
++```
++
++Fetch reads Git objects without checkout, filters, hooks, submodule commands or
++LFS smudging. Git configuration and credentials are disabled. The session's
++owner forbids changing HOME; this implementation leaves HOME untouched and
++instead explicitly disables global/system Git configuration and supplies a
++private XDG configuration directory. Local acquisition requires `--local` and
++file URLs. No public corpus acquisition is needed to run the synthetic tests.
++
++The QD-22 digest streams the specified canonical array, without applying the
++record size limit to its preimage. Individual harness records retain CAN's
++4 MiB, depth, integer and exact-type limits. Stored trees are read-only and
++every reuse rehashes all bytes. Symlinks are never followed while hashing.
++
++Workspace assembly preserves the pinned overlay and renders the specified
++Cargo patches. npm and Python native rendering remains the discovery
++successor's open item; the result explicitly reports those undefined
++renderings. No package manager, installer or member file is invoked or edited.
++
++`records.py` supplies case-set admission, locked append-only ledgers, round
++freeze, input-based label compatibility and permanent exposure checks. The
++caller supplies all historical ledgers to the exposure check. These are
++libraries for K1b/K1c and K2, not a vote or qualification engine. A torn ledger
++refuses further append; it is not truncated or repaired.
++
++Owner sign-offs D3, D12 and D13 remain open. These input mechanisms make no
++selection, runner or qualification decision on the owner's behalf.
+diff --git a/Users/sb/code/opensip-ai/opensip-k1a/tools/quality/canonical.py b/Users/sb/code/opensip-ai/opensip-k1a/tools/quality/canonical.py
+new file mode 100644
+index 0000000..ba35aa9
+--- /dev/null
++++ b/Users/sb/code/opensip-ai/opensip-k1a/tools/quality/canonical.py
+@@ -0,0 +1,86 @@
++"""Foundation CAN bytes for harness records (Q0 r13, ground rules)."""
++import hashlib
++import json
++
++MAX_BYTES = 4 * 1024 * 1024
++
++
++class Refusal(ValueError):
++    """An input failed a named harness admission check."""
++
++
++def typed(value, depth=0):
++    if type(value) in (dict, list) and depth >= 32:
++        raise Refusal("DEPTH_LIMIT")
++    if value is None or type(value) is bool:
++        return
++    if type(value) is int:
++        if not -(2**63) <= value <= 2**64 - 1:
++            raise Refusal("INTEGER_RANGE")
++    elif type(value) is str:
++        try:
++            value.encode("utf-8", "strict")
++        except UnicodeError as exc:
++            raise Refusal("UNICODE_SCALAR_REQUIRED") from exc
++    elif type(value) is list:
++        for child in value:
++            typed(child, depth + 1)
++    elif type(value) is dict:
++        for key, child in value.items():
++            if type(key) is not str:
++                raise Refusal("STRING_KEY_REQUIRED")
++            typed(key, depth + 1)
++            typed(child, depth + 1)
++    else:
++        raise Refusal("EXACT_JSON_TYPE_REQUIRED")
++
++
++def canonical(value):
++    typed(value)
++    raw = json.dumps(value, ensure_ascii=False, sort_keys=True,
++                     separators=(",", ":"), allow_nan=False).encode("utf-8")
++    if len(raw) > MAX_BYTES:
++        raise Refusal("BYTE_LIMIT")
++    return raw
++
++
++def parse(raw):
++    if type(raw) is not bytes or len(raw) > MAX_BYTES:
++        raise Refusal("BYTE_LIMIT_OR_TYPE")
++
++    def pairs(items):
++        out = {}
++        for key, value in items:
++            if key in out:
++                raise Refusal("DUPLICATE_KEY")
++            out[key] = value
++        return out
++
++    def integer(text):
++        if text == "-0":
++            raise Refusal("NEGATIVE_ZERO")
++        return int(text)
++
++    def forbidden(_):
++        raise Refusal("FLOAT_OR_NONFINITE_FORBIDDEN")
++
++    try:
++        value = json.loads(raw.decode("utf-8", "strict"), object_pairs_hook=pairs,
++                           parse_int=integer, parse_float=forbidden,
++                           parse_constant=forbidden)
++        typed(value)
++        return value
++    except (ValueError, UnicodeError, RecursionError) as exc:
++        raise Refusal(str(exc)) from exc
++
++
++def digest(value):
++    return hashlib.sha256(canonical(value)).hexdigest()
++
++
++def sha256(raw):
++    return hashlib.sha256(raw).hexdigest()
++
++
++def pin(value):
++    return type(value) is str and len(value) == 64 and all(c in "0123456789abcdef" for c in value)
+diff --git a/Users/sb/code/opensip-ai/opensip-k1a/tools/quality/corpus.py b/Users/sb/code/opensip-ai/opensip-k1a/tools/quality/corpus.py
+new file mode 100644
+index 0000000..ee2acde
+--- /dev/null
++++ b/Users/sb/code/opensip-ai/opensip-k1a/tools/quality/corpus.py
+@@ -0,0 +1,60 @@
++"""Harness-only corpus acquisition CLI. Runs use store.verify directly."""
++import argparse
++import sys
++from pathlib import Path
++
++# Explicit local imports allow the documented -I -B invocation.
++sys.path.insert(0, str(Path(__file__).resolve().parent))
++from canonical import Refusal, canonical, parse, sha256
++from records import require
++from store import verify, workspace
++
++
++def main():
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("action", choices=("fetch", "verify", "workspace"))
++    parser.add_argument("--manifest", type=Path, required=True)
++    parser.add_argument("--store", type=Path, required=True)
++    parser.add_argument("--temp-root", type=Path)
++    parser.add_argument("--workspaces", type=Path)
++    parser.add_argument("--id", action="append", required=True)
++    parser.add_argument("--local", action="store_true", help="explicit local-only T3/synthetic file:// acquisition")
++    args = parser.parse_args()
++    try:
++        raw = args.manifest.read_bytes()
++        manifest = parse(raw)
++        entries = {r["id"]: r for r in manifest["repositories"]}
++        require(len(entries) == len(manifest["repositories"]), "MANIFEST-UNREADABLE")
++        require(manifest["treeDigestAlgorithm"]["id"] == "opensip-qd22-tree-sha256/1"
++                and manifest["contentDigestAlgorithm"]["id"] == "opensip-t2-content-sha256/1-draft", "MANIFEST-UNREADABLE")
++        definitions = {w["id"]: w for w in manifest["workspaces"]}
++        require(len(definitions) == len(manifest["workspaces"]), "MANIFEST-UNREADABLE")
++    except (Refusal, ValueError, OSError, KeyError, TypeError):
++        print(canonical({"refusal": "MANIFEST-UNREADABLE"}).decode())
++        return 1
++    failed = False
++    for id_ in args.id:
++        try:
++            if args.action == "workspace":
++                require(args.workspaces is not None and id_ in definitions, "MANIFEST-UNREADABLE")
++                result = workspace(args.workspaces, args.store, definitions[id_], entries)
++            else:
++                require(id_ in entries, "MANIFEST-UNREADABLE")
++                entry = entries[id_]
++                if args.action == "fetch":
++                    from fetch import acquire
++                    require(args.temp_root is not None, "MANIFEST-UNREADABLE")
++                    result = acquire(entry, sha256(raw), args.store, args.temp_root, local=args.local)
++                else:
++                    result = dict(verify(args.store / entry["treeDigest"]["value"], entry), entry=id_)
++            print(canonical(result).decode())
++        except (Refusal, ValueError, OSError, KeyError, TypeError) as exc:
++            failed = True
++            # IDs and typed refusals only; no held-out tree paths or contents.
++            code = str(exc) if isinstance(exc, Refusal) else "STORE-VERIFY-MISMATCH"
++            print(canonical({"entry": id_, "refusal": code}).decode())
++    return int(failed)
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/Users/sb/code/opensip-ai/opensip-k1a/tools/quality/fetch.py b/Users/sb/code/opensip-ai/opensip-k1a/tools/quality/fetch.py
+new file mode 100644
+index 0000000..e717270
+--- /dev/null
++++ b/Users/sb/code/opensip-ai/opensip-k1a/tools/quality/fetch.py
+@@ -0,0 +1,170 @@
++"""Explicit acquisition step. No run or verification path imports this module."""
++import datetime
++import hashlib
++import os
++import subprocess
++import tempfile
++from pathlib import Path
++from urllib.parse import urlsplit
++
++from canonical import Refusal, canonical, pin
++from records import require
++from store import check_link, check_paths, gitlinks, logical_path, remove_partial, tree_digests, verify
++
++
++def git_environment(scratch):
++    # The session's owner forbids changing HOME. All Git configuration, hooks,
++    # credentials and optional checkout/filter mechanisms are disabled explicitly.
++    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
++    env.update(GIT_CONFIG_NOSYSTEM="1", GIT_CONFIG_GLOBAL="/dev/null",
++               GIT_TERMINAL_PROMPT="0", GIT_LFS_SKIP_SMUDGE="1",
++               XDG_CONFIG_HOME=str(scratch), GIT_ALLOW_PROTOCOL="https:file")
++    return env
++
++
++def command(*args):
++    return ["git", "-c", "core.hooksPath=/dev/null", "-c", "credential.helper=",
++            "-c", "protocol.ext.allow=never", "-c", "init.templateDir=", *args]
++
++
++def git(bare, env, *args):
++    process = subprocess.run(command("--git-dir=" + str(bare), *args), env=env,
++                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
++    if process.returncode:
++        # Do not disclose content or held-out paths via Git's stderr.
++        raise Refusal("NETWORK-FAILURE")
++    return process.stdout
++
++
++def entry_pin(entry):
++    for name in ("commit", "gitTree"):
++        require(type(entry.get(name)) is str and len(entry[name]) == 40
++                and all(c in "0123456789abcdef" for c in entry[name]), "MANIFEST-UNREADABLE")
++    require(pin(entry["treeDigest"]["value"]) and pin(entry["contentDigest"]["value"]), "MANIFEST-UNREADABLE")
++    require(entry["treeDigest"]["algorithm"] == "opensip-qd22-tree-sha256/1"
++            and entry["contentDigest"]["algorithm"] == "opensip-t2-content-sha256/1-draft", "MANIFEST-UNREADABLE")
++    require(entry["lfsPolicy"]["policy"] in ("none", "pointers-only"), "MANIFEST-UNREADABLE")
++    gitlinks(entry)
++
++
++def acquire(entry, manifest_digest, store, temp_root, *, local=False):
++    """Fetch one pin, verify both hashes, publish read-only, retain no failed path.
++
++    local=True admits file:// URLs for T3/local synthetic tests. The default
++    acquisition only admits HTTPS GitHub repository URLs from T2's manifest.
++    """
++    entry_pin(entry)
++    require(pin(manifest_digest), "MANIFEST-UNREADABLE")
++    url = urlsplit(entry["url"])
++    require(not url.username and not url.password and not url.query and not url.fragment
++            and ((url.scheme == "https" and url.netloc == "github.com" and url.path.startswith("/"))
++                 or (local and url.scheme == "file" and not url.netloc)), "MANIFEST-UNREADABLE")
++    store = Path(store)
++    store.mkdir(parents=True, exist_ok=True)
++    key = entry["treeDigest"]["value"]
++    destination = store / key
++    if destination.exists() or destination.is_symlink():
++        return dict(verify(destination, entry), entry=entry["id"], reused=True)
++    stage = Path(tempfile.mkdtemp(prefix=key + ".partial.", dir=store))
++    published, receipt_owned = False, False
++    receipt_path = store / (key + ".admission.json")
++    try:
++        with tempfile.TemporaryDirectory(prefix="opensip-corpus-", dir=temp_root) as work:
++            work = Path(work)
++            work.chmod(0o700)
++            bare = work / "objects"
++            env = git_environment(work)
++            result = subprocess.run(command("init", "--bare", str(bare)), env=env,
++                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE)
++            require(result.returncode == 0, "NETWORK-FAILURE")
++            git(bare, env, "fetch", "--depth", "1", "--no-tags", "--", entry["url"], entry["commit"])
++            require(git(bare, env, "rev-parse", "FETCH_HEAD").decode().strip() == entry["commit"], "FETCH-COMMIT-MISMATCH")
++            require(git(bare, env, "rev-parse", entry["commit"] + "^{tree}").decode().strip() == entry["gitTree"], "GIT-TREE-MISMATCH")
++            objects = []
++            for row in git(bare, env, "ls-tree", "-r", "-z", "--full-tree", entry["commit"]).split(b"\x00"):
++                if not row:
++                    continue
++                info, path = row.split(b"\t", 1)
++                try:
++                    path = path.decode("utf-8", "strict")
++                except UnicodeError as exc:
++                    raise Refusal("NON-UTF8-PATH") from exc
++                mode, kind, oid = info.decode("ascii").split(" ")
++                require((kind == "blob" and mode in ("100644", "100755", "120000"))
++                        or (kind == "commit" and mode == "160000"), "UNEXPECTED-ENTRY-TYPE")
++                objects.append((logical_path(path), mode, kind, oid))
++            objects.sort(key=lambda r: r[0].encode("utf-8"))
++            check_paths([o[0] for o in objects])
++            require({p: oid for p, _, k, oid in objects if k == "commit"} == gitlinks(entry), "UNDECLARED-GITLINK")
++            rows, symlinks = [], []
++            with subprocess.Popen(command("--git-dir=" + str(bare), "cat-file", "--batch"), env=env, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
++                                  stderr=subprocess.DEVNULL) as batch:
++                try:
++                    for path, mode, kind, oid in objects:
++                        target = stage / path
++                        target.parent.mkdir(parents=True, exist_ok=True)
++                        if kind == "commit":
++                            target.mkdir()
++                            rows.append((path, mode, kind, oid))
++                            continue
++                        batch.stdin.write(oid.encode("ascii") + b"\n")
++                        batch.stdin.flush()
++                        header = batch.stdout.readline().decode("ascii").split()
++                        require(len(header) == 3 and header[0] == oid and header[1] == "blob", "UNEXPECTED-ENTRY-TYPE")
++                        size, h, link_bytes = int(header[2]), hashlib.sha256(), bytearray()
++                        with target.open("xb") as file:
++                            while size:
++                                block = batch.stdout.read(min(size, 1024 * 1024))
++                                require(bool(block), "UNEXPECTED-ENTRY-TYPE")
++                                size -= len(block)
++                                h.update(block)
++                                file.write(block)
++                                if mode == "120000":
++                                    link_bytes.extend(block)
++                        require(batch.stdout.read(1) == b"\n", "UNEXPECTED-ENTRY-TYPE")
++                        if mode == "120000":
++                            try:
++                                link = bytes(link_bytes).decode("utf-8", "strict")
++                            except UnicodeError as exc:
++                                raise Refusal("ESCAPING-SYMLINK") from exc
++                            check_link(path, link)
++                            symlinks.append((target, link))
++                        else:
++                            target.chmod(0o555 if mode == "100755" else 0o444)
++                        rows.append((path, mode, kind, h.hexdigest()))
++                    batch.stdin.close()
++                    require(batch.wait() == 0, "UNEXPECTED-ENTRY-TYPE")
++                except BaseException:
++                    batch.kill()
++                    batch.wait()
++                    raise
++            result = tree_digests(rows)
++            require(result["treeDigest"] == key, "TREE-DIGEST-MISMATCH")
++            require(result["contentDigest"] == entry["contentDigest"]["value"], "CONTENT-DIGEST-MISMATCH")
++            # Create symlinks only after all regular files are materialized.
++            for target, link in symlinks:
++                target.unlink()
++                target.symlink_to(link)
++            for directory, _, _ in os.walk(stage, followlinks=False):
++                Path(directory).chmod(0o555)
++            verify(stage, entry)
++            receipt = {k: entry[k] for k in ("id", "url", "commit", "gitTree", "treeDigest", "contentDigest", "licence", "family", "heldOut")}
++            receipt.update(manifestSha256=manifest_digest,
++                           fetchedAt=datetime.datetime.now(datetime.UTC).isoformat(),
++                           gitVersion=git(bare, env, "--version").decode().strip())
++            # A no-clobber publication: rename refuses an existing nonempty tree.
++            stage.rename(destination)
++            published = True
++            with receipt_path.open("xb") as file:
++                receipt_owned = True
++                file.write(canonical(receipt) + b"\n")
++            receipt_path.chmod(0o444)
++            return dict(result, entry=entry["id"], reused=False)
++    except BaseException:
++        if published:
++            remove_partial(destination)
++        if receipt_owned:
++            receipt_path.unlink()
++        raise
++    finally:
++        remove_partial(stage)
+diff --git a/Users/sb/code/opensip-ai/opensip-k1a/tools/quality/records.py b/Users/sb/code/opensip-ai/opensip-k1a/tools/quality/records.py
+new file mode 100644
+index 0000000..f04e339
+--- /dev/null
++++ b/Users/sb/code/opensip-ai/opensip-k1a/tools/quality/records.py
+@@ -0,0 +1,217 @@
++"""Case sets and append-only round ledgers, Q0 r13 sections 1 and 3.
++
++These libraries admit records and preserve their history. They perform no
++adjudication, scoring, producer execution or qualification.
++"""
++import fcntl
++import os
++from pathlib import Path
++
++from canonical import Refusal, canonical, digest, parse, pin, sha256
++
++CASE_KINDS = {"cell-observation", "finding", "refactor-pair", "determinism", "workload", "config-shape"}
++ORIGINS = {"oracle-fixture", "validated-seed", "fix-reversal", "negative-lookalike", "curated-differential", "curated-adjudication"}
++RECORD_KINDS = {
++    "adjudicator", "freeze", "item", "vote", "escalation", "resolution", "carry",
++    "calibration-result", "agreement", "drift-audit", "exposure", "supersede",
++}
++FREEZE_PINS = (
++    "caseSetDigest", "ruleSpecSetDigest", "rubricSetDigest", "familyMapDigest",
++    "heldOutSetDigest", "metricDefinitionsDigest", "preregistrationDigest",
++)
++HARD_COMPONENTS = (
++    "propositionId", "rubricDigest", "ruleSpecDigest", "ruleProgramDigest",
++    "detectorSemanticsMajor", "configurationDigest", "dependencySourceSetId", "preparedOutputSetId",
++)
++
++
++def require(condition, code):
++    if not condition:
++        raise Refusal(code)
++
++
++def case_record(record):
++    require(type(record) is dict, "CASE_NOT_OBJECT")
++    required = {"caseId", "caseKind", "tier", "origin", "heldOut", "inputs", "rule",
++                "subject", "requirement", "configuration", "expectedAnswer", "provenance"}
++    require(required <= record.keys(), "CASE_FIELDS")
++    require(type(record["caseId"]) is str and bool(record["caseId"]), "CASE_ID")
++    require(record["caseKind"] in CASE_KINDS, "CASE_KIND")
++    require(record["tier"] in ("T1", "T2", "T3"), "CASE_TIER")
++    require(record["origin"] in ORIGINS, "CASE_ORIGIN")
++    require(type(record["heldOut"]) is bool, "HELD_OUT_TYPE")
++    if record["tier"] != "T1":
++        require(type(record.get("family")) is str and bool(record["family"]), "CASE_FAMILY")
++    for field in ("inputs", "rule", "subject", "requirement", "configuration", "expectedAnswer", "provenance"):
++        require(type(record[field]) is dict and bool(record[field]), "CASE_" + field.upper())
++    rule = record["rule"]
++    require(type(rule.get("ruleId")) is str and bool(rule["ruleId"]) and pin(rule.get("ruleSpecDigest")), "CASE_RULE")
++    inputs = record["inputs"]
++    if record["tier"] == "T1":
++        require(pin(inputs.get("fixtureManifestDigest")), "FIXTURE_MANIFEST")
++    else:
++        require(type(inputs.get("repository")) is str and bool(inputs["repository"])
++                and type(inputs.get("commit")) is str and bool(inputs["commit"])
++                and pin(inputs.get("treeDigest")), "CASE_REPOSITORY")
++    if record["origin"] == "validated-seed":
++        require(pin(inputs.get("controlTreeDigest")) and pin(inputs.get("mutantPatchDigest")), "SEED_PINS")
++    answer = record["expectedAnswer"]
++    kind = answer.get("kind")
++    require(kind in ("determinate-positive", "determinate-negative", "must-abstain"), "EXPECTED_ANSWER")
++    if kind == "determinate-positive":
++        require(type(answer.get("expectedFinding")) is dict and bool(answer["expectedFinding"]), "EXPECTED_FINDING")
++    if kind == "must-abstain":
++        require(bool(answer.get("expectedDeficiency")) and type(answer.get("positiveSoundUnderDeficiency")) is bool, "EXPECTED_DEFICIENCY")
++    if record["caseKind"] == "cell-observation":
++        require(type(record.get("cell")) is dict and bool(record["cell"]), "EXPECTED_CELL")
++    body = {k: v for k, v in record.items() if k != "caseDigest"}
++    result = dict(body, caseDigest=digest(body))
++    require("caseDigest" not in record or record["caseDigest"] == result["caseDigest"], "CASE_DIGEST")
++    canonical(result)
++    return result
++
++
++def case_set(records):
++    rows = sorted((case_record(r) for r in records), key=lambda r: r["caseId"].encode("utf-8"))
++    require(len({r["caseId"] for r in rows}) == len(rows), "DUPLICATE_CASE_ID")
++    return b"".join(canonical(r) + b"\n" for r in rows)
++
++
++def read_cases(raw):
++    require(type(raw) is bytes and (not raw or raw.endswith(b"\n")), "CASE_SET_NEWLINE")
++    rows = [parse(line) for line in raw.splitlines()]
++    require(all("caseDigest" in r for r in rows), "CASE_DIGEST_MISSING")
++    require(case_set(rows) == raw, "CASE_SET_NOT_CANONICAL")
++    return rows
++
++
++def read_ledger(raw):
++    require(type(raw) is bytes and (not raw or raw.endswith(b"\n")), "LEDGER_NEWLINE")
++    rows, seen, prev = [], set(), None
++    for line in raw.splitlines():
++        record = parse(line)
++        require(type(record) is dict and canonical(record) == line, "LEDGER_NOT_CANONICAL")
++        require(record.get("recordKind") in RECORD_KINDS, "RECORD_KIND")
++        fields = {
++            "adjudicator": ("voterId", "kind", "designatedExpert", "conflictedRules"),
++            "item": ("itemId", "labelKey", "queue", "calibration", "presentationDigest"),
++            "vote": ("itemId", "voterId", "label", "rationale", "triageMillis", "rubricDigest"),
++            "escalation": ("itemId", "reason"),
++            "resolution": ("itemId", "label", "method", "voteRecords"),
++            "carry": ("sourceResolution", "labelKey", "components", "carried"),
++            "calibration-result": ("voterId", "items", "correct", "knownFalseLabelledTrue", "passed"),
++            "agreement": ("ruleId", "n", "rawAgreementPpm", "kappaPpm", "prevalencePpm", "triggered"),
++            "drift-audit": ("ruleId", "sample", "seed", "results", "triggered"),
++        }
++        kind = record["recordKind"]
++        require(all(k in record for k in fields.get(kind, ())), "RECORD_FIELDS")
++        if kind == "adjudicator":
++            require(record["kind"] in ("human", "agent") and type(record["designatedExpert"]) is bool
++                    and type(record["conflictedRules"]) is list and bool(record["voterId"]), "ADJUDICATOR_RECORD")
++            if record["kind"] == "agent":
++                require(all(type(record.get(k)) is str and bool(record[k])
++                            for k in ("modelFamily", "modelId", "contextClass")), "AGENT_REGISTRATION")
++        if kind == "item":
++            require(type(record["calibration"]) is bool and pin(record["presentationDigest"]), "ITEM_RECORD")
++        if kind in ("vote", "resolution"):
++            require(record["label"] in ("true", "false", "unclear"), "LABEL_RECORD")
++        if kind == "vote":
++            require(type(record["triageMillis"]) is int and record["triageMillis"] >= 0
++                    and pin(record["rubricDigest"]) and type(record["rationale"]) is str
++                    and bool(record["rationale"]), "VOTE_RECORD")
++        if kind == "escalation":
++            require(record["reason"] in ("disagreement", "unclear-gating"), "ESCALATION_RECORD")
++        if kind == "resolution":
++            require(record["method"] in ("agreement", "expert")
++                    and type(record["voteRecords"]) is list
++                    and all(v in seen for v in record["voteRecords"]), "RESOLUTION_RECORD")
++            if record["method"] == "expert":
++                require(bool(record.get("expertRationale")), "EXPERT_RATIONALE")
++        if kind == "carry":
++            # The source is commonly in a previous round's ledger. Do not
++            # pretend the current chain alone proves its provenance.
++            require(pin(record["sourceResolution"]) and type(record["carried"]) is bool
++                    and type(record["components"]) is dict, "CARRY_RECORD")
++        require(record.get("prevRecordDigest") == prev, "LEDGER_CHAIN")
++        body = {k: v for k, v in record.items() if k != "recordDigest"}
++        require(record.get("recordDigest") == digest(body), "RECORD_DIGEST")
++        if not rows:
++            require(record["recordKind"] == "freeze", "ROUND_NOT_FROZEN")
++        else:
++            require(record["recordKind"] != "freeze", "ROUND_ALREADY_FROZEN")
++        if record["recordKind"] == "freeze":
++            require(all(pin(record.get(k)) for k in FREEZE_PINS), "FREEZE_PINS")
++        if record["recordKind"] == "supersede":
++            require(record.get("replaces") in seen and bool(record.get("why")), "SUPERSEDE_REFERENCE")
++        if record["recordKind"] == "exposure":
++            require(record.get("scope") in ("case", "repository", "family")
++                    and type(record.get("subject")) is str and bool(record["subject"])
++                    and all(bool(record.get(k)) for k in ("who", "when", "what")), "EXPOSURE_RECORD")
++        prev = record["recordDigest"]
++        seen.add(prev)
++        rows.append(record)
++    return rows
++
++
++def append_record(path, record):
++    """Validate the existing chain under an exclusive lock, then append and sync.
++
++    No repair of torn files, replacement, truncation, or update API is provided.
++    All writers of one round must use this function.
++    """
++    path = Path(path)
++    flags = os.O_RDWR | os.O_CREAT | os.O_APPEND | os.O_NOFOLLOW | os.O_CLOEXEC
++    fd = os.open(path, flags, 0o600)
++    try:
++        fcntl.flock(fd, fcntl.LOCK_EX)
++        with os.fdopen(os.dup(fd), "rb") as reader:
++            raw = reader.read()
++        rows = read_ledger(raw)
++        require(type(record) is dict and "recordDigest" not in record and "prevRecordDigest" not in record, "CALLER_CHAIN_FIELDS")
++        body = dict(record, prevRecordDigest=rows[-1]["recordDigest"] if rows else None)
++        result = dict(body, recordDigest=digest(body))
++        line = canonical(result) + b"\n"
++        read_ledger(raw + line)
++        written = 0
++        while written < len(line):
++            written += os.write(fd, line[written:])
++        os.fsync(fd)
++        return result
++    finally:
++        os.close(fd)
++
++
++def freeze(path, inputs):
++    """Digest the seven exact input byte sets; validate the case-set bytes."""
++    require(set(inputs) == set(FREEZE_PINS), "FREEZE_INPUTS")
++    read_cases(inputs["caseSetDigest"])
++    for key, raw in inputs.items():
++        require(type(raw) is bytes, "FREEZE_INPUT_BYTES")
++        if key != "caseSetDigest":
++            require(canonical(parse(raw)) == raw, "FREEZE_INPUT_NOT_CANONICAL")
++    return append_record(path, dict(recordKind="freeze", **{key: sha256(raw) for key, raw in inputs.items()}))
++
++
++def carry_comparison(old, new, old_outputs, new_outputs):
++    """Inputs authorize carry; unexplained changed outputs additionally requeue."""
++    fields = HARD_COMPONENTS + ("truthInputDigest",)
++    require(all(k in old and k in new for k in fields), "LABEL_KEY_FIELDS")
++    same = {k: canonical(old[k]) == canonical(new[k]) for k in fields}
++    inputs_equal = all(same.values())
++    changed_outputs = canonical(old_outputs) != canonical(new_outputs)
++    return {"components": same, "carried": inputs_equal and not changed_outputs,
++            "requeue": not inputs_equal or changed_outputs,
++            "determinismDefect": inputs_equal and changed_outputs}
++
++
++def held_out_eligible(case, ledger_bytes):
++    """Exposure is permanent, including if its record was later superseded.
++
++    The caller supplies every prior round's ledger as well as the current one;
++    a new freeze does not reset the history.
++    """
++    if not case["heldOut"]:
++        return False
++    subjects = {"case": case["caseId"], "repository": case["inputs"].get("repository"), "family": case.get("family")}
++    return not any(r["recordKind"] == "exposure" and subjects[r["scope"]] == r["subject"]
++                   for raw in ledger_bytes for r in read_ledger(raw))
+diff --git a/Users/sb/code/opensip-ai/opensip-k1a/tools/quality/store.py b/Users/sb/code/opensip-ai/opensip-k1a/tools/quality/store.py
+new file mode 100644
+index 0000000..27b9848
+--- /dev/null
++++ b/Users/sb/code/opensip-ai/opensip-k1a/tools/quality/store.py
+@@ -0,0 +1,205 @@
++"""Offline corpus verification and pinned workspace overlays (Q0 section 10).
++
++This module has no subprocess or network path. Acquisition lives in fetch.py.
++"""
++import hashlib
++import os
++import posixpath
++import shutil
++import stat
++import unicodedata
++from pathlib import Path
++
++from canonical import Refusal, canonical, digest, pin
++from records import require
++
++
++def logical_path(path):
++    require(type(path) is str and path and not path.startswith("/")
++            and all(p not in ("", ".", "..") for p in path.split("/"))
++            and "\x00" not in path and "\\" not in path, "UNEXPECTED-ENTRY-TYPE")
++    try:
++        path.encode("utf-8", "strict")
++    except UnicodeError as exc:
++        raise Refusal("NON-UTF8-PATH") from exc
++    return path
++
++
++def check_paths(paths):
++    """Check files and directory prefixes, without conflating repeated prefixes."""
++    names, leaves = {}, set()
++    for path in paths:
++        logical_path(path)
++        require(path not in leaves, "UNEXPECTED-ENTRY-TYPE")
++        leaves.add(path)
++        parts = path.split("/")
++        for n in range(1, len(parts) + 1):
++            prefix = "/".join(parts[:n])
++            folded = unicodedata.normalize("NFC", prefix).casefold()
++            require(folded not in names or names[folded] == prefix, "CASEFOLD-COLLISION")
++            names[folded] = prefix
++    for path in leaves:
++        parts = path.split("/")
++        require(not any("/".join(parts[:n]) in leaves for n in range(1, len(parts))), "UNEXPECTED-ENTRY-TYPE")
++
++
++def check_link(path, target):
++    require(type(target) is str and target and "\x00" not in target
++            and "\\" not in target and not target.startswith("/"), "ESCAPING-SYMLINK")
++    resolved = posixpath.normpath(posixpath.join(posixpath.dirname(path), target))
++    require(resolved != ".." and not resolved.startswith("../"), "ESCAPING-SYMLINK")
++
++
++def tree_digests(rows):
++    """Stream the exact QD-22 array preimage, including preimages over 4 MiB.
++
++    rows are (path, git mode, type, sha256(blob) or gitlink commit).
++    Each array element uses CAN; the complete preimage is not a record.
++    """
++    rows = sorted(rows, key=lambda r: r[0].encode("utf-8"))
++    check_paths([r[0] for r in rows])
++    tree, content = hashlib.sha256(), hashlib.sha256()
++    tree.update(b"[")
++    first = True
++    for path, mode, kind, value in rows:
++        require((kind == "blob" and mode in ("100644", "100755", "120000") and pin(value))
++                or (kind == "commit" and mode == "160000" and type(value) is str
++                    and len(value) == 40 and all(c in "0123456789abcdef" for c in value)), "UNEXPECTED-ENTRY-TYPE")
++        content.update((mode + " " + kind + " " + value + " " + path).encode("utf-8") + b"\x00")
++        if kind == "blob":
++            if not first:
++                tree.update(b",")
++            tree.update(canonical([path, mode, value]))
++            first = False
++    tree.update(b"]")
++    return {"treeDigest": tree.hexdigest(), "contentDigest": content.hexdigest()}
++
++
++def gitlinks(entry):
++    policy = entry["submodulePolicy"]
++    require(policy["policy"] in ("none", "exclude-pinned"), "UNDECLARED-GITLINK")
++    links = policy["gitlinks"]
++    result = {}
++    for item in links:
++        path = logical_path(item["path"])
++        require(path not in result, "UNDECLARED-GITLINK")
++        result[path] = item["commit"]
++    require(policy["policy"] != "none" or not result, "UNDECLARED-GITLINK")
++    return result
++
++
++def scan_tree(root, entry):
++    """Do not follow symlinks. Hash files through checked, no-follow fds."""
++    root = Path(root)
++    require(root.is_dir() and not root.is_symlink(), "STORE-VERIFY-MISMATCH")
++    links, rows, directories = gitlinks(entry), [], set()
++    stack = [(root, "")]
++    while stack:
++        directory, prefix = stack.pop()
++        require(stat.S_IMODE(directory.stat().st_mode) == 0o555, "STORE-VERIFY-MISMATCH")
++        for child in directory.iterdir():
++            path = prefix + child.name
++            logical_path(path)
++            st = child.lstat()
++            if stat.S_ISLNK(st.st_mode):
++                target = os.readlink(child)
++                check_link(path, target)
++                try:
++                    require(child.resolve().is_relative_to(root.resolve()), "ESCAPING-SYMLINK")
++                except (RuntimeError, OSError) as exc:
++                    raise Refusal("ESCAPING-SYMLINK") from exc
++                rows.append((path, "120000", "blob", hashlib.sha256(target.encode("utf-8")).hexdigest()))
++            elif stat.S_ISDIR(st.st_mode):
++                directories.add(path)
++                if path in links:
++                    require(not any(child.iterdir()) and stat.S_IMODE(st.st_mode) == 0o555, "UNDECLARED-GITLINK")
++                    rows.append((path, "160000", "commit", links[path]))
++                else:
++                    stack.append((child, path + "/"))
++            elif stat.S_ISREG(st.st_mode):
++                mode = stat.S_IMODE(st.st_mode)
++                require(mode in (0o444, 0o555), "STORE-VERIFY-MISMATCH")
++                h = hashlib.sha256()
++                fd = os.open(child, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
++                with os.fdopen(fd, "rb") as file:
++                    opened = os.fstat(file.fileno())
++                    require((st.st_dev, st.st_ino) == (opened.st_dev, opened.st_ino), "STORE-VERIFY-MISMATCH")
++                    for block in iter(lambda: file.read(1024 * 1024), b""):
++                        h.update(block)
++                    final = os.fstat(file.fileno())
++                    require((opened.st_size, opened.st_mtime_ns, opened.st_ctime_ns) ==
++                            (final.st_size, final.st_mtime_ns, final.st_ctime_ns), "STORE-VERIFY-MISMATCH")
++                rows.append((path, "100755" if mode == 0o555 else "100644", "blob", h.hexdigest()))
++            else:
++                raise Refusal("UNEXPECTED-ENTRY-TYPE")
++    require(set(links) <= directories, "UNDECLARED-GITLINK")
++    # Extra empty directories are not present in git trees and must not be ignored.
++    prefixes = {"/".join(r[0].split("/")[:i]) for r in rows for i in range(1, len(r[0].split("/")))}
++    require(directories == prefixes | set(links), "STORE-VERIFY-MISMATCH")
++    return tree_digests(rows)
++
++
++def verify(root, entry):
++    result = scan_tree(root, entry)
++    require(result["treeDigest"] == entry["treeDigest"]["value"]
++            and result["contentDigest"] == entry["contentDigest"]["value"], "STORE-VERIFY-MISMATCH")
++    return result
++
++
++def remove_partial(path):
++    """Remove only the caller's own staging tree, without following its links."""
++    path = Path(path)
++    if path.exists():
++        for directory, _, _ in os.walk(path, followlinks=False):
++            os.chmod(directory, 0o700)
++        shutil.rmtree(path)
++
++
++def workspace(root, store, definition, entries):
++    """Reverify members, preserve the exact overlay, render only defined Cargo links."""
++    root, store = Path(root), Path(store).resolve()
++    logical_path(definition["id"])
++    require("/" not in definition["id"], "WORKSPACE-ID")
++    overlay = definition["overlay"]
++    require(digest(overlay) == definition["overlayDigest"], "OVERLAY-DIGEST-MISMATCH")
++    members = definition["memberIds"]
++    require(len(set(members)) == len(members) and set(members) <= entries.keys(), "WORKSPACE-MEMBERS")
++    require(overlay["workspace"] == definition["id"]
++            and {m["entry"] for m in overlay["members"]} == set(members)
++            and len(overlay["members"]) == len(members), "WORKSPACE-MEMBERS")
++    for member in overlay["members"]:
++        id_ = member["entry"]
++        require(member["mount"] == id_ and "/" not in logical_path(id_)
++                and member["treeDigest"] == entries[id_]["treeDigest"]["value"], "WORKSPACE-MEMBERS")
++        verify(store / member["treeDigest"], entries[id_])
++    destination = root / definition["id"]
++    require(not destination.exists() and not destination.is_symlink(), "WORKSPACE-EXISTS")
++    root.mkdir(parents=True, exist_ok=True)
++    import tempfile
++    stage = Path(tempfile.mkdtemp(prefix=definition["id"] + ".", dir=root))
++    try:
++        for member in overlay["members"]:
++            (stage / member["mount"]).symlink_to(store / member["treeDigest"], target_is_directory=True)
++        (stage / "workspace-overlay.json").write_bytes(canonical(overlay))
++        cargo = overlay["links"].get("cargo", {})
++        if cargo:
++            lines = ["[patch.crates-io]"]
++            for name, target in sorted(cargo.items()):
++                logical_path(target)
++                require(target.split("/")[0] in members, "WORKSPACE-LINK")
++                # JSON string quoting is also valid for TOML basic strings here.
++                lines.append(canonical(name).decode() + " = { path = " + canonical(target).decode() + " }")
++            (stage / ".cargo").mkdir()
++            (stage / ".cargo/config.toml").write_text("\n".join(lines) + "\n")
++        for directory, _, files in os.walk(stage, followlinks=False):
++            for filename in files:
++                child = Path(directory) / filename
++                if not child.is_symlink():
++                    child.chmod(0o444)
++            Path(directory).chmod(0o555)
++        stage.rename(destination)
++    finally:
++        remove_partial(stage)
++    return {"workspace": definition["id"], "overlayDigest": definition["overlayDigest"],
++            "renderings": ["cargo"] if cargo else [],
++            "undefinedRenderings": sorted(set(overlay["links"]) - {"cargo"})}
+diff --git a/Users/sb/code/opensip-ai/opensip-k1a/tools/quality/test_quality.py b/Users/sb/code/opensip-ai/opensip-k1a/tools/quality/test_quality.py
+new file mode 100644
+index 0000000..66e03c1
+--- /dev/null
++++ b/Users/sb/code/opensip-ai/opensip-k1a/tools/quality/test_quality.py
+@@ -0,0 +1,307 @@
++"""Synthetic K1a controls. No public corpus or private fixture is read."""
++import copy
++import hashlib
++import json
++import os
++import subprocess
++import sys
++import tempfile
++import unittest
++from pathlib import Path
++
++sys.path.insert(0, str(Path(__file__).resolve().parent))
++from canonical import Refusal, canonical, digest, parse, sha256
++from fetch import acquire, command, git_environment
++from records import (FREEZE_PINS, HARD_COMPONENTS, append_record, carry_comparison,
++                     case_set, freeze, held_out_eligible, read_cases, read_ledger)
++from store import check_link, check_paths, remove_partial, tree_digests, verify, workspace
++
++PIN = "a" * 64
++
++
++def case(id_="case-one"):
++    return {"caseId": id_, "caseKind": "finding", "tier": "T2", "origin": "oracle-fixture",
++            "heldOut": True, "family": "family-one", "inputs": {"repository": "synthetic", "commit": "c" * 40, "treeDigest": PIN},
++            "rule": {"ruleId": "rule-one", "ruleSpecDigest": PIN}, "subject": {"kind": "file", "key": "a.rs", "universe": "synthetic"},
++            "requirement": {"relation": "imports", "rung": "resolved", "universe": "synthetic"},
++            "configuration": {"mode": "source-only"}, "expectedAnswer": {"kind": "determinate-negative"},
++            "provenance": {"author": "synthetic-oracle"}}
++
++
++class Records(unittest.TestCase):
++    def setUp(self):
++        self.tmp = tempfile.TemporaryDirectory()
++        self.addCleanup(self.tmp.cleanup)
++        self.ledger = Path(self.tmp.name) / "round.jsonl"
++
++    def frozen(self):
++        inputs = {k: canonical([]) for k in FREEZE_PINS}
++        inputs["caseSetDigest"] = case_set([case()])
++        return freeze(self.ledger, inputs)
++
++    def test_case_bytes_sorted_unique_and_pinned(self):
++        raw = case_set([case("z"), case("a")])
++        self.assertEqual([r["caseId"] for r in read_cases(raw)], ["a", "z"])
++        with self.assertRaises(Refusal):
++            case_set([case(), case()])
++        changed = read_cases(raw)[0]
++        changed["expectedAnswer"]["kind"] = "must-abstain"
++        with self.assertRaises(Refusal):
++            case_set([changed])
++
++    def test_case_set_rejects_whitespace_order_missing_pin(self):
++        rows = read_cases(case_set([case("a"), case("z")]))
++        for raw in (b"\n".join(canonical(r) for r in reversed(rows)) + b"\n",
++                    b" " + case_set(rows), case_set(rows).rstrip(b"\n")):
++            with self.assertRaises(Refusal):
++                read_cases(raw)
++        del rows[0]["caseDigest"]
++        with self.assertRaises(Refusal):
++            read_cases(canonical(rows[0]) + b"\n")
++
++    def test_abstain_and_seed_constraints(self):
++        for answer in ({"kind": "determinate-positive"}, {"kind": "must-abstain"}):
++            row = case()
++            row["expectedAnswer"] = answer
++            with self.assertRaises(Refusal):
++                case_set([row])
++        row["expectedAnswer"] = {"kind": "must-abstain", "expectedDeficiency": "missing", "positiveSoundUnderDeficiency": False}
++        read_cases(case_set([row]))
++        row["origin"] = "validated-seed"
++        with self.assertRaises(Refusal):
++            case_set([row])
++
++    def test_foundation_exact_types_and_limits(self):
++        for raw in (b'{"x":1,"x":2}', b"-0", b"1.0", b"NaN", b'"\\ud800"', b"18446744073709551616"):
++            with self.assertRaises(Refusal):
++                parse(raw)
++        for value in (1.0, {1: "x"}, "x" * (4 * 1024 * 1024)):
++            with self.assertRaises(Refusal):
++                canonical(value)
++        value = []
++        for _ in range(32):
++            value = [value]
++        with self.assertRaises(Refusal):
++            canonical(value)
++        self.assertEqual(parse(canonical({"😀": "é", "a": -(2**63)})), {"😀": "é", "a": -(2**63)})
++
++    def test_round_freeze_append_and_history(self):
++        first = self.frozen()
++        second = append_record(self.ledger, {"recordKind": "adjudicator", "voterId": "synthetic", "kind": "human", "designatedExpert": False, "conflictedRules": []})
++        self.assertEqual(second["prevRecordDigest"], first["recordDigest"])
++        old = self.ledger.read_bytes()
++        append_record(self.ledger, {"recordKind": "supersede", "replaces": second["recordDigest"], "why": "synthetic correction"})
++        self.assertTrue(self.ledger.read_bytes().startswith(old))
++        self.assertEqual(len(read_ledger(self.ledger.read_bytes())), 3)
++        with self.assertRaises(Refusal):
++            self.frozen()
++
++    def test_chain_tamper_and_torn_append_refuse(self):
++        self.frozen()
++        raw = self.ledger.read_bytes()
++        for broken in (raw[:-1], raw.replace(PIN[:8].encode(), b"bbbbbbbb", 1), raw + raw):
++            # A replacement need not find PIN in a hash-only freeze.
++            if broken == raw:
++                continue
++            self.ledger.write_bytes(broken)
++            with self.assertRaises(Refusal):
++                append_record(self.ledger, {"recordKind": "item"})
++            self.assertEqual(self.ledger.read_bytes(), broken)
++
++    def test_supersede_requires_prior_reference(self):
++        self.frozen()
++        with self.assertRaises(Refusal):
++            append_record(self.ledger, {"recordKind": "supersede", "replaces": PIN, "why": "not present"})
++
++    def test_exposure_is_permanent_across_freezes_and_supersede(self):
++        self.frozen()
++        self.assertTrue(held_out_eligible(case(), [self.ledger.read_bytes()]))
++        exposed = append_record(self.ledger, {"recordKind": "exposure", "scope": "family", "subject": "family-one", "who": "synthetic", "when": "2026-10-05", "what": "labels"})
++        append_record(self.ledger, {"recordKind": "supersede", "replaces": exposed["recordDigest"], "why": "cannot undo exposure"})
++        history = self.ledger.read_bytes()
++        self.ledger = Path(self.tmp.name) / "round-two.jsonl"
++        self.frozen()
++        self.assertFalse(held_out_eligible(case(), [history, self.ledger.read_bytes()]))
++
++    def test_each_hard_component_and_truth_closure_is_required(self):
++        key = {k: PIN for k in HARD_COMPONENTS + ("truthInputDigest",)}
++        self.assertTrue(carry_comparison(key, key, {}, {})["carried"])
++        for field in key:
++            new = dict(key, **{field: "b" * 64})
++            result = carry_comparison(key, new, {}, {})
++            self.assertFalse(result["carried"])
++            self.assertTrue(result["requeue"])
++        self.assertTrue(carry_comparison(key, key, {"evidenceRefs": []}, {"evidenceRefs": [PIN]})["determinismDefect"])
++
++
++class Store(unittest.TestCase):
++    def setUp(self):
++        self.tmp = tempfile.TemporaryDirectory()
++        self.addCleanup(self.tmp.cleanup)
++        self.root = Path(self.tmp.name)
++        self.store = self.root / "store"
++        self.repo = self.root / "source"
++        env = git_environment(self.root)
++        def run(*args):
++            p = subprocess.run(command(*args), cwd=self.repo if self.repo.exists() else self.root,
++                               env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
++            return p.stdout
++        self.run_git = run
++        run("init", str(self.repo))
++        (self.repo / "nested").mkdir()
++        (self.repo / "nested/a.txt").write_bytes(b"synthetic bytes\n")
++        (self.repo / "exec.sh").write_bytes(b"#!/bin/sh\nexit 99\n")
++        (self.repo / "exec.sh").chmod(0o755)
++        (self.repo / "link").symlink_to("nested/a.txt")
++        run("add", ".")
++        run("-c", "user.name=sfbreen", "-c", "user.email=sfbreen@hotmail.com", "commit", "-m", "Synthetic corpus fixture")
++        rows = []
++        for raw in run("ls-tree", "-r", "-z", "HEAD").split(b"\0"):
++            if raw:
++                info, path = raw.split(b"\t")
++                mode, kind, oid = info.decode().split()
++                rows.append((path.decode(), mode, kind, sha256(run("cat-file", "blob", oid))))
++        pins = tree_digests(rows)
++        self.entry = {"id": "synthetic", "url": self.repo.as_uri(), "commit": run("rev-parse", "HEAD").decode().strip(),
++                      "gitTree": run("rev-parse", "HEAD^{tree}").decode().strip(),
++                      "treeDigest": {"algorithm": "opensip-qd22-tree-sha256/1", "value": pins["treeDigest"]},
++                      "contentDigest": {"algorithm": "opensip-t2-content-sha256/1-draft", "value": pins["contentDigest"]},
++                      "submodulePolicy": {"policy": "none", "gitlinks": []}, "lfsPolicy": {"policy": "none"},
++                      "licence": {"spdx": "MIT"}, "family": "synthetic", "heldOut": False}
++        self.addCleanup(self.clean_store)
++
++    def clean_store(self):
++        remove_partial(self.store)
++        remove_partial(self.root / "workspaces")
++
++    def fetch(self, entry=None):
++        return acquire(entry or self.entry, PIN, self.store, self.root, local=True)
++
++    def test_local_materialization_readonly_reuse_both_digests(self):
++        self.assertFalse(self.fetch()["reused"])
++        destination = self.store / self.entry["treeDigest"]["value"]
++        self.assertTrue(self.fetch()["reused"])
++        self.assertEqual(os.readlink(destination / "link"), "nested/a.txt")
++        self.assertEqual((destination / "exec.sh").stat().st_mode & 0o777, 0o555)
++        self.assertEqual((destination / "nested/a.txt").stat().st_mode & 0o777, 0o444)
++        verify(destination, self.entry)
++
++    def test_corrupt_store_is_refused_on_reuse(self):
++        self.fetch()
++        file = self.store / self.entry["treeDigest"]["value"] / "nested/a.txt"
++        file.chmod(0o644)
++        file.write_bytes(b"forged")
++        file.chmod(0o444)
++        with self.assertRaisesRegex(Refusal, "STORE-VERIFY-MISMATCH"):
++            self.fetch()
++
++    def test_refused_digest_leaves_no_partial_store(self):
++        entry = copy.deepcopy(self.entry)
++        entry["treeDigest"]["value"] = PIN
++        with self.assertRaisesRegex(Refusal, "TREE-DIGEST-MISMATCH"):
++            self.fetch(entry)
++        self.assertEqual(list(self.store.iterdir()), [])
++
++    def test_content_digest_is_independent_check(self):
++        entry = copy.deepcopy(self.entry)
++        entry["contentDigest"]["value"] = PIN
++        with self.assertRaisesRegex(Refusal, "CONTENT-DIGEST-MISMATCH"):
++            self.fetch(entry)
++        self.assertEqual(list(self.store.iterdir()), [])
++
++    def test_git_tree_and_commit_crosschecks(self):
++        entry = copy.deepcopy(self.entry)
++        entry["gitTree"] = "a" * 40
++        with self.assertRaisesRegex(Refusal, "GIT-TREE-MISMATCH"):
++            self.fetch(entry)
++
++    def test_path_and_symlink_refusals(self):
++        for paths in (["a", "A"], ["dir/a", "DIR/b"], ["é/a", "é/b"], ["a", "a/b"]):
++            with self.assertRaises(Refusal):
++                check_paths(paths)
++        for target in ("/etc/passwd", "../outside", "a/../../outside"):
++            with self.assertRaises(Refusal):
++                check_link("link", target)
++        check_link("dir/link", "../inside")
++
++    def test_streaming_digest_matches_independent_large_array(self):
++        rows = [(f"file-{n:06d}", "100644", "blob", PIN) for n in range(50000)]
++        expected = hashlib.sha256(json.dumps([[p, m, h] for p, m, _, h in rows], ensure_ascii=False, separators=(",", ":")).encode()).hexdigest()
++        self.assertEqual(tree_digests(reversed(rows))["treeDigest"], expected)
++
++    def test_workspace_overlay_cargo_only(self):
++        self.fetch()
++        overlay = {"workspace": "synthetic-workspace", "members": [{"entry": "synthetic", "mount": "synthetic", "treeDigest": self.entry["treeDigest"]["value"]}], "links": {"cargo": {"synthetic-lib": "synthetic/nested"}, "npm": {"synthetic": "synthetic/nested"}}}
++        definition = {"id": "synthetic-workspace", "memberIds": ["synthetic"], "overlay": overlay, "overlayDigest": digest(overlay)}
++        result = workspace(self.root / "workspaces", self.store, definition, {"synthetic": self.entry})
++        self.assertEqual(result["undefinedRenderings"], ["npm"])
++        dest = self.root / "workspaces/synthetic-workspace"
++        self.assertEqual((dest / "workspace-overlay.json").read_bytes(), canonical(overlay))
++        self.assertIn('"synthetic-lib" = { path = "synthetic/nested" }', (dest / ".cargo/config.toml").read_text())
++
++    def test_network_or_local_step_is_explicit(self):
++        with self.assertRaises(Refusal):
++            acquire(self.entry, PIN, self.store, self.root)
++        env = git_environment(self.root)
++        self.assertNotIn("GIT_CONFIG_COUNT", env)
++        self.assertNotIn("GIT_DIR", env)
++        self.assertNotIn("GIT_WORK_TREE", env)
++        self.assertEqual(env.get("HOME"), os.environ.get("HOME"))
++
++    def test_gitlinks_are_pinned_empty_directories(self):
++        commit = self.entry["commit"]
++        self.run_git("update-index", "--add", "--cacheinfo", "160000," + commit + ",module")
++        self.run_git("-c", "user.name=sfbreen", "-c", "user.email=sfbreen@hotmail.com", "commit", "-m", "Synthetic excluded gitlink")
++        entry = copy.deepcopy(self.entry)
++        entry["commit"] = self.run_git("rev-parse", "HEAD").decode().strip()
++        entry["gitTree"] = self.run_git("rev-parse", "HEAD^{tree}").decode().strip()
++        rows = []
++        for raw in self.run_git("ls-tree", "-r", "-z", "HEAD").split(b"\0"):
++            if raw:
++                info, path = raw.split(b"\t")
++                mode, kind, oid = info.decode().split()
++                rows.append((path.decode(), mode, kind, oid if kind == "commit" else sha256(self.run_git("cat-file", "blob", oid))))
++        pins = tree_digests(rows)
++        entry["treeDigest"]["value"] = pins["treeDigest"]
++        entry["contentDigest"]["value"] = pins["contentDigest"]
++        with self.assertRaisesRegex(Refusal, "UNDECLARED-GITLINK"):
++            self.fetch(entry)
++        entry["submodulePolicy"] = {"policy": "exclude-pinned", "gitlinks": [{"path": "module", "commit": commit}]}
++        self.fetch(entry)
++        module = self.store / pins["treeDigest"] / "module"
++        self.assertTrue(module.is_dir())
++        self.assertEqual(list(module.iterdir()), [])
++
++    def test_receipt_failure_does_not_leave_published_tree(self):
++        self.store.mkdir()
++        receipt = self.store / (self.entry["treeDigest"]["value"] + ".admission.json")
++        receipt.write_bytes(b"existing receipt")
++        with self.assertRaises(FileExistsError):
++            self.fetch()
++        self.assertEqual(list(self.store.iterdir()), [receipt])
++
++    def test_empty_directory_and_mode_tamper_refuse(self):
++        self.fetch()
++        destination = self.store / self.entry["treeDigest"]["value"]
++        destination.chmod(0o755)
++        (destination / "extra").mkdir()
++        (destination / "extra").chmod(0o555)
++        destination.chmod(0o555)
++        with self.assertRaises(Refusal):
++            verify(destination, self.entry)
++
++    def test_offline_verifier_has_no_acquisition_import(self):
++        text = (Path(__file__).parent / "store.py").read_text()
++        self.assertNotIn("import subprocess", text)
++        self.assertNotIn("from fetch", text)
++
++    def test_lfs_pointer_bytes_remain_raw(self):
++        pointer = b"version https://git-lfs.github.com/spec/v1\noid sha256:" + b"f" * 64 + b"\nsize 999999\n"
++        # A pointer contributes exactly its raw bytes to QD-22; no LFS object.
++        rows = [("large.bin", "100644", "blob", sha256(pointer))]
++        expected = digest([["large.bin", "100644", sha256(pointer)]])
++        self.assertEqual(tree_digests(rows)["treeDigest"], expected)
++
++
++if __name__ == "__main__":
++    unittest.main()
