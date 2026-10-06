@@ -1,0 +1,11 @@
+# K2c finite invalid-UTF8 and routing authoring r1
+
+Read and follow exactly. Write only REVIEW.md and review.json here. Do not edit either repository or staging directory.
+
+Review frozen staging /tmp/opensip-implementation/k2c-errors-r1, exact pins subject.json and subject-manifest.json. Independent authoring component only, not full oracle/case set or QD-26 freeze. No product/inventory proposal. E1 r4 items9,10,12 and exact NCM syntax-only rows govern. Inspect raw byte files, not editor lossy decoding. Four invalid UTF8 files contain ordinary code plus FF at the documented offset. Strict UTF8 failure precedes parser, whole-file suppression forbids retaining prefix facts or bodies. Under separately admitted valid syntax context/selected row, Each case scope is its single input file; expected syntax-error maps the syntax and clones-fact cells unknown/input-closure-incomplete/source-parse-error/examinedExhaustive true. Near is candidate-only; groups empty is a local expectation, full envelope pending, never a Coverage entry. Inventory unaffected by parse outcomes. Do not infer candidate-envelope fields/exit values or use these worksheets as complete atoms.
+
+Five unsupported routes .py, extensionless, .TS/.Rs/.YML remain inventoried, not outright refused, code scope unknown/language-tier-unsupported/capability-missing. No content sniffing or casefolding. Syntax clones-cross-tsjs is NOT-SELECTED and request refuses native.requested-capability-mode-not-selected. Other prerequisite admission refusals remain conditional; no fabricated contexts or identities. Limits are pending actual admitted identity-bearing closure values, not selected from provisional prose. ERROR/MISSING parser-tree, bound/stress, full atom/exit/case/freeze work remains pending.
+
+Read-only Python validation nice -n10 /opt/homebrew/Cellar/python@3.14/3.14.6/bin/python3.14 -I -B permitted. No parser/compiler/producer/Cargo/package commands, no HOME assignment or network. Leave ~/Library/Application Support/OpenSIP absent; never read private413 UUID fixture. Prior accepted components are not subjects of this review.
+
+JSON verdict ACCEPT/REJECT, requiredFindings, subjectManifestSha256 matching exact manifest, laneFrozen false, fullCaseSetPresent false. Write only REVIEW.md and review.json.

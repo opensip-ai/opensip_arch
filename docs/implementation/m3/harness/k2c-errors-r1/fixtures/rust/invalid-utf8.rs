@@ -1,0 +1,2 @@
+fn retained() {}
+ÿ
