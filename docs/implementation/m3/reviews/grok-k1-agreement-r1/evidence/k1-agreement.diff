@@ -1,0 +1,146 @@
+diff --git a/Users/sb/code/opensip-ai/opensip-k1-agreement/tools/quality/agreement.py b/Users/sb/code/opensip-ai/opensip-k1-agreement/tools/quality/agreement.py
+new file mode 100644
+index 0000000..753dfd8
+--- /dev/null
++++ b/Users/sb/code/opensip-ai/opensip-k1-agreement/tools/quality/agreement.py
+@@ -0,0 +1,48 @@
++"""Exact Q0 r13 §4.4 agreement arithmetic over admitted ordered vote slots.
++
++Caller excludes calibration, conflicted/excluded voters and establishes the
++closed round's two independent groups and human/registration ordering. These
++local Fraction results are not ledger/envelope fields or review-trigger proof.
++"""
++from fractions import Fraction
++
++from canonical import canonical
++from records import require
++
++LABELS = ('true', 'false', 'unclear')
++
++
++def pair_statistics(pairs):
++    """Unweighted three-category Cohen kappa for post-close (A, B) slots.
++
++    Each input is the local {a, b} pair of final group labels. Slot A is the
++    human or earlier-registered human; slot B the other group. This arithmetic
++    cannot establish registration order, blindness, eligibility or closure.
++    Undefined ratios remain None rather than becoming agreement or disagreement.
++    True prevalence is the fraction of all 2*n admitted slot labels that are
++    true; both marginal true frequencies are retained to make that estimand
++    explicit. Settled-label unclear frequency, minority-class applicability,
++    rubric triggers and >=20-item voter-pair grouping remain caller checks.
++    """
++    require(type(pairs) is list, 'AGREEMENT_PAIR_ARRAY')
++    canonical(pairs)
++    a_counts = dict.fromkeys(LABELS, 0)
++    b_counts = dict.fromkeys(LABELS, 0)
++    matched = 0
++    for row in pairs:
++        require(type(row) is dict and set(row) == {'a', 'b'}, 'AGREEMENT_PAIR_SHAPE')
++        a, b = row['a'], row['b']
++        require(type(a) is str and a in LABELS and type(b) is str and b in LABELS,
++                'AGREEMENT_LABEL')
++        a_counts[a] += 1
++        b_counts[b] += 1
++        matched += a == b
++    n = len(pairs)
++    raw = Fraction(matched, n) if n else None
++    expected = Fraction(sum(a_counts[k] * b_counts[k] for k in LABELS), n*n) if n else None
++    kappa = (raw - expected) / (1 - expected) if n and expected != 1 else None
++    return {'n': n, 'matched': matched, 'aCounts': a_counts, 'bCounts': b_counts,
++            'rawAgreement': raw, 'chanceAgreement': expected, 'kappa': kappa,
++            'truePrevalence': Fraction(a_counts['true'] + b_counts['true'], 2*n) if n else None,
++            'voterAdmissionEstablished': False, 'rubricTriggerEstablished': False,
++            'productQualification': False}
+diff --git a/Users/sb/code/opensip-ai/opensip-k1-agreement/tools/quality/test_agreement.py b/Users/sb/code/opensip-ai/opensip-k1-agreement/tools/quality/test_agreement.py
+new file mode 100644
+index 0000000..1ef57e7
+--- /dev/null
++++ b/Users/sb/code/opensip-ai/opensip-k1-agreement/tools/quality/test_agreement.py
+@@ -0,0 +1,86 @@
++"""Independent finite contingency-table arithmetic, no real adjudication."""
++import pathlib
++import sys
++import unittest
++from fractions import Fraction
++
++sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
++from canonical import Refusal
++from agreement import pair_statistics
++
++
++def table(tt,tf,ft,ff):
++    return ([{'a':'true','b':'true'}]*tt + [{'a':'true','b':'false'}]*tf +
++            [{'a':'false','b':'true'}]*ft + [{'a':'false','b':'false'}]*ff)
++
++
++class AgreementTests(unittest.TestCase):
++    def test_balanced_perfect_agreement(self):
++        r=pair_statistics(table(10,0,0,10))
++        self.assertEqual((r['rawAgreement'],r['chanceAgreement'],r['kappa']),
++                         (Fraction(1),Fraction(1,2),Fraction(1)))
++        self.assertEqual(r['truePrevalence'],Fraction(1,2))
++
++    def test_balanced_complete_disagreement(self):
++        r=pair_statistics(table(0,10,10,0))
++        self.assertEqual(r['kappa'],Fraction(-1))
++        self.assertEqual(r['rawAgreement'],Fraction(0))
++
++    def test_balanced_chance_agreement(self):
++        r=pair_statistics(table(10,10,10,10))
++        self.assertEqual(r['kappa'],Fraction(0))
++        self.assertEqual(r['rawAgreement'],Fraction(1,2))
++
++    def test_exact_point_six_boundary_without_rounding(self):
++        r=pair_statistics(table(40,10,10,40))
++        self.assertEqual(r['kappa'],Fraction(3,5))
++        self.assertEqual(r['rawAgreement'],Fraction(4,5))
++
++    def test_prevalence_paradox_not_repaired_or_hidden(self):
++        r=pair_statistics(table(98,1,1,0))
++        self.assertEqual(r['rawAgreement'],Fraction(49,50))
++        self.assertEqual(r['chanceAgreement'],Fraction(4901,5000))
++        self.assertEqual(r['kappa'],Fraction(-1,99))
++        self.assertFalse(r['rubricTriggerEstablished'])
++
++    def test_unclear_is_the_third_category(self):
++        p=[{'a':x,'b':x} for x in ('true','false','unclear')]
++        r=pair_statistics(p)
++        self.assertEqual(r['chanceAgreement'],Fraction(1,3))
++        self.assertEqual(r['kappa'],Fraction(1))
++        self.assertEqual(r['truePrevalence'],Fraction(1,3))
++        p=[{'a':x,'b':y} for x in ('true','false','unclear') for y in ('true','false','unclear')]
++        self.assertEqual(pair_statistics(p)['kappa'],Fraction(0))
++
++    def test_all_one_category_is_undefined_not_one(self):
++        for label in ('true','false','unclear'):
++            r=pair_statistics([{'a':label,'b':label}]*20)
++            self.assertIsNone(r['kappa'])
++            self.assertEqual(r['rawAgreement'],Fraction(1))
++
++    def test_empty_round_does_not_acquire_a_statistic(self):
++        r=pair_statistics([])
++        for key in ('rawAgreement','chanceAgreement','kappa','truePrevalence'):
++            self.assertIsNone(r[key])
++        self.assertEqual(r['n'],0)
++        self.assertFalse(r['voterAdmissionEstablished'])
++        self.assertFalse(r['productQualification'])
++
++    def test_marginals_retained_and_input_order_unchanged(self):
++        p=table(2,3,1,4);before=[dict(x) for x in p];r=pair_statistics(p)
++        self.assertEqual(r['aCounts'],{'true':5,'false':5,'unclear':0})
++        self.assertEqual(r['bCounts'],{'true':3,'false':7,'unclear':0})
++        self.assertEqual(r['truePrevalence'],Fraction(2,5))
++        self.assertEqual(r['kappa'],Fraction(1,5))
++        self.assertEqual(p,before)
++        q=[{'a':x['b'],'b':x['a']} for x in reversed(p)]
++        self.assertEqual(pair_statistics(q)['kappa'],r['kappa'])
++
++    def test_closed_shapes_and_exact_labels(self):
++        for p in (None,{},[{'a':'true'}],[{'a':'true','b':'false','extra':0}],
++                  [{'a':True,'b':'false'}],[{'a':'true','b':'unknown'}]):
++            with self.assertRaises(Refusal):pair_statistics(p)
++
++
++if __name__ == '__main__':
++    unittest.main()
