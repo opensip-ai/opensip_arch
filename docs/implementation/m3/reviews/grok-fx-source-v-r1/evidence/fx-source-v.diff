@@ -1,0 +1,1433 @@
+diff --git a/Cargo.lock b/Cargo.lock
+index deaaf5d..39c2db1 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -287,6 +287,9 @@ dependencies = [
+ [[package]]
+ name = "opensip-syntax"
+ version = "0.1.0"
++dependencies = [
++ "opensip-identity",
++]
+ 
+ [[package]]
+ name = "pkg-config"
+diff --git a/crates/syntax/Cargo.toml b/crates/syntax/Cargo.toml
+index 7ff63a7..a533ece 100644
+--- a/crates/syntax/Cargo.toml
++++ b/crates/syntax/Cargo.toml
+@@ -10,10 +10,11 @@ description = "Pure compiler-free OpenSIP parsing and normalized clone candidate
+ [lib]
+ path = "src/lib.rs"
+ 
+-# Scaffold (unit M3-P0): no dependency yet. The selected inventory permits
+-# only opensip-contracts and opensip-identity; each edge, and any external
+-# crate (law M3-E1 r3's SYN-DEP), arrives with the unit that uses it.
++# FX-SOURCE-V uses the already-permitted identity edge for canonical JSON,
++# logical paths and raw hashes. Grammar/parser dependencies still arrive under
++# M3-E1's SYN-DEP; this unit introduces no external dependency.
+ [dependencies]
++opensip-identity = { path = "../identity" }
+ 
+ [lints.rust]
+ unsafe_code = "forbid"
+diff --git a/crates/syntax/src/lib.rs b/crates/syntax/src/lib.rs
+index 8580ab0..5429bd2 100644
+--- a/crates/syntax/src/lib.rs
++++ b/crates/syntax/src/lib.rs
+@@ -1,9 +1,15 @@
+ //! Pure compiler-free parsing and normalized clone candidates over admitted
+ //! source and grammar bytes.
+ //!
+-//! Scaffold only (unit M3-P0): no dependency, module or public item yet. Law
+-//! M3-E1 r3 item 20 assigns the modules to later units: `grammar.rs` and
+-//! `parser.rs` to E2b, `normalization.rs` and `candidates.rs` to E2c. The
++//! FX-SOURCE-V validates original-source extraction intermediates. Law
++//! M3-E1 r3 item 20 still assigns `grammar.rs` and `parser.rs` to E2b,
++//! `normalization.rs` and `candidates.rs` to E2c. The
+ //! crate stays pure: no filesystem discovery, compiler lookup, process
+ //! execution, trust admission or Coverage construction. The host dispatches
+ //! (`host/syntax.rs`, unit E3) and admits (`host/fact_admission.rs`).
++
++/// Pure extraction-intermediate validation; no native fact or repair authority.
++pub mod source_model;
++
++#[cfg(test)]
++mod source_model_tests;
+diff --git a/Users/sb/code/opensip-ai/opensip-fx-source-v/crates/syntax/src/source_model.rs b/Users/sb/code/opensip-ai/opensip-fx-source-v/crates/syntax/src/source_model.rs
+new file mode 100644
+index 0000000..cdc5d50
+--- /dev/null
++++ b/Users/sb/code/opensip-ai/opensip-fx-source-v/crates/syntax/src/source_model.rs
+@@ -0,0 +1,481 @@
++//! FX-COMP-1 extraction intermediates over explicit immutable input bytes.
++//!
++//! Validation proves partition/content/map consistency only. The caller owns
++//! snapshot and authenticated-closure admission and retains the supplied bytes.
++//! This module reads no filesystem, runs no parser and constructs no authority.
++use opensip_identity::{
++    JsonValue as Value, LogicalPath, canonical_bytes, digest_hex, parse_json, raw_sha256,
++};
++use std::collections::{BTreeMap, BTreeSet};
++
++const LIMIT: usize = 65_536;
++
++/// An internal intermediate defect, never a public refusal-code projection.
++#[derive(Clone, Copy, Debug, PartialEq, Eq)]
++pub struct Error(pub &'static str);
++
++type Result<T> = std::result::Result<T, Error>;
++
++/// Already-admitted inputs supplied by the owner. These descriptors are inert;
++/// possession of this struct is not a custody, closure or snapshot proof.
++pub struct Inputs<'a> {
++    pub snapshot_id: &'a str,
++    pub files: &'a BTreeMap<String, Vec<u8>>,
++    pub producer_closures: &'a BTreeSet<String>,
++    pub derived_blobs: &'a BTreeMap<String, Vec<u8>>,
++}
++
++#[derive(Debug)]
++struct Segment {
++    kind: String,
++    start: usize,
++    end: usize,
++    source: Option<(usize, usize)>,
++}
++
++#[derive(Debug)]
++struct Derived {
++    sha256: String,
++    length: usize,
++    segments: Vec<Segment>,
++}
++
++#[derive(Debug)]
++struct Region {
++    ordinal: usize,
++    kind: String,
++    language: String,
++    start: usize,
++    end: usize,
++    state: String,
++    blockers: BTreeSet<String>,
++    derived: Option<Derived>,
++}
++
++/// A privately constructed, content-checked intermediate. It is neither a fact,
++/// Coverage value, stage input nor repair authorization. Input lifetimes keep
++/// the original and derived buffers immutable for span translation.
++#[derive(Debug)]
++pub struct ValidatedModel<'a> {
++    original: &'a [u8],
++    blobs: &'a BTreeMap<String, Vec<u8>>,
++    regions: Vec<Region>,
++    complete: bool,
++}
++
++fn require(condition: bool, error: &'static str) -> Result<()> {
++    if condition { Ok(()) } else { Err(Error(error)) }
++}
++
++fn object<'a>(v: &'a Value, fields: &[&str]) -> Result<&'a BTreeMap<String, Value>> {
++    let Value::Object(o) = v else {
++        return Err(Error("schema"));
++    };
++    require(
++        o.len() == fields.len() && fields.iter().all(|k| o.contains_key(*k)),
++        "schema",
++    )?;
++    Ok(o)
++}
++
++fn text(v: &Value) -> Result<&str> {
++    if let Value::String(s) = v {
++        Ok(s)
++    } else {
++        Err(Error("schema"))
++    }
++}
++
++fn choice(v: &Value, choices: &[&str]) -> Result<String> {
++    let s = text(v)?;
++    require(choices.contains(&s), "schema")?;
++    Ok(s.to_owned())
++}
++
++fn offset(v: &Value) -> Result<usize> {
++    let Value::Integer(n) = v else {
++        return Err(Error("schema"));
++    };
++    usize::try_from(n.get()).map_err(|_| Error("schema"))
++}
++
++fn array(v: &Value, maximum: usize) -> Result<&[Value]> {
++    let Value::Array(a) = v else {
++        return Err(Error("schema"));
++    };
++    require(a.len() <= maximum, "schema")?;
++    Ok(a)
++}
++
++fn identifier(s: &str, prefix: &str) -> bool {
++    s.strip_prefix(prefix).is_some_and(hash)
++}
++
++fn hash(s: &str) -> bool {
++    s.len() == 64
++        && s.bytes()
++            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
++}
++
++fn derived(v: &Value) -> Result<Option<Derived>> {
++    if *v == Value::Null {
++        return Ok(None);
++    }
++    let d = object(v, &["sha256", "byteLength", "segments"])?;
++    let sha256 = text(&d["sha256"])?.to_owned();
++    require(hash(&sha256), "schema")?;
++    let length = offset(&d["byteLength"])?;
++    let rows = array(&d["segments"], LIMIT)?;
++    let mut segments = Vec::with_capacity(rows.len());
++    for v in rows {
++        let s = object(
++            v,
++            &[
++                "kind",
++                "derivedStart",
++                "derivedEnd",
++                "sourceStart",
++                "sourceEnd",
++            ],
++        )?;
++        let kind = choice(&s["kind"], &["exact", "anchor", "generated"])?;
++        let start = offset(&s["derivedStart"])?;
++        let end = offset(&s["derivedEnd"])?;
++        let a = if s["sourceStart"] == Value::Null {
++            None
++        } else {
++            Some(offset(&s["sourceStart"])?)
++        };
++        let b = if s["sourceEnd"] == Value::Null {
++            None
++        } else {
++            Some(offset(&s["sourceEnd"])?)
++        };
++        let source = match (a, b) {
++            (Some(a), Some(b)) => Some((a, b)),
++            (None, None) => None,
++            _ => return Err(Error("source-range")),
++        };
++        segments.push(Segment {
++            kind,
++            start,
++            end,
++            source,
++        });
++    }
++    Ok(Some(Derived {
++        sha256,
++        length,
++        segments,
++    }))
++}
++
++fn region(v: &Value) -> Result<Region> {
++    let r = object(
++        v,
++        &[
++            "regionId",
++            "kind",
++            "language",
++            "startByte",
++            "endByte",
++            "state",
++            "blockers",
++            "derived",
++        ],
++    )?;
++    let ordinal = offset(&r["regionId"])?;
++    let kind = choice(
++        &r["kind"],
++        &[
++            "whole",
++            "container",
++            "script",
++            "template",
++            "style",
++            "unmapped",
++        ],
++    )?;
++    let language = choice(
++        &r["language"],
++        &[
++            "typescript",
++            "javascript",
++            "rust",
++            "css",
++            "component-markup",
++            "vue-template",
++            "svelte-template",
++            "astro-template",
++            "unknown",
++        ],
++    )?;
++    let state = choice(
++        &r["state"],
++        &["complete", "partial", "unsupported", "malformed"],
++    )?;
++    let mut blockers = BTreeSet::new();
++    for value in array(&r["blockers"], 9)? {
++        let blocker = choice(
++            value,
++            &[
++                "grammar-unavailable",
++                "unsupported-syntax",
++                "preprocessor-unavailable",
++                "dynamic-component",
++                "dynamic-class",
++                "invalid-source-map",
++                "malformed-source",
++                "config-requires-evaluation",
++                "unmapped-region",
++            ],
++        )?;
++        require(blockers.insert(blocker), "schema")?;
++    }
++    Ok(Region {
++        ordinal,
++        kind,
++        language,
++        start: offset(&r["startByte"])?,
++        end: offset(&r["endByte"])?,
++        state,
++        blockers,
++        derived: derived(&r["derived"])?,
++    })
++}
++
++fn boundary(bytes: &[u8], offset: usize) -> bool {
++    offset <= bytes.len() && (offset == bytes.len() || bytes[offset] & 0xc0 != 0x80)
++}
++
++fn partition<'a>(ranges: impl Iterator<Item = &'a (usize, usize)>, length: usize) -> Result<()> {
++    let mut position = 0;
++    for &(start, end) in ranges {
++        require(
++            start == position && position < end && end <= length,
++            "partition",
++        )?;
++        position = end;
++    }
++    require(position == length, "partition")
++}
++
++/// Decode the closed FX-COMP-1 r2 shape before joining explicit input buffers.
++/// No later/unselected schema or adapter interpretation is accepted here.
++pub fn validate<'a>(raw: &[u8], inputs: Inputs<'a>) -> Result<ValidatedModel<'a>> {
++    let value = parse_json(raw).map_err(|_| Error("canonical-profile"))?;
++    canonical_bytes(&value).map_err(|_| Error("canonical-profile"))?;
++    let model = object(
++        &value,
++        &[
++            "schemaVersion",
++            "snapshotId",
++            "source",
++            "producerClosureId",
++            "format",
++            "state",
++            "regions",
++        ],
++    )?;
++    require(offset(&model["schemaVersion"])? == 1, "schema")?;
++    let snapshot = text(&model["snapshotId"])?;
++    let closure = text(&model["producerClosureId"])?;
++    require(
++        identifier(snapshot, "snapshot2:") && identifier(closure, "closure2:"),
++        "schema",
++    )?;
++    let source = object(&model["source"], &["path", "contentSha256", "byteLength"])?;
++    let path = text(&source["path"])?;
++    LogicalPath::parse(path).map_err(|_| Error("source-path"))?;
++    let source_hash = text(&source["contentSha256"])?;
++    require(hash(source_hash), "schema")?;
++    let length = offset(&source["byteLength"])?;
++    let format = choice(
++        &model["format"],
++        &[
++            "vue",
++            "svelte",
++            "astro",
++            "css",
++            "typescript",
++            "javascript",
++            "rust",
++        ],
++    )?;
++    let state = choice(&model["state"], &["complete", "partial"])?;
++    let rows = array(&model["regions"], LIMIT)?;
++    let regions = rows.iter().map(region).collect::<Result<Vec<_>>>()?;
++    // Complete shape has now been decoded; no input byte is consumed before it.
++    require(snapshot == inputs.snapshot_id, "snapshot-join")?;
++    let original = inputs.files.get(path).ok_or(Error("source-membership"))?;
++    require(
++        original.len() == length && digest_hex(&raw_sha256(original)) == source_hash,
++        "source-content",
++    )?;
++    require(
++        inputs.producer_closures.contains(closure),
++        "producer-closure",
++    )?;
++    let ranges: Vec<_> = regions.iter().map(|r| (r.start, r.end)).collect();
++    partition(ranges.iter(), original.len())?;
++    let valid_text = std::str::from_utf8(original).is_ok();
++    if !valid_text {
++        require(
++            regions.len() == 1
++                && regions[0].kind == "unmapped"
++                && regions[0].language == "unknown"
++                && regions[0].state == "malformed"
++                && regions[0].blockers.contains("malformed-source")
++                && regions[0].derived.is_none(),
++            "malformed-source-account",
++        )?;
++    }
++    let component = matches!(format.as_str(), "vue" | "svelte" | "astro");
++    let mut complete = true;
++    for (ordinal, r) in regions.iter().enumerate() {
++        require(r.ordinal == ordinal, "region-ordinal")?;
++        if valid_text {
++            require(
++                boundary(original, r.start) && boundary(original, r.end),
++                "utf8-boundary",
++            )?;
++        }
++        require(
++            (r.state == "complete") == r.blockers.is_empty(),
++            "state-blockers",
++        )?;
++        complete &= r.state == "complete";
++        if r.kind == "unmapped" {
++            require(
++                r.language == "unknown"
++                    && matches!(r.state.as_str(), "unsupported" | "malformed")
++                    && (!valid_text || r.blockers.contains("unmapped-region")),
++                "unmapped-state",
++            )?;
++        } else if component {
++            let compatible = match r.kind.as_str() {
++                "container" => r.language == "component-markup",
++                "script" => matches!(r.language.as_str(), "typescript" | "javascript"),
++                "template" => r.language == format!("{format}-template"),
++                "style" => r.language == "css",
++                _ => false,
++            };
++            require(compatible, "region-language")?;
++        } else {
++            require(
++                r.kind == "whole" && r.language == format && regions.len() == 1,
++                "whole-language",
++            )?;
++        }
++        if let Some(d) = &r.derived {
++            let bytes = inputs
++                .derived_blobs
++                .get(&d.sha256)
++                .ok_or(Error("derived-retention"))?;
++            require(
++                bytes.len() == d.length && digest_hex(&raw_sha256(bytes)) == d.sha256,
++                "derived-content",
++            )?;
++            require(
++                valid_text && std::str::from_utf8(bytes).is_ok(),
++                "derived-utf8",
++            )?;
++            let ranges: Vec<_> = d.segments.iter().map(|s| (s.start, s.end)).collect();
++            partition(ranges.iter(), bytes.len())?;
++            for s in &d.segments {
++                require(
++                    boundary(bytes, s.start) && boundary(bytes, s.end),
++                    "utf8-boundary",
++                )?;
++                if s.kind == "generated" {
++                    require(s.source.is_none(), "generated-source")?;
++                } else {
++                    let (a, b) = s.source.ok_or(Error("source-range"))?;
++                    require(r.start <= a && a <= b && b <= r.end, "source-range")?;
++                    require(
++                        boundary(original, a) && boundary(original, b),
++                        "utf8-boundary",
++                    )?;
++                    if s.kind == "exact" {
++                        require(
++                            s.end - s.start == b - a && bytes[s.start..s.end] == original[a..b],
++                            "exact-bytes",
++                        )?;
++                    }
++                }
++            }
++        }
++    }
++    require(
++        state == if complete { "complete" } else { "partial" },
++        "model-state",
++    )?;
++    Ok(ValidatedModel {
++        original,
++        blobs: inputs.derived_blobs,
++        regions,
++        complete,
++    })
++}
++
++impl ValidatedModel<'_> {
++    /// Extraction only, never semantic or consumer completeness.
++    pub fn extraction_complete(&self) -> bool {
++        self.complete
++    }
++
++    pub fn region_count(&self) -> usize {
++        self.regions.len()
++    }
++
++    /// Region-relative original or derived byte offsets to exact original bytes.
++    /// `None` discloses an anchor/generated/discontiguous mapping; no bounding
++    /// box or first-segment approximation is made. This grants no edit authority.
++    pub fn exact_original_span(
++        &self,
++        region_id: usize,
++        start: usize,
++        end: usize,
++    ) -> Result<Option<(usize, usize)>> {
++        require(
++            std::str::from_utf8(self.original).is_ok(),
++            "span-source-utf8",
++        )?;
++        require(start < end, "span-shape")?;
++        let r = self.regions.get(region_id).ok_or(Error("region-ordinal"))?;
++        let Some(d) = &r.derived else {
++            require(end <= r.end - r.start, "span-range")?;
++            let result = (r.start + start, r.start + end);
++            require(
++                boundary(self.original, result.0) && boundary(self.original, result.1),
++                "utf8-boundary",
++            )?;
++            return Ok(Some(result));
++        };
++        require(end <= d.length, "span-range")?;
++        let bytes = &self.blobs[&d.sha256];
++        require(
++            boundary(bytes, start) && boundary(bytes, end),
++            "utf8-boundary",
++        )?;
++        let mut result = None;
++        for s in &d.segments {
++            let a = start.max(s.start);
++            let b = end.min(s.end);
++            if a >= b {
++                continue;
++            }
++            if s.kind != "exact" {
++                return Ok(None);
++            }
++            let (source, _) = s.source.ok_or(Error("source-range"))?;
++            let mapped = (source + (a - s.start), source + (b - s.start));
++            match result {
++                None => result = Some(mapped),
++                Some((first, last)) if last == mapped.0 => result = Some((first, mapped.1)),
++                _ => return Ok(None),
++            }
++        }
++        Ok(result)
++    }
++}
+diff --git a/Users/sb/code/opensip-ai/opensip-fx-source-v/crates/syntax/src/source_model_cases.json b/Users/sb/code/opensip-ai/opensip-fx-source-v/crates/syntax/src/source_model_cases.json
+new file mode 100644
+index 0000000..a466fb4
+--- /dev/null
++++ b/Users/sb/code/opensip-ai/opensip-fx-source-v/crates/syntax/src/source_model_cases.json
+@@ -0,0 +1,405 @@
++{
++  "referenceSourceSha256": "1b4c729f04c6ee169d2fbc0cc394520abaa1b7d71bfff27255822fa9ac04e66d",
++  "standing": "Synthetic FX-COMP-1 r2 reference inputs and hand-authored expectations; no product/adapter qualification",
++  "cases": [
++    {
++      "id": "whole-original",
++      "sourceHex": "616263",
++      "blobs": [],
++      "recordJson": "{\"format\":\"javascript\",\"producerClosureId\":\"closure2:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"regions\":[{\"blockers\":[],\"derived\":null,\"endByte\":3,\"kind\":\"whole\",\"language\":\"javascript\",\"regionId\":0,\"startByte\":0,\"state\":\"complete\"}],\"schemaVersion\":1,\"snapshotId\":\"snapshot2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"source\":{\"byteLength\":3,\"contentSha256\":\"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad\",\"path\":\"source\"},\"state\":\"complete\"}",
++      "expected": {
++        "admissible": true,
++        "error": null,
++        "spans": [
++          {
++            "regionId": 0,
++            "start": 0,
++            "end": 3,
++            "original": [
++              0,
++              3
++            ]
++          }
++        ]
++      }
++    },
++    {
++      "id": "empty-source",
++      "sourceHex": "",
++      "blobs": [],
++      "recordJson": "{\"format\":\"javascript\",\"producerClosureId\":\"closure2:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"regions\":[],\"schemaVersion\":1,\"snapshotId\":\"snapshot2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"source\":{\"byteLength\":0,\"contentSha256\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"path\":\"source\"},\"state\":\"complete\"}",
++      "expected": {
++        "admissible": true,
++        "error": null,
++        "spans": []
++      }
++    },
++    {
++      "id": "unicode-bom-crlf",
++      "sourceHex": "efbbbfc3a90d0a",
++      "blobs": [],
++      "recordJson": "{\"format\":\"javascript\",\"producerClosureId\":\"closure2:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"regions\":[{\"blockers\":[],\"derived\":null,\"endByte\":7,\"kind\":\"whole\",\"language\":\"javascript\",\"regionId\":0,\"startByte\":0,\"state\":\"complete\"}],\"schemaVersion\":1,\"snapshotId\":\"snapshot2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"source\":{\"byteLength\":7,\"contentSha256\":\"aed6404f0f21739aae66e784e8eae25f73c9b3cfe4d3344df2068a9b117a7e2f\",\"path\":\"source\"},\"state\":\"complete\"}",
++      "expected": {
++        "admissible": true,
++        "error": null,
++        "spans": [
++          {
++            "regionId": 0,
++            "start": 3,
++            "end": 5,
++            "original": [
++              3,
++              5
++            ]
++          }
++        ]
++      }
++    },
++    {
++      "id": "unicode-midpoint-span-refused",
++      "sourceHex": "c3a9",
++      "blobs": [],
++      "recordJson": "{\"format\":\"javascript\",\"producerClosureId\":\"closure2:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"regions\":[{\"blockers\":[],\"derived\":null,\"endByte\":2,\"kind\":\"whole\",\"language\":\"javascript\",\"regionId\":0,\"startByte\":0,\"state\":\"complete\"}],\"schemaVersion\":1,\"snapshotId\":\"snapshot2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"source\":{\"byteLength\":2,\"contentSha256\":\"4a99557e4033c3539de2eb65472017cad5f9557f7a0625a09f1c3f6e2ba69c4c\",\"path\":\"source\"},\"state\":\"complete\"}",
++      "expected": {
++        "admissible": true,
++        "error": null,
++        "spans": [
++          {
++            "regionId": 0,
++            "start": 0,
++            "end": 1,
++            "error": "utf8-boundary"
++          }
++        ]
++      }
++    },
++    {
++      "id": "partition-gap",
++      "sourceHex": "616263",
++      "blobs": [],
++      "recordJson": "{\"format\":\"javascript\",\"producerClosureId\":\"closure2:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"regions\":[{\"blockers\":[],\"derived\":null,\"endByte\":3,\"kind\":\"whole\",\"language\":\"javascript\",\"regionId\":0,\"startByte\":1,\"state\":\"complete\"}],\"schemaVersion\":1,\"snapshotId\":\"snapshot2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"source\":{\"byteLength\":3,\"contentSha256\":\"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad\",\"path\":\"source\"},\"state\":\"complete\"}",
++      "expected": {
++        "admissible": false,
++        "error": "partition",
++        "spans": []
++      }
++    },
++    {
++      "id": "partition-outside",
++      "sourceHex": "616263",
++      "blobs": [],
++      "recordJson": "{\"format\":\"javascript\",\"producerClosureId\":\"closure2:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"regions\":[{\"blockers\":[],\"derived\":null,\"endByte\":4,\"kind\":\"whole\",\"language\":\"javascript\",\"regionId\":0,\"startByte\":0,\"state\":\"complete\"}],\"schemaVersion\":1,\"snapshotId\":\"snapshot2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"source\":{\"byteLength\":3,\"contentSha256\":\"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad\",\"path\":\"source\"},\"state\":\"complete\"}",
++      "expected": {
++        "admissible": false,
++        "error": "partition",
++        "spans": []
++      }
++    },
++    {
++      "id": "ordinal-mismatch",
++      "sourceHex": "616263",
++      "blobs": [],
++      "recordJson": "{\"format\":\"javascript\",\"producerClosureId\":\"closure2:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"regions\":[{\"blockers\":[],\"derived\":null,\"endByte\":3,\"kind\":\"whole\",\"language\":\"javascript\",\"regionId\":1,\"startByte\":0,\"state\":\"complete\"}],\"schemaVersion\":1,\"snapshotId\":\"snapshot2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"source\":{\"byteLength\":3,\"contentSha256\":\"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad\",\"path\":\"source\"},\"state\":\"complete\"}",
++      "expected": {
++        "admissible": false,
++        "error": "region-ordinal",
++        "spans": []
++      }
++    },
++    {
++      "id": "source-digest-mismatch",
++      "sourceHex": "616263",
++      "blobs": [],
++      "recordJson": "{\"format\":\"javascript\",\"producerClosureId\":\"closure2:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"regions\":[{\"blockers\":[],\"derived\":null,\"endByte\":3,\"kind\":\"whole\",\"language\":\"javascript\",\"regionId\":0,\"startByte\":0,\"state\":\"complete\"}],\"schemaVersion\":1,\"snapshotId\":\"snapshot2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"source\":{\"byteLength\":3,\"contentSha256\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"path\":\"source\"},\"state\":\"complete\"}",
++      "expected": {
++        "admissible": false,
++        "error": "source-content",
++        "spans": []
++      }
++    },
++    {
++      "id": "closure-not-admitted",
++      "sourceHex": "616263",
++      "blobs": [],
++      "recordJson": "{\"format\":\"javascript\",\"producerClosureId\":\"closure2:1111111111111111111111111111111111111111111111111111111111111111\",\"regions\":[{\"blockers\":[],\"derived\":null,\"endByte\":3,\"kind\":\"whole\",\"language\":\"javascript\",\"regionId\":0,\"startByte\":0,\"state\":\"complete\"}],\"schemaVersion\":1,\"snapshotId\":\"snapshot2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"source\":{\"byteLength\":3,\"contentSha256\":\"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad\",\"path\":\"source\"},\"state\":\"complete\"}",
++      "expected": {
++        "admissible": false,
++        "error": "producer-closure",
++        "spans": []
++      }
++    },
++    {
++      "id": "exact-map",
++      "sourceHex": "616263",
++      "blobs": [
++        {
++          "sha256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
++          "contentHex": "616263"
++        }
++      ],
++      "recordJson": "{\"format\":\"javascript\",\"producerClosureId\":\"closure2:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"regions\":[{\"blockers\":[],\"derived\":{\"byteLength\":3,\"segments\":[{\"derivedEnd\":3,\"derivedStart\":0,\"kind\":\"exact\",\"sourceEnd\":3,\"sourceStart\":0}],\"sha256\":\"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad\"},\"endByte\":3,\"kind\":\"whole\",\"language\":\"javascript\",\"regionId\":0,\"startByte\":0,\"state\":\"complete\"}],\"schemaVersion\":1,\"snapshotId\":\"snapshot2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"source\":{\"byteLength\":3,\"contentSha256\":\"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad\",\"path\":\"source\"},\"state\":\"complete\"}",
++      "expected": {
++        "admissible": true,
++        "error": null,
++        "spans": [
++          {
++            "regionId": 0,
++            "start": 1,
++            "end": 3,
++            "original": [
++              1,
++              3
++            ]
++          }
++        ]
++      }
++    },
++    {
++      "id": "exact-map-wrong-bytes",
++      "sourceHex": "616263",
++      "blobs": [
++        {
++          "sha256": "a52d159f262b2c6ddb724a61840befc36eb30c88877a4030b65cbe86298449c9",
++          "contentHex": "616264"
++        }
++      ],
++      "recordJson": "{\"format\":\"javascript\",\"producerClosureId\":\"closure2:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"regions\":[{\"blockers\":[],\"derived\":{\"byteLength\":3,\"segments\":[{\"derivedEnd\":3,\"derivedStart\":0,\"kind\":\"exact\",\"sourceEnd\":3,\"sourceStart\":0}],\"sha256\":\"a52d159f262b2c6ddb724a61840befc36eb30c88877a4030b65cbe86298449c9\"},\"endByte\":3,\"kind\":\"whole\",\"language\":\"javascript\",\"regionId\":0,\"startByte\":0,\"state\":\"complete\"}],\"schemaVersion\":1,\"snapshotId\":\"snapshot2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"source\":{\"byteLength\":3,\"contentSha256\":\"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad\",\"path\":\"source\"},\"state\":\"complete\"}",
++      "expected": {
++        "admissible": false,
++        "error": "exact-bytes",
++        "spans": []
++      }
++    },
++    {
++      "id": "anchor-is-not-exact",
++      "sourceHex": "616263",
++      "blobs": [
++        {
++          "sha256": "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881",
++          "contentHex": "78"
++        }
++      ],
++      "recordJson": "{\"format\":\"javascript\",\"producerClosureId\":\"closure2:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"regions\":[{\"blockers\":[],\"derived\":{\"byteLength\":1,\"segments\":[{\"derivedEnd\":1,\"derivedStart\":0,\"kind\":\"anchor\",\"sourceEnd\":3,\"sourceStart\":0}],\"sha256\":\"2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881\"},\"endByte\":3,\"kind\":\"whole\",\"language\":\"javascript\",\"regionId\":0,\"startByte\":0,\"state\":\"complete\"}],\"schemaVersion\":1,\"snapshotId\":\"snapshot2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"source\":{\"byteLength\":3,\"contentSha256\":\"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad\",\"path\":\"source\"},\"state\":\"complete\"}",
++      "expected": {
++        "admissible": true,
++        "error": null,
++        "spans": [
++          {
++            "regionId": 0,
++            "start": 0,
++            "end": 1,
++            "original": null
++          }
++        ]
++      }
++    },
++    {
++      "id": "generated-is-not-original",
++      "sourceHex": "616263",
++      "blobs": [
++        {
++          "sha256": "53e0eff3204626f3e256ca636572d7ccdf8eb5a190c9defa3fa567bc63866b76",
++          "contentHex": "61626321"
++        }
++      ],
++      "recordJson": "{\"format\":\"javascript\",\"producerClosureId\":\"closure2:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"regions\":[{\"blockers\":[],\"derived\":{\"byteLength\":4,\"segments\":[{\"derivedEnd\":3,\"derivedStart\":0,\"kind\":\"exact\",\"sourceEnd\":3,\"sourceStart\":0},{\"derivedEnd\":4,\"derivedStart\":3,\"kind\":\"generated\",\"sourceEnd\":null,\"sourceStart\":null}],\"sha256\":\"53e0eff3204626f3e256ca636572d7ccdf8eb5a190c9defa3fa567bc63866b76\"},\"endByte\":3,\"kind\":\"whole\",\"language\":\"javascript\",\"regionId\":0,\"startByte\":0,\"state\":\"complete\"}],\"schemaVersion\":1,\"snapshotId\":\"snapshot2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"source\":{\"byteLength\":3,\"contentSha256\":\"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad\",\"path\":\"source\"},\"state\":\"complete\"}",
++      "expected": {
++        "admissible": true,
++        "error": null,
++        "spans": [
++          {
++            "regionId": 0,
++            "start": 0,
++            "end": 4,
++            "original": null
++          }
++        ]
++      }
++    },
++    {
++      "id": "generated-with-source-refused",
++      "sourceHex": "616263",
++      "blobs": [
++        {
++          "sha256": "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881",
++          "contentHex": "78"
++        }
++      ],
++      "recordJson": "{\"format\":\"javascript\",\"producerClosureId\":\"closure2:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"regions\":[{\"blockers\":[],\"derived\":{\"byteLength\":1,\"segments\":[{\"derivedEnd\":1,\"derivedStart\":0,\"kind\":\"generated\",\"sourceEnd\":1,\"sourceStart\":0}],\"sha256\":\"2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881\"},\"endByte\":3,\"kind\":\"whole\",\"language\":\"javascript\",\"regionId\":0,\"startByte\":0,\"state\":\"complete\"}],\"schemaVersion\":1,\"snapshotId\":\"snapshot2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"source\":{\"byteLength\":3,\"contentSha256\":\"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad\",\"path\":\"source\"},\"state\":\"complete\"}",
++      "expected": {
++        "admissible": false,
++        "error": "generated-source",
++        "spans": []
++      }
++    },
++    {
++      "id": "copied-source-discontiguous",
++      "sourceHex": "6162",
++      "blobs": [
++        {
++          "sha256": "a667282675f4876021d392aa6592f39dabf718748c4b738563cb9d5dc8f21f24",
++          "contentHex": "61626162"
++        }
++      ],
++      "recordJson": "{\"format\":\"javascript\",\"producerClosureId\":\"closure2:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"regions\":[{\"blockers\":[],\"derived\":{\"byteLength\":4,\"segments\":[{\"derivedEnd\":2,\"derivedStart\":0,\"kind\":\"exact\",\"sourceEnd\":2,\"sourceStart\":0},{\"derivedEnd\":4,\"derivedStart\":2,\"kind\":\"exact\",\"sourceEnd\":2,\"sourceStart\":0}],\"sha256\":\"a667282675f4876021d392aa6592f39dabf718748c4b738563cb9d5dc8f21f24\"},\"endByte\":2,\"kind\":\"whole\",\"language\":\"javascript\",\"regionId\":0,\"startByte\":0,\"state\":\"complete\"}],\"schemaVersion\":1,\"snapshotId\":\"snapshot2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"source\":{\"byteLength\":2,\"contentSha256\":\"fb8e20fc2e4c3f248c60c39bd652f3c1347298bb977b8b4d5903b85055620603\",\"path\":\"source\"},\"state\":\"complete\"}",
++      "expected": {
++        "admissible": true,
++        "error": null,
++        "spans": [
++          {
++            "regionId": 0,
++            "start": 0,
++            "end": 4,
++            "original": null
++          },
++          {
++            "regionId": 0,
++            "start": 2,
++            "end": 4,
++            "original": [
++              0,
++              2
++            ]
++          }
++        ]
++      }
++    },
++    {
++      "id": "cross-segment-contiguous",
++      "sourceHex": "616263",
++      "blobs": [
++        {
++          "sha256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
++          "contentHex": "616263"
++        }
++      ],
++      "recordJson": "{\"format\":\"javascript\",\"producerClosureId\":\"closure2:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"regions\":[{\"blockers\":[],\"derived\":{\"byteLength\":3,\"segments\":[{\"derivedEnd\":1,\"derivedStart\":0,\"kind\":\"exact\",\"sourceEnd\":1,\"sourceStart\":0},{\"derivedEnd\":3,\"derivedStart\":1,\"kind\":\"exact\",\"sourceEnd\":3,\"sourceStart\":1}],\"sha256\":\"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad\"},\"endByte\":3,\"kind\":\"whole\",\"language\":\"javascript\",\"regionId\":0,\"startByte\":0,\"state\":\"complete\"}],\"schemaVersion\":1,\"snapshotId\":\"snapshot2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"source\":{\"byteLength\":3,\"contentSha256\":\"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad\",\"path\":\"source\"},\"state\":\"complete\"}",
++      "expected": {
++        "admissible": true,
++        "error": null,
++        "spans": [
++          {
++            "regionId": 0,
++            "start": 0,
++            "end": 3,
++            "original": [
++              0,
++              3
++            ]
++          }
++        ]
++      }
++    },
++    {
++      "id": "map-source-outside-region",
++      "sourceHex": "616263",
++      "blobs": [
++        {
++          "sha256": "fb8e20fc2e4c3f248c60c39bd652f3c1347298bb977b8b4d5903b85055620603",
++          "contentHex": "6162"
++        }
++      ],
++      "recordJson": "{\"format\":\"javascript\",\"producerClosureId\":\"closure2:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"regions\":[{\"blockers\":[],\"derived\":{\"byteLength\":2,\"segments\":[{\"derivedEnd\":2,\"derivedStart\":0,\"kind\":\"anchor\",\"sourceEnd\":4,\"sourceStart\":2}],\"sha256\":\"fb8e20fc2e4c3f248c60c39bd652f3c1347298bb977b8b4d5903b85055620603\"},\"endByte\":3,\"kind\":\"whole\",\"language\":\"javascript\",\"regionId\":0,\"startByte\":0,\"state\":\"complete\"}],\"schemaVersion\":1,\"snapshotId\":\"snapshot2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"source\":{\"byteLength\":3,\"contentSha256\":\"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad\",\"path\":\"source\"},\"state\":\"complete\"}",
++      "expected": {
++        "admissible": false,
++        "error": "source-range",
++        "spans": []
++      }
++    },
++    {
++      "id": "malformed-utf8-accounted",
++      "sourceHex": "ff",
++      "blobs": [],
++      "recordJson": "{\"format\":\"javascript\",\"producerClosureId\":\"closure2:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"regions\":[{\"blockers\":[\"malformed-source\"],\"derived\":null,\"endByte\":1,\"kind\":\"unmapped\",\"language\":\"unknown\",\"regionId\":0,\"startByte\":0,\"state\":\"malformed\"}],\"schemaVersion\":1,\"snapshotId\":\"snapshot2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"source\":{\"byteLength\":1,\"contentSha256\":\"a8100ae6aa1940d0b663bb31cd466142ebbdbd5187131b92d93818987832eb89\",\"path\":\"source\"},\"state\":\"partial\"}",
++      "expected": {
++        "admissible": true,
++        "error": null,
++        "spans": []
++      }
++    },
++    {
++      "id": "malformed-utf8-hidden",
++      "sourceHex": "ff",
++      "blobs": [],
++      "recordJson": "{\"format\":\"javascript\",\"producerClosureId\":\"closure2:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"regions\":[{\"blockers\":[],\"derived\":null,\"endByte\":1,\"kind\":\"whole\",\"language\":\"javascript\",\"regionId\":0,\"startByte\":0,\"state\":\"complete\"}],\"schemaVersion\":1,\"snapshotId\":\"snapshot2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"source\":{\"byteLength\":1,\"contentSha256\":\"a8100ae6aa1940d0b663bb31cd466142ebbdbd5187131b92d93818987832eb89\",\"path\":\"source\"},\"state\":\"complete\"}",
++      "expected": {
++        "admissible": false,
++        "error": "malformed-source-account",
++        "spans": []
++      }
++    },
++    {
++      "id": "missing-grammar-is-incomplete",
++      "sourceHex": "616263",
++      "blobs": [],
++      "recordJson": "{\"format\":\"vue\",\"producerClosureId\":\"closure2:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"regions\":[{\"blockers\":[\"unmapped-region\",\"grammar-unavailable\"],\"derived\":null,\"endByte\":3,\"kind\":\"unmapped\",\"language\":\"unknown\",\"regionId\":0,\"startByte\":0,\"state\":\"unsupported\"}],\"schemaVersion\":1,\"snapshotId\":\"snapshot2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"source\":{\"byteLength\":3,\"contentSha256\":\"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad\",\"path\":\"source\"},\"state\":\"partial\"}",
++      "expected": {
++        "admissible": true,
++        "error": null,
++        "spans": []
++      }
++    },
++    {
++      "id": "dynamic-template-is-incomplete",
++      "sourceHex": "616263",
++      "blobs": [],
++      "recordJson": "{\"format\":\"vue\",\"producerClosureId\":\"closure2:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"regions\":[{\"blockers\":[\"dynamic-component\"],\"derived\":null,\"endByte\":3,\"kind\":\"template\",\"language\":\"vue-template\",\"regionId\":0,\"startByte\":0,\"state\":\"partial\"}],\"schemaVersion\":1,\"snapshotId\":\"snapshot2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"source\":{\"byteLength\":3,\"contentSha256\":\"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad\",\"path\":\"source\"},\"state\":\"partial\"}",
++      "expected": {
++        "admissible": true,
++        "error": null,
++        "spans": []
++      }
++    },
++    {
++      "id": "wrong-template-dialect",
++      "sourceHex": "616263",
++      "blobs": [],
++      "recordJson": "{\"format\":\"vue\",\"producerClosureId\":\"closure2:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"regions\":[{\"blockers\":[],\"derived\":null,\"endByte\":3,\"kind\":\"template\",\"language\":\"svelte-template\",\"regionId\":0,\"startByte\":0,\"state\":\"complete\"}],\"schemaVersion\":1,\"snapshotId\":\"snapshot2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"source\":{\"byteLength\":3,\"contentSha256\":\"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad\",\"path\":\"source\"},\"state\":\"complete\"}",
++      "expected": {
++        "admissible": false,
++        "error": "region-language",
++        "spans": []
++      }
++    },
++    {
++      "id": "complete-with-blocker-refused",
++      "sourceHex": "616263",
++      "blobs": [],
++      "recordJson": "{\"format\":\"javascript\",\"producerClosureId\":\"closure2:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"regions\":[{\"blockers\":[\"dynamic-class\"],\"derived\":null,\"endByte\":3,\"kind\":\"whole\",\"language\":\"javascript\",\"regionId\":0,\"startByte\":0,\"state\":\"complete\"}],\"schemaVersion\":1,\"snapshotId\":\"snapshot2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"source\":{\"byteLength\":3,\"contentSha256\":\"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad\",\"path\":\"source\"},\"state\":\"complete\"}",
++      "expected": {
++        "admissible": false,
++        "error": "state-blockers",
++        "spans": []
++      }
++    },
++    {
++      "id": "float-offset-refused",
++      "sourceHex": "616263",
++      "blobs": [],
++      "recordJson": "{\"format\":\"javascript\",\"producerClosureId\":\"closure2:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"regions\":[{\"blockers\":[],\"derived\":null,\"endByte\":3,\"kind\":\"whole\",\"language\":\"javascript\",\"regionId\":0,\"startByte\":0.0,\"state\":\"complete\"}],\"schemaVersion\":1,\"snapshotId\":\"snapshot2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"source\":{\"byteLength\":3,\"contentSha256\":\"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad\",\"path\":\"source\"},\"state\":\"complete\"}",
++      "expected": {
++        "admissible": false,
++        "error": "exact-json-type",
++        "spans": []
++      }
++    },
++    {
++      "id": "malformed-source-no-text-span",
++      "sourceHex": "ff",
++      "blobs": [],
++      "recordJson": "{\"format\":\"javascript\",\"producerClosureId\":\"closure2:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"regions\":[{\"blockers\":[\"malformed-source\"],\"derived\":null,\"endByte\":1,\"kind\":\"unmapped\",\"language\":\"unknown\",\"regionId\":0,\"startByte\":0,\"state\":\"malformed\"}],\"schemaVersion\":1,\"snapshotId\":\"snapshot2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"source\":{\"byteLength\":1,\"contentSha256\":\"a8100ae6aa1940d0b663bb31cd466142ebbdbd5187131b92d93818987832eb89\",\"path\":\"source\"},\"state\":\"partial\"}",
++      "expected": {
++        "admissible": true,
++        "error": null,
++        "spans": [
++          {
++            "regionId": 0,
++            "start": 0,
++            "end": 1,
++            "error": "span-source-utf8"
++          }
++        ]
++      }
++    }
++  ]
++}
+diff --git a/Users/sb/code/opensip-ai/opensip-fx-source-v/crates/syntax/src/source_model_tests.rs b/Users/sb/code/opensip-ai/opensip-fx-source-v/crates/syntax/src/source_model_tests.rs
+new file mode 100644
+index 0000000..47fbadc
+--- /dev/null
++++ b/Users/sb/code/opensip-ai/opensip-fx-source-v/crates/syntax/src/source_model_tests.rs
+@@ -0,0 +1,473 @@
++use super::source_model::{Error, Inputs, validate};
++use opensip_identity::{
++    JsonInteger, JsonValue as V, canonical_bytes, digest_hex, parse_json, raw_sha256,
++};
++use std::collections::{BTreeMap, BTreeSet};
++
++fn s(text: &str) -> V {
++    V::String(text.into())
++}
++fn n(value: usize) -> V {
++    V::Integer(JsonInteger::new(value as i128).unwrap())
++}
++fn object(pairs: &[(&str, V)]) -> V {
++    V::Object(
++        pairs
++            .iter()
++            .map(|(k, v)| (k.to_string(), v.clone()))
++            .collect(),
++    )
++}
++fn field<'a>(v: &'a V, k: &str) -> &'a V {
++    let V::Object(m) = v else { panic!("object") };
++    &m[k]
++}
++fn rows(v: &V) -> &[V] {
++    let V::Array(a) = v else { panic!("array") };
++    a
++}
++fn text(v: &V) -> &str {
++    let V::String(s) = v else { panic!("string") };
++    s
++}
++fn number(v: &V) -> usize {
++    let V::Integer(i) = v else { panic!("integer") };
++    usize::try_from(i.get()).unwrap()
++}
++fn set(v: &mut V, k: &str, value: V) {
++    let V::Object(m) = v else { panic!("object") };
++    m.insert(k.into(), value);
++}
++fn hex(value: &str) -> Vec<u8> {
++    value
++        .as_bytes()
++        .chunks_exact(2)
++        .map(|b| u8::from_str_radix(std::str::from_utf8(b).unwrap(), 16).unwrap())
++        .collect()
++}
++fn digest(bytes: &[u8]) -> String {
++    digest_hex(&raw_sha256(bytes))
++}
++
++struct Buffers {
++    files: BTreeMap<String, Vec<u8>>,
++    closures: BTreeSet<String>,
++    blobs: BTreeMap<String, Vec<u8>>,
++}
++
++impl Buffers {
++    fn new(bytes: &[u8]) -> Self {
++        Self {
++            files: [("source".into(), bytes.to_vec())].into(),
++            closures: [format!("closure2:{}", "b".repeat(64))].into(),
++            blobs: BTreeMap::new(),
++        }
++    }
++    fn inputs(&self) -> Inputs<'_> {
++        Inputs {
++            snapshot_id: "snapshot2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
++            files: &self.files,
++            producer_closures: &self.closures,
++            derived_blobs: &self.blobs,
++        }
++    }
++}
++
++#[allow(clippy::too_many_arguments)] // Explicit closed fixture-region fields.
++fn region(
++    kind: &str,
++    language: &str,
++    start: usize,
++    end: usize,
++    state: &str,
++    blockers: &[&str],
++    derived: V,
++) -> V {
++    object(&[
++        ("regionId", n(0)),
++        ("kind", s(kind)),
++        ("language", s(language)),
++        ("startByte", n(start)),
++        ("endByte", n(end)),
++        ("state", s(state)),
++        (
++            "blockers",
++            V::Array(blockers.iter().map(|x| s(x)).collect()),
++        ),
++        ("derived", derived),
++    ])
++}
++
++fn model(bytes: &[u8], format: &str, regions: Vec<V>, state: &str) -> V {
++    object(&[
++        ("schemaVersion", n(1)),
++        (
++            "snapshotId",
++            s("snapshot2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
++        ),
++        (
++            "source",
++            object(&[
++                ("path", s("source")),
++                ("contentSha256", s(&digest(bytes))),
++                ("byteLength", n(bytes.len())),
++            ]),
++        ),
++        (
++            "producerClosureId",
++            s(&format!("closure2:{}", "b".repeat(64))),
++        ),
++        ("format", s(format)),
++        ("state", s(state)),
++        ("regions", V::Array(regions)),
++    ])
++}
++
++fn whole(bytes: &[u8]) -> V {
++    model(
++        bytes,
++        "javascript",
++        if bytes.is_empty() {
++            vec![]
++        } else {
++            vec![region(
++                "whole",
++                "javascript",
++                0,
++                bytes.len(),
++                "complete",
++                &[],
++                V::Null,
++            )]
++        },
++        "complete",
++    )
++}
++
++#[test]
++fn accepted_reference_cases_and_exact_spans() {
++    let fixtures = parse_json(include_bytes!("source_model_cases.json")).unwrap();
++    let cases = rows(field(&fixtures, "cases"));
++    assert_eq!(cases.len(), 25);
++    for case in cases {
++        let id = text(field(case, "id"));
++        let original = hex(text(field(case, "sourceHex")));
++        let mut buffers = Buffers::new(&original);
++        for blob in rows(field(case, "blobs")) {
++            buffers.blobs.insert(
++                text(field(blob, "sha256")).into(),
++                hex(text(field(blob, "contentHex"))),
++            );
++        }
++        let expected = field(case, "expected");
++        let result = validate(text(field(case, "recordJson")).as_bytes(), buffers.inputs());
++        if field(expected, "admissible") == &V::Bool(false) {
++            assert!(result.is_err(), "{id}");
++            continue;
++        }
++        let validated = result.unwrap_or_else(|e| panic!("{id}: {e:?}"));
++        for span in rows(field(expected, "spans")) {
++            let actual = validated.exact_original_span(
++                number(field(span, "regionId")),
++                number(field(span, "start")),
++                number(field(span, "end")),
++            );
++            let V::Object(span_fields) = span else {
++                panic!()
++            };
++            if let Some(expected_error) = span_fields.get("error") {
++                assert_eq!(actual.unwrap_err().0, text(expected_error), "{id}");
++            } else {
++                let expected_span = match field(span, "original") {
++                    V::Null => None,
++                    value => Some((number(&rows(value)[0]), number(&rows(value)[1]))),
++                };
++                assert_eq!(actual, Ok(expected_span), "{id}");
++            }
++        }
++    }
++}
++
++#[test]
++fn multi_region_partitions_and_independent_incomplete_regions() {
++    let bytes = b"<s>abc<t>x";
++    let mut template = region(
++        "template",
++        "vue-template",
++        6,
++        bytes.len(),
++        "partial",
++        &["dynamic-component"],
++        V::Null,
++    );
++    set(&mut template, "regionId", n(2));
++    let mut script = region("script", "javascript", 3, 6, "complete", &[], V::Null);
++    set(&mut script, "regionId", n(1));
++    let record = model(
++        bytes,
++        "vue",
++        vec![
++            region(
++                "container",
++                "component-markup",
++                0,
++                3,
++                "complete",
++                &[],
++                V::Null,
++            ),
++            script,
++            template,
++        ],
++        "partial",
++    );
++    let buffers = Buffers::new(bytes);
++    let encoded = canonical_bytes(&record).unwrap();
++    let valid = validate(&encoded, buffers.inputs()).unwrap();
++    assert_eq!(valid.region_count(), 3);
++    assert!(!valid.extraction_complete());
++    assert_eq!(valid.exact_original_span(1, 0, 3), Ok(Some((3, 6))));
++    assert_eq!(valid.exact_original_span(2, 0, 3), Ok(Some((6, 9))));
++    // A physical citation remains exact even though extraction is incomplete;
++    // this API constructs neither a semantic fact nor repair permission.
++}
++
++#[test]
++fn unavailable_preprocessor_is_preserved_and_not_executed() {
++    let bytes = b"$color: red";
++    let record = model(
++        bytes,
++        "svelte",
++        vec![region(
++            "style",
++            "css",
++            0,
++            bytes.len(),
++            "unsupported",
++            &["preprocessor-unavailable"],
++            V::Null,
++        )],
++        "partial",
++    );
++    let buffers = Buffers::new(bytes);
++    let valid = validate(&canonical_bytes(&record).unwrap(), buffers.inputs()).unwrap();
++    assert!(!valid.extraction_complete());
++    assert_eq!(valid.exact_original_span(0, 0, 6), Ok(Some((0, 6))));
++}
++
++#[test]
++fn snapshot_source_and_retained_closure_joins() {
++    let bytes = b"abc";
++    let record = whole(bytes);
++    let mut buffers = Buffers::new(bytes);
++    let raw = canonical_bytes(&record).unwrap();
++    let mut wrong_snapshot = buffers.inputs();
++    wrong_snapshot.snapshot_id =
++        "snapshot2:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
++    assert_eq!(
++        validate(&raw, wrong_snapshot).unwrap_err(),
++        Error("snapshot-join")
++    );
++    buffers.files.insert("source".into(), b"abd".to_vec());
++    assert_eq!(
++        validate(&raw, buffers.inputs()).unwrap_err(),
++        Error("source-content")
++    );
++    buffers.files.clear();
++    assert_eq!(
++        validate(&raw, buffers.inputs()).unwrap_err(),
++        Error("source-membership")
++    );
++    buffers.files.insert("source".into(), bytes.to_vec());
++    buffers.closures.clear();
++    assert_eq!(
++        validate(&raw, buffers.inputs()).unwrap_err(),
++        Error("producer-closure")
++    );
++}
++
++fn mapped(bytes: &[u8], content: &[u8], segments: Vec<V>) -> V {
++    let d = object(&[
++        ("sha256", s(&digest(content))),
++        ("byteLength", n(content.len())),
++        ("segments", V::Array(segments)),
++    ]);
++    model(
++        bytes,
++        "javascript",
++        vec![region(
++            "whole",
++            "javascript",
++            0,
++            bytes.len(),
++            "complete",
++            &[],
++            d,
++        )],
++        "complete",
++    )
++}
++
++fn segment(kind: &str, start: usize, end: usize, source_start: V, source_end: V) -> V {
++    object(&[
++        ("kind", s(kind)),
++        ("derivedStart", n(start)),
++        ("derivedEnd", n(end)),
++        ("sourceStart", source_start),
++        ("sourceEnd", source_end),
++    ])
++}
++
++#[test]
++fn missing_and_stale_derived_buffers_are_refused() {
++    let record = mapped(b"abc", b"abc", vec![segment("exact", 0, 3, n(0), n(3))]);
++    let mut buffers = Buffers::new(b"abc");
++    let raw = canonical_bytes(&record).unwrap();
++    assert_eq!(
++        validate(&raw, buffers.inputs()).unwrap_err(),
++        Error("derived-retention")
++    );
++    buffers.blobs.insert(digest(b"abc"), b"abd".to_vec());
++    assert_eq!(
++        validate(&raw, buffers.inputs()).unwrap_err(),
++        Error("derived-content")
++    );
++}
++
++#[test]
++fn no_bounding_box_for_reordered_or_repeated_source() {
++    let bytes = b"abcabc";
++    let record = mapped(
++        bytes,
++        bytes,
++        vec![
++            segment("exact", 0, 3, n(3), n(6)),
++            segment("exact", 3, 6, n(0), n(3)),
++        ],
++    );
++    let mut buffers = Buffers::new(bytes);
++    buffers.blobs.insert(digest(bytes), bytes.to_vec());
++    let valid = validate(&canonical_bytes(&record).unwrap(), buffers.inputs()).unwrap();
++    assert_eq!(valid.exact_original_span(0, 0, 6), Ok(None));
++    assert_eq!(valid.exact_original_span(0, 0, 3), Ok(Some((3, 6))));
++}
++
++#[test]
++fn closed_shape_scalar_profile_and_logical_paths() {
++    let buffers = Buffers::new(b"abc");
++    for path in ["", "/source", "../source", "a//b", "a/./b", "a\\b"] {
++        let mut record = whole(b"abc");
++        let mut source = field(&record, "source").clone();
++        set(&mut source, "path", s(path));
++        set(&mut record, "source", source);
++        assert_eq!(
++            validate(&canonical_bytes(&record).unwrap(), buffers.inputs()).unwrap_err(),
++            Error("source-path")
++        );
++    }
++    let mut record = whole(b"abc");
++    set(&mut record, "authority", V::Bool(true));
++    assert_eq!(
++        validate(&canonical_bytes(&record).unwrap(), buffers.inputs()).unwrap_err(),
++        Error("schema")
++    );
++    for raw in [
++        b"{\"x\":0.0}".as_slice(),
++        b"{\"x\":-0}",
++        b"{\"x\":1,\"x\":2}",
++        b"{\"x\":\"\\ud800\"}",
++    ] {
++        assert_eq!(
++            validate(raw, buffers.inputs()).unwrap_err(),
++            Error("canonical-profile")
++        );
++    }
++}
++
++#[test]
++fn identity_depth_rule_allows_scalar_leaf_but_not_container_at_limit() {
++    // Matching the selected identity canonical predicate, not the r2 Python
++    // reference's blanket depth<32 on scalar leaves (FX-COMP-1-NB-02).
++    let scalar_at_depth_32 = format!("{}0{}", "[".repeat(32), "]".repeat(32));
++    assert!(parse_json(scalar_at_depth_32.as_bytes()).is_ok());
++    let container_at_depth_32 = format!("{}[]{}", "[".repeat(32), "]".repeat(32));
++    assert!(parse_json(container_at_depth_32.as_bytes()).is_err());
++}
++
++#[test]
++fn unchanged_selected_r2_invalid_map_blocker_does_not_grant_authority() {
++    let bytes = b"abc";
++    let mut record = mapped(bytes, bytes, vec![segment("exact", 0, 3, n(0), n(3))]);
++    let mut r = rows(field(&record, "regions"))[0].clone();
++    set(&mut r, "state", s("partial"));
++    set(&mut r, "blockers", V::Array(vec![s("invalid-source-map")]));
++    set(&mut record, "regions", V::Array(vec![r]));
++    set(&mut record, "state", s("partial"));
++    let mut buffers = Buffers::new(bytes);
++    buffers.blobs.insert(digest(bytes), bytes.to_vec());
++    let valid = validate(&canonical_bytes(&record).unwrap(), buffers.inputs()).unwrap();
++    assert!(!valid.extraction_complete());
++    assert_eq!(valid.exact_original_span(0, 0, 3), Ok(Some((0, 3))));
++    // Unselected components-r3 restrictions do not replace accepted r2. Every
++    // map still passes structural/content checks; citations are not facts.
++}
++
++#[test]
++fn row_and_record_bounds_are_checked_without_declared_size_allocation() {
++    let buffers = Buffers::new(b"abc");
++    let mut record = whole(b"abc");
++    set(&mut record, "regions", V::Array(vec![V::Null; 65_537]));
++    assert_eq!(
++        validate(&canonical_bytes(&record).unwrap(), buffers.inputs()).unwrap_err(),
++        Error("schema")
++    );
++    let oversized = vec![b' '; opensip_identity::MAX_BYTES + 1];
++    assert_eq!(
++        validate(&oversized, buffers.inputs()).unwrap_err(),
++        Error("canonical-profile")
++    );
++}
++
++#[test]
++fn complete_closed_shape_precedes_source_join() {
++    let mut buffers = Buffers::new(b"abc");
++    buffers.files.clear();
++    let mut record = whole(b"abc");
++    let V::Object(root) = &mut record else {
++        panic!()
++    };
++    root.remove("state");
++    assert_eq!(
++        validate(&canonical_bytes(&record).unwrap(), buffers.inputs()).unwrap_err(),
++        Error("schema")
++    );
++    let mut record = whole(b"abc");
++    let mut region = rows(field(&record, "regions"))[0].clone();
++    set(
++        &mut region,
++        "blockers",
++        V::Array(vec![s("grammar-unavailable"), s("grammar-unavailable")]),
++    );
++    set(&mut record, "regions", V::Array(vec![region]));
++    assert_eq!(
++        validate(&canonical_bytes(&record).unwrap(), buffers.inputs()).unwrap_err(),
++        Error("schema")
++    );
++}
++
++#[test]
++fn maximum_declared_lengths_never_allocate_buffers() {
++    let buffers = Buffers::new(b"abc");
++    let mut record = whole(b"abc");
++    let mut source = field(&record, "source").clone();
++    set(
++        &mut source,
++        "byteLength",
++        V::Integer(JsonInteger::new(u64::MAX as i128).unwrap()),
++    );
++    set(&mut record, "source", source);
++    assert_eq!(
++        validate(&canonical_bytes(&record).unwrap(), buffers.inputs()).unwrap_err(),
++        Error("source-content")
++    );
++}
