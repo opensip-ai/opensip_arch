@@ -1,0 +1,17 @@
+# K2c independent finite branch candidates r1
+
+Verdict: REJECT.
+
+Required finding K2C-BR-01. The TSX worksheet row records `bodyLanguage` `tsx`. `author.py` assigns `bodyLanguage` from the same grammar string it assigns to `grammarVariant`, so the TSX recipe receives `tsx`. SYN-NS bodies law, in the pinned normalizer `normalizer.v1.json` (43373 bytes, sha256 `e4a648f015945b0749af6314b83d62a51df94031457a0cad6b0f54f2718b5867`), says `languageId` is the row's body language, typescript for both the typescript and tsx rows, and dialect is the grammar variant. The accepted linear candidate worksheet already records `grammarVariant` `tsx` with `bodyLanguage` `typescript`. `grammarVariant` `tsx` on this row is the correct dialect. JavaScript, Rust, and TypeScript body languages match their rows.
+
+These four body spans are 56, 46, 56, and 56 raw bytes, all below `parameters.minBodyBytes` 64, so this archive still owes no clone group and no near pair. The recorded body language is still the language the named law would use for a later candidate.
+
+## What matched
+
+Subject manifest `docs/implementation/m3/harness/k2c-branch-candidates-r1-subject.json` is 866 bytes, sha256 `73fbd172e94bf1e6f4beb86d618de0ca182825e9a99ad7ffee0be7cf800fe54a`. The four archive members match that manifest: README.md 2217 / `1e13f9e482d5ec951626098f96c003560114d312f443cee560fb3176695ba2f7`; author.py 6483 / `e04cdc93097e1b956d2ec4547ca40f900536785909270b5fc8d0e4dc4949e844`; branch-candidate-worksheet.json 22521 / `3d7a55718118bf0fbd0e5d66e10f3c8ef9bf9fef9523f897c49b19dfd7c183b0`; checks.json 309 / `8e4a267783f7b9512a9868554c5f9441de6b7a1988668f4aad79b24afbe7d9df`.
+
+The four accepted syntax-control sources match the review pins. Function anchors are the file bytes excluding the trailing newline. Body anchors start at the opening brace and end at that same end byte. Entry-edge anchors equal the body span. Every other edge anchor equals its from statement. Subjects carry `@0` ordinals and no byte offsets. Counts are seven declarations, twelve numeric literals, four graphs, twelve statements, and twenty edges. Each numeric literal slice is the single byte `0`, `7`, or `1` at its first occurrence.
+
+JavaScript-family flow is branch-true to the nested `return 7;` and branch-false to the following `return value + 1;`, and both of those edges are `return` to exit. Rust's tail `if_expression` is branch-true to the consequence `integer_literal` `7` and branch-false to the alternative `binary_expression` `value + 1`, and both of those edges are `fallthrough` to exit. Rust records one function declaration and no parameter row. Each JavaScript-family file records the function and one `value` parameter. The TypeScript and TSX fixtures share the accepted digest `dc117456aaa56d26ed3a5ce78361cca5bd817ad29a27c7c1c43d50d9134b7eeb`.
+
+Worksheet standing is `INDEPENDENT-FINITE-BRANCH-CANDIDATE-EXPECTATIONS-NOT-FULL-ORACLE`. `checks.json` records `mechanicalSpanAndEdgeAssertionsPassed` true, `parserRuns` 0, `compilerRuns` 0, `producerRuns` 0, `laneFrozen` false, `fullCaseSet` false, and `productQualification` false. This review did not run `author.py`, a parser, a compiler, Cargo, a package manager, a provider, a T1 producer, or corpus analysis. No Fact2, Body2, Coverage, context, universe, full normalized atom, case, exit, work, stress, roster, freeze, or qualification claim is accepted. Whole-lane QD26 remains outstanding. Accepted source files, the SYN-NS normalizer, E1 r4, and the linear candidate manifest were used only as pinned bases.
