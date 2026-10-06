@@ -1,0 +1,627 @@
+diff --git a/providers/rust/src/lib.rs b/providers/rust/src/lib.rs
+index 746d84b..6d4f2c3 100644
+--- a/providers/rust/src/lib.rs
++++ b/providers/rust/src/lib.rs
+@@ -1,5 +1,6 @@
+ //! Components for the Rust compiler adapter under development.
+ //!
+ //! These components do not authorize provider launch or advertise capabilities.
++pub mod compiler_tools;
+ pub mod sealed_vfs;
+ pub mod source_snapshot;
+diff --git a/providers/rust/src/compiler_tools.rs b/providers/rust/src/compiler_tools.rs
+new file mode 100644
+index 0000000..9675b44
+--- /dev/null
++++ b/providers/rust/src/compiler_tools.rs
+@@ -0,0 +1,194 @@
++//! Declared compiler-tool joins over an exactly retained Rust context frame.
++//!
++//! These diagnostic checks do not admit signatures, native context, system
++//! library/configuration/dependency/prepared inputs, or process launch. Their
++//! caller owns those admissions. No executable is discovered or run here.
++
++use opensip_identity::{
++    GraphError, IdentityDomain, JsonValue, NativeFrameSet, RetainedInputError, RetainedInputs,
++};
++use std::collections::{BTreeMap, BTreeSet};
++
++#[derive(Debug)]
++pub enum CompilerToolError {
++    Frame(GraphError),
++    Retained(RetainedInputError),
++    Representation,
++    ForeignContext,
++    ClosureKind(&'static str),
++    ToolNotInClosure(&'static str),
++    CompilerVersion,
++    TargetTriple,
++    HostContextMismatch,
++}
++
++impl From<RetainedInputError> for CompilerToolError {
++    fn from(value: RetainedInputError) -> Self {
++        Self::Retained(value)
++    }
++}
++
++/// Observed joins only; neither an admitted context nor execution authority.
++#[derive(Debug)]
++pub struct CompilerToolChecks {
++    context_digest: [u8; 32],
++    linker_present: bool,
++}
++impl CompilerToolChecks {
++    pub fn context_digest(&self) -> [u8; 32] {
++        self.context_digest
++    }
++
++    /// Presence in the declared closure, not permission to prepare or link.
++    pub fn linker_present(&self) -> bool {
++        self.linker_present
++    }
++}
++
++/// Check the Rust context's declared compiler-tool closure joins.
++///
++/// The entire current-schema context H preimage is retained and recomputed.
++/// Both named closure records must recompute to their closure2 identities and
++/// have their declared manifest/tree bytes retained with exact hashes/lengths.
++/// Named tools must be members of the toolchain tree; null linker/ar remains
++/// absent. The declared compiler version and target must agree. The expected
++/// host digest covers the full context, including fields beyond these joins.
++///
++/// The host digest must come from the caller's admitted selection. Success
++/// proves none of the context's other semantic/admission obligations and emits
++/// no NativeContextVerified frame. In particular there is no ambient-tool
++/// fallback or executable-path selection here.
++pub fn check_declared_tools(
++    inputs: &RetainedInputs<'_>,
++    context_digest: [u8; 32],
++    expected_host_digest: [u8; 32],
++    schema_work: usize,
++) -> Result<CompilerToolChecks, CompilerToolError> {
++    let context = inputs
++        .frame_candidate(context_digest, NativeFrameSet::Context, schema_work)
++        .map_err(CompilerToolError::Frame)?;
++    if context.domain() != "native.context.rust.v2" {
++        return Err(CompilerToolError::ForeignContext);
++    }
++    let descriptor = map(context.descriptor())?;
++    let toolchain = map(field(descriptor, "toolchain")?)?;
++    let tools = map(field(descriptor, "toolClosure")?)?;
++    let dev_id = format!(
++        "closure2:{}",
++        text(field(toolchain, "rustcDevLlvmDigest")?)?
++    );
++    let dev = inputs.object(&dev_id, IdentityDomain::Closure, schema_work)?;
++    let dev = map(dev.descriptor())?;
++    require_kind(dev, "rust-dev-llvm")?;
++    retain_tree(inputs, dev)?;
++    let tool_id = text(field(tools, "closureId")?)?;
++    let closure = inputs.object(tool_id, IdentityDomain::Closure, schema_work)?;
++    let closure = map(closure.descriptor())?;
++    require_kind(closure, "toolchain")?;
++    let members = retain_tree(inputs, closure)?;
++    for role in ["rustc", "cargo", "procMacroServer", "linker", "ar"] {
++        let selected = field(tools, role)?;
++        if matches!(selected, JsonValue::Null) {
++            // Current shape admits null for only linker and ar.
++            continue;
++        }
++        if !members.contains(&digest(text(selected)?)?) {
++            return Err(CompilerToolError::ToolNotInClosure(role));
++        }
++    }
++    if text(field(closure, "semanticVersion")?)? != text(field(toolchain, "rustcVersion")?)? {
++        return Err(CompilerToolError::CompilerVersion);
++    }
++    if text(field(descriptor, "targetTriple")?)? != text(field(toolchain, "targetTriple")?)? {
++        return Err(CompilerToolError::TargetTriple);
++    }
++    if context.digest() != expected_host_digest {
++        return Err(CompilerToolError::HostContextMismatch);
++    }
++    Ok(CompilerToolChecks {
++        context_digest: context.digest(),
++        linker_present: !matches!(field(tools, "linker")?, JsonValue::Null),
++    })
++}
++
++fn require_kind(
++    closure: &BTreeMap<String, JsonValue>,
++    expected: &'static str,
++) -> Result<(), CompilerToolError> {
++    if text(field(closure, "kind")?)? != expected {
++        return Err(CompilerToolError::ClosureKind(expected));
++    }
++    Ok(())
++}
++
++fn retain_tree(
++    inputs: &RetainedInputs<'_>,
++    closure: &BTreeMap<String, JsonValue>,
++) -> Result<BTreeSet<[u8; 32]>, CompilerToolError> {
++    inputs.blob(digest(text(field(closure, "manifestDigest")?)?)?)?;
++    let JsonValue::Array(rows) = field(closure, "tree")? else {
++        return Err(CompilerToolError::Representation);
++    };
++    let mut members = BTreeSet::new();
++    let mut lengths = BTreeMap::new();
++    for row in rows {
++        let row = map(row)?;
++        let sha = digest(text(field(row, "sha256")?)?)?;
++        let JsonValue::Integer(length) = field(row, "bytes")? else {
++            return Err(CompilerToolError::Representation);
++        };
++        let length = u64::try_from(length.get()).map_err(|_| CompilerToolError::Representation)?;
++        if let Some(previous) = lengths.get(&sha) {
++            if *previous != length {
++                return Err(RetainedInputError::BlobLength.into());
++            }
++        } else {
++            inputs.blob(sha)?.require_length(length)?;
++            lengths.insert(sha, length);
++        }
++        members.insert(sha);
++    }
++    Ok(members)
++}
++
++fn map(value: &JsonValue) -> Result<&BTreeMap<String, JsonValue>, CompilerToolError> {
++    match value {
++        JsonValue::Object(value) => Ok(value),
++        _ => Err(CompilerToolError::Representation),
++    }
++}
++fn field<'a>(
++    value: &'a BTreeMap<String, JsonValue>,
++    name: &str,
++) -> Result<&'a JsonValue, CompilerToolError> {
++    value.get(name).ok_or(CompilerToolError::Representation)
++}
++fn text(value: &JsonValue) -> Result<&str, CompilerToolError> {
++    match value {
++        JsonValue::String(value) => Ok(value),
++        _ => Err(CompilerToolError::Representation),
++    }
++}
++fn digest(value: &str) -> Result<[u8; 32], CompilerToolError> {
++    if value.len() != 64 {
++        return Err(CompilerToolError::Representation);
++    }
++    let mut result = [0; 32];
++    for (index, chunk) in value.as_bytes().chunks_exact(2).enumerate() {
++        let mut byte = 0;
++        for digit in chunk {
++            byte = (byte << 4)
++                | match digit {
++                    b'0'..=b'9' => digit - b'0',
++                    b'a'..=b'f' => digit - b'a' + 10,
++                    _ => return Err(CompilerToolError::Representation),
++                };
++        }
++        result[index] = byte;
++    }
++    Ok(result)
++}
++
++#[cfg(test)]
++#[path = "compiler_tools_tests.rs"]
++mod tests;
+diff --git a/providers/rust/src/compiler_tools_tests.rs b/providers/rust/src/compiler_tools_tests.rs
+new file mode 100644
+index 0000000..28893c8
+--- /dev/null
++++ b/providers/rust/src/compiler_tools_tests.rs
+@@ -0,0 +1,410 @@
++use super::*;
++use opensip_identity::{
++    IdentityCandidate, JsonInteger, ObjectInput, RegisteredSchemas, canonical_bytes, digest_hex,
++    hash_preimage, raw_sha256,
++};
++use std::path::Path;
++use std::sync::OnceLock;
++
++const WORK: usize = 10_000_000;
++fn schemas() -> &'static RegisteredSchemas {
++    static REGISTRY: OnceLock<RegisteredSchemas> = OnceLock::new();
++    REGISTRY.get_or_init(|| {
++        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
++        let raw: Vec<_> = RegisteredSchemas::source_requirements()
++            .iter()
++            .map(|pin| std::fs::read(root.join(pin.source_path())).unwrap())
++            .collect();
++        RegisteredSchemas::from_sources(&raw.iter().map(Vec::as_slice).collect::<Vec<_>>()).unwrap()
++    })
++}
++fn object(entries: impl IntoIterator<Item = (&'static str, JsonValue)>) -> JsonValue {
++    JsonValue::Object(
++        entries
++            .into_iter()
++            .map(|(key, value)| (key.into(), value))
++            .collect(),
++    )
++}
++fn text(value: &str) -> JsonValue {
++    JsonValue::String(value.into())
++}
++fn number(value: usize) -> JsonValue {
++    JsonValue::Integer(JsonInteger::new(value as i128).unwrap())
++}
++fn hash_text(bytes: &[u8]) -> JsonValue {
++    text(&digest_hex(&raw_sha256(bytes)))
++}
++fn row(path: &str, bytes: &[u8]) -> JsonValue {
++    object([
++        ("path", text(path)),
++        ("sha256", hash_text(bytes)),
++        ("bytes", number(bytes.len())),
++    ])
++}
++fn fields(value: &mut JsonValue) -> &mut BTreeMap<String, JsonValue> {
++    let JsonValue::Object(value) = value else {
++        panic!("owned object fixture")
++    };
++    value
++}
++struct Fixture {
++    objects: BTreeMap<String, ObjectInput>,
++    blobs: BTreeMap<[u8; 32], Vec<u8>>,
++    context: JsonValue,
++    tools_id: String,
++    dev_id: String,
++}
++impl Fixture {
++    fn insert_closure(&mut self, descriptor: JsonValue) -> String {
++        let raw = canonical_bytes(&descriptor).unwrap();
++        let id = IdentityCandidate::from_json(schemas(), IdentityDomain::Closure, &raw, WORK)
++            .unwrap()
++            .identifier()
++            .to_owned();
++        self.objects.insert(
++            id.clone(),
++            ObjectInput {
++                domain: IdentityDomain::Closure,
++                descriptor,
++            },
++        );
++        id
++    }
++    fn new() -> Self {
++        let mut fixture = Self {
++            objects: BTreeMap::new(),
++            blobs: BTreeMap::new(),
++            context: JsonValue::Null,
++            tools_id: String::new(),
++            dev_id: String::new(),
++        };
++        let tools: [(&str, &[u8]); 5] = [
++            ("bin/ar", b"ar"),
++            ("bin/cargo", b"cargo"),
++            ("bin/linker", b"linker"),
++            ("bin/proc", b"proc"),
++            ("bin/rustc", b"rustc"),
++        ];
++        for (_, bytes) in tools {
++            fixture.blobs.insert(raw_sha256(bytes), bytes.to_vec());
++        }
++        fixture
++            .blobs
++            .insert(raw_sha256(b"dev-library"), b"dev-library".to_vec());
++        fixture
++            .blobs
++            .insert(raw_sha256(b"owned-manifest"), b"owned-manifest".to_vec());
++        let closure = |kind, rows| {
++            object([
++                ("schemaVersion", number(2)),
++                ("kind", text(kind)),
++                ("manifestDigest", hash_text(b"owned-manifest")),
++                ("tree", JsonValue::Array(rows)),
++                ("semanticVersion", text("1.95.0")),
++                ("protocolMajor", number(3)),
++                ("platform", text("macos-aarch64")),
++            ])
++        };
++        fixture.tools_id = fixture.insert_closure(closure(
++            "toolchain",
++            tools.iter().map(|(path, bytes)| row(path, bytes)).collect(),
++        ));
++        fixture.dev_id = fixture.insert_closure(closure(
++            "rust-dev-llvm",
++            vec![row("lib/dev", b"dev-library")],
++        ));
++        fixture.context = object([
++            ("schemaVersion", number(2)),
++            ("targetTriple", text("aarch64-apple-darwin")),
++            ("hostTriple", text("aarch64-apple-darwin")),
++            (
++                "toolchain",
++                object([
++                    ("cargoVersion", text("1.95.0")),
++                    ("rustCommitHash", text(&"0".repeat(40))),
++                    (
++                        "rustcDevLlvmDigest",
++                        text(fixture.dev_id.strip_prefix("closure2:").unwrap()),
++                    ),
++                    ("rustcVersion", text("1.95.0")),
++                    ("standardLibraryComponentDigests", JsonValue::Array(vec![])),
++                    ("sysrootDigest", hash_text(b"unadmitted sysroot fixture")),
++                    ("targetTriple", text("aarch64-apple-darwin")),
++                ]),
++            ),
++            (
++                "toolClosure",
++                object([
++                    ("ar", hash_text(b"ar")),
++                    ("cargo", hash_text(b"cargo")),
++                    ("closureId", text(&fixture.tools_id)),
++                    ("linker", hash_text(b"linker")),
++                    ("procMacroServer", hash_text(b"proc")),
++                    ("rustc", hash_text(b"rustc")),
++                ]),
++            ),
++            ("baseCfg", JsonValue::Array(vec![text("unix")])),
++            ("resolverVersion", number(3)),
++            (
++                "dependencySourceSetId",
++                text(&format!("sha256:{}", "a".repeat(64))),
++            ),
++            (
++                "unifiedFeaturesId",
++                text(&format!("sha256:{}", "b".repeat(64))),
++            ),
++            ("preparedOutputSetId", JsonValue::Null),
++            (
++                "configProjection",
++                object([
++                    ("schemaVersion", number(2)),
++                    ("ancestorCarrierVerified", JsonValue::Bool(true)),
++                    ("cargoHome", text("private-empty")),
++                    ("claimsCargoSwitch", JsonValue::Bool(false)),
++                    ("environmentProjection", text("none")),
++                    ("honoredKeys", JsonValue::Array(vec![])),
++                    ("projectionSha256", hash_text(b"unadmitted config fixture")),
++                    ("replacedSnapshotConfigs", JsonValue::Array(vec![])),
++                    (
++                        "rustflags",
++                        object([
++                            ("executableSelected", JsonValue::Bool(false)),
++                            ("honored", JsonValue::Array(vec![])),
++                            ("stripped", JsonValue::Array(vec![])),
++                        ]),
++                    ),
++                    ("strippedKeys", JsonValue::Array(vec![])),
++                ]),
++            ),
++        ]);
++        fixture
++    }
++    fn frame(&mut self) -> [u8; 32] {
++        let raw = hash_preimage("native.context.rust.v2", &self.context).unwrap();
++        let digest = raw_sha256(&raw);
++        self.blobs.insert(digest, raw);
++        digest
++    }
++    fn check(
++        &self,
++        sha: [u8; 32],
++        expected: [u8; 32],
++    ) -> Result<CompilerToolChecks, CompilerToolError> {
++        check_declared_tools(
++            &RetainedInputs::new(schemas(), &self.objects, &self.blobs),
++            sha,
++            expected,
++            WORK,
++        )
++    }
++    fn context_field(&mut self, parent: &str, name: &str, value: JsonValue) {
++        fields(fields(&mut self.context).get_mut(parent).unwrap()).insert(name.into(), value);
++    }
++    fn replace_closure(&mut self, dev: bool, change: impl FnOnce(&mut JsonValue)) {
++        let id = if dev { &self.dev_id } else { &self.tools_id };
++        let mut descriptor = self.objects.get(id).unwrap().descriptor.clone();
++        change(&mut descriptor);
++        let new_id = self.insert_closure(descriptor);
++        if dev {
++            self.dev_id = new_id.clone();
++            self.context_field(
++                "toolchain",
++                "rustcDevLlvmDigest",
++                text(new_id.strip_prefix("closure2:").unwrap()),
++            );
++        } else {
++            self.tools_id = new_id.clone();
++            self.context_field("toolClosure", "closureId", text(&new_id));
++        }
++    }
++}
++
++#[test]
++fn retained_declared_tool_joins_and_whole_context_digest_match() {
++    let mut fixture = Fixture::new();
++    let sha = fixture.frame();
++    let checked = fixture.check(sha, sha).unwrap();
++    assert_eq!(checked.context_digest(), sha);
++    assert!(checked.linker_present());
++    // Sysroot/config/dependency admissions are intentionally not established.
++    assert!(
++        !fixture
++            .blobs
++            .contains_key(&raw_sha256(b"unadmitted sysroot fixture"))
++    );
++}
++
++#[test]
++fn every_named_tool_must_belong_to_the_declared_tree() {
++    for role in ["rustc", "cargo", "procMacroServer", "linker", "ar"] {
++        let mut fixture = Fixture::new();
++        fixture.context_field("toolClosure", role, hash_text(b"unselected outsider"));
++        let sha = fixture.frame();
++        assert!(
++            matches!(fixture.check(sha, sha), Err(CompilerToolError::ToolNotInClosure(actual)) if actual == role),
++            "{role}"
++        );
++    }
++}
++
++#[test]
++fn absent_optional_tools_stay_absent_without_fallback() {
++    let mut fixture = Fixture::new();
++    fixture.context_field("toolClosure", "ar", JsonValue::Null);
++    fixture.context_field("toolClosure", "linker", JsonValue::Null);
++    let sha = fixture.frame();
++    assert!(!fixture.check(sha, sha).unwrap().linker_present());
++}
++
++#[test]
++fn unknown_dev_closure_is_not_a_digest_only_admission() {
++    let mut fixture = Fixture::new();
++    fixture.context_field("toolchain", "rustcDevLlvmDigest", text(&"a".repeat(64)));
++    let sha = fixture.frame();
++    assert!(matches!(
++        fixture.check(sha, sha),
++        Err(CompilerToolError::Retained(
++            RetainedInputError::MissingObject(_)
++        ))
++    ));
++}
++
++#[test]
++fn both_closure_kinds_are_checked_after_identity_recomputation() {
++    for dev in [true, false] {
++        let mut fixture = Fixture::new();
++        fixture.replace_closure(dev, |descriptor| {
++            fields(descriptor).insert("kind".into(), text("stdlib"));
++        });
++        let sha = fixture.frame();
++        let expected = if dev { "rust-dev-llvm" } else { "toolchain" };
++        assert!(
++            matches!(fixture.check(sha, sha), Err(CompilerToolError::ClosureKind(actual)) if actual == expected)
++        );
++    }
++}
++
++#[test]
++fn closure_descriptor_substitution_under_id_refuses() {
++    let mut fixture = Fixture::new();
++    fields(
++        &mut fixture
++            .objects
++            .get_mut(&fixture.tools_id)
++            .unwrap()
++            .descriptor,
++    )
++    .insert("semanticVersion".into(), text("1.96.0"));
++    let sha = fixture.frame();
++    assert!(matches!(
++        fixture.check(sha, sha),
++        Err(CompilerToolError::Retained(
++            RetainedInputError::ObjectIdentity
++        ))
++    ));
++}
++
++#[test]
++fn all_declared_tree_and_manifest_bytes_are_required() {
++    for bytes in [
++        &b"owned-manifest"[..],
++        &b"dev-library"[..],
++        &b"ar"[..],
++        &b"cargo"[..],
++        &b"linker"[..],
++        &b"proc"[..],
++        &b"rustc"[..],
++    ] {
++        let mut fixture = Fixture::new();
++        fixture.blobs.remove(&raw_sha256(bytes));
++        let sha = fixture.frame();
++        assert!(matches!(
++            fixture.check(sha, sha),
++            Err(CompilerToolError::Retained(
++                RetainedInputError::MissingBlob(_)
++            ))
++        ));
++    }
++}
++
++#[test]
++fn retained_member_substitution_and_wrong_length_refuse() {
++    let mut fixture = Fixture::new();
++    fixture
++        .blobs
++        .insert(raw_sha256(b"dev-library"), b"changed".to_vec());
++    let sha = fixture.frame();
++    assert!(matches!(
++        fixture.check(sha, sha),
++        Err(CompilerToolError::Retained(RetainedInputError::BlobDigest))
++    ));
++    let mut fixture = Fixture::new();
++    fixture.replace_closure(true, |descriptor| {
++        let JsonValue::Array(rows) = fields(descriptor).get_mut("tree").unwrap() else {
++            unreachable!()
++        };
++        fields(&mut rows[0]).insert("bytes".into(), number(1));
++    });
++    let sha = fixture.frame();
++    assert!(matches!(
++        fixture.check(sha, sha),
++        Err(CompilerToolError::Retained(RetainedInputError::BlobLength))
++    ));
++}
++
++#[test]
++fn compiler_version_and_target_agreement_are_required() {
++    let mut fixture = Fixture::new();
++    fixture.context_field("toolchain", "rustcVersion", text("1.96.0"));
++    let sha = fixture.frame();
++    assert!(matches!(
++        fixture.check(sha, sha),
++        Err(CompilerToolError::CompilerVersion)
++    ));
++    let mut fixture = Fixture::new();
++    fixture.context_field(
++        "toolchain",
++        "targetTriple",
++        text("x86_64-unknown-linux-gnu"),
++    );
++    let sha = fixture.frame();
++    assert!(matches!(
++        fixture.check(sha, sha),
++        Err(CompilerToolError::TargetTriple)
++    ));
++}
++
++#[test]
++fn host_comparison_covers_fields_beyond_the_tool_projection() {
++    let mut fixture = Fixture::new();
++    let old = fixture.frame();
++    fields(&mut fixture.context).insert("baseCfg".into(), JsonValue::Array(vec![text("changed")]));
++    let changed = fixture.frame();
++    assert!(matches!(
++        fixture.check(changed, old),
++        Err(CompilerToolError::HostContextMismatch)
++    ));
++    assert_eq!(
++        fixture.check(changed, changed).unwrap().context_digest(),
++        changed
++    );
++}
++
++#[test]
++fn bad_context_shape_or_raw_frame_cannot_acquire_tool_checks() {
++    let mut fixture = Fixture::new();
++    fixture.context_field("toolClosure", "rustc", JsonValue::Null);
++    let sha = fixture.frame();
++    assert!(matches!(
++        fixture.check(sha, sha),
++        Err(CompilerToolError::Frame(_))
++    ));
++    let mut fixture = Fixture::new();
++    let sha = fixture.frame();
++    fixture.blobs.insert(sha, b"changed".to_vec());
++    assert!(matches!(
++        fixture.check(sha, sha),
++        Err(CompilerToolError::Frame(_))
++    ));
++}
