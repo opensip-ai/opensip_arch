@@ -1,0 +1,263 @@
+diff --git a/Users/sb/code/opensip-ai/opensip-k1-case-scoring/tools/quality/case_scoring.py b/Users/sb/code/opensip-ai/opensip-k1-case-scoring/tools/quality/case_scoring.py
+new file mode 100644
+index 0000000..c27d61a
+--- /dev/null
++++ b/Users/sb/code/opensip-ai/opensip-k1-case-scoring/tools/quality/case_scoring.py
+@@ -0,0 +1,105 @@
++"""Pure Q0 r13 sections 1.2/1.3: case outcomes and T1 exact comparisons.
++
++Callers independently establish the frozen oracle, subject correspondence,
++input completeness and candidate normalization. No case generation, producer
++run, admissibility/identity proof, confidence or qualification occurs here.
++"""
++from canonical import canonical
++from records import require
++
++
++def _label(value):
++    require(type(value) is str and 1 <= len(value) <= 4096, "LABEL_REQUIRED")
++    canonical(value)
++
++
++def classify_outcome(expected, result, *, positive_sound_under_deficiency,
++                     deficiency_matches, refusal_matches,
++                     oracle_evidence_complete, coverage_claimed_complete):
++    """The QD-2 table over separately admitted, case-bound observations.
++
++    expected is one of the three expectedAnswer.kind names. result is found,
++    no-match, indeterminate, refused or error. Booleans are explicit trusted
++    caller conclusions: soundness comes from the frozen oracle, deficiency
++    and typed-refusal matches from exact pre-pinned expectations. A found
++    result already refers to this case's finding through admitted subject /
++    correspondence mapping; this function does not treat arbitrary output as
++    a matched finding. No inference of these premises from Coverage is made.
++    Returned flags are local diagnostics, never ledger/envelope authority.
++    """
++    require(type(expected) is str and expected in {
++        "determinate-positive", "determinate-negative", "must-abstain"}, "EXPECTED_KIND")
++    require(type(result) is str and result in {
++        "found", "no-match", "indeterminate", "refused", "error"}, "RESULT_KIND")
++    flags = (positive_sound_under_deficiency, deficiency_matches, refusal_matches,
++             oracle_evidence_complete, coverage_claimed_complete)
++    require(all(type(v) is bool for v in flags), "EXACT_BOOLEAN_REQUIRED")
++    q3_hit = q3_miss = q4_failure = false_positive = yield_loss = defect = False
++    correct = False
++    deficiency_mismatch = False
++    if expected == "determinate-positive":
++        q3_hit = result == "found"
++        q3_miss = not q3_hit
++        correct = q3_hit
++        yield_loss = result == "indeterminate"
++        defect = result in {"refused", "error"}
++    elif expected == "determinate-negative":
++        false_positive = result == "found"
++        correct = result == "no-match"
++        yield_loss = result == "indeterminate"
++        defect = result in {"refused", "error"}
++    elif result == "found":
++        correct = positive_sound_under_deficiency
++        false_positive = not correct
++    elif result == "no-match":
++        q4_failure = True
++    elif result == "indeterminate":
++        correct = deficiency_matches
++        deficiency_mismatch = not correct
++    elif result == "refused":
++        correct = refusal_matches
++        defect = not correct
++    else:
++        defect = True
++    # Completeness claims are checked independently of the finding outcome.
++    # Even a sound positive cannot excuse a false claim of complete evidence.
++    false_completeness = coverage_claimed_complete and not oracle_evidence_complete
++    q4_failure = q4_failure or false_completeness
++    correct = correct and not q4_failure
++    return {"correct": correct, "q3Hit": q3_hit, "q3Miss": q3_miss,
++            "q4Failure": q4_failure, "caseFalsePositive": false_positive,
++            "yieldLoss": yield_loss, "defect": defect,
++            "deficiencyMismatch": deficiency_mismatch,
++            "falseCompletenessClaim": false_completeness}
++
++
++def compare_cell(expected_atoms, observed_atoms, expected_exit, observed_exit):
++    """Exact CAN atom-set and exit equality after independent normalization.
++
++    Each local atom is exactly {kind, subject, value}, Q0 section 1.4's atom
++    vocabulary. Subject and value are already-normalized CAN values, not
++    provider ids decoded here. Duplicate atoms are invalid, never silently
++    deduplicated. Work/stress bounds and semantic correspondence admission
++    remain separate; a matching comparison alone never qualifies Q1.
++    """
++    canonical({"expected": expected_atoms, "observed": observed_atoms,
++               "expectedExit": expected_exit, "observedExit": observed_exit})
++    sets = []
++    for atoms in (expected_atoms, observed_atoms):
++        require(type(atoms) is list and len(atoms) <= 100000, "ATOM_ARRAY")
++        values = {}
++        for atom in atoms:
++            require(type(atom) is dict and set(atom) == {"kind", "subject", "value"}, "ATOM_SHAPE")
++            _label(atom["kind"])
++            key = canonical(atom)
++            require(key not in values, "DUPLICATE_ATOM")
++            values[key] = atom
++        sets.append(values)
++    expected, observed = sets
++    missing = sorted(expected.keys() - observed.keys())
++    unexpected = sorted(observed.keys() - expected.keys())
++    exit_matches = canonical(expected_exit) == canonical(observed_exit)
++    return {"atomsMatch": not missing and not unexpected, "exitMatches": exit_matches,
++            "matched": not missing and not unexpected and exit_matches,
++            "missing": [expected[k] for k in missing],
++            "unexpected": [observed[k] for k in unexpected]}
+diff --git a/Users/sb/code/opensip-ai/opensip-k1-case-scoring/tools/quality/test_case_scoring.py b/Users/sb/code/opensip-ai/opensip-k1-case-scoring/tools/quality/test_case_scoring.py
+new file mode 100644
+index 0000000..e6e26eb
+--- /dev/null
++++ b/Users/sb/code/opensip-ai/opensip-k1-case-scoring/tools/quality/test_case_scoring.py
+@@ -0,0 +1,146 @@
++"""Literal QD-2 table and Q1 controls; no oracle or producer execution."""
++import copy
++import pathlib
++import sys
++import unittest
++
++sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
++from canonical import Refusal
++from case_scoring import classify_outcome, compare_cell
++
++
++def score(expected, result, **changes):
++    flags = dict(positive_sound_under_deficiency=False, deficiency_matches=True,
++                 refusal_matches=False, oracle_evidence_complete=True,
++                 coverage_claimed_complete=True)
++    flags.update(changes)
++    return classify_outcome(expected, result, **flags)
++
++
++def atom(value, kind="literal", subject="body"):
++    return {"kind": kind, "subject": subject, "value": value}
++
++
++class CaseScoringTests(unittest.TestCase):
++    def test_literal_positive_table(self):
++        # Tuples: correct, hit, miss, yield loss, defect.
++        expected = {"found": (True, True, False, False, False),
++                    "no-match": (False, False, True, False, False),
++                    "indeterminate": (False, False, True, True, False),
++                    "refused": (False, False, True, False, True),
++                    "error": (False, False, True, False, True)}
++        for kind, row in expected.items():
++            r = score("determinate-positive", kind)
++            self.assertEqual(tuple(r[k] for k in ("correct", "q3Hit", "q3Miss", "yieldLoss", "defect")), row)
++            self.assertFalse(r["q4Failure"])
++            self.assertFalse(r["caseFalsePositive"])
++
++    def test_literal_negative_table(self):
++        # Tuples: correct, false positive, yield loss, defect.
++        expected = {"found": (False, True, False, False),
++                    "no-match": (True, False, False, False),
++                    "indeterminate": (False, False, True, False),
++                    "refused": (False, False, False, True),
++                    "error": (False, False, False, True)}
++        for kind, row in expected.items():
++            r = score("determinate-negative", kind)
++            self.assertEqual(tuple(r[k] for k in ("correct", "caseFalsePositive", "yieldLoss", "defect")), row)
++            self.assertFalse(r["q3Miss"])
++            self.assertFalse(r["q3Hit"])
++
++    def test_sound_positive_under_deficiency(self):
++        for sound in (False, True):
++            r = score("must-abstain", "found", positive_sound_under_deficiency=sound)
++            self.assertEqual((r["correct"], r["caseFalsePositive"]), (sound, not sound))
++            self.assertFalse(r["q4Failure"])
++            self.assertFalse(r["q3Hit"])
++
++    def test_unsupported_negative_always_q4(self):
++        r = score("must-abstain", "no-match", coverage_claimed_complete=False)
++        self.assertTrue(r["q4Failure"])
++        self.assertFalse(r["correct"])
++
++    def test_deficiency_exact_match_required(self):
++        for match in (False, True):
++            r = score("must-abstain", "indeterminate", deficiency_matches=match)
++            self.assertEqual((r["correct"], r["deficiencyMismatch"]), (match, not match))
++            self.assertFalse(r["yieldLoss"])
++
++    def test_only_pinned_typed_refusal_can_be_correct(self):
++        for match in (False, True):
++            r = score("must-abstain", "refused", refusal_matches=match)
++            self.assertEqual((r["correct"], r["defect"]), (match, not match))
++            self.assertFalse(score("must-abstain", "error", refusal_matches=match)["correct"])
++            for kind in ("determinate-positive", "determinate-negative"):
++                self.assertTrue(score(kind, "refused", refusal_matches=match)["defect"])
++
++    def test_false_completeness_retains_positive_miss(self):
++        for kind in ("determinate-positive", "determinate-negative"):
++            r = score(kind, "no-match", oracle_evidence_complete=False)
++            self.assertTrue(r["falseCompletenessClaim"])
++            self.assertTrue(r["q4Failure"])
++            self.assertFalse(r["correct"])
++            self.assertEqual(r["q3Miss"], kind == "determinate-positive")
++
++    def test_false_completeness_is_independent_of_outcome(self):
++        for result in ("found", "no-match", "indeterminate", "refused", "error"):
++            r = score("must-abstain", result, oracle_evidence_complete=False,
++                      positive_sound_under_deficiency=True, refusal_matches=True)
++            self.assertTrue(r["falseCompletenessClaim"])
++            self.assertTrue(r["q4Failure"])
++            self.assertFalse(r["correct"])
++        honest = score("must-abstain", "found", oracle_evidence_complete=False,
++                       coverage_claimed_complete=False, positive_sound_under_deficiency=True)
++        self.assertTrue(honest["correct"])
++        self.assertFalse(honest["q4Failure"])
++
++    def test_no_match_under_unclaimed_incomplete_evidence(self):
++        r = score("determinate-positive", "no-match", oracle_evidence_complete=False,
++                  coverage_claimed_complete=False)
++        self.assertTrue(r["q3Miss"])
++        self.assertFalse(r["falseCompletenessClaim"])
++
++    def test_kinds_and_flags_refuse_aliases(self):
++        with self.assertRaises(Refusal): score("positive", "found")
++        with self.assertRaises(Refusal): score("must-abstain", "missing")
++        for field in ("positive_sound_under_deficiency", "deficiency_matches", "refusal_matches",
++                      "oracle_evidence_complete", "coverage_claimed_complete"):
++            for value in (0, 1, None, "true"):
++                with self.assertRaises(Refusal):
++                    score("must-abstain", "found", **{field: value})
++
++    def test_cell_exact_sets_order_and_immutability(self):
++        expected = [atom(1), atom(2)]
++        before = copy.deepcopy(expected)
++        r = compare_cell(expected, list(reversed(expected)), "success", "success")
++        self.assertEqual(r, {"atomsMatch": True, "exitMatches": True, "matched": True,
++                             "missing": [], "unexpected": []})
++        self.assertEqual(expected, before)
++
++    def test_missing_extra_wrong_atom_coordinates(self):
++        base = atom("value")
++        for coordinate in ("kind", "subject", "value"):
++            wrong = dict(base, **{coordinate: "other"})
++            r = compare_cell([base], [wrong], 0, 0)
++            self.assertEqual(r["missing"], [base])
++            self.assertEqual(r["unexpected"], [wrong])
++            self.assertFalse(r["matched"])
++        self.assertEqual(compare_cell([base], [], 0, 0)["missing"], [base])
++        self.assertEqual(compare_cell([], [base], 0, 0)["unexpected"], [base])
++
++    def test_exit_types_and_empty_atom_sets(self):
++        self.assertTrue(compare_cell([], [], 0, 0)["matched"])
++        self.assertFalse(compare_cell([], [], 0, False)["matched"])
++        self.assertFalse(compare_cell([], [], {"class": "success"}, {"class": "fault"})["matched"])
++
++    def test_duplicate_atoms_and_closed_shapes(self):
++        for a, b in (([atom(1), atom(1)], []), ([], [atom(1), atom(1)]),
++                     ([dict(atom(1), extra=True)], []), ([atom(1, kind="")], [])):
++            with self.assertRaises(Refusal):
++                compare_cell(a, b, 0, 0)
++        with self.assertRaises(Refusal): compare_cell({}, [], 0, 0)
++        with self.assertRaises(Refusal): compare_cell([atom(1.0)], [], 0, 0)
++
++
++if __name__ == "__main__":
++    unittest.main()

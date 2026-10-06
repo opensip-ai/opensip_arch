@@ -1,0 +1,3 @@
+# K1 case outcomes and cell comparisons — additive inventory v150
+
+Parent v149 retained by value; two harness tooling files added. Packages and pending decisions unchanged. 103 inherited descriptions projected by stable path. Requires Grok ACCEPT-UNIT and root assent. Pure QD-2 table and exact Q1 atom/exit comparisons after caller admission. Callers establish frozen oracle expectations, finding correspondence, expected soundness and exact deficiency/refusal matches, completeness premises and normalized atoms. This helper generates no expected answer and executes no producer or oracle fixture. Complete scoring, cell work/stress checks, case provenance and lane freeze remain separate. No physical driver, owner sign-off, qualification, O1-a completion or S-OP binding.
