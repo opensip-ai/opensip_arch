@@ -1,0 +1,7 @@
+# X4T-c authoring scope
+
+Accepted X4T r12 lead-decision section explicitly selects exactly CONTINUE-INDEX-NOT-TRUSTED and CONTINUE-COMPONENT-NOT-TRUSTED, request-rejected/exit2/EXTENSION.ADMISSION_REJECTED, via common4 append/public detail registry rows/D9 routes/generation/drift check. Until it lands the registered core code with a role subject remains. F8b prerequisite integrated; I1-a closed. No new owner approval or member list is inferred.
+
+Current common4 source is still exact selected468a65062byte copy with322 code values; selected public registry has exactly the same membership. Common1/common3 and all inherited322 enum positions must stay unchanged. Current admission-registry is separately bound J-BS; derive from its latest selected copy, never468a old registry. Other completed source changes including CR-1/core role materialization stay exact. Capacity is held at historical reader prerequisites and is not smuggled into this unit. E2s/hsr-check/J4a/O1a/reviewed dirty trees and unbound SOP drafts remain untouched.
+
+Next: prepare complete separate common4/registry copies plus exact mapping, prospective generation using the accepted closure and receipt, strict drift through genuine reviewed entry point under frozen candidate binding, tests for only current common4 admission with common1/3 refusals and role-accurate routing. Freeze for independent Grok review before any product/architecture integration. No public contract or native code changes have been made yet.
