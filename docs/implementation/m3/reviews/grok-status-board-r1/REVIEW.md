@@ -1,0 +1,27 @@
+# Implementation status board r1
+
+Verdict: **ACCEPT**. Required findings: none.
+
+Subject manifest `docs/implementation/m3/status/2026-10-07-r1-subject.json` is 2997 bytes, sha256 `afcce9006e2f439a0a0c91bc83869d8d3af8e2269784770fac10b66ffb9cb072`. Its 14 members are sorted, unique, and match the frozen stage byte for byte. The stage contains no unpinned file. This is an operational status record. It leaves accepted plan, law, scope, dependency, gate, and threshold bytes unchanged.
+
+## Evidence cut-off
+
+Product HEAD is `b62132ee024887076ce223cef5e6a6ccac391d70`. Architecture HEAD is `25f273958bf1f02e42c968819f8a54430765b769`. Both commits exist, and each cut-off is that repository's current HEAD. The status publication is not in architecture HEAD. The board states that its own later architecture commit follows this cut-off and is a status publication, and the product tree is unchanged by this record.
+
+`design-lock.json` at the product cut-off is 580941 bytes, sha256 `2dcce35ba823d8f11762815b5a832a3cf216cbc9355d75391f5d5428590d6202`. The lock has 127 inventory successors and 132 contract successors. The last inventory candidate is `repository-file-inventory.v167.json`, 618550 bytes, sha256 `718cde32c35771b11527e45715a662c0850228d82b7bf611bfca541553bbbf2b`. All 103 inventory-passage inheritance parents use that same pin. Contract 132 is `snapshot-plan-c/vcs-1-r1/successor.json`, reviewed at `reviews/grok-vcs1-r1/review.json`, with one passage override of `identity-and-evidence.md` line 546 and no passage supersession. Successor paths for S-OP-2b and J4a are absent from the lock.
+
+## Scoped ledger and bindings
+
+`accepted-work.json` has 45 records, E001 through E045. Each record's standing says parent-unit completion is not implied. Every archived `review.json` pin matches the architecture cut-off. Each verdict is `ACCEPT`, `ACCEPT-UNIT`, or `ACCEPT-DESIGN-UNIT`, and each `requiredFindings` array is empty. Every product commit reference carries a `reportedRole` and is an ancestor of the product cut-off. Every architecture commit is an ancestor of the architecture cut-off. Those role labels stay labels from the source checkpoint.
+
+Recorded completion flags stay false, including `fullG2Complete`, `fullK1cComplete`, `fullM3Complete`, `fullR6Complete`, `fullC3aComplete`, `fullK2cComplete`, and `fullC1bComplete`. K2c records E042 and E043 keep `parserRuns` 0, `producerRuns` 0, and `laneFrozen` false. The C3 counter-order record keeps `activationDerived` and `admissionGranted` false. J3b (E040) and VCS-1 (E045) stay inside those exact scopes. `productQualification` and `entirePlanComplete` are false on the records that carry them.
+
+The binding ledger has inventory versions 137 through 167 and contract positions 98 through 132. Each inventory row equals the lock successor on parent, candidate, record, review, and assent, and each candidate is the next row's parent. Each contract row equals the lock on record, subject manifest, review, and assent. That range is the bridge after M3-PLAN-r10's own baseline: 97 contract successors and selected inventory v136, so the later lock is 132 contracts and inventory v167. Accepted M3-PLAN-r10 bytes are the pin in `source.json`; `reviews/codex-m3-plan-r10/review.json` is `ACCEPT` with empty findings and the same subject sha256. `PLAN-AMENDMENT-r3.md` is a member of the accepted FX-PLAN-1 r3 manifest; `reviews/grok-plan-r3/review.json` is `ACCEPT-DESIGN-UNIT` with empty findings. Historical draft or proposed sentences inside those accepted bytes remain historical cells.
+
+## Decisions, packets, and protocol
+
+The ten decision cards each state category, owner, question, recommendation, affected units, and next action, and the human table matches them. O7, D3, and D13 are `OWNER_RESERVED` / `AWAITING_OWNER`. The copied owner packet matches the pending packet bytes. Its pins match both historical `bc536d56fdea997c97d6bfac0ea4466827b64b2a` and the current architecture cut-off, and `O7Decided`, `D3SignedOff`, and `D13SignedOff` are false. The human board does not treat that historical base as the live head. The three C2a advisory copies match the panel files byte for byte and remain recommendations. D12 stays pending for a future Q6 runner selection. OQ1 stays pending for T3 workspace input. The ready actions are C2a successor drafting, the three named O1-a definition proposals, and the native publication audit. O1-a remains partial on those three gaps, with its inventory successor still owed. S-OP-2b stays accepted and unbound, with P→R→b after O1-a. J4a, E2s, and the named held trees stay held. K1c closure reconciliation is an outstanding lead task; E008 records `fullK1cComplete` false.
+
+E1 r5's governing review, `reviews/grok2-syntax-e-r5-round2/review.json`, is `ACCEPT` with empty findings and subject sha256 `3b9eae379574d037bf879ff67605232803fcf1f97641b86c860ce93d5f5fb6f0`, the current proposal pin. The proposal header still says it is not accepted. Round 1 remains `REQUIRED-FINDINGS`. This board opens no new E1 review.
+
+Relative links from the human board resolve to stage files or to files at the architecture cut-off. The update protocol requires an immediate local checkpoint at transitions and a reviewed shared board after integration, either with the next unit or as a status-only publication. A status record cannot authorize a scope, dependency, gate, or threshold change. The real installation path is absent. No product test, qualification, owner assent, inventory change, or push is claimed.
