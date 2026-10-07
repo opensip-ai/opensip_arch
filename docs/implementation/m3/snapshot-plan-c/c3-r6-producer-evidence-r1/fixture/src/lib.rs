@@ -1,0 +1,1 @@
+//! Isolated archive producer fixture.
