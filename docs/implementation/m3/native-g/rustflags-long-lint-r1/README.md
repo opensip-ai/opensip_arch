@@ -1,0 +1,9 @@
+# Rustflags attached long lint reference follow-up
+
+The named --allow/--warn/--deny/--forbid attached =lint spellings now use exactly the existing [a-z0-9_:]+ lint grammar and lint-syntax disclosure. This separate prospective reference copy changes one branch. Removing that branch equals the exact independently accepted/bound rustflags-reference-r1 bytes; neither that unit nor B-S9 is rewritten or reopened. No new option/value/reason/schema/member/numeric limit or passage override/supersession.
+
+80literal controls execute only five AST-selected pure declarations, not the full model or sibling assets.39closed-r1 controls remain equal,12newhonored/24newinvalid/4ordered counterexamples change,1unknown lookalike remains rejected. The array order and executableSelected=false remain exact. Empty, uppercase, spaces, hyphen, extra= and terminal-LF values disclose lint-syntax; unknown aliases remain not-allowlisted.
+
+Four local bare rustc1.95 probes accept the named attached long options on an owned public no_std source. This is primary local spelling evidence only, not tool closure/version authenticity/native compiler or provider qualification. nice10, no Cargo lane needed, no repository/installation/private413 source, no HOME assignment. Binary outputs are not selected as admitted product/compiler artifacts.
+
+Inherited quoted cfg interior whitespace stays unresolved. Real verified-remap membership, carrier/materialization, projection bounds/production collector and full Rustflags/native context admission remain separate. No full-model conformance/runnable-sibling, Coverage/provider/Plan/Run or qualification claim. Design-only prospective source copy, product code/inventory166 unchanged, exact independent acceptance/root assent/verify_design then architecture and separate product lock commit, no push. O1a, reserved owner choices and held trees/drafts remain.
