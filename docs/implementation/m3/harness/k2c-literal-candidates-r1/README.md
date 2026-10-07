@@ -1,0 +1,7 @@
+# K2c literal candidate and representation recipes
+
+Four new independently authored code fixtures cover25 numeric literal candidates: exact1,1.0,1e0,0x1,1_000 spellings, Rust1u64, and the numeric operand of unary-1. Values remain exact source spellings; no numeric-value canonicalization is invented. Unary-minus is outside the selected numeric node span. Raw spans are local source offsets, not minted anchors or fact IDs. Selected archive grammar rules and the Rust external float scanner are retained as static provenance, never executed.
+
+Eight hand-owned literal-representation vectors cover C0/C1 uppercase escaping before NFC, composed Latin accent, noninjective display of a rawC1 character versus its escape text,4096/4097 character thresholds and multibyte scalar-versus-byte length. Truncation keeps3996scalars, ellipsis,sha256: and the rawSHA256 of complete step2NFC UTF8; output4068characters. The independent Python oracle checks only these old assigned-character vectors and does not select a product Unicode engine.
+
+These are conditional local candidate/display recipes, not a complete T1 case set, normalized atom oracle, qualified parse/exit/context/work/stress expectation, freeze or producer measurement. Actual grammar/context/closure admission and all fixture populations/freeze joins remain owed. No parser/compiler/producer runs on this source. No T2 held-out source, protected worktree, private413 fixture, product repository, inventory or design-lock is touched. Accepted source/branch/syntax worksheets and E0/E2a/SYN-NS remain closed.
