@@ -1,0 +1,27 @@
+# Native source witness and path-owner identity recommendation
+
+2026-10-08 UNACCEPTED prospective recommendation. Bound R3-MR1 and C-ENV1 remain closed; no complete R3, codec/product or qualification gate closes here. Earlier package/owner codec r2 was ACCEPT-ADVISORY only and is preserved, not adopted law.
+
+## Source choice and witness
+
+Propose Rust native workspace_members, joined through ids in the same actually admitted bundled metadata observation, as snapshot-member owners. Activated nonworkspace packages use dependency-closure-member, including nonworkspace path dependencies retained inside the snapshot. A workspace member referenced as another member's dependency retains snapshot membership. The source choice is this explicit proposed workspace/activation rule, never lexical source priority or equality of content. Required source witnesses still join the actual sealed snapshot or selected complete dependency package manifest and current target/config/activation. No missing/ambiguous metadata id, lock tuple, manifest or source witness gets a default owner or silently dropped package. Metadata completeness and acquisition/activation obligations remain with current native law.
+
+Retain semantic witness fields: exact name/version/lock sourceId, existing sourceKind, the package key, workspace membership/activation facts, the source choice, and the actual sealed logical manifest locator where applicable. Interpret metadata's id/manifest_path only through the admitted materialization mapping; absolute Cargo ids/paths or path-containing raw observation digests never become semantic witness inputs. Exact producer/lock/source matching and provenance-aware failures still need publication. A caller's witness or hash is no admission.
+
+## Path-owner disambiguation
+
+The earlier two-element source/packageKey owner preimage cannot distinguish equal-name/version path packages in different workspaces of one snapshot. sourceId is empty for both, so package tuple and source/packageKey are equal. A single global security/native owner key must not accidentally merge them. Cargo's current source documentation describes lossy lockfile path encoding and its within-lock collision check; that is not a bundled producer pin or a cross-workspace owner namespace rule.
+
+Propose retaining the earlier PackageKey tuple recipe within each admitted native context, but using NativeOwnerKeyV2: own2- plus lower-case raw SHA256 C([source,packageKey,snapshotManifestPathOrNull]). Snapshot owners require the exact admitted package Cargo.toml logical path; dependency path owners require that actual in-snapshot manifest locator. Registry/git/other nonpath dependency owners use literal null; no import source or private scratch path is inserted. The required-versus-null selection comes from the admitted source/sourceKind witness, not caller preference. Retain and rederive the full three-element preimage before joins. The path is an intrinsic retained logical source location, never a host path. Distinct workspace manifests then yield distinct owners even when names/versions agree; moving a manifest changes its owner key explicitly.
+
+This is a revision of an unadopted recommendation, not rewriting an accepted codec or old records. Historical key/recipe/schema bytes keep historical selection. The complete successor must publish the own2 shape, witness schema, source/activation joins and actual failure/compatibility duties before product use. Equal tuple keys with conflicting actual packages remain inadmissible within one context; equal package tuples in separate contexts are scoped witnesses, not globally conflated package observations.
+
+## Worker and adapter namespaces
+
+The worker collision restriction from the earlier advisory remains proposed. The final selection must also cover physical materialization aliasing where distinct logical names share an OS namespace; no guessed case-fold/Unicode normalization, merge, overwrite or source dedup is allowed. If a sealed VFS owns byte-exact names that fact needs its actual owner proof; physical source materialization needs the existing filesystem/custody distinctness mechanism and real failure route. Before activation, all acquired candidates still finish admission/rejection and all admitted candidates materialize whole; worker output policy cannot skip them. The separate source-aware acquisition and adapter namespace remains owed. A versioned package-key worker mount may be evaluated as an alternative to flat name-version refusal, but is not adopted here.
+
+## Required controls and remaining work
+
+Two independent workspace roots with same package name/version; a workspace package used as a dependency; nonworkspace in-snapshot path package; same metadata id with conflicting rows; unknown workspace/resolve id; missing activation/source witness; wrong/null manifest locator; same-byte but different-source packages; regenerated owner key and unchanged PackageKey; no ambient path in semantic witness; exact symbolic positive/negative controls then actual bundled producer/retained recomputation. The adjacent byte examples use synthetic logical paths and prove only the proposed preimage distinction, not source admission.
+
+Source field maxLength bounds follow existing schema Unicode scalar counts, with descriptor byte limits separately checked; they are not byte-length limits. No ownership, platform/custody/native launch/producer/ground-truth/qualification assertion follows from a correct hash. Complete R3, C3 and owner/effectiveL gates remain open.

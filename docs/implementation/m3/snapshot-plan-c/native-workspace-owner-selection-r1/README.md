@@ -1,0 +1,1 @@
+MWS-1 selects only the Rust workspace_members owner-source class, including member-as-dependency and nonworkspace path cases. Three actual synthetic path/workspace metadata observations support interpretation, not native admission/profile/CC2 or product implementation. Full source/activation/custody/namespace/failure/library/product and owner gates remain open.
