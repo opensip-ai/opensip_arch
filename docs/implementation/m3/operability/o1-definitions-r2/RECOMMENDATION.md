@@ -1,0 +1,34 @@
+# O1 definition resolution: concrete proposed selections
+
+PROPOSED exact O1-D1 selection, not accepted or bound law; no O1-a code authority or completion follows. CONTRACT.md and the machine definitions now supply the exact proposed behavior; present controls remain design observations. It does not edit or reopen accepted SOP2-P/R/2b, choose a new exceptions list, or change the required O1-a then P→R→2b bind order. Current O1-a gaps stay open until an exact reviewed publication selects their behavior.
+
+## Credential families: recover the named source rather than infer patterns
+
+DC4's referenced prototype exists in the separate opensip-cli repository at a62509d623173155d0946e9f5d5ca90c839893e0. Both exact referenced sources were recovered read-only and their SHA-256 values match DC4:
+
+- packages/external-tool-adapter/src/redact.ts: 53b46f8d5b6adb06238f28664569ec0b40cd5aa0d3871bdb7742db4969575b35.
+- packages/core/src/lib/safe-diagnostic-data.ts: ec0666dfd5faf91d9ba3aa24990783fccb00279e5266a7dd39226b67a30eb7d1.
+
+Propose selecting exactly the adapter's URL userinfo, Bearer/Basic and inline assignment pattern definitions as a published source-grounded pattern profile. The actual credential mask is `***`; neither redactSecret's first-four preview nor secretHash's twelve-hex oracle is adopted. Those two helpers are explicitly forbidden by DC4 for doctor reports and supply no operational SafeField. The inline keys and Bearer minimum length are the exact source members, not invented additions.
+
+CONTRACT.md and character-profile.json publish complete finite character/boundary/case-fold and token-bounded match semantics for a dependency-free Rust implementation; exact Rust controls remain owed. The final guard must respect immutable encoder P2 spans. In particular, prototype free-text `\S+` can swallow a JSON closing quote/delimiter if naively applied across a serialized line, falsely classifying an allowed password=CANARY filename as an outside-P2 defect. The publication selects independent token interiors/intervening segments and its synthetic vectors test this case. Rule E escaping is never a guard firing.
+
+For the line bound, propose the already named operational maximum of 4096 bytes, including line framing, with an explicit UTF-8-boundary truncation rule and marker reservation. The prototype's 2000 UTF-16-unit default is a different diagnostic surface and must not silently become the operational line limit. CONTRACT.md now publishes the ellipsis marker, ANSI/C0/credential/bound order, exact framing and token maps, and defensive refusal/gate closure with existing loss accounting. ANSI must precede C0 stripping, and credential masking must not reveal a prefix because truncation broke a credential pattern. P2 matches remain p2-name-match disclosures; names are not relabelled as construction defects. Disclosure tier remains best effort, not a new confidentiality guarantee.
+
+## K5: use an actual admitted release catalog, not an empty reader table
+
+Propose selecting a nonempty initial operational release catalog by deriving its entries from two existing accepted authorities: the complete native capability matrix capability ids and the security S8 machine platform ids. The source matrix currently has eleven capability ids and four platform ids; exact comparison shows every entry satisfies K5's whole-value ASCII grammar and encoded bound. This is a proposed choice of catalog authority, not a claim that O1-a already holds it.
+
+The implementation should generate typed release-catalog entries from the exact pinned authorities and preserve an independently reproducible source/digest descriptor in the build. A writer accepts only that owning catalog entry type through From, never arbitrary caller text or a generic string adapter. A public lookup may select an existing immutable entry; it cannot create a new member. The reader checks whole grammar, encoded V, exact membership and the running build's selected catalog. Unknown values are invalid only after actual catalog admission; an absent/unverified catalog must be reported as an unavailable read-back prerequisite, not interpreted as an empty set that drops every K5 value. Retained schema/catalog selection is explicit; input logs cannot supply their own authority.
+
+This is a catalog generated from existing release authorities, not a mint-list file. exceptions.json remains the sole audited exception list. Component or bundled-pack ids are not fabricated or automatically admitted by this initial catalog: their owning catalog integration must supply verified entries before any writer emits them. K5 identity names do not claim that a release actually serves the corresponding capability or is qualified for a platform.
+
+## Event vocabulary: publish exact observable meanings
+
+Platform should reuse the security S8 four machine ids unchanged, never display aliases or guessed target strings. Compile-time target-family observation does not prove S8's OS/filesystem/security qualification predicates. Unsupported targets must take an explicit logger initialization refusal that preserves command/envelope invariance; do not emit an invented machine platform id.
+
+BuildProfile selects the exact artifact assertion predicate, with literal debug-assertions-on/debug-assertions-off observed by cfg!(debug_assertions). This prospective field meaning reports no Cargo named profile/inheritance, optimization, debug info, harness choice or qualification. It preserves O1 item1's no-build-script constraint. R1's Cargo inheritance proposal is rejected by the lead because observing it needs a build script; three historical profile observations explain that rejected approach, while four new isolated bare rustc controls independently vary optimization and assertions for the selected predicate.
+
+IoErrorKind now proposes four closed members: permission-denied (PermissionDenied), no-space (StorageFull), io-error (every other actual returned error with raw_os_error present), and other (remaining actual returned errors). The Darwin probe shows EIO is Uncategorized, so neither unstable variant matching nor Other alone gives a complete portable mapping. A successful short-write count is not an I/O error; it remains in the existing continuation/gate accounting with no fabricated sink_error or errno. The first actual error/errno pair stays in the same immutable writer snapshot. Exact field spellings are sink_error and errno, not guessed aliases.
+
+These mappings and their controls are proposals requiring Grok acceptance. No Rust enum or operational event is stubbed in O1-a. ComponentRole and later provider/protocol/configuration tables remain with their first emitting owners. The exact catalog and event table proposals are published as this additive O1 definition unit, requiring independent acceptance and proper accepted parents before code integration; accepted SOP drafts and held worktrees remain unchanged.
