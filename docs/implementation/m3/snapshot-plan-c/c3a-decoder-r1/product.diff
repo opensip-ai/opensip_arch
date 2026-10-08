@@ -1,0 +1,101 @@
+diff --git a/Cargo.lock b/Cargo.lock
+index b4e6131..32c51bc 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -2,6 +2,12 @@
+ # It is not intended for manual editing.
+ version = 4
+ 
++[[package]]
++name = "adler2"
++version = "2.0.1"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
++
+ [[package]]
+ name = "bitflags"
+ version = "2.13.2"
+@@ -181,6 +187,15 @@ version = "2.8.3"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
+ 
++[[package]]
++name = "miniz_oxide"
++version = "0.9.1"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "b63fbc4a50860e98e7b2aa7804ded1db5cbc3aff9193adaff57a6931bf7c4b4c"
++dependencies = [
++ "adler2",
++]
++
+ [[package]]
+ name = "opensip-cli"
+ version = "0.1.0"
+@@ -212,6 +227,7 @@ dependencies = [
+ name = "opensip-host"
+ version = "0.1.0"
+ dependencies = [
++ "miniz_oxide",
+  "opensip-contracts",
+  "opensip-evaluator",
+  "opensip-identity",
+diff --git a/crates/host/Cargo.toml b/crates/host/Cargo.toml
+index 7509c4f..b997f2a 100644
+--- a/crates/host/Cargo.toml
++++ b/crates/host/Cargo.toml
+@@ -14,6 +14,8 @@ opensip-platform = { path = "../platform" }
+ opensip-operability = { path = "../operability" }
+ opensip-reporting = { path = "../reporting" }
+ serde_json = "=1.0.151"
++# M3-P0/C3a selected raw DEFLATE inflater; gzip/tar framing remains first-party.
++miniz_oxide = { version = "=0.9.1", default-features = false }
+ 
+ opensip-lifecycle = { path = "../lifecycle" }
+ opensip-security = { path = "../security" }
+diff --git a/crates/host/src/lib.rs b/crates/host/src/lib.rs
+index 3355c6f..505c66a 100644
+--- a/crates/host/src/lib.rs
++++ b/crates/host/src/lib.rs
+@@ -97,3 +97,7 @@ pub mod installation_trust;
+ 
+ #[cfg(target_os = "macos")]
+ pub mod installation_lineage;
++
++// C3a supporting decoder library only; no source/import/owner admission or CLI route.
++#[allow(dead_code)]
++mod archive_decoder;
+diff --git a/tools/operability/exceptions.json b/tools/operability/exceptions.json
+index a239d73..d9f1696 100644
+--- a/tools/operability/exceptions.json
++++ b/tools/operability/exceptions.json
+@@ -980,6 +980,30 @@
+         "kind": "call",
+         "count": 6
+       },
++      {
++        "path": "crates/host/src/archive_decoder/gzip.rs",
++        "member": "from",
++        "kind": "call",
++        "count": 1
++      },
++      {
++        "path": "crates/host/src/archive_decoder/gzip_checksum.rs",
++        "member": "from",
++        "kind": "call",
++        "count": 1
++      },
++      {
++        "path": "crates/host/src/archive_decoder/tar.rs",
++        "member": "from",
++        "kind": "call",
++        "count": 4
++      },
++      {
++        "path": "crates/host/src/archive_decoder/tests.rs",
++        "member": "from",
++        "kind": "call",
++        "count": 8
++      },
+       {
+         "path": "crates/host/src/crash_matrix_support.rs",
+         "member": "from",
