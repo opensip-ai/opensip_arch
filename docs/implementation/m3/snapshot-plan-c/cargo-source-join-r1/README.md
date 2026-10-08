@@ -1,0 +1,1 @@
+CSJ-1 selects the pinned Cargo source-equivalence plus explicit precise-revision comparison, preserving NKC-1 raw lock tuple keys. Four actual fixture metadata observations and nine pinned source files are evidence only; full source/producer/profile/namespace/failure/library/product gates remain open. Earlier advisory serialized-text proposal is preserved as unadopted history.
