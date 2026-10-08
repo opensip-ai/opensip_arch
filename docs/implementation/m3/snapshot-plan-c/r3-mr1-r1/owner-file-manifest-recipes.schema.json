@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:opensip:security:owner-file-manifest-recipes:1",
+  "$defs": {
+    "Blob": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "bytes"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/LogicalPath"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+          "x-opensip-digest": {
+            "representation": "raw-artifact",
+            "artifact": "the exact retained file bytes named by path; bytes is their exact length"
+          }
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        }
+      }
+    },
+    "LogicalPath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "pattern": "^[^/\\\\\\u0000]{1,255}(/[^/\\\\\\u0000]{1,255})*(?![\\s\\S])",
+      "not": {
+        "pattern": "(^|/)\\.\\.?(/|$)"
+      },
+      "description": "The logical-path grammar identity-and-evidence section 3 already states: relative, slash-separated, no empty/dot/dot-dot/NUL/backslash segment, each segment at most 255 characters. THREE DIFFERENT ENFORCEMENTS EXIST AND THEY ARE NOT EQUIVALENT; this description states only where each applies and changes no accepted path set. (1) DIRECT $ref, exactly two fields: #/$defs/Blob/properties/path and #/$defs/import-blob/properties/path. Only these carry the full declarative grammar, INCLUDING the at-most-255-characters-per-segment bound. (2) fact/anchors[]/path: a plain bounded string here, additionally subject to the imperative recursive check in foundation/identity-model.py `ordered()` AND to a real snapshot JOIN - an anchor path must be an inventoried snapshot path, and inventory rows ARE Blob, so the declarative grammar reaches it through that join. (3) finding-fingerprint/subjectKey/logicalPath: a plain bounded string subject to the SAME imperative `ordered()` check and to NO snapshot join. `ordered()` refuses, for any string under a key named `path` or `logicalPath` at any depth, a leading slash, a backslash, a NUL and any empty/dot/dot-dot segment - and it does NOT enforce the per-segment 255 maximum. So (3) is not equivalently constrained to (1), and no snapshot join is claimed for it. The three scope-descriptor path arrays deliberately reference none of this, because `.` alone denotes the admitted project root and this grammar forbids a dot segment. Byte-identical in constraint to workflows/schemas/common.schema.json#/$defs/LogicalPath, which is what makes the import blob rows an exact mirror."
+    },
+    "SnapshotOwnerFileManifestV1": {
+      "type": "array",
+      "maxItems": 100000,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/Blob"
+      },
+      "x-opensip-order": "path",
+      "description": "The snapshot source inventory as a registered record in its own right, so that vcs-observation.sourceInventoryDigest names a record rather than an unnamed canonical fragment."
+    },
+    "DependencyOwnerFileManifestV1": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "byteLength",
+          "contentSha256",
+          "path"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096,
+            "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$))[^\\u0000\\\\]+(?![\\s\\S])"
+          },
+          "contentSha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+            "x-opensip-digest": {
+              "representation": "raw-artifact",
+              "artifact": "the exact retained bytes of that dependency source member, at its declared byteLength",
+              "retention": "preimage",
+              "authority": "native"
+            }
+          },
+          "byteLength": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18446744073709551615
+          }
+        }
+      },
+      "maxItems": 1000000,
+      "minItems": 0,
+      "uniqueItems": true,
+      "x-opensip-order": "path"
+    }
+  },
+  "description": "Prospective owner-retained preimage schemas; source-selected record, not a union whose empty arrays are ambiguous. Owning semantic admission and exact canonical bounds apply before hashing."
+}

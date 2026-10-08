@@ -1,0 +1,5 @@
+# R3-MR1 prospective membership and raw owner-manifest recipes
+
+Narrow exact design selection: conservative complete sealed membership, exact source-specific retained arrays and raw byte digests, existing native-domain and security-owner-row distinctions, no new snapshot capacity restriction, one future security library function used by the harness. The four source schema definitions are equal by value; design controls pass but no real owner/product admission is asserted. R3 advisory history is preserved, including rejected stale capacity evidence and its corrected closure.
+
+This unit does not settle PackageKey/owner source mapping, actual producer/custody provenance, complete failure publication or product implementation. Those remain mandatory before complete R3/C3c. No inventory, product code, effectiveL, native launch, GT freeze, qualification or owner assent is implied. Publication follows exact independent design-unit acceptance, lead assent/current verify_design and separate architecture/product-lock commits. No pushes.
