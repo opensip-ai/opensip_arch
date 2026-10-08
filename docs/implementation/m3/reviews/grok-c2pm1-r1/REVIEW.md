@@ -1,0 +1,19 @@
+# C2PM-1 r1
+
+Verdict: **REQUIRED-FINDINGS**. One finding, C2PM-RF-01.
+
+Subject manifest `docs/implementation/m3/snapshot-plan-c/c2pm-1-r1-subject.json` is 2858 bytes, sha256 `722e87cfda9d65dc6553b77b8c7683213fde056cc2934282b3dfee04f3e6c1f7`. Its 13 members are sorted, unique, and match the frozen stage. Product HEAD remains `b62132ee024887076ce223cef5e6a6ccac391d70`. Architecture HEAD is `2c53c9350b9ad0a89a33b0c89821c52f422d3ab2`. The current lock is still 132 contract successors, 127 inventory successors, and selected inventory v167 (`design-lock.json` 580941 bytes, sha256 `2dcce35ba823d8f11762815b5a832a3cf216cbc9355d75391f5d5428590d6202`). The real installation path is absent.
+
+## C2PM-RF-01
+
+`closure-protocol-routes.json` sets `envelopeDetail` on all twelve origin rows to the internal diagnostic key. The closed registry passage `x-opensip-public-route-registry.envelopeErrorsComposition` in pinned `schemas/sources/native-v2.schema.json` says a failure `CommandEnvelope` still needs a nonempty `errors` array of `DomainDetail` when `termination.domainDetail` is omitted, and that `envelopeDetail` supplies that code. `remedyKeyingConstraint` keys `PUBLIC_ROUTE_REMEDIES` by the public code. `DomainDetailCode` in pinned `schemas/sources/common-v1.schema.json` does not contain `native.closure-protocol-declaration-missing`, `native.closure-protocol-analyzer-mismatch`, `native.closure-protocol-descriptor-mismatch`, or `native.closure-protocol-unsupported`.
+
+The successor leaves that composition passage in force. The native-evidence line 3558 after-text says the internal keys stay in diagnostic records and selects no new public detail member. The frozen check encodes the same choice: it accepts a `StepTermination` that omits `domainDetail`, rejects a null or invented public detail, and requires `envelopeDetail` to equal the internal key. Those StepTermination results do not make the rows lawful registry rows. Existing origin-dependent rows keep the internal key in the operational record and put an existing `DomainDetailCode` in `envelopeDetail`. This successor's standing states the opposite for `envelopeDetail`.
+
+## What the frozen checks established
+
+The in-memory successor overlay passes the current verifier: baseline 132, prospective chain 133, five passage overrides, one passage supersession, inventory v167 and its inheritance unchanged. The security-and-lifecycle.md line 70 supersession names the current CR-1 meaning. C r7 is an authority pin and is not a lock parent. Parent before-text matches the accepted bytes. The synthetic review and assent existed only in that process.
+
+`evidence/check.py --check` reports 11010 inherited shape cases with no verdict change, one added optional root property `closureProtocolMajor` of integer `1..9223372036854775807`, old closed readers rejecting the new field, and the published guard order missing, analyzer mismatch, descriptor mismatch, then unsupported. The manifest completion matches that one-property diff. `1.0` passes the mathematical schema, and the design assigns decimal and exponent spellings to the existing raw metadata parser (`FloatForbidden` in the trust metadata decoder used by `validate_inner`). That split is stated as a product control still owed, and the check does not execute the parser.
+
+The declaration, both-path analyzer equality, distinct `ClosureProtocolMismatch` discriminator, four passive supported-major `1` selections, absent-field M2 validity, and origin-sensitive class split match the contract. `request-rejected` is exit 2 and `operational-failed` is exit 4 under the existing D9 class table. `STATUS-DELTA.md` names no future commit and leaves full C2a, effective L, owner choices O7/D3/D13, and qualification open. No product schema, inventory bind, or qualification is performed by this review.
