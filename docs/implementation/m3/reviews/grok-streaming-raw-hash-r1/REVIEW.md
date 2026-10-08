@@ -1,0 +1,25 @@
+# SRH-1 streaming raw SHA-256
+
+ACCEPT-UNIT.
+
+The subject manifest is 6051 bytes, sha256 `80119d1b52141b084e8376dd0e5e25f55bdd58a6a3b875dc5ae1303edefe5830`, with 27 unique members. Every subject pin matches the stage bytes. No inventory successor is in the stage.
+
+Product main and the candidate `opensip-stream-hash` are both at `03afbce448918dd97b12bfe121d51e43e2a9cb88`, “Bind reviewed NNS-1 package transport namespace.” Main is clean. The candidate differs by exactly three identity files: modified `crates/identity/src/lib.rs`, and untracked `streaming_digest.rs` and `streaming_digest_tests.rs`. Those bytes match the stage pins. Architecture HEAD `6e9d5e0d4001c2ba4bfabdbb49ae5a5858b3febe` is “Select conditional native package transport namespace.” The tracked architecture tree matches that commit. The untracked `docs/implementation/m3/syntax-e/e2s/` tree is outside this unit.
+
+The lock at that product HEAD is 602547 bytes, sha256 `64504dd716f03ad4393b7a322eccf4e593c880c7c580fb7309ea7d2fd235bf9c`, schemaVersion 4. It has 130 inventory successors and 152 contract successors. The selected inventory remains `repository-file-inventory.v170.json`. The contract tail is the NNS-1 successor. `Cargo.lock`, `crates/identity/Cargo.toml`, `tools/identity/dependency-policy.json`, `crates/identity/src/digests.rs`, and `tools/operability/exceptions.json` match that commit. The three architecture pins, including identity-and-evidence and MC8, match `6e9d5e0d`.
+
+## The primitive
+
+`lib.rs` keeps `#![no_std]` and `#![forbid(unsafe_code)]`. Its diff is 749 bytes and only adds `mod streaming_digest` and the export of `RawSha256` and `RawSha256LengthError`. `raw_sha256` remains `Sha256::new().update(bytes).finalize()` in the unchanged `digests.rs`. The dependency stays `sha2-const-stable =0.1.0`. The pinned `src/lib.rs`, `src/sha.rs`, `src/constants.rs`, `src/util.rs`, and empty `LICENSE.md` match that registry crate.
+
+`RawSha256` holds the existing `Sha256` state and a private `u64` byte count. `new` and `Default` start that state at zero. `update` consumes `self`, converts the chunk length into `u64`, and accepts the chunk only when the checked sum is at most `u64::MAX / 8`. That bound is the largest byte count whose bit length fits the SHA-256 64-bit message domain. The selected `Sha256::update` adds `(input.len() as u64) * 8` to its internal bit counter, and this check runs before that call. A refused update returns `RawSha256LengthError` and no accumulator. `finish` returns the raw 32-byte digest. Chunk boundaries, framing, canonicalization, domain, and salt do not enter the preimage. An empty update is a zero-length append.
+
+The accumulator does not implement `Clone`, `Copy`, or a serializer. Its length field is private. The length error is a `Copy` unit value with no hash state. The module has no filesystem, reader, custody, source capability, owner, profile, native producer, launch, context, Plan, Coverage, or Run API, and it adds no public failure code. Constructors establish hash state only. The new files contain no gzip, tar, or FNAME parser.
+
+The crate tests contain 68 `#[test]` functions, four of them in `streaming_digest_tests.rs`. The recorded `opensip-identity` lib run reports `68 passed; 0 failed`. The fourteen pattern vectors, lengths 0, 1, 55, 56, 63, 64, 65, 127, 128, 129, 4095, 4096, 4097, and 32768, match Python hashlib for byte `(31*i+7) mod 256`. The test feeds each vector through nine chunk widths, 1, 7, 55, 56, 63, 64, 65, 4096, and 32768, with empty updates. The empty digest, `abc`, and one million `a` bytes match the standard SHA-256 values. The length test injects `byte_length` and does not read a giant buffer. The storage test expects the accumulator to be one `Sha256` plus one `u64`.
+
+The authoring script invokes `cargo clippy -p opensip-identity --all-targets -- -D warnings`, and the recorded clippy log finishes with no warning text. The recorded release check finishes for `opensip-identity`. The formatter log is empty. The bare-rustc controls are a successful public update and finish, `E0382` on `finish` after a moved `update`, and `E0616` on an external write to `byte_length`. The initial strict `PATH` linker failure is disclosed; the recorded runs use the ordinary absolute `/usr/bin/cc` linker and SDK. That is not a CC2 profile proof. Operability evidence records 113 source rows, 431 mint rows, and a passing lock check, with exceptions unchanged from the base commit.
+
+## Open gates
+
+`fullC3aComplete`, `R3Resolved`, `sourceProfilePublished`, `actualOwnerAdmission`, `productQualification`, and `entirePlanComplete` stay false. This is the pure raw-digest kernel. Complete read, custody, source, profile, decoder, R3, library owners, and product qualification remain open. This review did not run Cargo, rustc, tests, or the operability checker. Integration still requires this acceptance, root assent, and a current `verify_design`, as an architecture archive and a separate product code commit. The lock stays unchanged until a separate inventory review after that code is present. No push.
