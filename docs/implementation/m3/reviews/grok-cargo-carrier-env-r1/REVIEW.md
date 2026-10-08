@@ -1,0 +1,27 @@
+# C-ENV1 r1
+
+ACCEPT-DESIGN-UNIT. This publication names one required exception: the host assigns `CARGO_HOME` to the fresh private empty directory created for that invocation. It does not implement the adapter, change a schema, or qualify a native product.
+
+The subject is `docs/implementation/m3/snapshot-plan-c/cargo-carrier-env-r1-subject.json`, 1766 bytes, sha256 `fc3096949f3489fbfd39e5f2264118e58b33dffff86d085b8f5e2da3a8df3048`. schemaVersion is 1 and the unit is `C-ENV1-r1`. It lists 8 sorted unique members. Every member's length and sha256 matched the stage. The manifest is outside those eight. The successor record is 3590 bytes, sha256 `df15a56540f26c9c64fd567b1af064e5191f9de7d9021cc9ecd0aca5f12be509`. schemaVersion is 1. `passageSupersessions` is empty, so `supersededPassages` is empty.
+
+Product HEAD is `e14b268a94853e6bce87d1626f342814a45833c5`, clean. Architecture HEAD is `19531eeacb78b1877887108fc984fe868bbe9277`, with only the unrelated untracked `docs/implementation/m3/syntax-e/e2s/` tree. Committed `design-lock.json` is 592225 bytes, schemaVersion 4, with no `SCRATCH`. It has 130 inventory successors and 141 contract successors. The inventory tail is `repository-file-inventory.v170.json`. The contract tail is the bound R3-MR1 successor. C-ENV1 is absent from that lock. Inventory stays 170. Product code stays unchanged. The prospective contract count after this unit is 142.
+
+Five authority pins match architecture `19531ee`: native-evidence.md 329013 / `83b99783893bec4bcca76bc043310e1d33305fc41ef85e012fbcb19e5b222ca0`, `native_evidence_model.v2.py` 319376 / `7d1c0acf2c7d74e52c6570bba66dcb846c03710f64cb61a2c83bd1c39abab8be`, native-evidence.schemas.v2.json 277967 / `2d37b810bd9ffed741d74241fc8a11051606862d8af2f152eed16b92bdc66043`, native-cases.v2.json 952644 / `a08b8cc380a2d332a752405fde11df1d5d63b050c7297ec21820516702367ddc`, and canonical.py 6465 / `d47f25db0fb09ceb84282a89fdf74055cb81ccb9de26f85a5a70b032b9a6b442`.
+
+## The exception
+
+Native section 3.3 already states CC-2: `CARGO_HOME` is a fresh private empty directory created for the invocation, with `config.toml` absent by construction. The same section's CC-3 bullet says the constructed environment contains no `CARGO_*` name. `cargo_config_admission` already removes only `CARGO_HOME` from the prohibited-environment list when its value is exactly the symbol `<private-empty>`, and it refuses every other value under CC-2. The existing positive case `cargo-config-verified-carrier-admitted` uses that symbol and is admitted. Ancestor, environment, and tool failures in the same suite still refuse when the symbol is present but another rule fails.
+
+The one passage override inserts after native-evidence.md line 1714, `### 3.3 Cargo configuration: verified carrier, exact flags (feedback 5, 10)`. That header occurs once. None of the 141 bound successors, and none of the 103 inventory passage-inheritance rows, use line 1714 or that header. The after text repeats the header and adds one paragraph. The paragraph makes CC-3 admit exactly the host-constructed assignment of `CARGO_HOME` to this invocation's actual CC-2 directory, and no other `CARGO_*` variable. The assignment is required. It is not inherited, caller-selected, or satisfied by a claimed string. The model's `<private-empty>` marker stays a symbolic observation. The literal schema token `private-empty` is not that marker and is not a pathname.
+
+`CargoConfigProjectionV2` keeps `cargoHome` const `private-empty` and `environmentProjection` const `none`. Those facts are not path aliases. The private directory stays operational and is excluded from content identity. CC-1 ancestor refusal, CC-4 closure tool selection, CC-5 projected configuration, sealed source materialization, and the metadata incomplete branch stay in place. Refusals keep the current public composition: `native.ambient-cargo-config`. No `HOME` mutation, ambient source, or new failure code is selected.
+
+## Symbolic controls
+
+`evidence/check.py` was run once, read-only, with the pinned architecture tree and the existing audit dependencies. It called only `cargo_config_admission` and required `reference-controls.json` to equal the returned report. It printed: "Existing symbolic private-home exception admits once and refuses six malformed environments; no OS/product controls asserted."
+
+The admitted environment is `{CARGO_HOME: <private-empty>}`. The six refusals are a missing home (CC-2), an ambient path (CC-3 and CC-2), `CARGO_TARGET_DIR` beside the symbol (CC-3), `PATH` beside the symbol (CC-3), `RUSTFLAGS` beside the symbol (CC-3), and the literal string `private-empty` (CC-3 and CC-2). Each refusal carries `native.ambient-cargo-config`, and `claimsCargoSwitch` stays false. The report records one positive, six negatives, and both implementation flags false. The run did not create a directory, change an environment, or launch Cargo.
+
+## Scope
+
+`productImplemented`, `productQualification`, and `entirePlanComplete` are false. The owning adapter still has to prove that the runtime value is that invocation's CC-2 directory. Platform and native product controls, R3, C2, C3, effective L, O7, D3, D13, and ground truth remain open. Acceptance of this unit is the narrow prose and reference reconciliation only. Architecture and product-lock publication stay separate commits after lead assent and a current `verify_design`. This review did not run `verify_design.py`. No product-code commit, inventory commit, or push follows from this acceptance.
