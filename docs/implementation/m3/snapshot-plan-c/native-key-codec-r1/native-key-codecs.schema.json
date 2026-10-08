@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:opensip:prospective:native-key-codecs:v1",
+  "$defs": {
+    "LogicalPath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "pattern": "^[^/\\\\\\u0000]{1,255}(/[^/\\\\\\u0000]{1,255})*(?![\\s\\S])",
+      "not": {
+        "pattern": "(^|/)\\.\\.?(/|$)"
+      },
+      "description": "The logical-path grammar identity-and-evidence section 3 already states: relative, slash-separated, no empty/dot/dot-dot/NUL/backslash segment, each segment at most 255 characters. THREE DIFFERENT ENFORCEMENTS EXIST AND THEY ARE NOT EQUIVALENT; this description states only where each applies and changes no accepted path set. (1) DIRECT $ref, exactly two fields: #/$defs/Blob/properties/path and #/$defs/import-blob/properties/path. Only these carry the full declarative grammar, INCLUDING the at-most-255-characters-per-segment bound. (2) fact/anchors[]/path: a plain bounded string here, additionally subject to the imperative recursive check in foundation/identity-model.py `ordered()` AND to a real snapshot JOIN - an anchor path must be an inventoried snapshot path, and inventory rows ARE Blob, so the declarative grammar reaches it through that join. (3) finding-fingerprint/subjectKey/logicalPath: a plain bounded string subject to the SAME imperative `ordered()` check and to NO snapshot join. `ordered()` refuses, for any string under a key named `path` or `logicalPath` at any depth, a leading slash, a backslash, a NUL and any empty/dot/dot-dot segment - and it does NOT enforce the per-segment 255 maximum. So (3) is not equivalently constrained to (1), and no snapshot join is claimed for it. The three scope-descriptor path arrays deliberately reference none of this, because `.` alone denotes the admitted project root and this grammar forbids a dot segment. Byte-identical in constraint to workflows/schemas/common.schema.json#/$defs/LogicalPath, which is what makes the import blob rows an exact mirror."
+    },
+    "NativePackageWitnessV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version",
+        "sourceId",
+        "packageKey"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "sourceId": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "packageKey": {
+          "type": "string",
+          "pattern": "^pkg1-[0-9a-f]{64}(?![\\s\\S])"
+        }
+      }
+    },
+    "NativeOwnerWitnessV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "sourceKind",
+        "package",
+        "snapshotManifestPath",
+        "ownerKey"
+      ],
+      "properties": {
+        "source": {
+          "enum": [
+            "snapshot-member",
+            "dependency-closure-member"
+          ]
+        },
+        "sourceKind": {
+          "type": "string",
+          "enum": [
+            "registry",
+            "git",
+            "path",
+            "vendored"
+          ]
+        },
+        "package": {
+          "$ref": "#/$defs/NativePackageWitnessV1"
+        },
+        "snapshotManifestPath": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/LogicalPath"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ownerKey": {
+          "type": "string",
+          "pattern": "^own2-[0-9a-f]{64}(?![\\s\\S])"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "source": {
+                "const": "snapshot-member"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "sourceKind": {
+                "const": "path"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "sourceKind": {
+                "const": "path"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "snapshotManifestPath": {
+                "$ref": "#/$defs/LogicalPath"
+              },
+              "package": {
+                "properties": {
+                  "sourceId": {
+                    "const": ""
+                  }
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "snapshotManifestPath": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "description": "Prospective new-M3 Rust key/witness encoding only. Structural schema does not prove source/metadata/activation/custody admission; exact semantic recipes and real owner prerequisites remain mandatory."
+}
