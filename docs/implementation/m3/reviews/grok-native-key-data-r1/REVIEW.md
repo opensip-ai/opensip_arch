@@ -1,0 +1,35 @@
+# NKD-1 exact bound package and owner key data
+
+ACCEPT-UNIT.
+
+`package` takes the supplied name, version, and sourceId strings. It counts Unicode scalars, accepts name and version at 1 through 256 and sourceId at 0 through 4096, and refuses one scalar past each bound. The retained preimage is the existing canonical encoding of that ordered three-string array. The key is `pkg1-` plus the lowercase hex of raw SHA-256 of those bytes, 69 ASCII characters, with the preimage kept beside it. Trimming, case folding, Unicode normalization, semantic-version parsing, URL parsing, and source priority stay outside the recipe.
+
+`owner` calls `package` before any shape check and has no parameter for a caller-supplied key. A snapshot-member requires source kind path. Every path owner requires an empty sourceId and a supplied `LogicalPath` whose final component is exactly `Cargo.toml`. A registry, git, or vendored owner requires no locator and encodes JSON null. The owner preimage is the canonical array of source class, the recomputed package key, and that locator. The key is `own2-` plus lowercase raw SHA-256 hex, again 69 ASCII characters. `sourceKind` selects the shape and stays outside the preimage, so registry and vendored owners of one tuple share one owner key. `LogicalPath::parse` keeps its existing lexical rules. The sealed-snapshot join, the materialization map, source-class admission, acquisition mapping, workspace activation, custody, and owner admission stay outside this module.
+
+## Subject and candidate
+
+The subject manifest is 5276 bytes, sha256 `bf322d9a188c4f883a7b4d08eba30209a526a5ad717675c319bb180a35a551f6`, schemaVersion 1, unit `NKD-1`, pinned by 24 sorted unique members. Every pin matches the stage. The stage contains those members and the subject.
+
+The candidate is product `d0f73e1cac9fc2c72e21b8746eea21324d1f2727` with four uncommitted product files. Product main is clean at that commit. Architecture HEAD is `f1be9c330eca89717d148748442245c0c5d77ac0`, and the four pinned NKC-1 sources match it. The untracked `docs/implementation/m3/syntax-e/e2s/` tree is outside this unit. The parent product commit changes only `design-lock.json`, so the tested identity, canonical, and `LogicalPath` code is the code at this lock checkout.
+
+`crates/host/src/lib.rs` grows from 4231 bytes, sha256 `c2d5bc1f10a989ea7934d30a41eb80b82ebd5a099f5fd93823c3358ac96add17`, to 4375 bytes, sha256 `b059fbae97e988a0e5c068c17ca61ce1d07155b12fcd50ad761b696500d89980`. The only addition is a private `mod native_key_data` under `#[allow(dead_code)]`. The new module is 3414 bytes, sha256 `24912a22a6e9a80c1b4e45374387e1af2198c96553e5a105eb66484c3acf780c`. The tests are 7963 bytes, sha256 `48c2d0036499f52644c6fe43c6b5c8839d4b9d7277de9ee2defce00c25fdb2f8`. The fixture is 3088 bytes, sha256 `1e560125e53534f4fad81aec5fa3ff33056c82ce9238b24e29b9c2a7c12e80ea`. Those three paths are new. The stage copies match the candidate bytes.
+
+`design-lock.json` is byte-identical to the base, 612420 bytes, sha256 `8b248a7b1fadd93e916b394423fb85d7f6b391abc1a749e867a0a1c75adce369`, with 137 inventory successors ending at v177 and 154 contract successors. Inventory v177 still has 1177 rows. The new module, tests, and fixture are absent, and v178 is absent. `Cargo.lock`, `crates/host/Cargo.toml`, the operability checker, exceptions, dependency policy, guard, source-attempt tests, raw copy, counters, decoder, native manifest, identity digest, canonical and descriptor modules, and `native-v2.schema.json` match the pinned base bytes.
+
+## Computation
+
+`KeyError` and `KeyData` are `pub(crate)`. The external probe against the host metadata reports `E0603` on `opensip_host::native_key_data`. A positive probe that names `embedded_schema_registry` has an empty log. There is no new public error route, filesystem call, process call, or `unsafe` block. The module calls the existing `canonical_bytes`, `raw_sha256`, `digest_hex`, and `LogicalPath` functions.
+
+The bound test accepts 256 U+03BB name scalars, 256 U+1F980 version scalars, and 4096 U+539F sourceId scalars, and the resulting preimage is longer than 4096 bytes. Empty name, 257 U+03BB, empty version, 257 U+1F980, and 4097 U+539F return the matching length error. Precomposed U+00E9 and U+0065 plus U+0301 produce different package keys. A surrounding space stays distinct from the unspaced name. The tuples `ab`/`c` and `a`/`bc` differ. A sourceId with one extra trailing slash differs, and two git fragment spellings differ. `package("n", "v", "")` retains exactly `["n","v",""]`, and that raw digest differs from raw SHA-256 of an existing domain frame around the same array.
+
+Equal name, version, and empty sourceId at `a/Cargo.toml` and `b/Cargo.toml` share a package key and receive different owner keys. The same path classified as `dependency-closure-member` receives a third owner key. The same arguments return the same owner key; file bytes are not an input. Both source classes refuse a missing path locator, a basename other than `Cargo.toml`, a non-empty path sourceId, and a locator on registry, git, or vendored. Snapshot-member with a nonpath kind refuses. Dependency-closure-member with registry, git, or vendored and a null locator accepts. Registry and vendored of one raw sourceId share an owner preimage ending in `,null]`. An empty name returns `NameLength` before any owner key. `LogicalPath::parse` refuses `/Cargo.toml` and `a/../Cargo.toml`. The fullwidth basename `Ｃargo.toml` fails the exact final-component check.
+
+The five fixture vectors recompute with those canonical string rules and SHA-256: a root snapshot path, a nested dependency path, a registry sourceId, a name containing U+03BB, a newline, and a quote beside a raw git precision, and decomposed U+0065 plus U+0301 against precomposed U+00E9 with four U+539F sourceId scalars. Each spelling is 69 lowercase-hex ASCII characters. The same recipe reproduces the closed NKC-1 sample: `same-name` / `0.1.0` / empty sourceId is `pkg1-2ada1774d410b38f09b70f806d5db4a359733c6e50d02747804bf5f6073369b2`, `workspace-a/Cargo.toml` is `own2-f3ba7ac930e1bd0a0e5825c8b5f76ea683e7642734d93a76ccef59c2a8bf4e6f`, and `workspace-b/Cargo.toml` is `own2-84d0ae58ec06dbe40c1e81c0fce63088a694411c18f073286bb39e433c055c8d`.
+
+## Recorded checks
+
+The focused host log is 6 passed and 0 failed, with 256 filtered. The exact bare log is 6 passed and 0 failed. The exact compile log is empty. The Clippy log finishes on the dev profile with no warning lines. The release log finishes. The formatter log is empty.
+
+The read-only operability source check passed with findings empty and 113 rows. The lock check passed with found empty. The mint inventory is 436 rows, matches the unchanged exceptions file, and contains no row for the new module or tests.
+
+Source admission, profile publication, owner admission, R3 resolution, full C3a, and qualification remain open. Inventory v178 waits until this code is present on main and receives its own review and bind. Publication is a separate architecture archive and product code commit after acceptance, root assent, and the current source and design checks.
