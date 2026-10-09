@@ -1,0 +1,41 @@
+# S-M-SM1-PINNED-CLOSURE-REQUEST-READY-R1
+
+ACCEPT. Ten fresh Node 24.16.0 processes load the pinned TypeScript 6.0.3 compiler from an owned, fully inventoried measurement runtime and register a request reader before the timed ready marker. The narrow SM-1 figure is complete: seven measured samples have median 81.849083 ms and maximum 83.380958 ms. The placeholder `⟨SM-1⟩` stays unfilled. Full S-M, L-G1, effective L, and product qualification stay open. Accepted S-P, the earlier S-M records, the owner decisions, and the L law stay closed.
+
+## Subject
+
+`subject.json` is 7153 bytes, SHA-256 `3bf22199e70cf35f7b0e8f36ac9b5e3ef5d3a835ffd9f94a262a7ee340441dc5`, schemaVersion 1, unit `S-M-SM1-PINNED-CLOSURE-REQUEST-READY-R1`. It pins 25 sorted unique members, and every hash matches the stage. The archive path `docs/implementation/m3/spikes/s-m-sm1-ready-closure-2026-10-09` is absent at architecture `98e4811dffe8cbff83fecd0eab7419dbe1adce17` (log: “Record preliminary Rust direct-library cohort measurements.”). Product `37581132d8099b8fb4ad9ef8fb2f90ff8b89d02d` is clean. The architecture tree’s only untracked path is `docs/implementation/m3/syntax-e/e2s/`, outside this packet. Product `design-lock.json` remains 615658 bytes, SHA-256 `018dbfe27c1bbba48dedcf88ff6625ce62072b01bfb0fae0aee8c3dc463fc283`, with inventory v179, 139 inventory successors, and 155 contract successors. The packet names none of those successors. The recorded host is macOS 27.0.1, build `26A434`.
+
+The six architecture authorities match that tree: L-law `PROPOSAL-r5.md` at 172198 bytes, SHA-256 `f654ee4e9149e62693ebae8177adcc1f3a8a595b745c1e7503e5f279b80e3e88`; `M3-PLAN-r10.md` at 226011 bytes, SHA-256 `ec8c38f8c6ac8d522989ea6226363817a1b77c5b37560e72e2520088601bb964`; the closed S-P review at 1822 bytes, SHA-256 `dbb2b5708e9bcca03bc2e867624c9a8cbe3c1ec4d7f467ad21da81f078fd9313`; the S-P report at 3701 bytes, SHA-256 `c45e22a3ef7e691594bdb898cdd4dad8cc5432e50ca4c98e0ea003b29c9ccd97`; the closed transfer review at 495 bytes, SHA-256 `2e664060511cda8c54ba37bafb64194ab1b0099dd2f1b75bfd1f664f24a8e9b1`; and D13 at 1235 bytes, SHA-256 `92b30760d56005052874d879beffeae0e5d5c8b17a320e0f5f5c956f37ed4edb`. The two product authorities match: `tools/contracts/generator-closure.json` at 68280 bytes, SHA-256 `d1f540bab5fa2133aedac906bace256ac755a3226abcc125d219d83778a08c9c`, and `providers/typescript/package.json` at 283 bytes, SHA-256 `fbfd62e6aae76bb694dc247538773de4aa1ea8064eb8f59d59a4567a273d7a4e`, with `engines.node` `24.16.0` and `engines.npm` `11.13.0`.
+
+## Measurement closure
+
+The retained runtime holds 142 sorted regular files. This review rehashed every one: the live set matches the inventory in path, bytes, SHA-256, and mode. The walk found 16 directories, all mode `0o500`, and no symlink. The runtime root is mode `0o500`. Its parent temporary directory is mode `0o700`.
+
+`node` is 120573328 bytes, SHA-256 `1ee75375e33b94fc34b3b19aede049e11dae90efb63b374dc96d6bdace70c4b8`, mode `0o500`. Those bytes equal `toolchain.node` in `generator-closure.json`, which records bytes and SHA-256. The other 141 regular files are mode `0o400`. `typescript/lib/typescript.js` is 9144216 bytes, SHA-256 `569177652966bd528c319171c7dd22860dbf72bde116cbc4f644f1d02bb12e39`, the retained compiler pin. `ready.cjs` is 933 bytes, SHA-256 `424aee3a262e18d3b06a9ec103daf1d2d246bbd9715bcd0f893c0209dccdf763`, the same bytes in the stage and in the runtime. All three paths are inventory members.
+
+The inventory’s `typescriptArchive` list has two rows, each with `matchedAcceptedSPArchivePin` true and `productionSelection` false. The node row is v24.21.0, 27386080 bytes, SHA-256 `6239d4cf92d864487ec8cd3615038f7b67e7f58b77b21cd2f09ea9fbd68065fe`, the accepted S-P archive pin. The typescript row is 6.0.3, 4515854 bytes, SHA-256 `33cd0ee1beaa8c9e9d15a9da836c62ddea4c34a42d7c2d349dbc80d94165d22a`, the accepted S-P compiler-archive pin. The process image is the product-pinned Node 24.16.0 copy.
+
+That image’s Mach-O `LC_LOAD_DYLIB` commands name four platform libraries: CoreFoundation, Security, `libc++.1.dylib`, and `libSystem.B.dylib`. Each path is under `/System/Library` or `/usr/lib`. The inventory standing contains “NO PRODUCTION”. `noRepositoryBytesIncluded` is true. `platformDependencies` is “lead macOS platform runtime; not a portability/DRG22 qualification”.
+
+The driver builds that runtime, refuses a remaining symlink, and starts each child with `nice -n 10`, the runtime `node`, `--no-addons`, the runtime `ready.cjs`, and the runtime `typescript/lib/typescript.js`. The working directory is the owned temporary directory. The child environment is a fresh dictionary: `PATH`, `CARGO_HOME`, `TMPDIR` set to that directory, `HOME` when already set, and `LANG`, `LC_ALL`, and `TZ` when already set. The lane directory is held for the set and removed afterward. `~/Library/Application Support/OpenSIP` is absent. This review did not rerun the children or take the lane.
+
+## Ready reader and samples
+
+`ready.cjs` requires the compiler path, then throws unless `process.version` is `v24.16.0`, `ts.version` is `6.0.3`, and `typeof ts.createProgram` is `function`. It registers the stdin `data` and `end` listeners for the exact 27-byte ASCII request `opensip-sm-startup-request\n` before it writes the ready line `{event:'ready',node,typescript,requestReaderRegistered:true}`. An exact match writes `{event:'request-read',requestBytes,node,typescript}` and exits 0. A longer buffer or a mismatched prefix throws. An end event with a short buffer throws.
+
+The parent records monotonic time before spawn and again when the ready line has been read. It checks that line, then writes the 27 bytes, closes stdin, reads the acknowledgement, and collects `wait4`. All ten children exit 0. All ten stdout files are those two event lines, and all ten stderr files are empty. The acknowledgement sits after the marker. The driver then re-reads every inventory row. `runtimeFilesUnchangedAfterSamples` is true, and the rehash in this review matches those rows.
+
+Ordinals 0–2 are warmups. The seven measured `startToReadyNanos` values, sorted, are 80230875, 81217750, 81327875, 81849083, 81930208, 82169250, and 83380958. The median is 81849083 ns (81.849083 ms). The maximum is 83380958 ns (83.380958 ms). The stored median and maximum match. Each stored span equals `readyNanos` minus `startNanos`, and the start times strictly increase. `rssUnit` is `bytes` and `rssBytes` equals `rssNative`. Across the ten children those values run from 122667008 to 122880000. They stay informational.
+
+## SM-1 figure
+
+L-r5 item 9 defines SM-1 as a fresh Node process, from the pinned closure path, that loads the pinned TypeScript compiler and is ready to read a request. The unit is milliseconds. The placeholder is `⟨SM-1⟩`. S-M is a throwaway harness outside the product: public pinned bytes, no repository code, preliminary samples, and no production or confinement claim. M3-PLAN-r10’s M3-S row asks whether Node and TypeScript can load from a closure path, and it labels that question preliminary.
+
+`SM1FigureComplete` is true. The process image is a fresh copy of the product generator-closure Node pin, started from inside the inventoried runtime that also holds the pinned compiler and the first-party reader. The reader is registered before the ready line that ends the span, and each of the ten children then reads the fixed 27-byte request and exits 0. The four platform libraries are the disclosed loads beside that directory. The generator closure records the Node pin as bytes and SHA-256. This owned directory is the harness’s pinned closure for the figure.
+
+`SM1PlaceholderFilled` stays false. The law text is unchanged. This packet records the SM-1 samples alone. F remains start (SM-1 or SM-3) plus SM-5, SM-7, and SM-9. T remains F plus analysis. `SMComplete`, `LG1Met`, `effectiveL`, and `productQualification` stay false. `productionClosureAssociationClaimed`, `protocolConformanceClaimed`, and `confinementClaimed` stay false. `Q6Qualification` stays false.
+
+## Disposition
+
+`verify_design.py` was not run. Archival is architecture-only, after this acceptance, root assent, and the actual design check. This review binds no lock and pushes nothing. Inventory stays 179. Contract successors stay 155. Product code stays unchanged.
