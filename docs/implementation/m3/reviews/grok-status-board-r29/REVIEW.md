@@ -1,0 +1,45 @@
+# M3 status r29 after the narrow SM-3 and SM-6 figures and two partial measurements
+
+ACCEPT.
+
+The first 88 scoped records, all 43 inventory bindings, and all 58 contract bindings equal the accepted r28 ledger by value. Four new records archive the narrow SM-6 read-set figure, the narrow SM-3 callback-ready figure, the partial typed sealing measurement, and the partial synthetic complete-replay measurement. SM-1, SM-3, and SM-6 are the narrow figures this board records as complete. The law placeholders, the remaining figure measurements, the delta rounds, and the L gates stay open. Full S-M, L-G1, a production closure, and qualification stay open. The closed O7, D3, and D13 owner portions stay as recorded. No owner assent is inferred, and the whole plan stays incomplete.
+
+## Subject
+
+The subject manifest is 3145 bytes, sha256 `f9ce7ea010c7d8d4f241d19488f4ba3002c3891d880ff9e2550e0275b20edb32`, schemaVersion 1, unit `IMPLEMENTATION-STATUS-2026-10-09-r29`, pinned by 15 sorted unique members. Every pin matches the stage. The stage contains those members and the subject.
+
+The front door is 55423 bytes, sha256 `b212f3514ff155654df506ac7902abee6a875acb9cb6e4ac5afbfcb3728b0cb9`. Its cutoff is 2026-10-09, product `37581132d8099b8fb4ad9ef8fb2f90ff8b89d02d`, architecture `1b8a069d65e78bc4a2decdae3d8fd301b55cdd4d`, inventory 179 with 139 successors, and 155 contract successors. The cutoff lock is `design-lock.json`, 615658 bytes, sha256 `018dbfe27c1bbba48dedcf88ff6625ce62072b01bfb0fae0aee8c3dc463fc283`. The page states that M3 is incomplete and that this status record leaves product code unchanged.
+
+Product HEAD is that cutoff commit and the tree is clean. Architecture HEAD is the cutoff commit (log: “Record partial synthetic complete replay measurements and controls.”). The r29 status tree is absent there. The front door at HEAD is still the r28 page, preserved here as `history/previous-board.md`. The untracked `docs/implementation/m3/syntax-e/e2s/` tree is outside this snapshot. Operational publication of this board follows acceptance, root assent, and the lead's current `verify_design`. This review did not run `verify_design`.
+
+## New records
+
+Accepted work has 92 records, E001–E092, contiguous. Standing remains `VERIFIED SCOPED CONTINUATION RECORDS; NOT A PROJECT COMPLETION COUNT`. The accepted-work cutoff matches `source.json`. The first 88 records equal accepted r28, including their historical lock hashes. Product head and the lock pin stay the r28 values. The architecture evidence head is the new cutoff.
+
+E089 is the narrow SM-6 repository-only read-set figure. Architecture commit `fae27da6ed6457b043f40199098fefb7cd1f9cec` on product head `37581132d8099b8fb4ad9ef8fb2f90ff8b89d02d`. The subject is 3916 bytes, sha256 `2348f029591bd5af10db48f9488e83829b84ce33ff40563b67843cd58f5eb91c`. The review is 526 bytes, sha256 `0eac2a9b38a58504a8fdb7fa992c5a2626ce57ab4b7cc88cc5d561526346b536`, verdict ACCEPT. `SM6FigureComplete` is true. `SM6PlaceholderFilled`, `SMComplete`, and `LG1Met` are false. Inventory stays 179 and contract successors stay 155. The scope is the six TypeScript development read sets.
+
+E090 is the narrow SM-3 callback-ready figure. Architecture commit `380fbf906a832236fd3b0914f793c97960cda6d6` on the same product head. The subject is 8609 bytes, sha256 `44adb3166e75dd16a5fa13fb817db5988a6e2b3a5a97b7d806225a21af0b2a7c`. The review is 559 bytes, sha256 `0bd165c3464eb41b33b3fa2f9fcf5ef4ede315905c58e0a0c344b18642334392`, verdict ACCEPT. `SM3FigureComplete` is true. `SM3PlaceholderFilled`, `SMComplete`, and `LG1Met` are false. Inventory stays 179 and contract successors stay 155. The scope is the pinned-runtime callback-ready measurement, with parent and child niceness read back at 10. The record states that r2 closes historical SM3-R1-01.
+
+E091 is the partial typed sealing measurement. Architecture commit `6e1dab877337640b1f51a24b7250bdc8fc2815c0` on the same product head. The subject is 132655 bytes, sha256 `5627dea33ef1e4a26f5c44534d9d31c203978cb1a2c6c1d6b9a104e66b053caf`. The review is 568 bytes, sha256 `af44e7b08505edeb0a9e6641201ca42ff51f4846ea0d13426ef94fab7fb4d1aa`, verdict ACCEPT. `SM5FigureComplete`, `SM5PlaceholderFilled`, `snapshotPlanIdentitiesAdmitted`, `dependencySourceSetsIncluded`, `wholeWorkspaceProfileSelected`, `sourceAdmissionClaimed`, `SMComplete`, and `LG1Met` are false. Inventory stays 179 and contract successors stay 155. The scope is thirteen development read sets and 130 fresh children.
+
+E092 is the partial synthetic complete-replay measurement. Architecture commit `1b8a069d65e78bc4a2decdae3d8fd301b55cdd4d` on the same product head. The subject is 103259 bytes, sha256 `bc23c98b600ad4c4d9df90f1f364f97f03cde4489fc2371a3cff65b28b1bf9a2`. The review is 515 bytes, sha256 `50cf9b73f34fe9f96c40f1e4e39b15408052a3199ba7890c2fa905c10aaaee0c`, verdict ACCEPT. `SM9FigureComplete`, `SM9PlaceholderFilled`, `sourceAdmissionClaimed`, `wholeWorkspaceProfileSelected`, `confinementClaimed`, `SMComplete`, and `LG1Met` are false. Inventory stays 179 and contract successors stay 155. The scope is the 193-source reference, debug, and release sets, thirty fresh children, and five controls.
+
+Every commit named by the 92 records, the cutoff, and the previous-board pin is an ancestor of the cutoff. The four new review pins match both HEAD and the accepted local review files. All 105 review pins in the ledger match their architecture commits. The four new subject manifests match their architecture commits. The SM-6, SM-3, sealing, and replay records stay closed.
+
+## Ledger, decisions, and families
+
+Inventory bindings are versions 137–179, all 43 equal to r28, and the v179 candidate equals the current lock. Contract bindings are successors 98–155 and equal that slice of the current lock, including the SD-3 tail. The binding note is unchanged.
+
+`source.json` carries the same product head, lock pin, inventory 179, and 155 contract successors, with the architecture evidence head moved to the cutoff above. It records 92 scoped records, 43 inventory bindings, and 58 contract bindings. Its first 71 authorities equal r28. The four new authorities are the review pins above, and all 75 match HEAD. `ownerAssentInferred`, `productQualification`, and `entirePlanComplete` are false. Standing remains an operational snapshot. Effective L stays at the ML5 wording: review acceptance alone grants no dependent gate. `protectedDraftsUnchanged` is true. The update protocol, three C2a advisory copies, and the historical owner packet are byte-identical to r28. The active-unit note records RSD1 as prepared in an isolated worktree, pending review and integration.
+
+`previousBoard` pins the r28 front door, 55158 bytes, sha256 `4c5d5b8c5d8efcbbebca2d19addb22b661c1c777b5cae166ce27b172f54c3c74`, and the r28 subject, 3145 bytes, sha256 `63cac367eb54d9f1c01d3cbe42b29f9dee099a9074259267288776bb43dac8c1`, at architecture `a8b1abf3c33e25f31c6c991d82e347149fb3b22c` (log: “Reconcile M3 status after startup and compiler cohort measurements.”). That commit holds both bytes.
+
+Ten decision cards remain, in the same order, and the card objects are byte-identical to r28. O7 stays `ADOPTED-EXISTING-PROPOSAL`. D3 and D13 stay `SIGNED-OFF`. Their `blocks` lists are empty and `currentlyBlocks` is false. Every card has an owner and a next action.
+
+Twenty-three register rows keep the same family names. One row changes. S-M status is `NARROW SM1/SM3/SM6 FIGURES COMPLETE; SEALING/REPLAY AND COMPILER PARTIALS ARCHIVED; FULL REPORT/INTEGRATION OPEN`. Its evidence records the closed O7, D3, and D13 owner portions, the narrow SM-1, SM-3, and SM-6 figures, the thirteen-read-set sealing partial, and the thirty-child replay partial, and it leaves full S-M, L-G1, and qualification open. The next action keeps the remaining fourteen-figure coverage, synthetic replay, dependencies, subject-scope, fact, census, stage volumes, and scratch, then the accepted delta rounds and the L gates. It derives no F or T from these partial scopes. The other twenty-two rows are unchanged. The front-door table matches all twenty-three rows, including status, evidence, and next action.
+
+`checks.json` records 92 scoped records, 43 inventory bindings, and 58 contract bindings. Review pins, ancestry, authority pins, relative links, and decision-card owner and next-action fields check true. This review resolved 13 front-door links through the stage or architecture HEAD, and 13 previous-board links at the r28 publication commit. `productTestsRun` is 0. `ownerDecisionsExplicitlyRecorded` is true with count 3. `SM1FigureComplete`, `SM3FigureComplete`, and `SM6FigureComplete` are true. `SM5FigureComplete`, `SM9FigureComplete`, `SMComplete`, `CF1Complete`, `effectiveL`, `ownerAssentInferred`, `productQualification`, and `entirePlanComplete` are false.
+
+## Disposition
+
+`verify_design` remains the lead publication step after acceptance and root assent. Publishing this snapshot is an architecture-only step and leaves product code, the lock, inventory, and law unchanged.
