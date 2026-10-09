@@ -1,0 +1,37 @@
+# M3 status r23 after raw copy and the charged phase
+
+ACCEPT.
+
+Ready-action items 1 and 3 keep SRH-1, C3A-DEC1, C3-COUNT1, C3-AG1, RSCP-1, and SAT-1 supporting code and their bound inventories closed, together with the C3FN-1 and C3CB-1 boundaries. Both assign the remaining work as original source and lock authentication, immutable raw receipt and decoder-input correspondence, canonical source and tree populations, filesystem quarantine and materialization, source admission, resource accounting, and public failure composition. Item 1 then continues to the package and owner source mapping, metadata and acquisition namespaces, and provenance-aware failure composition. The NIJ1-R3-CODECS next action, the family `C1a/b/c; C3a/b/c; C4a/c; X12d` next action, and `activeProductUnit` use that same remaining-work sentence. `activeProductUnit` adds only the bound RSCP-1 and SAT-1 prefix. Signed profile, owner and R3 integration, effective L, O7, D3, D13, held gates, and qualification stay open.
+
+## Subject
+
+The subject manifest is 3145 bytes, sha256 `6a791bab678083ecdce7c632517892c3b3e32ab46dd32c803fa7b6b234ff3366`, schemaVersion 1, unit `IMPLEMENTATION-STATUS-2026-10-08-r23`, pinned by 15 sorted unique members. Every pin matches the stage. The stage contains those members and the subject.
+
+The front door is 45365 bytes, sha256 `e1673dd38fac14e9d0c11d002fc61523eb0c51f964f6cae08b46fc5c40af0514`. Its cutoff is 2026-10-08, product `d433e5e5b8a0fc1cf11509faddba464c4ccbd711`, architecture `4a3cc6c68007682a156f520cb231dbacfec8eb61`, inventory 176 with 136 successors, and 154 contract successors. The cutoff lock is `design-lock.json`, 611252 bytes, sha256 `7fd186c6e346f662fc33c95c1b9dfff3a8c31d8cde7a75c8de8a41a385a8fa8f`. The page states that M3 is incomplete and that this status record leaves product code unchanged.
+
+Product HEAD is that cutoff commit and the tree is clean. Its parent is `0cfba3d5d1149ef62960294787b87c92e9961dcb`, and the only change is `design-lock.json`. Architecture HEAD is the cutoff commit. Its parent is `c04fb66151ccdab2fd4b36fe4fc4d7262635ce86`, and it records inventory v176, the census, successor, unit, subject, and archived v176 review. The untracked `docs/implementation/m3/syntax-e/e2s/` tree is outside this snapshot. Operational publication of this board follows acceptance. `52e51e1290eab6873e7cce0551378d68832e163f` remains an ancestor.
+
+## New records
+
+Accepted work has 77 records, E001–E077, contiguous. The first 75 equal accepted r22 by value. Standing remains `VERIFIED SCOPED CONTINUATION RECORDS; NOT A PROJECT COMPLETION COUNT`.
+
+E076 is `RSCP-1 code and inventory175`. Product code is `4c6188bf8d271d1d4119385936db56d64d290f98` and the lock bind is `d47e2bc836c52bb9d87edf9d565fc29e0a9c384f`. The grouped architecture commit is `d89c958a0f3b9f00a7a536133fcd2414becbd29d`; the code evidence keeps `f74c0bb29d5b76090be9ef63f56a307af8621779` on product base `95694b8967ea1554672474a0cbfe6f99901287e0`. `designLockUnchanged` remains the v174 lock, 608949 bytes, sha256 `568bfc448b12de754a21b61360fc2a7aa1f6a3d405db801786b130772720dd9e`. Inventory evidence binds v175, 645723 bytes, sha256 `e4ee2dc0be16462160aef740c5bd1a45017794edbd0a466870ebb083e8175e9e`, with 135 successors after, 154 contracts, 103 passage rows, and 2 added files. Custody, source-attempt lifecycle, admission, full C3a, R3, profile, owner, qualification, entire plan, and push stay false.
+
+E077 is `SAT-1 code and inventory176`. Product code is `0cfba3d5d1149ef62960294787b87c92e9961dcb` and the lock bind is `d433e5e5b8a0fc1cf11509faddba464c4ccbd711`. The grouped architecture commit is `4a3cc6c68007682a156f520cb231dbacfec8eb61`; the code evidence keeps `c04fb66151ccdab2fd4b36fe4fc4d7262635ce86` on product base `d47e2bc836c52bb9d87edf9d565fc29e0a9c384f`. `designLockUnchanged` remains the v175 lock, 610102 bytes, sha256 `0077bbd2ab5f8f7c152b97716e2e1678fbaaaea136fb020c5b03deb970fc50cf`. Inventory evidence binds v176, 646099 bytes, sha256 `31753148a1ba0ba3ee25049c1879b61d8ac0ab2568302345a085d5e5f6bb9a1e`, with 136 successors after, 154 contracts, 103 passage rows, and 1 added file. Full lifecycle, same-source join, custody, admission, full C3a, R3, profile, owner, qualification, entire plan, and push stay false.
+
+The four new authorities are those accepted review files: RSCP-1 review 639 bytes, sha256 `e1abaf2efd18ccf7af8a34e85410dac60e8573a44b17d84636fe6231487d2282`; v175 review 920 bytes, sha256 `7ad10d4c1b31ac2ca2967f0bddfcc5f710032dd62b01ba7bcce80ed11a9f21a7`; SAT-1 review 702 bytes, sha256 `c520c3565d4658e06fc6b950a4aafaedea43e8537ccb8efd8079e06b5bd1579a`; v176 review 919 bytes, sha256 `6d512fadd8ad22b5d91542dfedc0466e22ef6403e7a6dfbaa5dda2a0ccf0499e`. All four match architecture HEAD. The first 53 authorities equal r22. Every authority pin in `source.json` matches the architecture tree.
+
+## Unchanged ledger and history
+
+Inventory bindings are versions 137–176. The first 38 equal r22, and all 40 match the current lock tail. All 57 contract bindings equal r22 and equal lock contract successors 98–154. The binding note is unchanged. Ten decision cards remain. Only NIJ1-R3-CODECS `state` and `nextAction` changed; its question, recommendation, blocks, owner, and category are unchanged. The front-door state cell still appends the same three blocks. Twenty-three register rows remain. Only family `C1a/b/c; C3a/b/c; C4a/c; X12d` changed, by appending the RSCP-1 and SAT-1 evidence and replacing its next action with the NIJ1 sentence.
+
+`checks.json` records 77 scoped records, 40 inventory bindings, and 57 contract bindings. Review pins, ancestry, authority pins, relative links, and decision-card owner and next-action fields check true. `productTestsRun` is 0. `ownerAssentInferred`, `productQualification`, and `entirePlanComplete` are false. Standing remains an operational snapshot. Every product and architecture commit named by the 77 records is an ancestor of the cutoff. Recorded file pins match either the cutoff trees or the historical commit that owns them.
+
+`history/previous-board.md` is 42749 bytes, sha256 `4bc0d58229e02d5d1568a29a3ffc787d2ae742d99c57cd81ac6300171d515838`, the r22 front door at architecture `52e51e1290eab6873e7cce0551378d68832e163f`. That commit still holds the r22 subject, 3985 bytes, sha256 `41e7fa500bb872d89bd6be5c09b2475919ceec00c05854e3b9b4fa8530fbfad1`, and the rejected r1 packet at the preserved hashes. The update protocol, three C2a advisory copies, and the owner packet are byte-identical to r22. Twelve front-door links resolve through the stage or architecture HEAD. Twelve previous-board links resolve at `52e51e12`.
+
+## Current lock
+
+The cutoff lock matches `d433e5e5:design-lock.json`. It has 136 inventory successors. The first 135 equal the parent lock, and the new tail is v176 with parent v175. All 154 contract successors equal the parent lock. All 103 passage rows keep the same before and after text, and every passage parent is v176. Eighty-seven selectors move by one file index. Each selector still points at the description it pointed at in v175. Earlier records keep their own historical lock hashes, including the v174 pin inside E076 and the v175 pin inside E077.
+
+`verify_design` remains the lead bind after acceptance and root assent. This snapshot reopens no accepted RSCP-1, SAT-1, C3-AG1, or inventory v174–v176 review. Publishing it is an architecture-only step and leaves product code, the lock, inventory, and law unchanged.
