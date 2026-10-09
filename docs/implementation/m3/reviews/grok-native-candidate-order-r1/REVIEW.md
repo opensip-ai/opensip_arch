@@ -1,0 +1,27 @@
+# NCO-1 raw candidate tuple grouping
+
+Verdict: ACCEPT-UNIT. Subject manifest sha256 `ea5560021288446bf71027428909a64c9a56be03ac2e318f76bdd6f5274e13c5`, 5209 bytes, 23 sorted unique members, all matching their recorded lengths and digests. Unit NCO-1. Three product files. Inventory unchanged 178. Contract successors unchanged 154.
+
+This accepts private raw `(name, version, sourceId)` grouping data only. It does not accept source admission, a duplicate policy, an equal-tuple acquisition order, a census or bound, a profile, owner admission, R3, or qualification. No owner assent is inferred. Inventory 179 is not part of this review.
+
+## Candidate
+
+Product main is clean at `27a72409f4246a5b999c643f3a306052fb579873`. The candidate worktree is that same commit. Its only changes are a modification of `crates/host/src/lib.rs` and two untracked files, `native_candidate_order.rs` and `native_candidate_order_tests.rs`. Those three files match the stage copies: lib.rs 4510 bytes, sha256 `14b835830ed423c52200ab94d4d91092980de2e299b6e94a054c0797149e6238`; the module 1556 bytes, sha256 `ce1cc41d8d517172255913fbd1e647b76a17b7468db6351cb6ca202ed5632aa0`; the tests 2601 bytes, sha256 `fed3561835771e8d99c8e9a1b35b2adb9881be676ee4fb678e9b4e3542970ca5`. The parent lib.rs is 4375 bytes, sha256 `b059fbae97e988a0e5c068c17ca61ce1d07155b12fcd50ad761b696500d89980`. The lib.rs delta is the private `mod native_candidate_order` declaration and its comment. Architecture HEAD remains `f34ca904d15369e8de07cb497697d073a6f603ef`, with the untracked syntax-e/e2s path outside this unit.
+
+Cargo.lock, design-lock.json (613573 bytes, sha256 `047a99734d75cbf6f12c47e4568fa73b35099c7330f419b920e7372da57d47ae`), the host manifest, the operability checker, exceptions.json, the closed host helpers, canonical.rs, and native-v2.schema.json match the base pins on both trees. The pinned PROPOSAL-r8 and C3CB contract match architecture. Exceptions still contain 113 source rows and 436 mint rows. The new module has no standard-library process, environment, filesystem, mint, or print call, and the test path is a `_tests.rs` file. That is consistent with the recorded operability pass at source 113, mint 436, and an unchanged exception file.
+
+## Grouping
+
+`group_indices` takes unadmitted `&str` triples and returns every input index once. It orders by the raw UTF-8 bytes of name, then version, then sourceId. The comparator then orders equal tuples by input index. Adjacent equal triples become one group, so indices inside a group stay in input order. That index tie-break is plain data. It selects no acquisition order and no duplicate policy. The function does not concatenate fields, normalize Unicode, parse URLs, interpret semantic versions, hash a package key, or choose a first source. It is `pub(crate)` inside a private module. A grouped index is not a SourceCap, and the function does not charge a source or consult the acquisition guard.
+
+Closed C3CB names the source event order as ascending raw UTF-8 `(name, version, sourceId)`. PROPOSAL-r8 names the same canonical candidate order. This helper performs that comparison on caller-supplied strings. It does not establish the importer's source, lock, or reader correspondence, and it does not apply the 16384-source acquisition ceiling. A 16385-index result remains data. The existing guard file is unchanged, and sorting through this helper does not call it.
+
+An independent reconstruction of the five frozen vectors matches their recorded groups. Separate fields put `("a","b","a")`, `("a","b","z")`, `("a","bc","")`, and `("ab","c","")` in that order, so `ab`/`c` does not collide with `a`/`bc`. U+00E9 sorts after `z`, and `e` plus U+0301 stays distinct from it. The two source spellings `a%2Fb` and `a/b` stay distinct, with `%` before `/`. Raw versions order as `1`, `10`, `2`. Duplicate triples keep indices `[1, 3]` and `[0, 2]`. The empty input returns no groups. All six permutations of three distinct triples produce the same value order. The reversed 16385-name input returns 16385 singleton groups, from `p00000` through `p16384`, with no dropped index.
+
+## Recorded checks
+
+The focused host log runs the six `native_candidate_order` tests and reports 6 passed, 262 filtered out. The bare test log reports the same six tests passed, with nothing filtered out. The lexical guard `finalization::tests::no_other_host_module_coordinates_a_commit` reports 1 passed, 267 filtered out. Together with the six new tests, both filters account for the same 268-test host library. The whole host suite is not repeated. The release log finishes `opensip-host`. The clippy log finishes that crate with no warning or error line. The format and bare-compile logs are empty. The private external crate is refused with E0603 on `native_candidate_order`, and the positive external use of the existing public host item succeeds against the same host metadata digest `44c921820b33737b9e22fadd37f56628a0256550bedf04c4f7c8632d962ab24f`. These logs were inspected and not re-run. The tests supply plain strings. They are not filesystem, native, or qualification evidence.
+
+## Result
+
+`productCodeImplemented` and `nativeCandidateTupleGroupingImplemented` are true. `duplicateResolutionSelected`, `equalTupleAcquisitionOrderSelected`, `sourceCensusOrBoundsAdmissionImplemented`, `sourceAdmissionImplemented`, `fullC3aComplete`, `R3Resolved`, `sourceProfilePublished`, `actualOwnerAdmission`, `productQualification`, and `entirePlanComplete` are false. Required findings: none.
