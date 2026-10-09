@@ -1,0 +1,1 @@
+Historical first check set: all checks passed, but outer parent nice10 plus inner nice -n10 implied child nice20. No timing figures use this set. New current checks use direct children of an explicitly set/readback parent10 with child10 readbacks. No product source changes were needed.
