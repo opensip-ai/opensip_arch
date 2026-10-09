@@ -1,0 +1,45 @@
+# M3 status r27 after explicit decisions and partial evidence
+
+ACCEPT.
+
+The first 80 scoped records, all 43 inventory bindings, and the first 57 contract bindings equal the accepted r26 ledger by value. Four new records archive the explicit O7, D3, and D13 owner choices, the partial S-M foundation, the SD-3 design contract 155, and the 24-row CF-1 tool-signal observations. Those records close only the named owner portions and the named partial or design scopes. Full S-M, L-G1, real signed confinement, supervisor implementation, native physical custody and profile duties, effective L, and qualification stay open. No owner assent is inferred, and the whole plan stays incomplete.
+
+## Subject
+
+The subject manifest is 3145 bytes, sha256 `8257f222cf39117c92666feb668fd25c3b2167c0d50f45482d8edc34fee7b2f0`, schemaVersion 1, unit `IMPLEMENTATION-STATUS-2026-10-09-r27`, pinned by 15 sorted unique members. Every pin matches the stage. The stage contains those members and the subject.
+
+The front door is 54898 bytes, sha256 `921742f9a426f1d3809d654ea8204170eaedaf3f7f95c19a7163bc1b3f88aad8`. Its cutoff is 2026-10-09, product `37581132d8099b8fb4ad9ef8fb2f90ff8b89d02d`, architecture `b4bb61c597c27182f33678c455e417140dd111d2`, inventory 179 with 139 successors, and 155 contract successors. The cutoff lock is `design-lock.json`, 615658 bytes, sha256 `018dbfe27c1bbba48dedcf88ff6625ce62072b01bfb0fae0aee8c3dc463fc283`. The page states that M3 is incomplete and that this status record leaves product code unchanged.
+
+Product HEAD is that cutoff commit and the tree is clean. Its parent is `bf4be44ffbaf02e8518c276882524831ee8e12c4`, the r26 product cutoff, and the only change is `design-lock.json`. Architecture HEAD is the cutoff commit. The r27 status tree is absent there, and the front door at HEAD is still the r26 page. The untracked `docs/implementation/m3/syntax-e/e2s/` tree is outside this snapshot. Operational publication of this board follows acceptance, root assent, and the lead's current `verify_design`. This review did not run `verify_design`.
+
+## New records
+
+Accepted work has 84 records, E001–E084, contiguous. Standing remains `VERIFIED SCOPED CONTINUATION RECORDS; NOT A PROJECT COMPLETION COUNT`. The accepted-work cutoff matches `source.json` and names the current lock. The first 80 records equal accepted r26, including their historical lock hashes.
+
+E081 is the explicit owner record for O7, D3, and D13, limited to the owner portions of L-G9, L-G4, and L-G5. Architecture commit `9b8abe5bfb8d9828c95144123fbfe1c5185e3753` on product head `bf4be44ffbaf02e8518c276882524831ee8e12c4`. The review pin is 414 bytes, sha256 `f8b4dc2c0f27adab57ddfc1e82fc9fce1d96787680dfa3f3909abd533b5863d2`, verdict ACCEPT, `ownerAssentInferred` false, decisions O7, D3, and D13. The subject pin is 2989 bytes, sha256 `edcc0a1164768f5c8dfdf73c26150f5178807f8c58c0e73650a7accd0abf7229`, committed at `docs/implementation/m3/reviews/grok-owner-decisions-2026-10-09-r1/subject.json`. Inventory stays 179, contract successors stay 154, and product code stays unchanged. The three decision files match HEAD: O7 `ADOPTED-EXISTING-PROPOSAL` with `ownerDecisionGateLG9Met` true and `cf1Accepted`, `cf2Accepted`, `d1bImplemented`, launch authorization, and `effectiveL` false; D3 `SIGNED-OFF` with `ownerDecisionGateLG4Met` true, ten held-out families, and held-out source opening false; D13 `SIGNED-OFF` with `ownerDecisionGateLG5Met` true for the Q0 r13 exploratory envelope and `qualificationEvidence` false.
+
+E082 is the partial S-M foundation. Architecture commit `e3e5e8b68f00073ea8c1626c2fc393e265ea89a0` on the same product head. The subject is 77733 bytes, sha256 `f25501a5c790c33a82ced8a50072428fe8dd3810328b2abd89cee17e4f09b1bf`. The review is 377 bytes, sha256 `65f2796f80b74d112d878dcd25774e72dc227b4d97018111092559b65a13f4ff`. `SMComplete` and `LG1Met` are false. Inventory stays 179 and contract successors stay 154.
+
+E083 is SD-3, the launcher closure, loader, and layout design bound as contract 155. Architecture commit `df7303c1121a4a352c464f67013e66bb4e9a5d45` and product lock `37581132d8099b8fb4ad9ef8fb2f90ff8b89d02d`. The subject is 1822 bytes, sha256 `270c16f080df68c709b0d4d33a816af4b07334339f3dc7eda5bed88a0ec17f74`. The review is 328 bytes, sha256 `b0e56f30f5d06cd19b02360dd3df07ca4c717936461f4de70c6e402f7d608998`, verdict `ACCEPT-DESIGN-UNIT`. `platformQualification`, `effectiveL`, and `productQualification` are false. Inventory stays 179 with 139 successors. The successor, review, and assent pins match the new lock tail.
+
+E084 is the preliminary 24-row first-party signal observation. Architecture commit `b4bb61c597c27182f33678c455e417140dd111d2` on product head `37581132d8099b8fb4ad9ef8fb2f90ff8b89d02d`. The subject is 11151 bytes, sha256 `18e9f1771021cba409b0901b22a3231dd2e11de7d140127b708d7fc37d1f34a0`. The review is 433 bytes, sha256 `580c8c4e4fda5ae5ca32d7c98658c578b93b36ab2ee37355e2559fc463f10319`. `CF1Complete`, `signalPolicySelected`, `signedLauncherMeasured`, and `realProviderOrToolMeasured` are false. Inventory stays 179 and contract successors stay 155.
+
+Every commit named by the 84 records, the cutoff, and the previous-board pin is an ancestor of the cutoff. The four review pins match both HEAD and the accepted local review files. Accepted CF-P, the owner decisions, S-M, SD-3, and the signal observations stay closed.
+
+## Ledger, decisions, and families
+
+Inventory bindings are versions 137–179, all 43 equal to r26, and the current lock's 139 inventory successors equal the r26 lock. Contract bindings are 98–155. The first 57 equal r26. Binding 58 is the SD-3 successor and equals lock contract successor 155. Schema, architecture repository, approvals, inputs, and all 103 passage rows equal the parent lock. The binding note is unchanged.
+
+`source.json` carries the same cutoff, 84 records, 43 inventory bindings, and 58 contract bindings. Its first 63 authorities equal r26. The four new authorities are the review pins above, and all 67 match HEAD. `ownerAssentInferred`, `productQualification`, and `entirePlanComplete` are false. Standing remains an operational snapshot. Effective L stays at the ML5 wording: review acceptance alone grants no dependent gate. `protectedDraftsUnchanged` is true. The update protocol, three C2a advisory copies, and the historical owner packet are byte-identical to r26.
+
+Ten decision cards remain, in the same order, and none is awaiting an owner. Question and recommendation text are unchanged. O7, D3, and D13 move from `AWAITING_OWNER` to the recorded states above. Their `blocks` lists are empty and `currentlyBlocks` is false. Remaining dependencies keep CF-1, CF-2, D1b, full S-M, ground truth, qualification, and the remaining L gates. The NIJ1-R3-CODECS next action changes only the owner-gate clause: effective L and held qualification stay open, and the explicit O7, D3, and D13 owner portions are met. The other six cards are unchanged. Every card has an owner and a next action.
+
+Twenty-three register rows keep the same family names. Five rows change. S-P, T2, and Q0 record the D3 and D13 sign-offs and leave full S-M open. The native family next action records that the owner portions are met and leaves effective L open. CF-1/2 and the D-series move to owner choice met, with partial design and evidence, and with implementation and qualification open; the evidence records the SD-3 contract and the 24-row observation, and the next action leaves signal policy and effective L open. The G-series next action places D1b launch after O7 adoption. S-M is started, with the partial foundation archived and the full report open, including the fourteen figures, accepted delta rounds, and the L gates. The front door states the same cutoff, counts, owner portions, partial S-M, contract 155, and open signed-confinement and full S-M gates.
+
+`checks.json` records 84 scoped records, 43 inventory bindings, and 58 contract bindings. Review pins, ancestry, authority pins, relative links, and decision-card owner and next-action fields check true. `productTestsRun` is 0. `ownerDecisionsExplicitlyRecorded` is true with count 3. `SMComplete`, `CF1Complete`, `effectiveL`, `ownerAssentInferred`, `productQualification`, and `entirePlanComplete` are false.
+
+## History and links
+
+`history/previous-board.md` is the r26 front door, 53010 bytes, sha256 `0f6a4a6bc547f546a4d8db6f2f9260c82cee7c65eff8e0b84aa627a62679dc24`. `source.json` pins that page and the r26 subject, 3145 bytes, sha256 `e71a186c70884c0a0d1f351783074f609ed0fae0bde55628987062784a5f2e1c`, at architecture `5ec79d46c6dd3f69924f086104e4b9c953a90a32`. That commit still holds both bytes. Thirteen front-door links resolve through the stage or architecture HEAD. Twelve previous-board links resolve at that r26 publication commit.
+
+`verify_design` remains the lead publication step after acceptance and root assent. Publishing this snapshot is an architecture-only step and leaves product code, the lock, inventory, and law unchanged.
