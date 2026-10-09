@@ -1,0 +1,114 @@
+diff --git a/crates/host/src/acquisition_guard.rs b/crates/host/src/acquisition_guard.rs
+index bd3a8be..be70eaa 100644
+--- a/crates/host/src/acquisition_guard.rs
++++ b/crates/host/src/acquisition_guard.rs
+@@ -181,6 +181,16 @@ pub(crate) fn decode_with_budget<R: io::Read, C: ArchiveConsumer>(
+     budget
+         .source()
+         .map_err(|error| DecodeError::Consumer(GuardError::Budget(error)))?;
++    decode_charged(reader, package_name, package_version, budget, delegate)
++}
++
++fn decode_charged<R: io::Read, C: ArchiveConsumer>(
++    reader: R,
++    package_name: &str,
++    package_version: &str,
++    budget: &mut CandidateBudget,
++    delegate: &mut C,
++) -> Result<DecodedArchive, DecodeError<GuardError<C::Error>>> {
+     let result = {
+         let mut guarded = Guarded { budget, delegate };
+         archive_decoder::decode(reader, package_name, package_version, &mut guarded)
+@@ -197,3 +207,92 @@ pub(crate) fn decode_with_budget<R: io::Read, C: ArchiveConsumer>(
+ #[cfg(test)]
+ #[path = "acquisition_guard_tests.rs"]
+ mod tests;
++
++/// A private linear charging phase, not a source custody or admission witness.
++/// The caller retains the original source/lock and same captured observation.
++#[derive(Debug)]
++enum AttemptPhase {
++    Intake,
++    Copied,
++    Finished,
++}
++
++#[derive(Debug)]
++pub(crate) enum AttemptCopyError<E> {
++    Budget(BudgetError),
++    Copy(crate::raw_stream_copy::CopyError<E>),
++}
++
++pub(crate) struct SourceAttempt<'a> {
++    budget: &'a mut CandidateBudget,
++    phase: AttemptPhase,
++}
++
++pub(crate) fn begin_source_attempt(
++    budget: &mut CandidateBudget,
++) -> Result<SourceAttempt<'_>, BudgetError> {
++    budget.source()?;
++    Ok(SourceAttempt {
++        budget,
++        phase: AttemptPhase::Intake,
++    })
++}
++
++impl SourceAttempt<'_> {
++    /// Execute raw intake only once after this attempt's source was charged.
++    /// Returned digest/count and writer bytes remain plain provisional data.
++    pub(crate) fn copy_raw<R: io::Read, W: io::Write, C: crate::raw_stream_copy::CopyCheckpoint>(
++        &mut self,
++        reader: R,
++        writer: &mut W,
++        checkpoint: &mut C,
++    ) -> Result<crate::raw_stream_copy::CopiedRaw, AttemptCopyError<C::Error>> {
++        if !matches!(self.phase, AttemptPhase::Intake) {
++            self.budget.abort();
++            return Err(AttemptCopyError::Budget(BudgetError::Unavailable));
++        }
++        self.budget.available().map_err(AttemptCopyError::Budget)?;
++        match crate::raw_stream_copy::copy_raw(reader, writer, checkpoint) {
++            Ok(value) => {
++                self.phase = AttemptPhase::Copied;
++                Ok(value)
++            }
++            Err(error) => {
++                self.budget.abort();
++                Err(AttemptCopyError::Copy(error))
++            }
++        }
++    }
++
++    /// Consume this charged attempt without charging a second source.
++    /// Physical retained-copy correspondence remains the owning caller's duty.
++    pub(crate) fn decode<R: io::Read, C: ArchiveConsumer>(
++        mut self,
++        reader: R,
++        package_name: &str,
++        package_version: &str,
++        delegate: &mut C,
++    ) -> Result<DecodedArchive, DecodeError<GuardError<C::Error>>> {
++        if !matches!(self.phase, AttemptPhase::Copied) {
++            return Err(DecodeError::Consumer(GuardError::Budget(
++                BudgetError::Unavailable,
++            )));
++        }
++        let result = decode_charged(reader, package_name, package_version, self.budget, delegate);
++        self.phase = AttemptPhase::Finished;
++        result
++    }
++}
++
++impl Drop for SourceAttempt<'_> {
++    fn drop(&mut self) {
++        // Abandoned or failed raw intake is not a completed profile rejection.
++        if !matches!(self.phase, AttemptPhase::Finished) {
++            self.budget.abort();
++        }
++    }
++}
++
++#[cfg(test)]
++#[path = "source_attempt_tests.rs"]
++mod attempt_tests;
