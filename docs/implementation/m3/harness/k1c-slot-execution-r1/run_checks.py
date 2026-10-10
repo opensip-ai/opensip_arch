@@ -1,0 +1,6 @@
+from pathlib import Path
+import os,subprocess,tempfile,json
+W=Path('/Users/sb/code/opensip-ai/opensip-k1c-slot-execution');B=Path('/tmp/opensip-implementation/k1-slot-execution-checks-2026-10-10-r1');B.mkdir();D=Path(subprocess.check_output(['/usr/bin/getconf','DARWIN_USER_TEMP_DIR']).decode().strip());T=Path(tempfile.mkdtemp(prefix='opensip-k1-slot-checks-',dir=D));T.chmod(0o700);E=dict(os.environ,TMPDIR=str(T));os.setpriority(os.PRIO_PROCESS,0,10)
+script="import sys, unittest; sys.path.insert(0,'tools/quality'); suite=unittest.defaultTestLoader.discover('tools/quality', pattern='test_*.py'); result=unittest.TextTestRunner(verbosity=2).run(suite); raise SystemExit(not result.wasSuccessful())"
+r=subprocess.run(['/usr/bin/nice','-n','10','/opt/homebrew/Cellar/python@3.14/3.14.6/bin/python3.14','-I','-S','-B','-c',script],cwd=W,env=E,stdout=subprocess.PIPE,stderr=subprocess.STDOUT);(B/'tests.log').write_bytes(r.stdout);print('\n'.join(r.stdout.decode().splitlines()[-6:]));print('Exit',r.returncode)
+(B/'checks.json').write_text(json.dumps(dict(exitCode=r.returncode,passed=r.returncode==0,TMPDIR=str(T),TMPDIRMode='0700',nice=10,PythonOnly=True,cargoRun=False,repositoryCodeExecuted=False,productQualification=False),indent=2)+'\n')
