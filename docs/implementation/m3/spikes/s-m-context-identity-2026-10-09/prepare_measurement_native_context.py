@@ -1,0 +1,42 @@
+from pathlib import Path
+import json,hashlib,os,sys,subprocess,types,importlib.util,copy,stat,time,tempfile
+sys.path.insert(0,'/tmp/opensip-implementation/measurement-jsonschema-4.25.1')
+B=Path(__file__).resolve().parent;D=B/'measurement-native-context';D.mkdir();A=Path('/Users/sb/code/opensip-ai/opensip_arch');os.setpriority(os.PRIO_PROCESS,0,10)
+def pin(p):raw=p.read_bytes();return dict(path=str(p),bytes=len(raw),sha256=hashlib.sha256(raw).hexdigest())
+def write(p,j):p.parent.mkdir(parents=True,exist_ok=True);p.write_text(json.dumps(j,indent=2)+'\n')
+obs=json.loads((B/'rust-context-input-observations.json').read_text());SYS=Path(obs['sysroot']);source=B/'rust-context-sysroot-regular-manifest.json';assert pin(source)==obs['sysrootRegularManifest'];tree=json.loads(source.read_text());assert len(tree)==3190 and obs['nonregular']==[]
+# Revalidate the retained regular observation tree; do not alter the actual sysroot.
+for row in tree:
+ p=SYS/row['path'];st=p.lstat();assert stat.S_ISREG(st.st_mode);fd=os.open(p,os.O_RDONLY|os.O_NOFOLLOW|os.O_CLOEXEC)
+ with os.fdopen(fd,'rb') as f:
+  before=os.fstat(f.fileno());raw=f.read();after=os.fstat(f.fileno());assert (st.st_dev,st.st_ino)==(before.st_dev,before.st_ino);assert (before.st_size,before.st_mtime_ns,before.st_ctime_ns)==(after.st_size,after.st_mtime_ns,after.st_ctime_ns)
+ assert len(raw)==row['bytes'] and hashlib.sha256(raw).hexdigest()==row['sha256']
+cargo=Path('/opt/homebrew/Cellar/rust/1.95.0/bin/cargo').resolve();cargo_pin=pin(cargo);darwin=Path(subprocess.check_output(['/usr/bin/getconf','DARWIN_USER_TEMP_DIR']).decode().strip());lane=darwin/'opensip-lanes.lock';owned=False
+while not owned:
+ try:lane.mkdir();owned=True
+ except FileExistsError:print('Waiting for ordinary version-query lane',flush=True);time.sleep(5)
+try:
+ T=Path(tempfile.mkdtemp(prefix='opensip-sm-context-version-',dir=darwin));T.chmod(0o700);E=dict(os.environ,PATH='/opt/homebrew/bin:/opt/homebrew/Cellar/rust/1.95.0/bin',CARGO_HOME='/Users/sb/.cargo',TMPDIR=str(T));child=subprocess.Popen([str(cargo),'-V'],env=E,stdout=subprocess.PIPE,stderr=subprocess.PIPE);priority=os.getpriority(os.PRIO_PROCESS,child.pid);out,err=child.communicate();assert priority==10 and child.returncode==0 and err==b'';(D/'cargo-version.stdout').write_bytes(out);cargo_version=out.decode().split()[1]
+finally:
+ if owned:lane.rmdir()
+rust_text=Path(obs['queries'][0]['stdout']['path']).read_text();rust_version=rust_text.split()[1];commit=next(s.split(': ',1)[1] for s in rust_text.splitlines() if s.startswith('commit-hash:'));host=next(s.split(': ',1)[1] for s in rust_text.splitlines() if s.startswith('host:'))
+model=A/'docs/coop/design-corrections/native/native_evidence_model.v2.py';spec=importlib.util.spec_from_file_location('native_model',model);M=importlib.util.module_from_spec(spec);spec.loader.exec_module(M)
+closures={}
+for kind in ['toolchain','rust-dev-llvm']:
+ manifest=dict(componentId='measurement.'+kind,semanticVersion=rust_version,protocolMajor=0,platform=host,standing='UNSIGNED LABELLED MEASUREMENT ROLE SCAFFOLD; NOT A SIGNED OR ADMITTED TOOL COMPONENT',observedSysrootManifest=pin(source),observedOfficialCargo=cargo_pin,actualRoleAdmission=False,productionPackageBoundarySelected=False,externalRuntimeDependenciesComplete=False)
+ path=D/(kind+'-manifest.json');write(path,manifest);members=copy.deepcopy(tree);members.append(dict(path='measurement-component-manifest.json',bytes=pin(path)['bytes'],sha256=pin(path)['sha256']))
+ if kind=='toolchain':members.append(dict(path='measurement-tools/cargo',bytes=cargo_pin['bytes'],sha256=cargo_pin['sha256']))
+ members.sort(key=lambda r:r['path']);descriptor=dict(schemaVersion=2,kind=kind,manifestDigest=pin(path)['sha256'],tree=members,semanticVersion=rust_version,protocolMajor=0,platform=host);closure_id=M.IM.identifier('closure',descriptor);write(D/(kind+'-closure.json'),descriptor);closures[kind]=dict(closureId=closure_id,descriptor=pin(D/(kind+'-closure.json')),manifest=pin(path))
+# Empty physical file and private directory are retained only for the labelled carrier scaffold.
+project=D/'project';config=project/'.cargo/config.toml';config.parent.mkdir(parents=True);config.write_bytes(b'');home=D/'private-empty-home';home.mkdir(mode=0o700)
+projection=dict(schemaVersion=2,honoredKeys=[],strippedKeys=[],replacedSnapshotConfigs=[],rustflags=dict(honored=[],stripped=[],executableSelected=False),ancestorCarrierVerified=True,cargoHome='private-empty',environmentProjection='none',claimsCargoSwitch=False,projectionSha256=pin(config)['sha256']);write(D/'config-projection.json',projection)
+feature=json.loads((B/'actual-feature-projection/observations.json').read_text());dep=json.loads((B/'actual-dependency-source-set/observations.json').read_text())
+stdlib=[dict(component=r['path'],sha256=r['sha256']) for r in tree if '/'+host+'/lib/libstd-' in r['path']];assert len(stdlib)==3
+tool=dict(rustc=obs['rustc']['sha256'],cargo=cargo_pin['sha256'],linker=None,ar=None,procMacroServer=obs['procMacroServer']['sha256'],closureId=closures['toolchain']['closureId'])
+context=dict(schemaVersion=2,targetTriple=host,hostTriple=host,toolchain=dict(rustCommitHash=commit,rustcVersion=rust_version,cargoVersion=cargo_version,sysrootDigest=pin(source)['sha256'],rustcDevLlvmDigest=closures['rust-dev-llvm']['closureId'].removeprefix('closure2:'),standardLibraryComponentDigests=stdlib,targetTriple=host),toolClosure=tool,baseCfg=obs['baseCfg'],resolverVersion=2,dependencySourceSetId=dep['dependencySourceSetId'],unifiedFeaturesId=feature['unifiedFeaturesId'],preparedOutputSetId=None,configProjection=projection)
+identity=M.native_identity('native.context.rust.v2','NativeContextV2',context);write(D/'descriptor.json',context);bridge=B/'hash_bridge';child=subprocess.Popen([str(bridge),'native.context.rust.v2',str(D/'descriptor.json')],stdout=subprocess.PIPE,stderr=subprocess.PIPE);priority=os.getpriority(os.PRIO_PROCESS,child.pid);out,err=child.communicate();assert priority==10 and child.returncode==0,err;answer=json.loads(out);assert identity=='sha256:'+answer['identityDigest'];(D/'bridge.stdout').write_bytes(out)
+changes=[]
+for name,apply in [('rust-dev-llvm',lambda c:c['toolchain'].update(rustcDevLlvmDigest=closures['toolchain']['closureId'].removeprefix('closure2:'))),('tool-closure',lambda c:c['toolClosure'].update(closureId=closures['rust-dev-llvm']['closureId'])),('config-carrier-file',lambda c:c['configProjection'].update(projectionSha256=hashlib.sha256(b'\n').hexdigest()))]:
+ c=copy.deepcopy(context);apply(c);new=M.native_identity('native.context.rust.v2','NativeContextV2',c);assert new!=identity;changes.append(dict(field=name,changedIdentity=new,fieldRemainsInsideFullHashedDescriptor=True))
+report=dict(standing='UNREVIEWED FULL CLOSED MEASUREMENT CONTEXT WITH EXPLICIT IN-PREIMAGE SCAFFOLDS; NOT ADMITTED',nativeContextId=identity,descriptor=pin(D/'descriptor.json'),referenceModel=pin(model),productBridge=pin(bridge),productIdentityAgrees=True,allSchemaMembersPresentAndHashed=True,rustContextInputs=pin(B/'rust-context-input-observations.json'),sysrootRegularManifestRehashed=True,sysrootRegularFiles=3190,sysrootRegularBytes=obs['regularBytes'],unsignedRoleScaffolds=closures,scaffoldLabels=['toolClosure.closureId and role/namespace/signed-member joins are unadmitted measurement scaffolding','toolchain.rustcDevLlvmDigest is an unsigned measurement role scaffold, not production rust-dev-llvm admission','stdlib component names are observed retained member paths, not production source-profile component selection','ancestorCarrierVerified/private-empty/none/replacedSnapshotConfigs/honoredKeys/strippedKeys/rustflags describe labelled harness projection scaffolding, not actual Cargo producer environment or verified source carrier','linker/ar null describe metadata-only observation scaffolding; no production Tool selection','official Cargo digest/version are observed, while actual modified metadata producer ownership remains unadmitted'],mutations=changes,projectionFile=pin(config),physicalPrivateEmptyDirectory=str(home),sourceAdmission=False,ToolAdmitted=False,contextAdmitted=False,selectedImportWrapperConstructed=False,actualC2PlanOrKeys=False,actualNativeWorker=False,fullSM=False,advisory=pin(Path('/tmp/opensip-implementation/reviews/grok-sm-plan-boundary-advisory-r2/review.json')))
+write(D/'observations.json',report);print(identity,'complete closed context and product/reference hashes agree; labelled scaffold joins NOT admitted')

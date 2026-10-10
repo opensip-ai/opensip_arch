@@ -1,0 +1,2 @@
+use opensip_identity::{canonical_bytes,parse_json,hash_preimage,digest_hex,raw_sha256};
+fn main(){let args:Vec<_>=std::env::args().collect();assert_eq!(args.len(),3);let raw=std::fs::read(&args[2]).unwrap();let value=parse_json(&raw).unwrap();let canonical=canonical_bytes(&value).unwrap();let frame=hash_preimage(&args[1],&value).unwrap();println!("{{\"canonicalBytes\":{},\"canonicalSha256\":\"{}\",\"identityDigest\":\"{}\"}}",canonical.len(),digest_hex(&raw_sha256(&canonical)),digest_hex(&raw_sha256(&frame)));}
