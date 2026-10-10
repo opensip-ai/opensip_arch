@@ -1,0 +1,193 @@
+diff --git a/crates/security/src/component_manifest.rs b/crates/security/src/component_manifest.rs
+index 3f78cdf..689d2d2 100644
+--- a/crates/security/src/component_manifest.rs
++++ b/crates/security/src/component_manifest.rs
+@@ -16,6 +16,7 @@ pub(super) enum Error {
+     Permission,
+     Dependency,
+     Compatibility,
++    ClosureProtocolMismatch,
+     Exception,
+ }
+ #[derive(Clone)]
+@@ -503,6 +504,14 @@ fn validate_inner(
+     {
+         return Err(Error::Compatibility);
+     }
++    // C2PM-1 present declaration consistency is shared by both body readers.
++    // Absence stays valid for ordinary M2 validation; no closure is projected here.
++    if analyzer
++        && m.get("closureProtocolMajor")
++            .is_some_and(|major| major != &compat["providerProtocol"])
++    {
++        return Err(Error::ClosureProtocolMismatch);
++    }
+     let mut exceptions = BTreeMap::new();
+     for p in m.get("prerequisites").map(array).unwrap_or(&[]) {
+         let p = object(p);
+@@ -609,6 +618,114 @@ mod tests {
+     fn cr1_validate(v: &V, c: &Context) -> Result<Validated, Error> {
+         validate(&opensip_identity::canonical_bytes(v).unwrap(), c)
+     }
++    #[test]
++    fn c2pm_body_presence_is_optional_and_not_projection_admission() {
++        let context = Context::default();
++        for role in [
++            "analyzer",
++            "toolchain",
++            "stdlib",
++            "rust-dev-llvm",
++            "grammar",
++        ] {
++            let mut body = cr1_body(role);
++            let absent = opensip_identity::canonical_bytes(&body).unwrap();
++            assert!(validate(&absent, &context).is_ok());
++            assert!(validate_inventory(&absent, &context.reserved_names).is_ok());
++            let major = if role == "analyzer" {
++                object(&object(&body)["compatibility"])["providerProtocol"].clone()
++            } else {
++                V::Integer(opensip_identity::JsonInteger::new(1).unwrap())
++            };
++            cr1_object(&mut body).insert("closureProtocolMajor".to_owned(), major);
++            let present = opensip_identity::canonical_bytes(&body).unwrap();
++            assert!(validate(&present, &context).is_ok());
++            assert!(validate_inventory(&present, &context.reserved_names).is_ok());
++        }
++    }
++    #[test]
++    fn c2pm_analyzer_mismatch_is_distinct_in_both_readers() {
++        let context = Context::default();
++        let mut body = cr1_body("analyzer");
++        let existing = int(&object(&object(&body)["compatibility"])["providerProtocol"]);
++        let different = if existing == 1 { 2 } else { 1 };
++        cr1_object(&mut body).insert(
++            "closureProtocolMajor".to_owned(),
++            V::Integer(opensip_identity::JsonInteger::new(different).unwrap()),
++        );
++        let raw = opensip_identity::canonical_bytes(&body).unwrap();
++        assert!(matches!(
++            validate(&raw, &context),
++            Err(Error::ClosureProtocolMismatch)
++        ));
++        assert!(matches!(
++            validate_inventory(&raw, &context.reserved_names),
++            Err(Error::ClosureProtocolMismatch)
++        ));
++        cr1_object(&mut body).remove("closureProtocolMajor");
++        let compat = cr1_object(cr1_object(&mut body).get_mut("compatibility").unwrap());
++        compat.insert(
++            "manifest".to_owned(),
++            V::Integer(opensip_identity::JsonInteger::new(2).unwrap()),
++        );
++        let raw = opensip_identity::canonical_bytes(&body).unwrap();
++        assert!(matches!(
++            validate(&raw, &context),
++            Err(Error::Compatibility)
++        ));
++        assert!(matches!(
++            validate_inventory(&raw, &context.reserved_names),
++            Err(Error::Compatibility)
++        ));
++    }
++    #[test]
++    fn c2pm_raw_integer_spelling_and_closed_root() {
++        let context = Context::default();
++        let baseline = opensip_identity::canonical_bytes(&cr1_body("toolchain")).unwrap();
++        for (literal, parse_error) in [
++            ("1.0", true),
++            ("1e0", true),
++            ("10e-1", true),
++            ("true", false),
++            ("null", false),
++            ("\"1\"", false),
++            ("0", false),
++            ("-1", false),
++            ("9223372036854775808", true),
++        ] {
++            let raw = format!(
++                "{{\"closureProtocolMajor\":{literal},{}",
++                std::str::from_utf8(&baseline[1..]).unwrap()
++            );
++            let host = validate(raw.as_bytes(), &context);
++            let inventory = validate_inventory(raw.as_bytes(), &context.reserved_names);
++            if parse_error {
++                assert!(matches!(host, Err(Error::Parse)), "{literal}");
++                assert!(matches!(inventory, Err(Error::Parse)), "{literal}");
++            } else {
++                assert!(matches!(host, Err(Error::Schema)), "{literal}");
++                assert!(matches!(inventory, Err(Error::Schema)), "{literal}");
++            }
++        }
++        let max = format!(
++            "{{\"closureProtocolMajor\":9223372036854775807,{}",
++            std::str::from_utf8(&baseline[1..]).unwrap()
++        );
++        assert!(validate(max.as_bytes(), &context).is_ok());
++        assert!(validate_inventory(max.as_bytes(), &context.reserved_names).is_ok());
++        let unknown = format!(
++            "{{\"closureProtocolMajor\":1,\"extraMajor\":1,{}",
++            std::str::from_utf8(&baseline[1..]).unwrap()
++        );
++        assert!(matches!(
++            validate(unknown.as_bytes(), &context),
++            Err(Error::Schema)
++        ));
++        assert!(matches!(
++            validate_inventory(unknown.as_bytes(), &context.reserved_names),
++            Err(Error::Schema)
++        ));
++    }
+     const CR1_ROLES: [&str; 4] = ["toolchain", "stdlib", "rust-dev-llvm", "grammar"];
+     #[test]
+     fn cr1_exact_role_table_and_unknown_roles() {
+diff --git a/crates/security/src/generated/component_manifest_shape.rs b/crates/security/src/generated/component_manifest_shape.rs
+index 4e0565f..81cea81 100644
+--- a/crates/security/src/generated/component_manifest_shape.rs
++++ b/crates/security/src/generated/component_manifest_shape.rs
+@@ -1,5 +1,5 @@
+ //! Generated from exact completed manifest schema; not semantic admission.
+-// SHA256 343dc51799573bfb04b9cae5c4bfa830892b577d80a0c796c539f4f360faa008
++// SHA256 80254f9e1fd9a3014f5bba73715f1c882d0d511293cc154cc2b59cfbf9d37353
+ use super::*;
+ pub(super) fn shape(v: &V) -> bool {
+     node_0(v)
+@@ -7,7 +7,7 @@ pub(super) fn shape(v: &V) -> bool {
+ fn node_0(v: &V) -> bool {
+     (matches!(v, V::Object(_)))
+         && ((usize::from(node_32(v)) + usize::from(node_35(v))) == 1)
+-        && (matches!(v, V::Object(o) if o.get("manifestSchemaVersion").is_some_and(node_1) && o.get("kind").is_some_and(node_2) && o.get("stableId").is_some_and(node_3) && o.get("name").is_some_and(node_4) && o.get("displayName").is_none_or(node_5) && o.get("aliases").is_none_or(node_6) && o.get("version").is_some_and(node_7) && o.get("role").is_some_and(node_8) && o.get("commands").is_none_or(node_9) && o.get("capabilities").is_some_and(node_11) && o.get("platforms").is_some_and(node_13) && o.get("dependencies").is_some_and(node_15) && o.get("prerequisites").is_none_or(node_17) && o.get("declarations").is_some_and(node_19) && o.get("permissions").is_some_and(node_21) && o.get("configuration").is_none_or(node_25) && o.get("provenance").is_some_and(node_26) && o.get("stateMigration").is_some_and(node_28) && o.get("updateData").is_some_and(node_29) && o.get("compatibility").is_some_and(node_30) && o.keys().all(|k| ["manifestSchemaVersion", "kind", "stableId", "name", "displayName", "aliases", "version", "role", "commands", "capabilities", "platforms", "dependencies", "prerequisites", "declarations", "permissions", "configuration", "provenance", "stateMigration", "updateData", "compatibility"].contains(&k.as_str()))))
++        && (matches!(v, V::Object(o) if o.get("manifestSchemaVersion").is_some_and(node_1) && o.get("kind").is_some_and(node_2) && o.get("stableId").is_some_and(node_3) && o.get("name").is_some_and(node_4) && o.get("displayName").is_none_or(node_5) && o.get("aliases").is_none_or(node_6) && o.get("version").is_some_and(node_7) && o.get("role").is_some_and(node_8) && o.get("commands").is_none_or(node_9) && o.get("capabilities").is_some_and(node_11) && o.get("platforms").is_some_and(node_13) && o.get("dependencies").is_some_and(node_15) && o.get("prerequisites").is_none_or(node_17) && o.get("declarations").is_some_and(node_19) && o.get("permissions").is_some_and(node_21) && o.get("configuration").is_none_or(node_25) && o.get("provenance").is_some_and(node_26) && o.get("stateMigration").is_some_and(node_28) && o.get("updateData").is_some_and(node_29) && o.get("compatibility").is_some_and(node_30) && o.get("closureProtocolMajor").is_none_or(node_1) && o.keys().all(|k| ["manifestSchemaVersion", "kind", "stableId", "name", "displayName", "aliases", "version", "role", "commands", "capabilities", "platforms", "dependencies", "prerequisites", "declarations", "permissions", "configuration", "provenance", "stateMigration", "updateData", "compatibility", "closureProtocolMajor"].contains(&k.as_str()))))
+ }
+ fn node_1(v: &V) -> bool {
+     (matches!(v, V::Integer(_)))
+diff --git a/tools/security/inputs/manifest-schema.json b/tools/security/inputs/manifest-schema.json
+index 718680a..25c1895 100644
+--- a/tools/security/inputs/manifest-schema.json
++++ b/tools/security/inputs/manifest-schema.json
+@@ -216,6 +216,11 @@
+         "componentState"
+       ],
+       "additionalProperties": false
++    },
++    "closureProtocolMajor": {
++      "type": "integer",
++      "minimum": 1,
++      "maximum": 9223372036854775807
+     }
+   },
+   "required": [
+diff --git a/tools/security/inputs/sources.json b/tools/security/inputs/sources.json
+index 650db6e..b4ca2e8 100644
+--- a/tools/security/inputs/sources.json
++++ b/tools/security/inputs/sources.json
+@@ -11,8 +11,8 @@
+   "files": [
+     {
+       "path": "tools/security/inputs/manifest-schema.json",
+-      "bytes": 25128,
+-      "sha256": "343dc51799573bfb04b9cae5c4bfa830892b577d80a0c796c539f4f360faa008"
++      "bytes": 25247,
++      "sha256": "80254f9e1fd9a3014f5bba73715f1c882d0d511293cc154cc2b59cfbf9d37353"
+     },
+     {
+       "path": "tools/security/inputs/trust-record-schema.json",
