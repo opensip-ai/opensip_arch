@@ -1,0 +1,126 @@
+--- upstream/src/cargo/util/context/mod.rs
++++ candidate/src/cargo/util/context/mod.rs
+@@ -215,6 +215,8 @@
+     shell: Mutex<Shell>,
+     /// A collection of configuration options
+     values: OnceLock<HashMap<String, ConfigValue>>,
++    // Execution state only, never an owning config/source capability.
++    projected_values_data: bool,
+     /// A collection of configuration options from the credentials file
+     credential_values: OnceLock<HashMap<String, ConfigValue>>,
+     /// CLI config values, passed in via `configure`.
+@@ -333,6 +335,7 @@
+             cwd,
+             search_stop_path: None,
+             values: Default::default(),
++            projected_values_data: false,
+             credential_values: Default::default(),
+             cli_config: None,
+             cargo_exe: Default::default(),
+@@ -589,6 +592,29 @@
+         self.registry_config.lock().unwrap()
+     }
+ 
++    /// Supporting one-time data initializer, not host input/env/definition admission.
++    /// The ordinary constructor still captures jobserver/Env/channel/cache state.
++    /// Actual owning launch and complete input/projection association remain prerequisites.
++    #[allow(dead_code)]
++    pub(crate) fn new_with_projected_values_data(
++        shell: Shell,
++        cwd: PathBuf,
++        homedir: PathBuf,
++        values: HashMap<String, ConfigValue>,
++    ) -> CargoResult<Self> {
++        let mut context = Self::new(shell, cwd, homedir);
++        context.set_values(values)?;
++        context.projected_values_data = true;
++        Ok(context)
++    }
++
++    fn refuse_projected_data_rediscovery(&self) -> CargoResult<()> {
++        if self.projected_values_data {
++            bail!("projected configuration data forbids disk rediscovery or mutation")
++        }
++        Ok(())
++    }
++
+     /// Gets all config values from disk.
+     ///
+     /// This will lazy-load the values as necessary. Callers are responsible
+@@ -605,6 +631,7 @@
+     /// entries. This doesn't respect environment variables. You should avoid
+     /// using this if possible.
+     pub fn values_mut(&mut self) -> CargoResult<&mut HashMap<String, ConfigValue>> {
++        self.refuse_projected_data_rediscovery()?;
+         let _ = self.values()?;
+         Ok(self.values.get_mut().expect("already loaded config values"))
+     }
+@@ -632,6 +659,7 @@
+     ///
+     /// There is not a need to also call [`Self::reload_rooted_at`].
+     pub fn reload_cwd(&mut self) -> CargoResult<()> {
++        self.refuse_projected_data_rediscovery()?;
+         let cwd =
+             env::current_dir().context("couldn't get the current directory of the process")?;
+         let homedir = homedir(&cwd).ok_or_else(|| {
+@@ -650,6 +678,7 @@
+     /// Reloads on-disk configuration values, starting at the given path and
+     /// walking up its ancestors.
+     pub fn reload_rooted_at<P: AsRef<Path>>(&mut self, path: P) -> CargoResult<()> {
++        self.refuse_projected_data_rediscovery()?;
+         let values = self.load_values_from(path.as_ref())?;
+         self.values.replace(values);
+         self.merge_cli_args()?;
+@@ -1262,6 +1291,7 @@
+     ///
+     /// This is primarily crafted for `cargo config` command.
+     pub(crate) fn load_values_unmerged(&self) -> CargoResult<Vec<ConfigValue>> {
++        self.refuse_projected_data_rediscovery()?;
+         let mut result = Vec::new();
+         let mut seen = HashSet::new();
+         let home = self.home_path.clone().into_path_unlocked();
+@@ -1307,6 +1337,7 @@
+ 
+     /// Start a config file discovery from a path and merges all config values found.
+     fn load_values_from(&self, path: &Path) -> CargoResult<HashMap<String, ConfigValue>> {
++        self.refuse_projected_data_rediscovery()?;
+         // The root config value container isn't from any external source,
+         // so its definition should be built-in.
+         let mut cfg = CV::Table(HashMap::new(), Definition::BuiltIn);
+@@ -1348,6 +1379,7 @@
+         includes: bool,
+         why_load: WhyLoad,
+     ) -> CargoResult<ConfigValue> {
++        self.refuse_projected_data_rediscovery()?;
+         if !seen.insert(path.to_path_buf()) {
+             bail!(
+                 "config `include` cycle detected with path `{}`",
+@@ -1581,6 +1613,12 @@
+ 
+     /// Add config arguments passed on the command line.
+     fn merge_cli_args(&mut self) -> CargoResult<()> {
++        if self.projected_values_data {
++            if self.cli_config.is_some() {
++                bail!("projected configuration data forbids CLI config merging")
++            }
++            return Ok(());
++        }
+         let cv_from_cli = self.cli_args_as_table()?;
+         assert!(cv_from_cli.is_table(), "cv from CLI must be a table");
+ 
+@@ -1731,6 +1769,7 @@
+     ///
+     /// If the credentials are already loaded, this function does nothing.
+     pub fn load_credentials(&self) -> CargoResult<()> {
++        self.refuse_projected_data_rediscovery()?;
+         if self.credential_values.filled() {
+             return Ok(());
+         }
+@@ -2573,3 +2612,7 @@
+         assert_sync::<GlobalContext>();
+     }
+ }
++
++#[cfg(test)]
++#[path = "sealed_config_data_tests.rs"]
++mod sealed_config_data_tests;
