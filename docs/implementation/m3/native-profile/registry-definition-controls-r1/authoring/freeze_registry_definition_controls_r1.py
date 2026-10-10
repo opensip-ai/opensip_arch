@@ -1,0 +1,51 @@
+from pathlib import Path
+import os,json,hashlib,shutil,subprocess,re
+B=Path('/tmp/opensip-implementation'); K=B/'native-registry-definition-controls-2026-10-10'; W=K/'producer'; U=B/'native-cargo-profile-source-2026-10-09'; OLD=B/'native-config-merge-data-2026-10-10/producer'; O=next((U/'original').iterdir()); S=B/'native-registry-definition-controls-r1-stage'; R=B/'reviews/grok-native-registry-definition-controls-r1'; A=Path('/Users/sb/code/opensip-ai/opensip_arch'); P=A.parent/'opensip'; REL='docs/implementation/m3/native-profile/registry-definition-controls-r1'
+E=dict(os.environ,GIT_CONFIG_NOSYSTEM='1',GIT_CONFIG_GLOBAL='/dev/null')
+for k in ['GIT_CONFIG_COUNT','GIT_DIR','GIT_WORK_TREE']:E.pop(k,None)
+def head(p):return subprocess.check_output(['/usr/bin/git','rev-parse','HEAD'],cwd=p,env=E).decode().strip()
+def pin(root,rel):b=(root/rel).read_bytes();return dict(path=rel,bytes=len(b),sha256=hashlib.sha256(b).hexdigest())
+def write(p,v):p.parent.mkdir(parents=True,exist_ok=True);p.write_text(json.dumps(v,indent=2)+'\n')
+def regular(root):return {p.relative_to(root).as_posix():p for p in root.rglob('*') if p.is_file() and not p.is_symlink() and '.git' not in p.relative_to(root).parts}
+assert not S.exists() and not R.exists() and not (A/REL).exists()
+checks=json.loads((K/'checks.json').read_text());assert checks['requiredChecksPassed'] and checks['expectedControls']==8
+assert '8 passed; 0 failed' in (K/'registry-tests.log').read_text()
+a,b=regular(OLD),regular(W); changed=sorted(r for r in a if a[r].read_bytes()!=b[r].read_bytes());new=sorted(set(b)-set(a));assert changed==['src/cargo/util/context/mod.rs'] and new==['src/cargo/util/context/registry_definition_controls.rs']
+assert b[changed[0]].read_bytes()==a[changed[0]].read_bytes()+b'\n#[cfg(test)]\nmod registry_definition_controls;\n'
+orig=regular(O);assert len(orig)==2906 and (W/'Cargo.lock').read_bytes()==(O/'Cargo.lock').read_bytes()
+vendor=json.loads((U/'locked-vendor-receipt.json').read_text());assert len(vendor['packages'])==507
+for row in vendor['packages']:
+ d=Path(row['vendorPath']);cp=d/'.cargo-checksum.json';assert hashlib.sha256(cp.read_bytes()).hexdigest()==row['checksumManifestSha256']
+ for rel,h in json.loads(cp.read_text())['files'].items():assert hashlib.sha256((d/rel).read_bytes()).hexdigest()==h,(d,rel)
+def links(root):return {p.relative_to(root).as_posix():os.readlink(p) for p in root.rglob('*') if p.is_symlink()}
+assert links(W)==links(OLD)
+inherited_omissions=sorted(set(links(O))-set(links(W)))
+assert inherited_omissions==['tests/testsuite/cargo_add/target/in','tests/testsuite/cargo_remove/target/in']
+assessment=dict(unit='NATIVE-REGISTRY-DEFINITION-CONSUMER-CONTROLS-R1',changedFromAcceptedMergeProducer=changed,newFromAcceptedMergeProducer=new,originalRegularFilesChecked=len(orig),changedFromOriginal=sorted(r for r in orig if orig[r].read_bytes()!=b[r].read_bytes()),newFromOriginal=sorted(set(b)-set(orig)),originalCargoLockUnchanged=True,inheritedUpstreamFixtureSymlinkOmissions=inherited_omissions,allAcceptedMergeProducerSymlinksPreserved=True,vendorPackagesVerified=507,actualRegistryDefinitionControls=8,wholeProducerBuildPassed=True,runtime=pin(K,'target/debug/cargo'),configurationInputAdmitted=False,originalDefinitionsAdmitted=False,completeProjectionImplemented=False,stockFileReaderAndDiagnosticAssemblyImplemented=False,includeCompatibilitySelected=False,publicFailureRoutesSelected=False,productionInitializerUsed=False,sourceAdmissionImplemented=False,sourceProfilePublished=False,fullPublicationDutiesClosed=False,actualNativeOwnerAdmission=False,effectiveL=False,productQualification=False,entirePlanComplete=False)
+write(K/'assessment.json',assessment)
+out=S/REL
+for rel in ['checks.json','assessment.json','preparation.json','correction.json','source-copy-correction.json','registry-tests.log','whole-producer.log','format-module.log','format-data.log']:
+ p=K/rel
+ if p.exists():(out/rel).parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(p,out/rel)
+# No failed pipeline check run.
+for rel in changed+new:
+ dest=out/'producer-source'/rel;dest.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(W/rel,dest)
+for name in ['prepare_registry_definition_controls.py','run_registry_definition_controls.py',Path(__file__).name]:
+ dest=out/'authoring'/name;dest.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(B/name,dest)
+(out/'REPORT.md').write_text("""# Conditional registry definition actual consumer controls
+Eight actual pinned Cargo library controls and wholeproducer offline build pass. These are tests connecting accepted supplied-data merge and once-only data initialization to the actual bound CRA1 get_registry_index/SourceId::for_alt_registry consumer; they add no production helper. The entire supplied merged map is installed as DATA for controls, not as a selected semantic projection or full config-key allowlist. Original bytes/definitions/config roots remain unadmitted. Debug set_env isolates getters and does not undo ordinary constructor captures.
+
+Relative file index lookup keeps the effective nearest original leaf's root; reversing supplied order changes that root, and distinct aliases retain different per-leaf roots. A sparse index reaches the actual sparse SourceId interpretation with the supplied raw value unchanged. Missing/invalid names, password-containing URL, wrong type and bare relative path refuse through actual Cargo calls; malformed unrelated Cargo data refuses before any alias lookup. No resulting SourceId is loaded; no registry read, credentials, network, cache, Git or repository code is invoked. Library anyhow diagnostics are not public failure proofs. No original custody/discovery/provenance, semantic projection/key accounting/serializer, include policy, resources/public failure, production caller, source/profile/owner/Tool/worker or qualification is introduced. All six full native publication duties remain open.
+
+Only one appended cfg(test) module declaration and one new test module differ from accepted merge producer; existing accepted files/symlinks remain exact. Its two upstream testsuite in symlink omissions are retained and disclosed; neither is compiled by the filtered library controls or producer binary. Original2906regularfile census/unchanged Cargo.lock/507vendorchecksum-listedfiles verified. Owned ordinarylane/niceness10/private0700TMPDIR/lockedoffline/HOMEunchanged controls retained. Producerdependencybuildscripts run, noT2repositorycode executes. Runtime hash evidence only, not signed Tool admission. These observations are conditional actual consumer compatibility controls, not a published native source profile.
+""")
+prior=json.loads((B/'native-config-merge-data-r1-stage/subject.json').read_text())
+authorities=prior['authorities']+[pin(A,'docs/implementation/m3/reviews/grok-native-config-merge-data-r1/review.json'),pin(A,'docs/implementation/m3/reviews/grok-native-config-merge-data-r1/lead-assent.json'),pin(A,'docs/implementation/m3/native-profile/config-merge-data-r1-subject.json')]
+authorities += [pin(A,'docs/implementation/m3/snapshot-plan-c/native-registry-alias-r1/CONTRACT.md'),pin(A,'docs/implementation/m3/snapshot-plan-c/native-registry-alias-r1-unit.json')]
+m=dict(schemaVersion=1,unit=assessment['unit'],productBase=head(P),architectureBase=head(A),files=sorted([pin(S,p.relative_to(S).as_posix()) for p in out.rglob('*') if p.is_file()],key=lambda r:r['path']),authorities=sorted({r['path']:r for r in authorities}.values(),key=lambda r:r['path']),productAuthorities=[pin(P,'design-lock.json')]);write(S/'subject.json',m);st=dict(stage=str(S),archive=REL,subjectManifest=pin(S,'subject.json'),review=str(R));write(S/'stage.json',st);R.mkdir();write(R/'subject.json',st)
+(R/'REQUEST.md').write_text(f"""# Conditional registry original definition actual consumer controls
+Read and follow exactly. Write ONLY REVIEW.md and review.json here. No repository/stage/control edits, builds/tests/runtime/probes/lane/private413/realinstallation/heldtrees/otherpanes/delegation. Readonlyhash/JSON/source/Git inspection allowed. Closed CRA1, merge/initializer/resolver/producer and prior observations remain CLOSED; pins only. Review new testconnection only.
+Stage {S}; subject.json {st['subjectManifest']['bytes']}B sha256 {st['subjectManifest']['sha256']}; {len(m['files'])} sorted unique members. Bases inmanifest. Product/inventory184/contracts159unchanged. Eightactualcontrols/wholeproducerbuild pass. Suppliedfullmergeddata isNOTsemanticprojection/keyallowlist/admittedconfig, definitions/rootsunadmitted, debugset_env notownedconstructor. Actual bound get_registry_index/SourceId::for_alt_registry controls:nearestrelativefileindex keepsownroot;reverseinputchangesroot;twoaliaseskeepdistinctroots;actualsparsesource/rawstringunchanged;missinginvalidname/password/wrongtype/barepathrefusals;fullmalformedunknownconfigconversionrefusesbeforelookup. No SourceIdload/network/credential/cache/Git/T2code. Anyhow diagnostics notpublicrouteproof. Onecfg(test)moduledeclaration+onenewtestmodule, no productionhelper added. Sourcebase/symlinks exact; twoinheritedupstreamtestsuitesymlinkomissionsdisclosed/no fulltestsuitecopy.2906regularcensus/lock unchanged/507vendorchecksumlistedfilesverified. Ownedordinarylane/private0700TMPDIR/nice10/lockedoffline/HOMEunchanged. Buildscriptdependencycode allowedproducercompilationonly. Allsixnativepublication/sourceprofile/owner/Tool/worker/qualificationgatesOPEN.
+Return ACCEPT/REJECT,requiredFindings,subjectManifestSha256={st['subjectManifest']['sha256']},registryDefinitionConsumerControlsObserved=true,actualRegistryDefinitionControls=8,productCodeUnchanged=true,inventoryUnchanged=184,contractSuccessorsUnchanged=159,configurationInputAdmitted=false,originalDefinitionsAdmitted=false,completeProjectionImplemented=false,stockFileReaderAndDiagnosticAssemblyImplemented=false,includeCompatibilitySelected=false,publicFailureRoutesSelected=false,productionInitializerUsed=false,sourceAdmissionImplemented=false,sourceProfilePublished=false,fullPublicationDutiesClosed=false,actualNativeOwnerAdmission=false,effectiveL=false,productQualification=false,entirePlanComplete=false. ExactARCH-onlyarchive/rootassent/currentdesignimplementationverify afterACCEPT. No product/lock/inventory/lawchanges/push.
+""")
+print(json.dumps(st,indent=2))
