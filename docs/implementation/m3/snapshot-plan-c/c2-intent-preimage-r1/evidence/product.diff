@@ -1,0 +1,146 @@
+diff --git a/crates/identity/src/canonical_tests.rs b/crates/identity/src/canonical_tests.rs
+index 28aa588..3cf4736 100644
+--- a/crates/identity/src/canonical_tests.rs
++++ b/crates/identity/src/canonical_tests.rs
+@@ -490,3 +490,78 @@ fn retained_frames_preserve_exact_lexical_admission_failures() {
+         Err(digests::Error::Canonical(Error::ByteLimit))
+     );
+ }
++
++#[test]
++fn plan_intent_preimage_uses_nfc_and_distinct_domain_recipe() {
++    let input = r#"{"z":["e\u0301",3,1,3],"e\u0301":{"s":"\/\n"},"a":null}"#;
++    let expected =
++        "opensip.plan-intent.v1\0{\"a\":null,\"z\":[\"é\",3,1,3],\"é\":{\"s\":\"/\\n\"}}";
++    assert_eq!(
++        digests::plan_intent_preimage(input.as_bytes()).unwrap(),
++        expected.as_bytes()
++    );
++    let original = canonical::parse(input.as_bytes()).unwrap();
++    assert_ne!(
++        digests::plan_intent_preimage(input.as_bytes()).unwrap(),
++        digests::frame("plan", &original).unwrap()
++    );
++    assert!(
++        canonical::encode(&original)
++            .unwrap()
++            .windows(3)
++            .any(|part| part == "e\u{301}".as_bytes())
++    );
++}
++
++#[test]
++fn plan_intent_preimage_refuses_duplicate_and_normalized_collisions() {
++    for input in [
++        r#"{"a":1,"a":2}"#,
++        r#"{"é":1,"e\u0301":2}"#,
++        r#"{"n":{"é":1,"e\u0301":2}}"#,
++    ] {
++        assert_eq!(
++            digests::plan_intent_preimage(input.as_bytes()),
++            Err(Error::DuplicateKey)
++        );
++    }
++}
++
++#[test]
++fn plan_intent_preimage_preserves_array_multiplicity_and_scalars() {
++    for (input, body) in [
++        ("[3,1,3]", "[3,1,3]"),
++        (
++            "[true,false,null,-9223372036854775808]",
++            "[true,false,null,-9223372036854775808]",
++        ),
++        ("\"e\\u0301\"", "\"é\""),
++    ] {
++        let mut expected = b"opensip.plan-intent.v1\0".to_vec();
++        expected.extend_from_slice(body.as_bytes());
++        assert_eq!(
++            digests::plan_intent_preimage(input.as_bytes()).unwrap(),
++            expected
++        );
++    }
++}
++
++#[test]
++fn plan_intent_preimage_enforces_existing_json_bounds_and_lexical_refusals() {
++    for input in ["1.0", "1e0", "{\"x\":NaN}", "\"\\ud800\"", "-0"] {
++        assert!(digests::plan_intent_preimage(input.as_bytes()).is_err());
++    }
++    assert_eq!(
++        digests::plan_intent_preimage(&[0xff]),
++        Err(Error::InvalidUtf8)
++    );
++    assert_eq!(
++        digests::plan_intent_preimage(&vec![b' '; MAX_BYTES + 1]),
++        Err(Error::ByteLimit)
++    );
++    let deep = format!("{}0{}", "[".repeat(33), "]".repeat(33));
++    assert_eq!(
++        digests::plan_intent_preimage(deep.as_bytes()),
++        Err(Error::DepthLimit)
++    );
++}
+diff --git a/crates/identity/src/digests.rs b/crates/identity/src/digests.rs
+index db4034c..2dc8342 100644
+--- a/crates/identity/src/digests.rs
++++ b/crates/identity/src/digests.rs
+@@ -104,3 +104,45 @@ pub fn unframe(expected_domain: &str, frame: &[u8]) -> Result<Value, Error> {
+     }
+     Ok(value)
+ }
++
++/// Exact C2 PlanIntent commitment preimage over supplied restricted JSON bytes.
++///
++/// This implements the separate opensip-canonical-json-v1 NFC recipe, not the
++/// product H frame. It rejects lexical duplicates, floats and NFC key collisions,
++/// preserves array order and applies the existing product JSON bounds. Callers
++/// must separately admit the closed PlanIntent schema, freeze the request, and
++/// complete its ownership and Plan joins; success confers none of those gates.
++pub fn plan_intent_preimage(raw: &[u8]) -> Result<Vec<u8>, canonical::Error> {
++    use alloc::collections::BTreeMap;
++    use unicode_normalization::UnicodeNormalization;
++
++    fn normalized(value: Value) -> Result<Value, canonical::Error> {
++        Ok(match value {
++            Value::String(text) => Value::String(text.nfc().collect()),
++            Value::Array(values) => Value::Array(
++                values
++                    .into_iter()
++                    .map(normalized)
++                    .collect::<Result<_, _>>()?,
++            ),
++            Value::Object(values) => {
++                let mut result = BTreeMap::new();
++                for (key, value) in values {
++                    let key = key.nfc().collect::<String>();
++                    if result.insert(key, normalized(value)?).is_some() {
++                        return Err(canonical::Error::DuplicateKey);
++                    }
++                }
++                Value::Object(result)
++            }
++            other => other,
++        })
++    }
++
++    let value = normalized(canonical::parse(raw)?)?;
++    let body = canonical::encode(&value)?;
++    let mut preimage = Vec::with_capacity(b"opensip.plan-intent.v1\0".len() + body.len());
++    preimage.extend_from_slice(b"opensip.plan-intent.v1\0");
++    preimage.extend_from_slice(&body);
++    Ok(preimage)
++}
+diff --git a/crates/identity/src/lib.rs b/crates/identity/src/lib.rs
+index 1af0757..92a401a 100644
+--- a/crates/identity/src/lib.rs
++++ b/crates/identity/src/lib.rs
+@@ -31,7 +31,7 @@ pub use descriptors::{
+ };
+ pub use digests::{
+     Error as DigestError, frame as hash_preimage, hex as digest_hex,
+-    identity as hash_canonical_value, raw_sha256, unframe as parse_hash_preimage,
++    identity as hash_canonical_value, plan_intent_preimage, raw_sha256, unframe as parse_hash_preimage,
+ };
+ pub use streaming_digest::{RawSha256, RawSha256LengthError};
+ pub use schema::Error as SchemaError;

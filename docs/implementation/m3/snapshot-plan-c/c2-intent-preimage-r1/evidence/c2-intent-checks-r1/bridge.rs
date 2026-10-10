@@ -1,0 +1,1 @@
+fn main() { let input=std::fs::read(std::env::args().nth(1).unwrap()).unwrap(); match opensip_identity::plan_intent_preimage(&input) { Ok(bytes)=>print!("{}",opensip_identity::digest_hex(&opensip_identity::raw_sha256(&bytes))), Err(e)=>{eprintln!("{e}");std::process::exit(2)} } }
