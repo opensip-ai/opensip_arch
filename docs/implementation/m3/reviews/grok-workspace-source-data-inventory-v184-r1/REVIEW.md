@@ -1,0 +1,26 @@
+# WORKSPACE-SOURCE-DATA inventory v184
+
+Verdict: ACCEPT-UNIT. The stage subject `docs/implementation/m3/snapshot-plan-c/workspace-source-data-inventory-v184-subject.json` is 740 bytes, SHA-256 `e354b50c2f7efe61a19f0d57c07e5d0b966ccb90b573bfc590421d5b15704cb3`. Its three members are sorted and unique, and each pin matches the stage file. The candidate `docs/implementation/m2/repository-file-inventory.v184.json` is 660599 bytes, SHA-256 `b42c9bb85fd820b1fd6de07e87f132078b9168b18311cd693a642be085d28a6d`. The parent `repository-file-inventory.v183.json` is 659264 bytes, SHA-256 `bd261433be60f7d501cd2fe9b67f1e108c52f8b8786da2b58f39364270652a27`. The successor record is 5665 bytes, SHA-256 `ed4020ec24fbe3be1d69440701f263a37ace6a453aa8aebec97acdde6583ac5b`. The integration census is 754 bytes, SHA-256 `049b96f35a60e2598ec92ffae3b3fad7163438e38860b7ee933636c5b594de45`.
+
+Product main is clean at `2126749b28b7f05ca5cb1ed6d53ba6995266aabf` (“Classify supplied workspace source data by exact opaque ids.”, parent `390270ec914ad3e9c020947648e6fa08ec2f206b`). That commit changes the four reviewed workspace-source paths and nothing else. Architecture HEAD is `d0feea0c87b58d148c8219bed5a24f00f6c6d9d4` (“Record reviewed supplied workspace source-class data.”, parent `0f5969b01d88a956ff7b5e4d5d0f552a46a64f1c`). The archived code review is 424 bytes, SHA-256 `f28f36d2478dc271d332afb4ea92b42d14e194df65bbbbd52252b388d5bcafdf`, verdict ACCEPT-UNIT, and the archived code subject is 4064 bytes, SHA-256 `063246b014bce277338eb2afa41bab09d41db084f069d683ffba2658fd52c310`. All four product files named by that review match main and the archived product copies:
+
+- `crates/host/src/lib.rs`, 4917 bytes, SHA-256 `b36533f289f48d8417d965433a2105bdc5572f7e63df0b563c413429c9710870`
+- `crates/host/src/workspace_source_data.rs`, 2165 bytes, SHA-256 `c1aee6ed51d5bda376fb9b20b7458669792fae6ce31323adef8fb5ba249d962f`
+- `crates/host/src/workspace_source_data/fixtures/vectors.json`, 3980 bytes, SHA-256 `d473212970d4667f6ed34ff368516b638353ad78903e4aedb9ccfb538ff5a3ad`
+- `crates/host/src/workspace_source_data_tests.rs`, 3545 bytes, SHA-256 `5892afff41aeb7ae544e0f20e76cef24a2775a8e4a1d6d8eb269429c85d8969f`
+
+This inventory review leaves that code closed. v184 is in the stage and is absent from the architecture commit. The untracked `docs/implementation/m3/syntax-e/e2s/` tree is outside this unit.
+
+v183 has 1202 file rows. v184 has 1205. The file list is sorted and unique, and the parent path set is a strict subset. All 1202 inherited rows are equal by value, including the existing `lib.rs` row. Schema version, the standing sentence, the 20 package rows, and the 9 pending decisions are unchanged. The standing sentence remains “PROPOSED additive O1-b phase and harness files after exact accepted code integration; inherited rows, packages and pending decisions unchanged; no qualification”. The only added paths are the three supplied-data files:
+
+- `crates/host/src/workspace_source_data.rs`, role `algorithm`
+- `crates/host/src/workspace_source_data/fixtures/vectors.json`, role `fixture`
+- `crates/host/src/workspace_source_data_tests.rs`, role `test`
+
+All three added rows use `generated: false`, `standing: proposed`, and package `opensip-host`. The descriptions keep the labels as unadmitted supplied data and leave metadata, activation, source, profile, custody, owner admission, and qualification unselected.
+
+The successor names the same 100 inherited planned paths as the v183 successor. Each is still present, still `standing: proposed`, still equal to its v183 row, and absent from the product index. Those 100 are exactly the inventory rows absent from the index. The product index has 1105 tracked paths. Every tracked path is an inventory row, and all three added paths are tracked.
+
+On main, `tools/check_operability.py` remains 14464 bytes, SHA-256 `7fb837009a5cf1d286997f64e8f414548f97a57fb341402501f7845e52d069ba`. `tools/operability/exceptions.json` is the accepted 83200-byte file, SHA-256 `b5cc19ba3b1f29c14c534deb5d20eb6ab69408c710e8cb35d4c85f94226f3cb0`, with 113 source rows. The mint list remains 438 rows, and none of the three added paths is a mint row. The mint standing sentence remains the conservative lexical census. It grants no mint authority. The read-only source check passes with 113 rows and no findings. The read-only lock check passes with no findings. `design-lock.json` is unchanged at 624148 bytes, SHA-256 `8c214ce655bfd2b34ff015d270ee1de43e08562f34fc38b4bb77a7394673c10c`: 143 inventory successors ending at v183, 159 contract successors, and 103 inventory passage coordinates. v184 is not in the lock.
+
+The separate product code commit is already present. Binding this inventory still requires root substantive assent and a passing `tools/verify_design.py --architecture` and `--lock` over the five closed pins — parent, candidate, record, review, and assent — and the 103 inherited passage coordinates before the separate lock commit. A subject hash alone does not bind. Product qualification remains false. Metadata, source, profile, activation, owner, and worker admission, full S-M, and effective L stay open. The closed code archive records five focused tests and all-targets host Clippy, both exit 0. `verify_design` was not run for this review.
