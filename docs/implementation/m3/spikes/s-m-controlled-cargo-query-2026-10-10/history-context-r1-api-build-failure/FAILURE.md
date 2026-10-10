@@ -1,0 +1,1 @@
+Initial Cargo library context-control build did not compile: the new control used env_iter instead of env and omitted CompileTarget::new's unstable_json argument. Correct to the actual pinned APIs and explicitly false JSON-target support. No context control or corpus command ran; this build is not a pass. The isolated process controls passed separately.
