@@ -1,0 +1,6 @@
+from pathlib import Path
+b=Path('/tmp/opensip-implementation');s=(b/'prepare_sm_corpus_graph_packets_r61.py').read_text();s=s.replace("destination=D/'corpus-graph-packets-r61.json'","destination=D/'actual-unit-context-packets-r1.json'").replace("'registry-intake-template-r61.json'","'registry-intake-template-r116.json'").replace('opensip-sm-corpus-graph-attempts-r61-','opensip-sm-unit-context-packets-r1-')
+s=s.replace("for row in plans['plans']:","for row in plans['plans']:\n if row['ordinal'] not in [2,6]:continue")
+s=s.replace('privateRegistryCopies=9,physicalRegistryCopyBytes=9*template','actualManifestEntries=len(packets),actualWorkloads=len({p[\'id\'] for p in packets}),privateRegistryCopies=len(packets),physicalRegistryCopyBytes=len(packets)*template').replace("'registryCopies':9","'registryCopies':len(packets)").replace('UNREVIEWED PREPARED ROUND 61 ATTEMPT PACKETS USING ACCEPTED PARAMETERIZED ENTRY AND SEPARATELY PINNED VALIDATED INPUTS','UNREVIEWED PREPARED FIRST ACTUAL UNIT CONTEXT PACKETS; PENDING NEW HELPER ACCEPTANCE; TOKIO AND AXUM ONLY; OTHER ORIGINAL ENTRIES RETAINED')
+out=b/'prepare_sm_actual_unit_context_packets_r1-run.py';assert not out.exists();out.write_text(s)
+print('Prepared input-only packet runner; no unaccepted helper execution')
