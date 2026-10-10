@@ -1,0 +1,19 @@
+# Actual original-map transfer series
+
+Nine original repository-plus-expanded-dependency maps pass through the exact independently accepted order-preserving receiver, three warmups and seven measured runs each: 90 fresh owned receiver processes. Original map byte order and whole hashes are preserved. Frames hold at most1MiB; every map, file-content hash and sorted absolute-path descriptor is independently reconstructed and matches all ten recorded responses per series. Exact original maps, independent descriptors, READY/stdout and empty stderr retained. No compiler/application/buildscript/proc macro executes, no received source is written by the receiver. This archiver copies already retained maps as evidence, outside the measured spans.
+
+The monotonic clock starts after READY and before encoding/writing the header, ends after reading the final response bytes, before wait4 and parent result assertions. Child startup and preflight map hashing excluded; sender streamed rehash included. Darwin own-root wait4 RSS is bytes, informational. Median/maxima use seven measured runs only. Descriptors remain experimental absolute-path JSON, not admitted snapshot2/plan2. This is separate new actual DATA, not replay of accepted firstparty controls, and does not complete SM7/full S-M, statistical set, physical peak, source authentication, effective L or qualification. The earlier accepted-parent failed attempt remains closed separately with zero completed samples; none of its missing metrics is reconstructed.
+
+| Ordinal | Workload | Mapped files | Median ns | Maximum ns |
+| --- | --- | ---: | ---: | ---: |
+| 0 | poly-medium-napi-rs | 7324 | 308409375 | 312685583 |
+| 1 | rs-medium-aws-lambda-rust-runtime | 6646 | 264138000 | 275369125 |
+| 2 | rs-medium-axum | 6403 | 253193625 | 258022458 |
+| 3 | rs-medium-hyper | 1525 | 59110791 | 59183917 |
+| 4 | rs-medium-serde | 550 | 25828875 | 26107167 |
+| 5 | rs-medium-serde-json | 213 | 9735292 | 9890042 |
+| 6 | rs-medium-tokio | 4631 | 184599333 | 185109250 |
+| 7 | mr-rs-medium-serde-json | 643 | 31343584 | 31407500 |
+| 8 | mr-rs-medium-serde-json | 533 | 24501042 | 24667750 |
+
+O7/D3/D13 closed; product/law/lock/inventory187/contracts161 unchanged. Independent acceptance, substantive lead assent and actual design+implementation verification precede architecture-only evidence publication; no push.
