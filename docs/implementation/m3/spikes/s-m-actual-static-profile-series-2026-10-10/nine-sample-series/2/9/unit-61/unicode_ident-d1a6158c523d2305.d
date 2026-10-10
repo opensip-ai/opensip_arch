@@ -1,0 +1,6 @@
+/var/folders/rq/jfj79dls03s0zb6d839wcqlh0000gn/T/opensip-sm-actual-static-profile-samples-p8qaqlqh/2/9/unit-61/unicode_ident-d1a6158c523d2305.d: /var/folders/rq/jfj79dls03s0zb6d839wcqlh0000gn/T/opensip-sm-command-data-packets-r1-zuej3adm/2/home/registry/src/index.crates.io-1949cf8c6b5b557f/unicode-ident-1.0.22/src/lib.rs /var/folders/rq/jfj79dls03s0zb6d839wcqlh0000gn/T/opensip-sm-command-data-packets-r1-zuej3adm/2/home/registry/src/index.crates.io-1949cf8c6b5b557f/unicode-ident-1.0.22/src/tables.rs
+
+/var/folders/rq/jfj79dls03s0zb6d839wcqlh0000gn/T/opensip-sm-actual-static-profile-samples-p8qaqlqh/2/9/unit-61/libunicode_ident-d1a6158c523d2305.rmeta: /var/folders/rq/jfj79dls03s0zb6d839wcqlh0000gn/T/opensip-sm-command-data-packets-r1-zuej3adm/2/home/registry/src/index.crates.io-1949cf8c6b5b557f/unicode-ident-1.0.22/src/lib.rs /var/folders/rq/jfj79dls03s0zb6d839wcqlh0000gn/T/opensip-sm-command-data-packets-r1-zuej3adm/2/home/registry/src/index.crates.io-1949cf8c6b5b557f/unicode-ident-1.0.22/src/tables.rs
+
+/var/folders/rq/jfj79dls03s0zb6d839wcqlh0000gn/T/opensip-sm-command-data-packets-r1-zuej3adm/2/home/registry/src/index.crates.io-1949cf8c6b5b557f/unicode-ident-1.0.22/src/lib.rs:
+/var/folders/rq/jfj79dls03s0zb6d839wcqlh0000gn/T/opensip-sm-command-data-packets-r1-zuej3adm/2/home/registry/src/index.crates.io-1949cf8c6b5b557f/unicode-ident-1.0.22/src/tables.rs:

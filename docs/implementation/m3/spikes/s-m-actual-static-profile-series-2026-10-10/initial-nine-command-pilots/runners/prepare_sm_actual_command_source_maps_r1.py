@@ -1,0 +1,11 @@
+from pathlib import Path
+B=Path('/tmp/opensip-implementation')
+s=(B/'prepare_sm_remaining_graph_source_maps_r1.py').read_text()
+s=s.replace("V=B/'sm-graph-typecheck-2026-10-10'", "V=B/'sm-command-data-2026-10-10'")
+s=s.replace('remaining-graph-source-maps-r1.json','actual-command-source-maps-r1.json').replace('corpus-graph-attempts-r61.json','actual-command-data-attempts-r1.json')
+s=s.replace("if not entry.get('graph') or entry['ordinal']==3:continue", "if not entry.get('graph'):continue")
+s=s.replace("packet=entry['packet'],sourceMap", "packet=entry['packet'],unitCommandData=entry['unitCommandData'],sourceMap")
+s=s.replace('assert len(results)==6','assert len(results)==9')
+s=s.replace('UNREVIEWED ADDITIONAL PREPARED EXPERIMENTAL GRAPH SOURCE MAPS; NO COMPILER USE','UNREVIEWED ACTUAL CONTEXT SOURCE MAPS FOR NINE ORIGINAL COMMAND DATA ENTRIES; NO COMPILER USE')
+s=s.replace("result=dict(id=entry['id']", "checked(Path(entry['unitCommandData']['path']),entry['unitCommandData'])\n result=dict(id=entry['id']")
+exec(compile(s,str(__file__),'exec'))
