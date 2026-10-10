@@ -1,0 +1,1 @@
+An initial lead postprocessing assertion expected four compiler queries, based on the path-only fixture. The registry fixture actually performs eight: six -vV probes and two eager host/target queries. All three final Cargo controls passed. Correct the observation count to actual retained argument files; no test/source/runtime rerun or extra success claim.
