@@ -1,0 +1,8 @@
+from pathlib import Path
+import json,hashlib
+P=Path('/Users/sb/code/opensip-ai/opensip');W=P.parent/'opensip-host-current-corpus';B=Path(__file__).resolve().parent;old='e5834d37aebd96d77d352975878da349033f8633ecbd83322ad0fbea461f7773';new='81d57d6d68bd1c310d632148fe3c4c3b9b23e224603465e1a9f43062cc8f0712';changed=[]
+for rel in ['crates/host/src/native_owner_tests.rs','crates/host/src/fact_admission_tests.rs','crates/host/src/finalization_tests.rs','crates/host/tests/admission_tests.rs']:
+ p=W/rel;before=p.read_bytes();assert before==(P/rel).read_bytes();text=before.decode();assert 'replay-fixtures.json'in text;text=text.replace('replay-fixtures.json','replay-fixtures.current.json');p.write_text(text);changed.append(rel)
+for stem,reader in [('coverage-registry','coverage.rs'),('import-payload-registry','import_payloads.rs')]:
+ rel='crates/evaluator/src/'+stem+'.json';raw=(W/rel).read_bytes();assert raw==(P/rel).read_bytes() and old.encode()in raw;current=raw.replace(old.encode(),new.encode());out=W/('crates/evaluator/src/'+stem+'.current.json');assert not out.exists();out.write_bytes(current);r=W/('crates/evaluator/src/'+reader);before=r.read_bytes();assert before==(P/'crates/evaluator/src'/reader).read_bytes();r.write_bytes(before.replace((stem+'.json').encode(),(stem+'.current.json').encode()));changed.extend([str(out.relative_to(W)),str(r.relative_to(W))]);assert (W/rel).read_bytes()==raw
+(B/'candidate-replay-selection.json').write_text(json.dumps({'standing':'ISOLATED UNREVIEWED PARTIAL CURRENT-CORPUS SELECTION','changedPaths':changed,'originalRegistriesUnchanged':True,'originalFixturesUnchanged':True,'guardsUnchanged':True,'semanticSchemaReregistrationSelected':False,'testsPassed':False},indent=2)+'\n');print(json.dumps(changed,indent=2))
