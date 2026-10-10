@@ -1,0 +1,292 @@
+--- upstream/src/cargo/core/mod.rs
++++ candidate/src/cargo/core/mod.rs
+@@ -32,3 +32,9 @@
+ mod source_id;
+ pub mod summary;
+ mod workspace;
++
++// CSJ-1 supporting data kernel; not connected to source admission.
++#[allow(dead_code)]
++pub(crate) mod sealed_source_comparison;
++
++mod sealed_metadata_source;
+--- upstream/src/cargo/core/package.rs
++++ candidate/src/cargo/core/package.rs
+@@ -75,6 +75,7 @@
+     license: Option<String>,
+     license_file: Option<String>,
+     description: Option<String>,
++    #[serde(serialize_with = "crate::core::sealed_metadata_source::serialize")]
+     source: SourceId,
+     dependencies: Vec<SerializedDependency>,
+     targets: Vec<Target>,
+--- upstream/src/cargo/sources/path.rs
++++ candidate/src/cargo/sources/path.rs
+@@ -235,6 +235,15 @@
+     gctx: &'gctx GlobalContext,
+ }
+ 
++// Plain lookup data only; public provenance/failure classification is owed by the owning profile.
++#[allow(dead_code)]
++#[derive(Debug)]
++pub(crate) enum SealedEligibilityRefusal<'a> {
++    NotLoaded,
++    Missing,
++    Ambiguous(&'a [Package]),
++}
++
+ impl<'gctx> RecursivePathSource<'gctx> {
+     /// Creates a new source which is walked recursively to discover packages.
+     ///
+@@ -252,6 +261,27 @@
+             packages: Default::default(),
+             warned_duplicate: Default::default(),
+             gctx,
++        }
++    }
++
++    /// Inspect the complete retained eligibility vector without selecting its first element.
++    /// This is conditional data lookup, not source admission: current original raw tuple,
++    /// precise source, complete carrier/custody and actual owning loader gates remain owed.
++    /// Calling this method never loads a source or classifies the origin of a missing entry.
++    #[allow(dead_code)]
++    pub(crate) fn sealed_required_package(
++        &self,
++        required: PackageId,
++    ) -> Result<&Package, SealedEligibilityRefusal<'_>> {
++        if !self.loaded {
++            return Err(SealedEligibilityRefusal::NotLoaded);
++        }
++        match self.packages.get(&required).map(Vec::as_slice) {
++            Some([package]) => Ok(package),
++            Some(packages) if !packages.is_empty() => {
++                Err(SealedEligibilityRefusal::Ambiguous(packages))
++            }
++            _ => Err(SealedEligibilityRefusal::Missing),
+         }
+     }
+ 
+@@ -1208,3 +1238,7 @@
+ 
+     Ok(())
+ }
++
++#[cfg(test)]
++#[path = "sealed_eligibility_tests.rs"]
++mod sealed_eligibility_tests;
+--- upstream/src/cargo/core/sealed_source_comparison.rs
++++ candidate/src/cargo/core/sealed_source_comparison.rs
+@@ -0,0 +1,51 @@
++// Unreviewed CSJ-1 nonpath comparison data using the exact pinned Cargo library.
++// No source/lock/manifest/custody/owner admission or public route is constructed.
++use crate::core::SourceId;
++
++#[derive(Debug)]
++pub(crate) enum Refusal {
++    EmptyLockSource,
++    MissingMetadataSource,
++    LockParse(anyhow::Error),
++    MetadataParse(anyhow::Error),
++    PathInNonpath,
++    MissingGitPrecise,
++    DifferentSource,
++}
++
++#[derive(Debug)]
++pub(crate) struct ComparisonData<'a> {
++    pub(crate) original_lock_source: &'a str,
++    pub(crate) original_metadata_source: &'a str,
++    pub(crate) lock_source: SourceId,
++    pub(crate) metadata_source: SourceId,
++}
++
++pub(crate) fn compare_nonpath<'a>(
++    original_lock_source: &'a str,
++    original_metadata_source: Option<&'a str>,
++) -> Result<ComparisonData<'a>, Refusal> {
++    if original_lock_source.is_empty() {
++        return Err(Refusal::EmptyLockSource);
++    }
++    let metadata_text = original_metadata_source.ok_or(Refusal::MissingMetadataSource)?;
++    let lock_source = SourceId::from_url(original_lock_source).map_err(Refusal::LockParse)?;
++    let metadata_source = SourceId::from_url(metadata_text).map_err(Refusal::MetadataParse)?;
++    if lock_source.is_path() || metadata_source.is_path() {
++        return Err(Refusal::PathInNonpath);
++    }
++    for source in [lock_source, metadata_source] {
++        if source.is_git() && !source.precise_git_fragment().is_some_and(|s| !s.is_empty()) {
++            return Err(Refusal::MissingGitPrecise);
++        }
++    }
++    if lock_source != metadata_source || !lock_source.has_same_precise_as(metadata_source) {
++        return Err(Refusal::DifferentSource);
++    }
++    Ok(ComparisonData {
++        original_lock_source,
++        original_metadata_source: metadata_text,
++        lock_source,
++        metadata_source,
++    })
++}
+--- upstream/src/cargo/core/sealed_metadata_source.rs
++++ candidate/src/cargo/core/sealed_metadata_source.rs
+@@ -0,0 +1,15 @@
++// Proposed compatible producer metadata view, pending complete profile review.
++// Original lock tuple/key inputs are never replaced by this rendering.
++use crate::core::SourceId;
++use serde::Serialize;
++
++pub(crate) fn serialize<S>(source: &SourceId, serializer: S) -> Result<S::Ok, S::Error>
++where
++    S: serde::Serializer,
++{
++    if source.is_path() {
++        None::<String>.serialize(serializer)
++    } else {
++        serializer.collect_str(&source.as_encoded_url())
++    }
++}
+--- upstream/src/cargo/sources/sealed_eligibility_tests.rs
++++ candidate/src/cargo/sources/sealed_eligibility_tests.rs
+@@ -0,0 +1,141 @@
++use super::*;
++use crate::core::Shell;
++use std::sync::atomic::{AtomicUsize, Ordering};
++static NEXT: AtomicUsize = AtomicUsize::new(0);
++
++fn fixture() -> (PathBuf, SourceId, GlobalContext) {
++    let root = std::env::temp_dir().join(format!(
++        "sealed-eligibility-{}-{}",
++        std::process::id(),
++        NEXT.fetch_add(1, Ordering::Relaxed)
++    ));
++    fs::create_dir(&root).unwrap();
++    let source =
++        SourceId::from_url("git+https://example.com/eligibility#declared-revision").unwrap();
++    let gctx = GlobalContext::new(Shell::new(), root.clone(), "/Users/sb/.cargo".into());
++    (root, source, gctx)
++}
++fn manifest(root: &Path, location: &str, name: &str, extra: &str) {
++    let dir = root.join(location);
++    fs::create_dir_all(&dir).unwrap();
++    fs::write(dir.join("Cargo.toml"), format!("[package]\nname = \"{name}\"\nversion = \"1.0.0\"\nedition = \"2024\"\n{extra}\n[lib]\npath = \"lib.rs\"\n")).unwrap();
++    fs::write(
++        dir.join("lib.rs"),
++        "// Parser fixture only; never built or executed.\n",
++    )
++    .unwrap();
++}
++fn required(name: &str, source: SourceId) -> PackageId {
++    PackageId::new(name.into(), "1.0.0".parse().unwrap(), source)
++}
++#[test]
++fn sealed_required_eligibility_not_loaded_is_not_missing() {
++    let (root, source, gctx) = fixture();
++    let tree = RecursivePathSource::new(&root, source, &gctx);
++    assert!(matches!(
++        tree.sealed_required_package(required("wanted", source)),
++        Err(SealedEligibilityRefusal::NotLoaded)
++    ));
++}
++#[test]
++fn sealed_required_eligibility_single_retains_manifest() {
++    let (root, source, gctx) = fixture();
++    manifest(&root, "nested", "wanted", "");
++    let mut tree = RecursivePathSource::new(&root, source, &gctx);
++    tree.load().unwrap();
++    assert_eq!(
++        tree.sealed_required_package(required("wanted", source))
++            .unwrap()
++            .manifest_path(),
++        root.join("nested/Cargo.toml")
++    );
++    assert!(tree.warned_duplicate.is_empty());
++}
++#[test]
++fn sealed_required_eligibility_duplicate_publish_false_still_ambiguous() {
++    let (root, source, gctx) = fixture();
++    manifest(&root, "one", "wanted", "publish = false");
++    manifest(&root, "two", "wanted", "publish = false");
++    let mut tree = RecursivePathSource::new(&root, source, &gctx);
++    tree.load().unwrap();
++    let Err(SealedEligibilityRefusal::Ambiguous(packages)) =
++        tree.sealed_required_package(required("wanted", source))
++    else {
++        panic!("duplicate required package must refuse")
++    };
++    assert_eq!(packages.len(), 2);
++    let paths: HashSet<_> = packages
++        .iter()
++        .map(|p| p.manifest_path().to_owned())
++        .collect();
++    assert_eq!(
++        paths,
++        HashSet::from([root.join("one/Cargo.toml"), root.join("two/Cargo.toml")])
++    );
++    assert!(tree.warned_duplicate.is_empty());
++}
++#[test]
++fn sealed_required_eligibility_foreign_duplicate_not_flattened() {
++    let (root, source, gctx) = fixture();
++    manifest(&root, "wanted", "wanted", "");
++    manifest(&root, "one", "foreign", "");
++    manifest(&root, "two", "foreign", "");
++    let mut tree = RecursivePathSource::new(&root, source, &gctx);
++    tree.load().unwrap();
++    assert_eq!(
++        tree.sealed_required_package(required("wanted", source))
++            .unwrap()
++            .name()
++            .as_str(),
++        "wanted"
++    );
++    assert_eq!(tree.packages[&required("foreign", source)].len(), 2);
++    assert!(tree.warned_duplicate.is_empty());
++}
++#[test]
++fn sealed_required_eligibility_missing_is_plain_data() {
++    let (root, source, gctx) = fixture();
++    manifest(&root, "foreign", "foreign", "");
++    let mut tree = RecursivePathSource::new(&root, source, &gctx);
++    tree.load().unwrap();
++    assert!(matches!(
++        tree.sealed_required_package(required("wanted", source)),
++        Err(SealedEligibilityRefusal::Missing)
++    ));
++}
++#[test]
++fn sealed_required_eligibility_virtual_root_and_sibling_preserved() {
++    let (root, source, gctx) = fixture();
++    fs::write(root.join("Cargo.toml"),"[workspace]\nmembers = [\"member\", \"sibling\"]\nresolver = \"3\"\n[workspace.package]\nversion = \"1.0.0\"\n").unwrap();
++    manifest(&root, "sibling", "sibling", "");
++    fs::create_dir(root.join("member")).unwrap();
++    fs::write(root.join("member/Cargo.toml"),"[package]\nname = \"wanted\"\nversion.workspace = true\nedition = \"2024\"\n[dependencies]\nsibling = { path = \"../sibling\" }\n[lib]\npath = \"lib.rs\"\n").unwrap();
++    fs::write(root.join("member/lib.rs"), "// Parsed only\n").unwrap();
++    let mut tree = RecursivePathSource::new(&root, source, &gctx);
++    tree.load().unwrap();
++    assert_eq!(tree.packages.len(), 2);
++    assert_eq!(
++        tree.sealed_required_package(required("wanted", source))
++            .unwrap()
++            .manifest_path(),
++        root.join("member/Cargo.toml")
++    );
++    assert!(root.join("Cargo.toml").is_file() && root.join("sibling/Cargo.toml").is_file());
++}
++#[test]
++fn sealed_required_eligibility_unrelated_malformed_remains_file() {
++    let (root, source, gctx) = fixture();
++    manifest(&root, "wanted", "wanted", "");
++    fs::create_dir(root.join("broken")).unwrap();
++    fs::write(root.join("broken/Cargo.toml"), "[broken").unwrap();
++    let mut tree = RecursivePathSource::new(&root, source, &gctx);
++    tree.load().unwrap();
++    assert!(
++        tree.sealed_required_package(required("wanted", source))
++            .is_ok()
++    );
++    assert_eq!(
++        fs::read_to_string(root.join("broken/Cargo.toml")).unwrap(),
++        "[broken"
++    );
++}
