@@ -1,0 +1,6 @@
+/var/folders/rq/jfj79dls03s0zb6d839wcqlh0000gn/T/opensip-smh-samples-0xt570py/21/5/unit-4/anstyle_query-46b6ebb8cd16783a.d: /var/folders/rq/jfj79dls03s0zb6d839wcqlh0000gn/T/opensip-sm-original-hierarchy-packets-r9-rcx4d2zy/21/home/registry/src/index.crates.io-1949cf8c6b5b557f/anstyle-query-1.1.5/src/lib.rs /var/folders/rq/jfj79dls03s0zb6d839wcqlh0000gn/T/opensip-sm-original-hierarchy-packets-r9-rcx4d2zy/21/home/registry/src/index.crates.io-1949cf8c6b5b557f/anstyle-query-1.1.5/src/windows.rs
+
+/var/folders/rq/jfj79dls03s0zb6d839wcqlh0000gn/T/opensip-smh-samples-0xt570py/21/5/unit-4/libanstyle_query-46b6ebb8cd16783a.rmeta: /var/folders/rq/jfj79dls03s0zb6d839wcqlh0000gn/T/opensip-sm-original-hierarchy-packets-r9-rcx4d2zy/21/home/registry/src/index.crates.io-1949cf8c6b5b557f/anstyle-query-1.1.5/src/lib.rs /var/folders/rq/jfj79dls03s0zb6d839wcqlh0000gn/T/opensip-sm-original-hierarchy-packets-r9-rcx4d2zy/21/home/registry/src/index.crates.io-1949cf8c6b5b557f/anstyle-query-1.1.5/src/windows.rs
+
+/var/folders/rq/jfj79dls03s0zb6d839wcqlh0000gn/T/opensip-sm-original-hierarchy-packets-r9-rcx4d2zy/21/home/registry/src/index.crates.io-1949cf8c6b5b557f/anstyle-query-1.1.5/src/lib.rs:
+/var/folders/rq/jfj79dls03s0zb6d839wcqlh0000gn/T/opensip-sm-original-hierarchy-packets-r9-rcx4d2zy/21/home/registry/src/index.crates.io-1949cf8c6b5b557f/anstyle-query-1.1.5/src/windows.rs:
