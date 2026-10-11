@@ -1,0 +1,9 @@
+Original large workspace static graph data, eighth retained set
+
+Two new receipts contain 2 collector roots and 9 compiler information queries; both produce static graphs: the original Deno root workspace (ordinal 25, 1800 units, 78 roots) and original Smithy `rust-runtime` (ordinal 7, 442 units, 30 roots).
+
+They needed the mixed-case crates.io name `Inflector`, which the closed intake cannot admit. The separately reviewed mixed-case intake variant admitted one lock-derived round (lead decision: names from each entry's original pinned Cargo.lock): 402 indexes and 20263 whole-checksummed archives, with transient HTTP 500 failures retried and original failure receipts retained. The Deno root's 401 lowercase names reused the retained, pinned r11 index files.
+
+Source maps for both graphs were computed before launch: the Deno root descriptor is 22825382 bytes (76424 rows) and Smithy `rust-runtime` 5115131 bytes (17742 rows), both over the closed prototype driver's 4194304-byte bound, so both are unavailable before launch; nothing was trimmed and the bound was not changed. This private absolute-path prototype descriptor is not a canonical native snapshot descriptor and neither shows nor refutes a native bound outcome.
+
+Static graphs are not typechecks. Raw packets, query argv/environment, outputs, outcomes and lock observations are archived; owned original source, public index/archive bytes and the cumulative registry template stay external, whole-pinned and freshly no-follow/stable-fstat hashed. Not self-contained. No application/alias/script/proc-macro execution, source authentication, native admission, physical peak, full S-M, effective L or qualification inference. Exact independent review, own assent and fresh verification are required before architecture-only publication. Product/lock unchanged, no push.
