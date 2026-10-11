@@ -1,0 +1,56 @@
+# SM-LARGE-ORIGINAL-CONTEXT-CONTROLS-r1
+
+Supporting review of the frozen first-party original Cargo configuration controls and the exact query-environment controls. The subject is `subject.json`, 658982 bytes, SHA-256 `f22242bc93b82d411f8ba69eaa8bd891c8f3fc9ebd547eb21c5cfb8c1d3658fa`, schemaVersion 1, unit `SM-LARGE-ORIGINAL-CONTEXT-CONTROLS-r1`. It has 3220 unique members, does not include itself, and rehashes with 0 missing and 0 mismatched digests, 100043083 member bytes.
+
+`source.json` is 1186821 bytes, SHA-256 `fb8c282605a7487749a36eeb27984b01a10057da46ca0249692265902c26ab1a`, standing `FROZEN FIRSTPARTY ORIGINAL CONFIGURATION AND EXACT QUERY ENVIRONMENT CONTROLS`. `draft-source.json` is 1186715 bytes, SHA-256 `8c0cd79f851ffdf5c489eb27a7b4edf5689302bfd367b22b9f1b8d656e816acd`. The draft body matches the frozen record aside from the standing text and the frozen product and architecture bases. Those bases are product `95279fa8ae086f98bd221cd827f6c0efc156c0c5` and architecture `7747f1a78eb372015e0c5d991fb07c7433b9963f`.
+
+## Source census
+
+The frozen producer tree is 3130 files and matches `finalSourcePins` byte for byte. The closed static-command parent pins name the same 3130 paths. Exactly two files differ:
+
+| Path | Closed bytes / SHA-256 | Frozen bytes / SHA-256 |
+| --- | --- | --- |
+| `crates/cargo-util/src/process_builder.rs` | 34441 / `3c6e09b15176547b1629057f1a4814dc99a8dd46bb98f8ffd722298f6bbcb912` | 40234 / `5768328c538e10a6de0adc12169652aa9bfcf01a1204bf91d16c989ea0359b73` |
+| `src/cargo/util/context/experimental_command_data.rs` | 36569 / `366faadda966b77fcd6368494964b1806f81519e3b3062e86bee79d28133df60` | 46108 / `f3cc36e7fb562ab09b69c229bcc1d068aea54838ad5e1e1cb2b332589cfb3556` |
+
+The closed producer tree still matches every closed pin, 0 missing and 0 mismatched. The closed Cargo image is 78269832 bytes, SHA-256 `e3d15902981ae680ca05b7a4355866450750914df1ace29e24aade2408fa7b06`. The frozen image `compiled-image/cargo-lib-tests` is 78464328 bytes, SHA-256 `8ea3dee89071e417e24c24100c2dd0ecb67aa115e237ff5f65822dea74fe4ad3`, matching the frozen image pin. `preparation.json` is the pre-authoring closed copy: 3130 pins, the same closed image digest, and no controls run yet.
+
+The closed reference `REVIEW.md` is 8335 bytes, SHA-256 `64550b9455b311a74a184e1ca91136320353f77f771eda358b8730138d80d11a`. Its `review.json` is 991 bytes, SHA-256 `80a92f51c85279e6d30644c71112d044709464b30750cc6da38e298ad1a9b85f`. Its `source.json` is 595332 bytes, SHA-256 `038ad5c0c449d51cda26fafdaecf80d542060135c15de38e66fbefd35413871d`. Its `subject.json` is 26822 bytes, SHA-256 `5c5e99f6e6c74b40136803ff311ab010d619bdf071883e053c5cb6e25963e096`. Those four files match the committed `SM-COMMAND-DATA-CONTROLS-r1` publication. This review leaves that unit closed.
+
+`authoring.json` is 803 bytes, SHA-256 `f7a84d902b01a4fa13d15a8d882ed1f5cd77ca7da4045c194310a4447c7acbd1`, and pins an earlier unformatted collector snapshot of 39293 bytes, SHA-256 `7408b018c62a7b2a9533ece20d85083eb381cd8aeeec32c0f9ed6da6ae0a8acd`. The frozen collector file above is the authority.
+
+## Fourteen final controls
+
+Nine configuration controls and five exact query-environment controls passed. `large-context-checks-r2.json` is 1767 bytes, SHA-256 `be05548564c15e9aa56d829afa2573a35ebf62f928498351982c400e5a858be7`, `allPassed` true, both records exit 0. The Cargo log is 1835 bytes, SHA-256 `0a58abb0358afe8b59aae2a91f45c2275262a2d464e213465d8aa978578e593e`: 9 passed, 0 failed, 209 filtered out. The cargo-util log is 2145 bytes, SHA-256 `e27ee5f39af184b3c133aa93d262904f1b9c6b517a97f17c59f87262448ecf6f`: 5 passed, 0 failed, 16 filtered out. The assertion lines in that log are the caught refusals inside the passing tests.
+
+The nine configuration controls preserve the parsed Cargo config-value tables for the observed `build`, `env`, `alias`, `target`, and `unstable` sections; refuse a hash mismatch, a missing config, an overlay link, `HOME`, a runner, a `rustc` build selector, an operational rustflags form, and malformed TOML; and run the actual static-command graph. Alias text stays data. The five environment controls register the exact two-value map, refuse a changed value before any output file, refuse `HOME` at registration, refuse an unregistered argument vector, and refuse the association captured before registration.
+
+`preserveOriginalConfiguration` keeps the full parsed tables after the section and field allowlists. Observed build data is `target-dir`. Observed env data is `MACOSX_DEPLOYMENT_TARGET` and `CARGO_WORKSPACE_DIR`. Observed unstable data is `no-embed-metadata`. Observed target data is `rustflags`, and a flag string that names a codegen backend, a sysroot, or an extern is refused. Unknown section names are refused. The mode requires a pinned config and an empty overlay list. The closed default path still requires the two wasm runner rows.
+
+The actual graph calls Cargo `env_config` and registers that map once, before workspace construction and before any information query. Registration requires the two key names, a still-unregistered guard, a zero query counter, and an empty set environment, then replaces the association with a fresh `Arc`. `ProcessBuilder::new` and the experimental query constructor still start from an empty set environment. On an experimental query, the child environment is cleared and then set from that registered map, so ambient variables are not passed through.
+
+The retained guards still require the pinned program, the pinned cwd, empty wrappers, no `arg0`, no jobserver, no argfile retry, empty stdin, and an argument vector from the registered set. The executable must be a regular file whose SHA-256 equals the pin. The pinned probe image is 520712 bytes, SHA-256 `1e177c008a0cfb448d942062de33c080b1248dd8d8d763fe51f3f848690b5436`. The pinned rustc image is 412504 bytes, SHA-256 `b829b733131d4e1673eeebd1f34d06ae1e9ff4977b051313cf42e2a9e79ecf1c`. Both live images match those pins. A changed value, a disallowed argument, a `HOME` registration, or the old association fails before an output file is created.
+
+## Actual static graph and the probe child
+
+There is one collector root. Its project is the first-party package `original-context` 1.0.0, edition 2024. `src/lib.rs` is 43 bytes, SHA-256 `f40ed2ceec4289210d54a1bdd45ed5cfd5bac9705c9db48829ab27d78713d406`, and contains `compile_error!`. `.cargo/config.toml` is 206 bytes, SHA-256 `ed0646203bf98df60db875cbc35f685b8653d60f5cc097b153c40523d7bd7ec9`, matching `configurationOriginalPin`. The config sets `target-dir` to `original-target-dir`, `MACOSX_DEPLOYMENT_TARGET` to `12.0`, `CARGO_WORKSPACE_DIR` to an empty value with `relative=true`, an alias `xtask`, and `no-embed-metadata`. The copied project bytes match the recorded project. `original-target-dir` is absent.
+
+Six rustc information queries are retained, query-0 through query-5, each exit status 0 and empty stderr. Four use `-vV` and return rustc 1.95.0. One is the host print probe and one is the `aarch64-apple-darwin` print probe, using the crate name `___`. Each environment file decodes to exactly `MACOSX_DEPLOYMENT_TARGET=12.0` and `CARGO_WORKSPACE_DIR`. All six environment files are identical, and that workspace directory is the project directory. The unit graph has one root and one `check` lib unit. `compilerLaunched` is false. The target tree has cache tags and lock files, and no rmeta or rlib output.
+
+`unit-command-data.json` is 5916 bytes, SHA-256 `5cfe4be7f7cc16d21be1453bb3fb158b0cb0cd895bbc939b1e42c51c3b52af3a`. `unit-graph.json` is 865 bytes, SHA-256 `57443d5c1fe6a7537a73cd0730e87b3c3250ce766d656ebfb0d92f2d6b2970cc`. The command record has one unit, `BuildRunnerConstructedForStaticData` true, `BuildRunnerCompileOrDryRunCalled` false, `fixtureOrCorpusCodeExecuted` false, `completeRuntimeCommand` false, and `fullCargoProfileEnvironment` false. The constructed environment contains `MACOSX_DEPLOYMENT_TARGET=12.0` and `CARGO_WORKSPACE_DIR` equal to the project directory and to the query workspace. `HOME` is absent. `--out-dir` points at `observation/target/aarch64-apple-darwin/debug/deps`. The alias string does not appear in the command. The static record also carries the dev profile fields and Cargo’s constructed package variables; full profile completeness stays open.
+
+The capture path is `BuildRunner::new`, `prepare_units`, `prepare`, and `prepare_rustc`. `compile`, `dry_run`, and `JobQueue::new` are outside that path.
+
+The separate first-party probe is one child. `query-0.arguments` is 11 bytes and decodes to `-vV`. Status is exit 0. Stderr is empty. Stdout reports `ENV_COUNT=2`, `STDIN_BYTES=0`, and `ARGS=["-vV"]`. The environment decodes to the same two keys, and the recorded cwd is the same directory as `CARGO_WORKSPACE_DIR`. `HOME` is absent.
+
+## Initial refusal
+
+The initial nine-control run passed 8 and failed 1. `FAILURE.json` is 426 bytes, SHA-256 `ad6bf7eb5edb226c0858f36ea6f9b3bf2a47692127ea5627c183c3bd9809e5f3`. The log is 1938 bytes, SHA-256 `8bf83feb9ac5db211f9401b3217556a9f2dec0af2fc8b7c9dba28cf6c829641e`: the actual static-command test panicked on `builder.env.values().all(Option::is_none)` before a successful graph receipt. The other eight configuration tests passed. Historical `process_builder.rs` equals the closed parent, 34441 bytes, SHA-256 `3c6e09b15176547b1629057f1a4814dc99a8dd46bb98f8ffd722298f6bbcb912`. Historical collector source is 45650 bytes, SHA-256 `a1251dd0772287bff538bb54e37c196f42da49e10cfa344eea9353193b1da1fc`, distinct from both the closed parent and the frozen file. The historical runner equals `runners/run_sm_large_context_checks_r1.py`, 2211 bytes, SHA-256 `d9874ada584a56f92ec89d112f4d807382318e0428a2b8a3633b86e8dd566e2d`, and differs from the r2 runner, 2574 bytes, SHA-256 `0e352876bc5991d7e5c1c26fec6f416821e3d60f1a39384a9ed7d68c5ec3d830`. The formatted source, log, runner, and raw fixtures remain in the history member. The frozen source and image are the authority. The final fourteen controls are a separate run. Closed parent controls were not replayed.
+
+## Open gates
+
+Product HEAD is clean at `95279fa8ae086f98bd221cd827f6c0efc156c0c5`. `design-lock.json` is 630770 bytes, SHA-256 `6f041cb13f35f04092268c6906008bb060658fbfadb470b3fd03f2ea8b53c409`, with inventory successor v187 and 161 contract successors. Architecture HEAD is `7747f1a78eb372015e0c5d991fb07c7433b9963f`. O7 is `ADOPTED-EXISTING-PROPOSAL`, and D3 and D13 are `SIGNED-OFF`, each with `currentlyBlocks` false. The untracked `docs/implementation/m3/syntax-e/e2s/` tree is outside this unit.
+
+No corpus source was analyzed. The subject has no separate rustflag-query series and no Sui workload observation. Application, alias, build-script, and proc-macro execution stayed off. Source authentication, native admission, a complete runtime command, full Cargo profile completeness, physical peak scratch, a complete statistical set, full S-M, effective L, product qualification, and the entire plan stay open. Native production admission is not an extra gate for this outside-product control.
+
+This review’s own exact substantive assent, and a fresh design-and-implementation verification, remain due before an architecture-only publication of this support record. Publication stays unpushed.
