@@ -1,0 +1,6 @@
+/var/folders/rq/jfj79dls03s0zb6d839wcqlh0000gn/T/opensip-sm-actual-smithy-fuzz-framed-samples-qtbd0qju/9/5/unit-17/deranged-9407869f8ae07ae8.d: /var/folders/rq/jfj79dls03s0zb6d839wcqlh0000gn/T/opensip-sm-smithy-workspace-retry-r6-xca6_nkb/9/home/registry/src/index.crates.io-1949cf8c6b5b557f/deranged-0.5.8/src/lib.rs /var/folders/rq/jfj79dls03s0zb6d839wcqlh0000gn/T/opensip-sm-smithy-workspace-retry-r6-xca6_nkb/9/home/registry/src/index.crates.io-1949cf8c6b5b557f/deranged-0.5.8/src/unsafe_wrapper.rs
+
+/var/folders/rq/jfj79dls03s0zb6d839wcqlh0000gn/T/opensip-sm-actual-smithy-fuzz-framed-samples-qtbd0qju/9/5/unit-17/libderanged-9407869f8ae07ae8.rmeta: /var/folders/rq/jfj79dls03s0zb6d839wcqlh0000gn/T/opensip-sm-smithy-workspace-retry-r6-xca6_nkb/9/home/registry/src/index.crates.io-1949cf8c6b5b557f/deranged-0.5.8/src/lib.rs /var/folders/rq/jfj79dls03s0zb6d839wcqlh0000gn/T/opensip-sm-smithy-workspace-retry-r6-xca6_nkb/9/home/registry/src/index.crates.io-1949cf8c6b5b557f/deranged-0.5.8/src/unsafe_wrapper.rs
+
+/var/folders/rq/jfj79dls03s0zb6d839wcqlh0000gn/T/opensip-sm-smithy-workspace-retry-r6-xca6_nkb/9/home/registry/src/index.crates.io-1949cf8c6b5b557f/deranged-0.5.8/src/lib.rs:
+/var/folders/rq/jfj79dls03s0zb6d839wcqlh0000gn/T/opensip-sm-smithy-workspace-retry-r6-xca6_nkb/9/home/registry/src/index.crates.io-1949cf8c6b5b557f/deranged-0.5.8/src/unsafe_wrapper.rs:
