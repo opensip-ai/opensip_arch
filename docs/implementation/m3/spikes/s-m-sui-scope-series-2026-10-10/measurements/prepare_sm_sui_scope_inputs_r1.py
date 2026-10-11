@@ -1,0 +1,23 @@
+from pathlib import Path
+import os,stat,json,hashlib,struct,shutil,importlib.util,unicodedata
+os.setpriority(os.PRIO_PROCESS,0,10)
+B=Path('/tmp/opensip-implementation');D=B/'sm-sui-scope-2026-10-10';A=Path('/Users/sb/code/opensip-ai/opensip_arch');OLD=A/'docs/implementation/m3/spikes/s-m-rust-scope-2026-10-09';C=Path('/Users/sb/code/.opensip-implementation-cache/control-2026-10-06');assert not D.exists();D.mkdir()
+def pin(p):raw=p.read_bytes();return dict(path=str(p),bytes=len(raw),sha256=hashlib.sha256(raw).hexdigest())
+state=json.loads((C/'CURRENT-STATE.json').read_bytes());publication=state['SM12ScopePublication'];review=json.loads((A/'docs/implementation/m3/reviews/grok-sm-rust-scope-r1/review.json').read_bytes());assert review['verdict']=='ACCEPT' and review['requiredFindings']==[] and review['subjectManifestSha256']==publication['subjectManifest']['sha256']
+receipt=B/'sm-sui-original-inputs-2026-10-10/owned-original-inputs-r1.json';original=json.loads(receipt.read_bytes());assert original['heldOut'] is False and original['SPOfficialPrototypeFeasibilityPermitsPreparation'] is True and original['nonemptyProjectRustSubjects']==3318;root=Path(original['ownedExperimentRoot']);rows=[]
+for f in original['files']:
+ p=root/f['path'];fd=os.open(p,os.O_RDONLY|os.O_NOFOLLOW|os.O_CLOEXEC)
+ with os.fdopen(fd,'rb') as stream:
+  a=os.fstat(stream.fileno());assert stat.S_ISREG(a.st_mode);h=hashlib.sha256();n=0
+  while chunk:=stream.read(1048576):h.update(chunk);n+=len(chunk)
+  z=os.fstat(stream.fileno());assert (a.st_dev,a.st_ino,a.st_size,a.st_mtime_ns,a.st_ctime_ns)==(z.st_dev,z.st_ino,z.st_size,z.st_mtime_ns,z.st_ctime_ns)
+ assert n==f['bytes'] and h.hexdigest()==f['sha256'];assert unicodedata.normalize('NFC',f['path'])==f['path'];rows.append(dict(path=f['path'],bytes=n,sha256=h.hexdigest()))
+rows.sort(key=lambda r:r['path'].encode());assert len(rows)==19063
+for n in ['probe.py','scope_codec.py']:shutil.copyfile(OLD/n,D/n);assert (D/n).read_bytes()==(OLD/n).read_bytes()
+spec=importlib.util.spec_from_file_location('codec',D/'scope_codec.py');codec=importlib.util.module_from_spec(spec);spec.loader.exec_module(codec)
+template=json.loads((B/'sm-sealing-typed-2026-10-09/control-template.json').read_bytes())['snapshot'];snap=dict(template,sourceInventory=rows);sr=json.dumps(snap,ensure_ascii=False,sort_keys=True,separators=(',',':')).encode();sid='snapshot2:'+hashlib.sha256(b'opensip.product.v1\0snapshot\0'+struct.pack('>Q',len(sr))+sr).hexdigest();manifest=[dict(kind='file',path=r['path'],byteLength=r['bytes'],contentSha256=r['sha256']) for r in rows];subjects=codec.derive(sid,manifest);assert len(subjects)==3318
+scope=codec.commitment('opensip.rust-provider.subject-scope.v2',subjects);vectors=A/'docs/implementation/m3/native-successors-fa/rust3-lim/evidence/vectors.json';keys=json.loads(vectors.read_bytes())['stageRequestV3ByReference']['analysisDomain']['requestedCoverageDomain'];domain=[dict(k,subjectScopeCommitment=scope)for k in keys]
+packet=dict(standing='PRELIMINARY SYNTHETIC SNAPSHOT/ILLUSTRATIVE REQUEST DOMAIN; NOT ACCEPTED MANIFEST/C2 VALUE',id=original['id'],snapshotId=sid,manifestEntries=manifest,requestedCoverageDomain=domain,source='Whole-pinned owned original Sui T2 regular source copy',nonregularExcluded=original['nonregularExcluded'],heldOut=False,subjectCount=len(subjects),scopeCommitment=scope,SM12FigureComplete=False,SM14FigureComplete=False,sourceAdmissionClaimed=False);(D/(original['id']+'-input.json')).write_text(json.dumps(packet,indent=2)+'\n');(D/'inputs.json').write_text(json.dumps(dict(workloads=[dict(id=original['id'],subjectCount=len(subjects),regularRows=len(rows),snapshotEquivalentId=sid)],originalSuiReceipt=pin(receipt),ownClosedScopePublication=publication,closedPrototypePins=[pin(OLD/'probe.py'),pin(OLD/'scope_codec.py')],illustrativeVectors=pin(vectors),actualAcceptedTransportManifest=False,actualNativeWorker=False,sourceAuthentication=False,nativeAdmission=False,SM12FigureComplete=False,SMComplete=False),indent=2)+'\n')
+s=(OLD/'run_set.py').read_text().replace('UNREVIEWED PRELIMINARY11DEVREADSETS330FRESH','UNREVIEWED PRELIMINARY SUI READSET30FRESH');compile(s,str(D/'run_set.py'),'exec');(D/'run_set.py').write_text(s)
+helper=D/'rust-helper';helper.mkdir();shutil.copyfile(OLD/'rust-helper/build.json',helper/'build.json');s=(OLD/'rust-helper/run_set.py').read_text().replace('children=110','children=10');compile(s,str(helper/'run_set.py'),'exec');(helper/'run_set.py').write_text(s)
+shutil.copyfile(Path(__file__),D/Path(__file__).name);shutil.copytree(D,C/'continuation-preserved'/D.name);print('Prepared Sui3318subjects/19063whole-pinned original files; no child launched')

@@ -1,0 +1,14 @@
+from pathlib import Path
+import json,statistics,hashlib,ast,importlib.util
+B=Path(__file__).resolve().parent;A=Path('/Users/sb/code/opensip-ai/opensip_arch');law=A/'docs/implementation/m3/native-successors-fa/rust3-lim/evidence/build_rust3_lim.py';tree=ast.parse(law.read_text());ns={'hashlib':hashlib};exec(compile(ast.Module(body=[n for n in tree.body if isinstance(n,ast.FunctionDef)and n.name in ['head','cbor','domain_hash','subjects_from']],type_ignores=[]),str(law),'exec'),ns);j=json.loads((B/'results.json').read_text());assert len(j['workloads'])==1 and j['observedParentNiceness']==10;rows=[];children=0
+for w in j['workloads']:
+ packet=json.loads((B/(w['id']+'-input.json')).read_text());assert packet['heldOut']is False;expected=ns['subjects_from'](packet['snapshotId'],packet['manifestEntries']);assert len(expected)==packet['subjectCount']==w['subjectCount'];sc=ns['domain_hash']('opensip.rust-provider.subject-scope.v2',expected);domain=ns['domain_hash']('opensip.rust-provider.analysis-domain.v2',{'subjects':expected,'requestedCoverageDomain':packet['requestedCoverageDomain']});cb=ns['cbor'](expected);assert len(w['actors'])==3
+ for actor in w['actors']:
+  values=[];rss=[]
+  for n,r in enumerate(actor['runs']):
+   raw=json.loads((B/f'{w["id"]}-{actor["actor"]}-{n}.stdout').read_text());assert (B/f'{w["id"]}-{actor["actor"]}-{n}.stderr').read_bytes()==b'';assert raw['subjects']==expected and raw['subjectScopeCommitment']==sc and raw['domainCommitment']==domain and raw['subjectsCborBytes']==len(cb)and raw['subjectsCborRawSha256']==hashlib.sha256(cb).hexdigest();assert raw['elapsedNanos']==r['elapsedNanos']and r['observedChildNiceness']==10 and r['ordinal']==n and r['warmup']==(n<3)and r['exitCode']==0 and r['rssUnit']=='bytes'and r['rssNative']==r['rssBytes']and raw['rssBytes']==r['childRssBytesBeforeSerialization']and 0<=raw['rssBytes']<=r['rssBytes']<2**64
+   if n>=3:values.append(r['elapsedNanos']);rss.append(r['rssBytes'])
+   children+=1
+  assert len(actor['runs'])==10 and statistics.median(values)==actor['medianNanos']and max(values)==actor['maxNanos']and max(rss)==actor['measuredPeakProcessRssBytes'];rows.append(dict(id=w['id'],actor=actor['actor'],subjects=len(expected),subjectCborBytes=len(cb),medianNanos=statistics.median(values),maxNanos=max(values),measuredPeakProcessRssBytes=max(rss)))
+assert children==30
+(B/'checks.json').write_text(json.dumps(dict(standing='UNREVIEWED READONLY30CHILD ARRAY/COMMITMENT/CBOR/STATISTICAL AUDIT',children=children,rows=rows,actualAcceptedTransportManifest=False,actualNativeWorker=False,coverageKeysValidatedC2Values=False,SM12FigureComplete=False,SM12PlaceholderFilled=False,SM14FigureComplete=False,SMComplete=False,LG1Met=False,effectiveL=False,productQualification=False),indent=2)+'\n');print('30scope child raw observations and allthreeactor arrays/commitments/CBOR/statistics pass')
