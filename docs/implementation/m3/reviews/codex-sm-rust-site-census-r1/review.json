@@ -1,0 +1,51 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "requiredFindings": [
+    {
+      "id": "SM-SITE-R1-RF-01",
+      "severity": "required",
+      "title": "Declaration grouping counts expanded-definition subsets twice",
+      "locations": [
+        "audit_sm_rust_site_census_r1.py:17 (declares@syntactic prefix rule)",
+        "audit_sm_rust_site_census_r1.py:25 (offered_for)",
+        "audit_sm_rust_site_census_r1.py:64-69 (first-party/dependency totals and per-covered-subject distributions)",
+        "producer/site_walk.rs:22-23 (base counter plus expanded subset)"
+      ],
+      "description": "Walk::add increments the base kind for every site and also increments kind.expanded for an expanded site. The declares@syntactic prefix def. matches both counters, so the audit sums an expanded definition twice. The raw by-kind observations are correctly separated, but the firstPartySitesOfferedByRelation, dependencyCrateSitesOfferedByRelation and firstPartyPerCoveredSubjectDistribution declaration aggregates are not definition-site counts.",
+      "evidence": [
+        "Axum ordinal 2: base first-party def.* counters excluding .expanded total 3268; expanded-subset counters total 2411; the audit reports 5679 declaration sites.",
+        "Hyper ordinal 3: base 759 plus expanded subset 102 becomes the reported 861.",
+        "napi ordinal 0: base 69 plus expanded subset 2 becomes the reported 71; Tokio ordinal 6: base 3 plus subset 2 becomes 5.",
+        "The dependency aggregates also add the subset twice, for example napi dependencies: 54433 base definitions plus 17777 expanded annotations become 72210 reported declaration sites.",
+        "The permitted audit reproduces the frozen JSON byte-for-byte, confirming reproducibility of the faulty aggregation rather than its semantic correctness."
+      ],
+      "requiredChange": "Exclude .expanded annotation keys from base relation totals and per-covered-subject distributions, or publish base and expanded-subset totals separately with explicit subset semantics. Preserve raw per-kind/event data, first-party/dependency separation and all incomplete-coverage labels. Regenerate the audit output and matching frozen pins; reproduce it byte-for-byte. No compiler/driver/corpus rerun is needed to correct this derived aggregation."
+    }
+  ],
+  "nonBlockingObservations": [
+    {
+      "id": "SM-SITE-R1-NBO-01",
+      "location": "REPORT.md:15, use and extern crate items, with resolution; producer/site_walk.rs:90-94",
+      "observation": "The walk records resolution observations for use items via path.res.present_items(), but externCrate records only the item count. The report wording can be read as claiming resolution observations for both.",
+      "recommendation": "Clarify that use items have the recorded resolution categories and extern crate items supply a count only.",
+      "nonBlockingReason": "The raw keys and source distinguish those observations, and no candidate, semantic completeness or emitted-fact claim is made."
+    }
+  ],
+  "subjectManifestSha256": "1db9f9b16155e0f41d3f8d4936af6fb4994616f15a429863cadda51403d8009b",
+  "closedDriverOnlyVariantDiff": true,
+  "closedExecutorObserverUnchanged": true,
+  "compilerChildren": 354,
+  "allPopulationsRepeated": true,
+  "allSiteCountsDeterministic": true,
+  "subjectCountsMatchRust3Lim": true,
+  "workloadsWithExactCoverage": 0,
+  "sitesLabelledNotCandidates": true,
+  "ownedParametersChosen": false,
+  "SM11QuotientsDerived": false,
+  "SM13ValueDerived": false,
+  "SM14ValueDerived": false,
+  "SMComplete": false,
+  "LG1Met": false,
+  "effectiveL": false,
+  "productQualification": false
+}
