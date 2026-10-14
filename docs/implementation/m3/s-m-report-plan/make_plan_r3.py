@@ -1,0 +1,24 @@
+from pathlib import Path
+# Derive PLAN-r3.md from the accepted PLAN-r2.md: a delta on D-5 (and U-1's wording) only, found while executing U-1.
+H = Path(__file__).resolve().parent; s = (H / 'PLAN-r2.md').read_text()
+def rep(a, b):
+    global s; assert s.count(a) == 1, a[:70]; s = s.replace(a, b)
+rep("# S-M report plan r2: definitions S-M's report fixes, and the units left before it\n\n**Lead plan record, 2026-10-13. Revision r2. Not law, not code, and no S-M figure.**",
+    "# S-M report plan r3: definitions S-M's report fixes, and the units left before it\n\n**Lead plan record, 2026-10-13. Revision r3, a delta on the accepted r2 (`codex-s-m-report-plan-r2`) for D-5 only. Not law, not code, and no S-M figure.**")
+rep("**Changes from r1** (Codex", """**Changes from r2** (lead finding while executing U-1; r2 is retained unchanged beside this file):
+
+| # | Change | Reason |
+|---|---|---|
+| 1 | D-5 takes SM-4 from the accepted **static-profile** series (`s-m-actual-static-profile-series-2026-10-10`) instead of the package-context series, and U-1 runs the static-profile path. | U-1 needs Cargo's static command data for the build-script-only libraries, and the static-profile series is the accepted series built on that data, over the same eligible populations. Descriptively, its whole-graph medians differ from the context series' (`s-m-remaining-context-series-2026-10-10`, relative to context) by +0.412%, -0.444%, +3.597%, +0.898%, +7.774%, -0.507%, +1.961%, +0.751% and +0.687% for ordinals 0 to 8; no equivalence is claimed. The choice rests on the command-data boundary, not on that comparison. |
+| 2 | D-5 now says where the build-script-only libraries are blocked: in the static command-data **producer**'s unavailability rule, not in the executor. | The producer never constructed their commands (`staticCargoCommandConstructed: false`); the executors only inherit that. |
+| 3 | The framed series is named as rejected for SM-4. | Its harness streams the whole source map into every compiler child: napi's whole graph is 43,195.6 ms there against 8,069.7 ms on the static-profile path for the same 66 analyses. Per-child map transfer is SM-7-like, not analysis. |
+
+**Changes from r1** (Codex""")
+i = s.index("- **Decision.** SM-4 is the whole-graph span of the accepted package-context series"); j = s.index("- **Why.** The whole graph is what one Rust3 run over the workload costs")
+s = s[:i] + """- **Decision (r3).** SM-4 is the whole-graph span of the accepted static-profile series (`s-m-actual-static-profile-series-2026-10-10`): actual static Cargo command data, the driver reading the prepared map from its file. That span includes per-unit compiler-child start, hashing, decoding and bookkeeping, and its coverage is labelled: the units analysed, first-party and dependency, and the units unavailable with their reasons. The package-context series (`s-m-remaining-context-series-2026-10-10`) and the summed per-unit analysis intervals (`s-m-actual-analysis-timing-series-2026-10-10`) are reported beside it as information.
+- **Coverage owed before the report.** Item 9 says no build script or proc-macro **runs**, and the expansion that depends on them is **disclosed as unavailable** (PROPOSAL-r6:558). The accepted static command-data producer instead spreads unavailability through build-script units, so it never constructs commands for libraries blocked only by build scripts (axum, serde and serde_json's main libraries among them), and no executor can launch them. U-1 constructs those commands with a producer variant (build-script outputs absent: no OUT_DIR, cfgs or env) and runs them through a static-profile executor variant. The S-M report then uses U-1's whole-graph spans for the rows it changes.
+""" + s[j:]
+rep("  - **Summed intervals as SM-4.** They omit measured work.", "  - **Summed intervals as SM-4.** They omit measured work.\n  - **The framed series' whole graph (r3).** It streams the whole source map into every compiler child, so its span is dominated by repeated map transfer (napi 43,195.6 ms against 8,069.7 ms on the static-profile path).")
+rep("| U-1 | **SM-4 coverage variant.** A new graph-executor variant (not a modification) that launches first-party library units whose only blocking edges are build scripts, with no build-script outputs, disclosing that expansion as unavailable; 3+7 whole-graph spans for R1, R3, R5, R6, R8. Records whether `after_analysis` is reached. | D-5 | Codex |",
+    "| U-1 | **SM-4 coverage variant (r3).** A static command-data producer variant (not a modification) that constructs commands for units blocked only by build scripts, with build-script outputs absent; a static-profile executor variant that does not treat build-script edges as dependencies; 3+7 whole-graph spans for all nine entries. Records whether `after_analysis` is reached and preserves incomplete units. | D-5 | Codex |")
+(H / 'PLAN-r3.md').write_text(s)
