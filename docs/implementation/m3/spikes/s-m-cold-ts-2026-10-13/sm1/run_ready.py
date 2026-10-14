@@ -1,0 +1,28 @@
+from pathlib import Path
+import json,os,hashlib,subprocess,tempfile,time,shutil,stat,statistics,datetime
+import sys as _s;_s.path.insert(0,str(Path(__file__).resolve().parent.parent));import cold_reset as _cr
+B=Path(__file__).resolve().parent;P=Path('/Users/sb/code/opensip-ai/opensip');C=Path('/Users/sb/code/.opensip-implementation-cache');SOURCE_NODE=Path('/Users/sb/.nvm/versions/node/v24.16.0/bin/node');SOURCE_TS=C/'sm-tools-2026-10-09/typescript/package';pin=json.loads((P/'tools/contracts/generator-closure.json').read_text())['toolchain']['node'];raw=SOURCE_NODE.read_bytes();assert len(raw)==pin['bytes']and hashlib.sha256(raw).hexdigest()==pin['sha256'];assert hashlib.sha256((SOURCE_TS/'lib/typescript.js').read_bytes()).hexdigest()=='569177652966bd528c319171c7dd22860dbf72bde116cbc4f644f1d02bb12e39';D=Path(subprocess.check_output(['/usr/bin/getconf','DARWIN_USER_TEMP_DIR']).decode().strip());LOCK=D/'opensip-lanes.lock';owned=False
+while True:
+ try:LOCK.mkdir();owned=True;break
+ except FileExistsError:print('waiting for owned SM1 lane',flush=True);time.sleep(5)
+try:
+ ps=subprocess.check_output(['/bin/ps','-Ao','pid=,comm=']).decode().splitlines();assert not [r for r in ps if r.split()[-1].rsplit('/',1)[-1]in ['cargo','rustc','clippy-driver']];T=Path(tempfile.mkdtemp(prefix='opensip-sm1-ready-closure-',dir=D)).resolve();T.chmod(0o700);root=T/'runtime';root.mkdir(mode=0o700);shutil.copyfile(SOURCE_NODE,root/'node');(root/'node').chmod(0o500);shutil.copytree(SOURCE_TS,root/'typescript',symlinks=True);shutil.copyfile(B/'ready.cjs',root/'ready.cjs');rows=[]
+ for p in sorted(root.rglob('*')):
+  info=p.lstat();assert not p.is_symlink()
+  if p.is_dir():p.chmod(0o500);continue
+  assert stat.S_ISREG(info.st_mode);raw=p.read_bytes();p.chmod(0o500 if p==root/'node'else 0o400);rows.append(dict(path=str(p.relative_to(root)),bytes=len(raw),sha256=hashlib.sha256(raw).hexdigest(),mode=oct(stat.S_IMODE(p.stat().st_mode))))
+ root.chmod(0o500);(B/'runtime-inventory.json').write_text(json.dumps(dict(standing='EXACT OWNED PINNED MEASUREMENT RUNTIME; NO PRODUCTION PROVIDER RELEASE/QUALIFICATION ASSOCIATION',root=str(root),files=rows,nodeSourcePin=pin,typescriptArchive=json.loads((C/'sm-tools-2026-10-09/acquisition.json').read_text()),platformDependencies='lead macOS platform runtime; not a portability/DRG22 qualification',noRepositoryBytesIncluded=True),indent=2)+'\n');env=dict(PATH='/opt/homebrew/bin:/opt/homebrew/Cellar/rust/1.95.0/bin',CARGO_HOME='/Users/sb/.cargo',TMPDIR=str(T));
+ if 'HOME'in os.environ:env['HOME']=os.environ['HOME']
+ for key in ['LANG','LC_ALL','TZ']:
+  if key in os.environ:env[key]=os.environ[key]
+ runs=[];request=b'opensip-sm-startup-request\n'
+ for n in range(10):
+  _cr.reset(env,T)
+  err=B/'evidence'/f'{n}.stderr';e=err.open('wb');start=time.monotonic_ns();child=subprocess.Popen(['/usr/bin/nice','-n','10',str(root/'node'),'--no-addons',str(root/'ready.cjs'),str(root/'typescript/lib/typescript.js')],cwd=T,env=env,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=e);line=child.stdout.readline();ready=time.monotonic_ns();event=json.loads(line);assert event==dict(event='ready',node='v24.16.0',typescript='6.0.3',requestReaderRegistered=True);child.stdin.write(request);child.stdin.close();rest=child.stdout.read();_,status,usage=os.wait4(child.pid,0);child.returncode=os.waitstatus_to_exitcode(status);child.stdout.close();e.close();assert child.returncode==0;ack=json.loads(rest);assert ack==dict(event='request-read',requestBytes=len(request),node='v24.16.0',typescript='6.0.3');out=B/'evidence'/f'{n}.stdout.jsonl';out.write_bytes(line+rest);rss=int(usage.ru_maxrss);assert 0<=rss<2**64;runs.append(dict(ordinal=n,warmup=n<3,startNanos=start,readyNanos=ready,startToReadyNanos=ready-start,ready=event,requestRead=ack,exitCode=0,rssNative=rss,rssUnit='bytes',rssBytes=rss,stdout=str(out),stderr=str(err)))
+ for row in rows:
+  p=root/row['path'];raw=p.read_bytes();assert len(raw)==row['bytes']and hashlib.sha256(raw).hexdigest()==row['sha256']and oct(stat.S_IMODE(p.stat().st_mode))==row['mode']
+ values=[r['startToReadyNanos']for r in runs if not r['warmup']];report=dict(schemaVersion=1,standing='UNREVIEWED PRELIMINARY SM1 FIGURE CANDIDATE; EXACT PINNED MEASUREMENT CLOSURE AND ACTUAL REQUEST READY',recordedAt=datetime.datetime.now(datetime.timezone.utc).isoformat(),platformVersion=subprocess.check_output(['/usr/bin/sw_vers']).decode(),runtimeRoot=str(root),runs=runs,medianStartToReadyNanos=statistics.median(values),maxStartToReadyNanos=max(values),statistic='3warmups then7fresh Node children; median and maximum',span='parent before spawn through child ready marker after exact compiler load/API check and stdin reader registration; actual fixed probe request/ack checked after marker outside timing',runtimeFilesUnchangedAfterSamples=True,ownedTMPDIR=str(T),TMPDIRMode='0700',laneHeldForEntireSet=True,nice=10,HOMEUnchanged=True,noInheritedNodeOptionsPathOrCoverage=True,measurementClosurePinned=True,readyToReadRequestActuallyChecked=True,SM1FigureCompletenessProposed=True,SM1PlaceholderFilled=False,SMComplete=False,LG1Met=False,productionClosureAssociationClaimed=False,protocolConformanceClaimed=False,confinementClaimed=False,repositoryCodeExecuted=False,heldOutSourceInspected=False,Q6Qualification=False,effectiveL=False,productQualification=False);(B/'results.json').write_text(json.dumps(report,indent=2)+'\n');print('SM1 exact measurement closure/request-ready candidate:',statistics.median(values),'median ns,',max(values),'maximum ns,',len(rows),'pinned files')
+ _cr.write(B)
+finally:
+ if owned:LOCK.rmdir()
+ assert not Path('/Users/sb/Library/Application Support/OpenSIP').exists()
