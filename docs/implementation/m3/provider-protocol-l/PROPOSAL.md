@@ -1,14 +1,15 @@
-# The M3 provider-protocol and reuse law — proposal M3-L r5
+# The M3 provider-protocol and reuse law — proposal M3-L r6
 
-**r5 ACCEPTED in review 2026-10-04 by GROK2** (`f654ee4e…`; `reviews/grok-provider-protocol-l-r5/`), with no findings, after Grok's r2–r4 rounds. r5's bytes, without this note, are preserved in `PROPOSAL-r5.md`. Under the early-review rule, the law **takes effect only when every gate item is met**: L-G4/L-G5 (D3 and D13 sign-offs, owner), L-G9 (O7, owner), L-G1 (S-M), L-G10 (FA-2 accepted) and L-G11 (RUST3-LIM bound). The `⟨SM-n⟩` values and any change forced by O7, FA-2 or RUST3-LIM go through a delta round.
+**r6 ACCEPTED in review 2026-10-13 by Codex** (`47198cd5…`; `reviews/codex-provider-protocol-l-r6/`), with no required findings and 1 non-blocking observation(s), recorded in the review, as a delta round on r5 (accepted in review by GROK2). r6's bytes, without this note, are preserved in `PROPOSAL-r6.md`. The law still **takes effect only when every gate item is met**: L-G4/L-G5 (D3 and D13 sign-offs, owner), L-G9 (O7, owner) and L-G1 (S-M, whose delta round now fills SM-11 to SM-14's S-M-round part only). The completion round of SM-11 to SM-14 is owed after effect (fifth trigger). Recording note for M3L-R6-NBO-01: item 9's SM-13 decomposition cites the whole capability table, NE:590-601, so `unresolved-edge@observed` (NE:601) is in its relation census, and the candidate-only clone modes (NE:599-600) stay distinguished from fact relations.
 
-2026-10-04. Drafted for Claude Opus 5.5, implementation lead, by a lead-dispatched drafting agent during the overnight autonomous run. It is the law for unit **M3-L** of the accepted M3 unit plan (`M3-PLAN-r6.md:207`).
+2026-10-13 (r6). r1 to r5 were drafted on 2026-10-03 and 2026-10-04 for Claude Opus 5.5, implementation lead, by a lead-dispatched drafting agent during the overnight autonomous run. Claude Opus 5.5 drafted r6 as lead. It is the law for unit **M3-L** of the accepted M3 unit plan (`M3-PLAN-r6.md:207`).
 
-**Draft r5, not accepted. Not code. Reviewable now; effective only when its gate is met.** Under the review rule ("Review and effect"), an ACCEPT is recorded as "accepted in review". The law takes effect only when every gate item, L-G1 to L-G11, is met, as M3-C's pinned gate also works (MC:88-89). Four things go through a delta round:
+**Draft r6, a delta round on r5. Not code.** r5 is accepted in review (GROK2, 2026-10-04; `reviews/grok-provider-protocol-l-r5/`). r6 changes one rule, when item 9's SM-11 to SM-14 are filled, and the text that states the delta rounds and L in effect ("r6 changes"). It is reviewed on the diff only. The law is still effective only when its gate is met. Under the review rule ("Review and effect"), an ACCEPT is recorded as "accepted in review". The law takes effect only when every gate item, L-G1 to L-G11, is met, as M3-C's pinned gate also works (MC:88-89). Five things go through a delta round:
 - filling the `⟨SM-n⟩` values;
 - any change that O7's decision forces;
 - any change Codex's review forces in a part of FA-2 that sets a wire member, the commitment a key carries, the admission point or the reuse treatment. That includes every one of FA-2's NE §0 rows, but not its NE:93 header sentence, schema layout, vectors and evidence, README prose or materialization map ("What depends on O7, S-M, FA-2 and RUST3-LIM");
 - **(r5)** the same for RUST3-LIM, which GROK2 has accepted with no change forced: any later change to its accepted bytes in a part that sets a wire member or a commitment, including a rebuild forced by a change to FA-2's handshake copies, its parents.
+- **(r6)** completing SM-11 to SM-14 once the units that own their inputs have bound them (item 9). Unlike the other four, this round is owed **after** effect and is not a condition of it.
 
 **History.**
 - **r1** (`PROPOSAL-r1.md`, sha256 `5e858c05…`, 59,109 bytes) was drafted on 2026-10-03 and never sent. Its draft request is superseded (`reviews/grok-provider-protocol-l-r1/status.json`, `SUPERSEDED-UNSENT`). r1 cited M3-PLAN r4 and predated T2b's acceptance, S-OP-2, CF-P, M3-C r6, M3-E1 r3 and M3-J1 r3.
@@ -16,6 +17,8 @@
 - **r3** (`PROPOSAL-r3.md`, sha256 `6df524a4…`, 121,776 bytes) answered all four. It also joined FA-2, the native successor that answers M3-H's X-H1 (the provider symbol census has no carrier), and answered M3-H's X-H4 (item 5's "no host-minted facts"). Grok returned **REQUIRED-FINDINGS** (`reviews/grok-provider-protocol-l-r3`): RF-1 (item 13's later members and its ceiling still mis-stated the cited payloads), RF-2 (FA-2's §0 row C against the third delta-round trigger), and three non-blocking observations.
 - **r4** (`PROPOSAL-r4.md`, sha256 `261db4b9…`, 145,405 bytes) answered all five. Item 13's inventory became **derived mechanically** from the cited schemas, with control L-C1 re-deriving it. The third delta-round trigger named exactly which FA-2 changes reopen this law. Grok returned **REQUIRED-FINDINGS** (`reviews/grok-provider-protocol-l-r4`): RF-1 (the derived ceiling omits required constituents of the coverage keys) and NBO-1 (the opening paragraph's trigger wording).
 - **r5** answers both. It adds rule **R7** (identity-key constituents) and re-derives the inventory. It gates on **RUST3-LIM**, the Rust3 subject-list successor, as **L-G11**, closes X13 and R12 with it, and adds SM-11 to SM-14. It renames the gate items **L-G1 to L-G11**, so that "G10" no longer collides with the register's DR-G10 (M3-PLAN r9 NBO-1). Every item, X, R and O number of r1 to r4 is kept.
+- **r5 was accepted in review** on 2026-10-04 by GROK2 (`reviews/grok-provider-protocol-l-r5/`), with no findings. Its bytes are preserved as `PROPOSAL-r5.md` (sha256 `f654ee4e…`, 172,198 bytes). Since then, M3-PLAN r10 records L-G10 and L-G11 as met: FA-2 is accepted at r2 and bound, and RUST3-LIM is bound with the bytes r5 pins (`M3-PLAN-r10.md:79`).
+- **r6** is a delta round on r5 for one lead finding: a cycle in the gate. r5 asks the S-M delta round, a condition of effect, to fill SM-11 to SM-14. Their values need inputs that C4a, G1a, G2 and G3 bind, and those units run after day 0, which is L in effect. r6 splits the four figures into a part the S-M delta round fills and a completion round owed after effect ("r6 changes"). Every item, X, R and O number of r1 to r5 is kept.
 
 It is written under:
 - the M3-L row (`M3-PLAN-r6.md:207`), the M3-S row (`:205`), the M3-D row (`:211`), the M3-J row (`:217`), "M3-L gate status" (`:429-445`), the "O7" section (`:474-525`) and the critical path (`:253-427`);
@@ -34,9 +37,26 @@ It is written under:
   - M3-PLAN r9, now accepted (`M3-PLAN-r9.md`), which records the review rule, day 0 as "L in effect", and L-G10 (FA-2) in the M3-L row;
   - RUST3-LIM, the Rust3 subject-list successor, accepted by GROK2 at r1 and binding after FA-2;
   - FA-2 r2, in review with Codex;
+- **new in r6:** M3-PLAN r10, accepted (`M3-PLAN-r10.md`), for day 0 as L in effect (`:80`), L-G10 and L-G11 met (`:79`), the C, G and D unit rows and the DAG (`:306`, `:311`, `:481`, `:497`, `:525`, `:538-540`); M3-C r8, accepted in review (MC8:1185, C4a's row); M3-D r5, accepted (MD5:546, MD5:551, its scratch bound and settlement walk);
 - the product contracts in `docs/v2/contracts/product-v1/` and the protocol artifacts they select.
 
-## r5 changes
+## r6 changes
+
+| # | Change | Where | Source |
+|---|---|---|---|
+| 1 | **r5 is preserved** as `PROPOSAL-r5.md` (`f654ee4e…`). Its acceptance in review, recorded in the live file's header note, moves into "History". | header | `reviews/grok-provider-protocol-l-r5/` |
+| 2 | **The gate cycle (lead finding).** L-G1 and "Before L takes effect" need the S-M delta round to fill every `⟨SM-n⟩`, SM-11 to SM-14 included. SM-13 and SM-14 are per Rust stage and over each stage's requested keys, which C4a binds (day 16 at the earliest). SM-13's candidates, census rows and frames follow G3's emission recipe, census symbol kinds and batching (day 20). SM-11's scratch term and SM-12's worker-side derivation need the worker (G1a and G2), and SM-12's `domainCommitment` needs the requested keys. All of these units need L in effect, so r5's rule can never be met without inventing their inputs. | item 9 | `M3-PLAN-r10.md:80`, `:481`, `:497`, `:525`, `:538-540`; MC8:1185; RL README:140 |
+| 3 | **SM-11 to SM-14 are filled in two parts (lead decision).** The S-M delta round fills what is measurable before effect: exact subject counts, SM-4 and SM-10 quotients only where coverage is exact, SM-12's host derivations, SM-13 as a decomposition (site counts labelled as not candidates, exact fixed overheads, closed formulas with the owned parameters unset), SM-14's formula and S_eff's first term. A **completion round** after effect fills the values once C4a, G1a, G2 and G3 have bound their inputs. Only it records S_eff and the Rust stage budget item 9 says these figures set. **Rejected:** filling them from S-M's own choice of stages, keys, emission factors or batching; dropping them from item 9; moving C4a or G3 before day 0; leaving r5's rule. | item 9 | lead decision LD-L-SM11-14-GATE-CYCLE |
+| 4 | **The fifth delta-round trigger: the completion round.** It is owed after effect and is not a condition of it. It may change only item 9's SM-11 to SM-14 values and the records item 9 says they set. | header; "Review and effect" | row 3 |
+| 5 | **L in effect** now reads "every delta round owed before effect accepted". The completion round is outside it. "Before L takes effect", the S-M summary row and "Not claimed" follow. | "Review and effect"; gate; "What depends"; "Not claimed" | row 3 |
+| 6 | **Scratch.** D r5 already binds how Rust3 scratch is checked (an exact bounded walk at settlement against RPP:118's 2 GiB; MD5:546, MD5:551). SM-11's scratch term waits for the actual worker, not for a D rule. | item 9 | `supervisor-d/PROPOSAL-r5.md:546`, `:551` |
+| 7 | **The reviewer of a delta round.** When the last round's reviewer is unavailable, a delta round goes to a reviewer the owner or the lead names. GROK2 accepted r5, and Grok reviewed r2 to r4. Neither is available any longer, so **Codex** reviews r6, on the owner's direction of 2026-10-13. This mirrors r5's own change from Grok to GROK2. | "Review and effect" | owner direction, 2026-10-13 |
+| 8 | **X17**, new: the sequence for M3-PLAN's next revision, M3-C (X-RL-C2's timing), M3-G (X-RL-G2) and RUST3-LIM's X-RL-L3. | "Cross-law findings" | row 3 |
+| 9 | **Open questions and flags:** R16 for the reviewer; row 3 is flagged for possible reversal. | "Open questions" | — |
+
+**Not changed.** Items 1 to 8 and 10 to 22, item 13's derived table and control L-C1, the other four triggers, outcomes (A) to (C), SM-1 to SM-10, and every protocol constant. The gate rows' status column is not refreshed: the S-M delta round refreshes it ("Review and effect").
+
+## r5 changes (kept for the record)
 
 | # | Change | Where | Source |
 |---|---|---|---|
@@ -116,21 +136,22 @@ Nothing else changes in substance.
 
 Nothing else changes in substance.
 
-**Standing direction.** Lead decisions are made under the owner's standing direction to decide on the lead's recommendation and to block only where no recommendation exists. r1's are dated 2026-10-03. r2's new ones (the review rule, item 12.1 and item 16b), r3's (G10 and item 22, item 5's in-core exception, and the third delta-round trigger) r4's (item 13's derived inventory with L-C1, and the exact scope of the third trigger) and r5's (rule R7, L-G11 with the fourth trigger, and the `L-G` rename) are dated 2026-10-04. Each names the alternatives it rejects. The owner may reverse any of them.
+**Standing direction.** Lead decisions are made under the owner's standing direction to decide on the lead's recommendation and to block only where no recommendation exists. r1's are dated 2026-10-03. r2's new ones (the review rule, item 12.1 and item 16b), r3's (G10 and item 22, item 5's in-core exception, and the third delta-round trigger) r4's (item 13's derived inventory with L-C1, and the exact scope of the third trigger) and r5's (rule R7, L-G11 with the fourth trigger, and the `L-G` rename) are dated 2026-10-04. r6's (the two-part filling of SM-11 to SM-14 with the fifth trigger, and the reviewer of a delta round) are dated 2026-10-13. Each names the alternatives it rejects. The owner may reverse any of them.
 
 ## Review and effect (lead decision, r2)
 
 - **Decision.**
   - **Early review is allowed.** A law and contract-soundness review round may run now, before the gate is met.
   - **What an ACCEPT means.** It is recorded as "accepted in review". The law takes effect only when every gate item, L-G1 to L-G11, is met. M3-C's pinned gate works the same way: "This law may be reviewed now. It can be accepted when: **M3-L is accepted** … An unchanged draft is not acceptance" (MC:88-89). **(r3, NBO-1)** r2 quoted the live MC file's recording paragraph here. MC:88-89 is the pinned text.
-  - **What reopens it.** Four things go through a **delta round**, with the same reviewer, on the diff only:
+  - **What reopens it.** Five things go through a **delta round**, with the same reviewer, on the diff only. **(r6)** When that reviewer is unavailable, the round goes to a reviewer the owner or the lead names, and the request records why.
     1. filling every `⟨SM-n⟩` from S-M's report, with every outcome item 9 records, and any owner answer to O3 or O4 that those outcomes trigger;
     2. any change that O7's decision forces (see "What depends on O7, S-M, FA-2 and RUST3-LIM");
     3. **(r3; exact in r4, RF-2)** any change Codex's review forces in a part of FA-2 that sets a wire member, the commitment a key carries, the admission point or the reuse treatment. Such a change reaches items 1, 13 or 22, and item 10's census sentence, which follows item 22. It **includes every change to any of FA-2's four NE §0 rows**: each touches a wire value or commitment (A and B, the Analyze and Complete payloads; C, the commitment every key carries; D, the Hello and HelloAck token arrays). A §0 change confined to rows that touch no wire value or commitment would need no delta round, **but FA-2 has no such row.** The parts of FA-2 whose change needs none are named exactly in "What depends on O7, S-M, FA-2 and RUST3-LIM".
     4. **(r5)** any later change to RUST3-LIM's accepted bytes in a part that sets a wire member or a commitment. GROK2 accepted r1 with no change forced. Such a change can still come from a rebuild forced by a change Codex requires in FA-2's handshake copies, RUST3-LIM's parents, or from a later RUST3-LIM revision. It reaches items 1, 9 and 13 and L-G11. The parts are its token (its NE:2790 override and the handshake copies' `subjectScope` wire-law entry and enum), its NE §0 rows **E** and **F**, its §9.2, §9.6 and §9.3a overrides (NE:2883, NE:3028, NE:3070, NE:2942), and every record and law entry of its subject-scope schema. Its README prose, subject-count evidence, vectors, scratch verify and materialization map need none. **Its review's two NBOs:** NBO-1 corrects two copy-line annotations in its evidence, and needs none. NBO-2 would close a description census in one of two ways. Adding `RustFactBatchV2Vector.stageId` to the reading-rule list edits §9.3a's reading rule, and the schema's copy of it, so it takes this round. Giving that description NE:3070's parenthetical instead edits a handshake-copy description outside the `subjectScope` entry and enum, and needs none.
+    5. **(r6)** completing SM-11 to SM-14 (item 9, "When SM-11 to SM-14 are filled"). It is owed **after** effect, once C4a, G1a, G2 and G3 have bound the inputs those figures need, and **is not a condition of effect**. It may change only item 9's SM-11 to SM-14 values and the records item 9 says they set (S_eff and the Rust stage budget). It changes no protocol constant, item or outcome (A) to (C).
 
     The S-M delta round also refreshes the gate rows. A gate item met after that round (a sign-off, or O7 decided as recommended) is recorded as recording text in the live file's header note, unless it forces a change. A forced change takes its own delta round.
-  - **What dependents may rely on.** Wherever another law or record names "M3-L accepted" or "L's acceptance" as a gate or as day 0, it means **L in effect**: accepted in review, every gate item met, and every delta round accepted. That covers MC's gate, `M3-PLAN-r6.md:255` and `:378`, and the D law draft's gate note. An ACCEPT in review alone satisfies no dependent's gate.
+  - **What dependents may rely on.** Wherever another law or record names "M3-L accepted" or "L's acceptance" as a gate or as day 0, it means **L in effect**: accepted in review, every gate item met, and every delta round owed before effect accepted. **(r6)** The fifth round, which completes SM-11 to SM-14, is owed after effect and is not part of L in effect. What waits for it is the constants item 9 says those figures set, not L. That covers MC's gate, `M3-PLAN-r6.md:255` and `:378`, and the D law draft's gate note. An ACCEPT in review alone satisfies no dependent's gate.
 - **Basis:**
   - the overnight log's record of this lead decision (ON, "Lead decision: M3-L gets an early review round");
   - M3-C's pinned gate (MC:88-89; ON, "M3-C accepted in review at r5", "M3-C r6 accepted in review");
@@ -151,7 +172,7 @@ Status on 2026-10-04. The gate is the M3-L row: "S-M, complete T2 (T2b), Q0, D3,
 
 | # | Gate item | Status | Evidence |
 |---|---|---|---|
-| L-G1 | **S-M**, the INC-7 spike, measured | **NOT STARTED.** It is a lead run set (`M3-PLAN-r6.md:205`). P5-8's machine order puts it after Grok's rerun on C (done), F8b's cargo steps (done: F8b is bound at product main `e093e90`) and X4-F1's lanes and reruns (`M3-PLAN-r6.md:593`). **(r3)** X4-F1 has since been accepted by GROK2 and integrated at product main `15c0779` (ON, "X4-F1 accepted by GROK2 and integrated"). This law does not record whether P5-8's other reruns after it have run. If O7 is decided while both wait, S-M moves ahead of X4-F1 (`:594`). Its report also waits for the D13 sign-off (L-G5). Its Q6-labelled samples wait for D12 (`:205`). Item 9 lists the figures it must deliver. Every number that depends on it is a placeholder `⟨SM-n⟩`. | `M3-PLAN-r6.md:205`, `:371`, `:435`, `:593`; ON, "Grok's X9-6 rerun on C was accepted" and "F8b accepted and bound"; no S-M report exists |
+| L-G1 | **S-M**, the INC-7 spike, measured; **(r6)** for SM-11 to SM-14, the S-M delta round's part (item 9) | **NOT STARTED.** It is a lead run set (`M3-PLAN-r6.md:205`). P5-8's machine order puts it after Grok's rerun on C (done), F8b's cargo steps (done: F8b is bound at product main `e093e90`) and X4-F1's lanes and reruns (`M3-PLAN-r6.md:593`). **(r3)** X4-F1 has since been accepted by GROK2 and integrated at product main `15c0779` (ON, "X4-F1 accepted by GROK2 and integrated"). This law does not record whether P5-8's other reruns after it have run. If O7 is decided while both wait, S-M moves ahead of X4-F1 (`:594`). Its report also waits for the D13 sign-off (L-G5). Its Q6-labelled samples wait for D12 (`:205`). Item 9 lists the figures it must deliver. Every number that depends on it is a placeholder `⟨SM-n⟩`. | `M3-PLAN-r6.md:205`, `:371`, `:435`, `:593`; ON, "Grok's X9-6 rerun on C was accepted" and "F8b accepted and bound"; no S-M report exists |
 | L-G2 | **T2 complete (T2b)** | **MET.** GROK2 accepted T2b with no findings. The T2 manifest holds 49 repositories, 5 multi-repo workspaces and 33 independence families. | `reviews/grok2-corpus-t2b-r1/status.json` (`ACCEPTED`); T2R:24; `M3-PLAN-r6.md:203`, `:436`; ON, "M3-T2b accepted by GROK2" |
 | L-G3 | **Q0** | **MET.** CODEX2 accepted the harness design record r13 (sha256 `37438317…`; envelope schema `71f682d1…`). | HD:3; `M3-PLAN-r6.md:204`, `:437` |
 | L-G4 | **D3**, the T2 selection | **OPEN: an owner item** (blocker B3). It is lead work with owner sign-off, status `proposed` (AQP:543). No sign-off is recorded. The lead recommends approval as reviewed. | AQP:543; ON B3; `M3-PLAN-r6.md:438`, `:534` |
@@ -164,7 +185,7 @@ Status on 2026-10-04. The gate is the M3-L row: "S-M, complete T2 (T2b), Q0, D3,
 | L-G11 | **(r5) RUST3-LIM accepted**: the Rust3 request subject list by reference, a native contract successor (this law's X13; R12) | **MET IN REVIEW, held on FA-2.** GROK2 accepted RUST3-LIM r1 (`reviews/codex2-rust3-lim-r1`, a directory name kept from the CODEX2 assignment; status `ACCEPTED`): ACCEPT-DESIGN-UNIT, no required findings, two non-blocking observations, on subject `5dfd3cd9…` and successor `70f494d9…`, the bytes this law pins. Its unit record (`rust3-lim-unit.json`) is the lead's to complete. Its parents are FA-2 r2's two handshake copies, still in review with Codex. If Codex's review changes them, RUST3-LIM is rebuilt on the new copies, and L-G11 is open again until the rebuild is accepted. It binds in `design-lock.json` only after FA-2 is bound (RL LD-R8). A later change in a part that sets a wire member or a commitment takes this law's fourth delta round. | RUST3-LIM README (X-RL-L1, LD-R8); `rust3-lim/section-9-3a.md`; `reviews/codex2-rust3-lim-r1/review.json`; X13 |
 
 **Before L takes effect:**
-- S-M runs (L-G1), and its delta round fills every `⟨SM-n⟩`, records every outcome item 9 names and refreshes these rows;
+- S-M runs (L-G1), and its delta round fills every `⟨SM-n⟩`, records every outcome item 9 names and refreshes these rows. **(r6)** For SM-11 to SM-14 it fills the S-M round's part; their completion follows effect (item 9);
 - the owner signs off D3 and D13 (L-G4, L-G5) and decides O7 (L-G9);
 - Codex accepts FA-2 (L-G10);
 - **(r5)** RUST3-LIM stays accepted (L-G11). GROK2 has accepted it, and the acceptance holds unless Codex's review changes FA-2's handshake copies;
@@ -183,7 +204,7 @@ Status on 2026-10-04. The gate is the M3-L row: "S-M, complete T2 (T2b), Q0, D3,
 r2 stated its own reading here so that the reviewer could test it. Grok's r2 review found it complete for the outcomes it named, apart from the joint case (NBO-2). r3 adds that case and FA-2.
 
 **S-M.**
-- **Item 9 depends on it entirely:** every `⟨SM-n⟩`, the derived F and T, and the outcomes (A), (B) and (C).
+- **Item 9 depends on it entirely:** every `⟨SM-n⟩`, the derived F and T, and the outcomes (A), (B) and (C). **(r6)** SM-11 to SM-14 depend on it for the S-M round's part only. Their completion depends on C4a, G1a, G2 and G3, after effect (item 9).
 - **Some things depend on it conditionally:**
   - owner questions O3 and O4 arise only on outcomes (B) and (C). **(r3, NBO-2)** When F > 2 s and T misses a medium budget, both outcomes hold. The delta round records both, and both O3 and O4 arise. Items 1 and 2 stay one-shot under both;
   - X6, liveness against synchronous compiler work, is sized by SM-8, which also sets the D law's liveness floor;
@@ -242,7 +263,7 @@ r2 stated its own reading here so that the reviewer could test it. Grok's r2 rev
 | Depends on | What |
 |---|---|
 | O7 | L-G9; item 17; a delta round only if the outcome lets a provider execute repository code, needs a new wire signal or member for confinement, or makes the provider resident or pooled |
-| S-M | item 9: every `⟨SM-n⟩`, F, T, and every outcome; O3; O4; X6, through SM-8; a TS2 limit question that only a successor can answer, through SM-6 (item 1); MC's conditional S-R, through SM-5 and SM-6 |
+| S-M | item 9: every `⟨SM-n⟩` (**r6:** SM-11 to SM-14 for the S-M round's part; their completion is the fifth round), F, T, and every outcome; O3; O4; X6, through SM-8; a TS2 limit question that only a successor can answer, through SM-6 (item 1); MC's conditional S-R, through SM-5 and SM-6 |
 | FA-2 | L-G10; items 1, 13 and 22, and item 10's census sentence (which follows item 22); a delta round for any forced change to a wire member, a key's commitment (**including every FA-2 §0 row, A to D**), the admission point or the reuse treatment. None for FA-2's NE:93 header sentence, schema layout, vectors, evidence, README prose or materialization map |
 | RUST3-LIM | L-G11; items 1 and 13 (its row, and the AnalyzeV2 row's condition); item 9's SM-11 to SM-14; X13 and R12; a delta round for any later change to a part that sets a wire member or a commitment, including a rebuild forced through FA-2's handshake copies (its token, §0 rows E and F, §9.3a and its §9.2 and §9.6 overrides, the subject-scope schema). None for its README prose, evidence, vectors, scratch verify or materialization map |
 | No text change under any outcome above | items 2-8, 10-12, 14-16 and 18-21. Item 12.4 names SM-8 but states no number. Item 10's census line follows item 22. |
@@ -254,6 +275,9 @@ Line numbers are those of the cited files on 2026-10-04. A live plan or design f
 **(r3) Pinning.** Every other **law** is cited at an accepted snapshot, never at a live `PROPOSAL.md`, because a live file can move to a new draft mid-review. AQP, OPP and Q0 are accepted **plans**, still cited by their live files as r1 and r2 cited them. Each live file is exactly its snapshot (`analysis-quality/PLAN-r6.md`, `operability/PLAN-r3.md`, `harness/DESIGN-r13.md`) plus a two-line note inserted after line 1, checked byte for byte. So live line n ≥ 3 is snapshot line n − 2. The review request pins both.
 - **M3P** `docs/implementation/m3/M3-PLAN-r6.md`, the accepted r6 bytes (sha256 `a6956e88…`). The live `M3-PLAN.md` carries the acceptance note and is 2 lines ahead. **Every plan citation here is `M3-PLAN-r6.md`:n**, except where `M3-PLAN-r9.md` is named.
 - **M3P9 (r5)** `docs/implementation/m3/M3-PLAN-r9.md`, M3-PLAN r9, **accepted** (`72bc7a13…`; `reviews/grok2-m3-plan-r9`). It records L's review rule, day 0 as "L in effect" (`:385`) and L-G10 in the M3-L row (`:255`; P7-1, P7-2). Its NBO-1 asks for the `L-G` rename, which r5 makes. r6's lines stay this law's general plan citations: r9 changes none of the rows this law relies on except those three records.
+- **M3P10 (r6)** `docs/implementation/m3/M3-PLAN-r10.md`, M3-PLAN r10, **accepted** by Codex (`ec8c38f8…`; `reviews/codex-m3-plan-r10`). r6 cites it by name as `M3-PLAN-r10.md:n`, at its lines on 2026-10-13.
+- **MC8 (r6)** `docs/implementation/m3/snapshot-plan-c/PROPOSAL-r8.md`, M3-C r8, accepted in review by CODEX2 (`578c186e…`; `reviews/codex2-snapshot-plan-c-r8`). Cited for C4a's unit row only.
+- **MD5 (r6)** `docs/implementation/m3/supervisor-d/PROPOSAL-r5.md`, M3-D r5, **accepted** by Grok (`224b9228…`; `reviews/grok-supervisor-d-r5`). Cited for its Rust3 scratch bound and settlement walk only.
 - **AQP** `docs/implementation/m3/analysis-quality/PLAN.md` (r6, accepted; live file, sha256 `1611014d…`)
 - **OPP** `docs/implementation/m3/operability/PLAN.md` (r3, accepted; live file, sha256 `4eca344b…`; the r3 bytes are `PLAN-r3.md`)
 - **Q0, HD** `docs/implementation/m3/harness/DESIGN.md` (r13, accepted; live file, sha256 `1f108399…`)
@@ -547,12 +571,38 @@ Lead decisions are dated 2026-10-03 unless marked r2, r3, r4 or r5 (2026-10-04).
 
   **SM-11 to SM-14 (r5; RUST3-LIM, X-RL-L3).**
   - **Workloads.** The Rust medium workloads above, with axum (301 non-empty `.rs` files) and tokio (808) now servable under `subject-scope-reference-v1`. Also the large dev Rust entries smithy-rs (1,084), rspack (1,384) and deno (1,052), and sui (3,318) if S-P permits. Held-out entries (tauri, ripgrep, rust-analyzer) are excluded, as above. The counts are RUST3-LIM's (`rust3-lim/evidence/rust-subject-counts.json`).
-  - **What they set.** None of them is a protocol constant. The S-M delta round records:
+  - **What they set.** None of them is a protocol constant. **(r6)** The completion round below, not the S-M delta round, records:
     - the M3 Rust provider's effective subject ceiling, `S_eff = min(snapshot2's admitted rows, ⌊1,000,000 / ⟨SM-13a⟩⌋, ⌊2^30 / ⟨SM-13b⟩⌋, ⌊2^30 / ⟨SM-13c⟩⌋, ⌊1,000,000 / ⟨SM-13d⟩⌋, ⌊2^31 / ⟨SM-11 scratch⟩⌋)`;
     - the Rust stage budget that G's budget profile and C's Plan carry, at or below `⟨SM-14⟩`-derived values, so that a large repository ends in `BudgetExhausted` or the scope-limit route, never in a response safety-bound fault (RUST3-LIM F-4; X-RL-C2, X-RL-G2);
     - whether rebuilding the scope (SM-12) costs anything material, which would be a finding for G and D, not a reason for a cap;
     - where FA-2's census `over-bound` route starts to bind (SM-13e).
   - **No outcome (A) to (C) depends on them.** They feed the D, C and G units' constants. RUST3-LIM is in this law's gate (L-G11), but SM-11 to SM-14 are measured, not decided, here.
+
+  **When SM-11 to SM-14 are filled (r6, lead decision).**
+  - **Why r5's rule could not be met.** r5 asked the S-M delta round, a condition of effect, to fill all four. Their values need inputs that only units after day 0 bind, and day 0 is L in effect (`M3-PLAN-r10.md:80`):
+    - SM-13 is per Rust stage, and SM-14 sums subjects × requested keys over the workload's Rust stages (RPP:600-606). The M3 Rust stage list and each stage's requested keys are C4a's (MC8:1185). C4a needs L in effect, through C's own gate (`M3-PLAN-r10.md:497`), and runs on days 16 to 19 (`:481`, `:525`).
+    - SM-13 (a) to (e) count fact candidates and their spool, payload, frame and census volume. Which compiler sites become which candidates, the Rust census symbol kinds and the batching of candidates into `FactBatch` frames are G3's (`M3-PLAN-r10.md:311`), on days 15 to 20 (`:540`).
+    - SM-11's scratch term is the **worker's** peak scratch, and SM-12 includes the worker's derivation. The worker is G1a's and G2's (`:538-539`). D r5 already binds how Rust3 scratch is checked: an exact bounded walk at settlement against 2 GiB (MD5:546, MD5:551; RPP:118).
+    - SM-12's `domainCommitment` is RPP `commitments.analysisDomain` over `{subjects, requestedCoverageDomain}` (RL README:140), so it needs C4a's requested keys.
+  - **The rule.** SM-11 to SM-14 are filled in two parts.
+    - **At the S-M delta round** (the first trigger, a condition of effect), for each workload above:
+      - **SM-11:** the exact subject count S by RUST3-LIM's recipe over the accepted manifest, including workloads with no row in `rust-subject-counts.json`. Also SM-4's time and SM-10's peak RSS, each labelled with the compilation units it covers. Their quotients by S are recorded **only** where those units are exactly the workload's first-party crates that hold its S subjects. A figure that includes dependency crates, or misses a first-party root, is recorded with its coverage and no quotient. The worker's scratch is not measured here.
+      - **SM-12:** the host's two independent derivations of the subject array and `commitments.subjectScope`, with time and peak memory, over the accepted manifests.
+      - **SM-13: a decomposition, not a value.** For each relation@rung with a `rust-cargo` cell in NE's capability table (NE:591-598), it records three things. First, the counts of compiler sites the S-M driver observes, each site kind named with the compiler query it counts and labelled **sites, not candidates**. Second, the exact fixed bytes that (b) to (e) add per candidate, per frame and per census row, derived from the registered schemas and RPP `candidateSpoolAccounting` (RPP:137-150), with any reference encoder used named and its standing stated. Third, a closed formula for each of (a) to (e). Each parameter that a later unit owns is named as unset with its owner: G3's emission factor per site kind, census symbol kinds and batching; C4a's grouping of relations into stages.
+      - **SM-14:** the formula Σ over stages of S_stage × K_stage, with S per workload exact and each K_stage unset (C4a).
+      - **S_eff:** its first term, snapshot2's admitted rows, from SM-5. The other terms are recorded as formulas.
+    - **At the completion round** (the fifth trigger, after effect). It starts once C4a has bound the Rust stage list and each stage's requested keys, G3 has bound its emission recipe, census symbol kinds and batching, and G1a and G2 have a worker. A completion run then measures, for the same workloads and under item 9's other rules (pinned public T2 bytes, no repository code, 3 warmups and 7 runs, the lead's host labelled preliminary):
+      - SM-11 on the actual worker: time, peak RSS and scratch per subject. Scratch is counted as D's settlement walk counts it. A peak during the run is recorded only from labelled sampling, never as D's count;
+      - SM-12's `domainCommitment` with the bound keys, and the worker's derivation;
+      - SM-13 (a) to (e) per stage, and SM-14;
+      - S_eff, and the other records listed under "What they set".
+  - **What the completion round may change.** Only item 9's SM-11 to SM-14 values and the records "What they set" names. A value showing a protocol limit too tight is a successor question (item 1). A ceiling below a repository the owner's team needs is answered by a scope, not a cap (RUST3-LIM README, "Lead decisions flagged for the owner", note 2).
+  - **What waits for it.** The constants these figures set: the Rust stage budget that C's Plan and G's budget profile carry (X-RL-C2, X-RL-G2), and S_eff as a recorded ceiling. This law takes them from nowhere else. Until the round is accepted, a large repository can still reach a response safety bound. That is a provider-protocol fault and never `BudgetExhausted` (RPP:152; RUST3-LIM F-4), and nothing may relabel it. X17 routes the sequence to C, G and the plan.
+  - **Rejected:**
+    - **Filling SM-13 and SM-14 at the S-M round from a stage list, requested keys, emission factors or a batching policy that S-M chooses.** Those are C4a's and G3's to bind. Values built on S-M's own choice would size C's and G's constants from invented inputs.
+    - **Dropping SM-11 to SM-14 from item 9.** RUST3-LIM's X-RL-L3 placed them here, and S_eff and the Rust stage budget would then have no measured record.
+    - **Moving C4a or G3 before day 0.** Both implement laws that take effect with L, and the order is the plan's.
+    - **Keeping r5's rule.** L could then never take effect.
 
   **Derived figures:**
   - the one-shot fixed floor **F** = start (SM-1 or SM-3) + SM-5 + SM-7 + SM-9;
@@ -575,7 +625,10 @@ Lead decisions are dated 2026-10-03 unless marked r2, r3, r4 or r5 (2026-10-04).
   - a number in this law not taken from S-M's report;
   - an S-M figure from a held-out repository;
   - a macOS figure presented as a D12 or Q6 sample;
-  - **(r2)** a native `ru_maxrss` value labelled as bytes on a platform whose native unit is not bytes (SOP2:1006).
+  - **(r2)** a native `ru_maxrss` value labelled as bytes on a platform whose native unit is not bytes (SOP2:1006);
+  - **(r6)** a Rust stage list, requested key, emission factor, census symbol kind, batching policy or scratch count that S-M assumes instead of taking it from the owning unit's binding;
+  - **(r6)** a compiler site count presented as a fact-candidate count;
+  - **(r6)** an SM-11 to SM-14 value, S_eff or Rust stage budget recorded before the completion round, other than the S-M round's part.
 
 **10. INC-8: reuse disclosure lives in the operational record, outside semantic Coverage (law).**
 - **Decision.** The host's operational record (OPP:249) discloses which results were recomputed and which were reused producer work, **per stage and universe (r2)**. That covers every provider child's stages and the in-host syntax stages, which have no child (item 2; ME §G). The record is:
@@ -1056,6 +1109,13 @@ These are recorded for their owners. None changes an accepted outcome. Each name
 
   None of these is decided here.
 
+- **X17 (r6). The SM-11 to SM-14 completion sequence** (item 9, "When SM-11 to SM-14 are filled").
+  - **M3-PLAN's next revision** should record that L-G1 needs only the S-M round's part of SM-11 to SM-14, and place the completion run and this law's fifth round after C4a binds its Rust stage list and keys, after G3 binds its emission recipe, census kinds and batching, and once G1a and G2 have a worker. On the r10 DAG that is after day 20 (`M3-PLAN-r10.md:540`).
+  - **M3-C's next revision:** X-RL-C2's Rust stage budget is sized "after S-M" (RUST3-LIM README, "Cascade and cross-law items"). It now waits for the completion round, after C4a has bound the stage list and keys. How C4a orders its own legs is C's.
+  - **M3-G (G3):** X-RL-G2's default stage budget follows the same round.
+  - **RUST3-LIM's X-RL-L3** is met by item 9 as r6 states it. RUST3-LIM's bytes do not change.
+  - None of these is decided here.
+
 ## Forbidden substitutes
 
 - Any change to a TS2 or Rust3 frame, member, phase, terminal, token, limit or identity version made by this law, a provider unit or the control plane (items 1, 11).
@@ -1091,6 +1151,9 @@ These are recorded for their owners. None changes an accepted outcome. Each name
 - **O4. Conditional on S-M outcome (C).** If one-shot full analysis misses a medium budget (30 s cold or 8 s warm), that is the D4 revisit AQP:372 names. The owner decides whether to revisit the budgets or the staging.
   - **(r3, NBO-2)** O3 and O4 can arise together: under (B) and (C) at once, the owner answers both.
 - **Flagged for possible reversal (r2):** r2's three new lead decisions: the review rule, counting stderr without holding it (item 12.1), and never sending TypeScript's `host-shutdown` (item 16b). None blocks.
+- **Flagged for possible reversal (r6):** none blocks.
+  - SM-11 to SM-14 are filled in two parts, and their completion is a fifth delta round owed after effect.
+  - **A consequence worth knowing:** until the completion round is accepted, no Rust stage budget is sized from measurement, so a large Rust repository can end in a response safety-bound fault rather than `BudgetExhausted` (RUST3-LIM F-4).
 - **Flagged for possible reversal (r5):** none blocks.
   - L-G11: RUST3-LIM accepted is a condition of this law taking effect.
   - Rule R7, which widens item 13's ceiling to every required member of an identity key.
@@ -1111,7 +1174,7 @@ These are SM-1 to SM-10 (item 9). Each decides or informs the following:
 - **SM-1 and SM-3** also inform the D law's handshake deadline.
 - **SM-3 and SM-4** depend on S-P. If S-P fails, the Rust rows are `incomplete`. Whether the law can take effect with Rust rows incomplete is a question for the delta round's reviewer. The lead's recommendation is no, unless S-P's failure is itself accepted as a finding with a G2 plan.
 - **SM-10** informs OPP §5.2's concurrency ceiling (information only).
-- **(r5) SM-11 to SM-14** set the M3 Rust provider's effective subject ceiling (S_eff), the Rust stage budget for G's budget profile and C's Plan, and where FA-2's census `over-bound` route starts to bind. None of them is a protocol constant (item 9; RUST3-LIM).
+- **(r5) SM-11 to SM-14** set the M3 Rust provider's effective subject ceiling (S_eff), the Rust stage budget for G's budget profile and C's Plan, and where FA-2's census `over-bound` route starts to bind. None of them is a protocol constant (item 9; RUST3-LIM). **(r6)** They are set at the completion round, after effect. The S-M delta round records their decomposition.
 
 ### For other owners and reviewers
 
@@ -1127,6 +1190,11 @@ These are SM-1 to SM-10 (item 9). Each decides or informs the following:
 - **R10 (r2). Rust protocol owner.** X12: does `maxPreparedOutputEntries` 256 (RPP:102, RPP:385) govern a prepared manifest's entries in transport, beside NE's 1,000,000-row bounds? This is MC's R4, asked from this law's side.
 - **R11 (r2). The reviewer.** Is "Review and effect" lawful: an ACCEPT in review, effect only when the gate is met, delta rounds for S-M and O7, and dependents reading "M3-L accepted" as L in effect? Is "What depends on O7 and S-M" complete? **(r3)** Grok answered yes, apart from the joint case, which r3 adds (NBO-2).
 - **R12 (r3). Rust protocol owner.** X13: should Rust3's request subject list stay "every non-empty `.rs` file of the snapshot" under a cap of 256, which refuses two of S-M's seven Rust medium workloads before spawn? Or does a Rust protocol successor replace it, for example with a binding-scoped or uncapped transport list? This law changes no limit. **(r5) Closed:** RUST3-LIM is that successor, by reference under a token, with no limit value changed. Its acceptance is L-G11.
+- **R16 (r6). The reviewer.**
+  - Is the cycle real: does every value r6 defers need an input that a unit after day 0 binds?
+  - Is the S-M round's part exact, and free of any invented stage, key, emission factor, batching or scratch count?
+  - Is a fifth round owed after effect, and outside "L in effect", lawful under "Review and effect"? Is what it may change closed?
+  - Does r6 change anything outside item 9's SM-11 to SM-14 and the text that states the rounds and L in effect?
 - **R15 (r5). The reviewer.**
   - Is R7's record list complete: every record a cited contract defines as an identity key or as a key's field-for-field copy, and every member required to equal a key's? Is the checked list of other composite keys right in excluding the fact identity, commitment preimages, view and occupancy records, correlation tuples and scope summaries?
   - Do the derived counts and the RUST3-LIM row match the schemas?
@@ -1150,6 +1218,6 @@ These are SM-1 to SM-10 (item 9). Each decides or informs the following:
 - **Registration.** This law registers no event and no code table. Item 14 names S-OP-2's events and relies on them.
 - **Other laws.** No accepted law is changed by this revision. Cross-law items X3, X5 and X9 to X16 name the records that should change, for their owners. J1's re-citation (X14) is not folded into J1 r4.
 - **FA-2.** This law joins FA-2 and decides none of its content. FA-2's protocol change is the native owner's successor, under its own review (L-G10).
-- **This revision.** No product code, cargo command, test or lead run set was run for it. Product facts come from reading main `e093e90` with `git show` and `git diff`, re-checked against `cd5958b` and **(r5)** `392499e`. **(r4)** The only script run is control L-C1 (`evidence/wire_identities.py`), which reads arch documents.
-- **Effect.** An ACCEPT of this revision is "accepted in review". The law takes effect only when gate items L-G1, L-G4, L-G5, L-G9 and L-G10 are met, L-G11 still holds (it is met in review unless Codex's review changes FA-2's handshake copies), and S-M's delta round is accepted.
+- **This revision.** No product code, cargo command, test or lead run set was run for it. Product facts come from reading main `e093e90` with `git show` and `git diff`, re-checked against `cd5958b` and **(r5)** `392499e`. **(r4)** The only script run is control L-C1 (`evidence/wire_identities.py`), which reads arch documents. **(r6)** r6 ran no measurement. It re-ran L-C1 unchanged, and L-C1 still passes, because item 13 is unchanged.
+- **Effect.** An ACCEPT of this revision is "accepted in review". The law takes effect only when gate items L-G1, L-G4, L-G5, L-G9 and L-G10 are met, L-G11 still holds (it is met in review unless Codex's review changes FA-2's handshake copies), and S-M's delta round is accepted. **(r6)** The completion round of SM-11 to SM-14 is owed after effect and is not a condition of it. M3-PLAN r10 records L-G10 and L-G11 as met (`M3-PLAN-r10.md:79`). r6 does not refresh the gate rows.
 - **RUST3-LIM.** This law joins RUST3-LIM and decides none of its content (L-G11).
