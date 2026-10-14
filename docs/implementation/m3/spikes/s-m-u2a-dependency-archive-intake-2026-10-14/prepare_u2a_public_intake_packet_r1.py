@@ -1,0 +1,8 @@
+# U-2a: the accepted r13 intake-packet recipe with only paths, counts and standing changed.
+from pathlib import Path
+import json,hashlib,tempfile,os
+os.setpriority(os.PRIO_PROCESS,0,10)
+B=Path('/tmp/opensip-implementation');D=B/'sm-dependency-source-sets-2026-10-14';O=Path('/var/folders/rq/jfj79dls03s0zb6d839wcqlh0000gn/T');dest=D/'u2a-public-intake-packet-r1.json';assert not dest.exists()
+def ref(p):raw=p.read_bytes();return dict(path=str(p),bytes=len(raw),sha256=hashlib.sha256(raw).hexdigest())
+index=D/'missing-public-index-inputs-u2a/receipt.json';archive=D/'missing-public-archive-inputs-u2a/receipt.json';indices=json.loads(index.read_bytes());archives=json.loads(archive.read_bytes());assert archives['successfulWholeChecksumMatches']==archives['recordsRequested']==sum(i['publishedVersionRecords'] for i in indices['inputs'])==1128 and all(r['success'] for r in archives['archives']);assert len(indices['inputs'])==23
+root=Path(tempfile.mkdtemp(prefix='opensip-u2a-public-intake-r1-',dir=O));root.chmod(0o700);packet=root/'packet.json';packet.write_text(json.dumps(dict(outputRoot=str(root),indexReceipt=ref(index),archiveReceipt=ref(archive)),indent=2)+'\n');dest.write_text(json.dumps(dict(standing='EXACT NEW PUBLIC DEPENDENCY INTAKE PACKET (U-2a); ACCEPTED LOWERCASE SUPPLIED-ENTRY INTAKE',packet=ref(packet),root=str(root),expectedPublicIndexes=23,expectedVersionArchives=1128,expectedArchiveBytes=archives['bytes'],sourceAuthentication=False,nativeAdmission=False,executed=False),indent=2)+'\n');print('Prepared 1128 whole-checksummed public archives / 23 catalog intake packet (U-2a); no execution.')
