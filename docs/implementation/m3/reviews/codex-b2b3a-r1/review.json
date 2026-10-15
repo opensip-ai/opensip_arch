@@ -1,0 +1,43 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "requiredFindings": [
+    {
+      "id": "B2B3A-R1-RF-1",
+      "title": "Apply the accepted S3 file-custody rule before reading a gitdir target",
+      "location": "crates/security/src/custody/project_admission.rs:526-573; tools/security/discovery_upward_vectors.py:160-200; SCOPE.md LD-B2B3A-3",
+      "finding": "gitdir_target checks no-follow identity, one link and size, but receives neither invoking uid nor ProjectChainPolicy and never checks owner, write mode or ACL. It therefore reads and records targets from files that fail S3 configuration-file custody. This is an explicit deviation from accepted PLAN-r2 LD-B2B3-7, which requires the gitdir value to be read under S3 file custody and gives an unavailable target null when custody cannot yield a target. S3:121-130 defines file custody as the directory ownership/mode/readable-ACL rules plus regular/one-link/4-MiB restrictions; the parenthetical bounds do not replace those rules. SCOPE LD-B2B3A-3 unilaterally removes those checks because the target is data, which is insufficient to implement the accepted plan.",
+      "evidence": "The shipped vcs-git-file-foreign-acl-still-read vector has uid:1001 in aclWrite and still expects target /elsewhere. The generator constructs fs[directory].vcs.target with its own gitdir_target helper before calling the bound model. SLM _vcs_info trusts that supplied target and performs no native gitdir-file custody judgment. Regeneration succeeds, but cannot independently justify this adapter decision.",
+      "requiredChange": "Thread the invoking identity, authorized groups and receipt-backed custody policy into the VCS target capture. Apply the accepted S3 file-custody judgment on the retained no-follow descriptor before reading target bytes, with no project-owner waiver on the .git file. Preserve boundary presence and a null target when custody cannot yield a target, while keeping identity changes and budget exhaustion as whole-operation refusals. Update the description adapter, vector expectations and SCOPE, and add native controls for foreign owner, other/group write, untrusted ACL write and unreadable/unadmitted ACL, alongside admissible/authorized controls. If the intended behavior is instead to remove custody, obtain acceptance of that plan change before claiming this unit implements plan r2."
+    }
+  ],
+  "subjectManifestSha256": "1b53ae1a963d42b4c0c9864e8329d4f3a5f51be448574f89123cc0e37522229b",
+  "implementsPlanR2B2b3aRow": false,
+  "rowsFollowCurrentReference": true,
+  "vectorsReproduceReference": true,
+  "vcsEvidenceSoundAndNeverFollowed": false,
+  "gitdirIdentityAndBudgetRefuse": true,
+  "legacySelectionUnchanged": true,
+  "waiverNarrowTypedAndRechecked": true,
+  "discoveryRootLendsOnlyRootPremiseAndHomeCheck": true,
+  "readReleaseFreesFence": true,
+  "leadDecisionsSound": false,
+  "testFailureSetsEqualBase": true,
+  "allTargetsClippyWarningsDenied": true,
+  "controlsCaught": 15,
+  "inventoryUnchanged": 192,
+  "contractSuccessorsUnchanged": 164,
+  "productionCallerAdded": false,
+  "environmentReadAdded": false,
+  "productQualification": false,
+  "entirePlanComplete": false,
+  "nonBlockingObservations": [
+    {
+      "id": "B2B3A-R1-NBO-1",
+      "observation": "gitdir_value strips a trailing CR even without a preceding LF; b\"gitdir: /a\\r\" therefore yields /a. SCOPE specifies optional LF or CRLF. Align that description and parser policy and add a bare-CR vector; the Python adapter currently duplicates the same behavior."
+    },
+    {
+      "id": "B2B3A-R1-NBO-2",
+      "observation": "discovery_refusal is safe only under its documented selection-refusal precondition. The same Chain(PathInvalid(NotFound/NotADirectory)) and Chain(Symlink) variants can also arise in the later chain walk, and the helper alone cannot distinguish them. Document and test the caller-stage guard (for example the selection record's refusal path), or carry explicit selection context before the future seam projects errors from the whole admission."
+    }
+  ]
+}
