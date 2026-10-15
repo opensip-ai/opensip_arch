@@ -1,6 +1,8 @@
-# Configuration and discovery (M3-B) — proposal r4
+# Configuration and discovery (M3-B) — proposal r5
 
-**r4 ACCEPTED 2026-10-04 by GROK2** (`8e0803a8…`; `reviews/grok2-config-discovery-b-r4/`), with no required findings. r4's bytes, without this note, are preserved in `PROPOSAL-r4.md`. This file differs from them only in recording text, for GROK2's observations: the banner (NBO-1), and item 13's Output sentence, which now names `DiscoveryProvenanceV3` for every project (NBO-2). "RBS3" in r4's parentheticals means GROK2's r3 review of this law (`reviews/grok2-config-discovery-b-r3/`) (NBO-3).
+**r5 ACCEPTED 2026-10-14 by Codex** (`reviews/codex-b1b-plan-r3/`, with no required findings, after rounds `codex-b1b-plan-r1` and `codex-b1b-plan-r2`). r5's bytes, without this note, are preserved in `PROPOSAL-r5.md`. r5 is a one-item correction of item 9's enforcement exception list, found while planning unit B1-b; it changes nothing else.
+
+> **r4 ACCEPTED 2026-10-04 by GROK2** (`8e0803a8…`; `reviews/grok2-config-discovery-b-r4/`), with no required findings. r4's bytes, without this note, are preserved in `PROPOSAL-r4.md`. This file differs from them only in recording text, for GROK2's observations: the banner (NBO-1), and item 13's Output sentence, which now names `DiscoveryProvenanceV3` for every project (NBO-2). "RBS3" in r4's parentheticals means GROK2's r3 review of this law (`reviews/grok2-config-discovery-b-r3/`) (NBO-3).
 
 2026-10-04. Drafted for Claude Opus 5.5, implementation lead, during the overnight autonomous run. Law for unit **M3-B** of the accepted M3 unit plan (M3P:160). It covers three sub-units:
 - **B1, the resolver:** Config2 layers, precedence and provenance (AQ:43-53, AQ:102-173), `resolvedConfigDigest` (IE:518-519) and FW-13 (COV:8104).
@@ -12,6 +14,14 @@
 r2 answers GROK2's r1 review (`/tmp/opensip-implementation/reviews/grok2-config-discovery-b-r1/`, copied to `docs/implementation/m3/reviews/grok2-config-discovery-b-r1/`): two required findings and two non-blocking observations. GROK2 confirmed R1 to R7 apart from those findings. The r1 bytes are preserved as `PROPOSAL-r1.md` (sha256 `da014f54…`, 85,905 bytes).
 
 **r3 is a record revision.** GROK2 accepted r2 on 2026-10-04 with no findings (`docs/implementation/m3/reviews/grok2-config-discovery-b-r2/`). The r2 bytes are preserved as `PROPOSAL-r2.md` (sha256 `92e65825…`, 94,762 bytes). The live file carried them with a 2-line acceptance note, which r3 removes. r3 applies only what has since been settled for this law: GROK2's rulings in its review of design unit B-S1, the three bound design units B-S1, B-S2 and B-S9, the acceptance of S1 and S2, and M3-L's cross-law item X10. It also re-pins this law's citations to accepted snapshots. It decides nothing new. The "r3 changes" table comes first, and the "r2 changes" table is kept below it with its reviewed citations. Diff r3 against `PROPOSAL-r2.md`.
+
+## r5 changes
+
+r5 changes item 9's **Enforcement** bullet only. Nothing else in this law changes.
+
+| Finding | Change |
+|---|---|
+| B1-b planning (Codex `codex-b1b-plan-r1`, RF-02) | **The gap.** r4 said the exception list holds "exactly `git_tracking::process_environment` and the test-only crash-matrix seams", and named a file outside both crates. At product `c0151bc`, host and security have seventeen such call sites: one production `vars_os` and sixteen test-only calls, across thirteen test variable names. The test-only calls are the X9 crash-matrix rows, cargo's `RUSTC` and `CARGO`, re-executed child-process markers, and the real `HOME` (one comparison and three installation-absence probes). "Exactly" would forbid them, and the law's author did not know they existed.<br><br>**The change.** r5 enumerates every exception. Each test-only one is confined to a test target and is off the configuration, discovery, declaration-reader and grants paths. Production keeps exactly one read, X2's refusal-only Git check. Any new exception needs a law correction. |
 
 ## r4 changes
 
@@ -298,7 +308,24 @@ Provenance is retained apart from source blobs. It never enters any digest. Doct
 - The resolver, discovery, the declaration readers and `grants.rs` read **no** environment variable. That includes `HOME`, `PATH`, `CI`, `NO_COLOR` and `TERM`.
 - The account home comes from the account database (SL:107-109).
 - The one environment read on these paths stays X2's refusal-only Git check (X2:192; `git_tracking.rs:321-346`), which never selects or relaxes anything.
-- **Enforcement.** `clippy::disallowed_methods` for `std::env::{var, var_os, vars, vars_os}` in `crates/host` and `crates/security`, with an audited exception list. The list holds exactly `git_tracking::process_environment` and the test-only crash-matrix seams (`crates/platform/src/crash_barrier.rs`, which is outside these crates). A planted read is the negative control.
+- **Enforcement (r5).** `clippy::disallowed_methods` for `std::env::{var, var_os, vars, vars_os}` in `crates/host` and `crates/security`, configured by a crate-local `clippy.toml` in each. Each exception is an item-level `#[allow(clippy::disallowed_methods)]` with its reason, and a pin test holds the list exactly:
+  - **Production:** `git_tracking::process_environment` (X2's refusal-only Git check). It is the only production exception.
+  - **Test-only.** Each is confined to a test target (`#[cfg(test)]` code or a `tests/` file), and none is on a configuration, discovery, declaration-reader or grants path:
+    - the X9 crash-matrix seams `OPENSIP_X9_ROWS`, `OPENSIP_X9_RUN_SET`, `OPENSIP_X9_CENSUS_ONLY` and `OPENSIP_X9_RELEASE_ABSENCE` (`crates/host/tests/commit_matrix_tests.rs`);
+    - cargo's `RUSTC` and `CARGO` for compile checks (`crates/host/tests/admission_tests.rs`);
+    - re-executed child-process markers:
+      - the X8c helper and its input file (`admission_tests.rs`);
+      - the journal-store child (`crates/security/src/journal_store.rs` tests);
+      - the fence child `OPENSIP_TEST_FENCE341_CARRIER` and `OPENSIP_TEST_FENCE341_BUSY` (`installation_fence.rs` tests);
+      - the root child `OPENSIP_TEST_ROOT351_CHILD` (`installation_root.rs` tests);
+    - the real `HOME`, read only to compare it against the account-derived home and never used as one (`installation_root.rs` test `installation_root_native_source_ignores_environment_child`);
+    - the real `HOME`, read only to assert that no real installation exists at `HOME/Library/Application Support/OpenSIP`. These are test-only installation-absence probes: they write nothing and use the path for nothing else.
+      - `installation_routing_tests.rs`: `a_development_build_ends_at_f0_with_no_notice_and_no_installation_path`;
+      - `ordinary_writer_tests.rs`: `a_development_build_ends_in_the_no_embedded_release_row`;
+      - `read_premise_tests.rs`: `a_development_build_ends_in_the_no_embedded_release_row`;
+    - the child marker of B1-b's hostile-environment control (unit B1-b).
+
+  `crates/platform/src/crash_barrier.rs` is outside these crates. A planted read in production code is the negative control. Any further exception needs a law correction.
 
 **Lead decision: the resolver gets no exception.** OPP §7 lists the configuration resolver among the audited exception owners (OPP:365-367). With layer 5 constant-empty, an exception would only open a side channel. M3-O records the refinement (finding F7).
 
