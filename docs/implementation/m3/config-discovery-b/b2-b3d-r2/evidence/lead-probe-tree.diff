@@ -1,0 +1,64 @@
+--- /Users/sb/code/opensip-ai/opensip-b2b3d/crates/platform/src/work_ledger.rs	2026-10-15 10:45:39
++++ probe-tree/crates/platform/src/work_ledger.rs	2026-10-15 10:57:48
+@@ -15,9 +15,9 @@
+ const RECORD_LIMIT: usize = 4_194_304;
+ // M3-B r5 item 12 (unit B2-b1): the discovery ledger profile's provisional
+ // caps, 2^20 objects, 2^21 edges and 2^30 bytes, held by the T2 census margin.
+-const DISCOVERY_OBJECT_LIMIT: usize = 1 << 20;
+-const DISCOVERY_EDGE_LIMIT: usize = 1 << 21;
+-const DISCOVERY_BYTE_LIMIT: usize = 1 << 30;
++const DISCOVERY_OBJECT_LIMIT: usize = 1 << 24;
++const DISCOVERY_EDGE_LIMIT: usize = 1 << 23;
++const DISCOVERY_BYTE_LIMIT: usize = 1 << 34;
+ 
+ #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+ pub struct Cost {
+--- /Users/sb/code/opensip-ai/opensip-b2b3d/crates/security/src/custody/discovery_walk_tests.rs	2026-10-15 11:42:18
++++ probe-tree/crates/security/src/custody/discovery_walk_tests.rs	2026-10-15 11:42:27
+@@ -1514,4 +1514,46 @@
+     let (_, at) = walk_under(&root, low);
+     assert!(observes_a_child(&at));
+     assert!(low > 512 * std::mem::size_of::<ChildObservation>());
++}
++
++// LEAD PROBE (throwaway tree, never committed): the native walker over real lead-readable T2 stores, with raised limits.
++#[test]
++#[ignore]
++fn b2b4_probe_real_stores() {
++    let store = "/Users/sb/code/.opensip-implementation-cache/t2-corpus-c8cc48e1/store/";
++    for (id, digest) in [
++        ("rs-small-tower", "4f0375545ceec0011c535ba4a8737fb1653361c10dc43bdb5f527cfcbe71528e"),
++        ("ts-very-large-aws-cdk", "5a0a8f7f4fff79a4ea7fa9dec93e4e1992168d493bfc7cd888d5d403bbf2f736"),
++        ("ts-very-large-aws-sdk-js-v3", "e3ab76cd59cb02fe750511abbcb3debb885545ce9c3d04a5171a87a426aeb1fd"),
++        ("rs-very-large-aws-sdk-rust", "df03383aff96769db756e2fdc84ab308e23e88d233dc31c77eadb273e4721b70"),
++    ] {
++        let root = PathBuf::from(format!("{store}{digest}"));
++        let lent = Lent::new(&root);
++        let groups = AuthorizedGroups::from_invocation(&[]).unwrap();
++        let source = UnitSourceRequest::Automatic;
++        let mut ledger = WorkLedger::discovery_profile();
++        let started = std::time::Instant::now();
++        let r = ledger.scope(|work| {
++            walk(
++                &lent.root(),
++                &WalkRequest {
++                    source: &source,
++                    invoking_uid: uid(),
++                    groups: &groups,
++                    waiver: None,
++                },
++                work,
++            )
++        });
++        let used = ledger.used();
++        println!(
++            "B2B4-PROBE {id} ok={} objects={} edges={} bytes={} rootlen={} ms={}",
++            r.is_ok(),
++            used.objects,
++            used.edges,
++            used.bytes,
++            root.to_str().unwrap().len(),
++            started.elapsed().as_millis()
++        );
++    }
+ }
