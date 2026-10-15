@@ -1,6 +1,8 @@
-# Configuration and discovery (M3-B) — proposal r6
+# Configuration and discovery (M3-B) — proposal r7
 
-**r6 ACCEPTED 2026-10-16 by Codex** (`reviews/codex-m3b-r6-r2/`, with no required findings, after round `codex-m3b-r6-r1`). r6's bytes, without this note, are preserved in `PROPOSAL-r6.md`. r6 is a one-item revision of item 12's discovery ledger caps, returned to this law by the T2 census (units B2-b4a and B2-b4b1); it changes nothing else.
+**r7 ACCEPTED 2026-10-16 by Codex** (`reviews/codex-m3b-r7-r1/`, with no required findings). r7's bytes, without this note, are preserved in `PROPOSAL-r7.md`. r7 is a recording revision of item 12: it writes in the discovery ledger caps that r6's rule gives from the redesigned walker's census (unit B2-b3d): 2^22 objects, 2^21 edges and 2^30 bytes.
+
+> **r6 ACCEPTED 2026-10-16 by Codex** (`reviews/codex-m3b-r6-r2/`, with no required findings, after round `codex-m3b-r6-r1`). r6's bytes, without this note, are preserved in `PROPOSAL-r6.md`. r6 is a one-item revision of item 12's discovery ledger caps, returned to this law by the T2 census (units B2-b4a and B2-b4b1); it changes nothing else.
 
 > **r5 ACCEPTED 2026-10-14 by Codex** (`reviews/codex-b1b-plan-r3/`, with no required findings, after rounds `codex-b1b-plan-r1` and `codex-b1b-plan-r2`). r5's bytes, without this note, are preserved in `PROPOSAL-r5.md`. r5 is a one-item correction of item 9's enforcement exception list, found while planning unit B1-b; it changes nothing else.
 
@@ -16,6 +18,29 @@
 r2 answers GROK2's r1 review (`/tmp/opensip-implementation/reviews/grok2-config-discovery-b-r1/`, copied to `docs/implementation/m3/reviews/grok2-config-discovery-b-r1/`): two required findings and two non-blocking observations. GROK2 confirmed R1 to R7 apart from those findings. The r1 bytes are preserved as `PROPOSAL-r1.md` (sha256 `da014f54…`, 85,905 bytes).
 
 **r3 is a record revision.** GROK2 accepted r2 on 2026-10-04 with no findings (`docs/implementation/m3/reviews/grok2-config-discovery-b-r2/`). The r2 bytes are preserved as `PROPOSAL-r2.md` (sha256 `92e65825…`, 94,762 bytes). The live file carried them with a 2-line acceptance note, which r3 removes. r3 applies only what has since been settled for this law: GROK2's rulings in its review of design unit B-S1, the three bound design units B-S1, B-S2 and B-S9, the acceptance of S1 and S2, and M3-L's cross-law item X10. It also re-pins this law's citations to accepted snapshots. It decides nothing new. The "r3 changes" table comes first, and the "r2 changes" table is kept below it with its reviewed citations. Diff r3 against `PROPOSAL-r2.md`.
+
+## r7 changes (recording revision)
+
+r7 records the caps in item 12's caps bullet and updates the "Not claimed" line. It changes no rule, option or decision of r6.
+
+| Input (bound) | Value |
+| --- | --- |
+| **B2-b3d**, the walker storage redesign r6 requires (`b2-b3d-r2-unit.json`; Codex `codex-b2b3d-r2`) | Its census (the census tool regenerated for the redesigned walker, over the same integrity-verified lead-readable stores and composed workspaces) gives the largest entries: objects 1,476,438 (`aws-sdk-rust`), edges 1,007,224 (`aws-sdk-rust`), bytes 358,480,897 at R = 4,096 (`aws-sdk-rust`; 358,476,801 + 1·R). |
+| **The lead probe** of the redesigned walker (B2-b3d evidence) | It matches the census exactly on four real stores. |
+
+**The arithmetic, by r6's rule** (the smallest power of two at least twice the largest censused entry; bytes at R = 4,096):
+
+| Dimension | 2 × largest | Cap | Margin over the largest |
+| --- | --- | --- | --- |
+| objects | 2,952,876 | 2^22 = 4,194,304 (2^21 = 2,097,152 is short) | 2.84× |
+| edges | 2,014,448 | 2^21 = 2,097,152 (unchanged) | 2.08× |
+| bytes | 716,961,794 | 2^30 = 1,073,741,824 (unchanged; 2^29 = 536,870,912 is short) | 2.99× |
+
+**What stays outstanding:**
+- **Workspace rows:** walker-only until B3-b's reviewed member-observation bound (r6). Their full-ledger margin is not claimed.
+- **The held-out entries:** their margin is outstanding (item 12; plan r4 of B2-b, LD-B2B-4).
+
+B2-b4b3 changes the platform constants to these caps and turns the margin test to the full claim for the lead-readable repository entries.
 
 ## r6 changes
 
@@ -415,7 +440,7 @@ Provenance is retained apart from source blobs. It never enters any digest. Doct
 - **Upward selection stays X2b's**, under the fence, as built (`project_admission.rs:303-384`).
 - **Downward unit discovery and the D15 member observation** run **after** the installation fence is released, through X2's handoff (X2:231-248) or the read session's equivalent release. They run over the root descriptor that the operation context retains.
 - **Discovery ledger profile (lead decision).** They are charged to one **discovery ledger** per invocation. It is created once, after the handoff, and never recreated after a failure (`work_ledger.rs:1-8`).
-- **Its caps.** Its profile raises the platform's hard caps for this ledger only. A new constructor in `crates/platform/src/work_ledger.rs` is needed, because `with_limits` can only lower the caps (`:205-213`). Provisional caps: 2^20 objects, 2^21 edges and 2^30 bytes. **(r6)** These failed the census (r6 changes). They stand, with no margin claimed, until the census of the redesigned walker (below) sets new caps by the rule in the next bullet. The new caps are written into this item by a recording revision that shows the arithmetic. No cap is chosen by hand.
+- **Its caps.** Its profile raises the platform's hard caps for this ledger only. A new constructor in `crates/platform/src/work_ledger.rs` is needed, because `with_limits` can only lower the caps (`:205-213`). Provisional caps: 2^20 objects, 2^21 edges and 2^30 bytes. **(r6)** These failed the census (r6 changes). They stand, with no margin claimed, until the census of the redesigned walker (below) sets new caps by the rule in the next bullet. The new caps are written into this item by a recording revision that shows the arithmetic. No cap is chosen by hand. **(r7, recorded)** The redesigned walker's census (unit B2-b3d) sets the caps: **2^22 objects, 2^21 edges and 2^30 bytes**. The arithmetic is in "r7 changes". The lead-readable repository entries hold at least a 2× margin in every dimension; workspace rows are walker-only until B3-b's bound, and the held-out margin is outstanding.
 - **Walker storage (r6, lead decision).** Discovery's per-entry storage carries no absolute spelling, and no listed name is stored twice:
   - the observed scope is keyed by root-relative path;
   - each child is observed and opened by name from its parent's retained descriptor;
@@ -1004,5 +1029,5 @@ Each item lists its own. Across all items:
 - No command is wired; CLI delivery is M4 (BP:887-888). There is no Linux or AL2023 claim.
 - No confinement claim. No provider launches under this law (ML item 17; M3P:308).
 - D15's analysis value at M3 is bounded by findings F2 to F4. There is no cross-unit resolution and no Python link.
-- The member cap (64) is provisional. **(r6)** The discovery ledger caps are provisional until the redesigned walker's census sets them; the T2 census found the r5 caps short (item 12, r6 changes). No held-out margin is claimed, and no workspace's full-ledger margin is claimed before B3-b's member-observation bound is reviewed.
+- The member cap (64) is provisional. **(r7)** The discovery ledger caps are recorded from the redesigned walker's census (2^22 objects, 2^21 edges, 2^30 bytes; item 12, r7 changes). No held-out margin is claimed, and no workspace's full-ledger margin is claimed before B3-b's member-observation bound is reviewed.
 - T3, the real Amazon instance, waits on OQ-1 and the licence (AQP:217).
