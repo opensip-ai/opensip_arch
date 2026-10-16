@@ -1,0 +1,58 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectManifestSha256": "9bcfdf22d792e7135aeef8ba99b8a08668e857e1fcf2c4a7332385188ef14bb2",
+  "requiredFindings": [
+    {
+      "id": "B3B2B2B-R2-RF-1",
+      "priority": "P1",
+      "title": "The first branch-A trial still crosses index-only repository boundaries",
+      "locations": [
+        "crates/security/src/custody/workspace_discovery.rs:171-187",
+        "crates/security/src/custody/workspace_discovery.rs:254-269",
+        "crates/security/src/custody/discovery_walk.rs:1047-1110"
+      ],
+      "finding": "R1 RF-1 is only partly resolved. The final walk receives admitted gitlinks, but the initial branch-A trial always receives an empty gitlink set. That trial can already enter and list an index-only nested repository, and any refusal or native error from that traversal returns before item 6b discovers the boundary. For example, use a valid member repos/a, an index gitlink sub with no physical sub/.git, and array root repos/a/sub/x. Make x world-writable. The first trial traverses sub and custody-refuses x; phase_two immediately returns TrialRefused, so the gitlink-aware re-walk never occurs. With the nested-repository boundary present, the required result is JOIN_CROSSES_NESTED_REPOSITORY before custody below that boundary. Similarly, selecting repos/a itself can cause an invalid listed name or I/O failure inside sub to abort discovery even though that subtree must stay outside the walk. The five new cases use benign interiors and do not expose this. LD-10 also explicitly discloses a second precedence divergence when another member refuses before the gitlink-aware re-walk. A later corrected record cannot undo observations the first trial was forbidden to make.",
+      "requestedChange": "Resolve the gitlink/trial ordering so no trial descent or result is authorized by a provisional assumption that index-only boundaries do not exist. Preserve the accepted cap and short-circuit requirements; if their reconciliation requires changing the accepted plan or reference, resolve and bind that authority explicitly rather than declaring the mixed case unmodeled. A re-walk after an already completed unrestricted trial is insufficient.",
+      "validation": "Add both array-source controls for a join through a gitlink whose descendant fails custody, and for a selected member root whose gitlink subtree would fail listing. Assert the boundary result and that the first walk never enters the gitlink interior. Add the mixed gitlink-crossing/other-member-refusal case and bind its precedence to the accepted authority."
+    },
+    {
+      "id": "B3B2B2B-R2-RF-2",
+      "priority": "P1",
+      "title": "Item 6b does not bind its reopened ancestors to the custody-judged chain",
+      "locations": [
+        "crates/security/src/custody/git_tracking.rs:1369-1381",
+        "crates/security/src/custody/git_tracking.rs:1420-1464",
+        "crates/security/src/custody/workspace_observation.rs:599-610"
+      ],
+      "finding": "R1 RF-3 is only partly resolved. observe_identified returns the final member directory sample, overwriting sampled on each path component; NativeObservation binds only candidate. The session independently opens and samples every ancestor but never compares those objects to Bindings. A branch-A counterexample preserves the member inode: after phase-two custody of repos and repos/a, at before-verdict, rename repos to an aside, create a replacement repos directory with mode 0777, and move the original a directory into the replacement. Item 6b now traverses the new, unjudged repos, checks only its device and VCS-marker absence, and admits the original a inode. The final-member bind succeeds. With no gitlinks the accepted trial is reused, so no later bound walk observes the replacement ancestor. Discovery can therefore accept despite traversing a parent different from the one whose custody passed. The existing replacement controls replace the member inode as well and consequently miss this case. The session likewise does not share the table for its independently opened .git evidence.",
+      "requestedChange": "Bind or compare the actual directory chain used by item 6b, not only its final member sample. Use the shared identity checks at the corresponding opens, or pass the already bound retained chain into the session. Preserve the existing unbound observe/observe_members behavior and charges where required. Include the Git objects already observed by placement/walking in the promised cross-observer identity consistency.",
+      "validation": "Add a branch-A before-verdict control that replaces an ancestor while moving the original member into it, preserving the member inode, with the new ancestor failing custody. Require a change before admission. Also control replacement of a previously bound .git directory while preserving M, and mutate ancestor/evidence comparisons independently of the final-M comparison."
+    },
+    {
+      "id": "B3B2B2B-R2-RF-3",
+      "priority": "P2",
+      "title": "A provider manifest can be read only once per phase",
+      "locations": [
+        "crates/security/src/custody/workspace_observation.rs:460-472",
+        "crates/security/src/custody/workspace_observation.rs:535-550",
+        "crates/security/src/custody/workspace_declarations.rs:1066-1068",
+        "crates/security/src/custody/workspace_declarations.rs:1158-1165"
+      ],
+      "finding": "bytes removes the retained descriptor from files. A subsequent custody_entry for the same path returns the cached custodied entry and does not restore the descriptor, so the second bytes call fails with Invariant(\"bytes-without-descriptor\"). The accepted decision core legitimately calls manifest for each declaration entry before deduplicating links. For example, two Cargo patch sources can both name package a at repos/a, giving two distinct entries but the same repos/a/Cargo.toml. The first link succeeds and the second fails the entire discovery. Even two patch names pointing to one directory, one of which should merely disclose a name mismatch, trigger this failure. The synthetic decision adapter supports repeated reads; the native implementation no longer does.",
+      "requestedChange": "Support repeated valid requests for the same file, preferably through an accounted cache of the already validated bytes or parsed manifest. If retaining and rereading the descriptor instead, reset its offset and preserve the custody/post-read checks; simply leaving it open at EOF is not a fix. Keep the record and link semantics equal to the reference.",
+      "validation": "Add a real composition vector with two distinct Cargo patch-source entries targeting one provider manifest, and another with a repeated target whose package name mismatches one entry. Both must complete with the reference record and links, without an invariant failure. Exercise both membership branches."
+    }
+  ],
+  "nonBlockingObservations": [
+    {
+      "id": "B3B2B2B-R2-NBO-1",
+      "title": "The internal partial and retained-read fixes are acceptable",
+      "observation": "LD-1 remains acceptable: the complete result has the provenance serializer, while the pending core is an internal partial. R1 RF-2 is resolved for the reported native-stack mismatch: opens and observations bind the object, and directory custody captures the bound retained descriptor. R1 RF-4 is resolved for a single consumption: bytes uses the captured descriptor and validates full status and normalized ACL after the provisional bounded read, before releasing bytes. RF-3 above identifies a separate repeated-consumption regression."
+    },
+    {
+      "id": "B3B2B2B-R2-NBO-2",
+      "title": "Retired-mutation and access-control limits are now stated accurately",
+      "observation": "The .git-file-as-directory mutation remains redundant with unchanged item-6b layout refusal for its stated case. Retiring trial-refusal-keeps-members is justified only as equivalent on the covered vectors, not globally; r2 correctly says so and retains the clearing code. The access trace checks native-observation request paths, including an explicit gitlink opensip.json probe allowance, but does not cover the initial trial walker or individually trace item-6b operations. Its passes therefore do not settle RF-1 or RF-2. The missing late-refusal and host-read-error controls are disclosed; the oversize fixture exercises metadata refusal before reading, rather than a bounded-read error followed by postchecks."
+    }
+  ]
+}

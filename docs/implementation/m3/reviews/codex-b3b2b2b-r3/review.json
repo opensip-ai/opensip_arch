@@ -1,0 +1,35 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectManifestSha256": "9cf1081d5d4b13ddf583e84f2aa110730c94183cf772fe672f9aa7ee46c03c38",
+  "requiredFindings": [
+    {
+      "id": "B3B2B2B-R3-RF-1",
+      "priority": "P2",
+      "title": "Charge a cached read copy before cloning its buffer",
+      "location": "crates/security/src/custody/workspace_observation.rs:540-547",
+      "finding": "The cache-hit path executes kept.clone() before work.charge(owned(raw.len())). FileBytes::Read owns a Vec, so this allocates and copies up to 4 MiB before asking whether the original discovery ledger can fund the copy. With less remaining byte/object budget than the copy needs, the operation performs that storage work and only then returns Budget. The first cache insertion charges before its clone; the repeated-read path must preserve the same ordering. The repeated-manifest vectors show functional reuse, but do not establish the charge-before-allocation requirement.",
+      "requestedChange": "Inspect the borrowed cached outcome, charge the complete copy cost on the original ledger first, and only then clone it. Preserve non-latching ordinary outcomes and the existing validated-byte semantics.",
+      "validation": "Add a focused exhausted/insufficient-budget control for a repeated validated read, showing that the cache copy is not performed when its charge refuses. Keep the existing repeated-provider composition vectors and add a mutation or equivalent observation that distinguishes charge-before-copy from charge-after-copy."
+    },
+    {
+      "id": "B3B2B2B-R3-RF-2",
+      "priority": "P2",
+      "title": "Account the new identity collector storage before constructing it",
+      "locations": [
+        "crates/security/src/custody/git_tracking.rs:1363-1388",
+        "crates/security/src/custody/git_tracking.rs:1453-1456",
+        "crates/security/src/custody/git_tracking.rs:1478-1491"
+      ],
+      "finding": "The new MemberIdentities collector constructs an owned prefix path and appends a metadata record for every opened directory, then constructs additional Git-object labels and records, without charging that additional retained storage. Reusing an already charged native status sample does not pay for these new path buffers or Vec growth. STATUS is explicitly a status-read cost (objects 0, edges 1, bytes 512); it is not a path-length-dependent owned-record allowance. A deep member adds the sum of all prefix lengths, not just the member spelling once. Most ancestor/M bindings already exist, so the later native bind calls usually charge nothing; even a newly charged binding pays for another map record after the identity list already exists. Moreover, observe now calls observe_identified and discards the list, adding this allocation work to the legacy path despite the unchanged-charge claim. This is a runtime-accounting issue, separate from the later census upper-bound derivation.",
+      "requestedChange": "Fund the identity list slots, owned path bytes and their growth before constructing them, or replace the collector with an explicitly accounted/borrowed mechanism that checks identities at the owning boundary. Preserve the legacy observe/observe_members charge contract by making identity collection opt-in if necessary; do not preserve a charge-equality test by leaving new work uncharged. Update the no-new-charge claim and any affected evidence.",
+      "validation": "Add deep/shared-path identity accounting controls and an insufficient-budget control demonstrating refusal before the new owned records are allocated. Preserve the independent ancestor, member and Git-evidence identity mutations and the existing legacy observe/observe_members verdict-and-charge checks."
+    }
+  ],
+  "nonBlockingObservations": [
+    {
+      "id": "B3B2B2B-R3-NBO-1",
+      "title": "The second lane attempt also failed formatting",
+      "observation": "SCOPE says the second attempt failed only on the member-identity mutation survivor, but attempt2/checks.json also records rustfmt-edited exit 1. The final attempt records both formatting and mutations passing, so this history wording does not block the final checks; align the description when refreshing the package."
+    }
+  ]
+}

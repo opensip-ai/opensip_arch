@@ -1,0 +1,75 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectManifestSha256": "68e817efdd5c8f960279913e10653685632d2617e76f663ca1427dc365e5de13",
+  "requiredFindings": [
+    {
+      "id": "B3B2B2B-R1-RF-1",
+      "priority": "P1",
+      "title": "Carry admitted index gitlinks into discovery boundaries",
+      "locations": [
+        "crates/security/src/custody/workspace_observation.rs:510-513",
+        "crates/security/src/custody/workspace_discovery.rs:230-250",
+        "crates/security/src/custody/discovery_walk.rs:922-935"
+      ],
+      "finding": "member_verdict converts MemberVerdict::Admitted { gitlinks } to None and discards every gitlink. Neither the composition nor WalkRequest has another route for this evidence. The walker discovers nested repositories from physical VCS markers only. A real admitted member whose index contains a mode-160000 path sub, with an ordinary populated sub directory and no physical sub/.git, is therefore traversed as an ordinary directory. A Cargo.toml or package.json below sub can become a unit, and an exact join through sub can succeed. Law M3-B r9 item 21 explicitly makes an index gitlink a nested-repository boundary; item 22 preserves those boundaries. This is a static-input error, independent of races and C1 snapshot work. The 19 vectors use git init members without gitlink index entries, so record equality against their marker-only reference inputs cannot catch it.",
+      "requestedChange": "Preserve the admitted gitlink paths and apply them to the discovery population, nested-repository provenance and exact-join checks before returning the complete result. Branch A must also respect this evidence when deciding whether its earlier trial remains usable. Extend the reference/control representation as necessary without treating a physical .git marker as a substitute for index-only evidence.",
+      "validation": "Add composition controls for a real valid member index with a gitlink at a populated directory lacking a physical VCS marker: automatic discovery must not enter it, an exact join crossing it must refuse, and descendants must not supply admitted links. Cover both membership branches and a mutation that drops gitlink evidence."
+    },
+    {
+      "id": "B3B2B2B-R1-RF-2",
+      "priority": "P1",
+      "title": "Bind retained stack directories to the objects custody judges",
+      "locations": [
+        "crates/security/src/custody/workspace_observation.rs:116-149",
+        "crates/security/src/custody/workspace_observation.rs:298-305",
+        "crates/security/src/custody/workspace_observation.rs:364-370"
+      ],
+      "finding": "directory records neither its newly opened directory sample in seen nor checks retained entries in the keep prefix against later observations. The carrier call order exposes this within one phase: probing .cargo/config.toml first opens and retains .cargo A before .cargo itself is observed. Replace W/.cargo with directory B before the subsequent carrier-parent custody lookup. entry(.cargo) now observes and ACL-captures B through W, while directory(\"\") leaves the stack containing A. bytes(.cargo/config.toml) reuses A because the keep prefix is skipped, without comparing it to seen[.cargo] = B. The original file identity check still passes. Thus custody of B can authorize a read through A, including when A itself would fail directory custody. The same-object guarantee in A3 is not met even within the advertised per-phase scope.",
+      "requestedChange": "Give every opened directory a durable object binding, reconcile later by-name entry observations with it, and validate retained prefix entries before reusing them. A disagreement must produce the existing change refusal before a read or listing; do not let an independently captured directory replace the custody evidence for the descriptor actually used.",
+      "validation": "Add a deterministic hook/control that swaps .cargo between the carrier-name probes and parent custody, with A failing custody and B passing. Require a change/refusal and no carrier read through A. Also exercise a reused multi-component prefix and a mutation disabling retained-prefix identity comparison."
+    },
+    {
+      "id": "B3B2B2B-R1-RF-3",
+      "priority": "P1",
+      "title": "Preserve object bindings across phases, trial walking and item 6b",
+      "locations": [
+        "crates/security/src/custody/workspace_discovery.rs:141-166",
+        "crates/security/src/custody/workspace_discovery.rs:230-233",
+        "crates/security/src/custody/workspace_observation.rs:489-513"
+      ],
+      "finding": "LD-2 drops the first observation and all its bindings before constructing a fresh phase-two observation. The trial walk has independent bindings, and MemberSession also reopens the member path independently of NativeObservation. Consequently each observer can consistently inspect a different inode at the same spelling without detecting a change. For example, phase one places M and the accepted trial discovers M/pkg in directory A; replacing M with a conventional same-volume repository B before phase two lets placement, custody and 6b succeed on B while the final result reuses units and provenance from A. B need not even contain pkg. Independently, swapping a candidate between member_custody and session.observe gives the session a directory other than the one the decision custody-judged. C1 later rechecks snapshot bytes; it cannot retroactively bind this discovery result to the objects that produced its placement, links and trial outcome. A3 explicitly requires a path seen twice to be the same object.",
+      "requestedChange": "Carry and compare the relevant native object bindings across the phase handoff and the walker/6b interfaces. Reusing an accepted trial is sound only after establishing the required consistency with the later member decision. Retained descriptors or explicit compared samples can implement this; a new ledger or an assumption about future snapshot checks cannot.",
+      "validation": "Add deterministic composition controls replacing a member after an accepted trial and between member custody and 6b. Require the existing change/refusal behavior before emitting an accepted combined record, and add a mutation that removes the cross-observer binding comparison. This asks for the planned object-identity consistency, not an atomic snapshot of every file."
+    },
+    {
+      "id": "B3B2B2B-R1-RF-4",
+      "priority": "P1",
+      "title": "Read carriers from custody-bound descriptors and validate their capture",
+      "locations": [
+        "crates/security/src/custody/workspace_observation.rs:342-358",
+        "crates/security/src/custody/workspace_observation.rs:456-482",
+        "crates/security/src/custody/discovery_walk.rs:282-284"
+      ],
+      "finding": "observe opens a regular file for ACL capture and then drops that descriptor. bytes opens it again by name, and its only validation is same_object, which compares device, inode and file type, not custody metadata or ACL. For a carrier captured as 0644, changing that same inode to 0666 or adding an unauthorized write ACL before bytes leaves the comparison true, so its newly writable contents are read and used under the old custody verdict. There is also no post-read capture/stability check before exposing the buffer. Plan r2 section 3 requires carrier reads under S3 config-file custody from retained descriptors. C1 snapshot custody does not cover these already-consumed declaration carrier bytes.",
+      "requestedChange": "Retain the descriptor whose capture supplies carrier custody and read from that descriptor, with the accounted validation needed to keep the metadata/ACL custody sample applicable to the read. Handle ordinary bounded-read outcomes provisionally so required checks can finish without latching, and expose bytes only after validation succeeds. Apply the same custody-binding discipline to provider-manifest reads.",
+      "validation": "Add controls changing mode and ACL on the same inode between capture and read, plus a change during the bounded read. They must not yield usable carrier/provider bytes under the stale custody verdict. Include ordinary oversize/read-failure cases to show the necessary checks remain funded and non-latching where required."
+    }
+  ],
+  "nonBlockingObservations": [
+    {
+      "id": "B3B2B2B-R1-NBO-1",
+      "title": "Keeping an unexportable pending partial satisfies the completion requirement",
+      "observation": "LD-1 is acceptable: DiscoveryResultV3 is the complete serializable discovery result, the scenario consumes that result, and DiscoveryProvenancePending remains an internal walker/core partial without a provenance serializer. Removing the type name itself is unnecessary. This does not waive any of the object-binding findings."
+    },
+    {
+      "id": "B3B2B2B-R1-NBO-2",
+      "title": "Retired mutations have different evidentiary standing",
+      "observation": "Treating a .git file as a directory at the placement gate is plausibly equivalent for the stated case because unchanged 6b independently refuses git-not-directory. Keeping members on a refused trial is only shown equivalent on these 19 vectors; SCOPE itself leaves later refusal populations, including the unit cap, unproved. Retiring a redundant vector mutation is reasonable, but do not claim global semantic equivalence. Preserve the clearing code and preferably add a late-refusal case whose incoming provenance actually contains members."
+    },
+    {
+      "id": "B3B2B2B-R1-NBO-3",
+      "title": "Access tracing checks the advertised paths but does not establish custody consistency",
+      "observation": "The control checks core requests against the reference consulted/read/listed sets and traced native operations against requested paths, ancestor opens and marker lookups. This is useful for the covered static trees. It does not compare object identities, and calls inside the reused MemberSession/platform helpers are not individually included in this trace. Existing item-6b controls remain relevant; passing this access check does not settle RF-1 through RF-4."
+    }
+  ]
+}

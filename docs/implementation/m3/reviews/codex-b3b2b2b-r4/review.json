@@ -1,0 +1,20 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectManifestSha256": "e20a637d387a33b7c3b35eed9ed002a43f6629ebc310c7b1e4ae19d483f0a02b",
+  "requiredFindings": [
+    {
+      "id": "B3B2B2B-R4-RF-1",
+      "priority": "P2",
+      "title": "The identity charge does not bound the buffers its builders allocate",
+      "locations": [
+        "crates/security/src/custody/git_tracking.rs:1427-1444",
+        "crates/security/src/custody/git_tracking.rs:1459-1466",
+        "crates/security/src/custody/git_tracking.rs:1540-1541"
+      ],
+      "finding": "R3 RF-2 is only partly resolved. Identity collection is now opt-in and a charge precedes each build, but identity_cost prices final path length plus one tuple slot plus owned\u2019s 128-byte allowance. This does not bound the actual requested buffers. First, an initially empty MemberIdentities grows through Vec::push: the pinned Rust 1.95 RawVec allocates at least four slots for an element of this size. Let S be the tuple size. The first one-byte identity is charged S + 129 bytes, but the list buffer alone requests 4*S bytes. DescriptorMetadata plus Vec makes S greater than 128/3, so even the raw slot allocation exceeds the whole record allowance. Second, label_in_git starts with member.to_vec() and extends it. For a long member spelling of length L, adding /.git grows the path buffer to about 2*L on this toolchain, while the charge uses only L plus the short suffix and fixed overhead. The debug assertion checks length, not capacity or requested growth. The new controls compare charges to identity_cost itself and prove ordering, but cannot detect these under-sized charges.",
+      "requiredChange": "Fund the list capacity and path-buffer allocation/growth that the identified path actually requests, before those allocations. One option is to charge and reserve a known bounded identity-list capacity up front, then build Git labels once at their computed final capacity. Alternatively account each explicit buffer growth using a reviewed bound. Keep collection opt-in and preserve the legacy observe/observe_members charge path. Do not rely on the fixed 128-byte record allowance to absorb path-length-dependent growth or the initial multi-slot Vec allocation.",
+      "validation": "Add independent requested-storage controls for the first identity in an empty list, a list growth boundary, and a long member spelling producing .git/config/index labels. Assert the actual requested capacities fit the precharged bound, including the tight-budget case. Retain charge-order, legacy equality and identity-binding controls, and add an under-sized-cost mutation rather than only missing/reordered-charge mutations."
+    }
+  ],
+  "nonBlockingObservations": []
+}
