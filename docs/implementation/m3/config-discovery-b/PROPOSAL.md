@@ -1,6 +1,8 @@
-# Configuration and discovery (M3-B) — proposal r9
+# Configuration and discovery (M3-B) — proposal r10
 
-**r9 ACCEPTED 2026-10-16 by Codex** (`reviews/codex-m3b-r9-r1/`, with no required findings). r9's bytes, without this note, are preserved in `PROPOSAL-r9.md`. r9 amends item 14a's reading grammar: a whitespace-and-comments file reads as an empty object, and the root value and `compilerOptions` must be objects; it changes nothing else.
+**r10 ACCEPTED 2026-10-16 by Codex** (`reviews/codex-m3b-r10-r2/`, with no required findings, after round `codex-m3b-r10-r1`). r10's bytes, without this note, are preserved in `PROPOSAL-r10.md`; round 1's in `PROPOSAL-r10-round1.md`. r10 amends item 14a's bounds: a file's `extends` array holds at most 64 entries and a node's canonical path at most 4,096 characters, both `native.typescript-config-bound`, and names successor S10b, which rewrites the remedy to name every bound; it changes nothing else. The r9 banner it succeeds read:
+
+> **r9 ACCEPTED 2026-10-16 by Codex** (`reviews/codex-m3b-r9-r1/`, with no required findings). r9's bytes, without this note, are preserved in `PROPOSAL-r9.md`. r9 amends item 14a's reading grammar: a whitespace-and-comments file reads as an empty object, and the root value and `compilerOptions` must be objects; it changes nothing else.
 
 > **r8 ACCEPTED 2026-10-16 by Codex** (`reviews/codex-m3b-r8-r3/`, with no required findings, after rounds `codex-m3b-r8-r1` and `codex-m3b-r8-r2`). r8's bytes, without this note, are preserved in `PROPOSAL-r8.md`. r8 adds item 14a, the pre-Plan TypeScript configuration graph and effective `allowJs`, with successor S10; it changes nothing else.
 
@@ -23,6 +25,26 @@ r2 answers GROK2's r1 review (`/tmp/opensip-implementation/reviews/grok2-config-
 
 **r3 is a record revision.** GROK2 accepted r2 on 2026-10-04 with no findings (`docs/implementation/m3/reviews/grok2-config-discovery-b-r2/`). The r2 bytes are preserved as `PROPOSAL-r2.md` (sha256 `92e65825…`, 94,762 bytes). The live file carried them with a 2-line acceptance note, which r3 removes. r3 applies only what has since been settled for this law: GROK2's rulings in its review of design unit B-S1, the three bound design units B-S1, B-S2 and B-S9, the acceptance of S1 and S2, and M3-L's cross-law item X10. It also re-pins this law's citations to accepted snapshots. It decides nothing new. The "r3 changes" table comes first, and the "r2 changes" table is kept below it with its reviewed citations. Diff r3 against `PROPOSAL-r2.md`.
 
+
+## r10 changes
+
+r10 amends one bullet of item 14a ("Reading", "Bounds"), its `native.typescript-config-bound` row, step 3 of its public termination (the remedy), and its controls; adds successor row **S10b** to item 25; and adds one "Not claimed" line. Nothing else changes.
+
+**(Round 2, Codex `codex-m3b-r10-r1`, M3BR10-R1-RF-1.)** Round 1 said the remedy "already says to keep the graph within its bounds". That is item 14a's summary of the remedy, not S10's accepted text. The registered remedy (both S10 native-model copies, `s10-tsc/reference/native_evidence_model.py` and `.v2.py`, and the product carrier `REMEDY_TYPESCRIPT_CONFIG_UNRESOLVED` in `crates/host/src/outcomes.rs`) says "keep each file within 64 KiB and the graph within 32 files". A well-typed file with 65 repeated entries naming one present base is within both, so that text would be false for r10's refusal. Round 2 therefore requires a narrow successor, S10b, that rewrites only the remedy string. The public code, the four alias rows and the D9 row (request-rejected, exit 2, `CONFIG.INVALID`) are unchanged.
+
+**Why.** Item 14a says C2's `TypeScriptConfigProjectionV2` and its `TypeScriptConfigGraphV1` "use the same function and the same resolution, so the two cannot describe different graphs". That holds only if every graph item 14a admits is an admissible `TypeScriptConfigGraphV1` record. Checking each of that record's constraints (NE:1332-1340; the product schema `schemas/sources/native-v2.schema.json`, `$defs/TypeScriptConfigGraphV1`) against item 14a finds two that item 14a does not bound:
+- **`nodes[].extendsResolved` has `maxItems: 64`.** Item 14a bounds file bytes and graph nodes, not edges per node, and it keeps every edge, repetitions included. A 64 KiB file can hold an `extends` array of thousands of entries naming one or two files. Item 14a would settle its effective `allowJs`, but its graph has no admissible record. This is O-1 as B2-c2 recorded it.
+- **`CanonicalPath` has `maxLength: 4096`** (characters), and every node `path` and edge is one. Discovery bounds a unit root at 4,096 characters (`InternalUnitRootV1`), so the entry `D/tsconfig.json` can already exceed it by up to 14 characters, and a base reached through deeper directories can exceed it further.
+
+Every other constraint already holds: at most 32 nodes against `maxItems: 1024`; nodes unique and ascending by path (graph identity); canonical segments with no NUL or backslash (U-0's root grammar and item 14a's specifier grammar); every node reachable from the entry, every edge naming a node, and no cycle (the walk and its cycle refusal); `kind` derived from the basename; a non-null `entryConfigPath`. `TypeScriptConfigProjectionV2.configGraphPaths` (`maxItems: 1024`, `CanonicalPath` items) adds nothing beyond these.
+
+| Question | r10 answer | Rejected |
+| --- | --- | --- |
+| A file whose `extends` array holds more than 64 entries, repetitions included | `native.typescript-config-bound` at that file, checked when its fields are read (after its JSONC and types), before any of its entries is classified or resolved | raising the schema's `maxItems` (a change to the native contract and to `tsconfigGraphHash`'s identity chain, for configurations no ordinary project writes); dropping repetitions (the schema keeps them: a sequence, not a set); keeping the first or last 64 (changes which base wins); refusing only when C2 emits the record (the pre-Plan mode and the Plan would then disagree on one graph) |
+| A node whose canonical path exceeds 4,096 characters | `native.typescript-config-bound` at that node, checked with the other new-node checks before its bytes are judged | truncating or hashing the path (breaks node identity and the inventory join); leaving it to C1 (the record could not be written, whatever C1 admits) |
+| The public termination | **(Round 2)** Both are `native.typescript-config-bound`, aliased to `native.typescript-config-unresolved`, with S10's public record, alias rows and D9 row unchanged. The remedy changes: successor **S10b** rewrites the string keyed by `native.typescript-config-unresolved` so that it names every bound (each file within 64 KiB and 64 `extends` entries, each configuration file's path within 4,096 characters, the graph within 32 files) and stays true for all four internal keys | a new internal key or public code (the D9 row would be identical, and a second remedy for one public key is not lawful); leaving S10's text (false for the new refusals) |
+
+**The order of a node's checks** (B2-c2 r2's LD-B2C2-4, now with the two bounds): for a new base, the 32-node check; then, for every node, the entry included, the 4,096-character path check, the 64 KiB check, JSONC and types, and the 64-entry `extends` check; then its edges in declaration order. Each refusal names the file that refused, as item 14a's subject rule says: the over-long node itself, and the file whose `extends` array is too long.
 
 ## r9 changes
 
@@ -586,7 +608,7 @@ The instrument's obligations:
 
 **Reading.**
 - **The grammar.** Each configuration file is read as **JSONC data**: JSON with `//` and `/* */` comments and trailing commas in arrays and objects. A duplicate key keeps its last value, as the TypeScript parser does. Nothing in it is evaluated. **(r9)** A file holding only whitespace and comments reads as an empty object, as TypeScript reads an empty `tsconfig.json`. The root value must be an object, and `compilerOptions`, where present, an object; any other value, `null` included, is malformed.
-- **Bounds.** At most **64 KiB** per file and at most **32 nodes** in the graph.
+- **Bounds.** At most **64 KiB** per file and at most **32 nodes** in the graph. **(r10)** At most **64 entries** in one file's `extends` array, repetitions included, and at most **4,096 characters** in a node's canonical path: `TypeScriptConfigGraphV1`'s `extendsResolved` and `CanonicalPath` bounds, so every graph read here is an admissible record. The `extends` count is checked when the file's fields are read, after its JSONC and types and before any entry is classified or resolved; the path length with the other new-node checks, before the node's bytes are judged.
 - **What is read.** The fields read are `compilerOptions.allowJs`, `compilerOptions.checkJs` and `extends`.
 - **The shape of `extends`:**
   - absent;
@@ -647,13 +669,13 @@ The value is the marker observation's `allowJs` that U-1 reads.
 | --- | --- |
 | `native.typescript-config-extends-unresolved` | A specifier in the graph names no candidate regular file, is absolute, rises above the project root, or meets a symbolic link before C1. **This refuses whatever inheritance would otherwise settle.** |
 | `native.typescript-config-extends-cycle` | The graph has a cycle. |
-| `native.typescript-config-bound` | A file exceeds 64 KiB, or the graph exceeds 32 nodes. |
+| `native.typescript-config-bound` | A file exceeds 64 KiB, or the graph exceeds 32 nodes; **(r10)** or a file's `extends` array holds more than 64 entries, or a node's canonical path exceeds 4,096 characters. |
 | `native.typescript-config-malformed` | A file is not JSONC; `extends`, `allowJs` or `checkJs` has the wrong type; or a specifier is malformed under the grammar above. |
 
 **The public termination (r8 round 2, RF-2).** Each internal key reaches a complete public termination in three steps:
 1. **Alias.** The host-boundary alias normalizes the key to the new public `DomainDetailCode` `native.typescript-config-unresolved`. The four alias rows are registry rows (S10).
 2. **D9 row.** That public detail's D9 row is request-rejected, exit 2, D9 code `CONFIG.INVALID`, typed detail carrier "request rejection detail". The D9 code is not the public detail: `CONFIG.INVALID`'s own remedy, keyed by the public detail `CONFIG.INVALID` (B-S9), does not apply to this key.
-3. **Remedy.** S10 registers a remedy **keyed by `native.typescript-config-unresolved`** in the public route remedies' successor (the native model's `PUBLIC_ROUTE_REMEDIES` and its product carrier). The remedy is one text true for all four internal classes: make every `extends` base of the named configuration file present as a regular file inside the project (installing its package, if needed, outside OpenSIP), break any cycle, keep the graph within its bounds, or correct the file's syntax.
+3. **Remedy.** S10 registers a remedy **keyed by `native.typescript-config-unresolved`** in the public route remedies' successor (the native model's `PUBLIC_ROUTE_REMEDIES` and its product carrier). The remedy is one text true for all four internal classes: make every `extends` base of the named configuration file present as a regular file inside the project (installing its package, if needed, outside OpenSIP), break any cycle, keep the graph within its bounds, or correct the file's syntax. **(r10)** The remedy names every bound: each file within 64 KiB and 64 `extends` entries, each configuration file's path within 4,096 characters, and the graph within 32 files. S10's accepted text names only the 64 KiB and 32-file bounds, so successor S10b (item 25) replaces it, under the same key; nothing else in the termination changes.
 
 **The subject.** It names the internal class and the project-relative path of the configuration file that refused.
 
@@ -686,6 +708,7 @@ The value is the marker observation's `allowJs` that U-1 reads.
   - each candidate order, path and package, with and without a subpath, and the nearest `node_modules` first;
   - an absolute specifier and an escape from the root;
   - a missing base, a cycle, each bound, each malformed form, and a symbolic link before C1.
+- **(r10) The record bounds:** an `extends` array of exactly 64 entries (repetitions of one base included) admits and its graph keeps all 64 edges; 65 entries refuse as `bound` at that file before any entry is resolved, even when an entry is a malformed specifier or names no file (an entry of the wrong type is still `malformed`, by the type check that comes first); an entry path, and a base path, of exactly 4,096 characters admits and of 4,097 refuses as `bound` at that node, before it is judged; every admitted control graph is admitted by `TypeScriptConfigGraphV1`'s schema.
 - **(Round 2) Grammar dispositions:**
   - **Malformed:** `pkg/../base`, `pkg/./base`, `pkg//base`, `pkg\\base`, `./a//b`, `./a/`, `.pkg`, `_pkg`, `Pkg` and `@Scope/x`.
   - **Well-formed names (round 3):** `pkg..x` and `@scope/a.b`, searched as packages.
@@ -695,6 +718,7 @@ The value is the marker observation's `allowJs` that U-1 reads.
 - **Inheritance** with `extends` arrays: later beats earlier, and own beats base.
 - **The units cases.** The seven `units-config-effective-allowjs-*` cases, reproduced from configuration bytes.
 - **The alias rows.** Each internal key normalizes to the public record.
+- **(r10) The remedy:** S10b's remedy is the same string in both its native-model copies and in the product carrier, names the 64-entry and 4,096-character bounds with the 64 KiB and 32-file ones, and is the one remedy keyed by `native.typescript-config-unresolved`; the alias rows and the D9 row equal S10's.
 - **FW-01:** no write, process or network.
 
 #### 15. FW-01: zero-config with no implicit effects or writes
@@ -1053,6 +1077,7 @@ Subjects are diagnostic data under S12.1's closed vocabulary, never new codes (S
 | S8 | **T2 record**: T2F §6 npm rendering (item 20) and an optional `git-conventional` member assembly | **harness record** (corpus unit; not a contract) | items 19, 20 | the corpus unit; K1a implements | B3-c |
 | S9 | **`CONFIG.INVALID` remedy text** | contract successor (PUBLIC_ROUTE_REMEDIES, X12-0's route). **(r3) Design unit B-S9**, split out of B-S1 by lead decision on 2026-10-04: complete successor copies of the two native-model files (BS9). **Accepted by Grok and bound at `8adfe0c`** | item 4 | this package | B1-a |
 | S10 | **The TypeScript configuration refusal (r8)**: the public detail registry's record `native.typescript-config-unresolved` and its four `internalAliases` rows (item 14a); its D9 row and its remedy, **registered under that public key** in the public route remedies' successor and their product carrier (round 2, RF-2); and the product's detail vocabulary (`schemas/sources/common-v4.schema.json` and its generated code, by B-S10's route) | contract successor (a design unit) | item 14a | this package | B2-c2 |
+| S10b | **The TypeScript configuration remedy (r10)**: the remedy keyed by `native.typescript-config-unresolved`, rewritten to name item 14a's r10 bounds (64 `extends` entries per file, 4,096 characters per configuration file path) with its existing ones, in complete successor copies of S10's two native-model files and in the product carrier `REMEDY_TYPESCRIPT_CONFIG_UNRESOLVED`. S10's public record, alias rows, D9 row and detail vocabulary are unchanged | contract successor (a design unit) | item 14a (r10) | this package | B2-c2b, the product unit that implements r10's bounds |
 | — | **SMAP** | **none needed** (lead decision) | SMAP:54 and SMAP:67 name owners and boundaries that already cover D15. D15's change is in S3 and §1.4, which those rows point to. **Rejected:** an SMAP row per shape, which would duplicate the corpus manifest. AQP:556's "SMAP/discovery successor if needed" is met by S3 | — | — |
 | — | **CINV** | none (no new flag, item 23) | | | |
 | — | **NE §8** | none (readers are not recognizers, item 20) | | | |
@@ -1185,4 +1210,5 @@ Each item lists its own. Across all items:
 - The member cap (64) is provisional. **(r7)** The discovery ledger caps are recorded from the redesigned walker's census (2^22 objects, 2^21 edges, 2^30 bytes; item 12, r7 changes). No held-out margin is claimed, and no workspace's full-ledger margin is claimed before B3-b's member-observation bound is reviewed.
 - T3, the real Amazon instance, waits on OQ-1 and the licence (AQP:217).
 - **(r9)** The empty-document reading follows TypeScript's documented acceptance of an empty `tsconfig.json`; r9 claims no other TypeScript parser behaviour.
+- **(r10)** S10b is named here, not written; it needs its own design-unit review. The `extends` entry and path-length bounds are the native record's own bounds. They are not measured on the T2 corpus, and no margin is claimed for them. r10 claims no TypeScript limit on either.
 - **(r8)** Item 14a's public record and alias rows are named here, not written: successor S10 (the public detail registry and the product vocabulary) writes them. Item 14a decides no TypeScript resolution beyond its stated candidates and claims no compatibility with TypeScript's full resolver.
