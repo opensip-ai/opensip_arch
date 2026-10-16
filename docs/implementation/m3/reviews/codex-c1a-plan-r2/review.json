@@ -1,0 +1,31 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectManifestSha256": "b41e3472951cb880d31a40d663fc2d71e8b7fcef4d145b77f3555fe0a6d02e4b",
+  "requiredFindings": [
+    {
+      "id": "C1APLAN-R2-RF-1",
+      "path": "docs/implementation/m3/snapshot-plan-c/c1a/PLAN-r2.md",
+      "line": 106,
+      "title": "The new cap derivation does not bound the operations the plan specifies",
+      "detail": "The derivation prices payload reads as one complete 64 KiB chunk per read plus EOF, although Read may return short reads or Interrupted and the platform reader explicitly requires a finite attempt allowance. SnapshotRoot::open also reopens and judges every ancestor for each path, but the formula counts directory listing/ACL costs by distinct directory count rather than per opening. It does not establish bounds for non-inventory listed names, per-component temporaries and copies, or the custody verification reads required by C1a2. Final inventory bytes do not bound those cumulative costs. Doubling an incomplete or best-case formula does not make it an upper bound.",
+      "requiredChange": "Replace the formula with a complete operation-count and storage-cost model matching the chosen opener, capture, custody-verification and retention design. State a finite read-attempt envelope including short reads, Interrupted and EOF, and the terminal outcome when it is exhausted. Bound all listed entries and repeated component operations, not only inventoried rows and distinct directories. Add worst-envelope model controls and undercount mutants before deriving the profile and claiming census margins."
+    },
+    {
+      "id": "C1APLAN-R2-RF-2",
+      "path": "docs/implementation/m3/snapshot-plan-c/c1a/PLAN-r2.md",
+      "line": 68,
+      "title": "The new root-relative opener is not bound to the walk enumeration parent",
+      "detail": "The walk enumerates a retained directory but opens every resulting logical path through SnapshotRoot::open, which starts again at the root. The plan only compares the observation and open within that new path walk; it does not bind the reopened ancestors or final file to the parent descriptor and entry observation used by enumeration. If a directory is replaced after it is listed, the root-relative reopen can judge and read a replacement tree without comparing it to the enumerated directory. M3-C item 2 requires examination and open relative to the same retained parent descriptor.",
+      "requiredChange": "Have the extent walk open from its enumerating retained parent and compare the original entry observation, using the shared custody/opening primitive. Keep root-relative component traversal for pre-walk captures, or retain and revalidate an authenticated chain that proves it is the same enumeration parent. State the binding explicitly and add an ancestor-directory replacement control; per-file lstat/open swap tests alone do not cover it."
+    },
+    {
+      "id": "C1APLAN-R2-RF-3",
+      "path": "docs/implementation/m3/snapshot-plan-c/c1a/PLAN-r2.md",
+      "line": 182,
+      "title": "LD-C1A-8 does not preserve the law's descriptor bound and check order",
+      "detail": "LD-C1A-8 counts canonical source-inventory bytes against 4 MiB, but item 5 bounds the whole canonical snapshot descriptor, which also contains schemaVersion, projectId, resolvedConfigDigest, scopeDigest, vcsDigest and the object framing. An inventory below 4 MiB can therefore yield an oversized descriptor, so the promised crossing-row refusal and agreement with final checks do not follow. LD-C1A-8 also returns SnapshotBound during the walk before reading the crossing file, whereas item 6 orders the walk/read set and VCS observation before bounds. For an over-limit tree with a later changed or custody-refusing file, early return changes which typed refusal is produced.",
+      "requiredChange": "Separate resource-accounting guards from the law's final semantic bounds. If an incremental full-descriptor size calculation is used, include the complete canonical snapshot envelope and correct escaping/separators, with boundary controls where the inventory fits but the descriptor does not. Preserve the law's refusal order, or obtain a law decision authorizing early-bound precedence and its mixed-error controls before calling the final and incremental checks equivalent."
+    }
+  ],
+  "nonBlockingObservations": []
+}
