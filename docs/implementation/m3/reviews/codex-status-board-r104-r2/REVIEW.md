@@ -1,0 +1,16 @@
+# ACCEPT — status board r104, round 2
+
+Subject manifest: 8,690 bytes, SHA-256 `2dd21d488a8b19959a73cc8a866c273c2c54af5fe692b7d3dae0ced38db3efc5`. All 40 members match their declared bytes and hashes. Product HEAD is the clean `808ad6476fb848f84e732ee233a47229370081f4`; architecture HEAD is `8310f16a0e7fb7e009241bec2e797c2b452c4aee`.
+
+**STATUS-R104-RF-1 is resolved.** The round-2 board equals round 1 with exactly the obsolete “Open for C2: O-1” sentence removed once. Every other staged manifest member is byte-identical. Item 6 now consistently records O-1 closed by M3-B r10, S10b and B2-c2b, followed by J1 as next work. The B row and its next action agree. Remaining “Open item O-1” wording belongs to unchanged historical B2-c2 accepted evidence, including its reproduction in the B evidence column; it is followed by the new closure evidence and does not assert a current gate. No other stale current O-1 statement was found.
+
+Verified the requested scope:
+
+- The 293 r103 records are inherited by value; exactly E294–E297 are appended. Their accepted review pins/verdicts, architecture ancestry, product ancestry and available unit-record pins match committed evidence. E294 has no unit record. Scopes remain within their accepted evidence with no caller inferred. All six integrated B2-c2b product files match the accepted candidate at `29411d18`.
+- All 76 inventory and 74 contract bindings are inherited by value. Contracts 172 and 173 yield 76 contract bindings; no inventory binding is added. Complete lists match current lock tails, new binding pins verify, and the cutoff lock matches its recorded hash. Inventory remains 212 with 172 inventory successors; contracts total 173.
+- The since-r103 range exactly matches Git's three commits and seven changed files. None intersects the unchanged inherited validation maps. All three historical validation scopes remain equal to r103. Configuration/discovery scopes preserve 88 inherited entries and append E294–E297 once, totaling 92.
+- The sole moved inherited authority is live `config-discovery-b/PROPOSAL.md`. Its declared previous/current pins match the old authority and r10's committed publication. Added authority pins verify; no other inherited authority moved. The previous-board snapshot and historical subject match r103's publication at `10cb57bce72c6613d77bf0734fe5a0526bdbd0cb`.
+- Only the B unit-register row changes; the other 22 rows remain equal. Its status, evidence and next action agree verbatim with the board. The cutoff, 297-record count, v137–212 / 98–173 binding ranges and accepted-work-after-r103 paragraph are accurate. No historical accepted-record correction is needed.
+- M3 remains incomplete. J1 composition through C1 custody and J2b, C1 to C4, native owner/worker duties, K1, the SM-11..14 completion round and qualification remain open. No B2/M3-B completion, owner assent or product qualification is inferred.
+
+No required findings or non-blocking observations remain. Review used read-only file reads, hashing, JSON parsing and Git queries. No compiler, Cargo, tests, lane, network, delegation or prohibited private-data access occurred. Only this directory's `REVIEW.md` and `review.json` were written; neither repository, stage nor control file was edited.
