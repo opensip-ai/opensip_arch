@@ -1,0 +1,29 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectManifestSha256": "545c8ec8af428a7d1a3b4a7e87e038a5ad106c9005b84925899661a8b0243594",
+  "requiredFindings": [
+    {
+      "id": "B3B1-R1-RF-1",
+      "priority": "P1",
+      "title": "Native ACL capture refusals still latch the shared discovery ledger",
+      "location": "crates/security/src/custody/git_tracking.rs:851-872; crates/security/src/custody/project_chain.rs:635-637",
+      "description": "layout uses judge_project_object / judge_file, which call capture_descriptor_acl_accounted. On macOS capture_accounted_in returns native capture errors from inside work.run. Non-I/O DescriptorAclCaptureError values (Changed, Malformed, Unsupported) therefore latch the ledger before chain_failure translates them to VcsUnsupported and member_failure translates them to a per-member refusal. A later member fails Budget(Closed); even a single-member outer ledger.scope cannot return the refused verdict successfully. The same issue can affect pass-level global-source custody capture. Mode/owner refusals are decided outside the capture scope and do not demonstrate this path.",
+      "requestedChange": "Give 6b a custody/capture path that preserves the same charges and refusal subjects while returning ordinary capture outcomes as values until outside charged scopes; retain genuine host I/O and budget failures as pass failures and keep 6a unchanged. Add deterministic native-capture failure controls for Changed and another non-I/O capture error, including a refused first member followed by a valid member, a lone refused member, and pass-level source capture. Verify the enclosing ledger remains usable for handled refusals."
+    },
+    {
+      "id": "B3B1-R1-RF-2",
+      "priority": "P1",
+      "title": "NoRepository proof is not bound to the root used for member observation",
+      "location": "crates/security/src/custody/git_tracking.rs:1037-1040,1107-1139",
+      "description": "NoRepository borrows only a TrackingObservation, which stores a tracking enum and samples without a retained root binding. observe_members ignores its _root argument and takes W exclusively from independently supplied TrackingInputs.chain. A caller can obtain a token for non-repository W_A and pass it with the chain for W_B inside a repository. The function then checks only descendants of W_B and can admit a conventional member beneath W_B, violating W2 despite satisfying its Rust signature. The existing precondition test only checks that an observation of W_B itself returns None.",
+      "requestedChange": "Bind the proof to the exact observed retained root/chain and have observe_members derive W from it or validate the inputs against that binding before member work. Add a cross-root substitution control with W_A outside any repository and W_B inside one; the token for W_A must not authorize W_B. Do not resolve this solely by a caller convention."
+    }
+  ],
+  "nonBlockingObservations": [
+    {
+      "id": "B3B1-R1-NBO-1",
+      "title": "The linked-worktree mutation log is not in the pinned evidence",
+      "description": "controls.json reports nine caught mutations and the runner includes linked-worktree-dropped, but only eight mutation logs are manifest members and present in the archived checks directory. The linked-worktree-dropped log is missing. The ordinary commondir control and mutation recipe are inspectable, so this does not independently block the code review; include that log in the next evidence package."
+    }
+  ]
+}
