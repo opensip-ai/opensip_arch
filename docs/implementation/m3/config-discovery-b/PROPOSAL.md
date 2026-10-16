@@ -1,6 +1,8 @@
-# Configuration and discovery (M3-B) — proposal r7
+# Configuration and discovery (M3-B) — proposal r8
 
-**r7 ACCEPTED 2026-10-16 by Codex** (`reviews/codex-m3b-r7-r1/`, with no required findings). r7's bytes, without this note, are preserved in `PROPOSAL-r7.md`. r7 is a recording revision of item 12: it writes in the discovery ledger caps that r6's rule gives from the redesigned walker's census (unit B2-b3d): 2^22 objects, 2^21 edges and 2^30 bytes.
+**r8 ACCEPTED 2026-10-16 by Codex** (`reviews/codex-m3b-r8-r3/`, with no required findings, after rounds `codex-m3b-r8-r1` and `codex-m3b-r8-r2`). r8's bytes, without this note, are preserved in `PROPOSAL-r8.md`. r8 adds item 14a, the pre-Plan TypeScript configuration graph and effective `allowJs`, with successor S10; it changes nothing else.
+
+> **r7 ACCEPTED 2026-10-16 by Codex** (`reviews/codex-m3b-r7-r1/`, with no required findings). r7's bytes, without this note, are preserved in `PROPOSAL-r7.md`. r7 is a recording revision of item 12: it writes in the discovery ledger caps that r6's rule gives from the redesigned walker's census (unit B2-b3d): 2^22 objects, 2^21 edges and 2^30 bytes.
 
 > **r6 ACCEPTED 2026-10-16 by Codex** (`reviews/codex-m3b-r6-r2/`, with no required findings, after round `codex-m3b-r6-r1`). r6's bytes, without this note, are preserved in `PROPOSAL-r6.md`. r6 is a one-item revision of item 12's discovery ledger caps, returned to this law by the T2 census (units B2-b4a and B2-b4b1); it changes nothing else.
 
@@ -18,6 +20,23 @@
 r2 answers GROK2's r1 review (`/tmp/opensip-implementation/reviews/grok2-config-discovery-b-r1/`, copied to `docs/implementation/m3/reviews/grok2-config-discovery-b-r1/`): two required findings and two non-blocking observations. GROK2 confirmed R1 to R7 apart from those findings. The r1 bytes are preserved as `PROPOSAL-r1.md` (sha256 `da014f54…`, 85,905 bytes).
 
 **r3 is a record revision.** GROK2 accepted r2 on 2026-10-04 with no findings (`docs/implementation/m3/reviews/grok2-config-discovery-b-r2/`). The r2 bytes are preserved as `PROPOSAL-r2.md` (sha256 `92e65825…`, 94,762 bytes). The live file carried them with a 2-line acceptance note, which r3 removes. r3 applies only what has since been settled for this law: GROK2's rulings in its review of design unit B-S1, the three bound design units B-S1, B-S2 and B-S9, the acceptance of S1 and S2, and M3-L's cross-law item X10. It also re-pins this law's citations to accepted snapshots. It decides nothing new. The "r3 changes" table comes first, and the "r2 changes" table is kept below it with its reviewed citations. Diff r3 against `PROPOSAL-r2.md`.
+
+## r8 changes
+
+r8 adds **item 14a** and its **successor row S10** (item 25), and one "Not claimed" line. Nothing else changes. **(Round 2, Codex `codex-m3b-r8-r1`.)**
+- **RF-1.** Item 14a now closes the specifier grammar: the package-name grammar is pinned, the path and subpath segment rules are stated, normalization is lexical and comes before root containment, and graph nodes are identified by canonical project-relative paths.
+- **RF-2.** The remedy is registered under the new public key itself; the D9 code stays `CONFIG.INVALID`.
+
+**(Round 3, Codex `codex-m3b-r8-r2`, M3BR8-R2-RF-1.)** The name grammar's examples now agree with its pattern. Dots inside a name are ordinary characters, so `pkg..x` and `@scope/a.b` are well-formed. The malformed examples are the pattern's own exclusions: a name led by `.` or `_`, and upper case. The controls follow.
+
+**Why a law step.** NE gives the *meaning* of effective `allowJs` over a configuration graph: a `jsconfig` node supplies `true`, own options beat bases, later `extends` entries beat earlier ones, and a written value wins after inheritance (NE:527-545). `TypeScriptConfigGraphV1` records each node's `extendsResolved` as project-relative paths (NE:1332-1340). But no text says how an `extends` specifier names a file before the Plan, when no TypeScript may run (item 14's U-1 row). The selected native reference takes `allowJs` as a trusted marker observation, so a first-party reader must decide it. The decision fixes four things: what is read, the candidate order, what refuses, and the refusal's public detail.
+
+| Question | r8 answer (item 14a) | Rejected |
+| --- | --- | --- |
+| What is read | The marker config and each base it extends, as JSONC data, by one first-party bounded reader; C2's `TypeScriptConfigProjectionV2` calls the same code | running `tsc` (a provider launch before the Plan); a crate (a dependency-policy row for a small grammar) |
+| How a specifier resolves | A fixed candidate order for path and package specifiers; no `exports` conditions; nothing outside the project root | TypeScript's full module resolution, which needs condition and environment semantics |
+| What an unresolved base does | Refuses, typed, whatever inheritance would settle | guessing `false` (narrows JS out); guessing `true` (widens); settling partially (no lawful carrier: `UnitDiscoveryV3` is closed) |
+| Its public detail | Four internal keys, aliased to one new public record `native.typescript-config-unresolved` (request-rejected, exit 2, `CONFIG.INVALID`) | four public codes; reusing `CONFIG.INVALID`'s existing details |
 
 ## r7 changes (recording revision)
 
@@ -545,6 +564,122 @@ The instrument's obligations:
 
 **Controls.** Every named `units-*` case in NE §1.4. The product test cites each case ID.
 
+#### 14a. The pre-Plan TypeScript configuration graph and effective `allowJs` (r8)
+
+**Decision.** For each `tsjs` marker directory whose first present marker is `tsconfig.json` or `jsconfig.json` (U-1), the host computes the marker's effective `allowJs` before U-1 chooses the mode. A `package.json`-only directory needs none. One first-party function reads the graph. C2's `TypeScriptConfigProjectionV2` and its `TypeScriptConfigGraphV1` use the same function and the same resolution, so the two cannot describe different graphs.
+
+**Reading.**
+- **The grammar.** Each configuration file is read as **JSONC data**: JSON with `//` and `/* */` comments and trailing commas in arrays and objects. A duplicate key keeps its last value, as the TypeScript parser does. Nothing in it is evaluated.
+- **Bounds.** At most **64 KiB** per file and at most **32 nodes** in the graph.
+- **What is read.** The fields read are `compilerOptions.allowJs`, `compilerOptions.checkJs` and `extends`.
+- **The shape of `extends`:**
+  - absent;
+  - a string;
+  - an array of strings, where an empty array means no base.
+
+  Any other type is malformed.
+
+**The specifier grammar (closed; r8 round 2).** A specifier S is a string. It is classified in this order:
+1. **Malformed:**
+   - S is empty, contains a backslash, a NUL or any character below U+0020, or ends with `/`;
+   - or S contains an empty segment, that is `//`.
+2. **A path specifier:** S starts with `./` or `../`. Its segments are the `/`-separated parts after the first. Each is non-empty, and `.` and `..` are permitted. Nothing is percent-decoded: `%2F` is three literal characters.
+3. **Unresolved (absolute):** S starts with `/`.
+4. **Otherwise, a package specifier.**
+   - **The name.** S must start with a name matching `^(@[a-z0-9~-][a-z0-9._~-]*/)?[a-z0-9~-][a-z0-9._~-]*`, at most 214 characters (npm's current rules for new names: lower case, URL-safe, not starting with `.` or `_`). A specifier with no such prefix is malformed.
+   - **The subpath.** After the name comes either nothing (an empty subpath) or `/` and then one or more segments. Each segment is non-empty and is neither `.` nor `..`. Anything else, such as `pkg/../base` or `pkg/./base`, is malformed. **Within a name, dots are ordinary characters (round 3):** `pkg..x` and `@scope/a.b` are well-formed names, so they are searched as packages, while `.pkg`, `_pkg`, `Pkg` and `@Scope/x` are malformed.
+
+**Normalization and containment.**
+- **Lexical.** A path specifier's candidate is the directory D (project-relative) joined with S's segments and normalized lexically: `.` is dropped, and `..` removes the preceding segment.
+- **Containment.** A `..` that would rise above the project root makes the specifier unresolved. Containment is decided on that normalized spelling, before any file is consulted.
+- **Package candidates** are already canonical: their name and subpath segments admit no `.`, `..` or empty segment.
+- **No filesystem consultation.** Normalization never follows a link; a link is only ever met when a candidate is opened under custody.
+
+**Resolution of one specifier S** from a configuration file in project-relative directory D (`""` for the root):
+- **A path specifier:**
+  - **Candidates:** the normalized `D/S` when S's last segment ends in `.json`; otherwise the normalized `D/S`, then the normalized `D/S.json`.
+  - **Choice:** the first that is a regular file wins.
+- **A package specifier** with name N and subpath P:
+  - **Candidates.** At each directory E from D up to the root, nearest first: `E/node_modules/N/P`; then `E/node_modules/N/P.json`; then, only when P is empty, `E/node_modules/N/tsconfig.json`. When P is empty, the first two are `E/node_modules/N` and `E/node_modules/N.json`, of which only a regular file counts.
+  - **Choice:** the first that is a regular file wins.
+  - **Not evaluated:** `package.json` `exports` conditions and its `tsconfig` field.
+
+**Graph identity.**
+- **What a node is.** A node is identified by the canonical project-relative path of the file chosen: no leading `/`, and no `.`, `..` or empty segment.
+- **Duplicate edges.** Two edges choosing the same file name one node. `extendsResolved` keeps every edge, repetitions included, as `TypeScriptConfigGraphV1` does.
+- **Checks.** The cycle and 32-node checks run over these node identities, as the graph is built.
+
+**Reading inside `node_modules` is a read-set access, not discovery descent.** U-4a's "discovery never descends into a pruned tree" governs enumeration and anchors. A configuration file that this resolution actually reads enters the snapshot inventory as a `host-ignore-convention` row under the snapshot's custody, exactly as NE:735-741 states for pruned bytes a program reads. Unread pruned material does not enter it.
+
+**Custody.**
+- A configuration file, and each directory on its path, is read under C1's snapshot custody.
+- A symbolic link on the path is followed only as that custody allows.
+- Until C1's composition exists, the resolver reads no symbolic link: a link is unresolved.
+- Nothing is fetched, installed or executed (item 15).
+
+**Effective `allowJs`** is NE:527-545's derivation over the resolved graph:
+- a `jsconfig` node (basename law of `TypeScriptConfigGraphV1`) supplies `allowJs: true` unless it writes `allowJs`;
+- a node's own options beat its bases, and a later `extends` entry beats an earlier one;
+- after inheritance, a written `allowJs` wins, including `false`;
+- otherwise `allowJs` is the effective `checkJs`, whose omitted default is `false`.
+
+The value is the marker observation's `allowJs` that U-1 reads.
+
+**Refusals.** Each is an internal decision key, aliased at the host boundary to one new public record (successor S10), so a configuration graph that cannot be read refuses before the Plan:
+
+| Internal key | When |
+| --- | --- |
+| `native.typescript-config-extends-unresolved` | A specifier in the graph names no candidate regular file, is absolute, rises above the project root, or meets a symbolic link before C1. **This refuses whatever inheritance would otherwise settle.** |
+| `native.typescript-config-extends-cycle` | The graph has a cycle. |
+| `native.typescript-config-bound` | A file exceeds 64 KiB, or the graph exceeds 32 nodes. |
+| `native.typescript-config-malformed` | A file is not JSONC; `extends`, `allowJs` or `checkJs` has the wrong type; or a specifier is malformed under the grammar above. |
+
+**The public termination (r8 round 2, RF-2).** Each internal key reaches a complete public termination in three steps:
+1. **Alias.** The host-boundary alias normalizes the key to the new public `DomainDetailCode` `native.typescript-config-unresolved`. The four alias rows are registry rows (S10).
+2. **D9 row.** That public detail's D9 row is request-rejected, exit 2, D9 code `CONFIG.INVALID`, typed detail carrier "request rejection detail". The D9 code is not the public detail: `CONFIG.INVALID`'s own remedy, keyed by the public detail `CONFIG.INVALID` (B-S9), does not apply to this key.
+3. **Remedy.** S10 registers a remedy **keyed by `native.typescript-config-unresolved`** in the public route remedies' successor (the native model's `PUBLIC_ROUTE_REMEDIES` and its product carrier). The remedy is one text true for all four internal classes: make every `extends` base of the named configuration file present as a regular file inside the project (installing its package, if needed, outside OpenSIP), break any cycle, keep the graph within its bounds, or correct the file's syntax.
+
+**The subject.** It names the internal class and the project-relative path of the configuration file that refused.
+
+**Basis.**
+- NE:146-215 and NE:527-545: modes and effective `allowJs`.
+- NE:619-948: U-1.
+- NE:735-741: pruned bytes a program reads.
+- NE:1332-1340: `TypeScriptConfigGraphV1`.
+- Item 14's U-1 rows: "No TypeScript runs before the Plan"; one JSONC implementation shared with C2.
+- Item 15: FW-01.
+- The TypeScript 5.6.3 `extends` behaviour for relative and bare specifiers, as supporting evidence only; no TypeScript toolchain is required.
+
+**Rejected.**
+- Running `tsc` or any TypeScript.
+- Evaluating `exports` conditions.
+- Following a symbolic link without custody.
+- Guessing a mode for an unreadable graph.
+- A partial graph with a disclosure field (`UnitDiscoveryV3` is closed).
+- One public code per internal key.
+
+**Forbidden.**
+- A network fetch, a package install or a process for a missing base (item 15; CH13:47-49).
+- Reading a configuration file outside the project root.
+- Treating an unresolved base as absent.
+
+**Controls (B2-c2):**
+- **Comments and trailing commas.**
+- **Resolution:**
+  - each candidate order, path and package, with and without a subpath, and the nearest `node_modules` first;
+  - an absolute specifier and an escape from the root;
+  - a missing base, a cycle, each bound, each malformed form, and a symbolic link before C1.
+- **(Round 2) Grammar dispositions:**
+  - **Malformed:** `pkg/../base`, `pkg/./base`, `pkg//base`, `pkg\\base`, `./a//b`, `./a/`, `.pkg`, `_pkg`, `Pkg` and `@Scope/x`.
+  - **Well-formed names (round 3):** `pkg..x` and `@scope/a.b`, searched as packages.
+  - **Path forms that normalize:** `./a/../b` normalizes; `../x` from the root is unresolved.
+  - **No decoding:** `%2F` is not decoded.
+  - **Node identity:** two spellings of one file (`./b.json`, `./x/../b.json`) are one node.
+- **Inheritance** with `extends` arrays: later beats earlier, and own beats base.
+- **The units cases.** The seven `units-config-effective-allowjs-*` cases, reproduced from configuration bytes.
+- **The alias rows.** Each internal key normalizes to the public record.
+- **FW-01:** no write, process or network.
+
 #### 15. FW-01: zero-config with no implicit effects or writes
 
 **Decision.** Discovery, resolution, recognition and the D15 declaration readers:
@@ -900,6 +1035,7 @@ Subjects are diagnostic data under S12.1's closed vocabulary, never new codes (S
 | S7 | **PCS `operability` section** | contract successor | not B's; item 7 leaves the slot | S-OP-5 | M3-O2 |
 | S8 | **T2 record**: T2F §6 npm rendering (item 20) and an optional `git-conventional` member assembly | **harness record** (corpus unit; not a contract) | items 19, 20 | the corpus unit; K1a implements | B3-c |
 | S9 | **`CONFIG.INVALID` remedy text** | contract successor (PUBLIC_ROUTE_REMEDIES, X12-0's route). **(r3) Design unit B-S9**, split out of B-S1 by lead decision on 2026-10-04: complete successor copies of the two native-model files (BS9). **Accepted by Grok and bound at `8adfe0c`** | item 4 | this package | B1-a |
+| S10 | **The TypeScript configuration refusal (r8)**: the public detail registry's record `native.typescript-config-unresolved` and its four `internalAliases` rows (item 14a); its D9 row and its remedy, **registered under that public key** in the public route remedies' successor and their product carrier (round 2, RF-2); and the product's detail vocabulary (`schemas/sources/common-v4.schema.json` and its generated code, by B-S10's route) | contract successor (a design unit) | item 14a | this package | B2-c2 |
 | — | **SMAP** | **none needed** (lead decision) | SMAP:54 and SMAP:67 name owners and boundaries that already cover D15. D15's change is in S3 and §1.4, which those rows point to. **Rejected:** an SMAP row per shape, which would duplicate the corpus manifest. AQP:556's "SMAP/discovery successor if needed" is met by S3 | — | — |
 | — | **CINV** | none (no new flag, item 23) | | | |
 | — | **NE §8** | none (readers are not recognizers, item 20) | | | |
@@ -1031,3 +1167,4 @@ Each item lists its own. Across all items:
 - D15's analysis value at M3 is bounded by findings F2 to F4. There is no cross-unit resolution and no Python link.
 - The member cap (64) is provisional. **(r7)** The discovery ledger caps are recorded from the redesigned walker's census (2^22 objects, 2^21 edges, 2^30 bytes; item 12, r7 changes). No held-out margin is claimed, and no workspace's full-ledger margin is claimed before B3-b's member-observation bound is reviewed.
 - T3, the real Amazon instance, waits on OQ-1 and the licence (AQP:217).
+- **(r8)** Item 14a's public record and alias rows are named here, not written: successor S10 (the public detail registry and the product vocabulary) writes them. Item 14a decides no TypeScript resolution beyond its stated candidates and claims no compatibility with TypeScript's full resolver.
