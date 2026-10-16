@@ -1,6 +1,8 @@
-# Configuration and discovery (M3-B) — proposal r8
+# Configuration and discovery (M3-B) — proposal r9
 
-**r8 ACCEPTED 2026-10-16 by Codex** (`reviews/codex-m3b-r8-r3/`, with no required findings, after rounds `codex-m3b-r8-r1` and `codex-m3b-r8-r2`). r8's bytes, without this note, are preserved in `PROPOSAL-r8.md`. r8 adds item 14a, the pre-Plan TypeScript configuration graph and effective `allowJs`, with successor S10; it changes nothing else.
+**r9 ACCEPTED 2026-10-16 by Codex** (`reviews/codex-m3b-r9-r1/`, with no required findings). r9's bytes, without this note, are preserved in `PROPOSAL-r9.md`. r9 amends item 14a's reading grammar: a whitespace-and-comments file reads as an empty object, and the root value and `compilerOptions` must be objects; it changes nothing else.
+
+> **r8 ACCEPTED 2026-10-16 by Codex** (`reviews/codex-m3b-r8-r3/`, with no required findings, after rounds `codex-m3b-r8-r1` and `codex-m3b-r8-r2`). r8's bytes, without this note, are preserved in `PROPOSAL-r8.md`. r8 adds item 14a, the pre-Plan TypeScript configuration graph and effective `allowJs`, with successor S10; it changes nothing else.
 
 > **r7 ACCEPTED 2026-10-16 by Codex** (`reviews/codex-m3b-r7-r1/`, with no required findings). r7's bytes, without this note, are preserved in `PROPOSAL-r7.md`. r7 is a recording revision of item 12: it writes in the discovery ledger caps that r6's rule gives from the redesigned walker's census (unit B2-b3d): 2^22 objects, 2^21 edges and 2^30 bytes.
 
@@ -20,6 +22,20 @@
 r2 answers GROK2's r1 review (`/tmp/opensip-implementation/reviews/grok2-config-discovery-b-r1/`, copied to `docs/implementation/m3/reviews/grok2-config-discovery-b-r1/`): two required findings and two non-blocking observations. GROK2 confirmed R1 to R7 apart from those findings. The r1 bytes are preserved as `PROPOSAL-r1.md` (sha256 `da014f54…`, 85,905 bytes).
 
 **r3 is a record revision.** GROK2 accepted r2 on 2026-10-04 with no findings (`docs/implementation/m3/reviews/grok2-config-discovery-b-r2/`). The r2 bytes are preserved as `PROPOSAL-r2.md` (sha256 `92e65825…`, 94,762 bytes). The live file carried them with a 2-line acceptance note, which r3 removes. r3 applies only what has since been settled for this law: GROK2's rulings in its review of design unit B-S1, the three bound design units B-S1, B-S2 and B-S9, the acceptance of S1 and S2, and M3-L's cross-law item X10. It also re-pins this law's citations to accepted snapshots. It decides nothing new. The "r3 changes" table comes first, and the "r2 changes" table is kept below it with its reviewed citations. Diff r3 against `PROPOSAL-r2.md`.
+
+
+## r9 changes
+
+r9 amends one bullet of item 14a ("Reading", "The grammar") and adds two controls. Nothing else changes.
+
+**Why.** Item 14a reads each configuration file as "JSONC data: JSON with comments and trailing commas", and a file that "is not JSONC" refuses as `native.typescript-config-malformed`. A file holding only whitespace and comments leaves no JSON value, so r8 refuses it. TypeScript's tsconfig design permits it: "A tsconfig.json file is permitted to be completely empty, which compiles all files in the containing directory and subdirectories with the default compiler options" (microsoft/TypeScript PR #1692, the design that introduced `tsconfig.json`; the handbook carries the same sentence). An empty `tsconfig.json` is an ordinary, documented project marker, and refusing it before the Plan would refuse a project TypeScript compiles with its defaults. Unit B2-c2 r1 admitted it as a lead decision. Codex required a law change for it (B2C2-R1-RF-1), because TypeScript's behaviour is supporting evidence for item 14a, not authority to extend its grammar.
+
+The amendment also states what r8 left implicit and B2-c2 r1 decided (its LD-B2C2-2(h)): the root value must be an object, and `compilerOptions`, where present, must be an object. `null` included, anything else is the wrong type, and so `malformed`.
+
+| Question | r9 answer | Rejected |
+| --- | --- | --- |
+| A file holding only whitespace and comments | It reads as an empty object: no `extends`, no `allowJs`, no `checkJs`. A `jsconfig.json` so read still supplies `allowJs: true` | refusing it as `malformed` (refuses a documented, ordinary TypeScript project before the Plan) |
+| The root value and `compilerOptions` | Each must be an object; any other value, `null` included, is `malformed` | reading a `null` root as an empty object (TypeScript reports an error for a non-object root) |
 
 ## r8 changes
 
@@ -569,7 +585,7 @@ The instrument's obligations:
 **Decision.** For each `tsjs` marker directory whose first present marker is `tsconfig.json` or `jsconfig.json` (U-1), the host computes the marker's effective `allowJs` before U-1 chooses the mode. A `package.json`-only directory needs none. One first-party function reads the graph. C2's `TypeScriptConfigProjectionV2` and its `TypeScriptConfigGraphV1` use the same function and the same resolution, so the two cannot describe different graphs.
 
 **Reading.**
-- **The grammar.** Each configuration file is read as **JSONC data**: JSON with `//` and `/* */` comments and trailing commas in arrays and objects. A duplicate key keeps its last value, as the TypeScript parser does. Nothing in it is evaluated.
+- **The grammar.** Each configuration file is read as **JSONC data**: JSON with `//` and `/* */` comments and trailing commas in arrays and objects. A duplicate key keeps its last value, as the TypeScript parser does. Nothing in it is evaluated. **(r9)** A file holding only whitespace and comments reads as an empty object, as TypeScript reads an empty `tsconfig.json`. The root value must be an object, and `compilerOptions`, where present, an object; any other value, `null` included, is malformed.
 - **Bounds.** At most **64 KiB** per file and at most **32 nodes** in the graph.
 - **What is read.** The fields read are `compilerOptions.allowJs`, `compilerOptions.checkJs` and `extends`.
 - **The shape of `extends`:**
@@ -665,6 +681,7 @@ The value is the marker observation's `allowJs` that U-1 reads.
 
 **Controls (B2-c2):**
 - **Comments and trailing commas.**
+- **(r9) Empty and null documents:** an empty file and a comment-only file read as an empty object (an entry and a base); a `null` root, with or without comments, and a `null` `compilerOptions` are malformed.
 - **Resolution:**
   - each candidate order, path and package, with and without a subpath, and the nearest `node_modules` first;
   - an absolute specifier and an escape from the root;
@@ -1167,4 +1184,5 @@ Each item lists its own. Across all items:
 - D15's analysis value at M3 is bounded by findings F2 to F4. There is no cross-unit resolution and no Python link.
 - The member cap (64) is provisional. **(r7)** The discovery ledger caps are recorded from the redesigned walker's census (2^22 objects, 2^21 edges, 2^30 bytes; item 12, r7 changes). No held-out margin is claimed, and no workspace's full-ledger margin is claimed before B3-b's member-observation bound is reviewed.
 - T3, the real Amazon instance, waits on OQ-1 and the licence (AQP:217).
+- **(r9)** The empty-document reading follows TypeScript's documented acceptance of an empty `tsconfig.json`; r9 claims no other TypeScript parser behaviour.
 - **(r8)** Item 14a's public record and alias rows are named here, not written: successor S10 (the public detail registry and the product vocabulary) writes them. Item 14a decides no TypeScript resolution beyond its stated candidates and claims no compatibility with TypeScript's full resolver.
