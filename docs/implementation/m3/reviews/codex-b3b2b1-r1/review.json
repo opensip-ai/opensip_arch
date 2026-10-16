@@ -1,0 +1,39 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectManifestSha256": "b1475d5d046ac5deeb40d0bfb01db47109c13b10a33ad4a649e074f4386565b6",
+  "requiredFindings": [
+    {
+      "id": "B3B2B1-R1-RF-1",
+      "priority": "P1",
+      "title": "Cargo table sorting changes first-wins behavior for colliding entry identifiers",
+      "location": "crates/security/src/custody/workspace_declarations.rs:458-468 and phase_one seen.insert",
+      "description": "Flattening (source,name) as patch.<source>.<name> is not injective. Distinct patch tables can produce the same entry string. B3-b0 traverses document order and keeps the first entry; the Rust table iteration uses key order, so it can keep the other entry and declare a different member. LD-3 therefore does not establish order independence.",
+      "requestedChange": "Preserve the reference's entry selection for colliding flattened identifiers, including source document order where it affects first-wins. Add a reference-derived collision control using quoted dotted source/name keys in opposite document/key order, and update LD-3. Do not silently add a package-key grammar restriction to eliminate the case."
+    },
+    {
+      "id": "B3B2B1-R1-RF-2",
+      "priority": "P1",
+      "title": "Branch-A batching observes later failures before deciding the first 6b refusal",
+      "location": "crates/security/src/custody/workspace_declarations.rs:952-966",
+      "description": "phase_two checks directory custody for the whole observable prefix and calls member_verdicts for that prefix before inspecting any 6b verdict. For candidates a,b, an ordinary 6b refusal at a should end branch A in B3-b0, but later custody observation errors or native 6b I/O/budget failure at b can instead escape through O::Error. It also spends work on later members after a terminal refusal. The infallible vector adapter cannot expose this difference.",
+      "requestedChange": "Provide branch-A short-circuit observation/decision order: directory custody and 6b for each candidate in path order, stopping at the first refusal while maintaining one pass-level environment/global-source check. Add a fallible/recording adapter control where a refuses and b would error or exhaust the budget, and assert b is not observed. Branch B may continue as its disclosure semantics require."
+    },
+    {
+      "id": "B3B2B1-R1-RF-3",
+      "priority": "P2",
+      "title": "The observation adapter does not record directory listings",
+      "location": "crates/security/src/custody/workspace_declarations_tests.rs:203-210",
+      "description": "Synthetic::children reads and returns names without recording any call or path. The access subset/forbidden checks inspect only consulted and read, so a children call below a pruned anchor or boundary can be made and discarded without changing outputs or failing an access assertion. A2 explicitly requires recording entry, markers, children and bytes calls.",
+      "requestedChange": "Record and validate listing access separately or through an equivalent observation record, preserving the reference's allowed listing scope and forbidden paths. Add an output-preserving mutation that lists a forbidden subtree; the current metadata-lookup mutation does not cover this method."
+    },
+    {
+      "id": "B3B2B1-R1-RF-4",
+      "priority": "P2",
+      "title": "JSON alignment controls omit the required byte-bound cases",
+      "location": "tools/security/workspace_member_vectors.py:parser_controls",
+      "description": "The 26 JSON controls cover 13 values for carriers/providers, but none is at or beyond the 4-MiB byte bound required by A2 r2. They do not exercise the TooLarge path or the custody/read/parser boundary at that limit.",
+      "requestedChange": "Add carrier and provider JSON controls exactly at and beyond 4 MiB, with appropriate metadata and actual bytes, and compare the reference/product dispositions. Preserve custody-before-read precedence where metadata already refuses, and cover a bounded read reporting TooLarge when applicable. Refresh case counts, generated pins and evidence."
+    }
+  ],
+  "nonBlockingObservations": []
+}
