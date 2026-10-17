@@ -1,0 +1,25 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectManifestSha256": "4c02809d2000e6a582c1c89623af24112abfaf02a1069e80c1a9da5c8e64f7cf",
+  "requiredFindings": [
+    {
+      "id": "C2APLAN-R3-RF-1",
+      "priority": "P2",
+      "path": "docs/implementation/m3/snapshot-plan-c/c2a/PLAN-r3.md",
+      "line": 170,
+      "title": "Price the encoder’s integer-formatting temporaries before encoding",
+      "detail": "The published encoder price accounts only for the growing output Vec. canonical.rs:317-320 also creates a fresh String and writes the decimal representation for every Integer before appending it. A closure descriptor has n+2 such integers (each Blob.bytes, protocolMajor and schemaVersion). These temporary allocations occur in the first canonical_bytes call, outside the separately bounded IdentityCandidate admission. At the recorded 34,662-row boundary, there are 34,664 integer-formatting temporaries in addition to the output-buffer growth; the logarithmic objects price does not cover them. The 4D byte price is explicitly for output-buffer reallocations, with no published temporary-string price. Thus the every-allocation-before-it-is-made promise and round-2 RF-1 remain partially unmet.",
+      "requestedChange": "Publish and precharge a conservative allocation/object and capacity-byte price for all integer-formatting temporaries in this first encoding, or use an encoder path that formats integers in a stack buffer and prices its remaining allocations. Keep the identity-admission exception scoped to IdentityCandidate internals. Add allocation-price controls with several Blobs and large decimal widths, plus a budget that funds the output buffer but cannot fund the omitted temporaries; it must refuse Budget before the unfunded allocation."
+    },
+    {
+      "id": "C2APLAN-R3-RF-2",
+      "priority": "P2",
+      "path": "docs/implementation/m3/snapshot-plan-c/c2a/PLAN-r3.md",
+      "line": 168,
+      "title": "Replace the sorting comparison estimate with a sound charge",
+      "detail": "n * ceil(log2(n+1)) is not an upper bound on sort_unstable_by comparator calls. Read-only inspection of the available std source (core/src/slice/sort/unstable/mod.rs::sort and shared/smallsort.rs::insertion_sort_shift_left / insert_tail) shows unconditional insertion sort for lengths through 20 on ordinary supported targets. Twenty distinct paths in reverse byte order require 1+...+19 = 190 comparisons; the published sorting price is only 20*ceil(log2(21)) = 100 edges. The body reader does not guarantee Blob ordering, so this is a valid projection input. The separate adjacent-duplicate pass does not pay for these additional sorting comparisons. The abstract O(n log n) complexity guarantee does not establish this concrete coefficient-one price.",
+      "requestedChange": "Charge each comparison before it occurs through a fallible bounded ordering implementation, or publish a proved conservative bound for the chosen implementation and precharge it. A deterministic explicitly bounded sorting algorithm is also acceptable. Preserve Budget as a typed failure and do not reset the caller scope. Include reverse-ordered 20-path and adversarial larger-order controls that compare actual comparator work with the funded price; a scope permitting only the current estimate must not perform unfunded comparisons."
+    }
+  ],
+  "nonBlockingObservations": []
+}

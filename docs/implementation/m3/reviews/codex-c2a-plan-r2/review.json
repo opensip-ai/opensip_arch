@@ -1,0 +1,33 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectManifestSha256": "2e7166af52e6ef2812489ba3f292835e7f52c005fc502eac3ea5e099f82587c8",
+  "requiredFindings": [
+    {
+      "id": "C2APLAN-R2-RF-1",
+      "priority": "P2",
+      "path": "docs/implementation/m3/snapshot-plan-c/c2a/PLAN-r2.md",
+      "line": 92,
+      "title": "Correct the encoded-size derivation used for pre-allocation work charges",
+      "detail": "LD3 prices a Blob as 39 fixed bytes plus the decimal length and path. Its actual canonical encoding has 96 fixed bytes, including the 64 digest characters, before the decimal length and encoded path payload. For bytes=0 and path=\"p\", the encoding is 98 bytes, rather than 41. Every inter-row comma is additional, except before the first row. UTF-8 and JSON escaping also mean path characters are not interchangeable with encoded payload bytes. LD10 promises an exact-length buffer charge computed before allocation; the published formula would undercharge by at least 57 bytes per Blob, before considering escaping. The per-Blob allocation costs are also incomplete as a concrete derivation: one object does not state the bytes for its chosen record/map representation and descriptor structure. Thus round-1 RF-4 is only partially resolved.",
+      "requestedChange": "Correct the fixed Blob overhead to 96 and derive the full descriptor size using actual escaped UTF-8 string payload lengths, numeric digit lengths, array separators and the other descriptor members. Publish complete WorkCost prices for the actual owned path/Blob/container/index/descriptor representations and any encoding/hash buffers, with no double charging of borrowed trust evidence. Add independent predicted-versus-encoded size/charge vectors, including a non-ASCII or escapable path, a feasible byte boundary and aggregate exhaustion. Do not implement the 39-byte formula or an unpriced allocation behind the exact-length promise. Keep the 4 MiB cap and the isolated count predicate unchanged."
+    }
+  ],
+  "nonBlockingObservations": [
+    {
+      "id": "C2APLAN-R2-NBO-1",
+      "path": "docs/implementation/m3/snapshot-plan-c/c2a/PLAN-r2.md",
+      "line": 81,
+      "title": "Scope the no-new-admission statement to preserve fallible retention and re-admission",
+      "detail": "The new pre-draw placement is correct, but \u201cnever re-runs a check that could refuse\u201d is too broad if read as an exemption from downstream retained-record validation or storage failure handling. NE:1493-1499 requires compiler/stdlib retained records to be re-admitted before comparisons; M3-C item 10:562 requires mint-time and Run-closure consumers to use the same admission functions. Existing native_context.rs:189-223 can still report missing, malformed, wrong-identity or wrong-kind retained objects. Copying/pinning bytes into Run retention can also fail without reopening component signature admission.",
+      "suggestedChange": "Say that row 8 adds no new component-manifest admission and never re-verifies signatures. Preserve the existing context/Run-closure checks and typed retention/I/O failures at their owning boundaries. Add a post-draw promised-object failure control that keeps its actual cause and does not become not-installed or a second R10a refusal."
+    },
+    {
+      "id": "C2APLAN-R2-NBO-2",
+      "path": "docs/implementation/m3/snapshot-plan-c/c2a/PLAN-r2.md",
+      "line": 163,
+      "title": "Keep the existing authenticated-core branch outside the component-only type gate",
+      "detail": "LD12 says AdmittedClosure is the only closure type accepted by the Plan, while only the component candidate/tree verifier constructs it. Core evaluator/detector/provider/adapter closures remain projections of the authenticated InitialCore receipt and do not pass through a component manifest, catalog or C2a-3 delivery gate. LD7 already says they remain unaffected, so the type wording should preserve that explicit distinction.",
+      "suggestedChange": "Scope the two-type rule to newly admitted component closures, or name an admitted-closure sum type with a separate authenticated-core constructor/branch. Preserve the no-trust-view case in which core roles remain available and no component closure is admitted; no core role may require the delivery law or fixture root."
+    }
+  ]
+}
