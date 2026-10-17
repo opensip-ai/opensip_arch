@@ -1,0 +1,17 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectManifestSha256": "b37bdf11cbbfbbc57162d8892e15cf8dbe789f57df4892636e1eebab168096bf",
+  "requiredFindings": [
+    {
+      "id": "D41-R2-RF-1",
+      "priority": "P2",
+      "location": "crates/components/src/manifest.rs:321-324, 417-420, 450-470; crates/components/src/manifest_tests.rs:685-712",
+      "title": "Observe the boolean predicate evaluation, not only tested() receiving its result",
+      "description": "The ordered/reserve wrappers and their mutations fix the named probe and allocation counterexamples. The boolean-predicate part of D41-R1-RF-1 remains incomplete: tested(outcome: bool) receives an already-evaluated result and records Compared afterward. A predicate can be computed before compare(work) and then passed to tested after the charge. If that charge refuses, the predicate already ran but no Compared entry is emitted. The new source guard counts work.charge, Vec::with_capacity, .cmp and pushes; it does not constrain these boolean predicate computations or their order. Thus its token counts and the oracle/model prefixes are unchanged by this counterexample, including in both judge passes. This is a remaining acceptance-control gap; the submitted candidate itself currently places the charges before these evaluations.",
+      "counterexample": "Replace the EE-1 site with:\nlet explicitly_trusted = claim.provenance.source_class == SourceClass::ExplicitlyTrusted;\ncompare(work)?;\nif tested(explicitly_trusted)\n    && !probe(policy.explicitly_trusted, claim.provenance.publisher, work)?\n{ /* unchanged refusal */ }\nThe stored boolean is computed before the potentially refused charge. Successful output, ledger sequence and operation-log sequence stay identical. With a short allowance, the extra computation is invisible because tested is not reached. The same pattern applies to the EE-5a boolean tests.",
+      "requestedChange": "Make boolean predicate evaluation itself occur in an observed site, or add complete reviewed source-order guards for the actual predicate expressions and their charges. A lazy predicate helper can bring the operation into the wrapper, but also guard against precomputing and passing a captured boolean. Add a mutation that precomputes the predicate before compare while leaving tested after it; it must fail an assertion rather than compilation. Retain the current exact totals, per-site prefixes, ordered-comparison oracle, allocation controls and all passing mutations.",
+      "validationExpectation": "Supply authorized-lane evidence that this stored-result-before-charge mutation is caught, with no predicate evaluation at or past a refused site. No new price, predicate, projection or production behavior is requested."
+    }
+  ],
+  "nonBlockingObservations": []
+}
