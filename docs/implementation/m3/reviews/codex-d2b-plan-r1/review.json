@@ -1,0 +1,56 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectManifestSha256": "b1f997d76f25ee5154c3b2e9bda09f3417573714bdf74b5f68fafb06b004414f",
+  "requiredFindings": [
+    {
+      "id": "D2BPLAN-R1-RF-1",
+      "priority": "P2",
+      "path": "docs/implementation/m3/supervisor-d/d2b/PLAN-r1.md",
+      "line": 68,
+      "title": "Separate received commitment preimages from the encoded spool entry",
+      "detail": "LD-D2B-3 requires the spool entry to be asserted equal to received payload sub-slices. RPP limitPolicy.candidateSpoolAccounting instead requires a newly encoded closed map {analysisOrdinal,stageId,candidate}; that wrapper is not the received candidate sub-slice, candidate array or envelope. A literal equality check rejects valid batches, while substituting slice length undercharges the spool. The next sentence also describes stream commitments only over candidate bytes and only at Coverage or Complete, although coverage commitments use CoverageResultV3 entries and post-Analyze Unavailable/BudgetExhausted also carry coverage-stream commitments.",
+      "requestedChange": "Specify separate representations: retain exact received candidate and coverage-entry encodings for the corresponding owner commitment recipes; construct each spool-entry map from the validated value and charge its complete deterministic-CBOR encoding before append. Any byte-equality assertion compares the re-encoded candidate to its candidate slice, not the whole spool entry. Bind each stage, stream and terminal field to commitmentMap, including the terminal coverage arrays. Add controls distinguishing spool wrapper bytes, fact versus coverage preimages, and terminal commitments."
+    },
+    {
+      "id": "D2BPLAN-R1-RF-2",
+      "priority": "P2",
+      "path": "docs/implementation/m3/supervisor-d/d2b/PLAN-r1.md",
+      "line": 89,
+      "title": "Include stateful payload admission between schema validation and table matching",
+      "detail": "The proposed check order ends with a closed payload schema followed by the transition table, without assigning the retained contextual admission duties. P3T plus its overlay is deliberately not the complete payload validator: the overlay explicitly retains rust2 framePrecheck and T016/T020 payload guards. In particular DISPATCH-STAGE-CORRELATION requires the requested C-2 stageId, Analyze-relative ordinal, analysisOrdinal and expected batch/candidate counters. A well-typed batch with another stageId or a replayed batchIndex can pass the closed schema and P3-23/T2-12. Trial 07 is not sufficient coverage for this gap: admission-vectors.json explicitly exempts DISPATCH-STAGE-CORRELATION, TS2-STAGE-PROJECTION and RUST3-PLAN-STAGE-BYTES as inherited M2 duties.",
+      "requestedChange": "Assign D2b-3/-4 the retained per-frame contextual admission, with a supplied immutable dispatch/request context and live per-direction/per-stage counters. Explicitly place the retained prechecks and payload guards before matching, apply the applicable carrier admission joins and owner semantics without performing H fact admission, and preserve typed failure before publication. Add integration controls for wrong current stage/Analyze ordinal, duplicate or skipped batch/candidate ordinals, and retained Plan-stage byte equality; do not treat replay of the scoped corpus as proof of these exempt obligations."
+    },
+    {
+      "id": "D2BPLAN-R1-RF-3",
+      "priority": "P2",
+      "path": "docs/implementation/m3/supervisor-d/d2b/PLAN-r1.md",
+      "line": 55,
+      "title": "Plan successor-aware codec behavior and new controls beyond materialization",
+      "detail": "FA-2 and RUST3-LIM are assigned schema materialization in D2b-0, but D2b-3/-4 are described only as the codecs with T4/T5. Their normative wire duties and successor-specific controls are not stated. X-FA2-D requires the token-gated Analyze/Complete versions, Analyze census request and D-empty request commitments from the Plan, wire refusals/bounds, and deferral of the symbol-key wrapper commitment check to H at settlement. X-RL-D requires StageRequestV3 and host-constructed RustSubjectScopeV1 under its token, mismatch refusal and the retained token-absent inline path. Trial 07 carriers contain neither symbol-census-v1 nor subject-scope-reference-v1, so its 353 admission vectors cannot establish these new branches.",
+      "requestedChange": "Add an explicit allocation of X-FA2-D and X-RL-D behavior to D2b-3/-4 and the C4/H interfaces. Cover the independent negotiated token combinations, both token/shape mismatch directions, old no-token payloads, FA-2 complete/over-bound census handling and its typed scope-limit handoff without manufacturing a provider fault, D-empty versus returned census commitments with the H settlement boundary, and reference-scope count/commitment reconstruction. Pin and adapt the successors own vectors alongside trial 07, retaining historical controls rather than treating historical replay as complete successor conformance."
+    }
+  ],
+  "nonBlockingObservations": [
+    {
+      "id": "D2BPLAN-R1-NBO-1",
+      "path": "docs/implementation/m3/supervisor-d/d2b/PLAN-r1.md",
+      "line": 65,
+      "title": "Define the depth computation over the complete successor-aware wire closure",
+      "detail": "The schema-derived bound is a reasonable answer to Q3, provided it includes inherited carrier records, transitive external schema references, negotiated variants and the two successor schemas, rather than just the three named source schemas. D2b-1 precedes D2b-0, so state when its computed constant is updated and rechecked after materialization. Distinguish container depth from byte-string contents; the embedded relation-payload CBOR reader needs its own applicable schema-depth check. Add a deepest-valid case and a one-level-over refusal."
+    },
+    {
+      "id": "D2BPLAN-R1-NBO-2",
+      "path": "docs/implementation/m3/supervisor-d/d2b/PLAN-r1.md",
+      "line": 74,
+      "title": "Distinguish abstract TS2 Cancel permission from the selected host send schedule",
+      "detail": "T2O permits Cancel in START and the TS2 payload admits host-shutdown. However, the cited carrier HOST-SEND-SCHEDULE is marked appliesTo=both and states after-Hello, exact echo, user-interrupt only. Keep those table/payload capabilities distinct from what the host sender may actually emit under LD-D2B-9; D3 choosing a reason must also respect the consumed schedule. Any intended widening needs the relevant owner decision, rather than silently weakening the sender contract."
+    },
+    {
+      "id": "D2BPLAN-R1-NBO-3",
+      "path": "docs/implementation/m3/supervisor-d/d2b/PLAN-r1.md",
+      "line": 122,
+      "title": "Use an observable control for received-byte provenance",
+      "detail": "For canonically validated input, re-encoding the same value produces identical bytes by construction. A mutant that merely swaps received sub-slices for that equivalent re-encoding cannot be killed by digest-result assertions alone. State the instrumentation or structural verification that observes the actual input provenance; retain separate black-box mutants for wrong wrapper, order, domain or value class."
+    }
+  ]
+}
