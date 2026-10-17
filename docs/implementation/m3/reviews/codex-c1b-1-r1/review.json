@@ -1,0 +1,24 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectManifestSha256": "70edd99be8cc9f43ea11d3e643c5a7b0cd777460175d11fcbc29630ddbec7c6f",
+  "requiredFindings": [
+    {
+      "id": "C1B1-R1-RF-1",
+      "priority": "P2",
+      "title": "Remove or charge the new allocations used to construct the repository proof",
+      "location": {
+        "path": "crates/security/src/custody/git_tracking.rs",
+        "lineStart": 1611,
+        "lineEnd": 1616
+      },
+      "finding": "RepositoryProof::retained collects a new Vec<&[u8]> and calls label twice per candidate ancestor, allocating the ancestor prefix and its .git label. SnapshotRoot::from_operation invokes this new work without a WorkScope. These are additional allocations over X2's already-retained evidence; the old X2 charge does not fund reconstructing them. For a selected root below its repository, prefixes are repeatedly allocated until the repository ancestor is found. Neither VcsModel nor vcs_envelope accounts for this work. The exact-charge control constructs self.subject() and SnapshotRoot before creating the test ledger (snapshot_vcs_tests.rs:166-179), so its nine successful comparisons cannot detect the omission. This leaves the new snapshot lending work outside the shared budget and prevents the submitted term from being complete as required by LD-C1B-6.",
+      "requiredChange": "Prefer deriving the innermost repository index and metadata sample from borrowed evidence labels and borrowed spelling slices without a component Vec or owned labels. Alternatively, charge every new allocation before it occurs through the caller's shared ledger, propagate typed budget refusal, and include those charges in the complete model and derivation. Preserve the chain-identity and innermost-repository checks.",
+      "validation": "Cover a root several directories below an enclosing repository and nested repositories. Extend the allocation/source control through the production proof-construction path, rather than beginning only inside observe_vcs. If allocations remain, prove exact charge equality and a one-unit-short typed Budget refusal for this work, and regenerate the affected model, vectors, derivation and bindings."
+    }
+  ],
+  "nonBlockingObservations": [],
+  "rulings": {
+    "Q1": "Accepted. Existing S3 configuration-file custody may refuse a stable file larger than 4 MiB before any read, using head-custody, loose-ref-custody or packed-refs-custody. Exactly 4 MiB is read subject to the shared budget and then parsed. The corresponding oversized reason remains for growth after judgment. This is an explicit adjustment to the plan control, not a larger cap or permission to bypass custody.",
+    "Q2": "The separate complete VCS derivation suffices for this unit under the accepted r9 conditional-margin regime; adding the worst-case envelope to every per-entry census row is not required. The row model must continue to identify what it actually prices. All non-row work, including VCS and any charged proof construction, shares the same remaining margin. RF-1 must be resolved before the complete-term claim is accepted. The batch refresh still requires its pre-run review, frozen final input bindings, current receipt bindings and post-run review; unchanged stale receipts establish no renewed margin or product qualification."
+  }
+}

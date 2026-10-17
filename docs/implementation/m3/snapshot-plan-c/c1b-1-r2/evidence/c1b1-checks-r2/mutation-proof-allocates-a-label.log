@@ -1,0 +1,92 @@
+   Compiling opensip-security v0.1.0 (/Users/sb/code/opensip-ai/opensip-c1b1/crates/security)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.51s
+     Running unittests src/lib.rs (target/debug/deps/opensip_security-14ad03b34222b156)
+
+running 24 tests
+test snapshot_vcs::tests::an_unborn_head_refuses_unborn_head ... ok
+test snapshot_vcs::tests::the_module_reads_no_environment ... ok
+test snapshot_vcs::tests::head_through_a_loose_ref ... ok
+test snapshot_vcs::tests::evidence_changed_when_dot_git_is_replaced ... ok
+test snapshot_vcs::tests::the_record_length_equals_the_canonical_encoding ... ok
+test snapshot_vcs::tests::the_subject_is_built_without_allocating ... FAILED
+test snapshot_vcs::tests::each_git_file_at_exactly_the_cap_is_read_and_one_over_refuses ... ok
+test snapshot_vcs::tests::every_ref_name_rule_refuses_ref_name_in_head_and_in_packed_refs ... ok
+test snapshot_vcs::tests::a_cross_root_record_and_members_under_a_repository_refuse_internal ... ok
+test snapshot_vcs::tests::a_detached_head ... ok
+test snapshot_vcs::tests::the_innermost_of_nested_enclosing_repositories ... ok
+test snapshot_vcs::tests::custody_refusals ... ok
+test snapshot_vcs::tests::a_deep_target_past_the_remaining_budget_refuses_budget ... ok
+test snapshot_vcs::tests::each_closed_form_refusal ... ok
+test snapshot_vcs::tests::a_too_long_target_component_refuses_ref_name ... ok
+test snapshot_vcs::tests::a_fifo_as_head_refuses_head_not_file ... ok
+test snapshot_vcs::tests::a_member_reached_through_a_deep_multibyte_path ... ok
+test snapshot_vcs::tests::head_through_packed_refs_with_and_without_the_header_and_with_peels ... ok
+test snapshot_vcs::tests::a_loose_ref_wins_over_packed_refs ... ok
+test snapshot_vcs::tests::a_members_refusals_keep_the_member_projection ... ok
+test snapshot_vcs::tests::no_repository_and_no_member_is_none ... ok
+test snapshot_vcs::tests::the_observation_charges_exactly_the_models_vcs_term ... ok
+test snapshot_vcs::tests::the_proof_selects_the_innermost_repository_at_every_depth ... ok
+test snapshot_vcs::tests::two_members_resolve_one_loose_and_one_packed ... ok
+
+failures:
+
+---- snapshot_vcs::tests::the_subject_is_built_without_allocating stdout ----
+
+thread 'snapshot_vcs::tests::the_subject_is_built_without_allocating' (12898270) panicked at crates/security/src/snapshot_vcs_tests.rs:1224:13:
+to_vec in:
+impl<'a> RepositoryProof<'a> {
+    pub(crate) fn retained(chain: &'a ProjectChain, observed: &'a TrackingObservation) -> Option<Self> {
+        if !matches!(observed.tracking, Tracking::Untracked { repositories } if repositories > 0)
+            || observed.root != chain.identity()
+        {
+            return None;
+        }
+        let below_root = chain.spelling().as_os_str().as_bytes().get(1..).unwrap_or_default();
+        for index in (0..=chain.path().component_count()).rev() {
+            let owned_here = components_prefix(below_root, index).to_vec();
+            let here = owned_here.as_slice();
+            let sample = observed.evidence.iter().find_map(|s| match s {
+                Sample::Present(l, md) if is_dot_git_label(l, here) => Some(md),
+                _ => None,
+            });
+            if let Some(sample) = sample {
+                return Some(Self { chain, index, sample });
+            }
+        }
+        None
+    }
+    pub(crate) fn directory(&self) -> &'a RetainedDirectory {
+        self.chain.path().directory_at(self.index).expect("retained index")
+    }
+    pub(crate) fn sample(&self) -> &'a DescriptorMetadata {
+        self.sample
+    }
+}
+fn components_prefix(path: &[u8], count: usize) -> &[u8] {
+    if count == 0 {
+        return &[];
+    }
+    let mut seen = 0;
+    for (at, byte) in path.iter().enumerate() {
+        if *byte == b'/' {
+            seen += 1;
+            if seen == count {
+                return &path[..at];
+            }
+        }
+    }
+    path
+}
+fn is_dot_git_label(candidate: &[u8], here: &[u8]) -> bool {
+    candidate.len() == here.len() + b"/.git".len() && candidate.starts_with(here) && candidate.ends_with(b"/.git")
+}
+
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    snapshot_vcs::tests::the_subject_is_built_without_allocating
+
+test result: FAILED. 23 passed; 1 failed; 0 ignored; 0 measured; 1272 filtered out; finished in 6.86s
+
+error: test failed, to rerun pass `-p opensip-security --lib`
