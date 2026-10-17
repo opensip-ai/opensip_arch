@@ -1,0 +1,58 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectManifestSha256": "d50ef70a21ea42d838204b4c75e3c268abcabc68674f1e1646944b03cc0229ed",
+  "requiredFindings": [
+    {
+      "id": "D1A-R1-RF-1",
+      "priority": "P1",
+      "title": "Child scratch does not retain its parent descriptor or invocation lock",
+      "location": "crates/platform/src/process.rs:769-778,829-850; Child::take_scratch",
+      "finding": "ChildScratch stores only ScratchRoot.root.as_raw_fd(). Neither Child nor ChildScratch borrows or owns ScratchRoot, so safe callers can drop ScratchRoot while the child or a taken scratch is alive. This closes the parent descriptor and releases the invocation flock. A sibling sweeper can then delete a running child's cwd; remove() later uses a closed or reused descriptor for unlinkat. The safety comment at line 848 is not enforced by the API.",
+      "requestedChange": "Make children and detached scratch values retain the owning scratch-root state, including its held parent/root descriptors and invocation lock, or enforce equivalent lifetimes. A duplicate of the root descriptor alone does not preserve the lock. Add coverage for dropping the original root while a child/taken scratch remains alive, including descriptor reuse and a sibling sweep."
+    },
+    {
+      "id": "D1A-R1-RF-2",
+      "priority": "P1",
+      "title": "The sweep can delete a root without acquiring its lock and releases acquired locks before removal",
+      "location": "crates/platform/src/process.rs:721-750,796-820",
+      "finding": "When openat(lock) fails for any reason, sweep falls through to remove_tree. A concurrent creator publishes its opensip-scratch-* directory before creating/locking its lock file, so a sweeper can remove a live root during that window. Permission and other open failures also do not establish a dead owner. On success, lock_fd is dropped at the end of the if block, before remove_tree/unlinkat, allowing another sweeper to enter the same deletion concurrently.",
+      "requestedChange": "Define a creation/publication and sweep protocol that never treats absence or failure to open a lock as proof of death, handles the create-before-flock window, and keeps the acquired lock alive through deletion of the root. Cover concurrent creation versus sweep and two concurrent sweepers with controlled interleavings."
+    },
+    {
+      "id": "D1A-R1-RF-3",
+      "priority": "P2",
+      "title": "Last-resort reaping ignores interrupted waits",
+      "location": "crates/platform/src/process.rs:1039-1046,1229-1242",
+      "finding": "Both failure cleanup and Child::drop call blocking waitpid only once and ignore its result. A caught signal whose handler does not restart waits can produce EINTR before the SIGKILLed child becomes waitable. Drop then marks reaped=true and discards the child handle although no reap succeeded, leaving a zombie. The existing normal-exit tests do not exercise this path.",
+      "requestedChange": "Use a shared exact-pid reap helper that retries EINTR and distinguishes successful reap, ECHILD, and other failures; do not infer successful reaping merely because waitpid was called. Preserve the no-wildcard and reap-last rules. Provide an interruption control for cleanup."
+    },
+    {
+      "id": "D1A-R1-RF-4",
+      "priority": "P2",
+      "title": "Exit-source setup failure kills only the root and can orphan its group",
+      "location": "crates/platform/src/process.rs:1037-1046",
+      "finding": "After successful posix_spawn, exit_source may fail, for example when kqueue cannot allocate a descriptor. The child can already have forked a descendant. This branch kills only process_id and reaps it, unlike Drop, which first kills the unreaped root's group. Descendants in that group can survive after spawn returns Err, with no Child handle available to clean them up.",
+      "requestedChange": "On post-spawn setup failure, kill the reserved child group before reaping the root, retain the direct-root fallback, and use the robust exact-pid reap helper. Cover an injected exit-source failure with a child that has created a descendant. This is primitive error cleanup, independent of D3 supervision policy."
+    },
+    {
+      "id": "D1A-R1-RF-5",
+      "priority": "P2",
+      "title": "The new test helper introduces a prohibited from( call",
+      "location": "crates/platform/src/process_tests.rs:139",
+      "finding": "open_dir introduces OwnedFd::from(File::open(path).unwrap()). Request item 5 explicitly prohibits new from( calls and supplies no test-only exception. Passing FW-01 does not establish compliance with this separate rule.",
+      "requestedChange": "Replace this conversion using an allowed ownership-preserving spelling, and rescan all added/changed Rust code for the six prohibited call names. Preserve unique descriptor ownership."
+    }
+  ],
+  "nonBlockingObservations": [
+    {
+      "id": "D1A-R1-NBO-1",
+      "title": "Package metadata retains obsolete descriptions",
+      "observation": "SCOPE.md says both that lib.rs is clean/formatted and that it is not clean/not reformatted; attempt-3 rustfmt-classification.json establishes baseClean=true and candidateClean=true. source.json and the runner docstring still name plan r1, the runner docstring says ten mutations, and source.json says publicApiAdded=false despite new public re-exports. The manifest and request identify the actual reviewed bytes and authority, so these are editorial observations; reconcile them in the successor package."
+    },
+    {
+      "id": "D1A-R1-NBO-2",
+      "title": "Directory traversal converts names lossily",
+      "observation": "process.rs:880 converts readdir bytes with String::from_utf8_lossy, then reconstructs syscall names from that string. A byte name outside UTF-8 would no longer identify the same entry and could prevent cleanup. No such filename was created or filesystem capability tested in this read-only review. Prefer retaining C/OsString bytes throughout traversal, or document and establish the supported scratch filesystem restriction before claiming byte-exact cleanup."
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectManifestSha256": "72708f4617b4e6ce37592f735cf483152833a01be31027b98e1682f9e50943a5",
+  "requiredFindings": [
+    {
+      "id": "D1A-R3-RF-1",
+      "priority": "P2",
+      "title": "SetupAbandoned still releases root custody without a successful reap",
+      "location": "crates/platform/src/process.rs:1162-1179",
+      "finding": "The new fail-closed lifetime rule is implemented only once a Child has been constructed. After successful posix_spawn, exit_source can fail and kill_and_reap can return an error; this is the explicitly represented SetupAbandoned branch. That return drops the local ChildScratch, and root_guard has not yet been cloned. If the caller then drops ScratchRoot, no owner retains the invocation lock even though the reap result is uncertain. A sibling sweep can reclaim that root. Drop deliberately leaks its guard for the equivalent uncertain-reap outcome, so the two cleanup paths now implement different custody guarantees. This is a source-analysis finding in the represented cleanup-error branch; no real syscall failure was induced during this constrained review.",
+      "requestedChange": "Establish root custody for every successfully spawned process before exit-source setup, and preserve or deliberately leak that hold when setup cleanup cannot establish a reap/no-child result. Keep both errors in SetupAbandoned. A small shared guard can serve both the setup-error and Child::drop paths. Add an injected non-EINTR/non-ECHILD reap-error control for the setup-failure branch: after the error and dropping ScratchRoot, the lock must remain held and the root must not be swept. Verify the successful cleanup path still releases its hold."
+    }
+  ],
+  "nonBlockingObservations": [
+    {
+      "id": "D1A-R3-NBO-1",
+      "title": "Deterministic contested-sweep coverage remains outstanding",
+      "observation": "Carries D1A-R2-NBO-2. The current two-sweeper/creator stress test may run without forcing both sweepers to retain the same dead root and lock before one wins. Its regression value and the source protocol argument remain valid; a barrier or narrow hook would strengthen interleaving coverage. SCOPE correctly states this was not completed in r3."
+    }
+  ]
+}

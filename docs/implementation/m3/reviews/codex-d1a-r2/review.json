@@ -1,0 +1,26 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectManifestSha256": "83551ba384edb7f6339f8d36ff31055b93b671ed92909b97ddf8189a92cc80bf",
+  "requiredFindings": [
+    {
+      "id": "D1A-R2-RF-1",
+      "priority": "P2",
+      "title": "Taking scratch before reap can still release a live child's invocation lock",
+      "location": "crates/platform/src/process.rs:1044-1052,1274-1275; process_tests.rs:a_child_keeps_its_scratch_root_and_lock_after_the_root_is_dropped",
+      "finding": "The Child retains RootState only through scratch: Option<ChildScratch>. take_scratch unconditionally takes that option, including while the child is running. The safe sequence spawn a holding child; take_scratch; drop the taken scratch; drop ScratchRoot leaves the live Child with no Arc<RootState>. The root descriptors and invocation lock are released, and a sibling sweep can delete the running child's scratch/cwd. Arc fixes the dangling descriptor in a retained ChildScratch, but it does not enforce the promised live-child lifetime after detachment. The new test takes scratch only after reap, so misses this sequence.",
+      "requestedChange": "Have Child retain its own root-state guard independently of the detachable scratch until the child is reaped/dropped, or refuse scratch detachment until the required child lifetime has ended. Add a control that takes and drops scratch while a holding child is still live, drops the original root, and verifies that the sibling sweep cannot reclaim that live invocation. Then complete cleanup and establish eventual reclamation. This completes the remaining part of D1A-R1-RF-1."
+    }
+  ],
+  "nonBlockingObservations": [
+    {
+      "id": "D1A-R2-NBO-1",
+      "title": "Staging directories have no crash-reclamation path",
+      "observation": "Creation now correctly locks before publishing, but a crash or failure before rename leaves .opensip-scratch-staging-* outside the sweep's opensip-scratch-* prefix forever. These unpublished directories cannot yet contain a launched child's source scratch, so this does not block the current ownership/concurrency correction. Document their disposition or add a separately coordinated staging cleanup; simply sweeping staging names would reintroduce a creator race."
+    },
+    {
+      "id": "D1A-R2-NBO-2",
+      "title": "Concurrency test does not force both sweepers to the contested interleaving",
+      "observation": "The two-sweeper/creator stress test is useful and the source protocol handles competing acquisitions, but scheduling may serialize all sweeps and creations. A barrier or narrow test hook could make both sweepers retain the same dead root/lock before the winner removes it, and exercise publication while a creator holds its staged lock. This would strengthen regression coverage without changing the production protocol."
+    }
+  ]
+}
