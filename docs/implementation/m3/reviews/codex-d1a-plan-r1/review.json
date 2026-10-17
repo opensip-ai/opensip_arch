@@ -1,0 +1,31 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectManifestSha256": "efda51a374b5f29e6e32203fba121745cf8c9911232495e211c691dafefc6bf2",
+  "requiredFindings": [
+    {
+      "id": "D1APLAN-R1-RF-1",
+      "path": "docs/implementation/m3/supervisor-d/d1a/PLAN-r1.md",
+      "line": 65,
+      "title": "Runtime OS selection alone does not make the new addchdir symbol optional",
+      "detail": "The SDK declares posix_spawn_file_actions_addchdir available from macOS 26, and the plan declares it locally in Rust while promising an _np fallback before 26. A normal direct Rust extern reference does not acquire the C header's availability/weak-import semantics. An OS-version branch alone can therefore leave a required loader symbol unavailable before the branch executes. The constants and header citations are correct; the missing piece is linkage and symbol availability.",
+      "requiredChange": "Specify availability-safe resolution, such as a typed dlsym lookup with a checked _np fallback, or an explicitly supported weak-link mechanism and deployment-target contract. Add a symbol-unavailable fallback control and keep lookup/spawn errors typed. If instead requiring macOS 26+, explicitly change the compatibility claim through the owning authority rather than promise an unimplemented older-host fallback."
+    },
+    {
+      "id": "D1APLAN-R1-RF-2",
+      "path": "docs/implementation/m3/supervisor-d/d1a/PLAN-r1.md",
+      "line": 74,
+      "title": "The ordinary Rust test binary cannot directly witness untouched exec startup state",
+      "detail": "LD-D1A-4 observes signal dispositions only after Rust runtime and libtest initialization. The installed pinned Rust 1.95 source, library/std/src/sys/pal/unix/mod.rs:25-41 and :165-183, explicitly resets SIGPIPE to SIG_IGN by default before user code and initializes other runtime facilities. Consequently D1-T9 cannot observe the intended default SIGPIPE at that test function. Resetting it inside the fixture would hide a missing spawn reset. The proposed closed-pipe host write also does not demonstrate F_SETNOSIGPIPE while Rust already ignores SIGPIPE: it returns EPIPE without killing the process even when the per-fd option is missing.",
+      "requiredChange": "Define an observation path before Rust/libtest modifies the measured startup state, or a minimal controlled first-party fixture/startup arrangement with its runtime effects explicitly accounted for. Do not repair the measured dispositions before observing them. Probe F_SETNOSIGPIPE directly with F_GETNOSIGPIPE or use an isolated default-SIGPIPE observer. Add mutants omitting SETSIGDEF, SETSIGMASK and the per-fd SIGPIPE option, and ensure each is caught. Other post-runtime observations may still use the test binary where valid."
+    },
+    {
+      "id": "D1APLAN-R1-RF-3",
+      "path": "docs/implementation/m3/supervisor-d/d1a/PLAN-r1.md",
+      "line": 22,
+      "title": "Construction does not yet specify the exact protocol-specific launch profiles",
+      "detail": "The plan states a generic Provider class and construction checks for absolute argv[0] and an environment-key allowlist, while promising to reject an extra argv element. TS2 and Rust3 share that class but have different ordered argv, required environment keys and fixed values. An allowlist alone admits missing keys and wrong values, such as LANG=other; a union provider allowlist also admits TS2-only keys for Rust3. The plan does not identify the profile discriminator or closed constructors that make its exactness promise enforceable.",
+      "requiredChange": "Specify closed protocol-specific LaunchSpec construction within Provider, without adding a repository-code class, with exact BBC TS2 and DRJ2 Rust3 argv shapes, required environment sets and fixed values, and validated host-supplied placeholders. Keep Tool argv/environment under its C3b owner, explicitly gated where that contract is pending. Add negative controls for extra/reordered argv, missing required keys, wrong fixed values and cross-protocol keys; retain the no-inheritance controls."
+    }
+  ],
+  "nonBlockingObservations": []
+}
