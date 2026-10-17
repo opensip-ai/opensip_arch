@@ -1,0 +1,56 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectManifestSha256": "243c91b2440d4084055fd7bd0675645313fadabb108736d5f9681f4028161eb3",
+  "requiredFindings": [
+    {
+      "id": "M3CR9-R1-RF-1",
+      "priority": "P1",
+      "path": "docs/implementation/m3/snapshot-plan-c/c1a-r9/RECORD-r9.md",
+      "line": 35,
+      "title": "Discovery depth 256 does not bound the snapshot row charge",
+      "detail": "term_a.py reads MAX_LISTED_DEPTH from the discovery model and uses it to bound target counts and the rowPathByteDearest coefficient (267), then calls the row subtotal a worst-branch bound. The snapshot walk has no such depth limit, as section 2 itself establishes; LogicalPath allows 4096 scalars. A concrete coefficient counterexample is 580 successive target directories, no Cargo marker, and 1000 empty leaves n000..n999. Each row path has 4064 scalars. The record's own canonical descriptor recipe gives 4162373 bytes, below 4194304, with only 1000 rows and zero payload bytes. Native classify_cost alone charges 584 objects and 2453360 bytes per leaf: 581*16 + 4064*(3+580) + 584*128. The 1000 leaf classifications therefore cost 2453360000 bytes, exceeding the entire stated row-byte bound of 2318979168 before listing/open/custody/session charges. This is a synthetic arithmetic counterexample, not a corpus access. It invalidates the worst-branch proof, even if corrected arithmetic ultimately rounds to the same caps.",
+      "requestedChange": "Derive snapshot depth and target-count envelopes from the actual snapshot/LogicalPath rules, not discovery's listing policy. Recompute the per-row and cap-bounded terms (including object costs of target classifications), the subtotal and rounded recommendation; add a model-only beyond-256 regression case. Alternatively explicitly move the extra classification work into the typed-refusal regime and revise the claimed bounded term/guarantee accordingly. Do not silently impose a new snapshot depth exclusion."
+    },
+    {
+      "id": "M3CR9-R1-RF-2",
+      "priority": "P2",
+      "path": "docs/implementation/m3/snapshot-plan-c/c1a-r9/RECORD-r9.md",
+      "line": 130,
+      "title": "Include D15 member-root classification charges in the derivation and workspace census",
+      "detail": "Both term_a.py and the census instantiate SnapshotModel without members. snapshot_ledger_census.py:150 composes workspace trees but never passes their member roots to price or SnapshotModel. The accepted model's classify and native snapshot_walk.rs::classify_cost explicitly add one object per nonempty member root and 16 bytes per member-root segment on every classification, and perform an additional charged classification for .opensip names. Omitting boundaries may enlarge the extent, but it does not make omission of this positive per-name work conservative. Neither the universal worst-branch subtotal nor the workspace margin evidence currently covers those charges.",
+      "requestedChange": "Price each lead-readable workspace with its actual admitted member-root set, or prove a conservative upper charge that includes it. Bound the member-root terms using their owner's limits, or explicitly assign them to the additional-work refusal regime rather than calling the zero-member subtotal universal. Account for the .opensip double-classification branch. Have the lead regenerate the affected evidence; retain the no-held-out/no-tuning protocol and reassess the caps after correcting the model inputs."
+    },
+    {
+      "id": "M3CR9-R1-RF-3",
+      "priority": "P2",
+      "path": "docs/implementation/m3/snapshot-plan-c/c1a-r9/RECORD-r9.md",
+      "line": 157,
+      "title": "An enlarged no-boundary inventory cannot prove an entry is over item 5",
+      "detail": "The census deliberately applies no admitted boundaries, then labels an enlarged inventory over-item-5 and excludes it from maxima. Section 6 strengthens that result to cannot seal. Boundary removal is conservative for positive work when the enlarged tree remains within item 5; it is not conservative for deciding which samples may be discarded. Nested repository/project or custody/depth boundaries can remove enough regular rows for the actual admitted inventory to fit while leaving substantial listing work. The record gives no boundary comparison or proof that the five oversized enlarged trees also exceed item 5 under their actual admitted extent. Thus their exclusion does not establish the claimed coverage of every lead-readable entry within item 5.",
+      "requestedChange": "Separate conservative work pricing from eligibility classification. Prove over-item-5 against each entry's actual admitted extent, or conservatively retain an enlarged-but-oversized entry as unclassified/covered rather than discarding it from the margin population. Record the evidence for every exclusion and recompute maxima/margins where necessary. Do not assert cannot seal solely from a no-boundary superset, and do not inspect held-out inputs to resolve the issue."
+    }
+  ],
+  "nonBlockingObservations": [
+    {
+      "id": "M3CR9-R1-NBO-1",
+      "path": "docs/implementation/m3/snapshot-plan-c/c1a-r9/RECORD-r9.md",
+      "line": 15,
+      "title": "Pin the candidate sealing input and keep its acceptance dependency explicit",
+      "detail": "The manifest pins the scripts and outputs but not the live C1a3 snapshot_seal.rs whose coefficients enter the law. On this review it is 15993 bytes, SHA-256 bf009872fb5ab0bcc5789665a78a6905df33d39ab459e2df122fdf2dbacb8289. Anchor matches alone do not freeze the complete sealing charge sequence. Record the exact candidate pin and require re-derivation if C1a3 review changes the charged sites; this law review does not accept that candidate implementation."
+    },
+    {
+      "id": "M3CR9-R1-NBO-2",
+      "path": "docs/implementation/m3/snapshot-plan-c/c1a-r9/RECORD-r9.md",
+      "line": 104,
+      "title": "Distinguish walk-plus-session margins from the completed ledger margin",
+      "detail": "The census honestly prices walk plus session, but sealing is also snapshot-ledger work and the leftover refusal can add one path copy. Include or explicitly upper-bound those terms when claiming the full ledger has a 2x margin. With the current recorded inputs, adding the stated worst sealing term alone gives maxima 529528 objects, 1488056 edges and 220010832 bytes, still far below the proposed caps; this observation alone does not require changing those caps."
+    },
+    {
+      "id": "M3CR9-R1-NBO-3",
+      "path": "docs/implementation/m3/snapshot-plan-c/c1a-r9/RECORD-r9.md",
+      "line": 56,
+      "title": "Use feasible examples and distinguish worst-branch charges from cheapest rows",
+      "detail": "The 18-object row uses the new-blob session branch; repeated empty files take the cheaper duplicate branch, so it is not literally the cheapest repeated empty row. The conservative reference-population calculation can use the dearer branch, but should say so. Also section 5's example of a tree within item 5 with 100000 rows is infeasible under the same 4 MiB descriptor argument already given in section 1. Use a feasible row count when illustrating listing-budget refusal."
+    }
+  ]
+}
