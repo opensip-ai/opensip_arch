@@ -1,0 +1,17 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectManifestSha256": "c7aed6170f989af695acded21dccecece268651ca340da0065422758b4a031e7",
+  "requiredFindings": [
+    {
+      "id": "D2B3B-R1-RF-1",
+      "priority": "P2",
+      "location": "crates/components/src/provider_protocol/ts2/send.rs:1122-1124",
+      "title": "Latch snapshot read failures before returning them from the sender",
+      "description": "The source.read error is converted with map_err and propagated without self.refuse. send_next likewise propagates realize_next failures without latching them. After Hello, OpenUniverse and SnapshotManifest, a transient read error on the first chunk therefore returns Source while refused remains false and the cursor, sequence and slot still identify that chunk. Restoring the source lets send_next resume successfully; cancel can also succeed after the failure. This contradicts the published Source/refusal contract that every such failure ends the transcript. The participant separately latches host_fault, but the public Ts2Sender API does not. The failed-source case at the end of every_divergence_refuses_before_writing asserts only the first error and omits ended(), unlike its other cases.",
+      "requestedChange": "Make snapshot read errors irreversibly close the sender transcript before returning Source, including when realize_next is called directly. Audit the public sender failure exits for the same omission, including cancel-before-Hello through cancel(), and preserve the accepted prefix.",
+      "validationExpectation": "At the first chunk, inject a source I/O error, restore the source, and assert next_slot is None, cancel_payload is None, and realize_next/send_next/admit/cancel/admit_cancel refuse AfterRefusal without another source read or accepted frame. Cover a failure after an earlier chunk as well as at the first chunk; extend the failed-source test with the same ended-transcript assertions used for divergences."
+    }
+  ],
+  "nonBlockingObservations": [],
+  "productQualification": false
+}
