@@ -2,6 +2,8 @@
 
 **Amendment CI-A1 ACCEPTED 2026-10-17 by Codex** with the implementation plan (`reviews/codex-component-install-plan-r3/`; text in `PLAN-r3.md`, LD-CIP-12). It replaces P-3's FileBarrierReceipt with an opaque standalone barrier receipt (CI-A1-a), adds B_install step 4's ordering rows (CI-A1-b), and states finalization as a branch-local descendant-before-parent post-order instead of deepest first (CI-A1-c). Where this file's r5 text differs, CI-A1 governs.
 
+**Amendment CI-A3 ACCEPTED 2026-10-17 by Codex** in round 4 (`reviews/codex-ci-a3-r4/`; text in `CI-A3-r4.md`). It adds item 6's launch member, `RetainedTree::launch_member`: a charged kind check, lexical resolution over the TreeCommitment, observation from the retained `tree/` base, the absolute-path binding with the stated same-principal residual, and latching of every failure, `Budget` included (CI-A3-a). It adds item 4's `E_launch` <= `B_launch` <= `B̂_launch` (CI-A3-b), item 7's pin through every child's settlement (CI-A3-c), item 5's recorded store path (CI-A3-d), the `Binding` failure on existing codes (CI-A3-e), and unit CI-3L with CI-T27 and CI-T28 (CI-A3-f). It is written against CI-A2 as accepted in `codex-ci-2-r2`. Where this file's r5 text differs, CI-A3 governs.
+
 # Component release installation and tree custody — proposal CI r5
 
 **Lead law proposal r5, 2026-10-17. Proposed; it needs Codex review. Not code.** Round 5 answers `codex-component-install-r4` (REQUIRED-FINDINGS: CI-R4-RF-1, with NBO-1). Earlier rounds answered `-r3`, `-r2` and `-r1`. r1 to r4 are history, and their changes tables below are kept as superseded history.

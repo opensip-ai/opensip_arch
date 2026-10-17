@@ -1,0 +1,28 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectManifestSha256": "22726fc07d84f0ac237f59512aec2a0722b0dcec98062b32a68640b1e1debda8",
+  "requiredFindings": [
+    {
+      "id": "CIA3-R3-RF-1",
+      "priority": "P2",
+      "location": "docs/implementation/m3/component-install/CI-A3-r3.md:49-50, 118-125, 168",
+      "title": "Define the early refusal needed for the no-matching-kind pre-bound",
+      "description": "The general resolution procedure follows symlink rows before checking the final requested kind, but the no-rows special case asserts that only one lookup can occur and budgets only that lookup. A valid flat tree can contain file f and symlink l targeting f, with no dir rows. Directory(\"l\") follows l, allocates the one-byte joined path f, looks up f, and then refuses Association for its type. For the retained order [f,l], the existing binary search makes one comparison for l and two for f. That failure prefix costs three edges plus one object/one byte, while the stated no-dir-row pre-bound has at most two edges and zero objects/bytes. No explicit early kind-absence rule currently prevents that execution. CI-T28 specifically requires the bound relation for this case.",
+      "requestedChange": "Normatively require refusal before following a symlink or allocating its joined path when the requested kind has no rows (with at most the priced initial lookup), or fund the complete possible failed-resolution prefix. Make the refusal-prefix accounting explicit where there is no resolved member m. Add the file-plus-link/no-dir Directory(\"l\") case to CI-T28 and verify actual charges against the pre-bound."
+    },
+    {
+      "id": "CIA3-R3-RF-2",
+      "priority": "P2",
+      "location": "docs/implementation/m3/component-install/CI-A3-r3.md:163, 181; opensip-ci2/crates/lifecycle/src/retained_tree.rs:151, 167, 426-429",
+      "title": "Preserve the capability latch for Budget failures too",
+      "description": "The interaction text excludes Budget from launch_member's capability latch because the ledger latches itself, then concludes that no later launch or transfer of the capability proceeds. These are different lifetimes. The accepted CI-2-r2 transfer explicitly stores Latched::Budget in the capability; later calls return Budget(Closed) before charging even if passed another scope. The proposed launch API also accepts a caller-supplied WorkScope on every call and does not bind the capability to one ledger. A launch exhausted on ledger A therefore need not stop a later transfer/launch on fresh ledger B under the proposed exception. This contradicts both the claimed extension of the existing latch and CI-T27's unconditional cross-operation latching rule.",
+      "requestedChange": "Latch Budget on the capability as transfer already does, and specify the later Budget(Closed) result consistently, rather than relying only on the exhausted ledger. Add a failed-launch Budget control followed by launch and transfer using a fresh funded scope, requiring no additional charge or observation. If a different lifetime policy is intended, explicitly amend the invariant and enforce a capability-to-ledger association; do not assert it follows from a ledger latch alone."
+    }
+  ],
+  "nonBlockingObservations": [],
+  "rulings": {
+    "Q1": "The new separation of exact executed comparisons/read attempts from their envelopes is accepted in principle and resolves CIA3-R2-RF-2's equality problem: E uses s_j and a, B uses their bounds, and neither unused comparisons nor extra reads are executed. Empty files have one EOF attempt. The maxima, checked arithmetic and Directory(\"\") special case are defined. Full E\u2264B\u2264Bhat acceptance is withheld pending CIA3-R3-RF-1: a no-matching-kind failure can follow a symlink and exceed its single-lookup pre-bound unless the early refusal is made an explicit operation rule. Refusal prefixes also need an explicit interpretation when no member m resolves.",
+    "Q2": "Accepted. All six members rehash exactly. The CI-A2 context copy is byte-equal to the SCOPE.md pin inside the exact CI-2-r2 subject manifest and to the corresponding packaged scope. The amendment adopts that revised context rather than reconstructing the obsolete live-file pin. CI-A2-b supplies the retained component index and CI-A2-c the at-most ceil(log2 n)+1 search comparisons charged individually, matching CI-A3. The archived copy removes dependence on future edits to the CI fork's working scope; the old r2 manifest need not be repaired as history.",
+    "Q3": "Accepted for the spelling and reservation terms: the native basename uses CI-A2-h's fixed stack buffer without an owned-record charge; the single heap launch-path buffer remains P+1 and is borrowed as CStr for lstat and reused in the result; the store path remains a separate one-time L-byte opening charge. CI-A2-e's full installer reservation does not change per-operation launch charging. The latch extension is not accepted as written because of CIA3-R3-RF-2: excluding Budget loses the accepted capability-level poison when a later call supplies another ledger."
+  }
+}
