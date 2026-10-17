@@ -1,0 +1,60 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectManifestSha256": "e06858bb1c3f11495516f26a5e4fdc8ec552e672b98b3573bb307fdab40eb43c",
+  "requiredFindings": [
+    {
+      "id": "C2B0PLAN-R1-RF-1",
+      "priority": "P1",
+      "path": "docs/implementation/m3/snapshot-plan-c/c2b/PLAN-r1.md",
+      "line": 68,
+      "title": "Define traversal that actually discovers pnpm sibling dependencies",
+      "detail": "LD-C2B0-1 seeds the unit root's ancestor node_modules directories, and LD-C2B0-3 adds each package's own child node_modules. Neither rule reaches the siblings claimed by LD-C2B0-4. After node_modules/foo resolves to node_modules/.pnpm/foo@1/node_modules/foo, the target's own nested directory is .../foo/node_modules; foo's dependency bar is instead a sibling at node_modules/.pnpm/foo@1/node_modules/bar. That directory is not below foo, and .pnpm was deliberately excluded from the initial listing. Enumerating the target as a row does not itself enumerate the target's parent. A layout following the explicit traversal can therefore omit an ordinary pnpm dependency while the stated positive control expects it.",
+      "requestedChange": "Specify the dependency-search directories queued for each resolved package target, including the enclosing virtual-store node_modules directory and relevant in-project ancestor search directories, with deterministic exclusions and no wholesale .pnpm-store scan. Preserve distinct installPath/realPath rows. Add a pnpm fixture with a sibling dependency reachable only through that virtual-store parent, plus scoped siblings and workspace-target ancestor lookup, and assert the exact visited-directory set as well as output rows."
+    },
+    {
+      "id": "C2B0PLAN-R1-RF-2",
+      "priority": "P1",
+      "path": "docs/implementation/m3/snapshot-plan-c/c2b/PLAN-r1.md",
+      "line": 65,
+      "title": "Define visited and row-merging rules for the package-link graph",
+      "detail": "Every link adds its target as a row and those target rows are enumerated in turn, but the plan gives no visited/queued identity or merge rule. Two aliases can point to the same real directory, a target can already have been encountered through another search directory, and valid package dependencies can form cycles through distinct symlinks to real directories. The one-link-level refusal does not stop such package-graph cycles. Treating a repeated installPath as impossible and refusing Order at line 89 would reject legitimate shared targets; simply re-enumerating them can loop or consume the ledger repeatedly. The 100,000-row bound only bounds distinct output rows, not revisits.",
+      "requestedChange": "Specify charged worklist/visited state keyed by normalized project-relative directory/search-directory identity and a map keyed by installPath. Reuse equivalent rows and manifest captures, refuse inconsistent observations, and enumerate each required real directory/search location once while preserving alias rows. Distinguish a forbidden filesystem symlink chain from an allowed dependency cycle. Add shared-target aliases, repeated target discovery, a diamond dependency graph and an A-to-B-to-A package cycle; require deterministic complete rows and finite bounded work without an Order or Budget refusal caused solely by revisiting the graph."
+    },
+    {
+      "id": "C2B0PLAN-R1-RF-3",
+      "priority": "P2",
+      "path": "docs/implementation/m3/snapshot-plan-c/c2b/PLAN-r1.md",
+      "line": 79,
+      "title": "Separate non-dependency exclusions from read-set eligibility",
+      "detail": "The plan uses C1c-0's read_set_path to apply exclusions to packages and link targets, while also promising a first-party workspace target such as packages/x. In the declared C1c r2 interface, read_set_path returns Forbidden for an authorized path outside every node_modules tree. It cannot simultaneously serve as an unconditional workspace-target exclusion predicate and admit packages/x. The specified C1c pruned-tree opener also targets regular-file capture; an explicit directory-reach/exclusion interface is needed for layout traversal. Merely skipping the predicate for workspace targets would lose the promised VCS/Cargo/extent checks.",
+      "requestedChange": "Define the C1c-0 interfaces the layout needs: safe no-follow directory reach and a non-dependency exclusion check that can classify first-party targets separately from dependency-tree read-set eligibility. First-party workspace targets must retain the ordinary opener/custody and Walk-origin reuse rules, while all targets preserve boundaries, ignorePaths, VCS, Cargo-output and exact custody-anchor exclusions. Reconcile this with the separately reviewed C1c interface before integration. Add an allowed packages/x target and forbidden workspace targets under Cargo output, VCS/custody anchors, ignorePaths and admitted boundaries, with no-open/no-read assertions for excluded targets."
+    },
+    {
+      "id": "C2B0PLAN-R1-RF-4",
+      "priority": "P2",
+      "path": "docs/implementation/m3/snapshot-plan-c/c2b/PLAN-r1.md",
+      "line": 85,
+      "title": "Own a freshness interval when no unfrozen batch can accept C2b-0",
+      "detail": "LD-C2B0-7 assigns the snapshot recipe change to C2b-0 but only says it joins whichever batch is open. It does not limit joining to before the final-input freeze or schedule an interval if no batch is open. The dependency chain permits C1c-0 to have refreshed separately before C2b-0 integrates, so the companion receipt then becomes stale anew. An existing batch may also already be frozen. Neither an earlier refresh nor adding edits after a pre-run review covers this later recipe. The plan's dependency on C1c r2 is explicitly subject to revision; the missing interval cases cannot be left implicit in that reference.",
+      "requestedChange": "State that C2b-0 may join an existing reviewed interval only before its final-input freeze. Otherwise it opens and owns a new interval with a fresh accepted baseline, exact receipt-specific deltas, pre-run review, frozen-input mechanical blind refresh and post-run review before dependent reliance. Track cumulative changes if an interval is already stale; an empty additional discovery delta does not make a previously stale discovery receipt current. Preserve passing output checks separately from freshness and update the C1c cross-reference to the agreed interval rules."
+    }
+  ],
+  "nonBlockingObservations": [
+    {
+      "id": "C2B0PLAN-R1-NBO-1",
+      "path": "docs/implementation/m3/snapshot-plan-c/c2b/PLAN-r1.md",
+      "line": 74,
+      "title": "Describe the selected JSON profile rather than generic strict JSON",
+      "detail": "identity::canonical::parse is narrower than ordinary strict JSON: it rejects floating-point numbers, negative zero, out-of-range integers, duplicate keys and depth beyond 32, including in unrelated manifest fields. For example, a manifest with valid string name/version and an unrelated numeric value 1.5 is valid JSON but refuses this reader. MAX_BYTES is only one of its constraints.",
+      "suggestedChange": "Explicitly name this supported manifest profile and its typed refusal, and add representative profile-boundary cases. If ordinary JSON manifests with such unrelated values must be supported, select a bounded projection/parser that handles them while preserving exact captured bytes. Do not label all such refusals malformed JSON."
+    },
+    {
+      "id": "C2B0PLAN-R1-NBO-2",
+      "path": "docs/implementation/m3/snapshot-plan-c/c2b/PLAN-r1.md",
+      "line": 111,
+      "title": "Distinguish the row-count check from complete record admission",
+      "detail": "The statement that 100,000 rows admit cannot be a whole-record control through the existing identity canonical encoder: it has a 4 MiB limit, and 100,000 rows with the mandatory 64-character digest and five named fields necessarily exceed it. The schema row maximum is an upper bound, not a promise that this whole layout fits every other envelope.",
+      "suggestedChange": "Test the count predicate at 100,000/100,001 in isolation and separately test feasible full layouts at canonical byte/depth and ledger boundaries. Specify the typed canonical-encoding refusal and include record construction, sorting, admission, retention and encoding buffers in the complete layout model."
+    }
+  ]
+}

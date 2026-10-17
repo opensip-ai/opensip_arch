@@ -1,0 +1,41 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectManifestSha256": "69965663f63834ffd4a1c69a2fd8308596b800175a9e90576bd77054bbd2f7b7",
+  "requiredFindings": [
+    {
+      "id": "C2B0PLAN-R2-RF-1",
+      "priority": "P2",
+      "path": "docs/implementation/m3/snapshot-plan-c/c2b/PLAN-r2.md",
+      "line": 136,
+      "title": "Provide a standalone shared layout check without requiring a native universe",
+      "detail": "LD-C2B0-9 and the agreement control require the layout-only unit to run the evaluator check at native_universe.rs:235-252 before returning. Those lines are inside inspect_typescript_universe; there is no callable layout-only entry point. Its public signature at :142 takes RetainedInputs, a semantic-universe digest, snapshot id and work, and its preceding code admits a TypeScript universe and native context before reaching the layout. C2b-0 explicitly has no context/universe and must integrate without C2a or C2b-1. Calling that function as written therefore adds precisely the dependency this split removes; fabricated unsigned context/universe fixtures would not resolve it.",
+      "requestedChange": "Explicitly factor the context-independent realPath/installPath membership check into one bounded shared helper, used by both the existing evaluator consumer and C2b-0 after layout schema/order admission. Include the evaluator helper/export and regression controls in scope, preserving existing refusal semantics at the consumer. Keep retained-context/digest/Plan-selection checks with C2b-1 and later composition, and do not introduce a fake native identity or a second divergent layout predicate."
+    }
+  ],
+  "nonBlockingObservations": [
+    {
+      "id": "C2B0PLAN-R2-NBO-1",
+      "path": "docs/implementation/m3/snapshot-plan-c/c2b/PLAN-r2.md",
+      "line": 131,
+      "title": "Describe 26,715 as a loose byte upper bound, not an attainable maximum",
+      "detail": "The arithmetic is correct for an abstract minimum row: 152 fixed bytes plus four one-byte string payloads gives 156 bytes, and N nonempty rows encode in 31 + 157*N bytes. N=26,715 gives 4,194,286; N=26,716 gives 4,194,443. But 26,715 distinct installPath values cannot all be one-byte paths, and emitted installed-package paths also have structural prefixes. Unique installPath admission therefore prevents the claimed attainment. Unicode and JSON escaping further increase byte costs. This does not invalidate the conservative upper bound or the Encoding refusal.",
+      "suggestedChange": "Call 26,715 a conservative ceiling from per-row minimum encoding size. Remove the claim that it is reached, and use actual unique, schema-valid layouts for the complete-record byte boundary controls. State the arithmetic in terms of encoded string payload lengths, including escapes and UTF-8, rather than raw character counts."
+    },
+    {
+      "id": "C2B0PLAN-R2-NBO-2",
+      "path": "docs/implementation/m3/snapshot-plan-c/c2b/PLAN-r2.md",
+      "line": 204,
+      "title": "Complete the promised parser-variant controls",
+      "detail": "The selected canonical::parse profile and Manifest(Profile(variant)) are correctly specified. However, the seven listed cases do not cover all nine parser variants: InvalidUnicode (for example an unpaired escaped surrogate) and InvalidJson are separate from InvalidUtf8 and are missing from the stated one-case-per-variant controls.",
+      "suggestedChange": "Add distinct InvalidUnicode and InvalidJson vectors while preserving the explicit valid-general-JSON subset refusals. A malformed JSON case may be identified as such; a valid JSON float elsewhere must retain FloatForbidden rather than being described as malformed."
+    },
+    {
+      "id": "C2B0PLAN-R2-NBO-3",
+      "path": "docs/implementation/m3/snapshot-plan-c/c2b/PLAN-r2.md",
+      "line": 148,
+      "title": "Make the replacement C1-T24 observations explicit in the implementation controls",
+      "detail": "The post-walk ordering is compatible with item 1, but its promised first-party rewrite refusal needs a new charged observation. Existing CaptureSession::capture returns a kept capture without re-observation (snapshot.rs:204-220), and parse_captured is described as reading custody bytes. Reaching a directory alone does not detect an in-place rewrite of its package.json. C1c-1 also keeps first-party captures as Walk rows rather than turning them into ReadSet rows. LD11 already requires the refusal; it should be backed by explicit controls and the intended observation handoff.",
+      "suggestedChange": "Add separate rewrite controls for a pruned manifest changed between layout capture and read-set reach, and a first-party workspace manifest changed between walk capture and layout reuse. Specify charged fstatat(AT_SYMLINK_NOFOLLOW) through the held enumerating parent, compare the complete stored observation, and refuse without a second source read. Do not interpret ordinary cached-byte reuse or directory metadata as the required file observation."
+    }
+  ]
+}
