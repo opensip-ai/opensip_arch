@@ -1,0 +1,58 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectManifestSha256": "6a603d1c445b7700446ef3886a325b87a4137380352987ac6a9a991a9a0c1d2b",
+  "requiredFindings": [
+    {
+      "id": "C1CPLAN-R1-RF-1",
+      "priority": "P1",
+      "path": "docs/implementation/m3/snapshot-plan-c/c1c/PLAN-r1.md",
+      "line": 50,
+      "title": "Separate read authorization from the outermost pruning classifier",
+      "detail": "LD-C1C-3 correctly uses classify_path to decide whether a path lies in a pruned tree, but LD-C1C-5 then uses the shared rule to decide descent below an authorized realPath. The actual classify_path (discovery_rule.rs:153-180) returns only the outermost anchor. For node_modules/a/lib it still returns node_modules, so descending unless the rule prunes rejects ordinary package subdirectories. Ignoring that outer hit instead does not reveal node_modules/a/node_modules/b or node_modules/a/.git: they return the same outer hit. cargo_roots_from_markers also deliberately excludes markers inside every pruned tree (:182-199), so the existing first-party Cargo-root set cannot identify package-local target output. IE explicitly states that the outermost pruned anchor is not the read-authorization boundary. The proposed API cannot implement the positive and negative controls as stated.",
+      "requestedChange": "Define a shared-rule-owned read-set predicate/API with explicit authorized-directory semantics, retaining the existing outermost classification for discovery. It must admit ordinary descendants, stop at further exact node_modules segments, enforce VCS exclusions throughout the full path and discover package-local Cargo roots for target exclusions. Check forbidden ancestry of realPath itself as well as descendants. Do not duplicate private rule tables in the reader. If this changes discovery_rule.rs or another closure file, revise LD-C1C-9 to include its whole-file closure re-pin and receipt impact. Add controls for ordinary lib/x.ts, pnpm paths, nested packages, VCS above/at/below realPath and Cargo output inside a package."
+    },
+    {
+      "id": "C1CPLAN-R1-RF-2",
+      "priority": "P1",
+      "path": "docs/implementation/m3/snapshot-plan-c/c1c/PLAN-r1.md",
+      "line": 43,
+      "title": "Preserve ignore and boundary exclusions when admitting read-set rows",
+      "detail": "The reader is described as taking admitted layouts and including suffix-matching files whenever classify_path says they are pruned. That classifier knows only conventional pruning and Cargo/member anchors, not Config2 ignorePaths or admitted boundaries. No read-set decision in LD-C1C-3/5 or sealing check in LD-C1C-7 applies those other extent exclusions. Thus a layout for node_modules/a can add node_modules/a/x.ts even when node_modules/a is explicitly ignored or lies under an excluded boundary. Item 6 retains boundaries and ignorePaths as exclusions, and item 1 requires captures outside the admitted extent to remain leftovers. A layout is an exception to dependency-tree pruning; it is not authority to override every exclusion.",
+      "requestedChange": "Pass or bind the applicable admitted extent to the read-set owner and apply exact ignorePaths/boundary exclusions before descent, capture reach/origin changes and inventory admission. Preserve the same-root provenance of that extent. Define the outcome for a required manifest excluded this way without silently inventorying it; keep the leftover/refusal rules. Add ignored-package and excluded-boundary controls, including a C2-captured manifest, and retain first-party workspace-link behavior."
+    },
+    {
+      "id": "C1CPLAN-R1-RF-3",
+      "priority": "P2",
+      "path": "docs/implementation/m3/snapshot-plan-c/c1c/PLAN-r1.md",
+      "line": 80,
+      "title": "Record freshness separately for each receipt and its actual bindings",
+      "detail": "LD-C1C-9 says neither sub-unit changes a discovery closure file, but copies the requirement to render discovery stale rows into every C1c stale interval. Under the listed changes, the discovery receipt remains current: receipt_bindings (discovery_census.py:1086-1095) binds its tool, closure, member model, caps/sizes, roots and reference inputs; it does not bind snapshot.rs, snapshot_source.rs, snapshot_ledger_model.py, snapshot_seal.rs or the proposed new module. A standalone C1c interval after an accepted refresh therefore stales the companion snapshot receipt, not the discovery receipt, and compose_held_out cannot produce the mandated stale discovery rows. Joining an already stale C1b batch is a different case.",
+      "requestedChange": "Make the evidence receipt-specific: compare each receipt with the actual baseline/current bindings, report an empty delta and current discovery rows where unchanged, and require stale rendering only for a receipt whose inputs changed. Distinguish a standalone C1c interval from joining C1b and any revised shared-rule closure change under RF-1. Keep both generated-output checks passing and ensure every receipt is current at the final reviewed refresh without treating fabricated discovery staleness as required evidence."
+    }
+  ],
+  "nonBlockingObservations": [
+    {
+      "id": "C1CPLAN-R1-NBO-1",
+      "path": "docs/implementation/m3/snapshot-plan-c/c1c/PLAN-r1.md",
+      "line": 71,
+      "title": "Make the full-ledger derivation inputs explicit",
+      "detail": "The intended fixed-cap gate is sound, but its implementation evidence should explicitly include normalized/deduplicated layout bookkeeping, charged classifier temporaries, root reaches, buffers and overlapping-directory traversal, in addition to per-row session work. The 100,000-row limit is per layout, not a global limit on the input slice. The shared item-5 descriptor bounds the combined inventory, not all layout-processing work.",
+      "suggestedChange": "State the full walk/session/sealing/read-set subtotal and include the accepted VCS term when present. Source any layout-count bound actually used; otherwise place excess non-row/setup work explicitly in the typed-refusal regime. Require soundness vectors and full fixed-cap/2x evidence before C1c-1 acceptance."
+    },
+    {
+      "id": "C1CPLAN-R1-NBO-2",
+      "path": "docs/implementation/m3/snapshot-plan-c/c1c/PLAN-r1.md",
+      "line": 83,
+      "title": "Name the C2b obligations if the stale interval spans its integration",
+      "detail": "If C1c-0 opens a standalone interval and refresh waits for C1c-1, C2b necessarily integrates during it. This is compatible with the no-reliance rule only if C2b does not require the stale companion receipt, and all intervening census-input changes are tracked before the final freeze.",
+      "suggestedChange": "List C2b as an intervening integration in that batch schedule, with its census-input ownership and no-stale-reliance obligation, or refresh C1c-0 separately if C2b requires current evidence. Reconfirm the exact accepted baseline and final frozen inputs at the pre-run review."
+    }
+  ],
+  "questionRulings": {
+    "Q1": "Accept the preparatory split: C1c-0 supplies item-1 capture machinery needed by C2b and may land first; C1c-1 remains the item-3 read-set unit and integrates only after C2b's layout. This does not waive C2b or C1c-1 acceptance, nor authorize a production read set before the integration edge is met.",
+    "Q2": "Agree: S3 directory custody applies above the dependency-tree anchor; at and below it use descriptor discipline, metadata/inode checks and no retry. Do not impose config-file custody or its 4 MiB marker ceiling on an installed manifest merely because its name is package.json. Keep first-party captures on the existing opener. C2 must separately account for parsing/retention and its own read bounds; no new unsourced per-manifest cap is approved.",
+    "Q3": "Agree with exact, case-sensitive byte suffixes for the nine listed suffixes. Declaration suffixes are included by their .ts/.mts/.cts ending. No extra suffix, case folding or compiler-driven late read. The table remains C2/F-owned.",
+    "Q4": "Accept filtering nonmatching regular-file names before LogicalPath admission: they are outside item 3's read set and are counted/disclosed without being read. Validate every candidate row and every directory actually descended; a malformed matching name refuses with escaped bytes. Use raw-name suffix filtering safely for non-UTF-8 names, and never open special files or follow links. This is the read-set suffix exclusion, not permission to weaken the first-party walk's name rule.",
+    "Q5": "A complete conservative derivation plus synthetic/native soundness and boundary controls can gate C1c-1 while no representative admitted-layout T2 population exists. It must cover the full cumulative ledger at r9's fixed caps and 2x margin, with explicit typed-refusal terms; the existing no-layout census is not measured read-set evidence. Keep the ordinary census checks and required reviewed receipt refreshes. Add a measured installed-layout population when H-NM supplies it; no compiler/harness recipe execution or held-out inspection is authorized by this review."
+  }
+}

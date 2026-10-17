@@ -1,0 +1,34 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectManifestSha256": "2dee52328359d82c57112c12cd9d109b071f03a5cd599f4c3f8d5ce6d9b397bb",
+  "requiredFindings": [
+    {
+      "id": "C1CPLAN-R2-RF-1",
+      "priority": "P1",
+      "path": "docs/implementation/m3/snapshot-plan-c/c1c/PLAN-r2.md",
+      "line": 62,
+      "title": "Reject non-dependency exclusions in the authorized directory ancestry",
+      "detail": "The new API checks authorized ancestry for a node_modules segment and VCS segments, but its Cargo roots are derived only within the authorized package. It therefore does not reject Cargo output containing the authorized directory itself. For example, with Cargo.toml at the project root and realPath=target/node_modules/a, relative index.js passes the enumerated ancestry and descendant checks even though the whole package is Cargo build output. A separately listed nested package can similarly sit inside an enclosing package's Cargo target. SL:272-274 and item 3 exclude Cargo output at any depth, not only target directories discovered after starting at realPath. The API also lacks the exact root/member .opensip custody-anchor check: .opensip/node_modules/a meets its stated ancestry tests, while LD-C1C-12 only adds boundaries and ignorePaths. SnapshotExtent does carry member roots, but neither its boundary/ignore predicates nor the specified API applies that anchor rule. A layout must not override these exclusions. The evaluator's dependency-path branch continues before its Cargo test, so the cross-check does not close the Cargo gap.",
+      "requestedChange": "Specify a shared-rule-owned check over the full authorized path and descendant path that preserves Cargo build-output and exact root/member .opensip exclusions as well as VCS exclusions. Supply or derive the necessary ancestor Cargo-root and member-root evidence, rather than only package-local markers. Apply it before opening/descending an authorized package, reaching a capture or changing origin, and in the sealing guard. Keep ordinary non-anchor .opensip directories and target directories without a Cargo parent eligible. Add controls for target/node_modules/a under a first-party Cargo root, a separately listed package inside another package's Cargo target, root/member .opensip ancestry, and the corresponding allowed lookalikes."
+    },
+    {
+      "id": "C1CPLAN-R2-RF-2",
+      "priority": "P2",
+      "path": "docs/implementation/m3/snapshot-plan-c/c1c/PLAN-r2.md",
+      "line": 126,
+      "title": "Schedule a new interval when C1c-1 follows an already refreshed C1c-0",
+      "detail": "The two batch cases in LD-C1C-9 describe C1c-0 joining C1b's batch, or C1c-0 opening a standalone interval that normally lasts through C1c-1. They do not describe C1c-1 integrating after C1c-0's interval has closed. This is a permitted and likely order: C1c-0 joins C1b, C1b freezes and completes its reviewed refresh, then C2b and C1c-1 land; it also occurs when C2b requires a separate early C1c-0 refresh. C1c-1 then changes the snapshot recipe and sealing pins and stales the companion receipt again. The generic rule that every interval ends current does not open or schedule this later interval. Round one explicitly said C1c-1 opens its own interval after C1b's refresh; that sentence was removed.",
+      "requestedChange": "State explicitly that C1c-1 joins an existing reviewed open interval only before its final-input freeze; otherwise C1c-1 opens a new interval at integration and owns its pre-run review, frozen-input blind refresh and post-run review before dependent work relies on the companion receipt. Cover both a closed C1b batch and a separately refreshed C1c-0, with receipt-specific deltas and a fresh accepted baseline. Do not treat an earlier refresh as covering later recipe edits."
+    }
+  ],
+  "nonBlockingObservations": [
+    {
+      "id": "C1CPLAN-R2-NBO-1",
+      "path": "docs/implementation/m3/snapshot-plan-c/c1c/PLAN-r2.md",
+      "line": 82,
+      "title": "Explain the allocation-free form of the sealing predicate",
+      "detail": "LD-C1C-7 now re-applies read_set_path while retaining the promise that step 2 allocates nothing and adds no charge. LD-C1C-5/8 describe charged temporaries and Cargo-root derivation for that API. This is implementable if sealing uses an allocation-free predicate over already retained evidence, but the split between preparation and checking is not stated.",
+      "suggestedChange": "Specify which evidence is retained from charged preparation and how sealing checks it without allocating or reading sources. If sealing actually needs new charged temporaries, revise the no-charge statement, full-ledger model and census anchors accordingly."
+    }
+  ]
+}
