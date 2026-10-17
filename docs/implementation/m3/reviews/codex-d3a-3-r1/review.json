@@ -1,0 +1,25 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectManifestSha256": "a6e9a3c5f0a6490af9e82ce04ea910af317ede511c43b689251c243e779985dd",
+  "requiredFindings": [
+    {
+      "id": "D3A3-R1-RF-1",
+      "priority": "P2",
+      "location": "crates/components/src/supervisor.rs:2792",
+      "title": "Tool supervision produces facts that cannot be emitted with its lawful identities",
+      "description": "settle_records unconditionally sends RecordFact::Settled for tools as well as providers. That fact names supervision.child.settled, whose registry descriptor requires ProjectPlanExecution plus a ProviderRole and Universe; its only EmitOn implementation is PlanAttemptScope. A tool runs before PlanId and has only Project, and ProviderRole has no tool member. The same mismatch affects common wait, limit, sample, teardown and scratch facts on tool paths. Even a normal tool therefore gives J2b a fact it cannot lawfully emit. The current completeness test compares field names but never checks identity availability for the producing class.",
+      "requestedChange": "Make each tool-produced fact correspond to a lawful Project-only registration. Keep provider/supervision facts requiring provider identities on provider paths, and explicitly define any tool-specific ordinary records needed for tool measurements or teardown. Do not fabricate a Plan, Execution, universe or provider role to emit them. Add coverage checking every fact produced by normal and failing tool paths against the identities actually available.",
+      "validationExpectation": "A normal tool and tool timeout/output-bound/sample-failure/retained-scratch cases produce only facts whose registered events can be constructed and emitted with Project-only tool context; provider events retain their required Project/Plan/Execution identities."
+    },
+    {
+      "id": "D3A3-R1-RF-2",
+      "priority": "P2",
+      "location": "crates/components/src/supervisor.rs:2280",
+      "title": "CancelSent is recorded before the cancel frame is written",
+      "description": "send_deferred emits CancelSent immediately when send_control returns true. send_control only creates PendingWrite with at=0; the nonblocking fd3 writes happen later. A WouldBlock, partial write, closed control reader or teardown before completion can therefore leave a cancel.sent record for a frame never fully written. write_control drops pending output on a write error without undoing that fact. This contradicts the fact/interface contract and request to record the cancel as written.",
+      "requestedChange": "Carry the cancel reason with its pending frame and emit CancelSent exactly once when that frame has been fully written. Preserve the annotation across short writes and WouldBlock, and discard it without a sent fact if the frame is abandoned or its write fails. Keep the existing control-session validation and sequence behavior.",
+      "validationExpectation": "Add controls showing no CancelSent before the first write or after a partial write/WouldBlock, exactly one after full completion, and none when fd3 fails or closes before the queued cancel completes."
+    }
+  ],
+  "nonBlockingObservations": []
+}
