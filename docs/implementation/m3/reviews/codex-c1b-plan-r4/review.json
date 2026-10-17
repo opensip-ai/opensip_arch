@@ -1,0 +1,20 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectManifestSha256": "c462ecae40f662794297b253972d1d8df9bfdcbec668ce83e7be7892de025025",
+  "requiredFindings": [
+    {
+      "id": "C1BPLAN-R4-RF-1",
+      "priority": "P2",
+      "path": "docs/implementation/m3/snapshot-plan-c/c1b/r4-evidence/vcs_term_r4.py",
+      "line": 109,
+      "title": "Price the VCS record\u2019s canonical encoding, including escaped member paths",
+      "detail": "The claimed maximum sealing allocation is owned(MAX_MEMBERS * (LOGICAL_PATH_MAX + RECORD)), allowing 270336 payload bytes plus the 128-byte owned-record overhead. That treats a path\u2019s raw spelling length as its encoded JSON length. LogicalPath admits quote characters and non-NUL control characters; snapshot_seal.rs string_len/push_string expand quotes and controls under the identity canonical encoding. A schema-3 record with 64 unique sorted paths of length 4096, each consisting of 17 segments of 240 characters and containing quote characters, canonically encodes to 529190 bytes. All segments obey the 255-character bound, and the paths contain no backslash, NUL, empty, dot or dot-dot segment. This already exceeds the script\u2019s purported maximum payload allowance by 258854 bytes. The same allocation term is claimed complete in PLAN-r4.md:159. Reproducing the script\u2019s arithmetic therefore does not establish the claimed complete VCS term, total or residual byte margin.",
+      "requestedChange": "Derive the record-allocation bound from the actual schema-3 canonical encoding: include the top-level and member fixed syntax, commit/hash/boolean fields, separators, and the maximum encoded payload length of each admitted path under canonical escaping and UTF-8 rules. Keep the borrowed input/temporary ownership choices explicit. Update the derivation, outputs, derived-bound search and residual-margin figures from that corrected term, and add a focused encoded-length/allocation control with quote/control/non-ASCII paths for C1b-1/C1b-2. A raw-length-plus-fixed-slack estimate is not a maximum. Revisit the caps/law gate only if the corrected complete derivation requires it."
+    }
+  ],
+  "nonBlockingObservations": [],
+  "rulings": {
+    "Q6": "No law-record revision is needed merely to charge VCS work to the existing snapshot ledger and return WORK.BUDGET_EXHAUSTED when the aggregate remaining allowance is exhausted. R9\u2019s guarantee is conditional on all non-row work, including VCS, fitting its remaining margin; the VCS charge consumes part of that margin rather than changing the caps. D* and H* are evidence-envelope coordinates, not runtime thresholds: exceeding either does not itself require refusal or prove exhaustion. Do not justify this by saying HEAD has no owner length bound: Q1 supplies the 4 MiB refusal cap, which is distinct from a guaranteed 2x-fit envelope. The current numerical guarantee remains unaccepted until RF-1 corrects the complete term. A broader unconditional guarantee or a cap change would require a reviewed law-record revision.",
+    "Q7": "Retain INDEX_CAP as the reviewed 4 MiB read/refusal bound for HEAD, loose refs and packed-refs. Accepted closed forms can be priced at their actual lengths while malformed/long symbolic inputs consume charged work and refuse through the existing unsupported-layout or budget route. Reducing the loose-ref cap to 41 bytes would change the already selected symbolic-ref-chain versus oversized classification. Preserve exact-cap/one-over controls and never treat a budget failure as a partial observation or unborn HEAD."
+  }
+}
