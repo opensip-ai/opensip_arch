@@ -1,0 +1,48 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectManifestSha256": "427ba6eeca4ea1e0fc85ac2f1ea7add3bc30f9bb7211286d054c438d159b5888",
+  "requiredFindings": [
+    {
+      "id": "C1BPLAN-R1-RF-1",
+      "priority": "P1",
+      "path": "docs/implementation/m3/snapshot-plan-c/c1b/PLAN-r1.md",
+      "line": 89,
+      "title": "Account for C1b-1 changing the census closure and snapshot recipe",
+      "detail": "The split explicitly adds helpers to custody/git_tracking.rs in C1b-1, but LD-C1B-7 and section 6 schedule closure re-pinning and the stale interval only for C1b-0. At the pinned product base, tools/security/discovery_census.py:87 already pins git_tracking.rs whole in CLOSURE, and receipt_bindings binds that closure. Append-only changes still change the pin: after the planned C1b-0 refresh, integrating C1b-1 makes the discovery receipt stale again and costs() refuses until the closure is re-pinned. In addition, LD-C1B-6 adds a VCS term to the snapshot model, changing the recipe that the companion snapshot receipt validates. The stated current census check outside C1b-0 cannot hold under this implementation plan.",
+      "requestedChange": "Allocate C1b-1's closure re-pin, regenerated affected census artifacts, explicit stale interval and required reviewed blind validation/refresh. Account for the changed snapshot recipe and freshness of its companion receipt, not only the discovery receipt. Either schedule the additional refresh after C1b-1 or define a reviewed combined integration batch that includes every final input before its one refresh, while preserving the existing prohibition on another lane relying on a stale receipt. Add these duties to the split, order, checks and Q3 discussion."
+    },
+    {
+      "id": "C1BPLAN-R1-RF-2",
+      "priority": "P2",
+      "path": "docs/implementation/m3/snapshot-plan-c/c1b/PLAN-r1.md",
+      "line": 69,
+      "title": "Close the ref-name grammar against double-dot substrings and a trailing dot",
+      "detail": "LD-C1B-2 calls its grammar a closed subset of Git ref-format rules, but its enumerated checks reject only an entire dot/dot-dot segment, not a double-dot substring, and do not reject a ref name ending in a dot. Thus refs/heads/a..b and refs/heads/topic. satisfy the stated grammar although they are not valid Git ref names. A custody-valid file at such a path could be treated as the target of HEAD under an implementation that follows the explicit list. The current control \"a name with ..\" does not distinguish a whole dot-dot segment from the missing substring restriction.",
+      "requestedChange": "Specify rejection of .. anywhere in a ref name and of a ref name ending in a dot, applying the same grammar to HEAD targets and packed-refs names. Add explicit controls for both examples, alongside the existing path-segment, .lock and symlink controls. Keep malformed-input refusal distinct from unborn-head."
+    }
+  ],
+  "nonBlockingObservations": [
+    {
+      "id": "C1BPLAN-R1-NBO-1",
+      "path": "docs/implementation/m3/snapshot-plan-c/c1b/PLAN-r1.md",
+      "line": 75,
+      "title": "State the same-root join for the admitted member record",
+      "detail": "AdmittedBoundaries is stronger than a caller-provided string slice, but the type by itself does not associate a value with this SnapshotRoot: it carries selected_root and can describe another discovery result. The current-root association should be an explicit C1b/J2 composition precondition, including the NoRepository/W2 requirement for a nonempty member set.",
+      "suggestedChange": "Name which owner joins the boundaries to the exact lent subject/discovery observation, and add a cross-root boundary-record control at that owner. A record admitted for another root must not silently select schema 3 or its member reads."
+    },
+    {
+      "id": "C1BPLAN-R1-NBO-2",
+      "path": "docs/implementation/m3/snapshot-plan-c/c1b/PLAN-r1.md",
+      "line": 118,
+      "title": "Express S4 byte preservation before versus after materialization",
+      "detail": "B-S2 requires a single-root snapshot to be identical before and after S4 for each fixed observation. The plan instead says byte-identical across no-repository, one-repository and nested-repository cases, except commitId/kind/dirty. Those are fields of the VCS record; their changes also change vcsDigest and snapshot2. The controls should compare the same inputs on both sides of materialization, not snapshot identities across different tracking observations.",
+      "suggestedChange": "For each of the three cases, compare the unchanged schema-2 VCS record bytes/digest and complete snapshot bytes/ID before versus after S4, with all inputs fixed. Keep the separate C1b behavior tests for the expected changes between observation kinds."
+    }
+  ],
+  "openQuestionRulings": {
+    "Q1": "Accept reuse of X2's sourced 4 MiB per-record ceiling as an explicit reviewed C1b read limit, not as a claim that INDEX_CAP already governs HEAD and refs. Bound allocations and parsing as well as bytes read; specify exact-cap/one-over refusal and its typed reason. The complete root-plus-member/path/custody/parser term must be added to the final snapshot recipe before acceptance of C1b-1. r9's caps stay fixed; if its required derivation/margins fail, stop for a law-record successor. No silent cap increase.",
+    "Q2": "Keep C1b refusals typed and assign public projection to J2's reviewed composition. Shared vcs-unsupported spelling alone does not authorize copying X2's phase-specific PROJECT.ROOT_CUSTODY_REFUSED route. J2 must select the governing route, preserve the exact subject and no-Plan/no-Run outcome, and distinguish I/O and work exhaustion. C1b need not invent a public code.",
+    "Q3": "A single reviewed physical run may serve a deliberately reviewed batch only after every final closure and snapshot-recipe input is frozen, including C1b-1's git_tracking.rs edit and VCS term. It must write every required current receipt, preserve the pre-run and post-run reviews and closed output rules, and precede any lane that requires a current census. Existing immediate-refresh ordering is not waived by this answer; change that ordering explicitly in the revised plan if batching is chosen. Sequential integrations outside such a reviewed batch need their own refresh when they stale a receipt.",
+    "Q4": "Accept the explicit one-symbolic-level supported layout: HEAD may name one refs target, whose loose value must be a direct object ID. A symbolic loose ref, including a cycle, refuses symbolic-ref-chain without further traversal. This is a conservative selected subset, not a claim that Git universally forbids symbolic chains. Preserve typed refusal and no Git-object reads."
+  }
+}
