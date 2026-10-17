@@ -4,6 +4,8 @@
 
 **Amendment CI-A3 ACCEPTED 2026-10-17 by Codex** in round 4 (`reviews/codex-ci-a3-r4/`; text in `CI-A3-r4.md`). It adds item 6's launch member, `RetainedTree::launch_member`: a charged kind check, lexical resolution over the TreeCommitment, observation from the retained `tree/` base, the absolute-path binding with the stated same-principal residual, and latching of every failure, `Budget` included (CI-A3-a). It adds item 4's `E_launch` <= `B_launch` <= `B̂_launch` (CI-A3-b), item 7's pin through every child's settlement (CI-A3-c), item 5's recorded store path (CI-A3-d), the `Binding` failure on existing codes (CI-A3-e), and unit CI-3L with CI-T27 and CI-T28 (CI-A3-f). It is written against CI-A2 as accepted in `codex-ci-2-r2`. Where this file's r5 text differs, CI-A3 governs.
 
+**Amendment CI-A2 ACCEPTED 2026-10-17 by Codex** with units CI-2 and CI-3 (`reviews/codex-ci-2-r2/`; text in `ci-2-r2/SCOPE.md`, section 4). It adds the member-order index and installation association (CI-A2-a), `B_open`'s index and association (CI-A2-b), `B_transfer`'s lookup (CI-A2-c), `tree/`'s own status (CI-A2-d), the single reserved admission bound with prepaid execution and the nested suffix (CI-A2-e), CI-A1-b's index serving V1, step 4 and V2 (CI-A2-f), the stage's ACL sentinel (CI-A2-g), and stack-copied names (CI-A2-h). Where this file's r5 text differs, CI-A1 and CI-A2 govern.
+
 # Component release installation and tree custody — proposal CI r5
 
 **Lead law proposal r5, 2026-10-17. Proposed; it needs Codex review. Not code.** Round 5 answers `codex-component-install-r4` (REQUIRED-FINDINGS: CI-R4-RF-1, with NBO-1). Earlier rounds answered `-r3`, `-r2` and `-r1`. r1 to r4 are history, and their changes tables below are kept as superseded history.
