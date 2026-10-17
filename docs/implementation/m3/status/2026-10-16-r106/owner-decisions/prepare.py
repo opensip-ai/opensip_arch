@@ -1,0 +1,24 @@
+import hashlib,json,pathlib
+arch=pathlib.Path('/Users/sb/code/opensip-ai/opensip_arch');root=pathlib.Path('/tmp/opensip-implementation/owner-decisions-2026-10-06')
+paths=['docs/implementation/m3/M3-PLAN-r10.md','docs/implementation/m3/supervisor-d/PROPOSAL-r5.md','docs/implementation/m3/corpus/README.md','docs/implementation/m3/corpus/t2-corpus-manifest.draft.json','docs/implementation/m3/reviews/grok2-corpus-t2a-r1/review.json','docs/implementation/m3/reviews/grok2-corpus-t2b-r1/review.json','docs/implementation/m3/harness/DESIGN-r13.md','docs/implementation/m3/harness/exploratory-quality-envelope.schema.v1-r13.json','docs/implementation/m3/reviews/codex2-harness-q0-r13/review.json']
+pins=[]
+for rel in paths:
+ raw=(arch/rel).read_bytes();pins.append({'path':rel,'bytes':len(raw),'sha256':hashlib.sha256(raw).hexdigest()})
+assert next(p for p in pins if p['path'].endswith('DESIGN-r13.md'))['sha256'].startswith('37438317')
+assert next(p for p in pins if p['path'].endswith('schema.v1-r13.json'))['sha256'].startswith('71f682d1')
+(root/'subject.json').write_text(json.dumps({'standing':'OWNER DECISIONS PENDING; NO AUTHORITY OR SIGN-OFF INFERRED','architectureBase':'bc536d56fdea997c97d6bfac0ea4466827b64b2a','pins':pins,'O7Decided':False,'D3SignedOff':False,'D13SignedOff':False,'repositoryEdited':False},indent=2)+'\n')
+(root/'REQUEST.md').write_text('''# Concrete owner decisions still holding the M3 plan
+
+Standing: pending owner input. Full filesystem access and the instruction to continue implementation do not decide these separately reserved architectural choices. No decision, effective L law, provider launch, measurement or qualification is inferred here.
+
+The accepted M3-PLAN-r10 owner table B1/B3 and L-G4/L-G5/L-G9 reserve the following choices for the owner. Exact current authorities and selected reviewed bytes are pinned in subject.json. This packet neither revises them nor reopens their reviews.
+
+1. O7: adopt the existing lead recommendation in M3-PLAN-r10's O7 section: no repository execution by default; providers use Landlock/seccomp with network denial on Linux/AL2023 and Seatbelt with network/scratch write restrictions on macOS; unavailable confinement is honestly disclosed and untrusted pull requests require containers; prepared repository execution still needs RepoExecutionGrantV2 and confinement/container. This selects the recommendation only. CF-1/CF-2 design successors, D1b implementation and real platform controls must still follow; no current enforcement or sandbox qualification follows from approval. Supervisor D r5 section F remains the named conditional specification.
+
+2. D3: sign off the exact reviewed T2a/T2b corpus selection: 49 repositories, five multi-repository workspaces, 33 independence families. Ten held-out families remain held out; this does not select the gating precision bar or authorize opening held-out source. Accepted acquisition evidence now retains and independently rehashes all49 stores/receipts. Native npm/Python workspace rendering is not defined by FETCH-SPEC and is not invented by this choice. The published t2-corpus-manifest.draft.json name is retained exactly; reviewed selection authority follows the acceptance record, not a draft-name heuristic.
+
+3. D13: sign off the exploratory envelope accepted in Q0 r13, exact DESIGN-r13.md and exploratory-quality-envelope.schema.v1-r13.json (full pins in subject.json). This permits the selected exploratory report rules, without changing schema, declaring a workload measured, selecting D12 or qualifying a product. macOS settlement is unverified, rows remain incomplete and root-reaped elapsed is informational rather than a budget input. S-M report preparation still has to perform its own work and review; Q6-labelled samples still need the D12 runner selection/platform controls.
+
+O1-a separately needs authoritative credential shapes/marker/length bound, an admitted K5 read-back catalog and Platform/BuildProfile/IoErrorKind member sets. They are not implied by any of the three owner choices, and the outstanding clarification remains pending. Existing SOP drafts and accepted SOP2b remain unbound until the prescribed O1a/P/R/b order.
+''')
+print(json.dumps({'packet':str(root/'REQUEST.md'),'pins':pins},indent=2))
