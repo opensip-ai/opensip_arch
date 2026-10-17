@@ -1,0 +1,21 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectManifestSha256": "5f9f519d739e4cc65871c24461dbb7341b0eca7a17e919dcca0ad5b77f2dc9c9",
+  "requiredFindings": [
+    {
+      "id": "D3BPLAN-R2-RF-1",
+      "priority": "P2",
+      "location": "docs/implementation/m3/supervisor-d/d3b/PLAN-r2.md:242",
+      "title": "Define clock failure at arming and preserve elapsed measurement quality in the record",
+      "description": "The fallback for any failed observe_clock read uses \"the arming lag plus the Instant elapsed time\". If the arming read itself fails, that lag was never measured, so the proposed fallback and deadline conversion are undefined. Even after successful arming, the fallback is only a lower bound, whereas LD-D3B-9 defines the event's required elapsed field as the measured duration from the observation to the miss determination. Recording measurement quality only in settlement RevocationEvidence does not let the independent revocation.missed event distinguish the two meanings. A missing clock observation must not become an invented exact elapsed duration.",
+      "requestedChange": "Specify separate arming-read and later-read failure paths. On initial failure, fail closed for the applicable pending marks without requiring an unavailable lag or resetting the observer reference. Define what elapsed information is actually available. Make its quality/availability explicit in the proposed event schema, or use a separate lawful clock-failure disclosure with no fabricated elapsed value. If a lower bound is emitted, name and label it as such in the event itself, using existing safe kinds and ordinary-registration rules. Preserve the kill ladder and exactly-once miss accounting.",
+      "validationExpectation": "Add distinct controls for failure on the first arming read, failure after a successful arming measurement, repeated failure through settlement, and recovery after a previously disclosed miss. Check event fields and their measurement status, no deadline restart, no fabricated observation-to-determination duration, and no duplicate miss."
+    }
+  ],
+  "nonBlockingObservations": [],
+  "rulings": {
+    "Q10": "Accepted. Keep the existing three-field tree.swept shape, with killed explicitly counting distinct successful identity-checked by-pid sends rather than group delivery or deaths. Typed TreeEvidence may carry the snapshot outcome, group-call results, by-pid outcome counts and deduplicated late-joiner counts. No new event field is required for this unit. Keep raw orphan PIDs out of operational records, and make any later J2 projection an explicit reviewed registration. The code unit must bound internal deduplication storage as well as the listing buffers.",
+    "Q11": "Accepted. Abandoning unfinished cooperative input means no further data-plane frame is completed. It does not prohibit the control plane's one teardown announcement. On escalation, drop the pending in-band write and close fd0; queue the not-yet-queued control cancel through the existing ControlSession only, and append its typed outcome. Do not duplicate an in-flight/written cancel or restart either grace. The cancellation reason must follow the cause: user for user-driven forcing; supervisor-fault for an observer/fault-driven T-1 when no prior cancel exists, as LD-D3B-10 states. Preserve validated sequence order and do not fabricate a sent fact.",
+    "Q12": "Accepted as the declared conservative disclosure policy. A provider whose normal end already closed fd3 cannot complete a new protocol-cancel leg; marking it missed-by-impossibility, rather than silently treating every closed control channel as inapplicable, is safe and explicit. The evidence must retain that normal shutdown had already completed and no cancel was writable. It neither authorizes another control write nor changes a clean local admission result or the existing revocation/interruption projection. A tool remains inapplicable because it never had that protocol leg."
+  }
+}

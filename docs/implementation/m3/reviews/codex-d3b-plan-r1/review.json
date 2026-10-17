@@ -1,0 +1,54 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectManifestSha256": "d601b12770366661eca0ea3e68e8123a9771aa7d7cb6df90798d214d599d30f4",
+  "requiredFindings": [
+    {
+      "id": "D3BPLAN-R1-RF-1",
+      "priority": "P2",
+      "location": "docs/implementation/m3/supervisor-d/d3b/PLAN-r1.md:162-169",
+      "title": "Disclose revocation marks whose action never completes",
+      "description": "The marks are checked only at their completion events. A failed or permanently blocked fd3 cancel has no last byte; an abandoned root has no reap; retained scratch may have no successful cleanup. These are precisely cases in which a required mark is missed, but the proposed event-only checks can emit no miss. The mark-delay control covers late completion, not noncompletion.",
+      "requestedChange": "Define pending, satisfied, missed and inapplicable marks, with exactly-once miss disclosure when a deadline passes or settlement/abandonment makes completion impossible. Later completion must not duplicate the miss. Define tool applicability explicitly, since a tool has no protocol-cancel leg. Preserve work-bounded scratch removal and do not invent a completion timestamp.",
+      "validationExpectation": "Include failed/blocked control writes, an unreaped root, retained scratch and late completion after an already recorded miss, for provider and tool contexts as applicable."
+    },
+    {
+      "id": "D3BPLAN-R1-RF-2",
+      "priority": "P2",
+      "location": "docs/implementation/m3/supervisor-d/d3b/PLAN-r1.md:109-111",
+      "title": "Do not infer per-process signal delivery from snapshot group membership",
+      "description": "The killed count promises pids to which SIGKILL was sent, but identifies group delivery by pgid at the earlier snapshot. A pid may exit or leave the group before killpg, an identity check may then fail, or the group signal itself may fail. Counting the snapshot member still claims delivery without evidence. Conversely, a process joining the group after the snapshot may receive the signal without appearing in that count. The macOS law expressly distinguishes membership at the moment of the signal from the non-atomic snapshot.",
+      "requestedChange": "Define an auditable meaning for killed and the exact outcomes used to increment it. Do not describe stale membership as proof of individual delivery or imply confirmed death. If the intended count is snapshot targets covered by an attempted group signal, state that narrower meaning and handle failed calls explicitly; if it is actual successful identity-checked sends, count those outcomes and distinguish group attempts. Keep the existing registered field shape unless a separately reviewed field is needed.",
+      "validationExpectation": "Add controls for a snapshot member exiting, changing group, failing its identity recheck, and a failed group-signal call. Repeated confirms must not double-count a target."
+    },
+    {
+      "id": "D3BPLAN-R1-RF-3",
+      "priority": "P2",
+      "location": "docs/implementation/m3/supervisor-d/d3b/PLAN-r1.md:127-129",
+      "title": "Specify the shared ordering of counted user signals and queued triggers",
+      "description": "A user_signals count beside the queue preserves multiplicity but carries no relative order with faults, revocation or other pending triggers. A signal/fault/signal interleaving and two signals followed by a fault can leave identical count-plus-queue state, while the plan claims firstCause and stage-1/fault escalation follow the earlier merged event. No rule defines how these two stores are merged. The planned burst test only proves the second signal is not dropped.",
+      "requestedChange": "Define the common linearization and deterministic merge rule for signal arrivals and queued triggers. If gate admission establishes order, retain bounded ordinal metadata for the first and second user signals relative to queued triggers; later signals can remain aggregate counts. Preserve atomic close and exact late accounting. Avoid silently changing the existing queue ordering or losing an admitted later cause.",
+      "validationExpectation": "Add deterministic signal/fault/signal, fault/signal/signal and signal/signal/fault interleavings, plus races with settlement close, checking firstCause, later causes, userInterrupted, force timing and late counts."
+    },
+    {
+      "id": "D3BPLAN-R1-RF-4",
+      "priority": "P2",
+      "location": "docs/implementation/m3/supervisor-d/d3b/PLAN-r1.md:85-86",
+      "title": "Do not assume the identity timestamps order descendant creation",
+      "description": "Item 18 uses pbi_start_tvsec/pbi_start_tvusec for equality at the identity recheck. The cited law does not establish that these start-time values are a monotonic ordering across processes. The new pre-root filter instead treats a lower value as proof of PID reuse and drops the target. Without a platform guarantee covering clock adjustments, this can exclude a legitimate snapshotted descendant from the mandated identity-checked kill. A stricter eligibility filter is not automatically a stronger fulfillment of the kill obligation.",
+      "requestedChange": "Remove the pre-root timestamp-order filter, or provide a pinned platform guarantee establishing the required monotonic cross-process ordering and address clock adjustment. Keep same-start-time equality, the protected root/pid-1/host guards and the explicitly best-effort macOS standing. Do not promote the timestamp heuristic into proof of ancestry.",
+      "validationExpectation": "Cover a legitimate snapshot identity whose numeric timestamp is below the root timestamp in the seam, and separately a target whose identity changes between snapshot and send. The former must not be discarded without the sourced guarantee; the latter must never be signaled."
+    }
+  ],
+  "nonBlockingObservations": [],
+  "rulings": {
+    "Q1": "Accepted in structure. The platform/sweep/cancellation split and D3a-3 dependency are appropriate. Linux stays D3b-L after D1a-L; D5 owns G21 and real-codec qualification. Platform functions must remain caller-bounded mechanisms, with class counts and ladder/report policy in components. Resolve RF-2 and RF-4 before finalizing the mechanism contract.",
+    "Q2": "The two-anchor reading is acceptable under the existing texts: item 14 explicitly gives the abandon ceiling after KILL, while S6 measures its qualification marks from the revoking observation. Keep both visible; a reap after the observation-plus-5-second mark is a disclosed miss, not timely S6 completion. RF-1 must also cover a reap or cancel that never occurs. Observer-fail-stop and revoked remain distinct causes; neither restarts an earlier applicable deadline.",
+    "Q3": "Accepted as an explicit scheduling choice. Reusing the 250 ms cadence for repeated group enumeration is bounded by the existing reap ceiling and creates no new law constant. Continue serving channels/triggers, stop all group signals at reap/abandonment, and require positive root-exit observation plus singleton enumeration before claiming the zombie-root result. A bounded walk/listing failure must remain incomplete even if a later group listing is singleton.",
+    "Q4": "Accepted. Complete the admitted in-band frame, close fd0, then queue the control cancel. The grace starts at the stage-1 transition, not successful I/O, so stalled writes cannot extend it. Escalation must abandon unfinished cooperative writes without completing new frames afterward. The participant seam must carry both cancellation completion and request-side closure semantics, rather than only adding the bool method.",
+    "Q5": "Accepted. A control cancel.sent fact must describe a fully written control frame, with inband true only after the in-band leg completed. If the control leg cannot be sent, do not fabricate control_reason or emit a reduced instance of the registered event. Preserve separate typed leg-attempt/failure observations and any applicable revocation miss under RF-1.",
+    "Q6": "Accepted in policy, subject to RF-3 ordering. Tools have no cooperative protocol leg and may enter TERM/KILL directly. Fault/revocation during stage 1 may force the fault ladder without inventing a ForceTrigger member. Later user signals always set userInterrupted; an already-running fault ladder is not replaced. A second signal during normal-exit grace must still force stage 2 as the plan states.",
+    "Q7": "Accepted. After a verified terminal, leave item 20's literal local admissibility test intact and preserve userInterrupted. J's cancellation latch, interrupted route and FinalGate own whether anything can be published. This is not permission to release cancelled partial output or produce a Run after interruption.",
+    "Q8": "The event/table additions are ordinary registrations using existing kinds and identity sets. There are three event names: tool.tree.swept and the provider/tool revocation.missed pair. RevocationMark is a permissible literal projection of the five S6 marks. Prefer the proposed reduced records plus settlement evidence over settlement-only disclosure, but define applicability and noncompletion as RF-1 requires. The tool variant needs Project only; provider/supervision variants retain their registered common identities. No new mint authority is implied.",
+    "Q9": "Equal identity at the send and exclusion of the supervised root, pid 1 and host pid are appropriate safeguards. The generic platform API must receive enough protected-root context or an owned-child capability to enforce the promised root check; components chooses eligible descendants. The pre-root ordering heuristic is not accepted without the additional guarantee in RF-4. Equality is a best-effort identity check, not proof of complete macOS tree settlement."
+  }
+}
