@@ -1,0 +1,40 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectManifestSha256": "27819282a9b8821dc54d0c8f11f6cc1ced7f94ed4c5e8ea59454261b41051736",
+  "requiredFindings": [
+    {
+      "id": "D3A4-R1-RF-1",
+      "priority": "P2",
+      "location": "crates/components/src/supervisor.rs:1623-1636, 2378-2385; crates/components/src/supervisor_tests.rs:3344-3363",
+      "title": "Keep the last admitted progress time separate from the absence-report timer",
+      "description": "The absence branch computes since from last_progress, then assigns last_progress = now even though no admitted transition occurred. With no intervening progress, reports at approximately I and 2I therefore both claim since approximately I. SOP2:906 and LD-D3A4-4 require time since the last admitted transition, so the second must report approximately 2I. The current control only asserts each span is at least one interval; the mutation replaces the span with zero and does not detect this reset.",
+      "requestedChange": "Retain the last admitted progress/transition timestamp until actual progress changes it. Use a separate notification/deadline timestamp to rate-limit absence reports without creating a busy loop. Add a deterministic two-or-more-interval control that checks increasing since from the original transition, then checks a real transition resets the span and report schedule."
+    },
+    {
+      "id": "D3A4-R1-RF-2",
+      "priority": "P2",
+      "location": "crates/components/src/supervisor.rs:2481-2488, 2913-2919",
+      "title": "Capture terminal time even when teardown already has a cause",
+      "description": "reach_terminal records the terminal but returns before setting terminal_at when first_cause is already present. ProcessReaped later uses terminal_at.or(teardown_from), so a terminal admitted after a fault is measured from the earlier trigger instead of that terminal. This is reachable: turn consumes a HostFault trigger before wait_and_service, and service_data_read still admits a participant terminal during teardown. A Complete already in flight can therefore produce a stage terminal while its teardown span includes the pre-terminal interval. M3-L:402 and LD-D3A4-4 select the terminal boundary when there is a terminal; the first-trigger boundary is the fallback when there is none.",
+      "requestedChange": "Record the actual first-terminal observation time independently of the normal-exit grace timer, or otherwise preserve the existing grace behavior while supplying the correct measurement boundary. Add a controlled fault-before-terminal case with a known intervening interval and a no-terminal case proving the trigger fallback. Keep the first cause, ladder timing and single terminal fact unchanged."
+    },
+    {
+      "id": "D3A4-R1-RF-3",
+      "priority": "P2",
+      "location": "crates/operability/src/kinds/registry_tests.rs:301-306, 1309-1427; S-OP-2 r6:217, 939; S-OP-2c item 23a",
+      "title": "Add the required source equality checks for the new protocol-enum tables",
+      "description": "The registered literal values match the authorities now, but C-2 does not independently compare all new protocol-enum tables with their pinned sources. ProviderReason is checked only for length 11 and exercised with capability-missing; there is no comparison with the union of PreAnalyzeUnavailableV1, TypeScriptUnavailableV2 and UnavailableV3 reasons. StageKind is compared with a handwritten literal rather than both operator sources, and StageTerminal with a handwritten six-member list rather than its protocol enum. The reference renderings are generated from the registry itself, so synchronized registry/reference drift can pass. ProviderState does have an independent P3T/T2O phase check in components; that does not cover these other tables. S-OP-2 item 3/C-2 and S-OP-2c explicitly require enum/union equality, not just lengths or self-rendering agreement.",
+      "requestedChange": "Add independent member-by-member checks against the pinned schema/generated enum sources for StageKind, ProviderReason (the full union, in selected order) and StageTerminal. Keep provenance checks and reference equality. Demonstrate that a same-cardinality member substitution or source-enum addition is detected even when registry references are regenerated; do not introduce a new third-party dependency."
+    }
+  ],
+  "nonBlockingObservations": [
+    {
+      "id": "D3A4-R1-NBO-1",
+      "priority": "P3",
+      "location": "docs/implementation/m3/supervisor-d/d3a-4-r1/SCOPE.md, LD-D3A4-3; crates/components/src/supervisor.rs:2450-2484",
+      "title": "Clarify the pre-Analyze unavailable case in the scope record",
+      "description": "The sentence that a provider which never analyzed records no terminal is broader than the implementation: reach_terminal records an admitted pre-Analyze Unavailable too, with zero analysis duration. That terminal is a real protocol possibility, and S-OP-2c explicitly includes PreAnalyzeUnavailableV1 as a reason source. The analyzed-only guard applies to the synthetic crash fallback. Clarify that distinction rather than treating a startup failure and an admitted pre-Analyze terminal as the same case.",
+      "requestedChange": "State the intended pre-Analyze Unavailable behavior explicitly and add its fixture control alongside the existing pre-Analyze signal-death/no-terminal case. Preserve the admitted reason and do not synthesize crash for a provider that never analyzed."
+    }
+  ]
+}
