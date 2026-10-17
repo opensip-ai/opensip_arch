@@ -1,0 +1,42 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectManifestSha256": "bb4d73dc567deb39c038528af95371fe9c5ccb048e01895d23425972e8c3bb52",
+  "requiredFindings": [
+    {
+      "id": "CIPLAN-R1-RF-1",
+      "priority": "P2",
+      "path": "docs/implementation/m3/component-install/PLAN-r1.md",
+      "line": 53,
+      "title": "Price the selected FileLock wrapper’s full native call sequence",
+      "detail": "LD-CIP-1 selects FileLock::try_acquire for P-6, but that API calls try_acquire_retaining, which performs file.metadata(), fcntl(F_GETFD), and flock(LOCK_NB) in locks.rs before returning a guard. LAW B_open prices the pin’s fopen/status followed by only one P-6 flock edge. The earlier fopen status does not eliminate the helper’s additional metadata read, and the CLOEXEC fcntl is another call. A wrapper charged as the law’s single flock therefore omits the helper’s status cost and one additional native-call edge. This is a mechanism-specific mismatch, not a request for allocator/RSS accounting.",
+      "requestedChange": "Select a concrete P-6 implementation whose actual calls and published recipe agree. Either implement the one-attempt native lock/guard in the new module over the already admitted close-on-exec file, or explicitly account for FileLock’s additional status and fcntl checks and reconcile the selected recipe/allowance with LAW. Keep the no-retry, ownership, busy and release semantics. Add an independent call-log control that records every acquisition call and proves its complete cost is funded before execution; do not rely on the caller’s prior kind check to pay for calls repeated inside FileLock."
+    },
+    {
+      "id": "CIPLAN-R1-RF-2",
+      "priority": "P2",
+      "path": "docs/implementation/m3/component-install/PLAN-r1.md",
+      "line": 47,
+      "title": "Choose a constructible and correctly scoped standalone barrier receipt",
+      "detail": "The plan implements P-3 solely in component_tree.rs using public filesystem APIs and forbids edits to file_effects.rs to preserve the companion receipt. LAW P-3 returns FileBarrierReceipt, but the existing type in filesystem/file_effects.rs has private file and byte_len fields and exposes only byte_len/is_for readers. There is no public constructor for a successful standalone barrier; the existing producer writes, reads back, compares and barriers the complete borrowed buffer. A sibling top-level module cannot construct that existing receipt. An unrestricted constructor would also let a standalone flush claim the old type’s broader read-back guarantee without its producer. Thus the public-only/outside-bound-sources path is not yet concrete.",
+      "requestedChange": "Specify P-3’s return type and trusted producer explicitly. A new opaque receipt in component_tree.rs may witness only the standalone barrier on its exact retained handle, leaving V1’s byte verification with its existing owner and leaving the existing stronger FileBarrierReceipt unchanged; reconcile that choice explicitly with LAW’s P-3 interface. Alternatively name the necessary existing-type producer/API change and re-plan its companion snapshot-source impact before the census freeze. Add controls for exact handle binding and barrier failure, and never expose a caller-asserted receipt constructor or reuse the whole-buffer writer as a substitute."
+    }
+  ],
+  "nonBlockingObservations": [
+    {
+      "id": "CIPLAN-R1-NBO-1",
+      "path": "docs/implementation/m3/component-install/PLAN-r1.md",
+      "line": 59,
+      "title": "Use branch-contiguous post-order rather than a global depth sort",
+      "detail": "LD-CIP-4’s phrase orders the committed rows deepest first should mean a branch-contiguous post-order. A global sort by descending depth can visit leaves in different sibling branches before their directories and then reopen those directories later, exceeding LAW’s once-per-directory step-4 descent count. Building a separate sorted row index would also introduce owned storage beyond the stated borrowed-input strategy.",
+      "suggestedChange": "Specify a manifest-driven depth-first post-order with a retained current-branch stack, each directory entered once and finalized after its descendants. Price any auxiliary ordering storage if one is introduced. Add mixed-depth sibling branches to CI-T22 and assert no re-entry or readdir."
+    },
+    {
+      "id": "CIPLAN-R1-NBO-2",
+      "path": "docs/implementation/m3/component-install/PLAN-r1.md",
+      "line": 87,
+      "title": "Make the stop rule explicitly cover either receipt’s full bound-input set",
+      "detail": "The plan correctly lists companion snapshotSources beyond discovery CLOSURE and forbids editing them, but the subsequent stop-and-re-plan sentence says closure-file edit. Read narrowly as discovery CLOSURE, that would miss snapshot-only inputs such as file_effects.rs and snapshot_seal.rs. Passing regenerated-output --check and preserving the old receipt file’s bytes alone also does not establish receipt freshness.",
+      "suggestedChange": "Say any change to a bound input of either receipt (including tools, reference-loading sources and snapshotSources/anchors) triggers the receipt-specific re-plan rule. Keep --check results distinct from public binding-freshness evidence, and use a current accepted baseline when freshness is needed. This makes the explicit prohibition and CI-PT-4 consistent."
+    }
+  ]
+}

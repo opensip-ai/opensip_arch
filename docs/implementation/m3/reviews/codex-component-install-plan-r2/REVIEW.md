@@ -1,0 +1,41 @@
+# CI-PLAN-r2 review
+
+**Verdict: REQUIRED-FINDINGS — one required finding, no non-blocking observations.** This is a plan review and accepts no code.
+
+## Subject and scope
+
+The manifest is 567 bytes with SHA-256 `4441a858d82ccba0dd3a2e6efa39b8b6e43be114aa75fca180e8dc26e3bafa2a`. Both members match: PLAN-r2.md is 27,655 bytes, SHA-256 `a16873cd02e5ec132bed857d01a5acfd793de64ae140e6a463969479c6ba27e4`; historical PLAN-r1.md is 18,233 bytes, SHA-256 `320feee0f8f4f784021ab88af7895ed1cdb9bf7f7a7dbb9fd7f45305e58cc223`, unchanged from round 1.
+
+The manifest bases remain product `3742822e2823c3a7624aca3fea11220a46cffa16` and architecture `4088af763254018d6a3e70ef7b95c58b17ae8cc9`. Live HEADs have advanced to product `72e078799b201709b2545ba58cdce3fcd62a933e` and architecture `0b84657f6ecc1ba5445fdcaac4bdb9bd61087c0c`. The cited law, C2a/C1b plans, package policy, lock/barrier implementations and receipt-binding tools match the pinned-base bytes. The inspected platform lib.rs difference adds process readiness exports; the new-module precedent was checked at the pinned base. This review evaluates the pinned plan, not unreviewed integration changes.
+
+Read the full plan and r1/r2 diff, round-1 request and verdict artifacts, accepted law, and the named public source authorities. Only reading, hashing, JSON parsing and Git queries were used. No Cargo, rustc, build, test, lane or lane lock, network, private fixture, installation directory, keys, held tree, T2 store/cache/material, other pane or delegation was accessed. Neither repository, worktree nor control file was edited. Only these two requested review artifacts were written.
+
+## Required finding
+
+### CIPLAN-R2-RF-1 — Fund the selected merge sort’s scratch index as well as its output index
+
+P2; `docs/implementation/m3/component-install/PLAN-r2.md:75` (also LC-2 at line 7).
+
+LC-2 and LD-CIP-4 select C2a r4 R3-RF-2’s deterministic bottom-up merge sort but price only one owned index: one object and `4*n` bytes. The cited C2a recipe explicitly prices **two** u32 index buffers at objects 2 and `2*n*size_of::<u32>()` bytes (`c2a/PLAN-r4.md:172-175`). Its merge passes need destination/scratch storage beside the source index. The plan specifies no alternative one-buffer mechanism with the stated comparison bound.
+
+The proposed B_install correction therefore omits one object and `4*n` bytes: 400,000 bytes at 100,000 entries. A release could pass the pre-acquisition admission bound without funding the selected ordering mechanism. This is a specific owned-representation omission, not a request for opaque allocator or RSS accounting.
+
+**Required change:** Price both index buffers in LC-2 and LD-CIP-4 using checked arithmetic; include the complete ordering bound in B_install before acquisition and charge allocations before execution. Alternatively specify and justify a concrete one-buffer algorithm’s actual storage and comparison bound. Extend CI-T22/focused controls to account independently for every ordering allocation and comparison, including refusal before an unfunded scratch allocation or comparison, and catch a missing scratch charge. The lead’s LC-2 disposition must use that corrected complete price.
+
+## Round-1 dispositions and requested decisions
+
+1. **CIPLAN-R1-RF-1: resolved by the selected design.** The new P-6 accepts only the module’s already opened/kind-checked, close-on-exec file type. Its one nonblocking flock is charged first; no metadata or F_GETFD call is repeated. Busy returns the handle without retry. The guard owns the descriptor, never duplicates it and releases it by close alone, without LOCK_UN. Under the explicit descriptor-close accounting convention in directory_publication.rs:60-61, the complete selected native sequence costs exactly the law’s one P-6 edge. CI-PT-5 and the wrapper/unlock mutations directly test this claim. No P-6 law correction is needed.
+
+2. **CIPLAN-R1-RF-2: resolved at the plan/API level, subject to LC-1’s disposition.** A private-field StandaloneBarrierReceipt borrowing the exact File is constructible inside component_tree.rs after its one successful F_FULLFSYNC. Pointer identity gives exact-handle binding; it makes no byte/read-back claim and leaves V1 as byte-verification owner. No public constructor or existing stronger FileBarrierReceipt producer is reused. The new module can implement this without modifying file_effects.rs or another bound source. Implementation must tie the returned borrow to the file parameter. CI-PT-6 covers distinct handles to the same file, barrier failure, constructor privacy and exclusion of the whole-buffer writer.
+
+3. **CIPLAN-R1-NBO-1: traversal resolved; ordering price incomplete (RF-1 above).** Component-sequence ordering groups each directory and its descendants. A retained branch stack can therefore enter each directory once, finalize it only after its descendants, and finish with tree/, without readdir. The mixed-depth sibling/no-re-entry controls and mutation address the original traversal concern. The new auxiliary-storage mechanism needs the complete price before this part is acceptable.
+
+4. **CIPLAN-R1-NBO-2: resolved.** LD-CIP-8 now applies the stop-and-re-plan rule to any bound input of either receipt, derives affected file sets from receipt_bindings/bindings rather than a hand list, includes snapshotSources/ANCHORED, and distinguishes output checks and receipt-byte equality from freshness at a current accepted baseline. This agrees with C1b’s stale-interval rules. The unchanged-impact claims remain implementation assertions to verify against the actual changed files; no blind access is authorized by this plan.
+
+5. **Q1 and Q2: applied.** CI-1 precedes a joint CI-2/CI-3 package, lane and review, with separate control ownership and no standalone CI-2 completion claim. macOS-first implementation retains the S8 lookup table while every unimplemented target refuses through a typed unsupported-platform route before native calls, with no fallback. Future Linux support needs its own native qualification.
+
+6. **Controls and mutations: appropriate, with RF-1’s addition needed.** Directory re-entry, FileLock/LOCK_UN use, barrier-receipt forgery and inode-based identity are meaningful regressions for the specified controls. Existing full native-call/owned-representation accounting, staged/published verification, crash prefixes and funded suffix checks remain required. Section 6’s base/candidate suites, serial platform tests, lint/format, release/source/environment/operability checks, package policy, census checks and verify_design are future implementation acceptance work, not evidence run here.
+
+7. **LC-1 and LC-2:** LC-1 correctly and completely identifies the return-type divergence from LAW P-3 and preserves the standalone barrier’s narrower guarantee. LC-2 correctly identifies new ordering work absent from B_install, but its proposed correction is incomplete for the selected sort (RF-1). Branch-local descendant-before-parent finalization is consistent with the law’s bottom-up intent; the disposition should keep that explicit traversal interpretation alongside the corrected price. The P-6 mechanism conforms to the existing law. No other substantive new law divergence was identified. The platform staging is the explicit Q2 ruling, not a change to the law’s platform table. The lead must record the applicable law disposition before the corresponding implementation is treated as conforming; this review neither amends nor silently overrides the law. Conditional acceptance on that disposition is reasonable **after** RF-1 is corrected, not for the current incomplete price.
+
+8. **Regressions:** no other accepted round-1 conclusion is broken. The new platform module and equal P-7 status expression remain feasible; lifecycle→security is permitted by the package policy. The single C2a trust bridge, exact R derivation/one hand-encoded record buffer, nondefault fixture-feature forwarders, build-time access-mode choice, interim-profile limitations and separate X-CI-1-a gate remain intact. Dependency fixture features must actually be enabled in controls; lifecycle cfg(test) alone does not make security’s fixture emitter available. Production enablement, qualification and census binding remain separate gates.

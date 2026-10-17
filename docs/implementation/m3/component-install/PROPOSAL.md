@@ -1,5 +1,7 @@
 **ACCEPTED 2026-10-17 by Codex** (`reviews/codex-component-install-r5/`, with no required findings, after rounds 1 to 4). This file is r5 (`PROPOSAL-r5.md`) under this note; r5's bytes are preserved there.
 
+**Amendment CI-A1 ACCEPTED 2026-10-17 by Codex** with the implementation plan (`reviews/codex-component-install-plan-r3/`; text in `PLAN-r3.md`, LD-CIP-12). It replaces P-3's FileBarrierReceipt with an opaque standalone barrier receipt (CI-A1-a), adds B_install step 4's ordering rows (CI-A1-b), and states finalization as a branch-local descendant-before-parent post-order instead of deepest first (CI-A1-c). Where this file's r5 text differs, CI-A1 governs.
+
 # Component release installation and tree custody — proposal CI r5
 
 **Lead law proposal r5, 2026-10-17. Proposed; it needs Codex review. Not code.** Round 5 answers `codex-component-install-r4` (REQUIRED-FINDINGS: CI-R4-RF-1, with NBO-1). Earlier rounds answered `-r3`, `-r2` and `-r1`. r1 to r4 are history, and their changes tables below are kept as superseded history.
