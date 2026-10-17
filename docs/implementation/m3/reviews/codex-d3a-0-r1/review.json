@@ -1,0 +1,16 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectManifestSha256": "5dc0f5cf0da5217797561fb634e506b199ce0314c4c15085d58e36fba15abc90",
+  "requiredFindings": [
+    {
+      "id": "D3A0-R1-RF-1",
+      "priority": "P1",
+      "path": "crates/platform/src/process.rs",
+      "line": 1018,
+      "title": "Charge the descent before opening or duplicating its directory descriptor",
+      "detail": "Both walks perform part of the descent before enter() charges descend_cost. measure starts by evaluating dup(self.dir...) at line 1006 and opens each child at 1018; remove_bounded does the same at 1044 and 1053. The charge occurs only inside enter at 1218, after its OwnedFd argument has already been created. This violates LD-D3A-12 and the published descend_cost contract that every directory open/duplicate is charged before it occurs. For example, an objects=1 ledger cannot fund the initial objects=3 descent, yet fcntl(F_DUPFD_CLOEXEC) still executes. At a nested descent with insufficient remaining work, openat still executes; an EACCES/EMFILE can even return Operation(Io) before the budget refusal is reached. The current Descend log is emitted after the charge and after the earlier open, so successful-run charge equality and the uncharged-status mutant do not detect this ordering defect.",
+      "requiredChange": "Reserve the complete descent cost before the initial dup and every child open in both walks, charging exactly once. Put the effect inside the charged helper (or pass it as a closure) so an OwnedFd is not produced before the guard. Preserve errno-bearing failures for funded I/O attempts. Add call-site observations for openat/fcntl and controls with insufficient initial and nested-descent budget, proving Budget is returned with no unfunded open/duplicate attempted; include a late-charge mutation or equivalent ordering control."
+    }
+  ],
+  "nonBlockingObservations": []
+}
