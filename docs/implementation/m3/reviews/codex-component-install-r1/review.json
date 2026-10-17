@@ -1,0 +1,79 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectManifestSha256": "3a055f6d23ffc5b5580ec21d40261b1ff41213f874126aab624ae0c3942c42d8",
+  "requiredFindings": [
+    {
+      "id": "CI-R1-RF-1",
+      "priority": "P1",
+      "path": "docs/implementation/m3/component-install/PROPOSAL-r1.md",
+      "line": 100,
+      "title": "Verify the full committed filesystem tree, not only identity Blobs",
+      "detail": "Item 5 promises refusal on extra/missing entries, but item 6 accepts only closure2 and the regular-file Blob list and only iterates those Blobs. That cannot detect an extra file, a missing empty directory, or a changed committed symlink target/type/mode. Directory and symlink metadata were deliberately excluded from identity Blobs; their authority remains the authenticated manifest TreeCommitment. A changed analyzer entrypoint symlink can therefore escape this proof even though every regular-file Blob still hashes correctly. TreeReadFailure also has no structural-tree mismatch case.",
+      "requestedChange": "Carry the authenticated selected-platform TreeCommitment into the read capability and perform bounded no-follow enumeration/association of the complete installed tree. Check exact paths, types, symlink text and the selected installed-mode policy, rejecting extras and missing entries without trusting generation.json as authority. Verify record/candidate/manifest association explicitly. Add structural mismatch failures and controls for an extra regular file, a removed empty directory and a changed symlink target, including a symlinked analyzer entrypoint."
+    },
+    {
+      "id": "CI-R1-RF-2",
+      "priority": "P2",
+      "path": "docs/implementation/m3/component-install/PROPOSAL-r1.md",
+      "line": 28,
+      "title": "Define usable staged and published modes for every admitted entry type",
+      "detail": "Clearing write bits alone does not ensure that the installer or retained-tree reader can access an admitted tree. CM permits 0000 modes and closure-only entrypoints need only be regular files. A file mode 0200 becomes unreadable 0000; a directory mode 0600 becomes untraversable 0400. Finalizing ordinary directories to 0555 before adding children also prevents staging writes. Further, symlink mode application/clearing is not a portable filesystem operation across the four selected platforms. Item 1 promises every row is applied this way without a refusal or representation rule for these cases.",
+      "requestedChange": "Choose an explicit installed-mode policy by entry type, separate from the authenticated archive mode. Define temporary staging permissions and bottom-up finalization after population/verification. Either select lawful private read/traverse permissions or reject unmaterializable modes with an owned typed delivery refusal; do not silently grant execution. Specify the symlink-mode treatment without following its target. Keep generation/store custody directories 0700 as required by the cited primitive, and add unreadable-file, untraversable-directory and nested-staging controls."
+    },
+    {
+      "id": "CI-R1-RF-3",
+      "priority": "P1",
+      "path": "docs/implementation/m3/component-install/PROPOSAL-r1.md",
+      "line": 73,
+      "title": "Specify durable publication and crash recovery before claiming complete published generations",
+      "detail": "The transaction specifies stream writes, verification and exclusive rename, but no file/directory barriers or recovery treatment for uncertain publication. Verification proves bytes seen in memory, and rename provides namespace atomicity; neither ensures file data and generation.json survive a crash with the published name. The assertion that a crash between publish and step completion is safe because verification preceded rename is therefore unsupported. Existing platform file/directory barrier and exclusive-publication primitives do not supply ordering unless this law selects it.",
+      "requestedChange": "Define the durable sequence for payloads, metadata/modes, generation record, staging directories and the publication parent using the accepted native barrier/publication primitives. Define outcomes and recovery for failures before rename and after a rename whose durability is uncertain, preserving existing generations and forbidding automatic replacement/retry. Add crash-prefix controls through the post-rename barrier, not only before publication."
+    },
+    {
+      "id": "CI-R1-RF-4",
+      "priority": "P1",
+      "path": "docs/implementation/m3/component-install/PROPOSAL-r1.md",
+      "line": 101,
+      "title": "Make retained-byte transfer, pin lifetime and replay ownership concrete",
+      "detail": "retained_tree hashes bytes and returns only an opaque list of verified Blobs. It provides no bounded transfer/stream/held-byte interface for C2a or the Run owner to retain those exact bytes. Its signature also carries no operation/pin capability or lifetime, although item 7 requires a generation to stay pinned from the pre-draw read until lease end; ephemeral use and the fence-to-lease transition are unspecified. Item 7 then mixes retained-Run replay with WS:293 pivot resolution and pivot-detector-unavailable, even though a complete Run must retain its own preimages under IE:1399-1412 and NE:1493-1499.",
+      "requestedChange": "Define a retained capability or bounded verified-byte handoff, with custody/observation checks, through which the owning retention path copies/pins the complete descriptor, manifest body and file bytes. Define pin registration/acquisition under the fence, continuity through R11 and operation end, and ephemeral lifetime/release, so GC cannot remove a generation in a gap. A completed Run may release the installed origin only after its own complete retention is established. State that ordinary Run replay uses those retained preimages and keeps its evidence-missing/corrupt failure semantics; WS pivot discovery/current-trust execution is a separate operation. Never accept a historical hash-only proof as present retained bytes."
+    },
+    {
+      "id": "CI-R1-RF-5",
+      "priority": "P2",
+      "path": "docs/implementation/m3/component-install/PROPOSAL-r1.md",
+      "line": 135,
+      "title": "Preserve the required-cell and committed-Run gates on the not-installed route",
+      "detail": "Item 8 labels its table retained reads at R10a, then unconditionally gives a durable NotInstalled result COMPONENT.REQUIRED_CLOSURE_NOT_INSTALLED. R10a precedes the analysis ExecutionId/Run. MC item 7:435 admits that durable detail through a committed Run and expressly records X-8 at :436: a required non-inventory cell currently has no lawful unavailable binding. CI cites item 7 but drops that gate. A pre-draw read result is not itself a committed durable analysis termination, and this law cannot invent the missing binding or detail authority.",
+      "requestedChange": "Keep NotInstalled as a typed input to the existing availability/selection/composition owner. Explicitly carry X-8 and its successor gate before required-cell end-to-end composition; qualify the durable detail by RTC committed-Run authority. Specify the pre-draw propagation without minting a placeholder closure/context, silently dropping cells, or adding ephemeral detail. Retain the separate missing/corrupt promised-tree causes and the existing registered operational routes."
+    },
+    {
+      "id": "CI-R1-RF-6",
+      "priority": "P2",
+      "path": "docs/implementation/m3/component-install/PROPOSAL-r1.md",
+      "line": 60,
+      "title": "Bound installer work as well as signed archive length",
+      "detail": "The signed entry/file limits and exact archive length bound accepted payload octets, but item 4 supplies no work scope/profile or charge discipline for archive acquisition, header processing, staging writes, directory/link creation, verification and failed-stage cleanup. Only the later retained reader has one. Signed size alone does not bound repeated interrupted/short I/O attempts, temporary allocation or cleanup work. Deferring R10a's reader profile to D4/J1 does not select a resource policy for the separate fence-only install command.",
+      "requestedChange": "Give CI-1/CI-2 explicit finite caller work accounting and an owned installation profile selection, or a named gate before the installation implementation can be accepted. Price reads/writes/attempts, allocations, extraction and cleanup before each operation, propagate typed exhaustion without publishing a partial generation, and state the failure route. Keep signed capacities distinct from work limits and disk-space failure; no arbitrary archive-size constant is required to resolve this finding."
+    }
+  ],
+  "nonBlockingObservations": [
+    {
+      "id": "CI-R1-NBO-1",
+      "path": "docs/implementation/m3/component-install/PROPOSAL-r1.md",
+      "line": 158,
+      "title": "Match the profile control list and distinguish codec limits from manifest admission",
+      "detail": "The pinned PKG-AP goldenAndNegativeCases array has 15 entries, while CI-T1 calls it 17. Its mode-field maximum exceeds CM's admitted 0777 range, and some size-limit cases are explicitly metadata-only; they should not be presented as complete signed-installation positives.",
+      "suggestedChange": "Use the exact pinned case list and label pure codec/metadata-capacity controls separately from feasible manifest-valid installation controls. Also require an existing-generation no-op to validate custody and promised bytes before reporting a usable installed release; existence alone must not bypass LD-CI-8."
+    }
+  ],
+  "questionRulings": {
+    "Q1": "No additional total-byte constant is inherently required by the profile. Signed length/count capacities must be combined with finite installer work/allocation accounting and an owned profile/refusal gate (RF-6); ENOSPC alone is insufficient resource control.",
+    "Q2": "Accept the closed S8 machine-id-to-existing-artifact-token lookup for artifact selection. The alias must never become an admitted machine platform/profile/grant id. This lookup alone needs no catalog schema successor; it does not authorize aliases in other admission records.",
+    "Q3": "Accept an operator-supplied local regular-file input at the library boundary, leaving CLI spelling to J1. Keep no-follow descriptor capture, exact byte/digest checks and no network acquisition; select explicit bounded work and failure handling.",
+    "Q4": "A completed Run need not pin the installed origin if it already owns every required preimage independently. Require a concrete protected transfer/pin handoff and preserve Run replay semantics; do not replace mandatory retention with future pivot-origin lookup or pivot-detector-unavailable (RF-4).",
+    "Q5": "No new public code/detail is needed merely for profile/capacity/digest refusals; the existing rejection and installation-I/O families are appropriate. Publish exact derived carriers/remedies and a budget route, and preserve RTC/X-8 composition gates for NotInstalled (RF-5/RF-6).",
+    "Q6": "Accept adoption of exactly the pinned archiveProfile algorithm by reference. That is an explicit new selection here, not evidence PKG or DR-120 was already applied. Preserve the exact dependency pin and leave all other PKG members, release/adapter qualification and DR-120 standing unchanged.",
+    "Q7": "Do not accept write-bit clearing as the complete reconciliation. Separate authenticated archive metadata, staging permissions, installed read/traverse/execute requirements and symlink treatment; resolve unreadable/untraversable admitted modes explicitly (RF-2)."
+  }
+}

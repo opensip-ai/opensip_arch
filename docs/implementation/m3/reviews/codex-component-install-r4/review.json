@@ -1,0 +1,25 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectManifestSha256": "33f265779be2cd6a976bb1d279205b387c90bb1876ee109840db0997ecd2e2dc",
+  "requiredFindings": [
+    {
+      "id": "CI-R4-RF-1",
+      "priority": "P2",
+      "path": "docs/implementation/m3/component-install/PROPOSAL-r4.md",
+      "line": 177,
+      "title": "Include the tree-container descent in transfer’s path and price",
+      "detail": "B_transfer(f) funds only the k-1 directory components within the committed file path and then its file open. Item 6 says transfer opens from the retained generation directory; B_open’s capability has only the retained store and generation directories plus the pin handle (line 175). The committed paths are relative to tree/, not to the generation directory. For a root-level Blob path such as provider.bin, k=1 makes the directory sum zero, but transfer still must open tree/ no-follow before opening provider.bin. For bin/provider.bin it needs both tree/ and bin/, while the recipe funds only bin/. There is no retained tree-directory handle or separately charged tree descent to cover this prefix. Opening tree/<path> in a single openat is not an equivalent no-follow component descent: O_NOFOLLOW protects only its final component. Thus the proposed transfer route and its allegedly complete price do not agree.",
+      "requestedChange": "Add the explicit tree/ descent, including its selected name/status/handle cost, to each transfer from the retained generation directory. Alternatively retain a verified tree-directory handle in RetainedTree, charge its acquisition/retention in B_open, and define transfer relative to that handle. Make path depth k and its base explicit, preserve component-by-component no-follow resolution, and extend CI-T22 with a root-level Blob and a nested Blob whose recorded opens and charges include the selected base path. Keep the sink commit conditioned on final length/digest verification."
+    }
+  ],
+  "nonBlockingObservations": [
+    {
+      "id": "CI-R4-NBO-1",
+      "path": "docs/implementation/m3/component-install/PROPOSAL-r4.md",
+      "line": 119,
+      "title": "Distinguish custody’s actual capture price from the legacy descriptor-observation allowance",
+      "detail": "The cust description says admit_custody_directory performs descriptor_observation_cost. Its actual source chain is snapshot_source::admit_custody_directory -> private_access::observe_private_directory -> capture_descriptor_acl_accounted, which charges descriptor_acl_capture_cost in filesystem/descriptor_acl_capture.rs. descriptor_observation_cost prices the separate legacy observe_descriptor/libSystem ACL path. A conservative replacement price is permissible, but these are different mechanisms and the claim that this is the helper’s actual published charge is inaccurate. P-7 also need not expose a legacy filesystem-internal function merely to reach the already public descriptor_acl_capture_cost.",
+      "suggestedChange": "Prefer cust = descriptor_acl_capture_cost for the existing custody helper. If intentionally retaining a different conservative allowance, say so, establish componentwise dominance on supported targets, and distinguish that bound from the helper’s actual charges without double charging. Have CI-T22 identify the actual custody call/charge chain."
+    }
+  ]
+}
