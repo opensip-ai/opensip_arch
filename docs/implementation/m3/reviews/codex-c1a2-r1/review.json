@@ -1,0 +1,51 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectManifestSha256": "a4a7a620c76e2148a8fc7fc65cffd1239fa07c3aeebe3ca05ecba5248acc9bef",
+  "requiredFindings": [
+    {
+      "id": "C1A2-R1-RF-1",
+      "priority": "P2",
+      "path": "crates/host/src/candidate_custody.rs",
+      "line": 142,
+      "title": "Establish private custody beyond mode bits and owner",
+      "detail": "CandidateCustody::new accepts a retained directory after an fstat mode/uid check and an empty listing. RetainedDirectory does not admit custody, and observe_descriptor_metadata contains no ACL observation. On macOS, an owned 0700 directory can still have named ACL grants permitting another principal to traverse or alter entries; new 0600 files can also inherit ACL grants. Neither begin/commit nor open validates those grants. This does not establish LD-C1A-9's premise that nothing else writes custody. For example, an ACL-authorized actor can replace a pending name after its descriptor is sampled/closed and before the name-based exclusive rename; RENAME_EXCL protects the destination, not the binding of the source name to the written descriptor. The commit then records the original digest/length without verifying the substituted entry.",
+      "requestedChange": "Accept an existing descriptor-bound private-custody proof, or establish the private-directory and created-file ACL premise using the existing custody/ACL machinery, with charges before observation. Preserve the distinction between omitted ACL evidence and a proved absence of unauthorized access. Add native controls with mode 0700 plus an unauthorized named directory ACL and inherited file ACLs; require refusal before custody use, or prove equivalent exclusion by a retained private parent. Do not claim mode/uid alone excludes writers."
+    },
+    {
+      "id": "C1A2-R1-RF-2",
+      "priority": "P2",
+      "path": "crates/host/src/candidate_custody.rs",
+      "line": 330,
+      "title": "Bound and charge every actual custody write attempt",
+      "detail": "PendingBlob::write charges WRITE once and then calls std::io::Write::write_all. write_all retries Interrupted and completes short writes with additional write calls; regular files are not guaranteed to consume a chunk in one call. An arbitrary number of Interrupted results can therefore perform native attempts inside one charged edge, without an attempt envelope. The model anchors exactly one WRITE edge per chunk, so its edge bound does not bound this work. The 32 native/model comparisons and sparse probe cover ordinary full writes and cannot establish the missing fault-path bound.",
+      "requestedChange": "Use a single charged write attempt that refuses short/interrupted writes, consistent with the existing bounded file-effect pattern, or implement an explicit finite write-attempt envelope with each attempt charged before the call. Hash/account only according to the chosen terminal write semantics. Update the model and add injected short-write/Interrupted controls and a mutation proving no retry is uncharged. No successful-path payload-byte charge is requested."
+    },
+    {
+      "id": "C1A2-R1-RF-3",
+      "priority": "P2",
+      "path": "crates/host/src/snapshot.rs",
+      "line": 316,
+      "title": "Charge or transfer owned paths on refusal branches",
+      "detail": "The source path is copied with to_owned on ChangedSinceCapture (244), ChangedBeforeRead (316), ReadAttemptsExhausted (326), read I/O failure (344), and ChangedDuringRead (351/359), without a preceding owned_record charge for those new allocations. The source already owns a path, but copying it is a distinct allocation under the shared recipe; the normal Capture record charge is not reached on these branches. Thus the asserted complete session model omits work performed by actual typed refusals, potentially including a maximum-envelope logical path. Successful routed-tree comparisons and mutants deleting successful-path charges do not exercise this omission.",
+      "requestedChange": "Move an already charged owned source path into the terminal refusal where possible, or charge the additional owned path before copying it, preserving the applicable budget/refusal precedence. Extend the model or explicitly bounded refusal allowance accordingly, and add long-path change/I/O/attempt-exhaustion controls plus an omitted-charge mutant. Audit the custody error-string allocation branches under the same recipe."
+    },
+    {
+      "id": "C1A2-R1-RF-4",
+      "priority": "P2",
+      "path": "crates/host/src/candidate_custody_tests.rs",
+      "line": 11,
+      "title": "Remove the new ignored-result bindings prohibited by the request",
+      "detail": "Request item 8 says no let _ = in product files. Four new bindings occur in candidate_custody_tests.rs:11 and :16, snapshot_tests.rs:18, and custody_entry_tests.rs:12. These are test cleanup bindings rather than production behavior, but they are new mapped product files and the request supplies no test-file exception to this rule.",
+      "requestedChange": "Replace these four bindings with explicitly handled cleanup/process outcomes consistent with the repository conventions. Keep cleanup scoped to the synthetic fixture directories; do not change production authority or swallow a failed chmod as a successful test control."
+    }
+  ],
+  "nonBlockingObservations": [
+    {
+      "id": "C1A2-R1-NBO-1",
+      "path": "crates/host/src/snapshot_tests.rs",
+      "line": 460,
+      "title": "Keep the source-pin claim bounded to the preparatory modules",
+      "detail": "Inspection confirms one source.file().read call in the session and no content read in the security opener/walk; custody reads its own retained directory only. The lexical pin is useful but does not prove the full future J1 composition has no alternate reader. SCOPE correctly leaves B2/C2 routing and their half of C1-T24 to J1; retain that limitation when integrating and extend the pin with those callers."
+    }
+  ]
+}
