@@ -1,0 +1,33 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectManifestSha256": "00a182bdf220ee8940488278eb548f69a23ba1cd75876644d99a3cf5a25d7121",
+  "requiredFindings": [
+    {
+      "id": "C1A3-R1-RF-1",
+      "priority": "P2",
+      "path": "crates/host/src/snapshot_seal.rs",
+      "line": 207,
+      "title": "Charge or eliminate the encoder's digest-hex temporary allocations",
+      "detail": "push_row calls digest_hex for every inventory row. The imported helper is crates/identity/src/digests.rs::hex, which allocates String::with_capacity(64). Charging owned_record(inventory_len) pays for the inventory Vec, not these additional temporary strings; WorkLedger explicitly requires temporary copies to be charged separately. none_observation allocates another digest-hex string, and seal allocates the VCS digest string at line 356 in addition to the charged 160-byte VCS buffer. These are sealing-owned allocations outside the separately bounded IdentityCandidate admission, so LD-C1A3-4's every-allocation-before-it-happens claim is not met.",
+      "requestedChange": "Write hex directly into the precharged destination, or use fixed stack arrays, to remove the temporary heap strings; alternatively charge every distinct temporary before allocation, including per-row and both VCS-path conversions. Add a focused accounting/allocation control that catches reintroducing an uncharged conversion. Update the sealing-charge evidence and any dependent r9 derivation if the charged terms change."
+    },
+    {
+      "id": "C1A3-R1-RF-2",
+      "priority": "P2",
+      "path": "crates/host/src/snapshot_seal_tests.rs",
+      "line": 491,
+      "title": "Complete the mixed-error precedence controls required by C1A-T6",
+      "detail": "The accepted C1a r6 C1A-T6 requires an over-8-GiB inventory followed separately by a read I/O failure, a ChangedDuringRead failure, and a custody or open failure, each preceding the totalBytes refusal. walk_refusals_come_before_the_bounds injects only the later read I/O error. The zero-read synthetic step-5 bound tests and source pin showing no total bound in the walker are useful, but neither exercises the later changed-file or custody/open branches on an already over-bound inventory. SCOPE's structural explanation is also stronger than the API: SnapshotWalkReport is public, Default and Clone and is supplied separately from the session/root, so its type alone does not prove that it is this session's successful walk.",
+      "requestedChange": "Keep the efficient split rather than writing 8 GiB: preload the synthetic reached over-bound capture, then add one later metadata-change case and one later custody/open-failure case through the actual session walk/sealing composition, asserting the original refusal and no sealing output. Retain the no-total source pin and exact step-5 bound controls. Describe successful-walk provenance as an explicit composition precondition unless the API enforces it; do not count the report's type as a structural proof."
+    }
+  ],
+  "nonBlockingObservations": [
+    {
+      "id": "C1A3-R1-NBO-1",
+      "path": "crates/host/src/snapshot_seal.rs",
+      "line": 255,
+      "title": "Bind successful-walk provenance when the production composition is added",
+      "detail": "seal accepts independent references to a mutable CaptureSession, a SnapshotRoot and a freely constructible SnapshotWalkReport. The current tests correctly obtain a report from that session, but the signature does not prevent a default report, a report from another root/session or stale reuse. When J2 composes the production path, retain an opaque session-bound completion token or a single helper that walks and then seals, and consider consuming/freezing the session against later source reads. This is a future composition obligation, not an assertion that a production caller currently exists."
+    }
+  ]
+}
