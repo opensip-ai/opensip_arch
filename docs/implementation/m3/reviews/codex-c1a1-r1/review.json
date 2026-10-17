@@ -1,0 +1,55 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectManifestSha256": "914cc1bf7d6402f15c71e6aefda8759a84cad94d638cadb603cc91332d0b02e0",
+  "requiredFindings": [
+    {
+      "id": "C1A1-R1-RF-1",
+      "priority": "P2",
+      "title": "The walk stats the forbidden .opensip anchor before pruning it",
+      "location": "crates/security/src/snapshot_walk.rs:332-346,214-216",
+      "finding": "enter observes every converted child name with observe_child_accounted before walk_snapshot calls classify_path. Thus a root or admitted D15 member entry named .opensip is fstatat-ed on every walk, including CI. M3-C r8 item 1 explicitly says CI never stats, opens or lists that anchor. Pruning before open is insufficient. A disappearing or unstatable excluded anchor can also refuse the walk before pruning. The extent test checks that its contents are absent, not that the anchor was never observed.",
+      "requestedChange": "Use the shared rule to exclude the exact OpenSIP custody-state anchors before any child observation, preserving ordinary nested .opensip directories and name validation. Update the slot/observation handling and model to the resulting charges. Add an observation-level control for the project root and a D15 member in CI, including an excluded anchor that changes or cannot be observed."
+    },
+    {
+      "id": "C1A1-R1-RF-2",
+      "priority": "P2",
+      "title": "An admitted boundary is enforced only when its current entry is a directory",
+      "location": "crates/security/src/snapshot_walk.rs:227-265; tools/security/snapshot_ledger_model.py:196-199",
+      "finding": "is_boundary is called only in the Directory branch. If a nested-repository, nested-project, directory-custody or depth boundary admitted by B2 is replaced by a regular file before this walk lists it, the File branch opens and hands that exact excluded path to the visitor. The law excludes everything at or below an admitted boundary, independently of its current type. The model duplicates this omission, and the existing oracle cases keep boundary entries as directories.",
+      "requestedChange": "Apply admitted non-marker boundary exclusion independently of the observed entry kind, using the existing shared boundary API and preserving marker-custody exclusions as marker-specific. Update the model and add controls for a directory boundary replaced by a regular file, with equivalent excluded symlink/special-file handling."
+    },
+    {
+      "id": "C1A1-R1-RF-3",
+      "priority": "P2",
+      "title": "The pre-walk opener does not judge the retained root directory",
+      "location": "crates/security/src/snapshot_source.rs:366-408",
+      "finding": "SnapshotRoot::open judges only directories in dirs, after opening them. It never samples or judges self.retained(). For a root-level capture, dirs is empty and no directory custody is checked at all. If the admitted root becomes mode 0777, gains an unauthorized write ACL, or otherwise fails S3 after lending, this opener still returns the source descriptor; walk_snapshot, by contrast, samples and judges the root before listing. The accepted pre-walk opening rule requires a custody-judged directory chain before capture, not a later walk refusal after the source has already been read.",
+      "requestedChange": "Charge, sample and judge the retained root under the same S3 directory policy before any pre-walk traversal/open, or provide an equivalent current, enforced custody proof. Retain terminal refusal and directory-only waiver semantics. Cover root-level and nested captures after root mode/ACL custody changes between admission/lending and open."
+    },
+    {
+      "id": "C1A1-R1-RF-4",
+      "priority": "P2",
+      "title": "Native path and boundary copies are outside the charge recipe",
+      "location": "crates/security/src/snapshot_walk.rs:169,204-214,229,257-260; crates/security/src/discovery_export.rs:218-241; tools/security/snapshot_ledger_model.py:175-201",
+      "finding": "The new walk allocates parent_rel via top.rel.clone() and name via to_owned() for each entry before any charge for those copies, and creates root_abs without a charge. The listing conversion explicitly prices only its own path and validator copies; classify_cost describes the shared classifier's temporaries, not these additional strings. Further, the invoked AdmittedBoundaries::boundary_hit calls custody(), which allocates and clones every custody row on each lookup, without a corresponding row-dependent charge. The model mirrors the explicit ledger calls, so native <= model cannot expose these shared omissions. Item 2 and the accepted pricing recipe require every copy to be charged before it happens.",
+      "requestedChange": "Eliminate avoidable copies with borrowed path/name views and a non-copying shared boundary lookup, or charge their full owned records and byte volumes before allocation and mirror those charges in the model. Account for root spelling as well. Add controls involving deep/long paths and multiple custody-boundary rows; verify that accounting is justified independently of equality between two counters that omit the same work."
+    }
+  ],
+  "nonBlockingObservations": [
+    {
+      "id": "C1A1-R1-NBO-1",
+      "title": "Route controls may move to C1a2 with an explicit remaining obligation",
+      "observation": "The C1A-T2/T3 deferral is acceptable for this r6 preparatory unit: the constructors are thin wrappers over the existing lawful lendings, the released-read constructor remains crate-internal, and no production caller or snapshot profile is added. C1a2 must retain both the same-tree durable/released-read inventory comparison and the no-lease/no-fence released-read control, with its scenario helper, before production use. Current for_tests roots do not discharge those controls."
+    },
+    {
+      "id": "C1A1-R1-NBO-2",
+      "title": "The soundness test establishes an upper bound, not an asserted exact equality",
+      "observation": "The 32-case native test asserts used <= predicted componentwise; it neither asserts equality nor prints the 32 native/predicted triples in the normal lane log. The dearer-branch formula is conservatively sound for ACL captures (CAP plus componentwise max of the bounded ACL-entry copy and filesystem-premise costs). Exact agreement on the present APFS branches may follow from those formulas, but the blanket statement that any undercount fails is stronger than this test guarantees. Preserve the upper-bound assertion for conservative branches; explicitly assert or record equality on designated exact controls and describe the three mutants as evidence for the terms they remove."
+    },
+    {
+      "id": "C1A1-R1-NBO-3",
+      "title": "Scope and source metadata need a status refresh",
+      "observation": "SCOPE.md still calls plan r6 in review, although the request identifies it as accepted and published. source.json says publicApiAdded=false despite two new public modules and public types/functions. The runner also retains a serial-platform/attempt-3 comment although its security command has no serial argument. These stale descriptions do not change the pinned bytes or the actual checks reviewed here."
+    }
+  ]
+}

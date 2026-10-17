@@ -1,0 +1,21 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectManifestSha256": "ac8c281a1b826e175cf39d8312f4cc9abd83922bdd2706f7fb4e4259af5fe760",
+  "requiredFindings": [
+    {
+      "id": "C1A1-R2-RF-1",
+      "priority": "P2",
+      "title": "The pre-walk path validator still allocates before any charge",
+      "location": "crates/security/src/snapshot_source.rs:400,472-474; crates/identity/src/descriptors.rs:31-61; SCOPE.md allocation audit",
+      "finding": "SnapshotRoot::open calls LogicalPath::parse(path).is_err() before charging work. On every valid path, that parser constructs LogicalPath(String::from(value)); is_err then discards the allocated string. The later owned(path.len()) charge covers the distinct final SourceFile path copy, after custody and opens have already happened. It cannot cover both copies or retroactively charge the validator before allocation. This is a successful-path allocation omitted from the supposedly complete independent audit, including for a root-level file. The 35-case soundness test exercises walk_snapshot, not this opener, so it cannot expose the omission. C1A1-R1-RF-4 is therefore not fully resolved.",
+      "requestedChange": "Account for the validator allocation before invoking the allocating parser, or retain/reuse its owned validated path as the eventual SourceFile path with the charge made first. Preserve the existing shared grammar and do not copy validation rules. Update the allocation audit, source pins/generated vectors as needed, and add a focused pre-walk accounting control covering root-level and nested valid paths. The full read/custody model may still remain with C1a2 as planned."
+    }
+  ],
+  "nonBlockingObservations": [
+    {
+      "id": "C1A1-R2-NBO-1",
+      "title": "The recorded soundness log does not expose the claimed triples",
+      "observation": "The test now correctly asserts equality for each exact case and emits the triples with eprintln!, but the runner invokes the successful test without --nocapture or --show-output. The pinned snapshot-walk-tests.log contains the 15 passing test rows and no soundness triples or summary. Thus the equality assertions are supported by the passing test, while SCOPE.md's claim of 35 soundness lines in that log is inaccurate. In the next lane capture successful-test output, or narrow that evidence statement. This is a reporting observation, not a defect in the new equality assertions."
+    }
+  ]
+}
