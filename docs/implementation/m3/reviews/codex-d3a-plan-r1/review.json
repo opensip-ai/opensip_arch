@@ -1,0 +1,85 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectManifestSha256": "83a1581edd2c28975e4c36fec72350c5c49ffc48fa08edf89d76e34d68f955af",
+  "requiredFindings": [
+    {
+      "id": "D3APLAN-R1-RF-1",
+      "priority": "P1",
+      "path": "docs/implementation/m3/supervisor-d/d3a/PLAN-r1.md",
+      "line": 67,
+      "title": "Specify resumable provider I/O on the non-blocking readiness loop",
+      "detail": "LD-D3A-3 invokes the participant synchronously on non-blocking descriptors and cites D2b-1 read_frame as its reader. That helper is a whole-frame operation: its local prefix/digest/payload buffers and read_exact_or_eof progress are lost on an I/O error, including WouldBlock. A readable pipe need contain only one prefix byte. Calling it again cannot resume the consumed prefix; making the pipe blocking instead can stall health, stderr, exit processing and deadlines. The plan gives the control reader an incremental acquisition design but gives the provider participant no corresponding retained read/write state or yield contract.",
+      "requestedChange": "Assign incremental prefix/digest/payload acquisition and pending-write offsets to the participant, preserving bytes and offsets across WouldBlock without supervisor ownership of provider octets. State how complete retained frames reach D2b-1 validation and how callbacks yield so other descriptors and timers run. Add split-at-every-offset, short-write/WouldBlock, partial EOF and interleaved health/deadline controls; coordinate this adapter with D2b-3/-4 rather than treating whole-frame read_frame as resumable."
+    },
+    {
+      "id": "D3APLAN-R1-RF-2",
+      "priority": "P1",
+      "path": "docs/implementation/m3/supervisor-d/d3a/PLAN-r1.md",
+      "line": 86,
+      "title": "Resolve D1a blocking reap and Drop before promising a finite unreaped settlement",
+      "detail": "The plan promises Child::reap within 10 seconds, or exit: unreaped, and the same bounded cleanup during unwinding. Actual D1a Child::reap calls wait4(pid, ..., 0) with no timeout. More critically, dropping an unreaped Child calls kill_and_reap, which signals the group and root again and blocks in waitpid(..., 0). Even if D3 first polls has_exited until its deadline and records unreaped, ordinary ownership cleanup re-enters that fallback. This contradicts item 18's stop-signalling-and-settle rule and item 12/14's finite settlement obligation.",
+      "requestedChange": "Plan an explicit platform ownership mechanism for an unreaped child at the ceiling, including Drop/unwinding, that preserves the scratch-root hold, never signals again after the ceiling, and cannot block in the fallback. Reap only after observed exit or provide a non-blocking primitive. Keep timeouts and outcomes in D3. Add a seam for a root surviving the ceiling and assert finite settlement, retained custody and no later signal/reap-block on destruction."
+    },
+    {
+      "id": "D3APLAN-R1-RF-3",
+      "priority": "P2",
+      "path": "docs/implementation/m3/supervisor-d/d3a/PLAN-r1.md",
+      "line": 82,
+      "title": "Assign a normal-end path separately from the interim fault ladder",
+      "detail": "LD-D3A-6 supplies one ladder for every D3a cause: control cancel, immediate TERM, KILL, reap. The only other normal-end action specified is Participant::close_input. Item 19's normal end instead sends shutdown(reason: normal), closes fd0/fd3, and waits for shutdownAck, observed exit and EOF under the normal-exit grace; expiry enters the fault ladder at T-2. Although cancellation is deferred to D3b, D3a claims clean settlement and D3-T4 now. A successful terminal must not be cancelled or killed merely because no separate normal-end path was assigned.",
+      "requestedChange": "Explicitly place normal-end shutdown, descriptor closure, shutdownAck/exit/EOF joins and grace expiry in D3a-1, keeping the interim ladder for faults only; or revise the split and claims so clean operation waits for the unit owning that path. Add clean exit in both interleavings, nonzero exit, missing shutdownAck and no-exit grace-expiry controls with the exact control frames and process events."
+    },
+    {
+      "id": "D3APLAN-R1-RF-4",
+      "priority": "P2",
+      "path": "docs/implementation/m3/supervisor-d/d3a/PLAN-r1.md",
+      "line": 106,
+      "title": "Give scratch measurement and removal a real work bound",
+      "detail": "LD-D3A-12 bounds the walk by scratch bytes plus one and by item 16's process-class counts. Those counts bound processes, not filesystem entries or depth. One provider process can create many empty files or nested empty directories without crossing the byte cap. Cutting the walk off after one provider entry (or 16 tool entries) would reject lawful scratch; not cutting it off leaves work and allocation unbounded. Existing ChildScratch::remove also uses recursive remove_tree and list(dir), which collects a directory's names into an unbounded Vec, so a new bounded measuring walk alone does not establish item 20's bounded cleanup.",
+      "requestedChange": "Specify the separate measurement and cleanup work/depth/allocation disciplines and the fate at exhaustion. Cite an actual source for filesystem work bounds or obtain the necessary lead/owner decision; do not reuse process counts as entry counts. Keep policy in D3 and pass budgets to platform mechanisms. Cover many zero-byte entries, deep directories, symlinks, retained-scratch failures and cleanup exhaustion without changing admission merely because removal failed."
+    },
+    {
+      "id": "D3APLAN-R1-RF-5",
+      "priority": "P2",
+      "path": "docs/implementation/m3/supervisor-d/d3a/PLAN-r1.md",
+      "line": 103,
+      "title": "Do not omit required record fields when a code table is not yet sourced",
+      "detail": "LD-D3A-10 proposes leaving an event field out until its table has a pinned source. S-OP-2 item 23 specifies required fields, including provider.process.spawned.protocol, provider.stage.changed.stage/state and provider.process.reaped.exit_class/rss_unit. Item 21 requires those events, not reduced substitutes. Also, registry-literal provenance expressly permits reviewed literal release tables; it does not require every such table to be copied from an external closed enum. Refusing to invent protocol members is sound, but silently omitting required fields is not that provenance rule.",
+      "requestedChange": "Resolve every required event field and table in the plan or make its unresolved authority an explicit blocker to that event/unit completion. Use protocol-enum or generated-contract where applicable and reviewed registry-literal tables where authorized. Preserve the required descriptor shape, optionality, identities and units. Extend C-2 checks to compare new event descriptors with the required field inventory; do not claim a complete item 21 while required fields are absent."
+    },
+    {
+      "id": "D3APLAN-R1-RF-6",
+      "priority": "P2",
+      "path": "docs/implementation/m3/supervisor-d/d3a/PLAN-r1.md",
+      "line": 96,
+      "title": "Make fixture fd1 byte-clean before replaying framed provider traffic",
+      "detail": "The proposed fixture is a libtest executable invoked with arguments selecting an ignored test. Libtest itself writes its test banner/progress to stdout before the helper runs; disabling capture does not suppress those bytes. The existing D1a test source explicitly handles this at process_tests.rs:239 by searching for a D1FIX marker after libtest text. That is acceptable for D1a text reports, but D3's framed participant must reject the same prefix noise. Stripping it in the participant would violate the wire/no-translation boundary and invalidate the intended controls.",
+      "requestedChange": "Specify a first-party test fixture entry point that writes only the intended fd1 wire bytes from process start, with controlled stderr and exit behavior. A dedicated test-support executable or harness-free entry point is permitted by item 1; an extra inventory row is not a reason to prohibit it. If retaining libtest, demonstrate a concrete pre-output dispatch/suppression mechanism. Add a raw fd1 byte-equality control and forbid filtering harness text in the participant."
+    },
+    {
+      "id": "D3APLAN-R1-RF-7",
+      "priority": "P2",
+      "path": "docs/implementation/m3/supervisor-d/d3a/PLAN-r1.md",
+      "line": 54,
+      "title": "Assign item 16 tool materialization accounting and its distinct bound",
+      "detail": "The D3a-2 scope lists item 16 bounds but omits the tool-materialization row: at most 32 GiB admitted candidate content plus 1 GiB working space, checked host-side before each write, as copies rather than links, with ToolScratchBound. LD-D3A-12 discusses only the two 2 GiB provider scratch limits, and the checks have no materialization-specific case. MC item 12 explicitly depends on D law's adapter scratch bound. A provider settlement walk cannot replace this host-side tool accounting or apply the provider 2 GiB limit to admitted tool content.",
+      "requestedChange": "Allocate the host-side accounting interface and its invocation owner explicitly, including the distinct tool/provider limits, checked arithmetic before writes, whole admitted copies, ToolScratchBound and J1 projection ownership. If C3's materializer enforces it, state that seam and what D3 supplies rather than claiming the row implicitly. Add exact-bound/one-over and wrong-provider-limit controls without materializing large private fixtures."
+    }
+  ],
+  "nonBlockingObservations": [
+    {
+      "id": "D3APLAN-R1-NBO-1",
+      "path": "docs/implementation/m3/supervisor-d/d3a/PLAN-r1.md",
+      "line": 81,
+      "title": "Make the single-owner substitute for the stated CAS explicit",
+      "detail": "One loop owner, a terminal state guard, a private non-Clone settlement and a one-time take can provide exactly-once delivery. Option::take alone describes one-time consumption, not necessarily one-time construction; item 12 literally says the transition is guarded by compare-and-swap. State the construction/transition invariant and have the lead explicitly accept the single-owner equivalent, or retain the literal guard. Exercise re-entry, late events and Drop after a taken settlement."
+    },
+    {
+      "id": "D3APLAN-R1-NBO-2",
+      "path": "docs/implementation/m3/supervisor-d/d3a/PLAN-r1.md",
+      "line": 71,
+      "title": "Document the typed accounting and final-output handoff at the participant seam",
+      "detail": "ParticipantStep currently names status, progress and candidate count. Specify how D3 enforces TS2 aggregate payload bytes without reading provider octets itself, distinguishes boundary EOF from truncated frames, and receives a one-shot verified terminal/output capability for clean settlement, release or discard. Byte counts and opaque owned handles can preserve the no-provider-octets seam; a candidate count is not evidence that commitments recomputed. Keep the real-codec reruns in D5 and add a bad-commitment fixture gate control."
+    }
+  ]
+}
