@@ -1,0 +1,49 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectManifestSha256": "24e0b1e9963c2259be9ed18f493d01aa5d55103ee2130796577ff0fe2b8ee610",
+  "requiredFindings": [
+    {
+      "id": "D2A-R1-RF-1",
+      "priority": "P2",
+      "path": "crates/components/src/control_protocol.rs",
+      "line": 1903,
+      "title": "Reject component-only messages instead of encoding empty bodies",
+      "detail": "write_body matches all eight component-only variants with an empty successful arm. encode still writes their original type, seq and major, and returns Ok. For example, a generated ShutdownAck produces {\"type\":\"shutdownAck\",\"seq\":1,\"controlMajor\":1,\"body\":{}} successfully, although shutdownAck is component-to-host only. Other component variants produce an invalid empty body. This contradicts the documented host-only encoder and can author a component response on the host side.",
+      "requestedChange": "Return a typed direction/message refusal for every component-only variant, or accept only an opaque host-message type that cannot contain those variants. Add refusal controls for all eight component-only variants, alongside successful coverage of all eight host-sendable types."
+    },
+    {
+      "id": "D2A-R1-RF-2",
+      "priority": "P2",
+      "path": "crates/components/src/control_protocol.rs",
+      "line": 1974,
+      "title": "Validate constructed encoder output against the wire rules",
+      "detail": "encode checks only the hello offer count and final frame byte length. Public generated carriers do not enforce all wire constraints: the nonce FromStr constructor checks Unicode character count, not x-maxUtf8Bytes, so a ping nonce of 128 copies of U+00E9 is constructible and encoded successfully although its 256 UTF-8 bytes make classify refuse RF2. Public NonZeroU64 fields permit values above 2^53-1, and a Refusal carrier can name RF-6 while decision_class is Missing; both are also emitted successfully. These are precisely the invalid-constructed-output cases carried in D2a plan NBO-1. The current encoder test exercises hello/select and a multi-offer refusal, not all host message types or the over-bound refusal.",
+      "requestedChange": "Before returning bytes, validate all host output against the closed message schema, integer domain, original-string UTF-8 bounds and conditional refusal-body requirements, without identity substitution masking invalid outgoing identities. Enforce the applicable production hello/select policy through the selection-bound construction/sending boundary. Refuse invalid FieldPresence states rather than silently converting them into a different presence. Add multibyte byte-limit controls, maximum-plus-one integers, RF-1/RF-6 conditional fields, every host-sendable type, and exact/over-frame-bound tests. Keep this independent of receive-state correlation checks."
+    },
+    {
+      "id": "D2A-R1-RF-3",
+      "priority": "P2",
+      "path": "crates/components/src/control_protocol.rs",
+      "line": 904,
+      "title": "Make the fixed production context policy enforceable",
+      "detail": "Every ControlContext field is public, ControlSession::new accepts any such value, and context_mut returns unrestricted mutable access to the same policy fields. A production caller can construct a context with a 16 MiB frame bound/multiple offers, or mutate frame_bound and frame_offer immediately after for_session; receive then trusts the altered bound. The corpus uses the same public struct-literal path rather than the plan's test-only constructor. Consequently for_session is a convenience initializer, not the only production construction path enforcing 65,536 and one admitted tuple as LD-D2A-1 requires.",
+      "requestedChange": "Separate immutable production policy from mutable session observations. Keep bound/offer, admitted identities and permitted tuple policy private and fixed through the production constructor, and expose only the updates D3 actually needs for state/correlations. Keep arbitrary corpus contexts in a clearly isolated test/reference path rather than opening the production session policy. Add controls showing a production session cannot widen its frame bound or offer set through construction or subsequent context updates."
+    }
+  ],
+  "nonBlockingObservations": [
+    {
+      "id": "D2A-R1-NBO-1",
+      "path": "crates/components/src/control_protocol.rs",
+      "line": 456,
+      "title": "Close schema loading at the document root too",
+      "detail": "check_subschema checks oneOf members, but Schema::load never validates the document-root keyword set. An extra unsupported root keyword is silently ignored, despite the broad closed-loading claim. The frozen current root is only $schema/$id/title/oneOf, so this does not alter present corpus classification. Explicitly allow those inert metadata fields and oneOf, reject additional root keywords, and add a root-level unknown-keyword control before relying on this guard for future schema changes."
+    },
+    {
+      "id": "D2A-R1-NBO-2",
+      "path": "docs/implementation/m3/supervisor-d/d2a-r1/SCOPE.md",
+      "line": 1,
+      "title": "Distinguish prefix classification from bounded stream acquisition",
+      "detail": "The candidate exposes classify/receive over a complete borrowed byte slice; there is no read_frame or incremental stream reader. Its prefix branches inspect no body and allocate no body, but body_buffered=false is a classification result, not evidence that a real transport read stopped at four bytes. The accepted plan LD-D2A-6 and its T3 control description also named a counting reader/session read_frame. Record that acquisition/control gap explicitly and settle its D3a integration boundary; do not claim this slice-only control proves bounded transport reads or split/coalesced-stream handling."
+    }
+  ]
+}
