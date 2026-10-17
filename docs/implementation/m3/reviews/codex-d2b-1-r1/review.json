@@ -1,0 +1,21 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectManifestSha256": "3e6c3a3a3d8b3d96270a2f07de1a01a0c95b59aca4cb14cc551d42fe2e19f838",
+  "requiredFindings": [
+    {
+      "id": "D2B1-R1-RF-1",
+      "title": "Preserve completed frames before a later refusal in the same push",
+      "location": "crates/components/src/provider_protocol.rs:170-186",
+      "detail": "FrameAccumulator::push stores completed frames in a local Vec, then returns only Err if a subsequent step refuses. The local Vec is dropped and those frames cannot be recovered. Let A be the valid 41-byte frame carrying CBOR 0x80 and B be the eight-byte big-endian length MAX_FRAME_PAYLOAD_BYTES + 1. push(A || B) returns Oversize and exposes no A; push(A), push(B) exposes A and then Oversize. Repeated read_frame calls likewise return A before refusing B. The observable frame sequence therefore depends on pipe/read chunk boundaries. A later digest or CBOR error has the same effect. This breaks the requested read_frame equivalence and loses the earlier frame before the codec can perform its contextual admission and transition.",
+      "requestedChange": "Use an incremental result that delivers each completed frame before a later failure, or return completed frames together with the refusal (or retain an explicitly drainable queue). Preserve wire order and sticky refusal without losing earlier completions. Add every-split controls for a valid frame followed by an oversize length, bad digest, and noncanonical payload, comparing both the preceding frames and final refusal with read_frame."
+    },
+    {
+      "id": "D2B1-R1-RF-2",
+      "title": "Check the eight-byte length before copying any digest bytes",
+      "location": "crates/components/src/provider_protocol.rs:190-201",
+      "detail": "step copies up to FRAME_PREFIX_BYTES - have (40 bytes at a new frame), advances have and the input slice, and only then checks whether it crossed eight bytes. If one push contains an oversized length followed by 32 digest bytes, all 40 prefix bytes are retained before Oversize is returned. The same happens when seven length bytes are held and the next push contains the last length byte plus digest bytes. This contradicts LD-D2B-12 steps 1-3, the request, and SCOPE's explicit claim that the length is judged before any digest byte is kept. The existing seven-plus-one test and length-after-digest mutant establish refusal with only eight available bytes, but do not observe copying across the eighth-byte boundary in a larger push. This is a bounded 32-byte ordering defect; payload allocation still occurs after the length check.",
+      "requestedChange": "Split prefix acquisition into the eight-byte length phase and the 32-byte digest phase. Cap the first copy at byte eight, check frame and aggregate bounds, and only then copy digest bytes. Add controls with a full oversized prefix in one push and a seven-plus-33 split, including the aggregate-overrun case, that assert no digest bytes were copied before refusal."
+    }
+  ],
+  "nonBlockingObservations": []
+}
