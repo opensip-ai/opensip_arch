@@ -1,0 +1,38 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectManifestSha256": "b6d4c56ef9f62468e2f1d24ca7b70f5de063675fb0286859fae88130fdb6e640",
+  "amendmentsAccepted": [
+    "LD-D3A-18",
+    "LD-D3A-19"
+  ],
+  "requiredFindings": [
+    {
+      "id": "D3A1-R2-RF-1",
+      "priority": "P2",
+      "path": "crates/components/src/supervisor.rs",
+      "line": 1843,
+      "title": "Mark the unwind kill before attempting the reap so its confirmation is retained",
+      "detail": "The loop path fixes round-1 RF-9, but unwind still sends SIGKILL and calls try_reap before setting ladder.kill_at (1839-1855). try_reap captures tree_confirmed only when kill_at is already present (1710-1712). Therefore Drop from Handshaking or Running can successfully reap a root-only child with no saved confirmation. unwind then sets kill_at and settle falls back to confirm_tree after reap (1742-1744), when the root-only group is empty. This reports Incomplete for a successfully killed root-only group and performs the by-pid confirmation after losing the zombie-root hold. The new tree-report test covers the normal fault loop, while the Drop tests check group/scratch cleanup but not this report.",
+      "requestedChange": "Record the unwind kill state before the first reap attempt, or explicitly capture the same pre-reap confirmation on every unwind reap path. Reuse that observation in settlement; never fall back to a by-pid confirmation after a successful reap. Add Drop/unwind controls from Handshaking and Running that inspect the resulting tree report (or a test seam capturing the settlement), including root-only and missed-member cases."
+    },
+    {
+      "id": "D3A1-R2-RF-2",
+      "priority": "P2",
+      "path": "crates/components/src/supervisor.rs",
+      "line": 487,
+      "title": "Close handle admission atomically with the final settlement drain",
+      "detail": "The settled flag check and try_send are separate operations. A sender can observe false at :488, pause, let settle set the flag and drain the channel at :1797-1802, then resume and enqueue successfully at :492. Public run has already stopped servicing the receiver, so this trigger is neither merged nor counted as late; host_fault returns true and late_events remains unchanged. Acquire/Release ordering does not make the check/send pair atomic. The new public test sends only after run has returned and therefore misses this interleaving. The sequential late-send case is fixed, but the cross-thread lifecycle guarantee remains incomplete.",
+      "requestedChange": "Give handle admission and settlement closing/draining one synchronization or linearization protocol, so every accepted pre-close trigger is accounted for and every post-close request is rejected/counts exactly once without a consumer turn. Preserve bounded nonblocking trigger handling. Add a deterministic concurrent control using barriers around the pre-send check and settlement close, and assert the return value, final count and absence of an unaccounted queued trigger."
+    }
+  ],
+  "nonBlockingObservations": [
+    {
+      "id": "D3A1-R2-NBO-1",
+      "path": "crates/components/src/supervisor.rs",
+      "line": 1212,
+      "title": "Carry the health-refusal provenance into the deferred record owner",
+      "detail": "The supervisor now classifies the health nonce mismatch correctly, but its comment says the RF7 refusal is kept as evidence. receive_control consumes that RefusedFrame and emits only LivenessMissed plus the Liveness trigger; ControlSession retains state/sequence/stopping information, not that refusal detail. The observer API has no explicit refused-frame event. This is distinct from the expiry path, but the typed family/detail itself is not handed onward.",
+      "suggestedChange": "When D3a-3 adds the record projection, preserve an explicit reduced host-held discriminator for nonce mismatch versus window expiry and the control-owner refusal family, without retaining nonce/frame/detail text. Clarify the current comment so it does not claim a retained evidence object that the API drops."
+    }
+  ]
+}
