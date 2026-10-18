@@ -1,0 +1,25 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectManifestSha256": "ae101c3401fe4fe079fca06941913bae916a10c408a22af9cdc68fff66515d8d",
+  "requiredFindings": [
+    {
+      "id": "D3B0-R1-RF-1",
+      "priority": "P2",
+      "location": "crates/platform/src/process.rs:2183-2187, 2198-2205",
+      "title": "Do not turn libproc listing failures into Complete(empty)",
+      "description": "Both bounded listings test only for a negative native return. On this host, the libproc wrappers return zero on a failed underlying proc_info call: proc_listpids converts -1 to 0; proc_listchildpids converts -1 to 0 and otherwise divides bytes by sizeof(pid_t). Consequently a failure with errno set reaches listing(buf, 0, capacity) and becomes Ok(Listing::Complete(vec![])). The snapshot cannot distinguish ListingFailed from a complete empty child set, and group sampling/confirmation receives false successful enumeration evidence. M3-D item 18 and LD-D3B-3 require listing failure to remain distinguishable. The six positive-path controls and eight mutations do not cover zero-with-error returns.",
+      "evidence": "Read-only inspection of this host's dyld shared cache, image /usr/lib/system/libsystem_kernel.dylib, exports _proc_listpids at unslid 0x180852ef0 and _proc_listchildpids at 0x18085cc64: the former ends its underlying-call return handling with cmn w0,#1; csel w0,wzr,w0,eq (words 0x3100041f, 0x1a8003e0). The latter uses asr w8,w0,#2; cmn w0,#1; csel w0,wzr,w8,eq (0x13027c08, 0x3100041f, 0x1a8803e0). Thus -1 is explicitly returned to these Rust callers as zero, not negative. No native API probe or build was run.",
+      "requestedChange": "Handle the wrappers' zero-on-error convention with per-call errno discipline, distinguishing a legitimate empty list from a failure without consulting stale errno. Preserve the call name and errno in LaunchError::Io. Add deterministic controls for zero-with-error on each listing, successful empty children, and stale incoming errno; mutations that read a listing error as Complete(empty) must fail. Keep the single fixed capacity-plus-one buffer and the count-versus-bytes distinction."
+    }
+  ],
+  "nonBlockingObservations": [
+    {
+      "id": "D3B0-R1-NBO-1",
+      "priority": "P3",
+      "location": "docs/implementation/m3/supervisor-d/d3b-0-r1/SCOPE.md; evidence/d3b0-checks-r1/",
+      "title": "Archive the rebase record under its actual attempt",
+      "description": "REQUEST/SCOPE refer to the packaged lane's rebased.json, but that file is absent from both the package and its 30-member manifest. The actual record is /tmp/opensip-implementation/d3b0-checks-r1-attempt2/rebased.json: 274dccc5eced53828f444fa44e62cdeffabc2d0c to 2ead5cf1796bb85f363c34fa8ff8fba715462369. Git independently confirms that record's changed-file set and that both this move and the complete d704ed4-to-lane-base change set are disjoint from the three candidate paths. The final lane is correctly pinned at 2ead5cf, so this is a provenance correction, not a base mismatch.",
+      "requestedChange": "Archive and hash the attempt-2 rebase record and correct the references to its attempt; do not imply the final already-aligned attempt itself performed that move."
+    }
+  ]
+}
