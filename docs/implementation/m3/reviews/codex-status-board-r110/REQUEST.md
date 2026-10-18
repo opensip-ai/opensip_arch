@@ -1,0 +1,9 @@
+# Independent review: status r110, D4-2/v232 delta
+
+Write only REVIEW.md and review.json in /tmp/opensip-implementation/reviews/codex-status-board-r110. Read-only files/hashing/JSON/Git queries; no repo/worktree/control/stage edits, builds/tests/lanes, network, panes, delegation, private fixtures/installations/keys, held trees/entries or T2 stores/overlays/cache.
+
+Stage /tmp/opensip-implementation/status-board-r110-stage; manifest docs/implementation/m3/status/2026-10-18-r110-subject.json, SHA-256 8f3e22eaae2bc9451bdb4bb9ab7021e6ce2e9451dc80cedba70d6a029d96aeba. Rehash every member. Bases product d154eb002fc536855b9c831d0d6484bfaf5335d3, architecture 87866f327617605e10e497369fbb32be35923da0. Assess status facts, not closed code.
+
+Verify all 366 r109 ledger records inherited by value; E367/E368 account for exactly the two later architecture publications and product commits: D4-2 r2 and separate inventory v232. Verify accepted reviews, root assents, ancestry and binding chain; 192 inventories/177 contracts. Every inherited inventory row/package/pending decision remains as the accepted binding states. The D-family row closes only D4-2, with D4-3/4 and production wiring still owed. D3b-1 preliminary controls/Clippy/mutation do not accept or integrate it. One inherited validation-map file changed (host lib.rs), so old host validation is explicitly historical and no current whole-suite pass or qualification follows. Source pins are current, with no new authority repin. Current lead/reviewer boundary remains Codex/CODEX2 w8:p1. Verify links/table consistency and remaining gates.
+
+Return {"verdict":"ACCEPT"|"REQUIRED-FINDINGS","subjectManifestSha256":"8f3e22eaae2bc9451bdb4bb9ab7021e6ce2e9451dc80cedba70d6a029d96aeba","requiredFindings":[],"nonBlockingObservations":[]}; STATUS-R110-RF-n / STATUS-R110-NBO-n ids.
