@@ -1,0 +1,9 @@
+# Independent review: status r109, round 2
+
+Write only REVIEW.md and review.json in /tmp/opensip-implementation/reviews/codex-status-board-r109-r2. Read-only files/hashing/JSON/diffing/Git queries. No repository/worktree/control/stage edits, builds/tests/lanes, network, panes, delegation, private fixtures/installations/keys, held trees/entries or T2 stores/overlays/cache.
+
+Stage: /tmp/opensip-implementation/status-board-r109-r2-stage. Manifest docs/implementation/m3/status/2026-10-18-r109-r2-subject.json, SHA-256 e7627e3bf91c169ad684ebb7db6a29b9a3775d4d15c2de774ef1e42ad0ad3e9b, 84 members. Verify every member. Bases unchanged: product 2a6528d65974178552f03737c036058fc5ce0cf0, architecture 1ffd91b225dc45747532c522ac491e26356345ea.
+
+Read your first review /tmp/opensip-implementation/reviews/codex-status-board-r109. The one correction is STATUS-R109-RF-1: the board's Work boundaries now explicitly assigns Codex as implementation lead and CODEX2 at w8:p1 as owner-designated independent reviewer. The first submission and review are archived intact in docs/implementation/m3/status/2026-10-18-r109/history/round1-submission and round1-review; source.json gains only this review-history record. The ledger, bindings, family register, checks and protocol remain byte-identical to round 1. No code or acceptance ledger changes. Check the correction, consistency and regressions; do not reopen already verified units. Hash the archived original against the first subject, using its archived root. No current whole-suite pass or qualification is claimed.
+
+Return {"verdict":"ACCEPT"|"REQUIRED-FINDINGS","subjectManifestSha256":"e7627e3bf91c169ad684ebb7db6a29b9a3775d4d15c2de774ef1e42ad0ad3e9b","requiredFindings":[],"nonBlockingObservations":[]} with STATUS-R109-R2-RF-n / STATUS-R109-R2-NBO-n ids.
