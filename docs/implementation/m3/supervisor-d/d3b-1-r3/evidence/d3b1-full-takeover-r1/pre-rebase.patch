@@ -1,0 +1,1972 @@
+diff --git a/crates/components/src/supervisor.rs b/crates/components/src/supervisor.rs
+index 30bf949..226504b 100644
+--- a/crates/components/src/supervisor.rs
++++ b/crates/components/src/supervisor.rs
+@@ -45,9 +45,9 @@ use opensip_contracts::generated::protocol::{
+     Control3RootVariant14Property0Reason as ShutdownReason,
+ };
+ use opensip_platform::{
+-    DescriptorSet, LaunchError, ProcessChild as Child, ProcessExitStatus, Readiness, Reaped,
+-    ScratchRoot, VerifiedLaunch, WorkFailure, WorkLedger, group_members, resident_bytes, spawn,
+-    wait_ready,
++    DescriptorSet, KillOutcome, LaunchError, Listing, ProcessChild as Child, ProcessExitStatus,
++    ProcessIdentity, Readiness, Reaped, ScratchRoot, VerifiedLaunch, WorkFailure, WorkLedger,
++    child_processes, group_members_bounded, process_identity, resident_bytes, spawn, wait_ready,
+ };
+ use std::collections::VecDeque;
+ use std::fs::File;
+@@ -361,15 +361,142 @@ pub enum ExitClass {
+     Signaled(i32),
+     Unreaped,
+ }
+-/// Item 18's tree report, D3a's part (LD-D3A-6): D3a has no descendant
+-/// step, so a killed group is `GroupKilledPlatformLimited` only when the
+-/// group lists the zombie root alone, else `Incomplete`. D3b extends it.
++/// Item 18's tree report (:599-604; D3b plan r3, LD-D3B-5). macOS records
++/// `GroupKilledPlatformLimited` only when the root's exit was observed, a
++/// confirm listed the zombie root alone, the snapshot was complete and no
++/// group `SIGKILL` call failed; otherwise `IncompletePlatformLimited`.
++/// `Complete` and `Incomplete` are Linux's, D3b-L's, and never produced
++/// here. `NotKilled`: a normal end with no kill.
+ #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+ pub enum TreeReport {
+     NotKilled,
+     GroupKilledPlatformLimited,
++    IncompletePlatformLimited,
++    Complete,
+     Incomplete,
+ }
++
++/// Item 18's walk bound (:592): four times the class's process count (item
++/// 16, :533), so 4 for a provider and 64 for a tool. Every listing of the
++/// descendant step and the sampler uses it as its capacity (LD-D3B-3).
++const WALK_BOUND_FACTOR: usize = 4;
++
++/// What the host did and observed in one kill's descendant step (D3b plan
++/// r3, RF-2; Q10), with no inference: a successful `killpg` is a group
++/// attempt's result, never a count of processes killed, and a singleton
++/// listing is not an atomic whole-tree kill.
++#[derive(Debug, Default)]
++pub struct TreeEvidence {
++    pub snapshot: SnapshotOutcome,
++    /// Pids the walk queued, the root excluded, and pids whose identity it read.
++    pub queued: u64,
++    pub inspected: u64,
++    /// Identity reads that failed (not `ESRCH`).
++    pub identity_failed: u64,
++    pub group_kills: u64,
++    pub group_kill_failures: u64,
++    /// Original errors, in call order; no errno or operation is discarded.
++    /// One per failed native call, bounded by the snapshot/target bounds
++    /// and the confirm cadence/reap ceiling. This is settlement evidence,
++    /// not an operational record of descendant pids.
++    pub failures: Vec<TreeCallFailure>,
++    /// A later singleton cannot undo an exceeded confirm listing.
++    pub confirm_exceeded: bool,
++    pub by_pid: ByPidOutcomes,
++    /// Pids a confirm listed that the snapshot did not hold, each counted
++    /// once; the deduplication holds at most the walk bound, and past it
++    /// `late_joiners_saturated` is set and the count stops.
++    pub late_joiners: u64,
++    pub late_joiners_saturated: bool,
++    pub confirm: ConfirmOutcome,
++}
++/// Which step made a failed call. The original `LaunchError` preserves
++/// the platform's call name and optional errno, including non-I/O errors.
++#[derive(Debug, Clone, Copy, PartialEq, Eq)]
++pub enum TreeCall {
++    SnapshotIdentity,
++    SnapshotListing,
++    GroupKill,
++    PreKillIdentity,
++    ByPidKill,
++    ConfirmExit,
++    ConfirmListing,
++}
++#[derive(Debug)]
++pub struct TreeCallFailure {
++    pub step: TreeCall,
++    pub error: LaunchError,
++}
++impl TreeEvidence {
++    fn failed(&mut self, step: TreeCall, error: LaunchError) {
++        self.failures.push(TreeCallFailure { step, error });
++    }
++}
++/// The snapshot walk's outcome (item 18 step 1, :592).
++#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
++pub enum SnapshotOutcome {
++    /// No kill, or the root was already reaped.
++    #[default]
++    NotTaken,
++    Complete,
++    BoundReached,
++    ListingFailed,
++}
++/// The identity-checked kills' outcomes, each target counted once (step 3,
++/// :594); `ingroup` is a target left to the group's `SIGKILL`.
++#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
++pub struct ByPidOutcomes {
++    pub sent: u64,
++    pub identity_changed: u64,
++    pub exited: u64,
++    pub refused: u64,
++    pub failed: u64,
++    pub in_group: u64,
++}
++/// The confirm's last outcome (step 4, :595).
++#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
++pub enum ConfirmOutcome {
++    #[default]
++    NotRun,
++    /// The zombie root alone, after its exit was observed.
++    RootAlone,
++    /// Another member listed; at the ceiling, the tree is incomplete.
++    MembersListed,
++    Exceeded,
++    ListingFailed,
++}
++
++/// One kill's descendant step in progress (D3b-1).
++#[derive(Debug)]
++struct TreeKill {
++    /// The snapshot's targets: every pid other than the root, with the
++    /// identity read during the walk.
++    targets: Vec<ProcessIdentity>,
++    /// Late joiners, deduplicated, at most the walk bound.
++    late: Vec<i32>,
++    next_confirm: Instant,
++    /// The confirm is over: the root alone, or a latched failure.
++    done: bool,
++    evidence: TreeEvidence,
++}
++impl TreeKill {
++    /// Item 18's macOS report from this kill's evidence (Q3).
++    fn report(&self) -> TreeReport {
++        let e = &self.evidence;
++        if e.confirm == ConfirmOutcome::RootAlone
++            && e.snapshot == SnapshotOutcome::Complete
++            && e.group_kill_failures == 0
++            && e.failures.is_empty()
++            && !e.confirm_exceeded
++            && e.by_pid.identity_changed == 0
++            && e.by_pid.refused == 0
++        {
++            TreeReport::GroupKilledPlatformLimited
++        } else {
++            TreeReport::IncompletePlatformLimited
++        }
++    }
++}
+ /// stderr's count (item 17): bytes, saturating, and whether they passed the
+ /// truncation threshold. No byte is kept; D3a-3 reduces it to K7.
+ #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+@@ -472,6 +599,8 @@ pub struct Settlement {
+     user_interrupted: bool,
+     exit: ExitClass,
+     tree: TreeReport,
++    /// The descendant step's account, `None` for a normal end (D3b-1).
++    tree_evidence: Option<TreeEvidence>,
+     stderr: StderrCount,
+     rusage: Option<Rusage>,
+     scratch: ScratchFate,
+@@ -508,6 +637,10 @@ impl Settlement {
+     pub fn tree(&self) -> TreeReport {
+         self.tree
+     }
++    /// What the descendant step did and observed (RF-2), if a kill ran.
++    pub fn tree_evidence(&self) -> Option<&TreeEvidence> {
++        self.tree_evidence.as_ref()
++    }
+     pub fn stderr(&self) -> StderrCount {
+         self.stderr
+     }
+@@ -1172,7 +1305,8 @@ pub struct Supervision<P: Participant> {
+     clean_at: Option<Instant>,
+     deferred: Option<Deferred>,
+     exit_independent: bool,
+-    tree_confirmed: Option<TreeReport>,
++    /// Item 18's descendant step of the escalation to `SIGKILL` (D3b-1).
++    tree_kill: Option<TreeKill>,
+     #[cfg(test)]
+     seams: tests::Seams,
+ }
+@@ -1357,7 +1491,7 @@ impl<P: Participant> Supervision<P> {
+             clean_at: None,
+             deferred: None,
+             exit_independent: false,
+-            tree_confirmed: None,
++            tree_kill: None,
+             #[cfg(test)]
+             seams: tests::Seams::default(),
+         }
+@@ -1739,27 +1873,42 @@ impl<P: Participant> Supervision<P> {
+         let Some(pid) = self.child.as_ref().map(|c| c.process_id()) else {
+             return;
+         };
++        // A provider's tree is one process, a tool's at most 16 (:533).
++        let most = match self.class {
++            Class::Provider => PROVIDER_PROCESSES,
++            Class::Tool => TOOL_PROCESSES,
++        };
++        #[cfg(test)]
++        let count_on = !self.seams.process_count_off;
++        #[cfg(not(test))]
++        let count_on = true;
++        // D3b-1 (LD-D3B-3): the listing's buffer is the walk bound's.
+         #[cfg(test)]
+         let listing = if self.seams.listing_fails {
+             Err(())
+         } else {
+-            group_members(pid).map_err(|_| ())
++            group_members_bounded(pid, self.walk_bound()).map_err(|_| ())
+         };
+         #[cfg(not(test))]
+-        let listing = group_members(pid).map_err(|_| ());
+-        let Ok(members) = listing else {
+-            // The group could not be listed: nothing was sampled.
+-            self.sample_incomplete(0, 0, true);
+-            return;
+-        };
+-        #[cfg(test)]
+-        let count_on = !self.seams.process_count_off;
+-        #[cfg(not(test))]
+-        let count_on = true;
+-        // A provider's tree is one process, a tool's at most 16 (:533).
+-        let most = match self.class {
+-            Class::Provider => PROVIDER_PROCESSES,
+-            Class::Tool => TOOL_PROCESSES,
++        let listing = group_members_bounded(pid, self.walk_bound()).map_err(|_| ());
++        let members = match listing {
++            Ok(Listing::Complete(members)) => members,
++            // More members than the buffer holds: more than the class's
++            // count, so a process-count breach. No count was observed, so
++            // only the event and the cause record it (LD-D3A3-6).
++            Ok(Listing::Exceeded) => {
++                if count_on && !self.count_breached {
++                    self.count_breached = true;
++                    self.append(SupervisionEvent::LimitBreached(LimitKind::ProcessCount));
++                    self.trigger(Cause::ProcessCount);
++                }
++                return;
++            }
++            Err(()) => {
++                // The group could not be listed: nothing was sampled.
++                self.sample_incomplete(0, 0, true);
++                return;
++            }
+         };
+         if count_on && !self.count_breached && members.len() > most {
+             self.count_breached = true;
+@@ -2708,15 +2857,14 @@ impl<P: Participant> Supervision<P> {
+         if ladder.kill_at.is_none()
+             && let Some(term) = ladder.term_at
+         {
+-            let alone = self.exit.is_some() && self.root_alone();
++            let alone = self.exit.is_some() && self.group_alone();
+             if now >= term + self.waits.term_to_kill || alone {
+                 if now >= term + self.waits.term_to_kill && !alone {
+                     self.append(SupervisionEvent::WaitExpired(BoundedWait::TermToKill));
+                 }
+                 ladder.kill_at = Some(now);
+-                if unreaped && self.signal(SIGKILL) {
+-                    self.append(SupervisionEvent::Signalled { signal: SIGKILL });
+-                }
++                // Item 18's descendant step around the group SIGKILL (D3b-1).
++                self.escalate_kill(unreaped);
+                 if !self.death_appended {
+                     self.state = State::Killing;
+                 }
+@@ -2733,36 +2881,318 @@ impl<P: Participant> Supervision<P> {
+             .is_some_and(|child| child.signal_group(signal).is_ok())
+     }
+ 
+-    /// Item 18's confirmation, D3a's part (:595; LD-D3A-6): the killed group
+-    /// lists the zombie root alone, or it is incomplete.
+-    fn confirm_tree(&self) -> TreeReport {
+-        #[cfg(test)]
+-        if self.seams.extra_member {
+-            return TreeReport::Incomplete;
++    /// Item 18's walk bound for this class (:592; LD-D3B-3).
++    fn walk_bound(&self) -> usize {
++        WALK_BOUND_FACTOR
++            * match self.class {
++                Class::Provider => PROVIDER_PROCESSES,
++                Class::Tool => TOOL_PROCESSES,
++            }
++    }
++
++    /// Whether the bounded group listing holds the root alone (item 18's
++    /// confirm rule, :595). A failed or exceeded listing is not alone.
++    fn group_alone(&self) -> bool {
++        let Some(child) = &self.child else {
++            return true;
++        };
++        let pid = child.process_id();
++        matches!(
++            group_members_bounded(pid, self.walk_bound()),
++            Ok(Listing::Complete(members)) if members == [pid]
++        )
++    }
++
++    /// Item 18's macOS descendant step at an escalation to `SIGKILL`
++    /// (:590-597; D3b plan r3, LD-D3B-4), with the root unreaped throughout:
++    /// 1. the snapshot, a breadth-first walk from the root calling
++    ///    `child_processes` on every pid found, within the walk bound, each
++    ///    pid's identity read as it is reached;
++    /// 2. the group `SIGKILL`;
++    /// 3. the identity-checked kill of each target whose pgid was not the
++    ///    group's at the snapshot, or is not now;
++    ///
++    /// then the confirm (`confirm_step`) and the reap. A reaped root has no
++    /// snapshot and no group: only the evidence of that is kept.
++    fn escalate_kill(&mut self, unreaped: bool) {
++        let Some(root) = self.child.as_ref().map(|c| c.process_id()) else {
++            return;
++        };
++        let mut kill = TreeKill {
++            targets: Vec::new(),
++            late: Vec::new(),
++            next_confirm: Instant::now(),
++            done: !unreaped,
++            evidence: TreeEvidence::default(),
++        };
++        if unreaped {
++            self.snapshot(root, &mut kill);
++            #[cfg(test)]
++            self.tree_hook(tests::TreeStep::AfterSnapshot, &mut kill.targets);
++            self.group_kill(&mut kill.evidence);
++            #[cfg(test)]
++            self.tree_hook(tests::TreeStep::AfterGroupKill, &mut kill.targets);
++            self.kill_escaped(root, &mut kill);
++        }
++        self.tree_kill = Some(kill);
++    }
++
++    /// Step 1 (:592): the bounded breadth-first snapshot. The queue and the
++    /// targets exclude the root; the queue holds at most the walk bound
++    /// in total, including the root (LD-D3B-3).
++    fn snapshot(&mut self, root: i32, kill: &mut TreeKill) {
++        let bound = self.walk_bound();
++        let mut queue = Vec::with_capacity(bound);
++        queue.push(root);
++        kill.targets.reserve_exact(bound - 1);
++        let mut next = 0;
++        let mut outcome = SnapshotOutcome::Complete;
++        while next < queue.len() {
++            let pid = queue[next];
++            next += 1;
++            if pid != root {
++                kill.evidence.inspected += 1;
++                match self.tree_identity(pid, TreeCall::SnapshotIdentity) {
++                    Ok(Some(identity)) => kill.targets.push(identity),
++                    Ok(None) => kill.evidence.by_pid.exited += 1,
++                    Err(error) => {
++                        kill.evidence.identity_failed += 1;
++                        kill.evidence.failed(TreeCall::SnapshotIdentity, error);
++                    }
++                }
++            }
++            // The remaining room: a listing that fills it reaches the bound.
++            let room = bound - queue.len();
++            #[cfg(test)]
++            let listing = if self.seams.snapshot_listing_fails {
++                Err(tests::tree_io_error("proc_listchildpids", 5))
++            } else {
++                child_processes(pid, room)
++            };
++            #[cfg(not(test))]
++            let listing = child_processes(pid, room);
++            match listing {
++                Ok(Listing::Complete(children)) => {
++                    for child in children {
++                        if !queue.contains(&child) {
++                            queue.push(child);
++                            kill.evidence.queued += 1;
++                        }
++                    }
++                }
++                Ok(Listing::Exceeded) => {
++                    outcome = SnapshotOutcome::BoundReached;
++                    break;
++                }
++                Err(error) => {
++                    kill.evidence.failed(TreeCall::SnapshotListing, error);
++                    outcome = SnapshotOutcome::ListingFailed;
++                    break;
++                }
++            }
+         }
+-        if self.root_alone() {
+-            TreeReport::GroupKilledPlatformLimited
++        kill.evidence.snapshot = outcome;
++    }
++
++    /// Step 2, and each repeat of the confirm: the group `SIGKILL`, while
++    /// the root is unreaped (item 4), its result kept.
++    fn group_kill(&mut self, evidence: &mut TreeEvidence) {
++        let Some(child) = &self.child else {
++            return;
++        };
++        if self.reaped.is_some() || child.is_reaped() {
++            return;
++        }
++        evidence.group_kills += 1;
++        #[cfg(test)]
++        let result = if let Some(errno) = self.seams.group_kill_errors.pop_front() {
++            Err(tests::tree_io_error("killpg", errno))
++        } else if self.seams.group_kill_fails {
++            Err(tests::tree_io_error("killpg", 1))
+         } else {
+-            TreeReport::Incomplete
++            child.signal_group(SIGKILL)
++        };
++        #[cfg(not(test))]
++        let result = child.signal_group(SIGKILL);
++        match result {
++            Ok(()) => self.append(SupervisionEvent::Signalled { signal: SIGKILL }),
++            Err(error) => {
++                evidence.group_kill_failures += 1;
++                evidence.failed(TreeCall::GroupKill, error);
++            }
++        }
++    }
++
++    /// Preserve the distinction between an exited pid and a failed read.
++    fn tree_identity(
++        &self,
++        pid: i32,
++        _step: TreeCall,
++    ) -> Result<Option<ProcessIdentity>, LaunchError> {
++        #[cfg(test)]
++        if self.seams.tree_identity_error == Some(_step) {
++            return Err(tests::tree_io_error("proc_pidinfo", 5));
+         }
++        process_identity(pid)
+     }
+ 
+-    /// Whether the group lists the zombie root alone (item 18's confirm
+-    /// rule, :595, D3a's part).
+-    fn root_alone(&self) -> bool {
++    /// Step 3 (:594): each target once. One that was in the group at the
++    /// snapshot and still is, is left to the group's `SIGKILL`; any other is
++    /// killed by pid only on an equal identity (`kill_descendant`).
++    fn kill_escaped(&mut self, root: i32, kill: &mut TreeKill) {
+         let Some(child) = &self.child else {
++            return;
++        };
++        let evidence = &mut kill.evidence;
++        for target in &kill.targets {
++            let now = match self.tree_identity(target.process_id(), TreeCall::PreKillIdentity) {
++                Ok(Some(now)) => now,
++                Ok(None) => {
++                    evidence.by_pid.exited += 1;
++                    continue;
++                }
++                Err(error) => {
++                    evidence.by_pid.failed += 1;
++                    evidence.failed(TreeCall::PreKillIdentity, error);
++                    continue;
++                }
++            };
++            if target.pgid() == root && now.pgid() == root {
++                evidence.by_pid.in_group += 1;
++                continue;
++            }
++            #[cfg(test)]
++            let result = match self.seams.tree_kill_result {
++                Some(result) => result.map_err(|errno| tests::tree_io_error("kill", errno)),
++                None => child.kill_descendant(target),
++            };
++            #[cfg(not(test))]
++            let result = child.kill_descendant(target);
++            match result {
++                Ok(KillOutcome::Sent) => evidence.by_pid.sent += 1,
++                Ok(KillOutcome::IdentityChanged) => evidence.by_pid.identity_changed += 1,
++                Ok(KillOutcome::Exited) => evidence.by_pid.exited += 1,
++                Ok(KillOutcome::Refused(_)) => evidence.by_pid.refused += 1,
++                Err(error) => {
++                    evidence.by_pid.failed += 1;
++                    evidence.failed(TreeCall::ByPidKill, error);
++                }
++            }
++        }
++    }
++
++    /// Step 4 (:595), at item 16's sampling cadence (Q3): `true` once the
++    /// reap may proceed. The bounded listing must hold only the zombie root,
++    /// after a positive observation of the root's exit. Another member is a
++    /// late joiner if the snapshot did not hold it, and the group `SIGKILL`
++    /// is repeated. A failed listing latches the confirm as incomplete.
++    /// Channels and triggers are served between confirms.
++    fn confirm_step(&mut self, now: Instant) -> bool {
++        let Some(mut kill) = self.tree_kill.take() else {
+             return true;
+         };
+-        let pid = child.process_id();
+-        matches!(group_members(pid).as_deref(), Ok([only]) if *only == pid)
++        let proceed = self.confirm_once(now, &mut kill);
++        self.tree_kill = Some(kill);
++        proceed
++    }
++    fn confirm_once(&mut self, now: Instant, kill: &mut TreeKill) -> bool {
++        if kill.done {
++            return true;
++        }
++        if now < kill.next_confirm {
++            return false;
++        }
++        let Some(child) = &self.child else {
++            kill.done = true;
++            return true;
++        };
++        let root = child.process_id();
++        let exited = if self.exit.is_some() {
++            true
++        } else {
++            match child.has_exited() {
++                Ok(exited) => exited,
++                Err(error) => {
++                    kill.evidence.failed(TreeCall::ConfirmExit, error);
++                    false
++                }
++            }
++        };
++        #[cfg(test)]
++        let listing = if std::mem::take(&mut self.seams.confirm_exceeded_once) {
++            Ok(Listing::Exceeded)
++        } else if self.seams.confirm_listing_fails {
++            Err(tests::tree_io_error("proc_listpids", 5))
++        } else if self.seams.extra_member {
++            Ok(Listing::Complete(vec![root, i32::MAX]))
++        } else {
++            group_members_bounded(root, self.walk_bound())
++        };
++        #[cfg(not(test))]
++        let listing = group_members_bounded(root, self.walk_bound());
++        match listing {
++            Ok(Listing::Complete(members)) if members == [root] => {
++                if exited {
++                    kill.evidence.confirm = ConfirmOutcome::RootAlone;
++                    kill.done = true;
++                    return true;
++                }
++                // The root alone but still alive: wait for its exit.
++            }
++            Ok(Listing::Complete(members)) => {
++                kill.evidence.confirm = ConfirmOutcome::MembersListed;
++                let bound = self.walk_bound();
++                for member in members {
++                    if member == root
++                        || kill.targets.iter().any(|t| t.process_id() == member)
++                        || kill.late.contains(&member)
++                    {
++                        continue;
++                    }
++                    if kill.late.len() < bound {
++                        kill.late.push(member);
++                        kill.evidence.late_joiners += 1;
++                    } else {
++                        kill.evidence.late_joiners_saturated = true;
++                    }
++                }
++                self.group_kill(&mut kill.evidence);
++            }
++            Ok(Listing::Exceeded) => {
++                kill.evidence.confirm = ConfirmOutcome::Exceeded;
++                kill.evidence.confirm_exceeded = true;
++                self.group_kill(&mut kill.evidence);
++            }
++            Err(error) => {
++                kill.evidence.failed(TreeCall::ConfirmListing, error);
++                // Latched (the failure latching rule): never cleared by a
++                // later listing.
++                kill.evidence.confirm = ConfirmOutcome::ListingFailed;
++                kill.done = true;
++                return true;
++            }
++        }
++        kill.next_confirm = now + self.limits.memory_sample_interval;
++        false
++    }
++
++    /// A test's hook between the descendant step's steps.
++    #[cfg(test)]
++    fn tree_hook(&mut self, step: tests::TreeStep, targets: &mut Vec<ProcessIdentity>) {
++        if let Some(hook) = &mut self.seams.tree_hook {
++            (hook.0)(step, targets);
++        }
+     }
+ 
+     /// The reap (T-5): non-blocking after the death, abandoning at the
+     /// ceiling; then the settlement.
+     fn reap_step(&mut self) {
++        let now = Instant::now();
+         let ladder_done = self.ladder.is_none_or(|l| l.kill_at.is_some())
+             || self.first_cause == Some(Cause::Clean);
+-        if self.death_appended && ladder_done && self.try_reap() {
++        // D3b-1: after a kill, the reap waits for the confirm (step 4).
++        let confirmed = !ladder_done || self.confirm_step(now);
++        if self.death_appended && ladder_done && confirmed && self.try_reap() {
+             self.settle();
+             return;
+         }
+@@ -2770,9 +3200,14 @@ impl<P: Participant> Supervision<P> {
+         // (r2, RF-2); at it the root is abandoned, never signalled again.
+         let since = self.ladder.and_then(|l| l.kill_at).or(self.clean_at);
+         if let Some(at) = since
+-            && Instant::now() >= at + self.waits.reap_ceiling
++            && now >= at + self.waits.reap_ceiling
+         {
+             self.append(SupervisionEvent::WaitExpired(BoundedWait::ReapCeiling));
++            // A root that exited, with a member still listed, is still reaped
++            // (item 18, :606): the group is never signalled again.
++            if self.death_appended {
++                self.try_reap();
++            }
+             self.settle();
+         }
+     }
+@@ -2783,11 +3218,6 @@ impl<P: Participant> Supervision<P> {
+         if self.seams.reap_blocked {
+             return false;
+         }
+-        // The group is confirmed against the still-unreaped root, before the
+-        // reap that would empty it (r2, RF-9).
+-        if self.ladder.is_some_and(|l| l.kill_at.is_some()) && self.reaped.is_none() {
+-            self.tree_confirmed = Some(self.confirm_tree());
+-        }
+         let Some(child) = &mut self.child else {
+             return true;
+         };
+@@ -2812,18 +3242,24 @@ impl<P: Participant> Supervision<P> {
+         }
+         let mut cause = self.first_cause.unwrap_or(Cause::Abandoned);
+         let killed = self.ladder.is_some_and(|l| l.kill_at.is_some());
+-        self.tree = if !killed {
+-            TreeReport::NotKilled
+-        } else {
+-            // Captured before the reap; an unreaped root is confirmed now,
+-            // still held (r2, RF-9). A reaped root is never confirmed by pid
+-            // after its reap: without a capture it is incomplete (r3, RF-1).
+-            match self.tree_confirmed {
+-                Some(tree) => tree,
+-                None if self.reaped.is_none() => self.confirm_tree(),
+-                None => TreeReport::Incomplete,
+-            }
++        // D3b-1 (LD-D3B-5): the report comes from the kill's own evidence,
++        // gathered against the still-unreaped root before the reap. A kill
++        // with no step (the root already reaped) is incomplete.
++        let tree_kill = self.tree_kill.take();
++        self.tree = match (&tree_kill, killed) {
++            (_, false) => TreeReport::NotKilled,
++            (Some(kill), true) => kill.report(),
++            (None, true) => TreeReport::IncompletePlatformLimited,
+         };
++        let tree_evidence = tree_kill.filter(|_| killed).map(|k| k.evidence);
++        if let Some(evidence) = &tree_evidence {
++            // Once per kill, after the confirm (LD-D3B-5).
++            self.fact(records::RecordFact::TreeSwept {
++                killed: evidence.by_pid.sent,
++                unattributed: 0,
++                platform_limited: true,
++            });
++        }
+         // Only a spawned child is settled (r2, RF-5).
+         let Some(mut child) = self.child.take() else {
+             return;
+@@ -2891,6 +3327,7 @@ impl<P: Participant> Supervision<P> {
+             user_interrupted: false,
+             exit,
+             tree: self.tree,
++            tree_evidence,
+             stderr: self.stderr,
+             rusage: self.reaped.map(|r| Rusage {
+                 user_micros: r.user_micros,
+@@ -3056,16 +3493,28 @@ impl<P: Participant> Supervision<P> {
+             {
+                 ladder.kill_at = Some(Instant::now());
+             }
+-            if self.signal(SIGKILL) {
+-                self.append(SupervisionEvent::Signalled { signal: SIGKILL });
++            // Item 18's descendant step, as at every escalation (D3b-1); a
++            // kill already under way keeps its step, and its confirm repeats
++            // the group SIGKILL.
++            if self.tree_kill.is_none() {
++                self.escalate_kill(true);
+             }
+             let ceiling = Instant::now() + self.waits.reap_ceiling;
+             while Instant::now() < ceiling {
+-                if self.try_reap() {
++                if self.confirm_step(Instant::now()) && self.try_reap() {
+                     break;
+                 }
+                 std::thread::sleep(Duration::from_millis(10));
+             }
++            // A root that exited is still reaped at the ceiling (:606).
++            if self.reaped.is_none()
++                && self
++                    .child
++                    .as_ref()
++                    .is_some_and(|c| c.has_exited().unwrap_or(false))
++            {
++                self.try_reap();
++            }
+         }
+         self.settle();
+         #[cfg(test)]
+diff --git a/crates/components/src/supervisor_records.rs b/crates/components/src/supervisor_records.rs
+index afdb827..03fe97c 100644
+--- a/crates/components/src/supervisor_records.rs
++++ b/crates/components/src/supervisor_records.rs
+@@ -165,6 +165,21 @@ pub enum RecordFact {
+         cause: TeardownCause,
+         user_interrupted: bool,
+     },
++    /// `supervision.tree.swept` (D3b-1; D3b plan r3, LD-D3B-5): `killed` is
++    /// the count of distinct pids whose identity-checked kill was `Sent`,
++    /// never a group delivery or a death; `unattributed` is Linux's notion,
++    /// 0 on macOS; `platform_limited` is true on macOS. No orphan pid.
++    TreeSwept {
++        killed: u64,
++        unattributed: u64,
++        platform_limited: bool,
++    },
++    /// `tool.tree.swept` (D3b-1; LD-D3B-9).
++    ToolTreeSwept {
++        killed: u64,
++        unattributed: u64,
++        platform_limited: bool,
++    },
+ }
+ 
+ /// The identities a fact's event requires (S-OP-2 item 23; M3-D r5 item 21,
+@@ -205,6 +220,8 @@ impl RecordFact {
+             Self::StageTerminal { .. } => opensip_operability::ProviderStageTerminal::NAME,
+             Self::ProcessReaped { .. } => opensip_operability::ProviderProcessReaped::NAME,
+             Self::ProgressAbsent { .. } => opensip_operability::SupervisionProgressAbsent::NAME,
++            Self::TreeSwept { .. } => opensip_operability::SupervisionTreeSwept::NAME,
++            Self::ToolTreeSwept { .. } => opensip_operability::ToolTreeSwept::NAME,
+         }
+     }
+     /// The event's field keys this fact supplies; the caller adds the
+@@ -265,6 +282,9 @@ impl RecordFact {
+                 "teardown",
+             ],
+             Self::ProgressAbsent { .. } => &["stage", "since"],
++            Self::TreeSwept { .. } | Self::ToolTreeSwept { .. } => {
++                &["killed", "unattributed", "platform_limited"]
++            }
+         }
+     }
+     /// The identities its event requires: J2b emits it on that scope only.
+@@ -277,7 +297,8 @@ impl RecordFact {
+             | Self::ToolWaitExpired { .. }
+             | Self::ToolTeardownStarted { .. }
+             | Self::ToolScratchRetained { .. }
+-            | Self::ToolSettled { .. } => Requires::Project,
++            | Self::ToolSettled { .. }
++            | Self::ToolTreeSwept { .. } => Requires::Project,
+             _ => Requires::ProjectPlanExecution,
+         }
+     }
+@@ -288,7 +309,18 @@ impl RecordFact {
+     /// plane, so none is recorded for a tool.
+     pub fn for_tool(self) -> Option<Self> {
+         match self {
+-            Self::ToolSpawned { .. } | Self::ToolReaped { .. } => Some(self),
++            Self::ToolSpawned { .. } | Self::ToolReaped { .. } | Self::ToolTreeSwept { .. } => {
++                Some(self)
++            }
++            Self::TreeSwept {
++                killed,
++                unattributed,
++                platform_limited,
++            } => Some(Self::ToolTreeSwept {
++                killed,
++                unattributed,
++                platform_limited,
++            }),
+             Self::LimitBreached {
+                 limit,
+                 observed,
+diff --git a/crates/components/src/supervisor_tests.rs b/crates/components/src/supervisor_tests.rs
+index 7649783..1fb811f 100644
+--- a/crates/components/src/supervisor_tests.rs
++++ b/crates/components/src/supervisor_tests.rs
+@@ -22,9 +22,36 @@ use std::rc::Rc;
+ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+ use std::sync::{Barrier, OnceLock, mpsc};
+ 
++/// D3b-1: where the descendant step calls a test's hook.
++#[derive(Debug, Clone, Copy, PartialEq, Eq)]
++pub(crate) enum TreeStep {
++    /// Between the snapshot and the group SIGKILL (D5-T2b's pause).
++    AfterSnapshot,
++    /// Between the group SIGKILL and the identity-checked kills.
++    AfterGroupKill,
++}
++/// D3b-1: a test's hook on the snapshot's targets.
++type TreeHookAction = dyn FnMut(TreeStep, &mut Vec<ProcessIdentity>);
++pub(crate) struct TreeHook(pub(crate) Box<TreeHookAction>);
++impl std::fmt::Debug for TreeHook {
++    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
++        f.write_str("TreeHook")
++    }
++}
++
+ /// The supervision's test seams.
+ #[derive(Debug, Default)]
+ pub(crate) struct Seams {
++    /// D3b-1: the snapshot's child listing, the confirm's group listing and
++    /// the group SIGKILL each fail; and the hook between steps.
++    pub(crate) snapshot_listing_fails: bool,
++    pub(crate) confirm_listing_fails: bool,
++    pub(crate) group_kill_fails: bool,
++    pub(crate) group_kill_errors: std::collections::VecDeque<i32>,
++    pub(crate) tree_identity_error: Option<TreeCall>,
++    pub(crate) tree_kill_result: Option<Result<KillOutcome, i32>>,
++    pub(crate) confirm_exceeded_once: bool,
++    pub(crate) tree_hook: Option<TreeHook>,
+     /// The reap never succeeds: a root that survives the reap ceiling.
+     pub(crate) reap_blocked: bool,
+     /// The scratch removal's ledger, in place of the discovery profile.
+@@ -626,8 +653,8 @@ fn outcome(script: &str) -> Outcome {
+ fn nothing_left(out: &Outcome) {
+     if let Some(pid) = out.process_id {
+         assert_eq!(
+-            group_members(pid).expect("the group"),
+-            Vec::<i32>::new(),
++            group_members_bounded(pid, 64).expect("the group"),
++            Listing::Complete(Vec::new()),
+             "the group is gone"
+         );
+     }
+@@ -1017,8 +1044,8 @@ fn drop_in_each_state_leaves_no_child_and_no_scratch() {
+             })
+             .expect("spawned");
+         assert_eq!(
+-            group_members(pid).expect("the group"),
+-            Vec::<i32>::new(),
++            group_members_bounded(pid, 64).expect("the group"),
++            Listing::Complete(Vec::new()),
+             "{at:?}"
+         );
+         assert!(!scratch.exists(), "{at:?}");
+@@ -1582,7 +1609,7 @@ fn the_tree_is_confirmed_before_the_reap() {
+         |s| s.seams.extra_member = true,
+         Duration::from_secs(20),
+     );
+-    assert_eq!(out.settlement.tree(), TreeReport::Incomplete);
++    assert_eq!(out.settlement.tree(), TreeReport::IncompletePlatformLimited);
+ }
+ 
+ // ------------------------------------------------------------------ r3
+@@ -1623,7 +1650,7 @@ fn an_unwind_confirms_the_tree_before_its_reap() {
+                 .recv_timeout(Duration::from_secs(1))
+                 .expect("the unwind's settlement");
+             let want = if extra_member {
+-                TreeReport::Incomplete
++                TreeReport::IncompletePlatformLimited
+             } else {
+                 TreeReport::GroupKilledPlatformLimited
+             };
+@@ -2077,7 +2104,10 @@ impl ToolOutcome {
+     }
+     fn nothing_left(&self) {
+         if let Some(pid) = self.process_id {
+-            assert_eq!(group_members(pid).expect("the group"), Vec::<i32>::new());
++            assert_eq!(
++                group_members_bounded(pid, 64).expect("the group"),
++                Listing::Complete(Vec::new())
++            );
+         }
+         if let Some(scratch) = &self.scratch {
+             assert!(!scratch.exists(), "{} removed", scratch.display());
+@@ -2090,6 +2120,13 @@ type ToolSetup = fn(&mut ToolSupervision);
+ /// A tool supervision over `script`, set up by `setup`, driven to its
+ /// settlement on its own thread under a hard limit.
+ fn tool_run(script: &'static str, setup: ToolSetup) -> ToolOutcome {
++    tool_run_with(script, Box::new(setup))
++}
++/// `tool_run` with a capturing setup (D3b-1's tree hooks).
++fn tool_run_with(
++    script: &'static str,
++    setup: Box<dyn FnOnce(&mut ToolSupervision) + Send>,
++) -> ToolOutcome {
+     let (done, finished) = mpsc::channel();
+     std::thread::spawn(move || {
+         let dir = test_dir();
+@@ -2828,6 +2865,16 @@ fn each_fact_supplies_its_event_s_unminted_fields() {
+             stage: op::StageKind::SemanticProvider,
+             since: d,
+         },
++        RecordFact::TreeSwept {
++            killed: 0,
++            unattributed: 0,
++            platform_limited: true,
++        },
++        RecordFact::ToolTreeSwept {
++            killed: 0,
++            unattributed: 0,
++            platform_limited: true,
++        },
+     ];
+     fn keys<E: Event>() -> (&'static str, &'static [&'static str]) {
+         (E::NAME, E::FIELD_KEYS)
+@@ -2858,6 +2905,8 @@ fn each_fact_supplies_its_event_s_unminted_fields() {
+         keys::<op::ProviderStageTerminal>(),
+         keys::<op::ProviderProcessReaped>(),
+         keys::<op::SupervisionProgressAbsent>(),
++        keys::<op::SupervisionTreeSwept>(),
++        keys::<op::ToolTreeSwept>(),
+     ];
+     assert_eq!(facts.len(), registered.len());
+     for (fact, (name, fields)) in facts.iter().zip(registered) {
+@@ -2976,6 +3025,7 @@ fn admission_requires_the_terminal_output() {
+         user_interrupted: false,
+         exit: ExitClass::Exited(0),
+         tree: TreeReport::NotKilled,
++        tree_evidence: None,
+         stderr: StderrCount::default(),
+         rusage: None,
+         scratch: ScratchFate::Removed,
+@@ -3030,6 +3080,8 @@ fn registry_requires(name: &str) -> opensip_operability::IdentitySet {
+         of::<op::ProviderStageTerminal>(),
+         of::<op::ProviderProcessReaped>(),
+         of::<op::SupervisionProgressAbsent>(),
++        of::<op::SupervisionTreeSwept>(),
++        of::<op::ToolTreeSwept>(),
+     ]
+     .into_iter()
+     .find(|(n, _)| *n == name)
+@@ -3791,3 +3843,546 @@ fn every_table_phase_is_a_provider_state() {
+         assert!(records::provider_state(&phase).is_some(), "{phase}");
+     }
+ }
++
++// ------------------------------------------------------------------ D3b-1: item 18's descendant step (macOS)
++
++/// A per-test file for a tree fixture's pids, and the script naming it.
++fn tree_script(kind: &str) -> (PathBuf, &'static str) {
++    static NEXT: AtomicU64 = AtomicU64::new(0);
++    let file = std::env::temp_dir().join(format!(
++        "opensip-d3b1-pids-{}-{}",
++        std::process::id(),
++        NEXT.fetch_add(1, Ordering::Relaxed)
++    ));
++    let script: &'static str =
++        Box::leak(format!("tool-tree-{kind}:{}", file.display()).into_boxed_str());
++    (file, script)
++}
++/// The pids a tree fixture wrote.
++fn tree_pids(file: &Path) -> Vec<i32> {
++    let text = std::fs::read_to_string(file).expect("the fixture's pids");
++    std::fs::remove_file(file).ok();
++    text.split(' ').map(|p| p.parse().expect("a pid")).collect()
++}
++/// Whether `pid` has an identity: alive and not a zombie.
++fn has_identity(pid: i32) -> bool {
++    matches!(opensip_platform::process_identity(pid), Ok(Some(_)))
++}
++fn eventually_without_identity(pid: i32) -> bool {
++    let started = Instant::now();
++    while started.elapsed() < Duration::from_secs(5) {
++        if !has_identity(pid) {
++            return true;
++        }
++        std::thread::sleep(Duration::from_millis(25));
++    }
++    false
++}
++/// A test's out-of-band kill of a survivor macOS cannot reach.
++fn kill_out_of_band(pid: i32) {
++    let status = std::process::Command::new("/bin/kill")
++        .args(["-9", &pid.to_string()])
++        .status()
++        .expect("kill");
++    assert!(status.success(), "{pid}");
++    assert!(eventually_without_identity(pid), "{pid} survived");
++}
++fn evidence(out: &ToolOutcome) -> &TreeEvidence {
++    out.settlement.tree_evidence().expect("a kill's evidence")
++}
++fn tool_tree_swept(out: &ToolOutcome) -> Vec<(u64, u64, bool)> {
++    out.facts
++        .iter()
++        .filter_map(|f| match f {
++            RecordFact::ToolTreeSwept {
++                killed,
++                unattributed,
++                platform_limited,
++            } => Some((*killed, *unattributed, *platform_limited)),
++            _ => None,
++        })
++        .collect()
++}
++
++/// D5-T1 (item 18, :617): a descendant in the group dies with it. The walk
++/// finds it; it is left to the group's SIGKILL, never killed by pid; the
++/// confirm sees the zombie root alone after its exit: `group-killed,
++/// platform-limited`. `killed` counts by-pid sends only, so it is 0.
++#[test]
++fn an_in_group_descendant_dies_with_the_group() {
++    let (file, script) = tree_script("ingroup");
++    let out = tool_run(script, |_| {});
++    let [member] = tree_pids(&file)[..] else {
++        panic!("one member");
++    };
++    assert_eq!(out.settlement.first_cause(), Cause::Deadline);
++    assert_eq!(
++        out.settlement.tree(),
++        TreeReport::GroupKilledPlatformLimited
++    );
++    let e = evidence(&out);
++    assert_eq!(e.snapshot, SnapshotOutcome::Complete);
++    assert_eq!((e.queued, e.inspected), (1, 1));
++    assert_eq!(e.by_pid.in_group, 1);
++    assert_eq!(e.by_pid.sent, 0);
++    assert!(e.group_kills >= 1 && e.group_kill_failures == 0);
++    assert_eq!(e.confirm, ConfirmOutcome::RootAlone);
++    assert_eq!(tool_tree_swept(&out), [(0, 0, true)]);
++    assert!(eventually_without_identity(member));
++    out.nothing_left();
++}
++
++/// D5-T2 (:618): a descendant that left the group before the snapshot is
++/// found by the walk and killed by pid on an equal identity: `killed` 1,
++/// still `platform-limited`; the test confirms it gone out of band.
++#[test]
++fn an_escaped_descendant_is_killed_by_pid() {
++    let (file, script) = tree_script("escape");
++    let out = tool_run(script, |_| {});
++    let [escapee] = tree_pids(&file)[..] else {
++        panic!("one escapee");
++    };
++    let e = evidence(&out);
++    assert_eq!(e.snapshot, SnapshotOutcome::Complete);
++    assert_eq!((e.by_pid.sent, e.by_pid.in_group), (1, 0));
++    assert_eq!(tool_tree_swept(&out), [(1, 0, true)]);
++    assert!(eventually_without_identity(escapee));
++}
++
++/// D5-T2b: pause after the snapshot, then let a snapshotted member
++/// fork a real child outside the group. The snapshot cannot target it.
++#[test]
++fn a_descendant_the_snapshot_missed_survives() {
++    let (file, script) = tree_script("fork-after-snapshot");
++    let gate = PathBuf::from(format!("{}.go", file.display()));
++    let late = PathBuf::from(format!("{}.late", file.display()));
++    let late_hook = late.clone();
++    let out = tool_run_with(
++        script,
++        Box::new(move |s| {
++            s.seams.tree_hook = Some(TreeHook(Box::new(move |step, _targets| {
++                if step == TreeStep::AfterSnapshot {
++                    std::fs::write(&gate, b"go").expect("release the member");
++                    let started = Instant::now();
++                    while !late_hook.exists() {
++                        assert!(
++                            started.elapsed() < Duration::from_secs(5),
++                            "late child not created"
++                        );
++                        std::thread::sleep(Duration::from_millis(2));
++                    }
++                    std::fs::remove_file(&gate).ok();
++                }
++            })));
++        }),
++    );
++    let members = tree_pids(&file);
++    let late = tree_pids(&late);
++    assert_eq!(evidence(&out).by_pid.sent, 0);
++    assert_eq!(evidence(&out).queued, 1);
++    assert_eq!(tool_tree_swept(&out), [(0, 0, true)]);
++    for member in members {
++        assert!(eventually_without_identity(member));
++    }
++    assert_eq!(late.len(), 1);
++    assert!(has_identity(late[0]), "macOS cannot reach it");
++    kill_out_of_band(late[0]);
++}
++
++/// RF-2: the same pid leaves its original group after the snapshot. Its
++/// fresh pgid makes it eligible for an identity-checked by-pid send.
++#[test]
++fn a_snapshot_member_that_changes_group_is_targeted() {
++    let (file, script) = tree_script("change-group");
++    let gate = PathBuf::from(format!("{}.go", file.display()));
++    let out = tool_run_with(
++        script,
++        Box::new(move |s| {
++            s.seams.tree_hook = Some(TreeHook(Box::new(move |step, targets| {
++                if step == TreeStep::AfterSnapshot {
++                    assert_eq!(targets.len(), 1);
++                    let target = targets[0];
++                    assert_ne!(target.pgid(), target.process_id());
++                    std::fs::write(&gate, b"go").expect("release the member");
++                    let started = Instant::now();
++                    loop {
++                        if process_identity(target.process_id())
++                            .expect("identity")
++                            .is_some_and(|now| now.pgid() == target.process_id())
++                        {
++                            break;
++                        }
++                        assert!(
++                            started.elapsed() < Duration::from_secs(5),
++                            "member did not leave group"
++                        );
++                        std::thread::sleep(Duration::from_millis(2));
++                    }
++                    std::fs::remove_file(&gate).ok();
++                }
++            })));
++        }),
++    );
++    let pids = tree_pids(&file);
++    assert_eq!(evidence(&out).by_pid.sent, 1);
++    assert_eq!(tool_tree_swept(&out), [(1, 0, true)]);
++    for pid in pids {
++        assert!(eventually_without_identity(pid));
++    }
++}
++
++/// D5-T2c (:622) and Q3: an injected snapshot listing failure, an injected
++/// confirm listing failure and an injected group-SIGKILL failure each leave
++/// the tree `incomplete`, and each is in the evidence. A failed confirm
++/// listing is latched: no later singleton clears it.
++#[test]
++fn a_failed_listing_or_group_kill_leaves_the_tree_incomplete() {
++    let (file, script) = tree_script("ingroup");
++    let out = tool_run(script, |s| s.seams.snapshot_listing_fails = true);
++    let pids = tree_pids(&file);
++    assert_eq!(out.settlement.tree(), TreeReport::IncompletePlatformLimited);
++    assert_eq!(evidence(&out).snapshot, SnapshotOutcome::ListingFailed);
++    pids.iter()
++        .for_each(|p| assert!(eventually_without_identity(*p)));
++
++    let (file, script) = tree_script("ingroup");
++    let out = tool_run(script, |s| s.seams.confirm_listing_fails = true);
++    let pids = tree_pids(&file);
++    assert_eq!(out.settlement.tree(), TreeReport::IncompletePlatformLimited);
++    assert_eq!(evidence(&out).confirm, ConfirmOutcome::ListingFailed);
++    assert_eq!(evidence(&out).snapshot, SnapshotOutcome::Complete);
++    pids.iter()
++        .for_each(|p| assert!(eventually_without_identity(*p)));
++
++    // The group SIGKILL "fails": the root dies by its SIGTERM, and the
++    // member is killed out of band.
++    let (file, script) = tree_script("ingroup");
++    let out = tool_run(script, |s| s.seams.group_kill_fails = true);
++    let pids = tree_pids(&file);
++    let e = evidence(&out);
++    assert_eq!(out.settlement.tree(), TreeReport::IncompletePlatformLimited);
++    assert!(e.group_kill_failures >= 1);
++    assert_eq!(e.failures.len() as u64, e.group_kill_failures);
++    assert!(e.failures.iter().all(|f| f.step == TreeCall::GroupKill
++        && matches!(&f.error, LaunchError::Io { call: "killpg", error }
++            if error.raw_os_error() == Some(1))));
++    for pid in pids {
++        if has_identity(pid) {
++            kill_out_of_band(pid);
++        }
++    }
++}
++
++/// RF-2 and Q10: a member the confirm keeps listing is a late joiner,
++/// counted once however many confirms repeat; each repeat sends the group
++/// SIGKILL again, and no target is counted twice; at the ceiling the tree
++/// is `incomplete`.
++#[test]
++fn a_repeated_confirm_counts_a_late_joiner_once() {
++    let (file, script) = tree_script("ingroup");
++    let out = tool_run(script, |s| s.seams.extra_member = true);
++    tree_pids(&file);
++    let e = evidence(&out);
++    assert_eq!(out.settlement.tree(), TreeReport::IncompletePlatformLimited);
++    assert_eq!(e.confirm, ConfirmOutcome::MembersListed);
++    assert_eq!(e.late_joiners, 1);
++    assert!(e.group_kills >= 2, "{e:?}");
++    // Each inspected pid lands in exactly one bucket, once.
++    let b = e.by_pid;
++    assert_eq!(
++        b.sent
++            + b.identity_changed
++            + b.exited
++            + b.refused
++            + b.failed
++            + b.in_group
++            + e.identity_failed,
++        e.inspected,
++        "{e:?}"
++    );
++    assert!(out.saw(&SupervisionEvent::WaitExpired(BoundedWait::ReapCeiling)));
++}
++
++/// RF-2: a target that exited between the snapshot and the identity-checked
++/// kill is `exited`, never `sent`.
++#[test]
++fn a_target_gone_before_its_kill_is_not_counted_as_killed() {
++    let (file, script) = tree_script("escape");
++    let pidfile = file.clone();
++    let out = tool_run_with(
++        script,
++        Box::new(move |s| {
++            s.seams.tree_hook = Some(TreeHook(Box::new(move |step, targets| {
++                if step == TreeStep::AfterGroupKill {
++                    for target in targets.iter() {
++                        let pid = target.process_id();
++                        std::process::Command::new("/bin/kill")
++                            .args(["-9", &pid.to_string()])
++                            .status()
++                            .ok();
++                        let started = Instant::now();
++                        while has_identity(pid) && started.elapsed() < Duration::from_secs(5) {
++                            std::thread::sleep(Duration::from_millis(10));
++                        }
++                    }
++                }
++            })));
++        }),
++    );
++    tree_pids(&pidfile);
++    let e = evidence(&out);
++    assert_eq!((e.by_pid.sent, e.by_pid.exited), (0, 1), "{e:?}");
++    assert_eq!(tool_tree_swept(&out), [(0, 0, true)]);
++}
++
++/// D5-T3 (:623): a double-forked daemon orphaned to launchd before teardown
++/// is unreachable on macOS: the walk cannot find it, the tree is still
++/// `group-killed, platform-limited`, and the test observes it alive and
++/// cleans it up.
++#[test]
++fn a_daemon_orphaned_before_teardown_survives() {
++    let (file, script) = tree_script("daemon");
++    let out = tool_run(script, |_| {});
++    let [daemon] = tree_pids(&file)[..] else {
++        panic!("one daemon");
++    };
++    let e = evidence(&out);
++    assert_eq!((e.queued, e.by_pid.sent), (0, 0));
++    assert_eq!(
++        out.settlement.tree(),
++        TreeReport::GroupKilledPlatformLimited
++    );
++    assert!(has_identity(daemon), "macOS cannot reach it");
++    kill_out_of_band(daemon);
++}
++
++/// D5-T4 (:624): more descendants than the tool's walk bound (4 × 16 = 64)
++/// reach the bound: `BoundReached` and `incomplete`, even though the
++/// confirm later lists the root alone (Q3).
++#[test]
++fn a_fork_loop_reaches_the_walk_bound() {
++    let (file, script) = tree_script("loop");
++    let out = tool_run(script, |s| s.seams.process_count_off = true);
++    let pids = tree_pids(&file);
++    let e = evidence(&out);
++    assert_eq!(e.snapshot, SnapshotOutcome::BoundReached);
++    assert!(e.queued <= 64, "{e:?}");
++    assert_eq!(out.settlement.tree(), TreeReport::IncompletePlatformLimited);
++    for pid in pids {
++        assert!(eventually_without_identity(pid), "{pid}");
++    }
++}
++
++/// LD-D3B-3 bounds every visited pid, including the root: a tool's
++/// snapshot can visit 64 total, not 64 descendants plus the root.
++#[test]
++fn the_snapshot_walk_bound_includes_its_root() {
++    for (kind, children, expected) in [
++        ("walk-exact", 63, SnapshotOutcome::Complete),
++        ("walk-over", 64, SnapshotOutcome::BoundReached),
++    ] {
++        let (file, script) = tree_script(kind);
++        let out = tool_run(script, |s| s.seams.process_count_off = true);
++        let pids = tree_pids(&file);
++        assert_eq!(pids.len(), children);
++        let observed = evidence(&out);
++        assert_eq!(observed.snapshot, expected, "{kind}: {observed:?}");
++        assert!(
++            observed.queued < 64,
++            "root also occupies a slot: {observed:?}"
++        );
++        if expected == SnapshotOutcome::Complete {
++            assert_eq!((observed.queued, observed.inspected), (63, 63));
++        }
++        for pid in pids {
++            assert!(eventually_without_identity(pid), "{kind}: {pid}");
++        }
++    }
++}
++
++/// D5-T5 (:625): a descendant that survives SIGTERM is killed by the group's
++/// SIGKILL after the escalation's wait.
++#[test]
++fn a_sigterm_survivor_is_killed_after_the_escalation() {
++    let (file, script) = tree_script("term-survivor");
++    let out = tool_run(script, |_| {});
++    let [survivor] = tree_pids(&file)[..] else {
++        panic!("one survivor");
++    };
++    assert!(out.saw(&SupervisionEvent::Signalled { signal: SIGTERM }));
++    assert!(out.saw(&SupervisionEvent::Signalled { signal: SIGKILL }));
++    assert!(eventually_without_identity(survivor));
++}
++
++/// D3-T9 (item 4, :263): a root that exits on its own before teardown, its
++/// group empty, is reaped with no signal at all; the tree is `NotKilled`
++/// and no sweep evidence exists.
++#[test]
++fn a_root_that_exits_first_is_reaped_with_no_signal() {
++    let out = tool_run("tool-ok", |_| {});
++    assert!(
++        !out.events
++            .iter()
++            .any(|e| matches!(e, SupervisionEvent::Signalled { .. })),
++        "{:?}",
++        out.events
++    );
++    assert_eq!(out.settlement.tree(), TreeReport::NotKilled);
++    assert!(out.settlement.tree_evidence().is_none());
++    assert!(tool_tree_swept(&out).is_empty());
++}
++
++/// Item 18's escalation sentence (:606): a root held unreaped past the
++/// ceiling is `exit: unreaped`, and no group signal follows the ceiling.
++#[test]
++fn no_group_signal_follows_the_reap_ceiling() {
++    let (file, script) = tree_script("ingroup");
++    let out = tool_run(script, |s| s.seams.reap_blocked = true);
++    let pids = tree_pids(&file);
++    assert_eq!(out.settlement.exit(), ExitClass::Unreaped);
++    let ceiling = out
++        .events
++        .iter()
++        .position(|e| *e == SupervisionEvent::WaitExpired(BoundedWait::ReapCeiling))
++        .expect("the ceiling");
++    assert!(
++        !out.events[ceiling..]
++            .iter()
++            .any(|e| matches!(e, SupervisionEvent::Signalled { .. })),
++        "{:?}",
++        out.events
++    );
++    pids.iter()
++        .for_each(|p| assert!(eventually_without_identity(*p)));
++}
++
++/// LD-D3B-12 (item 23, :737) is the lane's structural check over the
++/// production sources; this pins the walk bound's arithmetic (:592).
++#[test]
++fn the_walk_bound_is_four_times_the_class_count() {
++    assert_eq!(WALK_BOUND_FACTOR * PROVIDER_PROCESSES, 4);
++    assert_eq!(WALK_BOUND_FACTOR * TOOL_PROCESSES, 64);
++}
++
++/// A named, unmodified native error for the descendant-step failure seams.
++pub(crate) fn tree_io_error(call: &'static str, errno: i32) -> LaunchError {
++    LaunchError::Io {
++        call,
++        error: std::io::Error::from_raw_os_error(errno),
++    }
++}
++
++/// A later successful confirmation cannot erase an exceeded native list.
++#[test]
++fn an_exceeded_confirm_stays_incomplete_after_a_singleton() {
++    let (file, script) = tree_script("ingroup");
++    let out = tool_run(script, |s| s.seams.confirm_exceeded_once = true);
++    let pids = tree_pids(&file);
++    let e = evidence(&out);
++    assert_eq!(e.confirm, ConfirmOutcome::RootAlone);
++    assert!(e.confirm_exceeded);
++    assert_eq!(out.settlement.tree(), TreeReport::IncompletePlatformLimited);
++    for pid in pids {
++        assert!(eventually_without_identity(pid));
++    }
++}
++
++/// Failure counts do not discard earlier errno values or the native call.
++#[test]
++fn each_group_kill_failure_keeps_its_original_error() {
++    let (file, script) = tree_script("ingroup");
++    let out = tool_run(script, |s| {
++        s.seams.extra_member = true;
++        s.seams.group_kill_errors = [1, 5].into();
++    });
++    let pids = tree_pids(&file);
++    let e = evidence(&out);
++    assert!(e.group_kill_failures >= 2);
++    assert!(e.group_kills > 2);
++    let errors: Vec<_> = e
++        .failures
++        .iter()
++        .map(|f| {
++            assert_eq!(f.step, TreeCall::GroupKill);
++            match &f.error {
++                LaunchError::Io { call, error } => (*call, error.raw_os_error()),
++                other => panic!("unexpected failure {other:?}"),
++            }
++        })
++        .collect();
++    assert_eq!(&errors[..2], [("killpg", Some(1)), ("killpg", Some(5))]);
++    assert_eq!(errors.len() as u64, e.group_kill_failures);
++    assert!(errors.iter().all(|(call, _)| *call == "killpg"));
++    assert_eq!(out.settlement.tree(), TreeReport::IncompletePlatformLimited);
++    for pid in pids {
++        assert!(eventually_without_identity(pid));
++    }
++}
++
++/// Both identity reads retain their errors, rather than counting them as
++/// an exit or allowing a singleton confirm to grant a completed report.
++#[test]
++fn failed_tree_identity_reads_keep_their_step_and_errno() {
++    for step in [TreeCall::SnapshotIdentity, TreeCall::PreKillIdentity] {
++        let (file, script) = tree_script("escape");
++        let out = tool_run_with(
++            script,
++            Box::new(move |s| s.seams.tree_identity_error = Some(step)),
++        );
++        let pids = tree_pids(&file);
++        let e = evidence(&out);
++        assert_eq!(e.failures.len(), 1, "{e:?}");
++        assert_eq!(e.failures[0].step, step);
++        assert!(
++            matches!(&e.failures[0].error, LaunchError::Io { call: "proc_pidinfo", error }
++            if error.raw_os_error() == Some(5))
++        );
++        assert_eq!(e.by_pid.sent, 0);
++        assert_eq!(e.by_pid.exited, 0);
++        assert_eq!(out.settlement.tree(), TreeReport::IncompletePlatformLimited);
++        for pid in pids {
++            kill_out_of_band(pid);
++        }
++    }
++}
++
++/// The supervisor buckets the platform's typed outcomes without treating
++/// a refused, changed-identity or failed send as an observed kill. The
++/// platform's real identity/protection syscall controls are D3b-0's.
++#[test]
++fn unsent_by_pid_outcomes_are_not_reported_as_kills() {
++    use opensip_platform::Protected;
++    for result in [
++        Ok(KillOutcome::IdentityChanged),
++        Ok(KillOutcome::Refused(Protected::Host)),
++        Err(1),
++    ] {
++        let (file, script) = tree_script("escape");
++        let out = tool_run_with(
++            script,
++            Box::new(move |s| s.seams.tree_kill_result = Some(result)),
++        );
++        let pids = tree_pids(&file);
++        let e = evidence(&out);
++        assert_eq!(e.by_pid.sent, 0);
++        match result {
++            Ok(KillOutcome::IdentityChanged) => assert_eq!(e.by_pid.identity_changed, 1),
++            Ok(KillOutcome::Refused(_)) => assert_eq!(e.by_pid.refused, 1),
++            Err(errno) => {
++                assert_eq!(e.by_pid.failed, 1);
++                assert_eq!(e.failures.len(), 1);
++                assert_eq!(e.failures[0].step, TreeCall::ByPidKill);
++                assert!(
++                    matches!(&e.failures[0].error, LaunchError::Io { call: "kill", error }
++                    if error.raw_os_error() == Some(errno))
++                );
++            }
++            _ => unreachable!(),
++        }
++        assert_eq!(tool_tree_swept(&out), [(0, 0, true)]);
++        assert_eq!(out.settlement.tree(), TreeReport::IncompletePlatformLimited);
++        for pid in pids {
++            kill_out_of_band(pid);
++        }
++    }
++}
+diff --git a/crates/components/tests/supervisor_fixture.rs b/crates/components/tests/supervisor_fixture.rs
+index 7c78b68..8103058 100644
+--- a/crates/components/tests/supervisor_fixture.rs
++++ b/crates/components/tests/supervisor_fixture.rs
+@@ -17,6 +17,7 @@ use opensip_identity::{JsonValue, parse_json};
+ use std::fs::File;
+ use std::io::{Read, Write};
+ use std::os::fd::FromRawFd;
++use std::os::unix::process::CommandExt;
+ use std::sync::mpsc;
+ use std::time::Duration;
+ 
+@@ -299,6 +300,35 @@ fn tool(script: &str) -> ! {
+         write(b"members done\n");
+         std::process::exit(0);
+     }
++    if let Some(rest) = script.strip_prefix("tool-tree-") {
++        match rest.strip_prefix("ignoring-") {
++            Some(rest) => tree(rest),
++            None => {
++                // The root first ignores SIGTERM, so that it is still alive,
++                // unreaped, at the snapshot after the escalation (item 18,
++                // :590-597; D5-T5's root). An ignored disposition survives
++                // exec, so the shell re-runs this script in the same process,
++                // with its descriptors and its group.
++                let exe = std::env::current_exe().expect("the fixture's path");
++                let again = format!("tool-tree-ignoring-{rest}");
++                let error = std::process::Command::new("/bin/sh")
++                    .args(["-c", "trap '' TERM; exec \"$0\" \"$@\""])
++                    .arg(exe)
++                    .args([SENTINEL, again.as_str()])
++                    .exec();
++                drop(error);
++                std::process::exit(50);
++            }
++        }
++    }
++    if let Some(file) = script.strip_prefix("tool-daemonize:") {
++        // D3b-1 (D5-T3): the intermediate of a double fork. It starts the
++        // daemon outside the group, writes the daemon's pid, and exits, so
++        // the daemon is orphaned to launchd before any teardown.
++        let daemon = spawn_tree_member(None, true);
++        write_pids(file, &[daemon]);
++        std::process::exit(0);
++    }
+     match script {
+         "tool-ok" => {
+             for _ in 0..1_000 {
+@@ -332,12 +362,130 @@ fn tool(script: &str) -> ! {
+     }
+ }
+ 
++/// D3b-1: a held process for the descendant-step controls, with null
++/// descriptors, in the caller's group or (`escape`) in a group of its own:
++/// item 18's `setsid` or `setpgid` (:602). It runs `script`, or holds.
++fn spawn_tree_member(script: Option<&str>, escape: bool) -> u32 {
++    let exe = std::env::current_exe().expect("the fixture's path");
++    let mut command = std::process::Command::new(exe);
++    command
++        .args([SENTINEL, script.unwrap_or("hold-tree")])
++        .stdin(std::process::Stdio::null())
++        .stdout(std::process::Stdio::null())
++        .stderr(std::process::Stdio::null());
++    if escape {
++        command.process_group(0);
++    }
++    match command.spawn() {
++        Ok(child) => child.id(),
++        Err(_) => std::process::exit(45),
++    }
++}
++
++/// Write `pids` to `file`, whole, for a test's out-of-band check.
++fn write_pids(file: &str, pids: &[u32]) {
++    if file.is_empty() {
++        return;
++    }
++    let text: Vec<String> = pids.iter().map(u32::to_string).collect();
++    let tmp = format!("{file}.tmp");
++    if std::fs::write(&tmp, text.join(" ")).is_err() || std::fs::rename(&tmp, file).is_err() {
++        std::process::exit(46);
++    }
++}
++
++/// A `tool-tree-<kind>:<file>` script (D3b-1, item 18's controls as unit
++/// controls): the root, ignoring SIGTERM, makes its descendants (which
++/// inherit that), writes their pids to `<file>`, and hangs until the
++/// deadline's teardown kills it with the group's SIGKILL.
++fn tree(rest: &str) -> ! {
++    let (kind, file) = rest.split_once(':').unwrap_or((rest, ""));
++    let mut pids = Vec::new();
++    match kind {
++        // D5-T1: a descendant in the group.
++        "ingroup" => pids.push(spawn_tree_member(None, false)),
++        // D5-T2: a descendant that left the group before the snapshot.
++        "escape" => pids.push(spawn_tree_member(None, true)),
++        "change-group" | "fork-after-snapshot" => {
++            let script = format!("tree-gated-{kind}:{file}");
++            pids.push(spawn_tree_member(Some(&script), false));
++        }
++        // D5-T3: a double-forked daemon, orphaned before teardown.
++        "daemon" => {
++            let intermediate = format!("tool-daemonize:{file}");
++            let exe = std::env::current_exe().expect("the fixture's path");
++            let status = std::process::Command::new(exe)
++                .args([SENTINEL, intermediate.as_str()])
++                .stdin(std::process::Stdio::null())
++                .stdout(std::process::Stdio::null())
++                .stderr(std::process::Stdio::null())
++                .process_group(0)
++                .status();
++            if !status.is_ok_and(|s| s.success()) {
++                std::process::exit(47);
++            }
++            hang();
++        }
++        // D5-T4: more descendants in the group than the tool's walk bound.
++        "loop" | "walk-exact" | "walk-over" => {
++            // The sourced tool walk bound is 64 total pids, root included.
++            let children = match kind {
++                "walk-exact" => 63,
++                "walk-over" => 64,
++                _ => 70,
++            };
++            for _ in 0..children {
++                pids.push(spawn_tree_member(None, false));
++            }
++        }
++        // D5-T5: a descendant in the group that survives SIGTERM.
++        "term-survivor" => {
++            match std::process::Command::new("/bin/sh")
++                .args(["-c", "trap '' TERM; sleep 30"])
++                .stdin(std::process::Stdio::null())
++                .stdout(std::process::Stdio::null())
++                .stderr(std::process::Stdio::null())
++                .spawn()
++            {
++                Ok(child) => pids.push(child.id()),
++                Err(_) => std::process::exit(48),
++            }
++        }
++        _ => std::process::exit(49),
++    }
++    write_pids(file, &pids);
++    hang();
++}
++
+ fn main() {
+     let args: Vec<String> = std::env::args().collect();
+     if args.get(1).map(String::as_str) != Some(SENTINEL) {
+         return;
+     }
+     let script = args.get(2).cloned().unwrap_or_default();
++    if let Some(rest) = script.strip_prefix("tree-gated-") {
++        let (kind, file) = rest.split_once(':').expect("a gated script");
++        let gate = format!("{file}.go");
++        while !std::path::Path::new(&gate).exists() {
++            std::thread::sleep(Duration::from_millis(2));
++        }
++        if kind == "change-group" {
++            // exec retains the pid, while CommandExt sets its new group.
++            let error = std::process::Command::new(std::env::current_exe().expect("fixture"))
++                .args([SENTINEL, "hold-tree"])
++                .process_group(0)
++                .exec();
++            drop(error);
++            std::process::exit(51);
++        }
++        let late = spawn_tree_member(None, true);
++        write_pids(&format!("{file}.late"), &[late]);
++        hang();
++    }
++    if script == "hold-tree" {
++        // D3b-1: a descendant held until it is killed, at most a minute.
++        hang();
++    }
+     if script.starts_with("tool-") {
+         tool(&script);
+     }
+diff --git a/crates/operability/src/emit.rs b/crates/operability/src/emit.rs
+index fdc4877..0def7cc 100644
+--- a/crates/operability/src/emit.rs
++++ b/crates/operability/src/emit.rs
+@@ -26,6 +26,7 @@ use crate::kinds::registry::{
+ };
+ use crate::kinds::registry::{
+     ProviderProcessReaped, ProviderStageChanged, ProviderStageTerminal, SupervisionProgressAbsent,
++    ToolTreeSwept,
+ };
+ 
+ use crate::scope::{
+@@ -212,6 +213,8 @@ registered_on!(
+     ProviderStageTerminal on PlanAttemptScope => 30,
+     ProviderProcessReaped on PlanAttemptScope => 31,
+     SupervisionProgressAbsent on PlanAttemptScope => 32,
++    // D3b-1 (D3b plan r3, LD-D3B-9).
++    ToolTreeSwept on ProjectScope => 33,
+ );
+ 
+ pub trait EmitOn<S>: emission_seal::Sealed {
+diff --git a/crates/operability/src/kinds/registry.rs b/crates/operability/src/kinds/registry.rs
+index f1a8de4..df08e5b 100644
+--- a/crates/operability/src/kinds/registry.rs
++++ b/crates/operability/src/kinds/registry.rs
+@@ -2123,3 +2123,23 @@ supervision_event! {
+         since P0 req: Elapsed,
+     }
+ }
++
++// ------------------------------------------------------------------ M3-D unit D3b-1: a tool's tree sweep
++//
++// D3b plan r3, LD-D3B-9 (an ordinary registration, SOP2 item 3; D3a-3 r2's
++// RF-1 rule): a tool has only a Project, so its sweep record is
++// `supervision.tree.swept`'s fields without `role` and `universe`.
++
++supervision_event! {
++    struct ToolTreeSwept;
++    name: "tool.tree.swept";
++    level: Level::Info;
++    requires: IdentitySet::Project;
++    export: false;
++    template: "tool tree swept";
++    constructor: pub fields: {
++        killed P0 req: Count,
++        unattributed P0 req: Count,
++        platform_limited P0 req: Flag,
++    }
++}
+diff --git a/crates/operability/src/kinds/registry_tests.rs b/crates/operability/src/kinds/registry_tests.rs
+index 6fda303..82c842d 100644
+--- a/crates/operability/src/kinds/registry_tests.rs
++++ b/crates/operability/src/kinds/registry_tests.rs
+@@ -1,6 +1,7 @@
+ //! Registry rendering and controls, excluded from production source scanning.
+ use super::super::super::constants::Level;
+ use super::super::{Code, Flag, Form, PrivacyClass, SafeField};
++use super::ToolTreeSwept;
+ use super::{
+     BoundedWait, ControlCancelReason, ExitClass, FaultSource, ForceTrigger, LimitKind, LimitUnit,
+     LivenessMiss, ProtocolMajor, ProviderFaultReduced, ProviderProcessReady,
+@@ -430,6 +431,7 @@ macro_rules! supervision_events {
+             $push::<ProviderStageTerminal>,
+             $push::<ProviderProcessReaped>,
+             $push::<SupervisionProgressAbsent>,
++            $push::<ToolTreeSwept>,
+         ] {
+             separate(&mut $out);
+             push(&mut $out);
+@@ -1039,6 +1041,18 @@ fn inventory() -> Vec<(&'static str, Level, IdentitySet, bool, Vec<Row>)> {
+                 ("user_interrupted", "Flag", "P0", "req"),
+             ],
+         ),
++        // D3b-1 (D3b plan r3, LD-D3B-9): a tool's tree sweep, Project only.
++        (
++            "tool.tree.swept",
++            Level::Info,
++            IdentitySet::Project,
++            false,
++            vec![
++                ("killed", "Count", "P0", "req"),
++                ("unattributed", "Count", "P0", "req"),
++                ("platform_limited", "Flag", "P0", "req"),
++            ],
++        ),
+     ]
+ }
+ 
+@@ -1125,6 +1139,7 @@ fn registered() -> Vec<Descriptor> {
+         descriptor::<ProviderStageTerminal>(),
+         descriptor::<ProviderProcessReaped>(),
+         descriptor::<SupervisionProgressAbsent>(),
++        descriptor::<ToolTreeSwept>(),
+     ]
+ }
+ /// Each difference between the registry and the transcribed inventory.
+diff --git a/crates/operability/src/lib.rs b/crates/operability/src/lib.rs
+index 915b6ae..b5c3bbe 100644
+--- a/crates/operability/src/lib.rs
++++ b/crates/operability/src/lib.rs
+@@ -120,6 +120,8 @@ pub use kinds::registry::{
+     ProviderStageTerminal, ProviderState, ReapedExit, ReapedUsage, StageKind, StageTerminal,
+     SupervisionProgressAbsent,
+ };
++// M3-D unit D3b-1: a tool's tree sweep (D3b plan r3, LD-D3B-9).
++pub use kinds::registry::ToolTreeSwept;
+ pub use kinds::{
+     AdmittedId, Bytes, CaptureSummary, Code, Count, Counts, Elapsed, Errno, Flag, Form, Position,
+     PositionMint, PrivacyClass, ProcessId, ProcessIdMint, Reduced, RegisteredCode, SafeField,
+diff --git a/crates/operability/src/readback.rs b/crates/operability/src/readback.rs
+index 43815c5..ade8031 100644
+--- a/crates/operability/src/readback.rs
++++ b/crates/operability/src/readback.rs
+@@ -25,6 +25,7 @@ use super::kinds::registry::{
+ use super::kinds::registry::{
+     ChildSignal, ProviderProcessReaped, ProviderReason, ProviderStageChanged,
+     ProviderStageTerminal, ProviderState, StageKind, StageTerminal, SupervisionProgressAbsent,
++    ToolTreeSwept,
+ };
+ use super::kinds::{CODE_MAX, FLAG_MAX, PrivacyClass, push_flag, push_i32, push_u64};
+ use super::wire::{decode_rule_e_body, push_json_string};
+@@ -770,6 +771,9 @@ fn supervision_descriptor(name: &str) -> Option<Desc> {
+             SupervisionProgressAbsent,
+             [ROLE, UNIVERSE, Code(StageKind::TEXT), Unsigned]
+         ),
++        _ if name == ToolTreeSwept::NAME => {
++            registered_desc!(ToolTreeSwept, [Unsigned, Unsigned, Flag])
++        }
+         _ => return None,
+     };
+     Some(desc)
+diff --git a/crates/operability/src/transport.rs b/crates/operability/src/transport.rs
+index a853b95..fcf9e57 100644
+--- a/crates/operability/src/transport.rs
++++ b/crates/operability/src/transport.rs
+@@ -229,9 +229,9 @@ struct Frozen {
+ 
+ const BUDGET_REQUESTS: usize = 8;
+ /// One per-name budget per event slot: O1's six (0 to 5), D3a-3's
+-/// twenty-three (6 to 28) and D3a-4's four (29 to 32, `emit.rs`'s
+-/// `registered_on!`).
+-const BUDGET_EVENTS: usize = 33;
++/// twenty-three (6 to 28), D3a-4's four (29 to 32) and D3b-1's one (33,
++/// `emit.rs`'s `registered_on!`).
++const BUDGET_EVENTS: usize = 34;
+ const REASON_REFUSED: usize = 0;
+ const REASON_BUDGET: usize = 1;
+ const REASON_QUEUE_FULL: usize = 2;
+diff --git a/crates/platform/src/lib.rs b/crates/platform/src/lib.rs
+index 57d6977..aaaa9a8 100644
+--- a/crates/platform/src/lib.rs
++++ b/crates/platform/src/lib.rs
+@@ -375,8 +375,8 @@ pub use process::{
+     Child as ProcessChild, ChildEnvironment, ChildScratch, ClosureRecheck, DescriptorSet,
+     ExitStatus as ProcessExitStatus, KillOutcome, LaunchClass, LaunchError, LaunchSpec, Listing,
+     ProcessIdentity, Protected, Readiness, Reaped, ScratchRoot, SpecError as LaunchSpecError,
+-    TerminatingSignal, Unreaped, VerifiedLaunch, child_processes, group_members,
+-    group_members_bounded, process_identity, resident_bytes, spawn, wait_ready,
++    TerminatingSignal, Unreaped, VerifiedLaunch, child_processes, group_members_bounded,
++    process_identity, resident_bytes, spawn, wait_ready,
+ };
+ #[cfg(all(test, target_os = "macos"))]
+ #[allow(unsafe_code)]
+diff --git a/crates/platform/src/process.rs b/crates/platform/src/process.rs
+index 5cfd288..f3942ba 100644
+--- a/crates/platform/src/process.rs
++++ b/crates/platform/src/process.rs
+@@ -600,8 +600,8 @@ pub enum Protected {
+ 
+ #[cfg(target_os = "macos")]
+ pub use macos::{
+-    Child, ChildScratch, ScratchRoot, Unreaped, child_processes, group_members,
+-    group_members_bounded, process_identity, resident_bytes, spawn, wait_ready,
++    Child, ChildScratch, ScratchRoot, Unreaped, child_processes, group_members_bounded,
++    process_identity, resident_bytes, spawn, wait_ready,
+ };
+ #[cfg(all(test, target_os = "macos"))]
+ pub(crate) use macos::{
+@@ -611,8 +611,8 @@ pub(crate) use macos::{
+ 
+ #[cfg(not(target_os = "macos"))]
+ pub use unsupported::{
+-    Child, ChildScratch, ScratchRoot, Unreaped, child_processes, group_members,
+-    group_members_bounded, process_identity, resident_bytes, spawn, wait_ready,
++    Child, ChildScratch, ScratchRoot, Unreaped, child_processes, group_members_bounded,
++    process_identity, resident_bytes, spawn, wait_ready,
+ };
+ 
+ // ------------------------------------------------------------------ macOS
+@@ -2200,34 +2200,6 @@ mod macos {
+         Ok(ready)
+     }
+ 
+-    /// Group membership by enumeration (item 18's input; item 8):
+-    /// `proc_listpids(PROC_PGRP_ONLY, pgid)`, which returns bytes. Never a
+-    /// `killpg` error.
+-    pub fn group_members(group: i32) -> Result<Vec<i32>, LaunchError> {
+-        let mut capacity = 64usize;
+-        loop {
+-            let mut buf = vec![0 as libc::pid_t; capacity];
+-            let size =
+-                listing_bytes((capacity * std::mem::size_of::<libc::pid_t>()) as libc::c_int);
+-            // D3b-0 r2 (D3B0-R1-RF-1): the wrapper returns 0 on failure, so
+-            // a failure is never read as an empty group.
+-            let bytes = native_listing("proc_listpids", || {
+-                // SAFETY: a buffer of at least `size` bytes.
+-                unsafe {
+-                    libc::proc_listpids(PROC_PGRP_ONLY, group as u32, buf.as_mut_ptr().cast(), size)
+-                }
+-            })?;
+-            let n = bytes / std::mem::size_of::<libc::pid_t>();
+-            if n < capacity {
+-                buf.truncate(n);
+-                buf.retain(|p| *p != 0);
+-                buf.sort_unstable();
+-                return Ok(buf);
+-            }
+-            capacity *= 2;
+-        }
+-    }
+-
+     /// The pid slots of a bounded listing: capacity plus one, so a call
+     /// that fills them shows the listing is `Exceeded` (LD-D3B-3).
+     fn listing_slots(capacity: usize) -> Result<(Vec<libc::pid_t>, libc::c_int), LaunchError> {
+@@ -2297,8 +2269,8 @@ mod macos {
+     /// Group membership by enumeration, bounded (unit D3b-0; item 18's
+     /// confirm, :595; item 16's sample): `proc_listpids(PROC_PGRP_ONLY,
+     /// pgid)`, which returns **bytes**, into one buffer of capacity plus one
+-    /// slots. Never a `killpg` error. It replaces [`group_members`]'s
+-    /// unbounded doubling once D3b-1 moves the supervisor to it.
++    /// slots. Never a `killpg` error. D3b-1 removed D1a's unbounded
++    /// `group_members`, whose buffer doubled without a bound (D3b-0 Q1).
+     pub fn group_members_bounded(group: i32, capacity: usize) -> Result<Listing, LaunchError> {
+         let (mut buf, bytes) = listing_slots(capacity)?;
+         let bytes = listing_bytes(bytes);
+@@ -2451,9 +2423,6 @@ mod unsupported {
+     pub fn spawn(_: VerifiedLaunch, _: &mut ScratchRoot) -> Result<Child, LaunchError> {
+         Err(LaunchError::PlatformUnsupported)
+     }
+-    pub fn group_members(_: i32) -> Result<Vec<i32>, LaunchError> {
+-        Err(LaunchError::PlatformUnsupported)
+-    }
+     pub fn group_members_bounded(_: i32, _: usize) -> Result<Listing, LaunchError> {
+         Err(LaunchError::PlatformUnsupported)
+     }
+diff --git a/crates/platform/src/process_tests.rs b/crates/platform/src/process_tests.rs
+index 9d6738b..5f57f74 100644
+--- a/crates/platform/src/process_tests.rs
++++ b/crates/platform/src/process_tests.rs
+@@ -8,8 +8,8 @@ use crate::process::{
+     FAIL_REAP, FORCE_NP, IDENTITY_BYTES, INJECT_EINTR, KillOutcome, LAST_CHDIR, LISTING_BYTES,
+     LaunchError, LaunchSpec, Listing, POLL_EINTR, ProcessIdentity, Protected, Readiness,
+     SCRATCH_HOOK, SYSCALLS, ScratchPoint, ScratchRoot, SpecError, VerifiedLaunch, WALK_LOG,
+-    WalkCall, child_processes, group_members, group_members_bounded, process_identity,
+-    resident_bytes, scratch_cost, spawn, wait_ready,
++    WalkCall, child_processes, group_members_bounded, process_identity, resident_bytes,
++    scratch_cost, spawn, wait_ready,
+ };
+ use crate::{WorkCost, WorkFailure, WorkLedger};
+ use std::collections::BTreeMap;
+@@ -760,7 +760,10 @@ fn group_membership_comes_from_enumeration() {
+     )
+     .unwrap();
+     let pid = child.process_id();
+-    assert_eq!(group_members(pid).unwrap(), [pid]);
++    assert_eq!(
++        group_members_bounded(pid, 4).unwrap(),
++        Listing::Complete(vec![pid])
++    );
+     // Release the child: close its stdin.
+     drop(child.take_host_end(0));
+     child
+@@ -1615,7 +1618,9 @@ fn the_sampler_reads_the_root_and_a_group_member() {
+         std::thread::sleep(Duration::from_millis(25));
+     }
+     let grandchild = grandchild.expect("the descendant wrote its pid");
+-    let members = group_members(pid).unwrap();
++    let Listing::Complete(members) = group_members_bounded(pid, 4).unwrap() else {
++        panic!("the group listing exceeded its capacity");
++    };
+     assert!(members.contains(&pid) && members.contains(&grandchild));
+     assert!(resident_bytes(pid).unwrap() > 0);
+     assert!(resident_bytes(grandchild).unwrap() > 0);
+@@ -2035,18 +2040,11 @@ fn a_listing_failure_is_never_an_empty_list() {
+     let child = spawn_mode(&mut root, "two-children");
+     let pid = child.process_id();
+     let children = fixture_children(&child);
+-    for (listing, which) in [
+-        ("proc_listchildpids", 0),
+-        ("proc_listpids", 1),
+-        ("proc_listpids", 2),
+-    ] {
++    for (listing, which) in [("proc_listchildpids", 0), ("proc_listpids", 1)] {
+         LISTING_BYTES.set(Some(1));
+         let result = match which {
+             0 => child_processes(pid, 4),
+-            1 => group_members_bounded(pid, 4),
+-            // D1a's unbounded listing, kept until D3b-1 (LD-D3B0-1), has the
+-            // same discipline.
+-            _ => group_members(pid).map(Listing::Complete),
++            _ => group_members_bounded(pid, 4),
+         };
+         match result {
+             Err(LaunchError::Io { call, error }) => {

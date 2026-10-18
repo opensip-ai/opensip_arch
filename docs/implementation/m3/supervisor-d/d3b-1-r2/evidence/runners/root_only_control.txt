@@ -1,0 +1,16 @@
+/// RF-1: a root-only tree consumes and reports one queue/identity slot,
+/// keeps its original identity, and never attempts a by-pid root signal.
+#[test]
+fn a_root_only_snapshot_records_the_owned_root() {
+    let (file, script) = tree_script("root-only");
+    let out = tool_run(script, |_| {});
+    assert!(tree_pids(&file).is_empty());
+    let e = evidence(&out);
+    let root = out.process_id.expect("owned root");
+    assert_eq!((e.queued, e.inspected), (1, 1));
+    assert_eq!(e.root_identity.expect("live root identity").process_id(), root);
+    assert!(!e.root_exited);
+    assert_eq!(e.by_pid, ByPidOutcomes::default());
+    assert!(!out.tree_calls.contains(&TreeCallAttempt::ByPid(root)));
+    assert_eq!(out.settlement.tree(), TreeReport::GroupKilledPlatformLimited);
+}

@@ -1,0 +1,52 @@
+/// LD-D3B-3's provider bound is exercised through the actual class
+/// selection in snapshot, using a tool's fixture plumbing only to hold the
+/// native process tree. Restore the real tool class before driving its
+/// supervision; no provider protocol or qualification is inferred.
+#[test]
+fn the_provider_snapshot_bound_counts_its_root() {
+    for (kind, children, expected) in [
+        ("provider-exact", 3, SnapshotOutcome::Complete),
+        ("provider-over", 4, SnapshotOutcome::BoundReached),
+    ] {
+        let (file, script) = tree_script(kind);
+        let dir = test_dir();
+        let mut supervision = Supervision::prepare_tool_with(tool_spec_for(&fixture(), script), quick()).expect("prepared");
+        supervision.seams.process_count_off = true;
+        let mut root = root_in(&dir);
+        supervision.start(&mut root).expect("spawned");
+        let started = Instant::now();
+        while !file.exists() {
+            assert!(started.elapsed() < Duration::from_secs(5), "fixture not ready");
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        let pid = supervision.child.as_ref().expect("child").process_id();
+        let mut kill = TreeKill {
+            targets: Vec::new(), late: Vec::new(), next_confirm: Instant::now(),
+            done: false, evidence: TreeEvidence::default(),
+        };
+        supervision.class = Class::Provider;
+        assert_eq!(supervision.walk_bound(), 4);
+        supervision.snapshot(pid, &mut kill);
+        supervision.class = Class::Tool;
+        // Complete the native child's ordinary teardown before asserting,
+        // so a mutation of the snapshot cannot leak the fixture tree.
+        while supervision.state() != State::Settled {
+            assert!(started.elapsed() < Duration::from_secs(20), "no settlement");
+            supervision.turn();
+        }
+        let settlement = supervision.take_settlement().expect("settlement");
+        assert!(matches!(settlement.exit(), ExitClass::Signaled(9)));
+        kill.evidence.confirm = settlement.tree_evidence().expect("native confirm").confirm;
+        assert_eq!(kill.evidence.confirm, ConfirmOutcome::RootAlone);
+        let want = if expected == SnapshotOutcome::Complete { TreeReport::GroupKilledPlatformLimited } else { TreeReport::IncompletePlatformLimited };
+        assert_eq!(kill.report(), want);
+        let pids = tree_pids(&file);
+        for pid in &pids { assert!(eventually_without_identity(*pid)); }
+        assert_eq!(pids.len(), children);
+        assert_eq!(kill.evidence.snapshot, expected, "{kind}: {:?}", kill.evidence);
+        assert!(kill.evidence.queued <= 4);
+        if expected == SnapshotOutcome::Complete {
+            assert_eq!((kill.evidence.queued, kill.evidence.inspected), (4, 4));
+        }
+    }
+}

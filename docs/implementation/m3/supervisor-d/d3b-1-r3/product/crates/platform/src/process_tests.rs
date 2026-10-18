@@ -1,0 +1,2112 @@
+// M3-D r5 items 1 to 8 (unit D1a): the macOS rows of D1-T1 to T9 and T7b.
+// The `TestFixture` child is this test binary (LD-D1A-4), spawned through
+// `process.rs` with an exact argv that selects `fixture_child`; it reports
+// what the controls observe over fd1, one `D1FIX key=value` line each.
+// Linux rows (D1-T9b and every Linux half) are not run on this host.
+use crate::process::{
+    Child, ChildEnvironment, ChildScratch, ClosureRecheck, DescriptorSet, FAIL_EXIT_SOURCE,
+    FAIL_REAP, FORCE_NP, IDENTITY_BYTES, INJECT_EINTR, KillOutcome, LAST_CHDIR, LISTING_BYTES,
+    LaunchError, LaunchSpec, Listing, POLL_EINTR, ProcessIdentity, Protected, Readiness,
+    SCRATCH_HOOK, SYSCALLS, ScratchPoint, ScratchRoot, SpecError, VerifiedLaunch, WALK_LOG,
+    WalkCall, child_processes, group_members_bounded, process_identity, resident_bytes,
+    scratch_cost, spawn, wait_ready,
+};
+use crate::{WorkCost, WorkFailure, WorkLedger};
+use std::collections::BTreeMap;
+use std::ffi::OsStr;
+use std::fs::File;
+use std::io::Read;
+use std::os::fd::{AsRawFd, FromRawFd, IntoRawFd, OwnedFd};
+use std::os::unix::fs::{MetadataExt, PermissionsExt};
+use std::path::{Path, PathBuf};
+use std::time::Duration;
+
+const SENTINEL: &str = "opensip-d1-fixture";
+const FIXTURE: &str = "process_tests::fixture_child";
+
+// ------------------------------------------------------------------ the fixture child
+
+/// In an ordinary test run this does nothing. Spawned with the sentinel it
+/// is the `TestFixture` child: it reports and exits without returning to the
+/// test harness.
+#[test]
+fn fixture_child() {
+    let args: Vec<String> = std::env::args().collect();
+    if !args.iter().any(|a| a == SENTINEL) {
+        return;
+    }
+    let mode = args
+        .iter()
+        .find_map(|a| a.strip_prefix("mode="))
+        .unwrap_or("report")
+        .to_owned();
+    if mode == "descendant" {
+        // A grandchild in the child's group, which writes its own pid to
+        // `grandchild.pid` in the cwd (the scratch) with async-signal-safe
+        // calls only, then waits to be killed; the child waits too.
+        let forked = unsafe { libc::fork() };
+        if forked == 0 {
+            let me = unsafe { libc::getpid() };
+            let mut digits = [0u8; 16];
+            let mut n = me as u32;
+            let mut at = digits.len();
+            loop {
+                at -= 1;
+                digits[at] = b'0' + (n % 10) as u8;
+                n /= 10;
+                if n == 0 {
+                    break;
+                }
+            }
+            let fd = unsafe {
+                libc::open(
+                    c"grandchild.pid.tmp".as_ptr(),
+                    libc::O_WRONLY | libc::O_CREAT | libc::O_EXCL,
+                    0o600,
+                )
+            };
+            unsafe {
+                libc::write(fd, digits[at..].as_ptr().cast(), digits.len() - at);
+                libc::close(fd);
+                libc::rename(c"grandchild.pid.tmp".as_ptr(), c"grandchild.pid".as_ptr());
+            }
+            loop {
+                unsafe { libc::pause() };
+            }
+        }
+        loop {
+            unsafe { libc::pause() };
+        }
+    }
+    if mode == "two-children" || mode == "escapee" {
+        // D3b-0: two children in the child's group, or one that leaves it
+        // (`setpgid`, item 18's escaped descendant). Each forked child makes
+        // async-signal-safe calls only and waits to be killed; this process
+        // writes their pids to `children.pid` in the cwd (the scratch), then
+        // waits too. Both sides call `setpgid`, so the escapee has left the
+        // group before its pid is written.
+        let escape = mode == "escapee";
+        let mut pids = Vec::new();
+        for _ in 0..if escape { 1 } else { 2 } {
+            let forked = unsafe { libc::fork() };
+            if forked == 0 {
+                if escape {
+                    unsafe { libc::setpgid(0, 0) };
+                }
+                loop {
+                    unsafe { libc::pause() };
+                }
+            }
+            if escape {
+                unsafe { libc::setpgid(forked, forked) };
+            }
+            pids.push(forked.to_string());
+        }
+        std::fs::write("children.pid.tmp", pids.join(" ")).unwrap();
+        std::fs::rename("children.pid.tmp", "children.pid").unwrap();
+        loop {
+            unsafe { libc::pause() };
+        }
+    }
+    let mut lines = Vec::new();
+    // The environment, exactly.
+    for (k, v) in std::env::vars_os() {
+        lines.push(format!(
+            "env={}={}",
+            k.to_string_lossy(),
+            v.to_string_lossy()
+        ));
+    }
+    // Open descriptors over the table range.
+    let open: Vec<String> = (0..1024)
+        .filter(|fd| unsafe { libc::fcntl(*fd, libc::F_GETFD) } != -1)
+        .map(|fd| fd.to_string())
+        .collect();
+    lines.push(format!("fds={}", open.join(",")));
+    // Session, group and pid.
+    let (me, sid, pgid) = unsafe { (libc::getpid(), libc::getsid(0), libc::getpgid(0)) };
+    lines.push(format!("self={me} sid={sid} pgid={pgid}"));
+    // A controlling terminal cannot be opened.
+    let tty = unsafe { libc::open(c"/dev/tty".as_ptr(), libc::O_RDWR | libc::O_NOCTTY) };
+    lines.push(format!(
+        "tty={}",
+        if tty == -1 { "none" } else { "present" }
+    ));
+    // Signal dispositions and the mask.
+    let mut caught = Vec::new();
+    for sig in 1..32 {
+        let mut old: libc::sigaction = unsafe { std::mem::zeroed() };
+        if unsafe { libc::sigaction(sig, std::ptr::null(), &mut old) } == 0
+            && old.sa_sigaction != libc::SIG_DFL
+        {
+            caught.push(sig.to_string());
+        }
+    }
+    lines.push(format!("nondefault={}", caught.join(",")));
+    let mut mask: libc::sigset_t = unsafe { std::mem::zeroed() };
+    unsafe { libc::pthread_sigmask(libc::SIG_SETMASK, std::ptr::null(), &mut mask) };
+    let blocked: Vec<String> = (1..32)
+        .filter(|s| unsafe { libc::sigismember(&mask, *s) } == 1)
+        .map(|s| s.to_string())
+        .collect();
+    lines.push(format!("blocked={}", blocked.join(",")));
+    // RLIMIT_CORE.
+    let mut core = libc::rlimit {
+        rlim_cur: 1,
+        rlim_max: 0,
+    };
+    unsafe { libc::getrlimit(libc::RLIMIT_CORE, &mut core) };
+    lines.push(format!("core={}", core.rlim_cur));
+    // The cwd: inode, mode, owner and emptiness.
+    let cwd = std::fs::metadata(".").unwrap();
+    let entries = std::fs::read_dir(".").unwrap().count();
+    lines.push(format!(
+        "cwd_ino={} cwd_mode={:o} cwd_uid={} cwd_entries={}",
+        cwd.ino(),
+        cwd.mode() & 0o7777,
+        cwd.uid(),
+        entries
+    ));
+    // fd0: does it read EOF at once?
+    if mode == "stdin-eof" || mode == "hold" {
+        let mut buf = [0u8; 16];
+        let mut total = 0usize;
+        loop {
+            let n = unsafe { libc::read(0, buf.as_mut_ptr().cast(), buf.len()) };
+            if n <= 0 {
+                break;
+            }
+            total += n as usize;
+        }
+        lines.push(format!("stdin_bytes={total}"));
+    }
+    let mut out = String::new();
+    for l in &lines {
+        out.push_str("D1FIX ");
+        out.push_str(l);
+        out.push('\n');
+    }
+    unsafe { libc::write(1, out.as_ptr().cast(), out.len()) };
+    let code = if mode == "exit7" { 7 } else { 0 };
+    unsafe { libc::_exit(code) };
+}
+
+// ------------------------------------------------------------------ helpers
+
+struct TestDir(PathBuf);
+impl Drop for TestDir {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+fn test_dir() -> TestDir {
+    let mut bytes = [0u8; 8];
+    getrandom::fill(&mut bytes).unwrap();
+    let hex: String = bytes.iter().map(|b| format!("{b:02x}")).collect();
+    let dir = std::env::temp_dir().join(format!("opensip-d1a-test-{hex}"));
+    std::fs::create_dir(&dir).unwrap();
+    std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700)).unwrap();
+    TestDir(dir.canonicalize().unwrap())
+}
+fn open_dir(path: &Path) -> OwnedFd {
+    let file = File::open(path).unwrap();
+    // SAFETY: ownership of the descriptor moves from the File (D1a r1 RF-5).
+    unsafe { OwnedFd::from_raw_fd(file.into_raw_fd()) }
+}
+fn root_in(dir: &TestDir) -> ScratchRoot {
+    ScratchRoot::create_in(open_dir(&dir.0)).unwrap()
+}
+fn recheck() -> ClosureRecheck {
+    ClosureRecheck {
+        member: "test-fixture".to_owned(),
+        device: 0,
+        inode: 0,
+        sha256: "0".repeat(64),
+    }
+}
+fn fixture_spec(set: DescriptorSet, env: ChildEnvironment, mode: &str) -> LaunchSpec {
+    let exe = std::env::current_exe().unwrap();
+    let mode = format!("mode={mode}");
+    let argv: Vec<&OsStr> = vec![
+        exe.as_os_str(),
+        OsStr::new(FIXTURE),
+        OsStr::new("--exact"),
+        OsStr::new("--nocapture"),
+        OsStr::new("--test-threads=1"),
+        OsStr::new(SENTINEL),
+        OsStr::new(&mode),
+    ];
+    LaunchSpec::fixture(set, &exe, &argv, env).unwrap()
+}
+fn blocking(file: &File) {
+    let fd = file.as_raw_fd();
+    let flags = unsafe { libc::fcntl(fd, libc::F_GETFL) };
+    unsafe { libc::fcntl(fd, libc::F_SETFL, flags & !libc::O_NONBLOCK) };
+}
+/// Run a fixture to completion and return its report and exit code.
+fn run(set: DescriptorSet, env: ChildEnvironment, mode: &str, root: &mut ScratchRoot) -> Report {
+    let mut child = spawn(
+        VerifiedLaunch::from_recheck(fixture_spec(set, env, mode), recheck()),
+        root,
+    )
+    .unwrap();
+    // Close the host's fd0 write end (a provider set), so a reader sees EOF.
+    drop(child.take_host_end(0));
+    let mut out = child.take_host_end(1).unwrap();
+    blocking(&out);
+    let mut text = String::new();
+    out.read_to_string(&mut text).unwrap();
+    let status = child
+        .wait_exit(Duration::from_secs(30))
+        .unwrap()
+        .expect("exit");
+    let reaped = child.reap().unwrap();
+    assert_eq!(reaped.status, status);
+    let scratch_ino = child.scratch().map(|s| s.inode().unwrap());
+    let mut report = Report {
+        lines: BTreeMap::new(),
+        env: Vec::new(),
+        code: status.code(),
+        process_id: child.process_id(),
+        scratch_ino,
+    };
+    // libtest prints `test … ` without a newline before the fixture writes,
+    // so a marker may follow other text on its line.
+    for line in text
+        .lines()
+        .filter_map(|l| l.split_once("D1FIX ").map(|(_, r)| r))
+    {
+        if let Some(e) = line.strip_prefix("env=") {
+            report.env.push(e.to_owned());
+        } else {
+            for field in line.split(' ') {
+                if let Some((k, v)) = field.split_once('=') {
+                    report.lines.insert(k.to_owned(), v.to_owned());
+                }
+            }
+        }
+    }
+    report.env.sort();
+    report
+}
+struct Report {
+    lines: BTreeMap<String, String>,
+    env: Vec<String>,
+    code: Option<i32>,
+    process_id: i32,
+    scratch_ino: Option<u64>,
+}
+impl Report {
+    fn get(&self, k: &str) -> &str {
+        self.lines
+            .get(k)
+            .map(String::as_str)
+            .unwrap_or_else(|| panic!("missing {k}"))
+    }
+}
+
+// ------------------------------------------------------------------ D1-T2, T3: specs
+
+#[test]
+fn d1_t2_specs_refuse_relative_paths_extra_arguments_and_bad_argv_zero() {
+    let env = ChildEnvironment::rust();
+    assert!(matches!(
+        LaunchSpec::rust(Path::new("provider"), Path::new("/toolchain")),
+        Err(SpecError::RelativePath(_))
+    ));
+    assert!(matches!(
+        LaunchSpec::rust(Path::new("/provider"), Path::new("toolchain")),
+        Err(SpecError::RelativePath(_))
+    ));
+    let rust = LaunchSpec::rust(Path::new("/p/provider"), Path::new("/p/toolchain")).unwrap();
+    assert_eq!(rust.environment(), &env);
+    // D1a plan r2 (RF-3): each provider profile's argv and environment are
+    // exact, element by element; no caller can supply another.
+    let ts = LaunchSpec::typescript(
+        Path::new("/r/node"),
+        Path::new("/r/share/openssl-empty.cnf"),
+        Path::new("/r/provider/index.js"),
+        "ctx",
+    )
+    .unwrap();
+    assert_eq!(ts.descriptors(), DescriptorSet::Provider);
+    let argv = |spec: &LaunchSpec| -> Vec<String> {
+        spec.resolved_argv(Path::new("/s/scratch"))
+            .unwrap()
+            .iter()
+            .map(|c| c.to_string_lossy().into_owned())
+            .collect()
+    };
+    assert_eq!(
+        argv(&ts),
+        [
+            "/r/node",
+            "--no-addons",
+            "--no-global-search-paths",
+            "--openssl-config=/r/share/openssl-empty.cnf",
+            "/r/provider/index.js",
+        ]
+    );
+    let env = |spec: &LaunchSpec| -> Vec<String> {
+        spec.environment()
+            .entries()
+            .iter()
+            .map(|(k, v)| format!("{k}={v}"))
+            .collect()
+    };
+    assert_eq!(
+        env(&ts),
+        [
+            "LC_ALL=C",
+            "LANG=C",
+            "TZ=UTC",
+            "UV_THREADPOOL_SIZE=4",
+            "OPENSIP_BROKER_CONTEXT=ctx",
+        ]
+    );
+    assert_eq!(
+        argv(&rust),
+        [
+            "/p/provider",
+            "--protocol-stdio-v2",
+            "--toolchain-root",
+            "/p/toolchain",
+            "--scratch-root",
+            "/s/scratch",
+        ]
+    );
+    assert_eq!(env(&rust), ["LANG=C", "LC_ALL=C", "TZ=UTC"]);
+    for bad in [
+        ("share/openssl-empty.cnf", "/r/provider/index.js"),
+        ("/r/share/openssl-empty.cnf", "provider/index.js"),
+    ] {
+        assert!(matches!(
+            LaunchSpec::typescript(
+                Path::new("/r/node"),
+                Path::new(bad.0),
+                Path::new(bad.1),
+                "ctx"
+            ),
+            Err(SpecError::RelativePath(_))
+        ));
+    }
+    assert!(matches!(
+        LaunchSpec::typescript(Path::new("node"), Path::new("/c"), Path::new("/e"), "ctx"),
+        Err(SpecError::RelativePath(_))
+    ));
+    assert_eq!(
+        LaunchSpec::typescript(
+            Path::new("/r/node"),
+            Path::new("/c"),
+            Path::new("/e"),
+            "a\0b"
+        )
+        .unwrap_err(),
+        SpecError::Nul
+    );
+    // A tool's argv[0] must be the executable's absolute path.
+    let tool = |argv: &[&str]| {
+        let argv: Vec<&OsStr> = argv.iter().map(OsStr::new).collect();
+        LaunchSpec::tool(
+            Path::new("/b/cargo"),
+            &argv,
+            ChildEnvironment::tool(&[]).unwrap(),
+        )
+    };
+    assert!(tool(&["/b/cargo", "metadata"]).is_ok());
+    assert_eq!(
+        tool(&["cargo", "metadata"]).unwrap_err(),
+        SpecError::ArgvZero
+    );
+    assert_eq!(tool(&[]).unwrap_err(), SpecError::ArgvZero);
+    assert!(matches!(
+        LaunchSpec::tool(
+            Path::new("cargo"),
+            &[OsStr::new("cargo")],
+            ChildEnvironment::tool(&[]).unwrap()
+        ),
+        Err(SpecError::RelativePath(_))
+    ));
+}
+
+#[test]
+fn d1_t3_environments_are_built_from_empty_and_validated() {
+    let ts = ChildEnvironment::typescript("ctx").unwrap();
+    let keys: Vec<&str> = ts.entries().iter().map(|(k, _)| k.as_str()).collect();
+    assert_eq!(
+        keys,
+        [
+            "LC_ALL",
+            "LANG",
+            "TZ",
+            "UV_THREADPOOL_SIZE",
+            "OPENSIP_BROKER_CONTEXT"
+        ]
+    );
+    let rust: Vec<String> = ChildEnvironment::rust()
+        .entries()
+        .iter()
+        .map(|(k, v)| format!("{k}={v}"))
+        .collect();
+    assert_eq!(rust, ["LANG=C", "LC_ALL=C", "TZ=UTC"]);
+    assert_eq!(
+        ChildEnvironment::typescript("a\0b").unwrap_err(),
+        SpecError::Nul
+    );
+    // C3b's tool allowlist is empty until C3b names its keys.
+    assert_eq!(
+        ChildEnvironment::tool(&[("HOME", "/x")]).unwrap_err(),
+        SpecError::KeyNotAllowed("HOME".to_owned())
+    );
+    for denied in [
+        "PATH",
+        "CARGO_HOME",
+        "RUSTFLAGS",
+        "RUSTC_WRAPPER",
+        "RUSTUP_HOME",
+        "CC",
+        "TARGET_CC",
+    ] {
+        assert_eq!(
+            ChildEnvironment::tool(&[(denied, "x")]).unwrap_err(),
+            SpecError::KeyDenied(denied.to_owned()),
+            "{denied}"
+        );
+    }
+    assert_eq!(
+        ChildEnvironment::fixture(&[("", "x")]).unwrap_err(),
+        SpecError::EmptyKey
+    );
+    assert_eq!(
+        ChildEnvironment::fixture(&[("A=B", "x")]).unwrap_err(),
+        SpecError::KeyEquals("A=B".to_owned())
+    );
+    assert_eq!(
+        ChildEnvironment::fixture(&[("A", "1"), ("A", "2")]).unwrap_err(),
+        SpecError::DuplicateKey("A".to_owned())
+    );
+}
+
+#[test]
+fn d1_t3_the_child_sees_exactly_its_class_environment() {
+    let dir = test_dir();
+    let mut root = root_in(&dir);
+    let ts = ChildEnvironment::typescript("bootstrap").unwrap();
+    let report = run(DescriptorSet::Provider, ts, "report", &mut root);
+    assert_eq!(
+        report.env,
+        [
+            "LANG=C",
+            "LC_ALL=C",
+            "OPENSIP_BROKER_CONTEXT=bootstrap",
+            "TZ=UTC",
+            "UV_THREADPOOL_SIZE=4",
+        ]
+    );
+    let report = run(
+        DescriptorSet::Provider,
+        ChildEnvironment::rust(),
+        "report",
+        &mut root,
+    );
+    assert_eq!(report.env, ["LANG=C", "LC_ALL=C", "TZ=UTC"]);
+    let report = run(
+        DescriptorSet::Tool,
+        ChildEnvironment::tool(&[]).unwrap(),
+        "report",
+        &mut root,
+    );
+    assert!(report.env.is_empty(), "{:?}", report.env);
+}
+
+// ------------------------------------------------------------------ D1-T1, T4, T5, T6, T9
+
+#[test]
+fn d1_t1_t5_each_class_receives_exactly_its_descriptor_set() {
+    let dir = test_dir();
+    let mut root = root_in(&dir);
+    let provider = run(
+        DescriptorSet::Provider,
+        ChildEnvironment::rust(),
+        "report",
+        &mut root,
+    );
+    assert_eq!(provider.get("fds"), "0,1,2,3,4");
+    let tool = run(
+        DescriptorSet::Tool,
+        ChildEnvironment::tool(&[]).unwrap(),
+        "stdin-eof",
+        &mut root,
+    );
+    assert_eq!(tool.get("fds"), "0,1,2");
+    // A tool's fd0 reads EOF at once.
+    assert_eq!(tool.get("stdin_bytes"), "0");
+}
+
+#[test]
+fn d1_t4_the_child_leads_a_new_session_with_no_controlling_terminal() {
+    let dir = test_dir();
+    let mut root = root_in(&dir);
+    let r = run(
+        DescriptorSet::Provider,
+        ChildEnvironment::rust(),
+        "report",
+        &mut root,
+    );
+    let me = r.get("self");
+    assert_eq!(r.get("sid"), me);
+    assert_eq!(r.get("pgid"), me);
+    assert_eq!(me, r.process_id.to_string());
+    assert_eq!(r.get("tty"), "none");
+}
+
+#[test]
+fn d1_t6_a_descriptor_opened_without_cloexec_during_spawn_does_not_reach_the_child() {
+    let dir = test_dir();
+    let mut root = root_in(&dir);
+    let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let flag = stop.clone();
+    let opener = std::thread::spawn(move || {
+        let mut held = Vec::new();
+        while !flag.load(std::sync::atomic::Ordering::Relaxed) {
+            // Deliberately inheritable: no O_CLOEXEC.
+            let fd = unsafe { libc::open(c"/dev/null".as_ptr(), libc::O_RDONLY) };
+            if fd >= 0 {
+                held.push(fd);
+            }
+            if held.len() > 64 {
+                for fd in held.drain(..) {
+                    unsafe { libc::close(fd) };
+                }
+            }
+        }
+        for fd in held {
+            unsafe { libc::close(fd) };
+        }
+    });
+    for _ in 0..8 {
+        let r = run(
+            DescriptorSet::Provider,
+            ChildEnvironment::rust(),
+            "report",
+            &mut root,
+        );
+        assert_eq!(r.get("fds"), "0,1,2,3,4");
+    }
+    stop.store(true, std::sync::atomic::Ordering::Relaxed);
+    opener.join().unwrap();
+}
+
+#[test]
+fn d1_t9_default_dispositions_empty_mask_and_no_core_files() {
+    let dir = test_dir();
+    let mut root = root_in(&dir);
+    // The host ignores SIGUSR1 and blocks SIGUSR2 in the spawning thread;
+    // neither may carry into the child (item 7).
+    let mut ignore: libc::sigaction = unsafe { std::mem::zeroed() };
+    ignore.sa_sigaction = libc::SIG_IGN;
+    let mut previous: libc::sigaction = unsafe { std::mem::zeroed() };
+    unsafe { libc::sigaction(libc::SIGUSR1, &ignore, &mut previous) };
+    let mut block: libc::sigset_t = unsafe { std::mem::zeroed() };
+    let mut old_mask: libc::sigset_t = unsafe { std::mem::zeroed() };
+    unsafe {
+        libc::sigemptyset(&mut block);
+        libc::sigaddset(&mut block, libc::SIGUSR2);
+        libc::pthread_sigmask(libc::SIG_BLOCK, &block, &mut old_mask);
+    }
+    let r = run(
+        DescriptorSet::Provider,
+        ChildEnvironment::rust(),
+        "report",
+        &mut root,
+    );
+    unsafe {
+        libc::pthread_sigmask(libc::SIG_SETMASK, &old_mask, std::ptr::null_mut());
+        libc::sigaction(libc::SIGUSR1, &previous, std::ptr::null_mut());
+    }
+    // The child's own Rust runtime installs SIGBUS (10) and SIGSEGV (11)
+    // handlers and ignores SIGPIPE (13) after exec; every other signal,
+    // SIGUSR1 (30) included, is at its default.
+    assert_eq!(r.get("nondefault"), "10,11,13");
+    assert_eq!(r.get("blocked"), "");
+    assert_eq!(r.get("core"), "0");
+    // The host's own soft limit was lowered before the first spawn (item 7).
+    let mut core = libc::rlimit {
+        rlim_cur: 1,
+        rlim_max: 0,
+    };
+    unsafe { libc::getrlimit(libc::RLIMIT_CORE, &mut core) };
+    assert_eq!(core.rlim_cur, 0);
+}
+
+// ------------------------------------------------------------------ D1-T7, T7b, T8
+
+#[test]
+fn d1_t7_scratch_is_a_fresh_private_cwd_never_shared() {
+    let dir = test_dir();
+    let mut root = root_in(&dir);
+    let a = run(
+        DescriptorSet::Provider,
+        ChildEnvironment::rust(),
+        "report",
+        &mut root,
+    );
+    let b = run(
+        DescriptorSet::Provider,
+        ChildEnvironment::rust(),
+        "report",
+        &mut root,
+    );
+    let uid = unsafe { libc::getuid() }.to_string();
+    for r in [&a, &b] {
+        assert_eq!(r.get("cwd_mode"), "700");
+        assert_eq!(r.get("cwd_uid"), uid);
+        // D1-T7b: empty at spawn.
+        assert_eq!(r.get("cwd_entries"), "0");
+        assert_eq!(
+            Some(r.get("cwd_ino").parse::<u64>().unwrap()),
+            r.scratch_ino
+        );
+    }
+    assert_ne!(a.get("cwd_ino"), b.get("cwd_ino"));
+    // The root itself is private and named as item 6 says.
+    assert!(root.leaf().starts_with("opensip-scratch-"));
+    assert_eq!(root.leaf().len(), "opensip-scratch-".len() + 32);
+    let meta = std::fs::metadata(root.path()).unwrap();
+    assert_eq!(meta.mode() & 0o7777, 0o700);
+}
+
+#[test]
+fn d1_t8_the_sweep_removes_a_dead_owner_and_never_follows_a_link() {
+    let dir = test_dir();
+    let outside = dir.0.join("outside-target");
+    std::fs::write(&outside, b"keep").unwrap();
+    // A dead owner: a scratch root whose lock is released (dropped), left on disk.
+    let dead_path = {
+        let mut dead = root_in(&dir);
+        let r = run(
+            DescriptorSet::Provider,
+            ChildEnvironment::rust(),
+            "report",
+            &mut dead,
+        );
+        assert_eq!(r.code, Some(0));
+        let p = dead.path().to_path_buf();
+        std::os::unix::fs::symlink(&outside, p.join("planted-link")).unwrap();
+        std::fs::create_dir(p.join("nested")).unwrap();
+        std::os::unix::fs::symlink(&dir.0, p.join("nested").join("dir-link")).unwrap();
+        p
+    };
+    // A live owner, holding its lock.
+    let live = root_in(&dir);
+    let sweeper = root_in(&dir);
+    let removed = sweeper.sweep().unwrap();
+    assert_eq!(
+        removed,
+        [dead_path
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .into_owned()]
+    );
+    assert!(!dead_path.exists());
+    assert!(live.path().exists());
+    assert_eq!(std::fs::read(&outside).unwrap(), b"keep");
+    assert!(dir.0.exists());
+}
+
+// ------------------------------------------------------------------ item 4: exit, reap, group
+
+#[test]
+fn the_exit_source_fires_on_the_unreaped_child_which_stays_waitable() {
+    let dir = test_dir();
+    let mut root = root_in(&dir);
+    let mut child = spawn(
+        VerifiedLaunch::from_recheck(
+            fixture_spec(DescriptorSet::Provider, ChildEnvironment::rust(), "exit7"),
+            recheck(),
+        ),
+        &mut root,
+    )
+    .unwrap();
+    let status = child
+        .wait_exit(Duration::from_secs(30))
+        .unwrap()
+        .expect("exit");
+    assert_eq!(status.code(), Some(7));
+    assert!(child.has_exited().unwrap());
+    // Still unreaped: the group can be signalled (its id is reserved).
+    assert!(child.signal_group(0).is_ok() || child.has_exited().unwrap());
+    let reaped = child.reap().unwrap();
+    assert_eq!(reaped.status.code(), Some(7));
+    // The reap-last rule.
+    assert!(matches!(
+        child.signal_group(libc::SIGTERM),
+        Err(LaunchError::GroupAfterReap)
+    ));
+    assert!(matches!(child.reap(), Err(LaunchError::AlreadyReaped)));
+}
+
+#[test]
+fn group_membership_comes_from_enumeration() {
+    let dir = test_dir();
+    let mut root = root_in(&dir);
+    let mut child = spawn(
+        VerifiedLaunch::from_recheck(
+            fixture_spec(DescriptorSet::Provider, ChildEnvironment::rust(), "hold"),
+            recheck(),
+        ),
+        &mut root,
+    )
+    .unwrap();
+    let pid = child.process_id();
+    assert_eq!(
+        group_members_bounded(pid, 4).unwrap(),
+        Listing::Complete(vec![pid])
+    );
+    // Release the child: close its stdin.
+    drop(child.take_host_end(0));
+    child
+        .wait_exit(Duration::from_secs(30))
+        .unwrap()
+        .expect("exit");
+    child.reap().unwrap();
+}
+
+// ------------------------------------------------------------------ structural
+
+#[test]
+fn process_rs_spawns_by_path_only() {
+    let source = include_str!("process.rs");
+    let code: String = source
+        .lines()
+        .filter(|l| !l.trim_start().starts_with("//"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    for banned in [
+        "posix_spawnp(",
+        "Command::new(",
+        "execvp(",
+        "execlp(",
+        "execvpe(",
+    ] {
+        assert!(!code.contains(banned), "{banned}");
+    }
+    assert!(code.contains("libc::posix_spawn("));
+    assert!(code.contains("POSIX_SPAWN_SETSID"));
+    assert!(code.contains("POSIX_SPAWN_CLOEXEC_DEFAULT"));
+}
+
+// ------------------------------------------------------------------ D1a plan r2
+
+#[test]
+fn the_host_write_ends_carry_no_sigpipe_and_the_read_ends_are_untouched() {
+    let dir = test_dir();
+    let mut root = root_in(&dir);
+    let mut child = spawn(
+        VerifiedLaunch::from_recheck(
+            fixture_spec(DescriptorSet::Provider, ChildEnvironment::rust(), "hold"),
+            recheck(),
+        ),
+        &mut root,
+    )
+    .unwrap();
+    // F_GETNOSIGPIPE, `sys/fcntl.h:294`.
+    const F_GETNOSIGPIPE: libc::c_int = 74;
+    let mut ends = Vec::new();
+    for slot in 0..5 {
+        ends.push(child.take_host_end(slot).unwrap());
+    }
+    for (slot, end) in ends.iter().enumerate() {
+        let nosigpipe = unsafe { libc::fcntl(end.as_raw_fd(), F_GETNOSIGPIPE) };
+        let expected = if slot == 0 || slot == 3 { 1 } else { 0 };
+        assert_eq!(nosigpipe, expected, "slot {slot}");
+    }
+    drop(ends);
+    child
+        .wait_exit(Duration::from_secs(30))
+        .unwrap()
+        .expect("exit");
+    child.reap().unwrap();
+}
+
+#[test]
+fn addchdir_falls_back_to_the_np_form_when_the_new_symbol_is_absent() {
+    let dir = test_dir();
+    let mut root = root_in(&dir);
+    let r = run(
+        DescriptorSet::Provider,
+        ChildEnvironment::rust(),
+        "report",
+        &mut root,
+    );
+    assert_eq!(LAST_CHDIR.with(|l| l.get()), "addchdir");
+    assert_eq!(
+        Some(r.get("cwd_ino").parse::<u64>().unwrap()),
+        r.scratch_ino
+    );
+    FORCE_NP.with(|f| f.set(true));
+    let r = run(
+        DescriptorSet::Provider,
+        ChildEnvironment::rust(),
+        "report",
+        &mut root,
+    );
+    FORCE_NP.with(|f| f.set(false));
+    assert_eq!(LAST_CHDIR.with(|l| l.get()), "addchdir_np");
+    assert_eq!(
+        Some(r.get("cwd_ino").parse::<u64>().unwrap()),
+        r.scratch_ino
+    );
+}
+
+// ------------------------------------------------------------------ D1a r1 findings
+
+fn alive(pid: i32) -> bool {
+    unsafe { libc::kill(pid, 0) == 0 }
+}
+fn eventually_gone(pid: i32) -> bool {
+    for _ in 0..200 {
+        if !alive(pid) {
+            return true;
+        }
+        std::thread::sleep(Duration::from_millis(25));
+    }
+    false
+}
+
+#[test]
+fn a_child_keeps_its_scratch_root_and_lock_after_the_root_is_dropped() {
+    // RF-1: dropping `ScratchRoot` while a child or a taken scratch lives
+    // keeps the root's descriptors and lock, so a sibling sweep keeps it.
+    let dir = test_dir();
+    let mut root = root_in(&dir);
+    let root_path = root.path().to_path_buf();
+    let mut child = spawn(
+        VerifiedLaunch::from_recheck(
+            fixture_spec(DescriptorSet::Provider, ChildEnvironment::rust(), "hold"),
+            recheck(),
+        ),
+        &mut root,
+    )
+    .unwrap();
+    drop(root);
+    // Descriptor churn, so a closed root descriptor would have been reused.
+    let churn: Vec<File> = (0..32).map(|_| File::open("/dev/null").unwrap()).collect();
+    let sweeper = root_in(&dir);
+    assert_eq!(sweeper.sweep().unwrap(), Vec::<String>::new());
+    assert!(root_path.exists());
+    drop(child.take_host_end(0));
+    child
+        .wait_exit(Duration::from_secs(30))
+        .unwrap()
+        .expect("exit");
+    child.reap().unwrap();
+    let scratch = child.take_scratch().unwrap();
+    let scratch_path = scratch.path().to_path_buf();
+    drop(child);
+    assert!(
+        sweeper.sweep().unwrap().is_empty(),
+        "the taken scratch still holds the lock"
+    );
+    crate::WorkLedger::discovery_profile()
+        .scope(|work| scratch.remove_bounded(work))
+        .unwrap();
+    assert!(!scratch_path.exists());
+    assert!(root_path.exists());
+    drop(churn);
+    // The last owner is gone: the root's lock is free, and a sweep removes it.
+    // The lock file is now free. Another test's fork may briefly share the
+    // open file description between its fork and its exec, which only makes
+    // a sweeper keep the root a little longer, so both are retried.
+    let mut free = false;
+    for _ in 0..200 {
+        let probe = File::open(root_path.join("lock")).unwrap();
+        free = unsafe { libc::flock(probe.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } == 0;
+        drop(probe);
+        if free {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    assert!(free, "the dropped root's lock is still held");
+    let mut removed = Vec::new();
+    for _ in 0..200 {
+        removed = sweeper.sweep().unwrap();
+        if !removed.is_empty() {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    assert_eq!(removed.len(), 1);
+    assert!(!root_path.exists());
+}
+
+#[test]
+fn a_live_child_keeps_its_root_after_its_scratch_is_taken_and_dropped() {
+    // D1a r2 RF-1: the child holds the root's state itself, so detaching and
+    // dropping its scratch, then dropping the root, never lets a sibling
+    // sweep reclaim the running child's root. Its reap releases that hold.
+    let dir = test_dir();
+    let mut root = root_in(&dir);
+    let root_path = root.path().to_path_buf();
+    let mut child = spawn(
+        VerifiedLaunch::from_recheck(
+            fixture_spec(DescriptorSet::Provider, ChildEnvironment::rust(), "hold"),
+            recheck(),
+        ),
+        &mut root,
+    )
+    .unwrap();
+    let scratch = child.take_scratch().unwrap();
+    let scratch_path = scratch.path().to_path_buf();
+    drop(scratch);
+    drop(root);
+    // Descriptor churn, so a closed root descriptor would have been reused.
+    let churn: Vec<File> = (0..32).map(|_| File::open("/dev/null").unwrap()).collect();
+    let sweeper = root_in(&dir);
+    assert_eq!(sweeper.sweep().unwrap(), Vec::<String>::new());
+    assert!(root_path.exists() && scratch_path.exists());
+    let probe = File::open(root_path.join("lock")).unwrap();
+    assert_ne!(
+        unsafe { libc::flock(probe.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) },
+        0,
+        "the live child's root lock was released"
+    );
+    drop(probe);
+    drop(child.take_host_end(0));
+    child
+        .wait_exit(Duration::from_secs(30))
+        .unwrap()
+        .expect("exit");
+    child.reap().unwrap();
+    drop(churn);
+    // Reaped, with no scratch attached: nothing holds the root, so a sweep
+    // removes it (retried across other tests' fork-to-exec windows, as in
+    // the test above).
+    let mut removed = Vec::new();
+    for _ in 0..200 {
+        removed = sweeper.sweep().unwrap();
+        if !removed.is_empty() {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    assert_eq!(removed.len(), 1);
+    assert!(!root_path.exists());
+    drop(child);
+}
+
+#[test]
+fn a_setup_failure_whose_cleanup_also_fails_keeps_the_root_and_its_lock() {
+    // D1a r3 RF-1: when the kill and reap after a setup failure fail too, the
+    // child may still run in its scratch, so its scratch and its hold on the
+    // root are kept, as `Drop` keeps an unreapable child's.
+    let dir = test_dir();
+    let mut root = root_in(&dir);
+    let root_path = root.path().to_path_buf();
+    FAIL_EXIT_SOURCE.with(|f| f.set(Some(Duration::from_millis(0))));
+    FAIL_REAP.with(|f| f.set(true));
+    let result = spawn(
+        VerifiedLaunch::from_recheck(
+            fixture_spec(DescriptorSet::Provider, ChildEnvironment::rust(), "hold"),
+            recheck(),
+        ),
+        &mut root,
+    );
+    FAIL_EXIT_SOURCE.with(|f| f.set(None));
+    FAIL_REAP.with(|f| f.set(false));
+    assert!(
+        matches!(result, Err(LaunchError::SetupAbandoned { .. })),
+        "{result:?}"
+    );
+    drop(root);
+    let churn: Vec<File> = (0..32).map(|_| File::open("/dev/null").unwrap()).collect();
+    let sweeper = root_in(&dir);
+    assert_eq!(sweeper.sweep().unwrap(), Vec::<String>::new());
+    assert!(root_path.exists());
+    let probe = File::open(root_path.join("lock")).unwrap();
+    assert_ne!(
+        unsafe { libc::flock(probe.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) },
+        0,
+        "the abandoned child's root lock was released"
+    );
+    drop(churn);
+}
+
+/// A sweeper on its own thread, with `hook` at its named points.
+fn sweeper_thread(
+    dir: PathBuf,
+    hook: impl FnMut(ScratchPoint) + Send + 'static,
+) -> std::thread::JoinHandle<Vec<String>> {
+    std::thread::spawn(move || {
+        let sweeper = ScratchRoot::create_in(open_dir(&dir)).unwrap();
+        SCRATCH_HOOK.with_borrow_mut(|h| *h = Some(Box::new(hook)));
+        let removed = sweeper.sweep().unwrap();
+        SCRATCH_HOOK.with_borrow_mut(|h| *h = None);
+        removed
+    })
+}
+
+#[test]
+fn two_sweepers_contesting_one_dead_root_remove_it_exactly_once() {
+    // D1a r2 NBO-2, both contested interleavings, forced.
+    use std::sync::mpsc::channel;
+    // (a) B has opened the dead root's lock when A takes it and removes the
+    // root; B's later lock is of the unlinked file, so B removes nothing.
+    let dir = test_dir();
+    let dead = root_in(&dir);
+    let dead_path = dead.path().to_path_buf();
+    drop(dead);
+    let (opened, opened_rx) = channel();
+    let (go, go_rx) = channel::<()>();
+    let b = sweeper_thread(dir.0.clone(), move |point| {
+        if point == ScratchPoint::LockOpened {
+            opened.send(()).unwrap();
+            go_rx.recv().unwrap();
+        }
+    });
+    opened_rx.recv().unwrap();
+    let a = root_in(&dir);
+    let by_a = a.sweep().unwrap();
+    assert_eq!(by_a.len(), 1);
+    assert!(!dead_path.exists());
+    go.send(()).unwrap();
+    assert_eq!(b.join().unwrap(), Vec::<String>::new());
+    drop(a);
+    // (b) A holds the dead root's lock, paused before removing it; B cannot
+    // take the lock and keeps the root; A then removes it once.
+    let dir = test_dir();
+    let dead = root_in(&dir);
+    let dead_path = dead.path().to_path_buf();
+    drop(dead);
+    let (taken, taken_rx) = channel();
+    let (go, go_rx) = channel::<()>();
+    let a = sweeper_thread(dir.0.clone(), move |point| {
+        if point == ScratchPoint::LockTaken {
+            taken.send(()).unwrap();
+            go_rx.recv().unwrap();
+        }
+    });
+    taken_rx.recv().unwrap();
+    let b = root_in(&dir);
+    assert_eq!(b.sweep().unwrap(), Vec::<String>::new());
+    assert!(dead_path.exists());
+    go.send(()).unwrap();
+    assert_eq!(a.join().unwrap().len(), 1);
+    assert!(!dead_path.exists());
+}
+
+#[test]
+fn a_root_being_created_is_never_swept_before_or_after_its_publication() {
+    // D1a r2 NBO-2: a sweep while a creator holds its staged, unpublished
+    // root ignores the staging name; after publication the held lock keeps it.
+    use std::sync::mpsc::channel;
+    let dir = test_dir();
+    let (staged, staged_rx) = channel();
+    let (go, go_rx) = channel::<()>();
+    let path = dir.0.clone();
+    let creator = std::thread::spawn(move || {
+        SCRATCH_HOOK.with_borrow_mut(|h| {
+            *h = Some(Box::new(move |point| {
+                if point == ScratchPoint::Staged {
+                    staged.send(()).unwrap();
+                    go_rx.recv().unwrap();
+                }
+            }))
+        });
+        let root = ScratchRoot::create_in(open_dir(&path)).unwrap();
+        SCRATCH_HOOK.with_borrow_mut(|h| *h = None);
+        root
+    });
+    staged_rx.recv().unwrap();
+    let sweeper = root_in(&dir);
+    assert_eq!(sweeper.sweep().unwrap(), Vec::<String>::new());
+    let names: Vec<String> = std::fs::read_dir(&dir.0)
+        .unwrap()
+        .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+        .collect();
+    assert!(
+        names
+            .iter()
+            .any(|n| n.starts_with(".opensip-scratch-staging-")),
+        "{names:?}"
+    );
+    go.send(()).unwrap();
+    let created = creator.join().unwrap();
+    assert_eq!(sweeper.sweep().unwrap(), Vec::<String>::new());
+    assert!(created.path().exists());
+    drop(created);
+}
+
+#[test]
+fn the_sweep_never_removes_a_root_it_could_not_lock() {
+    // RF-2: an unlocked-looking sibling without a lock file, and one whose
+    // lock cannot be opened, are kept; only a lock this sweep takes proves
+    // death.
+    let dir = test_dir();
+    let no_lock = dir.0.join("opensip-scratch-nolock");
+    std::fs::create_dir(&no_lock).unwrap();
+    std::fs::set_permissions(&no_lock, std::fs::Permissions::from_mode(0o700)).unwrap();
+    let unreadable = dir.0.join("opensip-scratch-unreadable");
+    std::fs::create_dir(&unreadable).unwrap();
+    std::fs::set_permissions(&unreadable, std::fs::Permissions::from_mode(0o700)).unwrap();
+    std::fs::write(unreadable.join("lock"), b"").unwrap();
+    std::fs::set_permissions(
+        unreadable.join("lock"),
+        std::fs::Permissions::from_mode(0o000),
+    )
+    .unwrap();
+    let sweeper = root_in(&dir);
+    assert!(sweeper.sweep().unwrap().is_empty());
+    assert!(no_lock.exists() && unreadable.exists());
+    std::fs::set_permissions(
+        unreadable.join("lock"),
+        std::fs::Permissions::from_mode(0o600),
+    )
+    .unwrap();
+}
+
+#[test]
+fn two_concurrent_sweepers_remove_a_dead_root_once_and_creation_is_never_swept() {
+    // RF-2: a dead root (its owner dropped) is removed exactly once by two
+    // concurrent sweepers; roots created during the sweeps are never removed
+    // while their owners live.
+    let dir = test_dir();
+    let dead_path = {
+        let dead = root_in(&dir);
+        dead.path().to_path_buf()
+    };
+    let parent = dir.0.clone();
+    let sweepers: Vec<_> = (0..2)
+        .map(|_| {
+            let parent = parent.clone();
+            std::thread::spawn(move || {
+                let me = ScratchRoot::create_in(open_dir(&parent)).unwrap();
+                let mut removed = Vec::new();
+                for _ in 0..20 {
+                    removed.extend(me.sweep().unwrap());
+                }
+                (me, removed)
+            })
+        })
+        .collect();
+    let creators: Vec<ScratchRoot> = (0..20).map(|_| root_in(&dir)).collect();
+    let results: Vec<_> = sweepers.into_iter().map(|h| h.join().unwrap()).collect();
+    let removed: Vec<&String> = results.iter().flat_map(|(_, r)| r).collect();
+    assert_eq!(removed.len(), 1, "{removed:?}");
+    assert!(!dead_path.exists());
+    for live in &creators {
+        assert!(live.path().exists());
+    }
+    for (me, _) in &results {
+        assert!(me.path().exists());
+    }
+}
+
+#[test]
+fn dropping_a_live_child_reaps_it_through_interrupted_waits() {
+    // RF-3: three injected EINTRs before the real wait; the child is reaped
+    // exactly, and nothing is left to wait for.
+    let dir = test_dir();
+    let mut root = root_in(&dir);
+    let mut child = spawn(
+        VerifiedLaunch::from_recheck(
+            fixture_spec(DescriptorSet::Provider, ChildEnvironment::rust(), "hold"),
+            recheck(),
+        ),
+        &mut root,
+    )
+    .unwrap();
+    let pid = child.process_id();
+    let ends: Vec<File> = (0..5)
+        .filter_map(|slot| child.take_host_end(slot))
+        .collect();
+    INJECT_EINTR.with(|c| c.set(3));
+    drop(child);
+    assert_eq!(INJECT_EINTR.with(|c| c.get()), 0);
+    drop(ends);
+    let mut status = 0;
+    let rc = unsafe { libc::waitpid(pid, &mut status, libc::WNOHANG) };
+    assert_eq!(rc, -1);
+    assert_eq!(
+        std::io::Error::last_os_error().raw_os_error(),
+        Some(libc::ECHILD)
+    );
+}
+
+#[test]
+fn a_setup_failure_after_the_spawn_kills_the_childs_whole_group() {
+    // RF-4: the exit source fails after the child has forked a descendant;
+    // the spawn returns the error, and the descendant is killed with its
+    // group.
+    let dir = test_dir();
+    let mut root = root_in(&dir);
+    FAIL_EXIT_SOURCE.with(|f| f.set(Some(Duration::from_millis(500))));
+    let result = spawn(
+        VerifiedLaunch::from_recheck(
+            fixture_spec(
+                DescriptorSet::Provider,
+                ChildEnvironment::rust(),
+                "descendant",
+            ),
+            recheck(),
+        ),
+        &mut root,
+    );
+    FAIL_EXIT_SOURCE.with(|f| f.set(None));
+    assert!(
+        matches!(result, Err(LaunchError::Io { call: "kqueue", .. })),
+        "{result:?}"
+    );
+    let scratch = std::fs::read_dir(root.path())
+        .unwrap()
+        .filter_map(Result::ok)
+        .map(|e| e.path())
+        .find(|p| {
+            p.file_name()
+                .is_some_and(|n| n.to_string_lossy().starts_with("child-"))
+        })
+        .expect("the child's scratch");
+    let grandchild: i32 = std::fs::read_to_string(scratch.join("grandchild.pid"))
+        .expect("the descendant wrote its pid")
+        .trim()
+        .parse()
+        .unwrap();
+    assert!(
+        eventually_gone(grandchild),
+        "descendant {grandchild} survived"
+    );
+}
+
+// ------------------------------------------------------------------ D3a-0 (M3-D r5 items 4, 16, 18 and 20)
+
+fn spawn_mode(root: &mut ScratchRoot, mode: &str) -> Child {
+    spawn(
+        VerifiedLaunch::from_recheck(
+            fixture_spec(DescriptorSet::Provider, ChildEnvironment::rust(), mode),
+            recheck(),
+        ),
+        root,
+    )
+    .unwrap()
+}
+fn syscalls_taken() -> Vec<&'static str> {
+    SYSCALLS.with_borrow_mut(std::mem::take)
+}
+
+/// D3a-0 (LD-D3A-14): before the exit, `try_reap` returns `None` at once
+/// and leaves the child reserved; after it, the status and rusage; then
+/// `AlreadyReaped`. Each call is one `wait4(WNOHANG)`. A watchdog releases
+/// the child after 5 s, so a blocking reap would return late, and `Some`.
+#[test]
+fn try_reap_never_blocks_and_reaps_after_the_exit() {
+    let dir = test_dir();
+    let mut root = root_in(&dir);
+    let mut child = spawn_mode(&mut root, "hold");
+    let pid = child.process_id();
+    let input = child.take_host_end(0).unwrap();
+    let (release, released) = std::sync::mpsc::channel::<()>();
+    let watchdog = std::thread::spawn(move || {
+        // Released by the test, or by the timeout if a blocking reap holds it.
+        released
+            .recv_timeout(Duration::from_secs(5))
+            .unwrap_or_default();
+        drop(input);
+    });
+    syscalls_taken();
+    let started = std::time::Instant::now();
+    assert!(child.try_reap().unwrap().is_none());
+    assert!(started.elapsed() < Duration::from_secs(2));
+    assert_eq!(syscalls_taken(), ["wait4(WNOHANG)"]);
+    assert!(alive(pid) && !child.is_reaped());
+    release.send(()).unwrap();
+    watchdog.join().unwrap();
+    let status = child
+        .wait_exit(Duration::from_secs(30))
+        .unwrap()
+        .expect("exit");
+    let mut reaped = None;
+    for _ in 0..200 {
+        reaped = child.try_reap().unwrap();
+        if reaped.is_some() {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    assert_eq!(reaped.expect("reaped").status, status);
+    assert!(child.is_reaped());
+    assert!(syscalls_taken().iter().all(|c| *c == "wait4(WNOHANG)"));
+    assert!(matches!(child.try_reap(), Err(LaunchError::AlreadyReaped)));
+}
+
+/// D3a-0 (LD-D3A-14; item 18's reap ceiling): an abandoned root is never
+/// signalled or reaped again. Abandoning a live child and destroying the
+/// `Unreaped` make no signal or reap call, the child still runs, and its
+/// scratch-root hold is kept after the root itself is dropped, so a sibling
+/// sweep keeps the root. The test, not the host, then ends the child.
+#[test]
+fn an_abandoned_root_is_never_signalled_or_reaped_and_keeps_its_root() {
+    let dir = test_dir();
+    let mut root = root_in(&dir);
+    let root_path = root.path().to_path_buf();
+    let mut child = spawn_mode(&mut root, "hold");
+    let pid = child.process_id();
+    let input = child.take_host_end(0).unwrap();
+    drop(root);
+    syscalls_taken();
+    let unreaped = child.abandon();
+    assert_eq!(unreaped.process_id(), pid);
+    drop(unreaped);
+    assert_eq!(syscalls_taken(), Vec::<&str>::new());
+    assert!(alive(pid));
+    let sweeper = root_in(&dir);
+    assert_eq!(sweeper.sweep().unwrap(), Vec::<String>::new());
+    assert!(root_path.exists());
+    drop(input);
+    // SAFETY: the test ends its own abandoned child.
+    unsafe { libc::kill(pid, libc::SIGKILL) };
+    let mut status = 0;
+    // SAFETY: the exact pid, which the host no longer reaps.
+    assert_eq!(unsafe { libc::waitpid(pid, &mut status, 0) }, pid);
+}
+
+/// A reaped child's scratch, to populate.
+fn reaped_scratch(root: &mut ScratchRoot) -> ChildScratch {
+    let mut child = spawn_mode(root, "report");
+    drop(child.take_host_end(0));
+    child
+        .wait_exit(Duration::from_secs(30))
+        .unwrap()
+        .expect("exit");
+    child.reap().unwrap();
+    child.take_scratch().unwrap()
+}
+/// What a populated scratch holds.
+struct Tree {
+    /// Directories below the scratch.
+    directories: usize,
+    /// Every entry below the scratch, directories included.
+    entries: usize,
+    /// The sum of every non-directory entry's own size.
+    bytes: u64,
+}
+/// 300 empty files, a 1,000-byte file, a 40-deep chain with a 5-byte leaf,
+/// and two links out of the scratch: to a file and to a directory, both in
+/// `outside`, which the walks must never touch.
+fn populate(scratch: &Path, outside: &Path) -> Tree {
+    let many = scratch.join("many");
+    std::fs::create_dir(&many).unwrap();
+    for i in 0..300 {
+        File::create(many.join(format!("f{i:03}"))).unwrap();
+    }
+    std::fs::write(scratch.join("data"), vec![b'x'; 1000]).unwrap();
+    let mut deep = scratch.join("deep");
+    std::fs::create_dir(&deep).unwrap();
+    for _ in 0..40 {
+        deep = deep.join("d");
+        std::fs::create_dir(&deep).unwrap();
+    }
+    std::fs::write(deep.join("leaf"), b"leaf!").unwrap();
+    std::fs::create_dir(outside.join("kept")).unwrap();
+    std::fs::write(outside.join("kept/file"), b"do not touch").unwrap();
+    std::os::unix::fs::symlink(outside.join("kept/file"), scratch.join("link-file")).unwrap();
+    std::os::unix::fs::symlink(outside.join("kept"), scratch.join("link-dir")).unwrap();
+    let links = ["link-file", "link-dir"]
+        .iter()
+        .map(|l| std::fs::symlink_metadata(scratch.join(l)).unwrap().len())
+        .sum::<u64>();
+    Tree {
+        directories: 1 + 1 + 40,
+        entries: 1 + 300 + 1 + 1 + 40 + 1 + 2,
+        bytes: 1000 + 5 + links,
+    }
+}
+fn walk_taken() -> Vec<WalkCall> {
+    WALK_LOG.with_borrow_mut(std::mem::take)
+}
+/// The recorded calls' work, priced call by call.
+fn priced(calls: &[WalkCall]) -> WorkCost {
+    calls
+        .iter()
+        .try_fold(WorkCost::default(), |sum, c| {
+            sum.checked_add(scratch_cost(*c))
+        })
+        .unwrap()
+}
+fn count(calls: &[WalkCall], wanted: fn(&WalkCall) -> bool) -> usize {
+    calls.iter().filter(|c| wanted(c)).count()
+}
+/// r2 (Codex D3A0-R1-RF-1): every directory descriptor a walk makes follows
+/// its own descent's charge, immediately.
+fn opened_after_charging(calls: &[WalkCall]) {
+    for (at, call) in calls.iter().enumerate() {
+        if *call == WalkCall::Open {
+            assert!(
+                at > 0 && matches!(calls[at - 1], WalkCall::Descend(_)),
+                "an open at {at} not preceded by its charge"
+            );
+        }
+    }
+    assert_eq!(
+        count(calls, |c| *c == WalkCall::Open),
+        count(calls, |c| matches!(c, WalkCall::Descend(_)))
+    );
+}
+fn outside_untouched(outside: &Path) {
+    assert_eq!(
+        std::fs::read(outside.join("kept/file")).unwrap(),
+        b"do not touch"
+    );
+}
+
+/// D3a-0 (LD-D3A-12; item 16): the measuring walk sums every
+/// non-directory entry's own size, a link's own length and never its
+/// target's, and enters no link. Its charge is exactly the recorded calls'
+/// price: one read per entry, per `.` and `..`, and per end of a listing,
+/// one status per entry, one descent per directory and the root. It stops
+/// once past the limit, and refuses on exhaustion.
+#[test]
+fn the_measuring_walk_is_exact_charged_and_never_follows_a_link() {
+    let dir = test_dir();
+    let mut root = root_in(&dir);
+    let scratch = reaped_scratch(&mut root);
+    let outside = dir.0.join("outside");
+    std::fs::create_dir(&outside).unwrap();
+    let tree = populate(scratch.path(), &outside);
+    walk_taken();
+    let mut ledger = WorkLedger::discovery_profile();
+    let bytes = ledger
+        .scope(|work| scratch.measure(u64::MAX, work))
+        .unwrap();
+    assert_eq!(bytes, tree.bytes);
+    let calls = walk_taken();
+    assert_eq!(ledger.used(), priced(&calls));
+    opened_after_charging(&calls);
+    let levels = tree.directories + 1;
+    assert_eq!(count(&calls, |c| matches!(c, WalkCall::Descend(_))), levels);
+    assert_eq!(count(&calls, |c| *c == WalkCall::Status), tree.entries);
+    assert_eq!(
+        count(&calls, |c| *c == WalkCall::Read),
+        tree.entries + 3 * levels
+    );
+    outside_untouched(&outside);
+    let measured = |limit: u64| {
+        WorkLedger::discovery_profile()
+            .scope(|work| scratch.measure(limit, work))
+            .unwrap()
+    };
+    // At the limit the total is exact; one byte under, the walk stops past it.
+    assert_eq!(measured(tree.bytes), tree.bytes);
+    assert!(measured(tree.bytes - 1) > tree.bytes - 1);
+    // Past the limit the walk stops at once: over 20 one-byte files, a limit
+    // of 0 reads one status.
+    let ones = reaped_scratch(&mut root);
+    for i in 0..20 {
+        std::fs::write(ones.path().join(format!("one{i:02}")), b"1").unwrap();
+    }
+    walk_taken();
+    let stopped = WorkLedger::discovery_profile()
+        .scope(|work| ones.measure(0, work))
+        .unwrap();
+    assert_eq!(stopped, 1);
+    assert_eq!(count(&walk_taken(), |c| *c == WalkCall::Status), 1);
+    let mut tight = WorkLedger::with_limits(WorkCost {
+        objects: 20,
+        edges: 1000,
+        bytes: 1 << 20,
+    })
+    .unwrap();
+    assert!(matches!(
+        tight.scope(|work| scratch.measure(u64::MAX, work)),
+        Err(WorkFailure::Budget(_))
+    ));
+    walk_taken();
+}
+
+/// D3a-0 (LD-D3A-12; item 20): the removal walk removes everything below
+/// the scratch and then the scratch, unlinking each link as a link, its
+/// target untouched (D1-T8). Its charge is exactly the recorded calls'
+/// price, with one unlink per entry and one for the scratch itself.
+#[test]
+fn the_removal_walk_removes_everything_exactly_charged_and_never_follows_a_link() {
+    let dir = test_dir();
+    let mut root = root_in(&dir);
+    let scratch = reaped_scratch(&mut root);
+    let path = scratch.path().to_path_buf();
+    let outside = dir.0.join("outside");
+    std::fs::create_dir(&outside).unwrap();
+    let tree = populate(&path, &outside);
+    walk_taken();
+    let mut ledger = WorkLedger::discovery_profile();
+    ledger.scope(|work| scratch.remove_bounded(work)).unwrap();
+    assert!(!path.exists());
+    outside_untouched(&outside);
+    let calls = walk_taken();
+    assert_eq!(ledger.used(), priced(&calls));
+    opened_after_charging(&calls);
+    assert_eq!(
+        count(&calls, |c| matches!(c, WalkCall::Descend(_))),
+        tree.directories + 1
+    );
+    assert_eq!(count(&calls, |c| *c == WalkCall::Unlink), tree.entries);
+    assert_eq!(count(&calls, |c| matches!(c, WalkCall::Leaf(_))), 1);
+}
+
+/// D3a-0 (LD-D3A-12, LD-D3A-17): the removal walk's two failures, for D3 to
+/// settle as `retained`. Exhaustion is the ledger's `Budget` failure, with
+/// no errno; an unlink the filesystem refuses is the I/O failure, with that
+/// call's actual errno (`EACCES` from a read-only directory). Either leaves
+/// the scratch in place.
+#[test]
+fn the_removal_walk_fails_by_exhaustion_or_by_an_errno_leaving_the_scratch() {
+    let dir = test_dir();
+    let mut root = root_in(&dir);
+    let scratch = reaped_scratch(&mut root);
+    let path = scratch.path().to_path_buf();
+    let outside = dir.0.join("outside");
+    std::fs::create_dir(&outside).unwrap();
+    populate(&path, &outside);
+    let mut tight = WorkLedger::with_limits(WorkCost {
+        objects: 20,
+        edges: 1000,
+        bytes: 1 << 20,
+    })
+    .unwrap();
+    assert!(matches!(
+        tight.scope(|work| scratch.remove_bounded(work)),
+        Err(WorkFailure::Budget(_))
+    ));
+    assert!(path.exists());
+    walk_taken();
+
+    let scratch = reaped_scratch(&mut root);
+    let path = scratch.path().to_path_buf();
+    let locked = path.join("locked");
+    std::fs::create_dir(&locked).unwrap();
+    std::fs::write(locked.join("file"), b"x").unwrap();
+    std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o500)).unwrap();
+    let refused = WorkLedger::discovery_profile().scope(|work| scratch.remove_bounded(work));
+    std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o700)).unwrap();
+    match refused {
+        Err(WorkFailure::Operation(LaunchError::Io { call, error })) => {
+            assert_eq!(call, "unlinkat(scratch)");
+            assert_eq!(error.raw_os_error(), Some(libc::EACCES));
+        }
+        other => panic!("{other:?}"),
+    }
+    assert!(locked.join("file").exists());
+    walk_taken();
+}
+
+/// D3a-0 (LD-D3A-8; item 16's input): the resident-bytes sampler on the
+/// supervised root and on a second member of its group, and its refusal
+/// for no such process.
+#[test]
+fn the_sampler_reads_the_root_and_a_group_member() {
+    let dir = test_dir();
+    let mut root = root_in(&dir);
+    let mut child = spawn_mode(&mut root, "descendant");
+    let pid = child.process_id();
+    let marker = child.scratch().unwrap().path().join("grandchild.pid");
+    let mut grandchild = None;
+    for _ in 0..400 {
+        if let Ok(text) = std::fs::read_to_string(&marker) {
+            grandchild = Some(text.trim().parse::<i32>().unwrap());
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(25));
+    }
+    let grandchild = grandchild.expect("the descendant wrote its pid");
+    let Listing::Complete(members) = group_members_bounded(pid, 4).unwrap() else {
+        panic!("the group listing exceeded its capacity");
+    };
+    assert!(members.contains(&pid) && members.contains(&grandchild));
+    assert!(resident_bytes(pid).unwrap() > 0);
+    assert!(resident_bytes(grandchild).unwrap() > 0);
+    assert!(matches!(
+        resident_bytes(i32::MAX),
+        Err(LaunchError::Io {
+            call: "proc_pid_rusage",
+            ..
+        })
+    ));
+    child.signal_group(libc::SIGKILL).unwrap();
+    child
+        .wait_exit(Duration::from_secs(30))
+        .unwrap()
+        .expect("exit");
+    child.reap().unwrap();
+    assert!(eventually_gone(grandchild));
+}
+
+/// r2 (Codex D3A0-R1-RF-1): a descent is charged before its directory is
+/// duplicated or opened. A ledger that cannot fund the root's descent makes no
+/// descriptor; one that funds only the root's refuses at the subdirectory's
+/// descent with `Budget`, not with the `EACCES` an open of that unreadable
+/// directory would return, and makes one descriptor only.
+#[test]
+fn a_descent_is_charged_before_its_directory_is_opened() {
+    let dir = test_dir();
+    let mut root = root_in(&dir);
+    let scratch = reaped_scratch(&mut root);
+    let sealed = scratch.path().join("sealed");
+    std::fs::create_dir(&sealed).unwrap();
+    std::fs::set_permissions(&sealed, std::fs::Permissions::from_mode(0o000)).unwrap();
+    // Only descents charge objects: 3 each.
+    for (objects, opens) in [(2, 0), (5, 1)] {
+        let mut ledger = WorkLedger::with_limits(WorkCost {
+            objects,
+            edges: 1000,
+            bytes: 1 << 20,
+        })
+        .unwrap();
+        walk_taken();
+        assert!(matches!(
+            ledger.scope(|work| scratch.measure(u64::MAX, work)),
+            Err(WorkFailure::Budget(_))
+        ));
+        let calls = walk_taken();
+        assert_eq!(count(&calls, |c| *c == WalkCall::Open), opens);
+        opened_after_charging(&calls);
+    }
+    std::fs::set_permissions(&sealed, std::fs::Permissions::from_mode(0o700)).unwrap();
+}
+
+// ------------------------------------------------------------------ D3a-1 (item 12's readiness loop)
+
+/// D3a-1: `wait_ready` over a pipe: nothing ready waits out its timeout;
+/// a written byte makes the read end readable and the write end is
+/// writable; a closed write end reads as ready (the read then sees EOF).
+#[test]
+fn wait_ready_reports_readiness_hang_up_and_its_timeout() {
+    let mut fds = [0; 2];
+    // SAFETY: a valid two-element out-array.
+    assert_eq!(unsafe { libc::pipe(fds.as_mut_ptr()) }, 0);
+    // SAFETY: pipe returned two fresh descriptors this test owns.
+    let (mut reader, mut writer) =
+        unsafe { (File::from_raw_fd(fds[0]), File::from_raw_fd(fds[1])) };
+    let mut set = [Readiness::new(reader.as_raw_fd(), true, false)];
+    let started = std::time::Instant::now();
+    assert_eq!(wait_ready(&mut set, Duration::from_millis(50)).unwrap(), 0);
+    assert!(started.elapsed() >= Duration::from_millis(50));
+    assert!(!set[0].readable);
+    std::io::Write::write_all(&mut writer, b"x").unwrap();
+    let mut set = [
+        Readiness::new(reader.as_raw_fd(), true, false),
+        Readiness::new(writer.as_raw_fd(), false, true),
+    ];
+    assert_eq!(wait_ready(&mut set, Duration::from_secs(1)).unwrap(), 2);
+    assert!(set[0].readable && !set[0].writable);
+    assert!(set[1].writable && !set[1].readable);
+    drop(writer);
+    let mut byte = [0u8; 1];
+    assert_eq!(reader.read(&mut byte).unwrap(), 1);
+    let mut set = [Readiness::new(reader.as_raw_fd(), true, false)];
+    assert_eq!(wait_ready(&mut set, Duration::from_secs(1)).unwrap(), 1);
+    assert!(set[0].readable);
+    assert_eq!(reader.read(&mut byte).unwrap(), 0);
+}
+
+/// Unit D3a-1 r2 (Codex D3A1-R1-RF-3): a wait whose every `poll` is
+/// interrupted ends at its deadline with nothing ready, rather than
+/// retrying past it; a zero timeout returns at once.
+#[test]
+fn an_interrupted_wait_ends_at_its_deadline() {
+    let (done, finished) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let mut fds = [0; 2];
+        // SAFETY: a valid two-element out-array.
+        assert_eq!(unsafe { libc::pipe(fds.as_mut_ptr()) }, 0);
+        // SAFETY: pipe returned two fresh descriptors this thread owns.
+        let (reader, writer) = unsafe { (File::from_raw_fd(fds[0]), File::from_raw_fd(fds[1])) };
+        POLL_EINTR.with(|c| c.set(true));
+        let mut set = [
+            Readiness::new(reader.as_raw_fd(), true, false),
+            Readiness::new(writer.as_raw_fd(), false, true),
+        ];
+        let started = std::time::Instant::now();
+        let ready = wait_ready(&mut set, Duration::from_millis(100)).unwrap();
+        let waited = started.elapsed();
+        let zero = std::time::Instant::now();
+        let none = wait_ready(&mut set, Duration::ZERO).unwrap();
+        let zero = zero.elapsed();
+        POLL_EINTR.with(|c| c.set(false));
+        done.send((ready, set, waited, none, zero)).unwrap();
+    });
+    let (ready, set, waited, none, zero) = finished
+        .recv_timeout(Duration::from_secs(5))
+        .expect("the interrupted wait ends");
+    assert_eq!((ready, none), (0, 0));
+    assert!(set.iter().all(|e| !e.readable && !e.writable));
+    assert!(waited >= Duration::from_millis(100) && waited < Duration::from_secs(2));
+    assert!(zero < Duration::from_millis(50));
+}
+
+/// Unit D3a-4 (S-OP-2c item 23a, LD-OPT-4): each terminating signal maps by
+/// this target's `libc` constant, and a number with no member maps to none.
+#[test]
+fn terminating_signals_map_by_their_libc_constants() {
+    use super::TerminatingSignal as S;
+    // macOS's numbers differ from Linux's (SIGBUS 10, SIGUSR1 30).
+    assert_eq!(S::of(libc::SIGBUS), Some(S::Bus));
+    assert_eq!(S::of(10), Some(S::Bus));
+    assert_eq!(S::of(30), Some(S::Usr1));
+    assert_eq!(S::of(6), Some(S::Abrt));
+    assert_eq!(S::of(9), Some(S::Kill));
+    assert_eq!(S::of(15), Some(S::Term));
+    // SIGEMT (7 on macOS), stop and continue signals, and 0, have no member.
+    assert_eq!(S::of(libc::SIGEMT), None);
+    assert_eq!(S::of(libc::SIGSTOP), None);
+    assert_eq!(S::of(libc::SIGCONT), None);
+    assert_eq!(S::of(0), None);
+    let all: Vec<i32> = (1..32).filter(|n| S::of(*n).is_some()).collect();
+    assert_eq!(all.len(), 20, "{all:?}");
+}
+
+// ------------------------------------------------------------------ D3b-0: the descendant mechanisms
+
+/// The pids a `two-children` or `escapee` fixture wrote, sorted.
+fn fixture_children(child: &Child) -> Vec<i32> {
+    let marker = child.scratch().unwrap().path().join("children.pid");
+    for _ in 0..400 {
+        if let Ok(text) = std::fs::read_to_string(&marker) {
+            let mut pids: Vec<i32> = text.split(' ').map(|p| p.parse().unwrap()).collect();
+            pids.sort_unstable();
+            return pids;
+        }
+        std::thread::sleep(Duration::from_millis(25));
+    }
+    panic!("the fixture wrote no children.pid");
+}
+/// Kill the child's group, reap the root, and wait until each pid is gone.
+fn kill_group_and_settle(mut child: Child, pids: &[i32]) {
+    child.signal_group(libc::SIGKILL).unwrap();
+    child
+        .wait_exit(Duration::from_secs(30))
+        .unwrap()
+        .expect("exit");
+    child.reap().unwrap();
+    for pid in pids {
+        assert!(eventually_gone(*pid), "{pid} survived");
+    }
+}
+/// Kill one test-made process by pid (an escapee outside the group).
+fn kill_escapee(pid: i32) {
+    unsafe { libc::kill(pid, libc::SIGKILL) };
+    assert!(eventually_gone(pid), "{pid} survived");
+}
+/// Wait until `pid` has no identity: exited, or a zombie.
+fn eventually_no_identity(pid: i32) -> bool {
+    for _ in 0..200 {
+        if process_identity(pid).unwrap().is_none() {
+            return true;
+        }
+        std::thread::sleep(Duration::from_millis(25));
+    }
+    false
+}
+
+/// D3b-0 (D3b plan r3, LD-D3B-3; item 18's walk, :592): `proc_listchildpids`
+/// returns a pid count, which fills a buffer of capacity plus one slots;
+/// a listing that fills it is `Exceeded`, never a truncated list.
+#[test]
+fn child_processes_counts_the_children_into_a_bounded_buffer() {
+    let dir = test_dir();
+    let mut root = root_in(&dir);
+    let child = spawn_mode(&mut root, "two-children");
+    let pid = child.process_id();
+    let children = fixture_children(&child);
+    assert_eq!(children.len(), 2);
+    assert_eq!(
+        child_processes(pid, 4).unwrap(),
+        Listing::Complete(children.clone())
+    );
+    assert_eq!(
+        child_processes(pid, 2).unwrap(),
+        Listing::Complete(children.clone())
+    );
+    assert_eq!(child_processes(pid, 1).unwrap(), Listing::Exceeded);
+    assert_eq!(child_processes(pid, 0).unwrap(), Listing::Exceeded);
+    assert!(matches!(
+        child_processes(pid, usize::MAX),
+        Err(LaunchError::ListingCapacity(usize::MAX))
+    ));
+    kill_group_and_settle(child, &children);
+}
+
+/// D3b-0 (LD-D3B-3; item 18's confirm, :595): the bounded group listing at
+/// and over its capacity. `proc_listpids` returns bytes.
+#[test]
+fn group_members_bounded_lists_at_and_refuses_over_its_capacity() {
+    let dir = test_dir();
+    let mut root = root_in(&dir);
+    let child = spawn_mode(&mut root, "two-children");
+    let pid = child.process_id();
+    let children = fixture_children(&child);
+    let mut all = children.clone();
+    all.push(pid);
+    all.sort_unstable();
+    assert_eq!(
+        group_members_bounded(pid, 3).unwrap(),
+        Listing::Complete(all.clone())
+    );
+    assert_eq!(
+        group_members_bounded(pid, 8).unwrap(),
+        Listing::Complete(all.clone())
+    );
+    assert_eq!(group_members_bounded(pid, 2).unwrap(), Listing::Exceeded);
+    assert!(matches!(
+        group_members_bounded(pid, usize::MAX),
+        Err(LaunchError::ListingCapacity(usize::MAX))
+    ));
+    kill_group_and_settle(child, &children);
+}
+
+/// D3b-0 (item 18's snapshot, :592): the identity's pgid and start time, an
+/// escapee's own group, and no identity for a zombie or a reaped root.
+#[test]
+fn process_identity_reads_the_group_and_start_time() {
+    let dir = test_dir();
+    let mut root = root_in(&dir);
+    let child = spawn_mode(&mut root, "escapee");
+    let pid = child.process_id();
+    let children = fixture_children(&child);
+    let [escapee] = children[..] else {
+        panic!("one escapee");
+    };
+    let root_identity = process_identity(pid).unwrap().expect("the root");
+    assert_eq!(
+        (root_identity.process_id(), root_identity.pgid()),
+        (pid, pid)
+    );
+    assert!(root_identity.start_seconds() > 0);
+    let escaped = process_identity(escapee).unwrap().expect("the escapee");
+    assert_eq!((escaped.process_id(), escaped.pgid()), (escapee, escapee));
+    assert_ne!(escaped.pgid(), pid);
+    // Killed, the escapee is its parent's zombie: it has no identity.
+    unsafe { libc::kill(escapee, libc::SIGKILL) };
+    assert!(eventually_no_identity(escapee));
+    kill_group_and_settle(child, &[escapee]);
+    assert_eq!(process_identity(pid).unwrap(), None);
+}
+
+/// D3b-0 (item 18 step 3, :594; D3b plan r3, RF-4): `kill_descendant`
+/// rereads the identity and sends only when the pid and start time are
+/// equal; a changed one sends nothing, and a zombie is `Exited`.
+#[test]
+fn kill_descendant_sends_only_on_an_equal_identity() {
+    let dir = test_dir();
+    let mut root = root_in(&dir);
+    let child = spawn_mode(&mut root, "escapee");
+    let children = fixture_children(&child);
+    let [escapee] = children[..] else {
+        panic!("one escapee");
+    };
+    let identity = process_identity(escapee).unwrap().expect("the escapee");
+    syscalls_taken();
+    for stale in [
+        ProcessIdentity::for_test(
+            escapee,
+            identity.pgid(),
+            identity.start_seconds(),
+            identity.start_micros() + 1,
+        ),
+        ProcessIdentity::for_test(
+            escapee,
+            identity.pgid(),
+            identity.start_seconds() + 1,
+            identity.start_micros(),
+        ),
+    ] {
+        assert_eq!(
+            child.kill_descendant(&stale).unwrap(),
+            KillOutcome::IdentityChanged
+        );
+    }
+    assert!(!syscalls_taken().contains(&"kill"));
+    assert_eq!(process_identity(escapee).unwrap(), Some(identity));
+    assert_eq!(child.kill_descendant(&identity).unwrap(), KillOutcome::Sent);
+    assert_eq!(syscalls_taken(), ["kill"]);
+    assert!(eventually_no_identity(escapee));
+    assert_eq!(
+        child.kill_descendant(&identity).unwrap(),
+        KillOutcome::Exited
+    );
+    kill_group_and_settle(child, &[escapee]);
+}
+
+/// D3b-0 (D3b plan r3, Q9): the protected pids are refused before any read
+/// or send: this child's root, pid 1 or a pid `kill` reads as a group, the
+/// host's own pid, and every pid once the root is reaped.
+#[test]
+fn kill_descendant_refuses_the_root_init_the_host_and_after_the_reap() {
+    let dir = test_dir();
+    let mut root = root_in(&dir);
+    let mut child = spawn_mode(&mut root, "escapee");
+    let pid = child.process_id();
+    let children = fixture_children(&child);
+    let [escapee] = children[..] else {
+        panic!("one escapee");
+    };
+    let escaped = process_identity(escapee).unwrap().expect("the escapee");
+    let root_identity = process_identity(pid).unwrap().expect("the root");
+    let host = process_identity(std::process::id() as i32)
+        .unwrap()
+        .expect("the host");
+    syscalls_taken();
+    assert_eq!(
+        child.kill_descendant(&root_identity).unwrap(),
+        KillOutcome::Refused(Protected::Root)
+    );
+    for pid in [1, 0, -1, -pid] {
+        assert_eq!(
+            child
+                .kill_descendant(&ProcessIdentity::for_test(pid, pid, 0, 0))
+                .unwrap(),
+            KillOutcome::Refused(Protected::InitOrGroup)
+        );
+    }
+    assert_eq!(
+        child.kill_descendant(&host).unwrap(),
+        KillOutcome::Refused(Protected::Host)
+    );
+    assert!(syscalls_taken().is_empty());
+    assert!(alive(pid));
+    child.signal_group(libc::SIGKILL).unwrap();
+    child
+        .wait_exit(Duration::from_secs(30))
+        .unwrap()
+        .expect("exit");
+    child.reap().unwrap();
+    assert_eq!(
+        child.kill_descendant(&escaped).unwrap(),
+        KillOutcome::Refused(Protected::AfterReap)
+    );
+    assert!(!syscalls_taken().contains(&"kill"));
+    assert!(alive(escapee));
+    kill_escapee(escapee);
+}
+
+/// D3b-0 (D3b plan r3, RF-4): start times are never compared for order. A
+/// process started before the root, with a numerically lower start time, is
+/// still killed when its identity is equal.
+#[test]
+fn a_start_time_before_the_roots_is_still_killed() {
+    let dir = test_dir();
+    let mut root = root_in(&dir);
+    let mut earlier = spawn_mode(&mut root, "hold");
+    std::thread::sleep(Duration::from_millis(20));
+    let mut child = spawn_mode(&mut root, "hold");
+    let before = process_identity(earlier.process_id())
+        .unwrap()
+        .expect("the earlier process");
+    let root_identity = process_identity(child.process_id())
+        .unwrap()
+        .expect("the root");
+    assert!(
+        (before.start_seconds(), before.start_micros())
+            < (root_identity.start_seconds(), root_identity.start_micros())
+    );
+    assert_eq!(child.kill_descendant(&before).unwrap(), KillOutcome::Sent);
+    let status = earlier
+        .wait_exit(Duration::from_secs(30))
+        .unwrap()
+        .expect("exit");
+    assert_eq!(status.signal(), Some(libc::SIGKILL));
+    earlier.reap().unwrap();
+    assert_eq!(child.kill_descendant(&before).unwrap(), KillOutcome::Exited);
+    drop(child.take_host_end(0));
+    child
+        .wait_exit(Duration::from_secs(30))
+        .unwrap()
+        .expect("exit");
+    child.reap().unwrap();
+}
+
+/// Set this thread's errno, as a stale value a listing must not read.
+fn set_errno(errno: i32) {
+    unsafe { *libc::__error() = errno };
+}
+
+/// D3b-0 r2 (Codex D3B0-R1-RF-1): libproc's listing wrappers return 0, not
+/// -1, when the underlying call fails. A real failure, made by passing a
+/// one-byte buffer size (`ENOMEM`), is an `Io` error naming its call and
+/// errno for each listing, never `Complete(vec![])`.
+#[test]
+fn a_listing_failure_is_never_an_empty_list() {
+    let dir = test_dir();
+    let mut root = root_in(&dir);
+    let child = spawn_mode(&mut root, "two-children");
+    let pid = child.process_id();
+    let children = fixture_children(&child);
+    for (listing, which) in [("proc_listchildpids", 0), ("proc_listpids", 1)] {
+        LISTING_BYTES.set(Some(1));
+        let result = match which {
+            0 => child_processes(pid, 4),
+            _ => group_members_bounded(pid, 4),
+        };
+        match result {
+            Err(LaunchError::Io { call, error }) => {
+                assert_eq!(call, listing);
+                assert_eq!(error.raw_os_error(), Some(libc::ENOMEM));
+            }
+            other => panic!("{listing}: {other:?}"),
+        }
+        assert_eq!(LISTING_BYTES.get(), None);
+    }
+    // The same calls, unforced, list the members.
+    assert_eq!(
+        child_processes(pid, 4).unwrap(),
+        Listing::Complete(children.clone())
+    );
+    kill_group_and_settle(child, &children);
+}
+
+/// D3b-0 r2 (D3B0-R1-RF-1): a successful empty listing is `Complete(vec![])`
+/// even when the thread's errno is already set, because errno is cleared
+/// before each call: a childless root's children, and a reaped root's
+/// emptied group.
+#[test]
+fn an_empty_listing_is_complete_despite_a_stale_errno() {
+    let dir = test_dir();
+    let mut root = root_in(&dir);
+    let mut child = spawn_mode(&mut root, "hold");
+    let pid = child.process_id();
+    set_errno(libc::EPERM);
+    assert_eq!(child_processes(pid, 4).unwrap(), Listing::Complete(vec![]));
+    drop(child.take_host_end(0));
+    child
+        .wait_exit(Duration::from_secs(30))
+        .unwrap()
+        .expect("exit");
+    child.reap().unwrap();
+    set_errno(libc::EPERM);
+    assert_eq!(
+        group_members_bounded(pid, 4).unwrap(),
+        Listing::Complete(vec![])
+    );
+}
+
+/// D3b-0 r2 (self-review item 3): `proc_pidinfo` also returns 0 on failure.
+/// A real failure (a ten-byte size: `ENOMEM`), made with a stale `ESRCH`
+/// already in errno, is an `Io` error naming its call, never `None`.
+#[test]
+fn an_identity_failure_is_never_a_missing_process() {
+    set_errno(libc::ESRCH);
+    IDENTITY_BYTES.set(Some(10));
+    match process_identity(std::process::id() as i32) {
+        Err(LaunchError::Io { call, error }) => {
+            assert_eq!(call, "proc_pidinfo");
+            assert_eq!(error.raw_os_error(), Some(libc::ENOMEM));
+        }
+        other => panic!("{other:?}"),
+    }
+    assert_eq!(IDENTITY_BYTES.get(), None);
+    set_errno(libc::ESRCH);
+    assert!(
+        process_identity(std::process::id() as i32)
+            .unwrap()
+            .is_some()
+    );
+}
