@@ -1,0 +1,9 @@
+# Independent review: status r111, D3b-1 delta
+
+Write only REVIEW.md and review.json in /tmp/opensip-implementation/reviews/codex-status-board-r111. Read-only hashing/JSON/Git/source; no repository/worktree/control/stage edits, builds/tests/lanes, network, panes/delegation, private fixtures/installations/keys, heldout/T2 stores/cache.
+
+Stage /tmp/opensip-implementation/status-board-r111-stage; manifest docs/implementation/m3/status/2026-10-18-r111-subject.json, SHA256 b3005052a8cfb49f7d0c78f64f5b2855d6c439b6eb407c0745ee503aba0ff6d2. Rehash every member. Product base 4453f529f532648fd7760e59e7ade90903446aaf; architecture base 15deb13a85a601ef444117be80d76071d9102bb1. Assess the status facts, not already accepted code.
+
+Verify all368 prior ledger rows inherited by value; only E369 is appended and equals the independent accepted D3b-1 r3 root scope/assent. Exactly one later product commit and architecture publication; review/subject/ancestry pins exact. No new product path or inventory bind; all96 current inventory bindings and80 contract bindings unchanged, inventory232/192 successors/contracts177. Verify the D row closes D3b-1 only, leaves D3b-2/gate and full D3b/D4/D5/CF/Linux/qualification open. Baseline173 to final193 components and8 runtime mutants are unit evidence only; one inherited enforcement owner-label expectation remains disclosed. Zero additional validation-map path changes do not restore current whole-host validation invalidated at r110. Source pins, table, links and current Codex/CODEX2 w8 roles agree. No owner choice or qualification inferred.
+
+Return {"verdict":"ACCEPT"|"REQUIRED-FINDINGS","subjectManifestSha256":"b3005052a8cfb49f7d0c78f64f5b2855d6c439b6eb407c0745ee503aba0ff6d2","requiredFindings":[],"nonBlockingObservations":[]}; STATUS-R111-RF-n / STATUS-R111-NBO-n ids.
