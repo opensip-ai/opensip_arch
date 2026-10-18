@@ -1,0 +1,53 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectManifestSha256": "091699f80bdb2c762ad66ec36e5d0968983699c4fff82061ad140f55b512d05c",
+  "requiredFindings": [
+    {
+      "id": "D5PLAN-R2-RF-1",
+      "priority": "P2",
+      "location": "d5/PLAN-r2.md:158-163 (LD-D5-6); MD:192",
+      "title": "Preserve the law's production execve site in the D1b launcher",
+      "description": "The revised predicate includes libc::execve and the exec family but permits production calls only for libc::posix_spawn in platform/process.rs. MD item 1 explicitly permits execve in section F's launcher. D5-5 waits for that production D1b launcher, so the proposed permanent rule would refuse a lawful prerequisite as soon as it lands. The only proposed exception class is test-only-feature code, which cannot represent the production launcher. This overcorrects round 1's missing owner restriction.",
+      "requestedChange": "Separate process creation, PATH-search execution and the launcher's absolute execve rule. Keep posix_spawn file-bound to process.rs and the PATH-search family forbidden. Carry a narrowly pinned production execve site owned by D1b's accepted launcher, with no broad app/crate exemption. Add positive and negative controls proving that the lawful launcher site is admitted and the same call in an unrelated production file is refused."
+    },
+    {
+      "id": "D5PLAN-R2-RF-2",
+      "priority": "P2",
+      "location": "d5/PLAN-r2.md:159-162,164-182 (reachability); product tools/tests/test_environment_exceptions.py:109-139",
+      "title": "Propagate test and production reachability through ordinary module declarations",
+      "description": "The cited M3-B analysis follows include! edges and inline cfg(test) module regions; it does not follow external mod declarations or #[path] module edges. Directory classification plus that analysis is insufficient for the promised reachability predicate. At the base, platform/lib.rs declares the external process_tests module under cfg(test), while process_tests.rs has no enclosing inline test module. Conversely a production #[path = \"tests/helper.rs\"] mod helper declaration can make code in a tests directory production-reachable, yet the cited include-only graph would classify it as a test target. The new shared fake source is itself planned to use #[path]. Filename exemptions would recreate the hole the plan says it avoids.",
+      "requestedChange": "Specify the expanded graph explicitly: Cargo target roots, external mod/#[path] declarations and include! edges, with cfg(test) and exact feature gates propagated across each edge. Any production path to a file must prevent a test-only exemption, regardless of its name/directory. Validate the crash-matrix exception through its gated ancestor chain. Add controls for an external test module, a production #[path] import of a tests-directory helper, and a file reached through both test and production edges; keep the census synchronized in the forbidden-spawn mutation."
+    },
+    {
+      "id": "D5PLAN-R2-RF-3",
+      "priority": "P2",
+      "location": "d5/PLAN-r2.md:218,223-228 (LD-D5-9); CFP:178-181",
+      "title": "Exempt the documented POSIX setsid failure from the must-differ rule",
+      "description": "The plan correctly recognizes that a provider's setsid fails with EPERM because it is already a session leader, not because of Seatbelt. It then universally requires every denial-required attempt to differ from the same unconfined attempt. The same provider launch/session context remains a session leader without confinement, so setsid fails with EPERM on both sides. A correct F-7 observation therefore fails the new validity rule even though MD F-7 explicitly accepts this POSIX outcome.",
+      "requestedChange": "Make validity expectations per attempt. For the provider setsid case, require and label the same POSIX EPERM result in the confined and equivalent unconfined session-leader contexts; do not credit it as confinement enforcement. If a positive setsid sanity check is needed, use a separately labelled non-session-leader child. Preserve differential success/denial checks for operations actually intended to be blocked by the profile and add a control catching misclassification of the POSIX failure as Seatbelt denial."
+    },
+    {
+      "id": "D5PLAN-R2-RF-4",
+      "priority": "P2",
+      "location": "d5/PLAN-r2.md:233-236,326 (automatic-concurrency control and mutation)",
+      "title": "Handle a lawful automatic value of 1 without claiming a concurrent mutation was caught",
+      "description": "OPP's automatic resolver can lawfully return 1. The plan then runs concurrency 1 against the same value but still requires the release-when-no-other-supervision mutation to be caught at the automatic value only. With the resolver returning 1 and no overlapping supervision, the mutant and the baseline behave identically. The new resolver gate alone does not make that mutation or the cross-supervision path non-vacuous.",
+      "requestedChange": "Define separate evidence states for zero fit, automatic=1, and automatic>1. Preserve the actual resolver value in the invariance run. Require a genuine overlapping-supervision execution for the mutation, either on a lane whose observed inputs resolve above 1 or as a separately labelled multi-supervision interaction control. If that execution is unavailable, keep it outstanding/not run and do not mark the mutation caught or the concurrency-interaction evidence complete."
+    }
+  ],
+  "nonBlockingObservations": [
+    {
+      "id": "D5PLAN-R2-NBO-1",
+      "priority": "P3",
+      "location": "d5/PLAN-r2.md:237-245 (LD-D5-11 projection)",
+      "title": "Establish script determinism before equating reap signals and secondary causes",
+      "description": "The projection is much better than raw fact equality, but reap signal and the set of later causes are not inherently deterministic for every fault script. Existing accepted facts-then-hang controls permit either SIGTERM or SIGKILL; sampling, exit and escalation ordering can vary with scheduling. Exact stderr byte counts likewise need a script whose production is complete before teardown. Calling all these fields deterministic needs a per-script contract.",
+      "requestedChange": "At D5-4, name the scripts and synchronization that fix each compared field. For lawful operational variation, check the allowed outcome separately rather than silently normalizing it, while retaining strict equality for the requested result, admissibility/release, owner outcome and canonical candidate content. Do not discard a meaningful result change as telemetry."
+    }
+  ],
+  "rulings": {
+    "Q6": "ACCEPT the resolver dependency and an explicit not-run row until it lands; do not invent a memory budget or claim completed overhead evidence while gated. RF-4 must additionally distinguish automatic=1 from an executed multi-supervision mutation. The coverage table must retain that outstanding evidence state.",
+    "Q7": "ACCEPT the SCAN_SCOPE/CLIPPY_CRATES split. Keep M3-B's host/security Clippy configurations and allow-attachment rules unchanged; the widened source scan supplies policy coverage for other targets without crate-wide exemptions. The listed environment sites match the pinned base, with function/key/gate details to be recorded at D5-0. Complete the module reachability described in RF-2.",
+    "Q8": "ACCEPT omitting the unconfined numeric-public-address connect. For the macOS CFP case, require the valid confined connect attempt to return EPERM; ENETUNREACH, timeout and generic failure are not substitutes. Record its different validity method explicitly rather than claiming a paired unconfined success. This avoids deliberate unconfined public egress; it does not itself prove no egress if the confinement being tested fails. Linux result expectations must follow its owning API/profile contract, not be inferred from the macOS probe."
+  }
+}
