@@ -1,0 +1,1185 @@
+diff --git a/crates/components/src/supervisor_tests.rs b/crates/components/src/supervisor_tests.rs
+index c1d4b36..995cb91 100644
+--- a/crates/components/src/supervisor_tests.rs
++++ b/crates/components/src/supervisor_tests.rs
+@@ -460,19 +460,129 @@ fn spec_for(exe: &Path, script: &str) -> SessionSpec {
+     }
+ }
+ 
+-/// The test's waits: item 14's shape, shortened.
++/// D5-0: every ordinary control keeps item 14's release waits.
+ fn quick() -> Waits {
++    Waits::RELEASE
++}
++
++/// Only the handshake expiry is shortened, in its named deadline control.
++fn handshake_expiry_waits() -> Waits {
+     Waits {
+         handshake: Duration::from_millis(2_000),
+-        health_ping_interval: Duration::from_millis(50),
++        ..quick()
++    }
++}
++/// Only the wall-clock expiry is shortened, to exercise a deadline's ladder.
++fn wall_clock_expiry_waits() -> Waits {
++    Waits {
++        wall_clock: Duration::from_millis(4_000),
++        ..quick()
++    }
++}
++/// Only the missed-health window is shortened, in a liveness-expiry control.
++fn liveness_expiry_waits() -> Waits {
++    Waits {
+         liveness_window: Duration::from_millis(400),
++        ..quick()
++    }
++}
++/// Only progress-absence reporting is shortened, in its measured-span controls.
++fn progress_absence_waits() -> Waits {
++    Waits {
+         progress_absent_interval: Duration::from_millis(200),
+-        wall_clock: Duration::from_millis(4_000),
+-        term_to_kill: Duration::from_millis(300),
++        ..quick()
++    }
++}
++/// Only the health period is shortened, to put a frame in flight before a terminal.
++fn pending_health_waits() -> Waits {
++    Waits {
++        health_ping_interval: Duration::from_millis(50),
++        ..quick()
++    }
++}
++/// Only the drain expiry is shortened, in the held-descriptor control.
++fn drain_expiry_waits() -> Waits {
++    Waits {
++        drain: Duration::from_millis(50),
++        ..quick()
++    }
++}
++/// Only the reap expiry is shortened, in controls holding the root unreaped.
++fn reap_expiry_waits() -> Waits {
++    Waits {
+         reap_ceiling: Duration::from_millis(1_000),
+-        drain: Duration::from_millis(300),
++        ..quick()
+     }
+ }
++
++/// The outer cap retains the trigger, then sequential TERM, drain and reap budgets.
++/// Each term is an existing law wait; none is a new shortened duration.
++fn control_cap(waits: Waits) -> Duration {
++    [
++        waits.handshake,
++        waits.health_ping_interval,
++        waits.liveness_window,
++        waits.progress_absent_interval,
++        waits.wall_clock,
++        waits.term_to_kill,
++        waits.reap_ceiling,
++        waits.drain,
++    ]
++    .into_iter()
++    .max()
++    .expect("the wait set is nonempty")
++        + waits.term_to_kill
++        + waits.drain
++        + waits.reap_ceiling
++}
++
++/// A regression to the old universal 2 s handshake fails without timing a child.
++#[test]
++fn ordinary_controls_keep_every_release_wait() {
++    assert_eq!(quick(), Waits::RELEASE);
++    assert_eq!(
++        control_cap(quick()),
++        WALL_CLOCK_PROVIDER + TERM_TO_KILL + DRAIN + REAP_CEILING
++    );
++    assert_eq!(
++        control_cap(Waits::TOOL),
++        WALL_CLOCK_TOOL + TERM_TO_KILL + DRAIN + REAP_CEILING
++    );
++    let deadline_then_escalation = Waits::TOOL.wall_clock + TERM_TO_KILL + REAP_CEILING;
++    assert!(control_cap(Waits::TOOL) > deadline_then_escalation);
++    assert_eq!(control_cap(Waits::TOOL) - deadline_then_escalation, DRAIN);
++    for (waits, field) in [
++        (handshake_expiry_waits(), 0),
++        (pending_health_waits(), 1),
++        (liveness_expiry_waits(), 2),
++        (progress_absence_waits(), 3),
++        (wall_clock_expiry_waits(), 4),
++        (reap_expiry_waits(), 6),
++        (drain_expiry_waits(), 7),
++    ] {
++        let values = |w: Waits| {
++            [
++                w.handshake,
++                w.health_ping_interval,
++                w.liveness_window,
++                w.progress_absent_interval,
++                w.wall_clock,
++                w.term_to_kill,
++                w.reap_ceiling,
++                w.drain,
++            ]
++        };
++        for (index, (actual, release)) in values(waits).into_iter().zip(values(quick())).enumerate()
++        {
++            if index == field {
++                assert!(actual < release);
++            } else {
++                assert_eq!(actual, release, "only the exercised wait changes");
++            }
++        }
++    }
++}
++
+ /// The fixture participant's protocol waits: not a codec's; its own.
+ const FIXTURE_WAITS: ProtocolWaits = ProtocolWaits {
+     stage1_cancel_grace: Duration::from_millis(400),
+@@ -596,8 +706,8 @@ fn finish(
+     mut supervision: Supervision<FixtureParticipant>,
+     events: Events,
+     dir: &TestDir,
+-    cap: Duration,
+ ) -> Outcome {
++    let cap = control_cap(supervision.waits);
+     let mut root = root_in(dir);
+     let started = Instant::now();
+     supervision.start(&mut root).expect("spawned");
+@@ -651,9 +761,14 @@ fn finish(
+ }
+ 
+ fn outcome(script: &str) -> Outcome {
++    outcome_with_waits(script, quick())
++}
++/// A control names the one wait it exercises instead of shortening every wait.
++fn outcome_with_waits(script: &str, waits: Waits) -> Outcome {
+     let dir = test_dir();
+-    let (supervision, events) = prepared(script, FixtureParticipant::new(FIXTURE_WAITS), None);
+-    finish(supervision, events, &dir, Duration::from_secs(20))
++    let (mut supervision, events) = prepared(script, FixtureParticipant::new(FIXTURE_WAITS), None);
++    supervision.waits = waits;
++    finish(supervision, events, &dir)
+ }
+ 
+ /// No child and no scratch left (D3-T3's killable, removable case).
+@@ -861,6 +976,7 @@ fn a_spawn_failure_is_an_error_with_no_settlement() {
+ /// before its terminal faults first on item 13's EOF (`provider-protocol`),
+ /// whether it exits or is signalled; a death while fd1 is still held,
+ /// appended at the drain's expiry, is `unexpected-exit`.
++/// Only silent-handshake exercises a shortened handshake; every other trigger keeps release waits.
+ #[test]
+ fn each_trigger_yields_one_settlement_with_its_first_cause() {
+     for (script, cause) in [
+@@ -873,7 +989,11 @@ fn each_trigger_yields_one_settlement_with_its_first_cause() {
+         ("signal-death", Cause::ProviderProtocol),
+         ("early-exit-held", Cause::UnexpectedExit),
+     ] {
+-        let out = outcome(script);
++        let out = if script == "silent-handshake" {
++            outcome_with_waits(script, handshake_expiry_waits())
++        } else {
++            outcome(script)
++        };
+         assert_eq!(
+             out.settlement.first_cause(),
+             cause,
+@@ -900,7 +1020,7 @@ fn each_trigger_yields_one_settlement_with_its_first_cause() {
+ /// the ladder from T-1 with `cancel {reason: deadline}`.
+ #[test]
+ fn the_wall_clock_deadline_delivers_deadline_and_cancels() {
+-    let out = outcome("hang");
++    let out = outcome_with_waits("hang", wall_clock_expiry_waits());
+     assert_eq!(out.settlement.first_cause(), Cause::Deadline);
+     assert!(out.saw(&SupervisionEvent::WaitExpired(BoundedWait::WallClock)));
+     assert!(out.saw(&delivered(ProcessEvent::Fault(ProcessFault::Deadline))));
+@@ -913,7 +1033,7 @@ fn the_wall_clock_deadline_delivers_deadline_and_cancels() {
+ /// liveness fault: traffic is not liveness (item 15, F8).
+ #[test]
+ fn a_blocked_provider_gets_a_liveness_fault_despite_its_traffic() {
+-    let out = outcome("blocked");
++    let out = outcome_with_waits("blocked", liveness_expiry_waits());
+     assert_eq!(out.settlement.first_cause(), Cause::Liveness);
+     assert!(out.saw(&SupervisionEvent::LivenessMissed(
+         LivenessMiss::WindowExpired
+@@ -927,7 +1047,7 @@ fn a_blocked_provider_gets_a_liveness_fault_despite_its_traffic() {
+ /// holds, is never faulted; the long phase logs absence and completes.
+ #[test]
+ fn absent_progress_is_logged_and_never_faulted() {
+-    let out = outcome("slow");
++    let out = outcome_with_waits("slow", progress_absence_waits());
+     assert_eq!(
+         out.settlement.first_cause(),
+         Cause::Clean,
+@@ -956,7 +1076,7 @@ fn concurrent_triggers_keep_the_first_and_the_later() {
+     });
+     let (supervision, events) =
+         prepared("hang", FixtureParticipant::new(FIXTURE_WAITS), Some(hook));
+-    let out = finish(supervision, events, &dir, Duration::from_secs(20));
++    let out = finish(supervision, events, &dir);
+     assert_eq!(out.settlement.first_cause(), Cause::HostFault);
+     assert!(
+         out.settlement
+@@ -975,7 +1095,7 @@ fn concurrent_triggers_keep_the_first_and_the_later() {
+     });
+     let (supervision, events) =
+         prepared("fault", FixtureParticipant::new(FIXTURE_WAITS), Some(hook));
+-    let out = finish(supervision, events, &dir, Duration::from_secs(20));
++    let out = finish(supervision, events, &dir);
+     assert_eq!(out.settlement.first_cause(), Cause::ProviderProtocol);
+     assert!(out.settlement.later_causes().contains(&Cause::HostFault));
+     assert_eq!(
+@@ -1037,7 +1157,7 @@ fn drop_in_each_state_leaves_no_child_and_no_scratch() {
+         supervision.start(&mut root).expect("spawned");
+         let started = Instant::now();
+         while supervision.state() != at {
+-            assert!(started.elapsed() < Duration::from_secs(10), "{at:?}");
++            assert!(started.elapsed() < control_cap(supervision.waits), "{at:?}");
+             supervision.turn();
+         }
+         let scratch = supervision.seams.scratch.clone().expect("a scratch");
+@@ -1074,13 +1194,15 @@ fn drop_in_each_state_leaves_no_child_and_no_scratch() {
+ /// with `exit: unreaped`, its scratch kept with the root's hold, and no
+ /// signal after the one kill; a scratch exhausting its removal budget is
+ /// `retained {reason: work-exhausted}`.
++/// Only the reap ceiling is shortened in the two unreapable-root cases.
+ #[test]
+ fn an_unreapable_root_and_an_exhausted_removal_are_disclosed() {
+     // In the loop: the ladder's ceiling, then the abandon.
+     let dir = test_dir();
+     let (mut supervision, events) = prepared("fault", FixtureParticipant::new(FIXTURE_WAITS), None);
++    supervision.waits = reap_expiry_waits();
+     supervision.seams.reap_blocked = true;
+-    let out = finish(supervision, events, &dir, Duration::from_secs(20));
++    let out = finish(supervision, events, &dir);
+     assert_eq!(out.settlement.exit(), ExitClass::Unreaped);
+     assert_eq!(
+         out.settlement.scratch(),
+@@ -1098,17 +1220,21 @@ fn an_unreapable_root_and_an_exhausted_removal_are_disclosed() {
+     // On Drop: one kill, the reap polled to the ceiling, then the abandon.
+     let dir = test_dir();
+     let (mut supervision, events) = prepared("hang", FixtureParticipant::new(FIXTURE_WAITS), None);
++    supervision.waits = reap_expiry_waits();
+     supervision.seams.reap_blocked = true;
+     let mut root = root_in(&dir);
+     supervision.start(&mut root).expect("spawned");
+     let started = Instant::now();
+     while supervision.state() != State::Running {
+-        assert!(started.elapsed() < Duration::from_secs(10), "never running");
++        assert!(started.elapsed() < control_cap(quick()), "never running");
+         supervision.turn();
+     }
+     let started = Instant::now();
+     drop(supervision);
+-    assert!(started.elapsed() < Duration::from_secs(5), "finite");
++    assert!(
++        started.elapsed() < control_cap(reap_expiry_waits()),
++        "finite"
++    );
+     let events = events.borrow();
+     let kills = events
+         .iter()
+@@ -1132,7 +1258,7 @@ fn an_unreapable_root_and_an_exhausted_removal_are_disclosed() {
+         edges: 64,
+         bytes: 4096,
+     });
+-    let out = finish(supervision, events, &dir, Duration::from_secs(20));
++    let out = finish(supervision, events, &dir);
+     assert_eq!(out.settlement.first_cause(), Cause::Clean);
+     assert_eq!(
+         out.settlement.scratch(),
+@@ -1157,8 +1283,8 @@ fn the_term_to_kill_and_drain_waits_expire_with_their_events() {
+         FixtureParticipant::new(FIXTURE_WAITS),
+         None,
+     );
+-    supervision.waits.drain = Duration::from_millis(50);
+-    let out = finish(supervision, events, &dir, Duration::from_secs(20));
++    supervision.waits = drain_expiry_waits();
++    let out = finish(supervision, events, &dir);
+     assert!(out.saw(&SupervisionEvent::WaitExpired(BoundedWait::Drain)));
+     assert_eq!(
+         out.settlement.first_cause(),
+@@ -1168,7 +1294,8 @@ fn the_term_to_kill_and_drain_waits_expire_with_their_events() {
+     );
+     // TERM to KILL: a group member survives SIGTERM, so the escalation's
+     // wait expires and SIGKILL follows.
+-    let out = outcome("term-survivor");
++    let out = outcome_with_waits("term-survivor", wall_clock_expiry_waits());
++    assert!(out.saw(&SupervisionEvent::WaitExpired(BoundedWait::WallClock)));
+     assert!(out.saw(&SupervisionEvent::Signalled { signal: SIGTERM }));
+     assert!(out.saw(&SupervisionEvent::WaitExpired(BoundedWait::TermToKill)));
+     assert!(out.saw(&SupervisionEvent::Signalled { signal: SIGKILL }));
+@@ -1215,7 +1342,7 @@ fn split_and_coalesced_frames_and_blocked_writes_resume() {
+             participant.chunk = Some(300_000);
+         }
+         let (supervision, events) = prepared(script, participant, None);
+-        let out = finish(supervision, events, &dir, Duration::from_secs(30));
++        let out = finish(supervision, events, &dir);
+         assert_eq!(
+             out.settlement.first_cause(),
+             Cause::Clean,
+@@ -1363,20 +1490,22 @@ fn a_caller_needing_a_d3b_ladder_is_refused() {
+ type Setup = fn(&mut Supervision<FixtureParticipant>);
+ 
+ /// Run `script` on its own thread, configured by `setup`; the test fails if
+-/// it does not settle within `limit`, so a starved loop cannot hang it.
+-fn threaded(script: &'static str, setup: Setup, limit: Duration) -> Outcome {
++/// it does not settle within its wait-derived cap, so a starved loop cannot hang it.
++fn threaded(script: &'static str, setup: Setup, waits: Waits) -> Outcome {
++    let cap = control_cap(waits);
+     let (done, finished) = mpsc::channel();
+     std::thread::spawn(move || {
+         let dir = test_dir();
+         let (mut supervision, events) =
+             prepared(script, FixtureParticipant::new(FIXTURE_WAITS), None);
++        supervision.waits = waits;
+         setup(&mut supervision);
+-        let out = finish(supervision, events, &dir, Duration::from_secs(25));
++        let out = finish(supervision, events, &dir);
+         done.send(out).ok();
+     });
+     finished
+-        .recv_timeout(limit)
+-        .unwrap_or_else(|_| panic!("{script}: no settlement within {limit:?}"))
++        .recv_timeout(cap)
++        .unwrap_or_else(|_| panic!("{script}: no settlement within {cap:?}"))
+ }
+ 
+ /// r2 (Codex D3A1-R1-RF-1): an always-ready stderr (`/dev/zero`, never at
+@@ -1387,7 +1516,7 @@ fn an_always_ready_stderr_cannot_starve_the_loop() {
+     let out = threaded(
+         "hang",
+         |s| s.seams.stderr_zero = true,
+-        Duration::from_secs(30),
++        wall_clock_expiry_waits(),
+     );
+     assert_eq!(out.settlement.first_cause(), Cause::Deadline);
+     assert!(out.saw(&SupervisionEvent::WaitExpired(BoundedWait::WallClock)));
+@@ -1402,7 +1531,7 @@ fn an_always_ready_stderr_cannot_starve_the_loop() {
+ /// liveness window still expires: traffic is not liveness (item 15).
+ #[test]
+ fn sustained_control_traffic_cannot_starve_liveness() {
+-    let out = threaded("control-storm", |_| {}, Duration::from_secs(30));
++    let out = threaded("control-storm", |_| {}, liveness_expiry_waits());
+     assert_eq!(out.settlement.first_cause(), Cause::Liveness);
+     assert!(out.saw(&SupervisionEvent::LivenessMissed(
+         LivenessMiss::WindowExpired
+@@ -1427,13 +1556,13 @@ fn a_trigger_storm_is_consumed_a_bounded_number_per_turn() {
+                 handle.host_fault();
+             }
+         });
+-        let out = finish(supervision, events, &dir, Duration::from_secs(25));
++        let out = finish(supervision, events, &dir);
+         stop.store(true, Ordering::Release);
+         spammer.join().ok();
+         done.send(out).ok();
+     });
+     let out = finished
+-        .recv_timeout(Duration::from_secs(30))
++        .recv_timeout(control_cap(quick()))
+         .expect("settled under a trigger storm");
+     assert_eq!(out.settlement.first_cause(), Cause::HostFault);
+     nothing_left(&out);
+@@ -1447,7 +1576,7 @@ fn a_clean_end_that_cannot_be_reaped_settles_at_its_ceiling() {
+     let out = threaded(
+         "normal",
+         |s| s.seams.reap_blocked = true,
+-        Duration::from_secs(20),
++        reap_expiry_waits(),
+     );
+     assert_eq!(out.settlement.first_cause(), Cause::Clean);
+     assert_eq!(out.settlement.exit(), ExitClass::Unreaped);
+@@ -1470,9 +1599,8 @@ fn the_shutdown_waits_for_a_pending_frame_and_goes_once() {
+         "slow",
+         |s| {
+             s.seams.stall_control_writes_in_running = true;
+-            s.waits.liveness_window = Duration::from_secs(5);
+         },
+-        Duration::from_secs(30),
++        pending_health_waits(),
+     );
+     assert_eq!(
+         out.settlement.first_cause(),
+@@ -1485,11 +1613,7 @@ fn the_shutdown_waits_for_a_pending_frame_and_goes_once() {
+         out.position(&SupervisionEvent::ControlSent("health"))
+             < out.position(&SupervisionEvent::ControlSent("shutdown"))
+     );
+-    let out = threaded(
+-        "normal",
+-        |s| s.seams.control_write_chunk = Some(1),
+-        Duration::from_secs(30),
+-    );
++    let out = threaded("normal", |s| s.seams.control_write_chunk = Some(1), quick());
+     assert_eq!(
+         out.settlement.first_cause(),
+         Cause::Clean,
+@@ -1633,11 +1757,7 @@ fn the_tree_is_confirmed_before_the_reap() {
+         .position(|(_, event)| *event == SupervisionEvent::Reaped)
+         .expect("reaped");
+     assert!(observed < reaped);
+-    let out = threaded(
+-        "fault",
+-        |s| s.seams.extra_member = true,
+-        Duration::from_secs(20),
+-    );
++    let out = threaded("fault", |s| s.seams.extra_member = true, quick());
+     assert_eq!(out.settlement.tree(), TreeReport::IncompletePlatformLimited);
+ }
+ 
+@@ -1671,7 +1791,7 @@ fn an_unwind_confirms_the_tree_before_its_reap() {
+             supervision.start(&mut root).expect("spawned");
+             let started = Instant::now();
+             while supervision.state() != at {
+-                assert!(started.elapsed() < Duration::from_secs(10), "{at:?}");
++                assert!(started.elapsed() < control_cap(supervision.waits), "{at:?}");
+                 supervision.turn();
+             }
+             drop(supervision);
+@@ -1786,7 +1906,7 @@ fn every_handle_request_is_merged_drained_or_refused() {
+         let mut refused = 0u64;
+         let mut sent = 0u64;
+         let started = Instant::now();
+-        while !stopping.load(Ordering::Acquire) && started.elapsed() < Duration::from_secs(30) {
++        while !stopping.load(Ordering::Acquire) && started.elapsed() < control_cap(quick()) {
+             sent += 1;
+             if handle.host_fault() {
+                 accepted += 1;
+@@ -1839,11 +1959,11 @@ fn bounded(
+         let dir = test_dir();
+         let (mut supervision, events) = prepared(script, participant(), None);
+         limits(&mut supervision.limits);
+-        let out = finish(supervision, events, &dir, Duration::from_secs(20));
++        let out = finish(supervision, events, &dir);
+         done.send(out).ok();
+     });
+     finished
+-        .recv_timeout(Duration::from_secs(30))
++        .recv_timeout(control_cap(quick()))
+         .unwrap_or_else(|_| panic!("{script}: no settlement"))
+ }
+ fn fixture_participant() -> FixtureParticipant {
+@@ -2037,7 +2157,7 @@ fn the_scratch_is_measured_at_settlement() {
+                 bytes: 4096,
+             })
+         },
+-        Duration::from_secs(20),
++        quick(),
+     );
+     assert_eq!(out.settlement.first_cause(), Cause::ScratchBound);
+     // TS2's limit is its own.
+@@ -2171,11 +2291,35 @@ fn tool_run_with(
+     script: &'static str,
+     setup: Box<dyn FnOnce(&mut ToolSupervision) + Send>,
+ ) -> ToolOutcome {
++    tool_run_waits(script, Waits::TOOL, setup)
++}
++/// Tree controls exercise the wall deadline to initiate their native teardown.
++fn tool_deadline_run(script: &'static str, setup: ToolSetup) -> ToolOutcome {
++    tool_deadline_run_with(script, Box::new(setup))
++}
++/// Capturing variant; all host waits except the exercised wall clock stay release waits.
++fn tool_deadline_run_with(
++    script: &'static str,
++    setup: Box<dyn FnOnce(&mut ToolSupervision) + Send>,
++) -> ToolOutcome {
++    let out = tool_run_waits(script, wall_clock_expiry_waits(), setup);
++    assert!(
++        out.saw(&SupervisionEvent::WaitExpired(BoundedWait::WallClock)),
++        "this control exercises the deadline's ladder"
++    );
++    out
++}
++fn tool_run_waits(
++    script: &'static str,
++    waits: Waits,
++    setup: Box<dyn FnOnce(&mut ToolSupervision) + Send>,
++) -> ToolOutcome {
++    let cap = control_cap(waits);
+     let (done, finished) = mpsc::channel();
+     std::thread::spawn(move || {
+         let dir = test_dir();
+         let mut supervision =
+-            Supervision::prepare_tool_with(tool_spec_for(&fixture(), script), quick())
++            Supervision::prepare_tool_with(tool_spec_for(&fixture(), script), waits)
+                 .expect("prepared");
+         setup(&mut supervision);
+         let (fact_sink, facts) = mpsc::channel();
+@@ -2190,7 +2334,7 @@ fn tool_run_with(
+         let started = Instant::now();
+         supervision.start(&mut root).expect("spawned");
+         while supervision.state() != State::Settled {
+-            assert!(started.elapsed() < Duration::from_secs(20), "no settlement");
++            assert!(started.elapsed() < cap, "no settlement");
+             supervision.turn();
+         }
+         let settlement = supervision.take_settlement().expect("one settlement");
+@@ -2224,8 +2368,8 @@ fn tool_run_with(
+         .ok();
+     });
+     finished
+-        .recv_timeout(Duration::from_secs(30))
+-        .unwrap_or_else(|_| panic!("{script}: no settlement within 30 s"))
++        .recv_timeout(cap)
++        .unwrap_or_else(|_| panic!("{script}: no settlement within {cap:?}"))
+ }
+ 
+ /// Item 12, :434: a tool skips `Handshaking` (no control frame, no health),
+@@ -2342,9 +2486,10 @@ fn a_tools_tree_holds_at_most_sixteen() {
+ /// `deadline` with the ladder from T-2 (SIGTERM, then SIGKILL); a root that
+ /// exits while a member holds fd1 past the drain is `unexpected-exit`
+ /// (LD-D3A2-2).
++/// Only the wall-clock deadline is shortened for the tool-hang case.
+ #[test]
+ fn a_tools_wall_clock_and_held_output_end_it() {
+-    let out = tool_run("tool-hang", |_| {});
++    let out = tool_deadline_run("tool-hang", |_| {});
+     assert_eq!(out.settlement.first_cause(), Cause::Deadline);
+     assert!(out.saw(&SupervisionEvent::WaitExpired(BoundedWait::WallClock)));
+     assert!(!out.saw(&SupervisionEvent::CancelAttempted), "no T-1");
+@@ -2389,7 +2534,7 @@ fn each_class_takes_its_own_descriptor_set() {
+ fn dropping_a_running_tool_leaves_nothing() {
+     let dir = test_dir();
+     let mut supervision =
+-        Supervision::prepare_tool_with(tool_spec_for(&fixture(), "tool-hang"), quick())
++        Supervision::prepare_tool_with(tool_spec_for(&fixture(), "tool-hang"), Waits::TOOL)
+             .expect("prepared");
+     let (sink, unwound) = mpsc::channel();
+     supervision.seams.unwound = Some(sink);
+@@ -2429,10 +2574,18 @@ fn an_admissible_settlement_releases_its_output_once() {
+ /// D3-T22: a fault after some `FactBatch` frames, at each kind (a protocol
+ /// fault, an early exit, the deadline), discards every candidate; the
+ /// admission owner receives nothing.
++/// Only facts-then-hang shortens the wall deadline, exercising deadline-driven discard.
+ #[test]
+ fn a_fault_after_candidates_discards_every_one() {
+     for script in ["facts-then-fault", "facts-then-exit", "facts-then-hang"] {
+-        let mut out = outcome(script);
++        let mut out = if script == "facts-then-hang" {
++            let out = outcome_with_waits(script, wall_clock_expiry_waits());
++            assert_eq!(out.settlement.first_cause(), Cause::Deadline);
++            assert!(out.saw(&SupervisionEvent::WaitExpired(BoundedWait::WallClock)));
++            out
++        } else {
++            outcome(script)
++        };
+         assert_ne!(out.settlement.first_cause(), Cause::Clean, "{script}");
+         assert_eq!(out.spooled, 2, "{script}: candidates were spooled");
+         assert!(out.discarded, "{script}");
+@@ -2464,11 +2617,7 @@ fn a_complete_terminal_with_a_nonzero_exit_is_discarded() {
+ /// the scratch retained and recorded.
+ #[test]
+ fn a_scratch_removal_failure_never_changes_the_result() {
+-    let mut out = threaded(
+-        "normal",
+-        |s| s.seams.removal_errno = Some(5),
+-        Duration::from_secs(20),
+-    );
++    let mut out = threaded("normal", |s| s.seams.removal_errno = Some(5), quick());
+     assert_eq!(out.settlement.first_cause(), Cause::Clean);
+     assert_eq!(
+         out.settlement.scratch(),
+@@ -2488,7 +2637,7 @@ fn a_scratch_removal_failure_never_changes_the_result() {
+                 bytes: 1,
+             })
+         },
+-        Duration::from_secs(20),
++        quick(),
+     );
+     assert_eq!(out.settlement.first_cause(), Cause::Clean);
+     assert_eq!(
+@@ -2510,7 +2659,7 @@ fn a_terminal_whose_commitment_fails_mints_nothing() {
+     let mut participant = FixtureParticipant::new(FIXTURE_WAITS);
+     participant.bad_commitment = true;
+     let (supervision, events) = prepared("normal", participant, None);
+-    let mut out = finish(supervision, events, &dir, Duration::from_secs(20));
++    let mut out = finish(supervision, events, &dir);
+     assert_eq!(out.settlement.first_cause(), Cause::ProviderProtocol);
+     assert!(!out.settlement.admissible());
+     assert!(out.settlement.release().is_none());
+@@ -2568,6 +2717,7 @@ fn a_clean_run_records_its_facts() {
+ /// Each bound, wait and fault fact carries its host-held values: the
+ /// observed value in its unit, the wait's configured bound, the cancel as
+ /// sent, the liveness provenance, and the asserted resources.
++/// The deadline and expired-health rows shorten only their named expiry, respectively.
+ #[test]
+ fn each_fact_carries_its_values() {
+     let out = bounded("fork", fixture_participant, |l| {
+@@ -2590,10 +2740,10 @@ fn each_fact_carries_its_values() {
+             unit: opensip_operability::LimitUnit::Bytes,
+         } if *observed > 48 << 20
+     )));
+-    let out = outcome("hang");
++    let out = outcome_with_waits("hang", wall_clock_expiry_waits());
+     assert!(out.facts.contains(&RecordFact::WaitExpired {
+         wait: opensip_operability::BoundedWait::WallClock,
+-        limit: quick().wall_clock,
++        limit: wall_clock_expiry_waits().wall_clock,
+     }));
+     assert!(out.facts.contains(&RecordFact::CancelSent {
+         control_reason: opensip_operability::ControlCancelReason::Deadline,
+@@ -2604,9 +2754,9 @@ fn each_fact_carries_its_values() {
+         miss: opensip_operability::LivenessMiss::NonceMismatch,
+         refusal_family: Some(opensip_operability::RefusalFamily::Rf7),
+     }));
+-    let out = outcome("blocked");
++    let out = outcome_with_waits("blocked", liveness_expiry_waits());
+     assert!(out.facts.contains(&RecordFact::LivenessMissed {
+-        window: quick().liveness_window,
++        window: liveness_expiry_waits().liveness_window,
+         miss: opensip_operability::LivenessMiss::WindowExpired,
+         refusal_family: None,
+     }));
+@@ -2625,6 +2775,7 @@ fn each_fact_carries_its_values() {
+ /// D3A2-R1-NBO-1: a member's failed sample (not `ESRCH`), and a failed
+ /// listing, are each disclosed once as incomplete, never as a complete sum;
+ /// a member that exited (`ESRCH`) is lawful and records nothing.
++/// Only the wall deadline is shortened, to settle each nonfatal sample-disclosure scenario.
+ #[test]
+ fn an_incomplete_sample_is_disclosed_once() {
+     let out = threaded(
+@@ -2633,8 +2784,10 @@ fn an_incomplete_sample_is_disclosed_once() {
+             s.seams.sample_errno = Some(1);
+             s.limits.memory_sample_interval = Duration::from_millis(20);
+         },
+-        Duration::from_secs(20),
++        wall_clock_expiry_waits(),
+     );
++    assert!(out.saw(&SupervisionEvent::WaitExpired(BoundedWait::WallClock)));
++    assert_eq!(out.settlement.first_cause(), Cause::Deadline);
+     let incomplete: Vec<_> = out
+         .facts
+         .iter()
+@@ -2654,8 +2807,10 @@ fn an_incomplete_sample_is_disclosed_once() {
+             s.seams.listing_fails = true;
+             s.limits.memory_sample_interval = Duration::from_millis(20);
+         },
+-        Duration::from_secs(20),
++        wall_clock_expiry_waits(),
+     );
++    assert!(out.saw(&SupervisionEvent::WaitExpired(BoundedWait::WallClock)));
++    assert_eq!(out.settlement.first_cause(), Cause::Deadline);
+     assert_eq!(
+         out.facts
+             .iter()
+@@ -2673,8 +2828,10 @@ fn an_incomplete_sample_is_disclosed_once() {
+             s.seams.sample_errno = Some(ESRCH);
+             s.limits.memory_sample_interval = Duration::from_millis(20);
+         },
+-        Duration::from_secs(20),
++        wall_clock_expiry_waits(),
+     );
++    assert!(out.saw(&SupervisionEvent::WaitExpired(BoundedWait::WallClock)));
++    assert_eq!(out.settlement.first_cause(), Cause::Deadline);
+     assert!(
+         !out.facts
+             .iter()
+@@ -3150,6 +3307,7 @@ fn registry_requires(name: &str) -> opensip_operability::IdentitySet {
+ /// only facts whose registered events require exactly a Project; none
+ /// needs a Plan, an Execution, a provider role or a universe. A provider's
+ /// facts each require Project, Plan and Execution.
++/// Only the timed-out rows shorten the wall deadline; their WaitExpired facts are part of this control.
+ #[test]
+ fn every_fact_matches_the_identities_its_class_has() {
+     use opensip_operability::IdentitySet;
+@@ -3176,7 +3334,11 @@ fn every_fact_matches_the_identities_its_class_has() {
+     ];
+     let mut seen = std::collections::BTreeSet::new();
+     for (script, setup) in runs {
+-        let out = tool_run(script, setup);
++        let out = if script == "tool-hang" {
++            tool_deadline_run(script, setup)
++        } else {
++            tool_run(script, setup)
++        };
+         assert!(!out.facts.is_empty(), "{script}");
+         for fact in &out.facts {
+             assert_eq!(
+@@ -3205,7 +3367,13 @@ fn every_fact_matches_the_identities_its_class_has() {
+         assert!(seen.contains(event), "{event} never produced");
+     }
+     for script in ["normal", "hang", "fault"] {
+-        let out = outcome(script);
++        let out = if script == "hang" {
++            let out = outcome_with_waits(script, wall_clock_expiry_waits());
++            assert!(out.saw(&SupervisionEvent::WaitExpired(BoundedWait::WallClock)));
++            out
++        } else {
++            outcome(script)
++        };
+         for fact in &out.facts {
+             assert_eq!(
+                 fact.requires(),
+@@ -3224,10 +3392,12 @@ fn every_fact_matches_the_identities_its_class_has() {
+ /// Codex D3A3-R1-RF-2: T-1's cancel is recorded only once its frame is
+ /// written whole: not while queued, not after a partial write, exactly once
+ /// on completion.
++/// Only the wall-clock deadline is shortened to exercise deadline-triggered cancel writes.
+ #[test]
+ fn a_cancel_is_recorded_only_once_written() {
+     let dir = test_dir();
+     let (mut supervision, events) = prepared("hang", FixtureParticipant::new(FIXTURE_WAITS), None);
++    supervision.waits = wall_clock_expiry_waits();
+     let facts = Rc::clone(&supervision.seams.facts);
+     let cancels = |facts: &Rc<RefCell<Vec<RecordFact>>>| {
+         facts
+@@ -3246,13 +3416,19 @@ fn a_cancel_is_recorded_only_once_written() {
+         .any(|(_, e)| *e == SupervisionEvent::ControlSent("cancel"))
+     {
+         assert!(
+-            started.elapsed() < Duration::from_secs(20),
++            started.elapsed() < control_cap(supervision.waits),
+             "no cancel queued"
+         );
+         supervision.turn();
+     }
+     assert_eq!(cancels(&facts), 0, "queued, not written");
+     // Three bytes of it, then no more.
++    assert!(
++        events
++            .borrow()
++            .iter()
++            .any(|(_, e)| { *e == SupervisionEvent::WaitExpired(BoundedWait::WallClock) })
++    );
+     supervision.seams.control_bytes_left = Some(3);
+     for _ in 0..5 {
+         supervision.turn();
+@@ -3263,8 +3439,12 @@ fn a_cancel_is_recorded_only_once_written() {
+     );
+     assert_eq!(cancels(&facts), 0, "partly written");
+     supervision.seams.control_bytes_left = None;
++    assert_eq!(supervision.first_cause, Some(Cause::Deadline));
+     while supervision.state() != State::Settled {
+-        assert!(started.elapsed() < Duration::from_secs(20), "no settlement");
++        assert!(
++            started.elapsed() < control_cap(supervision.waits),
++            "no settlement"
++        );
+         supervision.turn();
+     }
+     assert_eq!(cancels(&facts), 1, "written whole, recorded once");
+@@ -3273,10 +3453,12 @@ fn a_cancel_is_recorded_only_once_written() {
+ /// Codex D3A3-R1-RF-2: a queued cancel whose write fails (the child's
+ /// control reader gone, `EPIPE`) is never recorded as sent; and a child
+ /// whose control reader closes early records no cancel either.
++/// Only the wall-clock deadline is shortened to exercise deadline-triggered cancel writes.
+ #[test]
+ fn a_cancel_whose_write_fails_is_not_recorded() {
+     let dir = test_dir();
+     let (mut supervision, events) = prepared("hang", FixtureParticipant::new(FIXTURE_WAITS), None);
++    supervision.waits = wall_clock_expiry_waits();
+     let facts = Rc::clone(&supervision.seams.facts);
+     let mut root = root_in(&dir);
+     let started = Instant::now();
+@@ -3287,14 +3469,24 @@ fn a_cancel_whose_write_fails_is_not_recorded() {
+         .any(|(_, e)| *e == SupervisionEvent::ControlSent("cancel"))
+     {
+         assert!(
+-            started.elapsed() < Duration::from_secs(20),
++            started.elapsed() < control_cap(supervision.waits),
+             "no cancel queued"
+         );
+         supervision.turn();
+     }
++    assert!(
++        events
++            .borrow()
++            .iter()
++            .any(|(_, e)| { *e == SupervisionEvent::WaitExpired(BoundedWait::WallClock) })
++    );
+     supervision.seams.control_write_fails = true;
++    assert_eq!(supervision.first_cause, Some(Cause::Deadline));
+     while supervision.state() != State::Settled {
+-        assert!(started.elapsed() < Duration::from_secs(20), "no settlement");
++        assert!(
++            started.elapsed() < control_cap(supervision.waits),
++            "no settlement"
++        );
+         supervision.turn();
+     }
+     assert!(supervision.ends.fd3.is_none(), "the write failed");
+@@ -3431,7 +3623,8 @@ fn signal_deaths_and_crashes_are_recorded() {
+             .iter()
+             .any(|f| matches!(f, RecordFact::StageTerminal { .. }))
+     );
+-    let out = outcome("facts-then-hang");
++    let out = outcome_with_waits("facts-then-hang", wall_clock_expiry_waits());
++    assert!(out.saw(&SupervisionEvent::WaitExpired(BoundedWait::WallClock)));
+     assert!(
+         out.facts.iter().any(|f| matches!(
+             f,
+@@ -3462,10 +3655,11 @@ fn signal_deaths_and_crashes_are_recorded() {
+ /// `supervision.progress.absent`'s `since` is measured from the last
+ /// admitted transition (SOP2:906), so successive reports without one grow:
+ /// the k-th is at least k intervals (r2, D3A4-R1-RF-1).
++/// Only progress-absence reporting is shortened; handshake, health and teardown waits are release waits.
+ #[test]
+ fn progress_absence_records_its_measured_span() {
+-    let interval = quick().progress_absent_interval;
+-    let out = outcome("slow-long");
++    let interval = progress_absence_waits().progress_absent_interval;
++    let out = outcome_with_waits("slow-long", progress_absence_waits());
+     let since: Vec<Duration> = out
+         .facts
+         .iter()
+@@ -3768,7 +3962,7 @@ fn faulted_at_the_first_fact(script: &str) -> Outcome {
+     });
+     let (supervision, events) =
+         prepared(script, FixtureParticipant::new(FIXTURE_WAITS), Some(hook));
+-    finish(supervision, events, &dir, Duration::from_secs(20))
++    finish(supervision, events, &dir)
+ }
+ 
+ /// r2 (D3A4-R1-RF-2): a terminal admitted after a teardown trigger still
+@@ -3850,10 +4044,11 @@ fn a_fault_with_no_terminal_starts_the_teardown_span_at_its_trigger() {
+ 
+ /// A tool's reap names its signal too (`tool.process.reaped`'s D3a-4
+ /// field).
++/// Only the wall-clock deadline is shortened for the tool-hang case.
+ #[test]
+ fn a_killed_tool_records_its_signal() {
+     use opensip_operability as op;
+-    let out = tool_run("tool-hang", |_| {});
++    let out = tool_deadline_run("tool-hang", |_| {});
+     assert!(
+         out.facts.iter().any(|f| matches!(
+             f,
+@@ -3966,26 +4161,42 @@ fn tool_tree_swept(out: &ToolOutcome) -> Vec<(u64, u64, bool)> {
+ /// finds it; it is left to the group's SIGKILL, never killed by pid; the
+ /// confirm sees the zombie root alone after its exit: `group-killed,
+ /// platform-limited`. `killed` counts by-pid sends only, so it is 0.
++/// Only the wall deadline is shortened to exercise this tree-teardown scenario.
++/// A recorded native killpg EPERM stays incomplete; no errno or failure is normalized away.
+ #[test]
+ fn an_in_group_descendant_dies_with_the_group() {
+     let (file, script) = tree_script("ingroup");
+-    let out = tool_run(script, |_| {});
++    let out = tool_deadline_run(script, |_| {});
+     let [member] = tree_pids(&file)[..] else {
+         panic!("one member");
+     };
+     assert_eq!(out.settlement.first_cause(), Cause::Deadline);
+-    assert_eq!(
+-        out.settlement.tree(),
+-        TreeReport::GroupKilledPlatformLimited,
+-        "{:?}",
+-        out.settlement.tree_evidence()
+-    );
+     let e = evidence(&out);
++    // The baseline native run also observed EPERM from killpg on a held
++    // zombie. Keep that original failure and its incomplete report.
++    assert!(
++        e.failures.iter().all(|failure| {
++            failure.step == TreeCall::GroupKill
++                && matches!(&failure.error, LaunchError::Io { call, error }
++                if *call == "killpg" && error.raw_os_error() == Some(1))
++        }),
++        "only the observed native killpg EPERM is allowed: {e:?}"
++    );
++    assert_eq!(e.group_kill_failures as usize, e.failures.len());
++    let want = if e.group_kill_failures == 0 {
++        TreeReport::GroupKilledPlatformLimited
++    } else {
++        TreeReport::IncompletePlatformLimited
++    };
++    assert_eq!(out.settlement.tree(), want, "{e:?}");
+     assert_eq!(e.snapshot, SnapshotOutcome::Complete);
+     assert_eq!((e.queued, e.inspected), (2, 2));
+     assert_eq!(e.by_pid.in_group, 1);
+     assert_eq!(e.by_pid.sent, 0);
+-    assert!(e.group_kills >= 1 && e.group_kill_failures == 0);
++    assert!(
++        e.group_kills > e.group_kill_failures,
++        "at least one successful native group signal"
++    );
+     assert_eq!(e.confirm, ConfirmOutcome::RootAlone);
+     assert_eq!(tool_tree_swept(&out), [(0, 0, true)]);
+     assert!(eventually_without_identity(member));
+@@ -3995,10 +4206,11 @@ fn an_in_group_descendant_dies_with_the_group() {
+ /// D5-T2 (:618): a descendant that left the group before the snapshot is
+ /// found by the walk and killed by pid on an equal identity: `killed` 1,
+ /// still `platform-limited`; the test confirms it gone out of band.
++/// Only the wall deadline is shortened to exercise this tree-teardown scenario.
+ #[test]
+ fn an_escaped_descendant_is_killed_by_pid() {
+     let (file, script) = tree_script("escape");
+-    let out = tool_run(script, |_| {});
++    let out = tool_deadline_run(script, |_| {});
+     let [escapee] = tree_pids(&file)[..] else {
+         panic!("one escapee");
+     };
+@@ -4011,13 +4223,14 @@ fn an_escaped_descendant_is_killed_by_pid() {
+ 
+ /// D5-T2b: pause after the snapshot, then let a snapshotted member
+ /// fork a real child outside the group. The snapshot cannot target it.
++/// Only the wall deadline is shortened to exercise this tree-teardown scenario.
+ #[test]
+ fn a_descendant_the_snapshot_missed_survives() {
+     let (file, script) = tree_script("fork-after-snapshot");
+     let gate = PathBuf::from(format!("{}.go", file.display()));
+     let late = PathBuf::from(format!("{}.late", file.display()));
+     let late_hook = late.clone();
+-    let out = tool_run_with(
++    let out = tool_deadline_run_with(
+         script,
+         Box::new(move |s| {
+             s.seams.tree_hook = Some(TreeHook(Box::new(move |step, _targets| {
+@@ -4051,11 +4264,12 @@ fn a_descendant_the_snapshot_missed_survives() {
+ 
+ /// RF-2: the same pid leaves its original group after the snapshot. Its
+ /// fresh pgid makes it eligible for an identity-checked by-pid send.
++/// Only the wall deadline is shortened to exercise this tree-teardown scenario.
+ #[test]
+ fn a_snapshot_member_that_changes_group_is_targeted() {
+     let (file, script) = tree_script("change-group");
+     let gate = PathBuf::from(format!("{}.go", file.display()));
+-    let out = tool_run_with(
++    let out = tool_deadline_run_with(
+         script,
+         Box::new(move |s| {
+             s.seams.tree_hook = Some(TreeHook(Box::new(move |step, targets| {
+@@ -4095,10 +4309,11 @@ fn a_snapshot_member_that_changes_group_is_targeted() {
+ /// confirm listing failure and an injected group-SIGKILL failure each leave
+ /// the tree `incomplete`, and each is in the evidence. A failed confirm
+ /// listing is latched: no later singleton clears it.
++/// Only the wall deadline is shortened to exercise this tree-teardown scenario.
+ #[test]
+ fn a_failed_listing_or_group_kill_leaves_the_tree_incomplete() {
+     let (file, script) = tree_script("ingroup");
+-    let out = tool_run(script, |s| s.seams.snapshot_listing_fails = true);
++    let out = tool_deadline_run(script, |s| s.seams.snapshot_listing_fails = true);
+     let pids = tree_pids(&file);
+     assert_eq!(out.settlement.tree(), TreeReport::IncompletePlatformLimited);
+     assert_eq!(evidence(&out).snapshot, SnapshotOutcome::ListingFailed);
+@@ -4106,7 +4321,7 @@ fn a_failed_listing_or_group_kill_leaves_the_tree_incomplete() {
+         .for_each(|p| assert!(eventually_without_identity(*p)));
+ 
+     let (file, script) = tree_script("ingroup");
+-    let out = tool_run(script, |s| s.seams.confirm_listing_fails = true);
++    let out = tool_deadline_run(script, |s| s.seams.confirm_listing_fails = true);
+     let pids = tree_pids(&file);
+     assert_eq!(out.settlement.tree(), TreeReport::IncompletePlatformLimited);
+     assert_eq!(evidence(&out).confirm, ConfirmOutcome::ListingFailed);
+@@ -4117,7 +4332,7 @@ fn a_failed_listing_or_group_kill_leaves_the_tree_incomplete() {
+     // All group SIGKILL attempts fail. The ignored SIGTERM leaves a live
+     // root at abandonment; both it and the member are cleaned up out of band.
+     let (file, script) = tree_script("ingroup");
+-    let out = tool_run(script, |s| {
++    let out = tool_deadline_run(script, |s| {
+         s.seams.group_kill_fails = true;
+         s.seams.tree_hook = Some(TreeHook(Box::new(|step, targets| {
+             if step == TreeStep::AfterSnapshot {
+@@ -4184,10 +4399,11 @@ fn a_failed_listing_or_group_kill_leaves_the_tree_incomplete() {
+ /// counted once however many confirms repeat; each repeat sends the group
+ /// SIGKILL again, and no target is counted twice; at the ceiling the tree
+ /// is `incomplete`.
++/// Only the wall deadline is shortened to exercise this tree-teardown scenario.
+ #[test]
+ fn a_repeated_confirm_counts_a_late_joiner_once() {
+     let (file, script) = tree_script("ingroup");
+-    let out = tool_run(script, |s| s.seams.extra_member = true);
++    let out = tool_deadline_run(script, |s| s.seams.extra_member = true);
+     tree_pids(&file);
+     let e = evidence(&out);
+     assert_eq!(out.settlement.tree(), TreeReport::IncompletePlatformLimited);
+@@ -4212,11 +4428,12 @@ fn a_repeated_confirm_counts_a_late_joiner_once() {
+ 
+ /// RF-2: a target that exited between the snapshot and the identity-checked
+ /// kill is `exited`, never `sent`.
++/// Only the wall deadline is shortened to exercise this tree-teardown scenario.
+ #[test]
+ fn a_target_gone_before_its_kill_is_not_counted_as_killed() {
+     let (file, script) = tree_script("escape");
+     let pidfile = file.clone();
+-    let out = tool_run_with(
++    let out = tool_deadline_run_with(
+         script,
+         Box::new(move |s| {
+             s.seams.tree_hook = Some(TreeHook(Box::new(move |step, targets| {
+@@ -4246,10 +4463,11 @@ fn a_target_gone_before_its_kill_is_not_counted_as_killed() {
+ /// is unreachable on macOS: the walk cannot find it, the tree is still
+ /// `group-killed, platform-limited`, and the test observes it alive and
+ /// cleans it up.
++/// Only the wall deadline is shortened to exercise this tree-teardown scenario.
+ #[test]
+ fn a_daemon_orphaned_before_teardown_survives() {
+     let (file, script) = tree_script("daemon");
+-    let out = tool_run(script, |_| {});
++    let out = tool_deadline_run(script, |_| {});
+     let [daemon] = tree_pids(&file)[..] else {
+         panic!("one daemon");
+     };
+@@ -4268,10 +4486,11 @@ fn a_daemon_orphaned_before_teardown_survives() {
+ /// D5-T4 (:624): more descendants than the tool's walk bound (4 × 16 = 64)
+ /// reach the bound: `BoundReached` and `incomplete`, even though the
+ /// confirm later lists the root alone (Q3).
++/// Only the wall deadline is shortened to exercise this tree-teardown scenario.
+ #[test]
+ fn a_fork_loop_reaches_the_walk_bound() {
+     let (file, script) = tree_script("loop");
+-    let out = tool_run(script, |s| s.seams.process_count_off = true);
++    let out = tool_deadline_run(script, |s| s.seams.process_count_off = true);
+     let pids = tree_pids(&file);
+     let e = evidence(&out);
+     assert_eq!(e.snapshot, SnapshotOutcome::BoundReached);
+@@ -4284,6 +4503,7 @@ fn a_fork_loop_reaches_the_walk_bound() {
+ 
+ /// LD-D3B-3 bounds every visited pid, including the root: a tool's
+ /// snapshot can visit 64 total, not 64 descendants plus the root.
++/// Only the wall deadline is shortened to exercise this tree-teardown scenario.
+ #[test]
+ fn the_snapshot_walk_bound_includes_its_root() {
+     for (kind, children, expected) in [
+@@ -4291,7 +4511,7 @@ fn the_snapshot_walk_bound_includes_its_root() {
+         ("walk-over", 64, SnapshotOutcome::BoundReached),
+     ] {
+         let (file, script) = tree_script(kind);
+-        let out = tool_run(script, |s| s.seams.process_count_off = true);
++        let out = tool_deadline_run(script, |s| s.seams.process_count_off = true);
+         let pids = tree_pids(&file);
+         assert_eq!(pids.len(), children);
+         let observed = evidence(&out);
+@@ -4311,10 +4531,11 @@ fn the_snapshot_walk_bound_includes_its_root() {
+ 
+ /// D5-T5 (:625): a descendant that survives SIGTERM is killed by the group's
+ /// SIGKILL after the escalation's wait.
++/// Only the wall deadline is shortened to exercise this tree-teardown scenario.
+ #[test]
+ fn a_sigterm_survivor_is_killed_after_the_escalation() {
+     let (file, script) = tree_script("term-survivor");
+-    let out = tool_run(script, |_| {});
++    let out = tool_deadline_run(script, |_| {});
+     let [survivor] = tree_pids(&file)[..] else {
+         panic!("one survivor");
+     };
+@@ -4343,10 +4564,11 @@ fn a_root_that_exits_first_is_reaped_with_no_signal() {
+ 
+ /// Item 18's escalation sentence (:606): a root held unreaped past the
+ /// ceiling is `exit: unreaped`, and no group signal follows the ceiling.
++/// Only the wall deadline is shortened to exercise this tree-teardown scenario.
+ #[test]
+ fn no_group_signal_follows_the_reap_ceiling() {
+     let (file, script) = tree_script("ingroup");
+-    let out = tool_run(script, |s| s.seams.reap_blocked = true);
++    let out = tool_deadline_run(script, |s| s.seams.reap_blocked = true);
+     let pids = tree_pids(&file);
+     assert_eq!(out.settlement.exit(), ExitClass::Unreaped);
+     assert!(
+@@ -4387,10 +4609,11 @@ pub(crate) fn tree_io_error(call: &'static str, errno: i32) -> LaunchError {
+ }
+ 
+ /// A later successful confirmation cannot erase an exceeded native list.
++/// Only the wall deadline is shortened to exercise this tree-teardown scenario.
+ #[test]
+ fn an_exceeded_confirm_stays_incomplete_after_a_singleton() {
+     let (file, script) = tree_script("ingroup");
+-    let out = tool_run(script, |s| s.seams.confirm_exceeded_once = true);
++    let out = tool_deadline_run(script, |s| s.seams.confirm_exceeded_once = true);
+     let pids = tree_pids(&file);
+     let e = evidence(&out);
+     assert_eq!(e.confirm, ConfirmOutcome::RootAlone);
+@@ -4402,10 +4625,11 @@ fn an_exceeded_confirm_stays_incomplete_after_a_singleton() {
+ }
+ 
+ /// Failure counts do not discard earlier errno values or the native call.
++/// Only the wall deadline is shortened to exercise this tree-teardown scenario.
+ #[test]
+ fn each_group_kill_failure_keeps_its_original_error() {
+     let (file, script) = tree_script("ingroup");
+-    let out = tool_run(script, |s| {
++    let out = tool_deadline_run(script, |s| {
+         s.seams.extra_member = true;
+         s.seams.group_kill_errors = [1, 5].into();
+     });
+@@ -4435,11 +4659,12 @@ fn each_group_kill_failure_keeps_its_original_error() {
+ 
+ /// Both identity reads retain their errors, rather than counting them as
+ /// an exit or allowing a singleton confirm to grant a completed report.
++/// Only the wall deadline is shortened to exercise this tree-teardown scenario.
+ #[test]
+ fn failed_tree_identity_reads_keep_their_step_and_errno() {
+     for step in [TreeCall::SnapshotIdentity, TreeCall::PreKillIdentity] {
+         let (file, script) = tree_script("escape");
+-        let out = tool_run_with(
++        let out = tool_deadline_run_with(
+             script,
+             Box::new(move |s| s.seams.tree_identity_error = Some(step)),
+         );
+@@ -4468,6 +4693,7 @@ fn failed_tree_identity_reads_keep_their_step_and_errno() {
+ /// The supervisor buckets the platform's typed outcomes without treating
+ /// a refused, changed-identity or failed send as an observed kill. The
+ /// platform's real identity/protection syscall controls are D3b-0's.
++/// Only the wall deadline is shortened to exercise this tree-teardown scenario.
+ #[test]
+ fn unsent_by_pid_outcomes_are_not_reported_as_kills() {
+     use opensip_platform::Protected;
+@@ -4477,7 +4703,7 @@ fn unsent_by_pid_outcomes_are_not_reported_as_kills() {
+         Err(1),
+     ] {
+         let (file, script) = tree_script("escape");
+-        let out = tool_run_with(
++        let out = tool_deadline_run_with(
+             script,
+             Box::new(move |s| s.seams.tree_kill_result = Some(result)),
+         );
+@@ -4510,6 +4736,7 @@ fn unsent_by_pid_outcomes_are_not_reported_as_kills() {
+ /// selection in snapshot, using a tool's fixture plumbing only to hold the
+ /// native process tree. Restore the real tool class before driving its
+ /// supervision; no provider protocol or qualification is inferred.
++/// Only the tool fixture wall deadline is shortened to exercise its ordinary teardown after the explicit snapshot.
+ #[test]
+ fn the_provider_snapshot_bound_counts_its_root() {
+     for (kind, children, expected) in [
+@@ -4518,10 +4745,15 @@ fn the_provider_snapshot_bound_counts_its_root() {
+     ] {
+         let (file, script) = tree_script(kind);
+         let dir = test_dir();
+-        let mut supervision =
+-            Supervision::prepare_tool_with(tool_spec_for(&fixture(), script), quick())
+-                .expect("prepared");
++        let mut supervision = Supervision::prepare_tool_with(
++            tool_spec_for(&fixture(), script),
++            wall_clock_expiry_waits(),
++        )
++        .expect("prepared");
+         supervision.seams.process_count_off = true;
++        let observed: Rc<RefCell<Vec<SupervisionEvent>>> = Rc::default();
++        let sink = Rc::clone(&observed);
++        supervision.observer = Some(Box::new(move |event| sink.borrow_mut().push(event.clone())));
+         let mut root = root_in(&dir);
+         supervision.start(&mut root).expect("spawned");
+         let started = Instant::now();
+@@ -4547,10 +4779,19 @@ fn the_provider_snapshot_bound_counts_its_root() {
+         // Complete the native child's ordinary teardown before asserting,
+         // so a mutation of the snapshot cannot leak the fixture tree.
+         while supervision.state() != State::Settled {
+-            assert!(started.elapsed() < Duration::from_secs(20), "no settlement");
++            assert!(
++                started.elapsed() < control_cap(supervision.waits),
++                "no settlement"
++            );
+             supervision.turn();
+         }
+         let settlement = supervision.take_settlement().expect("settlement");
++        assert!(
++            observed
++                .borrow()
++                .contains(&SupervisionEvent::WaitExpired(BoundedWait::WallClock))
++        );
++        assert_eq!(settlement.first_cause(), Cause::Deadline);
+         assert!(matches!(settlement.exit(), ExitClass::Signaled(9)));
+         kill.evidence.confirm = settlement.tree_evidence().expect("native confirm").confirm;
+         assert_eq!(kill.evidence.confirm, ConfirmOutcome::RootAlone);
+@@ -4579,10 +4820,11 @@ fn the_provider_snapshot_bound_counts_its_root() {
+ 
+ /// RF-1: a root-only tree consumes and reports one queue/identity slot,
+ /// keeps its original identity, and never attempts a by-pid root signal.
++/// Only the wall deadline is shortened to exercise this tree-teardown scenario.
+ #[test]
+ fn a_root_only_snapshot_records_the_owned_root() {
+     let (file, script) = tree_script("root-only");
+-    let out = tool_run(script, |_| {});
++    let out = tool_deadline_run(script, |_| {});
+     assert!(tree_pids(&file).is_empty());
+     let e = evidence(&out);
+     let root = out.process_id.expect("owned root");
