@@ -1,0 +1,7 @@
+# Independent review: status r112, waits-only D5-0a delta
+
+Read subject.json; stage /tmp/opensip-implementation/status-board-r112-stage, manifest SHA256 19219c5eb48faa4d787420a812cd59949dc9052f8c6878fc86e1b51090dba8fc. Rehash every member. Read-only source/hash/JSON/Git queries; no repository/worktree/stage/control edits, tests/builds/lanes/network/panes/delegation/private fixtures/keys/installations/heldout/T2. Write ONLY REVIEW.md and review.json in /tmp/opensip-implementation/reviews/codex-status-board-r112.
+
+Audit369 inherited ledger rows by value and sole E370 addition against exact accepted D5-0a unit/review/assent. Verify one product commit and one architecture publication since accepted r111, exact source/review/ancestry pins, unchanged inventory232/192 successors/contracts177 and full binding chains. Verify194x3 parallel and2 runtime mutations are exact unit evidence only; D5-0b, D5-0 dependency and D5-1 remain open, all structural obligations retained. Existing D3b-2 production gate, D4/CF/J/Linux/qualification and inherited owner-label issue stay open. No new historical-map file changes restore whole-host inheritance. Table, links and role facts must agree. No inferred owner choice or qualification.
+
+Return {"verdict":"ACCEPT"|"REQUIRED-FINDINGS","subjectManifestSha256":"19219c5eb48faa4d787420a812cd59949dc9052f8c6878fc86e1b51090dba8fc","requiredFindings":[],"nonBlockingObservations":[]}; STATUS-R112-RF-n/NBO-n.
