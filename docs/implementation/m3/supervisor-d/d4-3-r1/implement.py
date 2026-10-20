@@ -1,0 +1,110 @@
+from pathlib import Path
+W=Path('/Users/sb/code/opensip-ai/opensip-d4-3-takeover');p=W/'crates/host/src/invocation.rs';s=p.read_text()
+s=s.replace('    AnalysisOutcome, EphemeralVerdict, Observation, StepResult, Termination, aggregate, project,','    AnalysisOutcome, EphemeralVerdict, Observation, RequestExcludedClass, StepResult, Termination,\n    aggregate, project,')
+needle='''        Ok(Self {
+            request,
+            flags,
+            mode,
+            format: OutputFormat::Json,
+            steps,
+        })''';assert s.count(needle)==1;s=s.replace(needle,'''        let admitted = Self {
+            request,
+            flags,
+            mode,
+            format: OutputFormat::Json,
+            steps,
+        };
+        // D4-3: the opaque R1 token cannot leave admission before item 25
+        // has classified it. No RequestId draw or durable entry occurs here.
+        if let Some(first) = request_excluded_form(&admitted) {
+            return Err(Observation::ExcludedRequest {
+                first,
+                rest: Vec::new(),
+            });
+        }
+        Ok(admitted)''')
+needle='// ------------------------------------------------ item 5.1: the step lists';assert s.count(needle)==1;s=s.replace(needle,'''/// M3-D r5 item 25 (D4-3): no M3 request carries EE-2, EE-4's request
+/// part or EE-6a. D4-T2 is unrepresentable and row 57 is unreachable here.
+/// A new request, flag, admitted field, mode or format must be reviewed
+/// against item 25: these closed destructures and match have no wildcard.
+/// The existing J1 request-class type is used, not a manifest's digest arm.
+#[deny(unreachable_patterns)]
+pub(crate) fn request_excluded_form(admitted: &AdmittedRequest) -> Option<RequestExcludedClass> {
+    let AdmittedRequest {
+        request,
+        flags,
+        mode,
+        format,
+        steps: _,
+    } = admitted;
+    let RequestFlags {
+        project: _,
+        workspace_roots: _,
+        trust_groups: _,
+        trust_project_owner: _,
+        allow_backup_custody: _,
+    } = flags;
+    let InvocationModeV1 { interactive: _ } = mode;
+    let OutputFormat::Json = format;
+    match request {
+        AnalysisRequest::Default => None,
+        AnalysisRequest::Analyze => None,
+        AnalysisRequest::AnalyzeEphemeral => None,
+    }
+}
+
+'''+needle);p.write_text(s)
+p=W/'crates/host/src/invocation_tests.rs';s=p.read_text();s+='''
+
+/// D4-T2 has no carrier at M3. All three requests, both typed modes and
+/// every presence/boolean combination of the five flags classify None.
+#[test]
+fn every_m3_request_is_classified_without_an_excluded_form() {
+    for request in [AnalysisRequest::Default, AnalysisRequest::Analyze, AnalysisRequest::AnalyzeEphemeral] {
+        for interactive in [false, true] {
+            for mask in 0..32 {
+                let flags = RequestFlags {
+                    project: (mask & 1 != 0).then(|| PathBuf::from("/work/project")),
+                    workspace_roots: if mask & 2 != 0 { vec![PathBuf::from("/work/member")] } else { Vec::new() },
+                    trust_groups: if mask & 4 != 0 { vec![20] } else { Vec::new() },
+                    trust_project_owner: mask & 8 != 0,
+                    allow_backup_custody: mask & 16 != 0,
+                };
+                let mode = InvocationModeV1 { interactive };
+                let admitted = AdmittedRequest::admit(request, flags.clone(), mode).unwrap();
+                assert_eq!(request_excluded_form(&admitted), None);
+                assert_eq!(admitted.request(), request);
+                assert_eq!(admitted.flags(), &flags);
+                assert_eq!(admitted.mode(), mode);
+            }
+        }
+    }
+}
+
+/// LD-D4-7: preserve the exhaustive request classifier and the one opaque
+/// construction-to-classification-to-return path, before any effect owner.
+#[test]
+fn request_classification_is_exhaustive_and_precedes_token_handover() {
+    let source = include_str!("invocation.rs");
+    let classifier = source.split("pub(crate) fn request_excluded_form(").nth(1).unwrap()
+        .split("// ------------------------------------------------ item 5.1").next().unwrap();
+    assert!(source.contains("#[deny(unreachable_patterns)]"));
+    assert!(!classifier.contains("_ =>"));
+    assert!(!classifier.contains(".."));
+    for arm in ["AnalysisRequest::Default => None", "AnalysisRequest::Analyze => None", "AnalysisRequest::AnalyzeEphemeral => None"] {
+        assert_eq!(classifier.matches(arm).count(), 1, "new request requires item25 review");
+    }
+    let admission = source.split("pub(crate) fn admit(").nth(1).unwrap()
+        .split("pub(crate) fn request(&self)").next().unwrap();
+    let checked = admission.find("check_step_list(steps.specs())").unwrap();
+    let constructed = admission.find("let admitted = Self {").unwrap();
+    let classified = admission.find("request_excluded_form(&admitted)").unwrap();
+    let handover = admission.find("Ok(admitted)").unwrap();
+    assert!(checked < constructed && constructed < classified && classified < handover);
+    assert_eq!(admission.matches("request_excluded_form(&admitted)").count(), 1);
+    assert!(!admission.contains("Ok(Self {"));
+    assert!(!admission.contains("RequestIdentity::draw"));
+    assert!(!admission.contains(".begin("));
+    assert_eq!(source.matches("AdmittedRequest {").count(), 3, "only the private type, impl and closed destructure; review every new constructor");
+}
+''';p.write_text(s)
