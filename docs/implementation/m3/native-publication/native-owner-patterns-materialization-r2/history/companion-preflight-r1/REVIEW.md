@@ -1,0 +1,26 @@
+# Review: native-owner complete companion source preflight r1
+
+**Verdict: PREFLIGHT-CLEAR**
+
+No required findings.
+
+This verdict is limited to the frozen source composition identified by subject-manifest SHA-256 `12d8da50427ebdea2e09cd9222ad90e6af74dbf04365fb430dea3717066ead11`. It is source preflight only. It does not accept the unit, complete the blind refresh, establish product qualification, or establish integration.
+
+## Independent checks
+
+- Rehashed the 130 declared manifest members and confirmed the manifest has no missing or undeclared staged members. The 41-row product map is unique and exact: all 26 archived parents match the pinned product base, all 26 archived candidates match their candidate tuples, and all 15 new paths are absent from that base.
+- Confirmed the live product and architecture heads match the subject bases and that accepted designs 179, 180, and 181 retain exact record, subject-manifest, review, and assent joins. The selected authority copies and accepted source/profile/policy artifacts match their pinned bytes.
+- Confirmed the source scope remains 43 generator sources, 52 admission sources, and 15 aliases. The three closed resolved document IDs contain 137 pattern nodes over exactly 26 distinct forms; the Rust and TypeScript closed sets equal those forms. Pattern-keyword owner selection is limited to those three resolved documents, unknown native-owner forms fail closed, foreign resolved documents use the inherited evaluator, and `patternProperties` remains on the inherited table.
+- Confirmed ordinary generation and drift evidence selected 43 schemas and eight outputs, with only `apps/report/src/generated/report.ts` changed. The generated-output audit accounts for 886 entrypoints, 73 registry checks, 43 embedded documents, exact helper/source bytes, and seven byte-unchanged outputs.
+- Confirmed the 15 additions consist of 11 host companions, one evaluator-cycle companion, one security subset, and two runtime registry companions. Every prior fixture remains byte-exact. The two runtime registry companions differ from their current predecessors only at the three declared native-schema SHA occurrences. The security companion is the exact flat `packet-0-original` subset with 23 objects and 46 blobs.
+- Independently checked all 9,127 object occurrences and 4,580 blob occurrences represented by the correspondence evidence, including 11 deliberately invalid objects, 119 deliberately invalid blobs, 3,718 inverse-recipe canonical blobs, 718 opaque byte-exact blobs, and 25 source-document replacements. The original fixtures remain byte-exact, identity mappings are collision-free, valid and deliberately invalid status is preserved, and no successful admission is introduced.
+- Independently reconstructed the native-context aggregate pools and all 116 indexed object/blob selection vectors. Pool cardinalities are unchanged and every new index selects the mapped original identity or digest.
+- Confirmed carrier reconstruction follows the selected laws: canonical execution deficiencies are canonical-set ordered; required-cell deficiencies retain encounter order derived from digest-ordered returned coverage partitions; coverage records, sources, and input references are correspondingly rebound without reordering outer program/cell sequences.
+- Compared all 526 full-walk cases after inverse identity mapping. Exactly 12 request populations append the declared 14 already-existing valid fact rows; all other 514 request selections are exact. Each added fact is named by an unchanged selected observation's `matchingFactIds`, the prior request remains an exact prefix, and the intended mutant remains selected. The earlier foreign-FACT proposal is absent and `semantic-fact-foreign-snapshotId` remains `invalid` / `REFERENCE_SOURCE_JOIN`.
+- Confirmed exactly two expected outcomes change. The malformed `FilePayloadV1` still carries an unregistered `sha256` property under `additionalProperties: false` and now requires the typed schema-mismatch path. The foreign-view/missing-child case has the documented canonical-reference index reversal and now requires typed `REFERENCE_PLAN_JOIN`. All other 524 verdicts are preserved.
+- Confirmed the nine existing fixture/include readers select the new companions and that the storage test/debug helper consumes the new flat security subset. The reviewed diffs do not change production storage admission behavior. All four metadata/blob mutations are recorded as caught and restored.
+- Preserved the validation boundary. The initial owning lane remains failed; its 33 storage failures exactly equal unchanged-main's 33-failure set, and the generator TypeScript policy mismatch is separately recorded. The final focused full-walk evidence has exact final source pins, while earlier focused iterations retain their mismatching intermediate pins. Those focused results do not substitute for the separately running complete corrected owning lane.
+
+## Remaining boundary
+
+Complete corrected owning validation, final unit review and root assent, integration, additive inventory binding, retained-predecessor description qualification, and the independently reviewed one-run B2b4c3 refresh remain outside this preflight and are still required before dependent consumption.

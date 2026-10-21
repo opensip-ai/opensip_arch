@@ -1,0 +1,8 @@
+const fs=require('fs');
+const d=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));
+const matrix=fs.readFileSync(process.argv[3]);if(matrix.length!==d.forms.length*d.values.length)throw Error('matrix length');
+let mismatchCount=0;const mismatches=[];let witnessed=0;
+d.forms.forEach((p,pi)=>{const re=new RegExp(p,'u');if(!d.validSeedsByForm[pi].length)throw Error('missing full-form witness');for(const s of d.validSeedsByForm[pi]){if(!re.test(s))throw Error('invalid witness '+pi+' '+JSON.stringify(s));witnessed++;}let count=0;const examples=[];d.values.forEach((s,i)=>{const expected=re.test(s)?1:0;const got=matrix[pi*d.values.length+i];if(got!==expected){count++;mismatchCount++;if(examples.length<8)examples.push({value:s,expected:!!expected,actual:got===2?'unselected':!!got});}});if(count)mismatches.push({pattern:p,count,examples});});
+const grantIndex=d.forms.findIndex(p=>p.startsWith('^security.'));const grant=new RegExp(d.forms[grantIndex],'u');for(const c of d.grantWildcardCases){if(grant.test(c.value)!==c.expected)throw Error('grant oracle');}
+process.stdout.write(JSON.stringify({standing:'FINITE FULL-LENGTH AND SHORT PREDICATE DIFFERENTIAL; NOT REGISTERED UNIT ACCEPTANCE',engine:process.version,flags:'u',forms:d.forms.length,inputs:d.values.length,shortExhaustiveInputs:d.exhaustiveShortInputCount,fullLengthSeedForms:d.validSeedsByForm.length,validFullLengthWitnesses:witnessed,twoPositionGrantCases:d.grantWildcardCases.length,profileComparisons:matrix.length,inheritedForms:72,inheritedComparisons:72*d.values.length,mismatchCount,mismatches},null,2)+'\n');
+if(mismatchCount)process.exitCode=1;
