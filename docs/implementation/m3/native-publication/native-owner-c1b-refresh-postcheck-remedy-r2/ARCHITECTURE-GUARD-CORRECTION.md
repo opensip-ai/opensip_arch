@@ -1,0 +1,7 @@
+# OWNPAT-CBRPC-R1-RF-1 correction
+
+Preserve the rejected remedy round. This revision requires a clean detached architecture checkout at the exact reviewed manifest architectureBase, the same Git common repository as the live architecture main, and exact recorded worktree identity before and after the supplement. All architecture reads and the verifier --architecture argument use this frozen checkout, not the live main that may acquire the accepted procedure publication. All existing gate pins rehash there.
+
+The actual design verifier is the product worktree tools/verify_design.py (the original command executed with cwd=W), not A/tools/verify_design.py. It imports only Python standard-library modules. This revision explicitly pins its bytes, requires that pin in both clean product main and the run worktree, and invokes its absolute W path. Main and run worktree stay exact at66eed with only the4preserved receipt/census changes, so the verifier's product dependencies remain commit-bound; the clean detached architecture binds its architecture inputs. The runner records both provenance facts.
+
+No other intended behavior changes: same one-line additive companion fixture delta, same original assertions, same short0700TMPDIR, same9Rust/21companion/25discovery/design checks, no actual blind retry, no receipt commitment or qualification. All original failed postcheck and successful real-run evidence remains pinned. Root substantive assent to the accepted corrected supplement is required under the independently judged existing-gate compatibility ruling.
