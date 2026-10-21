@@ -1,0 +1,5 @@
+# Rust3 base receiver existing-path description qualification
+
+Seven raw inventory236 description passages qualify the exact accepted D2b-4a behavior in existing provider/schema files. The two current inherited TS2 receive/build descriptions remain accurate and are preserved by value; the generic operability audit description also remains accurate. Ten new raw236 rows remain exact. All138inherited meanings,196inventory bindings and183prior contracts remain unchanged. Contract184 adds seven DIRECT meanings, requiring145total meanings to be projected by a later inventory absent another accepted change.
+
+No code, schema source/alias, parser/admission authority, production caller, public receipt, private/blind data, source39, platform or qualification changes. The separate doctor/platform test repairs and their standing do not change the accepted Rust3 source semantics described here. This closes the post-inventory descriptive obligation only; Rust3 4b/4c and the entire remaining project remain open.
