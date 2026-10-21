@@ -1,0 +1,31 @@
+# Review: implementation status r121
+
+**Verdict: ACCEPT**
+
+The frozen subject manifest has SHA-256 `1abf1075569d1930719fa277599f6069de03eb6cf62024883bebaa7a2d6b5275`. All 228 declared members match their recorded sizes and digests, the manifest has no duplicate path, and the stage contains no missing or undeclared subject file.
+
+## Required findings
+
+None.
+
+## Verified evidence
+
+- The live product and architecture heads are exactly `c31809cb4993c5c2bbba3d004d9337f12f18d17b` and `f0ca9ae6cc3f7de232586e88f88a4a525c1588ed`. The current `design-lock.json` is 770,568 bytes with SHA-256 `5c107ae2a005eab67d782371004933e7767c38f269db0bed8a384c97bbfd5cbe`. All 994 live authority entries and all 866 binding artifact pins rehash against the current repositories.
+- The accepted-work ledger contains contiguous IDs E001-E400. Its E001-E398 prefix equals accepted r120 by JSON value. E399 is the jointly reviewed D2b-4c code and inventory238 scope; E400 is the separately reviewed description186 scope. Their reviews, substantive root assents, unit records, product commits and architecture commits are exact and retain empty required findings and `productQualification:false`.
+- The product history after r120 is exactly three commits in order: `700a3b77407ef203c65729781e54072712f32fa5`, `071dc8a3327c4c6991d6c9ada3036faeb83bda80`, and `c31809cb4993c5c2bbba3d004d9337f12f18d17b`. The architecture history is exactly `102e9d6aa7d0181aa6770ef1f50160dcc7aeb215` and `f0ca9ae6cc3f7de232586e88f88a4a525c1588ed`. The ledger preserves this code/inventory-then-description chronology, and every cited accepted commit is an ancestor of the current head.
+- The binding ledger equals the current lock tail: inventory bindings v137-v238 and contract bindings 98-186. Its first 101 inventory and 88 contract entries equal r120 by value, and the new tails point to inventory238 and description contract186. The current lock contains 198 inventory successors, 186 contract successors and 150 inventory-passage inheritance entries.
+- Inventory238 has 1,422 unique file rows. All 1,410 inventory237 rows are preserved by path and value; exactly the 12 D2b-4c paths are added. Packages and pending decisions remain byte-for-byte equal at 20 and nine, and the same 91 inventory paths remain planned absences from the product tree.
+- The inventory238 meaning projection contains 150 exact current meanings: 145 inherited meanings plus the five direct contract185 meanings, including the folded contract185 provider-dispatch supersession. Every projection selector resolves to the claimed inventory238 passage.
+- Contract186 has exactly 11 raw inventory238 overrides and six explicit supersessions, qualifying 17 distinct existing paths. Each supersession's `before` value equals contract185's effective `after` value for the same physical path. The provider-dispatch row preserves the 186-to-185-to-184 supersession chain. The 12 new inventory238 rows are disjoint from the 17 qualified paths and retain their raw descriptions. The 150 inherited meanings plus 11 direct contract186 meanings yield 161 effective meanings; the board correctly requires the next inventory to fold all six current supersessions.
+- The accepted D2b-4c product map contains 35 live-exact paths, of which 12 are absent at the product parent and therefore new. All 35 match both accepted code commit `700a3b77407ef203c65729781e54072712f32fa5` and the current product tree; the two later product commits change only `design-lock.json`.
+- The archived accepted evidence and unit record agree on the scoped code behavior: all eight token choices, independent reference reconstruction, source-checked typed census admission with the original 4 MiB buffers, exact nonsymbol and clean-terminal echoes, and once-only raw-buffer handoff after DONE/ZeroExit/EOF. The recorded results are 136 Rust3 tests, 411 component tests and 86 identity tests against 362 component and 86 identity base tests, with equal empty failure sets; component all-target warning-denied Clippy passed. Seven mutations in r2 plus one in r3 were freshly compiled and killed, and both reports record exact source restoration.
+- The source census records 115 owner rows and 463 lexical constructor rows, preserving all 462 parent rows and adding only the disclosed `into` row for the new census path. Owner definitions, member lists, standing, test-support and termination declarations remain unchanged; no source or owner authority is inferred.
+- The historical trial-07 partition is exact: 353 source cases divide into 194 scoped Rust3 integer predicates, one separate raw-float refusal, 48 TS2 cases and 110 C4/H cases. The exhaustive native audit covers all 477 pinned cases and its 731 step dispositions sum exactly to 628 outside-codec, 58 TS2, 34 current-literal-profile refusals, six inherited table replays, three scoped Rust predicates and two shared-schema Boolean refusals. The board explicitly denies that the 34 profile refusals establish original whole-executor conformance.
+- Both public binding objects equal their current receipt bindings. Every referenced product or architecture pin rehashes, all four public receipt/census files match their recorded bytes, and the record claims zero blind invocations and no private-content inspection.
+- The previous-board snapshot is byte-exact to the accepted r120 board at `fee2bce708521b653f37a324d03330c7edddde2a`. The 11 decision records are unchanged and retain nonempty owner impact and next action. All 13 front-door relative links resolve, and all 23 visible unit-family rows equal the machine register's unit, status, evidence and next-action fields. The visible board, source record and checks agree on the Codex lead, CODEX2 w8:p1 reviewer, 400 scoped records, current heads and bindings, no product tests in this review, and false product-qualification and entire-plan-completion flags.
+
+The reconciliation keeps D2b-4c acceptance scoped. C4 selection/native/Plan admission, H returned-census and fact settlement, production/source39, D4-4, CI-4, D5, C/J/S6/CF, Linux/platform, owner/privacy/clock/T2 and entire-project qualification remain open. Earlier workspace and host results remain historical after the D2b-4c source changes; no current whole-workspace, feature, provider or project qualification is asserted.
+
+## Non-blocking observations
+
+None.

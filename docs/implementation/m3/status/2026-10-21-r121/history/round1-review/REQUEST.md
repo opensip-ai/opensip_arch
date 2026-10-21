@@ -1,0 +1,9 @@
+# Independent review: implementation status r109
+
+Write only REVIEW.md and review.json in /tmp/opensip-implementation/reviews/codex-status-board-r109. Read-only file inspection, hashing, JSON parsing and Git queries. No repository/worktree/control/stage edits, builds, tests/lanes, network, panes, delegation, private fixtures/keys/installations, held trees/entries or T2 stores/overlays/cache.
+
+Frozen stage: /tmp/opensip-implementation/status-board-r109-stage. Subject: docs/implementation/m3/status/2026-10-18-r109-subject.json, SHA-256 3f0690a5d506a4a8c282d2070fb54fda4d8372d6808941d7c6493342ed670267. Verify every member. Bases product 2a6528d65974178552f03737c036058fc5ce0cf0, architecture 1ffd91b225dc45747532c522ac491e26356345ea. Assess factual status only, without reopening accepted implementation.
+
+Verify all 340 r108 ledger records inherited by value; E341-E366 account for every later architecture publication and all product commits. Verify reviews, root assents, ancestry, inventory v224-v231 and contract 177, and the single explicit live CI front-door authority repin for accepted CI-A3/CI-A2 notices (immutable r5 unchanged). The three family-register rows and next actions reflect accepted scope and remaining work, CODEX2 reviewer and Codex lead. D3b-0 mechanisms are not full D3b; D5 plan is not implemented tests. D4-2 and C2b-0 drafts have no accepted ledger entry. Historical host-scope fields are explicitly historical; no current whole-suite pass or qualification is inferred. The inherited validation-scope maps have no changed product file. Check source links/table formatting and remaining gates. No new test or private execution evidence is claimed.
+
+Return {"verdict":"ACCEPT"|"REQUIRED-FINDINGS","subjectManifestSha256":"3f0690a5d506a4a8c282d2070fb54fda4d8372d6808941d7c6493342ed670267","requiredFindings":[],"nonBlockingObservations":[]} with STATUS-R109-RF-n / STATUS-R109-NBO-n ids.
