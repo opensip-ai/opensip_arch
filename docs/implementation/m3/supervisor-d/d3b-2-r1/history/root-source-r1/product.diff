@@ -1,0 +1,1780 @@
+diff --git a/crates/components/src/provider_protocol/ts2/participant.rs b/crates/components/src/provider_protocol/ts2/participant.rs
+index 2173d80..3347701 100644
+--- a/crates/components/src/provider_protocol/ts2/participant.rs
++++ b/crates/components/src/provider_protocol/ts2/participant.rs
+@@ -30,8 +30,8 @@ use super::carrier::field;
+ use super::send::{SnapshotSource, Ts2Request, Ts2Sender};
+ use super::{DispatchContext, HostFrame, TS2_FRAME_MAX_DEPTH, Ts2Receiver, Ts2Refusal};
+ use crate::supervisor::{
+-    Boundary, Participant, ParticipantStatus, ParticipantStep, Progress, ProtocolWaits, Spool,
+-    TerminalKind, TerminalOutput,
++    Boundary, CancelProgress, Participant, ParticipantStatus, ParticipantStep, Progress,
++    ProtocolWaits, Spool, TerminalKind, TerminalOutput,
+ };
+ use opensip_contracts::generated::protocol::Ts2FrameV2Payload as P;
+ use std::io::{self, Read, Write};
+@@ -50,6 +50,8 @@ pub struct Ts2Participant<'t> {
+     at: usize,
+     closed: bool,
+     cancel_requested: bool,
++    pending_frame: Option<HostFrame>,
++    cancel_progress: CancelProgress,
+     protocol_fault: bool,
+     host_fault: bool,
+     output: Option<TerminalOutput>,
+@@ -240,6 +242,8 @@ impl<'t> Ts2Participant<'t> {
+             at: 0,
+             closed: false,
+             cancel_requested: false,
++            pending_frame: None,
++            cancel_progress: CancelProgress::default(),
+             protocol_fault: false,
+             host_fault: false,
+             output: None,
+@@ -256,6 +260,7 @@ impl<'t> Ts2Participant<'t> {
+     /// can be sent: before the Hello slot, after a terminal, or once ended.
+     pub fn cancel(&mut self) -> bool {
+         let lawful = !self.closed
++            && !self.cancel_requested
+             && !self.faulted()
+             && self.sender.cancel_payload().is_some()
+             && self.receiver.admits(&HostFrame::Cancel {
+@@ -309,6 +314,7 @@ impl<'t> Ts2Participant<'t> {
+                     if sent.frame == HostFrame::SnapshotManifest {
+                         self.boundaries.push(Boundary::TransferStarted);
+                     }
++                    self.pending_frame = Some(sent.frame);
+                     self.pending = sent.bytes;
+                     self.at = 0;
+                 }
+@@ -344,6 +350,7 @@ impl<'t> Ts2Participant<'t> {
+             admitted_payload_bytes: admitted,
+             eof,
+             boundaries: std::mem::take(&mut self.boundaries),
++            cancel: std::mem::take(&mut self.cancel_progress),
+         }
+     }
+ 
+@@ -480,9 +487,19 @@ impl Participant for Ts2Participant<'_> {
+                 Ok(n) => {
+                     self.at += n;
+                     if self.at == self.pending.len() {
++                        let was_cancel =
++                            matches!(self.pending_frame.take(), Some(HostFrame::Cancel { .. }));
+                         self.pending.clear();
+                         self.at = 0;
+-                        self.pump();
++                        if was_cancel {
++                            self.closed = true;
++                            self.cancel_progress = CancelProgress {
++                                written: true,
++                                request_closed: true,
++                            };
++                        } else {
++                            self.pump();
++                        }
+                     }
+                 }
+                 Err(e)
+@@ -504,8 +521,16 @@ impl Participant for Ts2Participant<'_> {
+     fn close_input(&mut self) {
+         self.closed = true;
+         self.pending.clear();
++        self.pending_frame = None;
+         self.at = 0;
+     }
++    fn user_cancel(&mut self) -> bool {
++        self.cancel()
++    }
++    fn abandon_input(&mut self) {
++        self.close_input();
++        self.cancel_progress = CancelProgress::default();
++    }
+     fn take_terminal_output(&mut self) -> Option<TerminalOutput> {
+         self.output.take()
+     }
+diff --git a/crates/components/src/provider_protocol/ts2_send_tests.rs b/crates/components/src/provider_protocol/ts2_send_tests.rs
+index a06cbcd..3437fec 100644
+--- a/crates/components/src/provider_protocol/ts2_send_tests.rs
++++ b/crates/components/src/provider_protocol/ts2_send_tests.rs
+@@ -1527,3 +1527,134 @@ fn the_host_pipe_ends_fail_as_host_faults() {
+     );
+     assert!(!part.wants_write());
+ }
++
++/// D3b-2: the in-band completion closes the logical request side only at
++/// the Cancel's last byte, after the frame already in flight, once.
++#[test]
++fn d3b2_cancel_progress_follows_the_last_byte_and_closes_the_request() {
++    struct ByteWriter<'a>(&'a mut Vec<u8>);
++    impl io::Write for ByteWriter<'_> {
++        fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
++            if let Some(byte) = bytes.first() {
++                self.0.push(*byte);
++                Ok(1)
++            } else {
++                Ok(0)
++            }
++        }
++        fn flush(&mut self) -> io::Result<()> {
++            Ok(())
++        }
++    }
++    let table = Table::load(Protocol::Ts2).unwrap();
++    let p = plan();
++    let request = build(&p);
++    let mut expected = wire("Hello", 0, request.hello().clone());
++    expected.extend(wire(
++        "Cancel",
++        1,
++        m(&[
++            ("executionId", Value::Null),
++            ("analysisOrdinal", Value::Null),
++            ("reason", t("user-interrupt")),
++        ]),
++    ));
++    let (mut part, mut worker) = session(&p, &table);
++    let mut bytes = Vec::new();
++    assert_eq!(
++        part.writable(&mut ByteWriter(&mut bytes)).cancel,
++        crate::supervisor::CancelProgress::default()
++    );
++    assert_eq!(
++        bytes.len(),
++        1,
++        "the current normal frame is partially written"
++    );
++    assert!(Participant::user_cancel(&mut part));
++    assert!(
++        !Participant::user_cancel(&mut part),
++        "the first request already owns the one Cancel"
++    );
++    let mut completed = 0;
++    while part.wants_write() {
++        assert!(
++            bytes.len() < expected.len(),
++            "no repeated Cancel or later frame"
++        );
++        let step = part.writable(&mut ByteWriter(&mut bytes));
++        if step.cancel.written {
++            completed += 1;
++            assert!(step.cancel.request_closed);
++            assert_eq!(bytes, expected);
++        } else {
++            assert!(!step.cancel.request_closed, "no early request closure");
++            assert!(bytes.len() < expected.len());
++        }
++    }
++    assert_eq!(completed, 1);
++    assert_eq!(bytes, expected);
++    let frames = worker.host.push(&bytes);
++    assert!(frames.refusal.is_none());
++    assert_eq!(frames.frames.len(), 2);
++    assert_eq!(get(frames.frames[0].value(), "frameType"), &t("Hello"));
++    assert_eq!(get(frames.frames[1].value(), "frameType"), &t("Cancel"));
++    let mut extra = Vec::new();
++    assert_eq!(
++        part.writable(&mut extra).cancel,
++        crate::supervisor::CancelProgress::default()
++    );
++    assert!(extra.is_empty());
++    assert!(!Participant::user_cancel(&mut part));
++}
++
++/// D3b-2 escalation drops a partially written frame and queued Cancel;
++/// the participant never reports that abandoned Cancel as written.
++#[test]
++fn d3b2_abandon_input_never_completes_or_reports_a_cancel() {
++    struct Short<'a>(&'a mut Vec<u8>);
++    impl io::Write for Short<'_> {
++        fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
++            let n = bytes.len().min(3);
++            self.0.extend_from_slice(&bytes[..n]);
++            Ok(n)
++        }
++        fn flush(&mut self) -> io::Result<()> {
++            Ok(())
++        }
++    }
++    let table = Table::load(Protocol::Ts2).unwrap();
++    let p = plan();
++    let (mut part, _) = session(&p, &table);
++    let mut bytes = Vec::new();
++    assert_eq!(
++        part.writable(&mut Short(&mut bytes)).cancel,
++        crate::supervisor::CancelProgress::default()
++    );
++    assert_eq!(bytes.len(), 3);
++    assert!(Participant::user_cancel(&mut part));
++    Participant::abandon_input(&mut part);
++    let before = bytes.clone();
++    assert!(!part.wants_write());
++    assert_eq!(
++        part.writable(&mut bytes).cancel,
++        crate::supervisor::CancelProgress::default()
++    );
++    assert_eq!(bytes, before);
++    assert!(!Participant::user_cancel(&mut part));
++}
++
++/// D3b-2 uses the participant's existing Cancel law; a verified terminal
++/// makes the user leg unlawful and queues no additional data frame.
++#[test]
++fn d3b2_user_cancel_seam_is_not_lawful_after_a_terminal() {
++    let table = Table::load(Protocol::Ts2).unwrap();
++    let p = plan();
++    let (mut part, mut worker) = session(&p, &table);
++    let (statuses, _) = drive(&mut part, &mut worker);
++    assert_eq!(
++        statuses.last(),
++        Some(&ParticipantStatus::Terminal(TerminalKind::Complete))
++    );
++    assert!(!Participant::user_cancel(&mut part));
++    assert!(!part.wants_write());
++}
+diff --git a/crates/components/src/supervisor.rs b/crates/components/src/supervisor.rs
+index f6874a8..e04bf4a 100644
+--- a/crates/components/src/supervisor.rs
++++ b/crates/components/src/supervisor.rs
+@@ -147,6 +147,7 @@ pub enum BoundedWait {
+     ProgressAbsent,
+     WallClock,
+     NormalExitGrace,
++    Stage1CancelGrace,
+     ShutdownAck,
+     TermToKill,
+     ReapCeiling,
+@@ -600,6 +601,8 @@ pub struct Settlement {
+     first_cause: Cause,
+     later_causes: Vec<Cause>,
+     user_interrupted: bool,
++    extra_user_signals: u64,
++    stage1: Option<Stage1Evidence>,
+     exit: ExitClass,
+     tree: TreeReport,
+     /// The descendant step's account, `None` for a normal end (D3b-1).
+@@ -634,6 +637,13 @@ impl Settlement {
+     pub fn user_interrupted(&self) -> bool {
+         self.user_interrupted
+     }
++    pub fn stage1_evidence(&self) -> Option<Stage1Evidence> {
++        self.stage1
++    }
++    /// Signals after the first two which were consumed before settlement.
++    pub fn extra_user_signals(&self) -> u64 {
++        self.extra_user_signals
++    }
+     pub fn exit(&self) -> ExitClass {
+         self.exit
+     }
+@@ -704,6 +714,15 @@ impl Settlement {
+ 
+ // ------------------------------------------------------------------ the participant seam
+ 
++/// D3b-2: progress of the single in-band user Cancel. The request side
++/// closes only after the Cancel's final byte; abandoned input is never
++/// reported as written.
++#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
++pub struct CancelProgress {
++    pub written: bool,
++    pub request_closed: bool,
++}
++
+ /// What one participant call reports (LD-D3A-3): its status, the progress
+ /// transitions it admitted (item 15, :513), the payload bytes of the frames
+ /// it admitted (D3a-2's TS2 aggregate), and whether the read saw fd1's EOF
+@@ -719,6 +738,7 @@ pub struct ParticipantStep {
+     /// M3-L r1:400's span boundaries the participant admitted, for
+     /// `provider.process.ready` (unit D3a-3).
+     pub boundaries: Vec<Boundary>,
++    pub cancel: CancelProgress,
+ }
+ impl ParticipantStep {
+     pub fn status(status: ParticipantStatus) -> Self {
+@@ -728,6 +748,7 @@ impl ParticipantStep {
+             admitted_payload_bytes: 0,
+             eof: false,
+             boundaries: Vec::new(),
++            cancel: CancelProgress::default(),
+         }
+     }
+ }
+@@ -795,6 +816,11 @@ pub trait Participant {
+     fn process(&mut self, event: ProcessEvent) -> ParticipantStep;
+     /// The normal end: no further input will be written (LD-D3A-15).
+     fn close_input(&mut self);
++    /// Queue the protocol's one lawful in-band user Cancel, after the
++    /// frame already in flight. False before its slot, after terminal or end.
++    fn user_cancel(&mut self) -> bool;
++    /// Escalation abandons unfinished input; no more data frame completes.
++    fn abandon_input(&mut self);
+     /// The verified terminal's output, once.
+     fn take_terminal_output(&mut self) -> Option<TerminalOutput>;
+     /// Item 20's discard: a settlement that is not admissible drops every
+@@ -828,6 +854,12 @@ impl Participant for NoProvider {
+     fn close_input(&mut self) {
+         match *self {}
+     }
++    fn user_cancel(&mut self) -> bool {
++        match *self {}
++    }
++    fn abandon_input(&mut self) {
++        match *self {}
++    }
+     fn take_terminal_output(&mut self) -> Option<TerminalOutput> {
+         match *self {}
+     }
+@@ -861,6 +893,36 @@ pub enum Channel {
+     Control,
+ }
+ 
++/// D3b-2's in-band cancellation leg, kept through settlement.
++#[derive(Debug, Clone, Copy, PartialEq, Eq)]
++pub enum InbandCancel {
++    NotLawful,
++    Queued,
++    Written,
++    Abandoned,
++}
++/// The control leg is queued logically before it is serialized by its
++/// session. Written is reported only after the frame's final byte.
++#[derive(Debug, Clone, Copy, PartialEq, Eq)]
++pub enum ControlCancel {
++    Queued,
++    Written,
++    Refused,
++    Failed,
++    Abandoned,
++}
++#[derive(Debug, Clone, Copy, PartialEq, Eq)]
++pub struct Stage1Evidence {
++    pub inband: InbandCancel,
++    pub control: Option<ControlCancel>,
++}
++#[derive(Debug, Clone, Copy)]
++struct Stage1 {
++    started: Instant,
++    active: bool,
++    evidence: Stage1Evidence,
++}
++
+ /// One appended event of the merged order (item 12, :448): applied by the
+ /// joins, given to the observer, counted and dropped. D3a-3 maps them to
+ /// the registry's records.
+@@ -888,6 +950,12 @@ pub enum SupervisionEvent {
+     TeardownStarted(Cause),
+     /// The ladder's T-1: control `cancel`, if the session takes it.
+     CancelAttempted,
++    InbandCancel(InbandCancel),
++    ControlCancel(ControlCancel),
++    CancelForced {
++        trigger: opensip_operability::ForceTrigger,
++        grace: Duration,
++    },
+     Signalled {
+         signal: i32,
+     },
+@@ -978,20 +1046,152 @@ struct TriggerGate {
+     #[cfg(test)]
+     pause: Option<Arc<(std::sync::Barrier, std::sync::Barrier)>>,
+ }
++#[derive(Debug, PartialEq, Eq)]
++enum GateMessage<T> {
++    Queued(T),
++    FirstSignal,
++    SecondSignal,
++}
+ #[derive(Debug)]
+-struct GateState {
++struct Stamped<T> {
++    stamp: u64,
++    value: T,
++}
++#[derive(Debug)]
++struct GateCore<T> {
+     closed: bool,
+-    pending: VecDeque<Trigger>,
++    capacity: usize,
++    queue: VecDeque<Stamped<T>>,
++    first: Option<u64>,
++    second: Option<u64>,
++    signals_received: u64,
++    extra_signals: u64,
++    second_consumed: bool,
++    next_stamp: u64,
+     late: u64,
+ }
++impl<T> GateCore<T> {
++    fn new(capacity: usize) -> Self {
++        Self {
++            closed: false,
++            capacity,
++            queue: VecDeque::with_capacity(capacity),
++            first: None,
++            second: None,
++            signals_received: 0,
++            extra_signals: 0,
++            second_consumed: false,
++            next_stamp: 0,
++            late: 0,
++        }
++    }
++    fn minimum_stamp(&self) -> Option<u64> {
++        self.queue
++            .front()
++            .map(|entry| entry.stamp)
++            .into_iter()
++            .chain(self.first)
++            .chain(self.second)
++            .min()
++    }
++    fn stamp(&mut self) -> u64 {
++        if self.next_stamp == u64::MAX {
++            // All consumers remove the global minimum. Live stamps span
++            // at most capacity+2 admitted entries. Thus the minimum is
++            // positive at exhaustion (or the gate is empty). Subtraction
++            // preserves every pending ordering without counter wrap or a
++            // new admission/refusal policy. Stamps are private order labels.
++            let floor = self.minimum_stamp().unwrap_or(self.next_stamp);
++            assert!(floor > 0, "bounded live-order invariant");
++            for entry in &mut self.queue {
++                entry.stamp -= floor;
++            }
++            if let Some(stamp) = &mut self.first {
++                *stamp -= floor;
++            }
++            if let Some(stamp) = &mut self.second {
++                *stamp -= floor;
++            }
++            self.next_stamp -= floor;
++        }
++        let stamp = self.next_stamp;
++        self.next_stamp += 1;
++        stamp
++    }
++    fn push(&mut self, value: T) -> bool {
++        if self.closed {
++            self.late = self.late.saturating_add(1);
++            return false;
++        }
++        if self.queue.len() == self.capacity {
++            return false;
++        }
++        let stamp = self.stamp();
++        self.queue.push_back(Stamped { stamp, value });
++        true
++    }
++    fn signal(&mut self) -> bool {
++        if self.closed {
++            self.late = self.late.saturating_add(1);
++            return false;
++        }
++        match self.signals_received {
++            0 => self.first = Some(self.stamp()),
++            1 => self.second = Some(self.stamp()),
++            _ => self.extra_signals = self.extra_signals.saturating_add(1),
++        }
++        self.signals_received = self.signals_received.saturating_add(1);
++        true
++    }
++    fn take(&mut self) -> Option<GateMessage<T>> {
++        let stamp = self.minimum_stamp()?;
++        if self.first == Some(stamp) {
++            self.first = None;
++            return Some(GateMessage::FirstSignal);
++        }
++        if self.second == Some(stamp) {
++            self.second = None;
++            self.second_consumed = true;
++            return Some(GateMessage::SecondSignal);
++        }
++        Some(GateMessage::Queued(
++            self.queue
++                .pop_front()
++                .expect("minimum came from queue")
++                .value,
++        ))
++    }
++    fn take_extra_signals(&mut self) -> u64 {
++        // Do not consume unstamped extras ahead of the second stamped
++        // signal. A close before it consumes them counts them all late.
++        if !self.second_consumed {
++            return 0;
++        }
++        std::mem::take(&mut self.extra_signals)
++    }
++    fn close(&mut self) -> usize {
++        self.closed = true;
++        let stamped = self.queue.len()
++            + usize::from(self.first.is_some())
++            + usize::from(self.second.is_some());
++        self.queue.clear();
++        self.first = None;
++        self.second = None;
++        self.late = self
++            .late
++            .saturating_add(stamped as u64)
++            .saturating_add(std::mem::take(&mut self.extra_signals));
++        // The loop may append at most capacity+2 stamped LateEvents.
++        // Unstamped extras are counted in bulk, never an unbounded loop.
++        stamped
++    }
++}
++
++type GateState = GateCore<Trigger>;
+ impl TriggerGate {
+     fn new() -> Self {
+         Self {
+-            state: Mutex::new(GateState {
+-                closed: false,
+-                pending: VecDeque::with_capacity(TRIGGER_CAPACITY),
+-                late: 0,
+-            }),
++            state: Mutex::new(GateCore::new(TRIGGER_CAPACITY)),
+             #[cfg(test)]
+             pause: None,
+         }
+@@ -1006,7 +1206,7 @@ impl TriggerGate {
+     fn admit(&self, trigger: Trigger) -> bool {
+         let mut gate = self.lock();
+         if gate.closed {
+-            gate.late += 1;
++            gate.late = gate.late.saturating_add(1);
+             return false;
+         }
+         #[cfg(test)]
+@@ -1014,24 +1214,21 @@ impl TriggerGate {
+             pause.0.wait();
+             pause.1.wait();
+         }
+-        if gate.pending.len() >= TRIGGER_CAPACITY {
+-            return false;
+-        }
+-        gate.pending.push_back(trigger);
+-        true
++        gate.push(trigger)
++    }
++    fn take(&self) -> Option<GateMessage<Trigger>> {
++        self.lock().take()
+     }
+-    fn take(&self) -> Option<Trigger> {
+-        self.lock().pending.pop_front()
++    fn user_signal(&self) -> bool {
++        self.lock().signal()
++    }
++    fn take_extra_signals(&self) -> u64 {
++        self.lock().take_extra_signals()
+     }
+     /// Close admission and drain what was admitted before it, counting each
+     /// as late; returns how many were drained.
+     fn close(&self) -> usize {
+-        let mut gate = self.lock();
+-        gate.closed = true;
+-        let drained = gate.pending.len();
+-        gate.pending.clear();
+-        gate.late += drained as u64;
+-        drained
++        self.lock().close()
+     }
+     fn late(&self) -> u64 {
+         self.lock().late
+@@ -1052,6 +1249,12 @@ impl SupervisionHandle {
+     pub fn host_fault(&self) -> bool {
+         self.gate.admit(Trigger::HostFault)
+     }
++    /// Called by J's signal-watch thread, never an async signal handler.
++    /// The first two signals have independent slots; later signals are
++    /// counted without stamps. Only a closed gate refuses a signal.
++    pub fn user_signal(&self) -> bool {
++        self.gate.user_signal()
++    }
+ }
+ /// The bounded channel's capacity: one pending trigger per source. It is
+ /// also the most triggers one turn consumes (r2, RF-1).
+@@ -1177,6 +1380,7 @@ struct Ladder {
+     /// T-1 is done, or skipped: the normal end's grace expiry enters at T-2
+     /// (LD-D3A-15).
+     t1_done: bool,
++    reason: CancelReason,
+     term_at: Option<Instant>,
+     kill_at: Option<Instant>,
+ }
+@@ -1291,6 +1495,12 @@ pub struct Supervision<P: Participant> {
+     first_cause: Option<Cause>,
+     later_causes: Vec<Cause>,
+     ladder: Option<Ladder>,
++    user_interrupted: bool,
++    extra_user_signals: u64,
++    stage1: Option<Stage1>,
++    normal_end_signal: Option<Instant>,
++    handshake_done: bool,
++    cancel_control: Option<ControlCancel>,
+     grace_expired: bool,
+     tree: TreeReport,
+     settlement: Option<Settlement>,
+@@ -1479,6 +1689,12 @@ impl<P: Participant> Supervision<P> {
+             first_cause: None,
+             later_causes: Vec::new(),
+             ladder: None,
++            user_interrupted: false,
++            extra_user_signals: 0,
++            stage1: None,
++            normal_end_signal: None,
++            handshake_done: false,
++            cancel_control: None,
+             grace_expired: false,
+             tree: TreeReport::NotKilled,
+             settlement: None,
+@@ -1601,6 +1817,9 @@ impl<P: Participant> Supervision<P> {
+             .protocol
+             .map_or(Duration::ZERO, |p| p.normal_exit_grace);
+         match wait {
++            BoundedWait::Stage1CancelGrace => self
++                .protocol
++                .map_or(Duration::ZERO, |p| p.stage1_cancel_grace),
+             BoundedWait::Handshake => self.waits.handshake,
+             BoundedWait::LivenessWindow => self.waits.liveness_window,
+             BoundedWait::ProgressAbsent => self.waits.progress_absent_interval,
+@@ -1732,12 +1951,17 @@ impl<P: Participant> Supervision<P> {
+             // its refusal (LD-D3A-5; r3, RF-2).
+             return;
+         }
+-        for _ in 0..TRIGGER_CAPACITY {
++        for _ in 0..TRIGGER_CAPACITY + 2 {
+             match self.gate.take() {
+-                Some(Trigger::HostFault) => self.trigger(Cause::HostFault),
++                Some(GateMessage::Queued(Trigger::HostFault)) => self.trigger(Cause::HostFault),
++                Some(GateMessage::FirstSignal) => self.user_signal(false),
++                Some(GateMessage::SecondSignal) => self.user_signal(true),
+                 None => break,
+             }
+         }
++        self.extra_user_signals = self
++            .extra_user_signals
++            .saturating_add(self.gate.take_extra_signals());
+         self.timers();
+         if self.state == State::Settled {
+             return;
+@@ -1749,6 +1973,18 @@ impl<P: Participant> Supervision<P> {
+     /// Fire every expired wait (item 14), each appending its event.
+     fn timers(&mut self) {
+         let now = Instant::now();
++        if let Some(stage1) = self.stage1.filter(|s| s.active)
++            && let Some(protocol) = self.protocol
++            && now >= stage1.started + protocol.stage1_cancel_grace
++        {
++            self.append(SupervisionEvent::WaitExpired(
++                BoundedWait::Stage1CancelGrace,
++            ));
++            self.force_user_stage2(
++                Some(opensip_operability::ForceTrigger::GraceExpired),
++                CancelReason::User,
++            );
++        }
+         let Some(spawned) = self.spawned_at else {
+             return;
+         };
+@@ -1758,11 +1994,14 @@ impl<P: Participant> Supervision<P> {
+             self.next_sample = Some(now + self.limits.memory_sample_interval);
+             self.sample_tree();
+         }
+-        if self.state == State::Handshaking && now >= spawned + self.waits.handshake {
++        if !self.handshake_done
++            && (self.state == State::Handshaking || self.stage1_active())
++            && now >= spawned + self.waits.handshake
++        {
+             self.append(SupervisionEvent::WaitExpired(BoundedWait::Handshake));
+             self.trigger(Cause::HandshakeDeadline);
+         }
+-        if self.first_cause.is_none()
++        if (self.first_cause.is_none() || self.stage1_active())
+             && self.terminal.is_none()
+             && now >= spawned + self.waits.wall_clock
+         {
+@@ -1772,6 +2011,14 @@ impl<P: Participant> Supervision<P> {
+             self.trigger(Cause::Deadline);
+             self.deliver(ProcessEvent::Fault(ProcessFault::Deadline));
+         }
++        if self.stage1_active() && self.health_due.is_some_and(|due| now >= due) {
++            self.health_due = None;
++            self.append(SupervisionEvent::WaitExpired(BoundedWait::LivenessWindow));
++            self.append(SupervisionEvent::LivenessMissed(
++                LivenessMiss::WindowExpired,
++            ));
++            self.trigger(Cause::Liveness);
++        }
+         if self.state == State::Running && self.first_cause.is_none() {
+             if let Some(due) = self.health_due
+                 && now >= due
+@@ -1983,10 +2230,10 @@ impl<P: Participant> Supervision<P> {
+         let mut all: Vec<Instant> = Vec::new();
+         all.extend(self.next_sample);
+         if let Some(spawned) = self.spawned_at {
+-            if self.state == State::Handshaking {
++            if !self.handshake_done && (self.state == State::Handshaking || self.stage1_active()) {
+                 all.push(spawned + self.waits.handshake);
+             }
+-            if self.first_cause.is_none() && self.terminal.is_none() {
++            if (self.first_cause.is_none() || self.stage1_active()) && self.terminal.is_none() {
+                 all.push(spawned + self.waits.wall_clock);
+             }
+         }
+@@ -2021,6 +2268,12 @@ impl<P: Participant> Supervision<P> {
+                 all.push(kill + self.waits.reap_ceiling);
+             }
+         }
++        if let Some(stage1) = self.stage1.filter(|s| s.active)
++            && let Some(protocol) = self.protocol
++        {
++            all.push(stage1.started + protocol.stage1_cancel_grace);
++            all.extend(self.health_due);
++        }
+         all.extend(self.clean_at.map(|at| at + self.waits.reap_ceiling));
+         all.into_iter().min()
+     }
+@@ -2049,7 +2302,8 @@ impl<P: Participant> Supervision<P> {
+             slots.push(1);
+         }
+         if running
+-            && self.state == State::Running
++            && (self.state == State::Running || self.stage1_active())
++            && self.handshake_done
+             && self.participant.as_ref().is_some_and(|p| p.wants_write())
+             && let Some(fd) = &self.ends.fd0
+         {
+@@ -2236,7 +2490,9 @@ impl<P: Participant> Supervision<P> {
+                         if let Some(control) = &mut self.control {
+                             control.observations_mut().confirmed_tuples = confirmed;
+                         }
+-                        if let Some(select) = self.host_message(host_select) {
++                        if self.ladder.is_none()
++                            && let Some(select) = self.host_message(host_select)
++                        {
+                             let tuple = self.selection.as_ref().map(|s| s.tuple.clone());
+                             if let Some(control) = &mut self.control {
+                                 control.observations_mut().selected_tuple = tuple;
+@@ -2244,12 +2500,15 @@ impl<P: Participant> Supervision<P> {
+                             self.send_control(&select);
+                         }
+                     }
+-                    Control3Root::SelectAck { .. } if self.state == State::Handshaking => {
+-                        let now = Instant::now();
+-                        self.state = State::Running;
+-                        self.absence.progress(now);
+-                        self.next_health = Some(now + self.waits.health_ping_interval);
+-                        self.append(SupervisionEvent::Running);
++                    Control3Root::SelectAck { .. } => {
++                        self.handshake_done = true;
++                        if self.state == State::Handshaking {
++                            let now = Instant::now();
++                            self.state = State::Running;
++                            self.absence.progress(now);
++                            self.next_health = Some(now + self.waits.health_ping_interval);
++                            self.append(SupervisionEvent::Running);
++                        }
+                     }
+                     Control3Root::HealthReport { .. } => {
+                         // Live, whatever its status (item 15, :512).
+@@ -2470,14 +2729,25 @@ impl<P: Participant> Supervision<P> {
+                 ) => {}
+             Err(_) => {
+                 // The child's control reader is gone: nothing more is sent.
++                let cancel_pending = self.cancel_control == Some(ControlCancel::Queued);
+                 self.control_out = PendingWrite::default();
+                 self.ends.fd3 = None;
++                self.deferred = None;
++                if cancel_pending {
++                    self.control_cancel(ControlCancel::Failed);
++                }
++                if self.stage1_active() {
++                    self.trigger(Cause::HostFault);
++                }
+                 return;
+             }
+         }
+         if self.control_out.at == self.control_out.bytes.len() {
+             // The frame is written whole: its record, if any, is made now.
+             if let Some(fact) = std::mem::take(&mut self.control_out).written {
++                if matches!(fact, records::RecordFact::CancelSent { .. }) {
++                    self.control_cancel(ControlCancel::Written);
++                }
+                 self.fact(fact);
+             }
+             if self.close_fd3_after_write {
+@@ -2528,6 +2798,9 @@ impl<P: Participant> Supervision<P> {
+         if let (true, Deferred::Cancel(reason)) = (sent, deferred) {
+             // Recorded once the frame is written whole (D3A3-R1-RF-2).
+             self.control_out.written = Some(records::RecordFact::CancelSent {
++                inband: self
++                    .stage1
++                    .is_some_and(|s| s.evidence.inband == InbandCancel::Written),
+                 control_reason: match reason {
+                     CancelReason::User => opensip_operability::ControlCancelReason::User,
+                     CancelReason::Deadline => opensip_operability::ControlCancelReason::Deadline,
+@@ -2537,6 +2810,12 @@ impl<P: Participant> Supervision<P> {
+                 },
+             });
+         }
++        if matches!(deferred, Deferred::Cancel(_)) && !sent {
++            self.control_cancel(ControlCancel::Refused);
++            if self.stage1_active() {
++                self.trigger(Cause::HostFault);
++            }
++        }
+         if deferred == Deferred::Shutdown {
+             if sent {
+                 self.close_fd3_after_write = true;
+@@ -2561,6 +2840,23 @@ impl<P: Participant> Supervision<P> {
+     }
+ 
+     fn apply_step(&mut self, step: ParticipantStep) {
++        if self.stage1_active() {
++            if step.cancel.written
++                && self
++                    .stage1
++                    .is_some_and(|s| s.evidence.inband == InbandCancel::Queued)
++            {
++                self.inband_cancel(InbandCancel::Written);
++            }
++            if step.cancel.request_closed
++                && self
++                    .stage1
++                    .is_some_and(|s| s.evidence.inband == InbandCancel::Written)
++            {
++                self.ends.fd0 = None;
++                self.queue_control_cancel(CancelReason::User);
++            }
++        }
+         for progress in &step.progress {
+             self.absence.progress(Instant::now());
+             match progress {
+@@ -2684,6 +2980,12 @@ impl<P: Participant> Supervision<P> {
+         self.append(SupervisionEvent::Terminal(kind));
+         self.stage_terminal(records::stage_terminal(kind));
+         self.terminal_observed.get_or_insert_with(Instant::now);
++        if self.stage1_active() {
++            if kind != TerminalKind::Cancelled {
++                self.trigger(Cause::ProviderProtocol);
++            }
++            return;
++        }
+         if self.first_cause.is_some() {
+             return;
+         }
+@@ -2773,6 +3075,17 @@ impl<P: Participant> Supervision<P> {
+             }
+             Class::Tool => self.fd1_eof,
+         };
++        if self.stage1_active()
++            && self.terminal == Some(TerminalKind::Cancelled)
++            && self.participant_status == ParticipantStatus::Done
++            && self.death_appended
++        {
++            if let Some(stage1) = &mut self.stage1 {
++                stage1.active = false;
++            }
++            self.clean_at = Some(Instant::now());
++            self.state = State::Reaping;
++        }
+         if self.first_cause.is_none() && ended && self.death_appended {
+             self.first_cause = Some(Cause::Clean);
+             self.clean_at = Some(Instant::now());
+@@ -2780,6 +3093,131 @@ impl<P: Participant> Supervision<P> {
+         }
+     }
+ 
++    fn stage1_active(&self) -> bool {
++        self.stage1.is_some_and(|s| s.active)
++    }
++    fn inband_cancel(&mut self, outcome: InbandCancel) {
++        if let Some(stage1) = &mut self.stage1 {
++            stage1.evidence.inband = outcome;
++        }
++        self.append(SupervisionEvent::InbandCancel(outcome));
++    }
++    fn control_cancel(&mut self, outcome: ControlCancel) {
++        self.cancel_control = Some(outcome);
++        if let Some(stage1) = &mut self.stage1 {
++            stage1.evidence.control = Some(outcome);
++        }
++        self.append(SupervisionEvent::ControlCancel(outcome));
++    }
++    fn queue_control_cancel(&mut self, reason: CancelReason) {
++        if self.class == Class::Tool || self.cancel_control.is_some() {
++            return;
++        }
++        self.control_cancel(ControlCancel::Queued);
++        self.deferred = Some(Deferred::Cancel(reason));
++        if self.ends.fd3.is_none() {
++            self.deferred = None;
++            self.control_cancel(ControlCancel::Abandoned);
++            if self.stage1_active() {
++                self.trigger(Cause::HostFault);
++            }
++        } else {
++            self.send_deferred();
++        }
++    }
++    fn user_signal(&mut self, second: bool) {
++        self.user_interrupted = true;
++        if second {
++            self.append(SupervisionEvent::Trigger(Cause::UserCancel));
++            if self.stage1_active() || self.normal_end_signal.is_some() {
++                self.force_user_stage2(
++                    Some(opensip_operability::ForceTrigger::SecondSignal),
++                    CancelReason::User,
++                );
++            }
++            return;
++        }
++        if self.first_cause.is_some() {
++            self.trigger(Cause::UserCancel);
++            return;
++        }
++        // During normal end the first signal adds no protocol message.
++        if self.terminal.is_some() {
++            self.normal_end_signal = Some(Instant::now());
++            if !self.later_causes.contains(&Cause::UserCancel) {
++                self.later_causes.push(Cause::UserCancel);
++            }
++            self.append(SupervisionEvent::Trigger(Cause::UserCancel));
++            return;
++        }
++        if self.class == Class::Tool {
++            self.trigger_from(Cause::UserCancel, true);
++            self.ladder_step();
++            return;
++        }
++        let now = Instant::now();
++        self.first_cause = Some(Cause::UserCancel);
++        self.teardown_from = Some(now);
++        self.state = State::Stopping(Cause::UserCancel);
++        self.stage1 = Some(Stage1 {
++            started: now,
++            active: true,
++            evidence: Stage1Evidence {
++                inband: InbandCancel::NotLawful,
++                control: None,
++            },
++        });
++        self.append(SupervisionEvent::Trigger(Cause::UserCancel));
++        self.append(SupervisionEvent::TeardownStarted(Cause::UserCancel));
++        if self.participant.as_mut().is_some_and(|p| p.user_cancel()) {
++            self.inband_cancel(InbandCancel::Queued);
++        } else {
++            self.inband_cancel(InbandCancel::NotLawful);
++            self.queue_control_cancel(CancelReason::User);
++        }
++    }
++    fn force_user_stage2(
++        &mut self,
++        forced: Option<opensip_operability::ForceTrigger>,
++        reason: CancelReason,
++    ) {
++        if self.ladder.is_some() {
++            return;
++        }
++        let started = self.stage1.map(|s| s.started).or(self.normal_end_signal);
++        if let Some(stage1) = &mut self.stage1 {
++            stage1.active = false;
++        }
++        self.normal_end_signal = None;
++        if let Some(participant) = &mut self.participant {
++            participant.abandon_input();
++        }
++        self.ends.fd0 = None;
++        if self
++            .stage1
++            .is_some_and(|s| s.evidence.inband == InbandCancel::Queued)
++        {
++            self.inband_cancel(InbandCancel::Abandoned);
++        }
++        // This is the last point at which a control cancellation can be
++        // logically queued. A previously queued announcement may finish.
++        self.queue_control_cancel(reason);
++        if let (Some(trigger), Some(at)) = (forced, started) {
++            let grace = Instant::now().saturating_duration_since(at);
++            self.append(SupervisionEvent::CancelForced { trigger, grace });
++            self.fact(records::RecordFact::CancelForced { trigger, grace });
++        }
++        self.first_cause.get_or_insert(Cause::UserCancel);
++        self.state = State::Stopping(self.first_cause.unwrap());
++        self.ladder = Some(Ladder {
++            t1_done: true,
++            reason,
++            term_at: None,
++            kill_at: None,
++        });
++        self.ladder_step();
++    }
++
+     /// Append a teardown trigger (item 12, :447): the first starts the
+     /// ladder; a later one is kept.
+     fn trigger(&mut self, cause: Cause) {
+@@ -2805,6 +3243,11 @@ impl<P: Participant> Supervision<P> {
+                     // A tool has no control plane, so no T-1 (LD-D3A2-1).
+                     self.ladder = Some(Ladder {
+                         t1_done: from_t2 || self.class == Class::Tool,
++                        reason: if cause == Cause::Deadline {
++                            CancelReason::Deadline
++                        } else {
++                            CancelReason::SupervisorFault
++                        },
+                         term_at: None,
+                         kill_at: None,
+                     });
+@@ -2815,6 +3258,14 @@ impl<P: Participant> Supervision<P> {
+             Some(_) if !self.later_causes.contains(&cause) => self.later_causes.push(cause),
+             Some(_) => {}
+         }
++        if self.stage1_active() && cause != Cause::UserCancel {
++            let reason = if cause == Cause::Deadline {
++                CancelReason::Deadline
++            } else {
++                CancelReason::SupervisorFault
++            };
++            self.force_user_stage2(None, reason);
++        }
+     }
+ 
+     /// Teardown, reap and settlement, as far as they can go this turn.
+@@ -2841,14 +3292,9 @@ impl<P: Participant> Supervision<P> {
+         if !ladder.t1_done {
+             ladder.t1_done = true;
+             self.append(SupervisionEvent::CancelAttempted);
+-            let reason = if self.first_cause == Some(Cause::Deadline) {
+-                CancelReason::Deadline
+-            } else {
+-                CancelReason::SupervisorFault
+-            };
+-            // Sent once any pending frame completes; T-2 does not wait.
+-            self.deferred = Some(Deferred::Cancel(reason));
+-            self.send_deferred();
++            // Logical admission happens once, even if an earlier control
++            // frame is still in flight. T-2 never waits for its write.
++            self.queue_control_cancel(ladder.reason);
+         }
+         let unreaped = self.reaped.is_none();
+         if ladder.term_at.is_none() {
+@@ -3326,6 +3772,23 @@ impl<P: Participant> Supervision<P> {
+                 )
+             }
+         };
++        if self.cancel_control == Some(ControlCancel::Queued) {
++            self.control_cancel(ControlCancel::Abandoned);
++        }
++        if self
++            .stage1
++            .is_some_and(|s| s.evidence.inband == InbandCancel::Queued)
++        {
++            if let Some(participant) = &mut self.participant {
++                participant.abandon_input();
++            }
++            self.inband_cancel(InbandCancel::Abandoned);
++        }
++        if let Some(stage1) = &mut self.stage1 {
++            stage1.active = false;
++        }
++        self.deferred = None;
++        self.control_out = PendingWrite::default();
+         self.ends = HostEnds::default();
+         let output = self
+             .participant
+@@ -3338,7 +3801,9 @@ impl<P: Participant> Supervision<P> {
+         let settlement = Settlement {
+             first_cause: cause,
+             later_causes: std::mem::take(&mut self.later_causes),
+-            user_interrupted: false,
++            user_interrupted: self.user_interrupted,
++            extra_user_signals: self.extra_user_signals,
++            stage1: self.stage1.map(|s| s.evidence),
+             exit,
+             tree: self.tree,
+             tree_evidence,
+diff --git a/crates/components/src/supervisor_records.rs b/crates/components/src/supervisor_records.rs
+index 03fe97c..cd60657 100644
+--- a/crates/components/src/supervisor_records.rs
++++ b/crates/components/src/supervisor_records.rs
+@@ -76,8 +76,16 @@ pub enum RecordFact {
+         unsampled: u64,
+         listing_failed: bool,
+     },
+-    /// `supervision.cancel.sent`: T-1's in-band cancel, written.
+-    CancelSent { control_reason: ControlCancelReason },
++    /// A fully written control cancellation; `inband` says whether the
++    /// provider Cancel completed before it. Ordinary fault T-1 is false.
++    CancelSent {
++        inband: bool,
++        control_reason: ControlCancelReason,
++    },
++    CancelForced {
++        trigger: opensip_operability::ForceTrigger,
++        grace: Duration,
++    },
+     /// `supervision.wait.expired`: the wait and its configured bound.
+     WaitExpired { wait: BoundedWait, limit: Duration },
+     /// `supervision.teardown.started`.
+@@ -204,6 +212,7 @@ impl RecordFact {
+             Self::LimitBreached { .. } => opensip_operability::SupervisionLimitBreached::NAME,
+             Self::SampleIncomplete { .. } => opensip_operability::SupervisionSampleIncomplete::NAME,
+             Self::CancelSent { .. } => opensip_operability::SupervisionCancelSent::NAME,
++            Self::CancelForced { .. } => opensip_operability::SupervisionCancelForced::NAME,
+             Self::WaitExpired { .. } => opensip_operability::SupervisionWaitExpired::NAME,
+             Self::TeardownStarted { .. } => opensip_operability::SupervisionTeardownStarted::NAME,
+             Self::ScratchRetained { .. } => opensip_operability::SupervisionScratchRetained::NAME,
+@@ -225,8 +234,8 @@ impl RecordFact {
+         }
+     }
+     /// The event's field keys this fact supplies; the caller adds the
+-    /// minted ones (`role`, `universe`, `pid`). `inband` is always true for
+-    /// D3a's T-1 cancel, and `rss_unit` is `bytes` on macOS.
++    /// minted ones (`role`, `universe`, `pid`). `inband` is carried by the
++    /// cancel fact, and `rss_unit` is `bytes` on macOS.
+     pub fn supplies(&self) -> &'static [&'static str] {
+         match self {
+             Self::ProcessSpawned { .. } => &["protocol"],
+@@ -244,6 +253,7 @@ impl RecordFact {
+             Self::LimitBreached { .. } => &["limit", "observed", "unit"],
+             Self::SampleIncomplete { .. } => &["listed", "unsampled", "listing_failed"],
+             Self::CancelSent { .. } => &["inband", "control_reason"],
++            Self::CancelForced { .. } => &["trigger", "grace"],
+             Self::WaitExpired { .. } => &["wait", "limit"],
+             Self::TeardownStarted { .. } => &["cause"],
+             Self::ScratchRetained { .. } => &["reason", "errno"],
+@@ -392,6 +402,7 @@ pub fn bounded_wait(wait: Wait) -> BoundedWait {
+         Wait::ProgressAbsent => BoundedWait::ProgressAbsent,
+         Wait::WallClock => BoundedWait::WallClock,
+         Wait::NormalExitGrace => BoundedWait::NormalExitGrace,
++        Wait::Stage1CancelGrace => BoundedWait::Stage1CancelGrace,
+         Wait::ShutdownAck => BoundedWait::ShutdownAck,
+         Wait::TermToKill => BoundedWait::TermToKill,
+         Wait::ReapCeiling => BoundedWait::ReapCeiling,
+diff --git a/crates/components/src/supervisor_tests.rs b/crates/components/src/supervisor_tests.rs
+index 995cb91..57d8325 100644
+--- a/crates/components/src/supervisor_tests.rs
++++ b/crates/components/src/supervisor_tests.rs
+@@ -143,6 +143,9 @@ pub(crate) struct FixtureParticipant {
+     /// D3a-4 r2: whether `Analyze` was queued, which selects the
+     /// `Unavailable` payload (D3A4-R1-NBO-1).
+     analyzed: bool,
++    pending_ends: Vec<usize>,
++    cancel_requested: bool,
++    cancel_progress: CancelProgress,
+ }
+ impl FixtureParticipant {
+     fn new(waits: ProtocolWaits) -> Self {
+@@ -166,6 +169,9 @@ impl FixtureParticipant {
+             bad_commitment: false,
+             commitment_failed: false,
+             analyzed: false,
++            pending_ends: Vec::new(),
++            cancel_requested: false,
++            cancel_progress: CancelProgress::default(),
+         };
+         participant.host_frames();
+         participant
+@@ -225,6 +231,7 @@ impl FixtureParticipant {
+         members.push(("type".to_owned(), Value::Text(frame.to_owned())));
+         let bytes = write_frame(&Value::Map(members)).expect("a frame");
+         self.pending.extend_from_slice(&bytes);
++        self.pending_ends.push(self.pending.len());
+         let mut event = Event::frame(frame);
+         if frame == "Analyze" {
+             event.stage_count = 1;
+@@ -235,7 +242,7 @@ impl FixtureParticipant {
+     }
+     /// The host frames each ready phase owes (P3T's host rows).
+     fn host_frames(&mut self) {
+-        if self.closed {
++        if self.closed || self.cancel_requested {
+             return;
+         }
+         match self.run.phase() {
+@@ -260,6 +267,7 @@ impl FixtureParticipant {
+             admitted_payload_bytes: bytes,
+             eof,
+             boundaries: std::mem::take(&mut self.boundaries),
++            cancel: std::mem::take(&mut self.cancel_progress),
+         }
+     }
+ }
+@@ -363,7 +371,15 @@ impl Participant for FixtureParticipant {
+                     self.at += n;
+                     if self.at == self.pending.len() {
+                         self.pending.clear();
++                        self.pending_ends.clear();
+                         self.at = 0;
++                        if self.cancel_requested {
++                            self.closed = true;
++                            self.cancel_progress = CancelProgress {
++                                written: true,
++                                request_closed: true,
++                            };
++                        }
+                     }
+                 }
+                 Err(e)
+@@ -383,8 +399,32 @@ impl Participant for FixtureParticipant {
+     fn close_input(&mut self) {
+         self.closed = true;
+         self.pending.clear();
++        self.pending_ends.clear();
+         self.at = 0;
+     }
++    fn user_cancel(&mut self) -> bool {
++        if self.closed || self.cancel_requested {
++            return false;
++        }
++        let mut trial = self.run.clone();
++        trial.step(&Event::frame("Cancel"));
++        if trial.phase() == "FAULT" {
++            return false;
++        }
++        // Keep the current frame whole, but drop later normal frames that
++        // this type-only double had queued in the same buffer.
++        if let Some(end) = self.pending_ends.iter().copied().find(|end| *end > self.at) {
++            self.pending.truncate(end);
++            self.pending_ends.retain(|offset| *offset <= end);
++        }
++        self.cancel_requested = true;
++        self.queue("Cancel");
++        true
++    }
++    fn abandon_input(&mut self) {
++        self.close_input();
++        self.cancel_progress = CancelProgress::default();
++    }
+     fn take_terminal_output(&mut self) -> Option<TerminalOutput> {
+         self.output.take()
+     }
+@@ -2746,6 +2786,7 @@ fn each_fact_carries_its_values() {
+         limit: wall_clock_expiry_waits().wall_clock,
+     }));
+     assert!(out.facts.contains(&RecordFact::CancelSent {
++        inband: false,
+         control_reason: opensip_operability::ControlCancelReason::Deadline,
+     }));
+     let out = outcome("bad-nonce");
+@@ -3003,6 +3044,7 @@ fn each_fact_supplies_its_event_s_unminted_fields() {
+             listing_failed: true,
+         },
+         RecordFact::CancelSent {
++            inband: false,
+             control_reason: op::ControlCancelReason::Deadline,
+         },
+         RecordFact::WaitExpired {
+@@ -3236,6 +3278,8 @@ fn admission_requires_the_terminal_output() {
+         first_cause: Cause::Clean,
+         later_causes: Vec::new(),
+         user_interrupted: false,
++        extra_user_signals: 0,
++        stage1: None,
+         exit: ExitClass::Exited(0),
+         tree: TreeReport::NotKilled,
+         tree_evidence: None,
+@@ -4841,3 +4885,481 @@ fn a_root_only_snapshot_records_the_owned_root() {
+         TreeReport::GroupKilledPlatformLimited
+     );
+ }
++
++/// D3b-2's type-only double keeps the current frame whole before Cancel,
++/// and drops normal snapshot frames it had queued but not started.
++#[test]
++fn d3b2_fixture_cancel_keeps_the_current_frame_and_discards_later_frames() {
++    struct One<'a>(&'a mut Vec<u8>);
++    impl Write for One<'_> {
++        fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
++            if let Some(byte) = bytes.first() {
++                self.0.push(*byte);
++                Ok(1)
++            } else {
++                Ok(0)
++            }
++        }
++        fn flush(&mut self) -> io::Result<()> {
++            Ok(())
++        }
++    }
++    let mut participant = FixtureParticipant::new(FIXTURE_WAITS);
++    let mut hello = Vec::new();
++    participant.writable(&mut hello);
++    let frame = |name: &str| {
++        write_frame(&Value::Map(vec![("type".into(), Value::Text(name.into()))])).unwrap()
++    };
++    participant.readable(&mut frame("HelloAck").as_slice());
++    participant.writable(&mut Vec::new());
++    participant.chunk = Some(8);
++    participant.readable(&mut frame("UniverseAccepted").as_slice());
++    assert_eq!(participant.pending_ends.len(), 3);
++    let current_frame_end = participant.pending_ends[0];
++    let mut bytes = Vec::new();
++    let partial = participant.writable(&mut One(&mut bytes));
++    assert_eq!(partial.cancel, CancelProgress::default());
++    assert_eq!(bytes.len(), 1);
++    assert!(participant.user_cancel());
++    assert!(!participant.user_cancel());
++    assert_eq!(participant.pending_ends.len(), 2);
++    assert_eq!(participant.pending_ends[0], current_frame_end);
++    let done = participant.writable(&mut bytes);
++    assert_eq!(
++        done.cancel,
++        CancelProgress {
++            written: true,
++            request_closed: true
++        }
++    );
++    assert!(!participant.wants_write());
++    let mut frames = FrameAccumulator::new(Profile::Rust3, 16, None);
++    let pushed = frames.push(&bytes);
++    assert!(pushed.refusal.is_none());
++    assert_eq!(
++        pushed
++            .frames
++            .iter()
++            .map(|f| type_of(f.value()))
++            .collect::<Vec<_>>(),
++        ["SnapshotManifest", "Cancel"]
++    );
++    assert_eq!(
++        participant.writable(&mut Vec::new()).cancel,
++        CancelProgress::default()
++    );
++}
++
++/// D3b-2's double reports no completed Cancel after escalation drops its
++/// partial current frame and the queued in-band leg.
++#[test]
++fn d3b2_fixture_abandon_never_reports_the_cancel_as_written() {
++    let mut participant = FixtureParticipant::new(FIXTURE_WAITS);
++    assert!(participant.user_cancel());
++    let mut writer = std::io::Cursor::new([0u8; 1]);
++    assert_eq!(
++        participant.writable(&mut writer).cancel,
++        CancelProgress::default()
++    );
++    participant.abandon_input();
++    assert!(!participant.wants_write());
++    assert!(participant.pending.is_empty());
++    assert!(participant.pending_ends.is_empty());
++    assert_eq!(
++        participant.writable(&mut Vec::new()).cancel,
++        CancelProgress::default()
++    );
++    assert!(!participant.user_cancel());
++}
++
++// D3b-2 root controls use only the first-party type-level fixture.
++#[test]
++fn d3b2_root_gate_keeps_capacity_signals_order_and_exact_close_counts() {
++    let gate = TriggerGate::new();
++    for _ in 0..TRIGGER_CAPACITY {
++        assert!(gate.admit(Trigger::HostFault));
++    }
++    assert!(!gate.admit(Trigger::HostFault));
++    assert!(gate.user_signal());
++    assert!(gate.user_signal());
++    for _ in 0..100 {
++        assert!(gate.user_signal());
++    }
++    assert_eq!(gate.take_extra_signals(), 0);
++    for _ in 0..TRIGGER_CAPACITY {
++        assert_eq!(gate.take(), Some(GateMessage::Queued(Trigger::HostFault)));
++    }
++    assert_eq!(gate.take(), Some(GateMessage::FirstSignal));
++    assert_eq!(gate.take_extra_signals(), 0);
++    assert_eq!(gate.take(), Some(GateMessage::SecondSignal));
++    assert_eq!(gate.take_extra_signals(), 100);
++    assert_eq!(gate.close(), 0);
++    assert_eq!(gate.late(), 0);
++    assert!(!gate.user_signal());
++    assert_eq!(gate.late(), 1);
++    let gate = TriggerGate::new();
++    assert!(gate.user_signal());
++    assert!(gate.admit(Trigger::HostFault));
++    assert!(gate.user_signal());
++    assert!(gate.user_signal());
++    assert_eq!(gate.close(), 3);
++    assert_eq!(gate.late(), 4);
++    assert_eq!(gate.close(), 0);
++    assert_eq!(gate.late(), 4);
++}
++
++fn d3b2_signal_on_snapshot() -> Hook {
++    let mut sent = false;
++    Box::new(move |event, handle| {
++        if !sent && *event == SupervisionEvent::Progress(Progress::SnapshotAcknowledged) {
++            sent = true;
++            assert!(handle.user_signal());
++        }
++    })
++}
++
++#[test]
++fn d3b2_root_named_interleavings_keep_first_cause_and_forced_fact() {
++    use records::RecordFact;
++    for order in ["sfs", "fss", "ssf"] {
++        let mut sent = false;
++        let hook: Hook = Box::new(move |event, handle| {
++            if !sent && *event == SupervisionEvent::Progress(Progress::SnapshotAcknowledged) {
++                sent = true;
++                for action in order.chars() {
++                    assert!(if action == 's' {
++                        handle.user_signal()
++                    } else {
++                        handle.host_fault()
++                    });
++                }
++            }
++        });
++        let dir = test_dir();
++        let (supervision, events) = prepared(
++            "cancel-ignore",
++            FixtureParticipant::new(ProtocolWaits::TS2),
++            Some(hook),
++        );
++        let out = finish(supervision, events, &dir);
++        assert!(out.settlement.user_interrupted(), "{order}");
++        let first = if order == "fss" {
++            Cause::HostFault
++        } else {
++            Cause::UserCancel
++        };
++        assert_eq!(out.settlement.first_cause(), first, "{order}");
++        let later = if order == "fss" {
++            Cause::UserCancel
++        } else {
++            Cause::HostFault
++        };
++        assert!(out.settlement.later_causes().contains(&later), "{order}");
++        let forces: Vec<_> = out
++            .facts
++            .iter()
++            .filter_map(|f| match f {
++                RecordFact::CancelForced { trigger, grace } => Some((*trigger, *grace)),
++                _ => None,
++            })
++            .collect();
++        assert_eq!(
++            forces.len(),
++            usize::from(order == "ssf"),
++            "{order}: {:?}",
++            out.events
++        );
++        if let Some((trigger, grace)) = forces.first() {
++            assert_eq!(*trigger, opensip_operability::ForceTrigger::SecondSignal);
++            assert!(*grace < ProtocolWaits::TS2.stage1_cancel_grace);
++        }
++        assert_eq!(out.count(&SupervisionEvent::Settled(first)), 1);
++        assert!(!out.settlement.admissible());
++        if order == "fss" {
++            assert!(out.settlement.stage1_evidence().is_none());
++        } else {
++            assert_eq!(
++                out.settlement.stage1_evidence().unwrap().inband,
++                InbandCancel::Abandoned
++            );
++        }
++        nothing_left(&out);
++    }
++}
++
++#[test]
++fn d3b2_root_cooperative_cancel_keeps_leg_order_and_discards_candidates() {
++    use records::RecordFact;
++    let dir = test_dir();
++    let (supervision, events) = prepared(
++        "cancel-cooperative",
++        FixtureParticipant::new(ProtocolWaits::TS2),
++        Some(d3b2_signal_on_snapshot()),
++    );
++    let out = finish(supervision, events, &dir);
++    assert_eq!(out.settlement.first_cause(), Cause::UserCancel);
++    assert!(out.settlement.user_interrupted());
++    assert_eq!(out.settlement.exit(), ExitClass::Exited(0));
++    assert_eq!(out.settlement.terminal(), Some(TerminalKind::Cancelled));
++    assert_eq!(
++        out.settlement.stage1_evidence(),
++        Some(Stage1Evidence {
++            inband: InbandCancel::Written,
++            control: Some(ControlCancel::Written)
++        })
++    );
++    assert!(
++        out.position(&SupervisionEvent::InbandCancel(InbandCancel::Written))
++            < out.position(&SupervisionEvent::ControlCancel(ControlCancel::Queued))
++    );
++    assert!(
++        out.position(&SupervisionEvent::ControlCancel(ControlCancel::Queued))
++            < out.position(&SupervisionEvent::ControlCancel(ControlCancel::Written))
++    );
++    assert_eq!(
++        out.facts
++            .iter()
++            .filter(|f| matches!(f, RecordFact::CancelSent { .. }))
++            .count(),
++        1
++    );
++    assert!(out.facts.contains(&RecordFact::CancelSent {
++        inband: true,
++        control_reason: opensip_operability::ControlCancelReason::User
++    }));
++    assert!(
++        !out.facts
++            .iter()
++            .any(|f| matches!(f, RecordFact::CancelForced { .. }))
++    );
++    assert!(!out.saw(&SupervisionEvent::Signalled { signal: SIGTERM }));
++    assert!(!out.saw(&SupervisionEvent::Signalled { signal: SIGKILL }));
++    assert!(!out.settlement.admissible());
++    assert!(out.discarded);
++    nothing_left(&out);
++}
++
++#[test]
++fn d3b2_root_grace_uses_each_participants_full_protocol_wait() {
++    for grace in [
++        ProtocolWaits::TS2.stage1_cancel_grace,
++        Duration::from_millis(5_000),
++    ] {
++        let dir = test_dir();
++        let waits = ProtocolWaits {
++            stage1_cancel_grace: grace,
++            normal_exit_grace: Duration::from_secs(5),
++        };
++        let (supervision, events) = prepared(
++            "cancel-ignore",
++            FixtureParticipant::new(waits),
++            Some(d3b2_signal_on_snapshot()),
++        );
++        let out = finish(supervision, events, &dir);
++        assert_eq!(out.settlement.first_cause(), Cause::UserCancel);
++        assert!(out.saw(&SupervisionEvent::WaitExpired(
++            BoundedWait::Stage1CancelGrace
++        )));
++        let forces: Vec<_> = out
++            .facts
++            .iter()
++            .filter_map(|f| match f {
++                records::RecordFact::CancelForced { trigger, grace } => Some((*trigger, *grace)),
++                _ => None,
++            })
++            .collect();
++        assert_eq!(forces.len(), 1);
++        assert_eq!(forces[0].0, opensip_operability::ForceTrigger::GraceExpired);
++        assert!(forces[0].1 >= grace);
++        assert!(out.facts.contains(&records::RecordFact::WaitExpired {
++            wait: opensip_operability::BoundedWait::Stage1CancelGrace,
++            limit: grace
++        }));
++        assert_eq!(
++            out.settlement.stage1_evidence().unwrap().inband,
++            InbandCancel::Written
++        );
++        nothing_left(&out);
++    }
++}
++
++#[test]
++fn d3b2_root_first_signal_during_normal_end_sends_nothing() {
++    let hook: Hook = Box::new(|event, handle| {
++        if *event == SupervisionEvent::Terminal(TerminalKind::Complete) {
++            assert!(handle.user_signal());
++        }
++    });
++    let dir = test_dir();
++    let (supervision, events) = prepared(
++        "normal-eof-first",
++        FixtureParticipant::new(FIXTURE_WAITS),
++        Some(hook),
++    );
++    let out = finish(supervision, events, &dir);
++    assert_eq!(out.settlement.first_cause(), Cause::Clean);
++    assert!(out.settlement.user_interrupted());
++    assert!(out.settlement.later_causes().contains(&Cause::UserCancel));
++    assert!(out.settlement.stage1_evidence().is_none());
++    assert!(!out.facts.iter().any(|f| matches!(
++        f,
++        records::RecordFact::CancelSent { .. } | records::RecordFact::CancelForced { .. }
++    )));
++    nothing_left(&out);
++}
++
++#[test]
++fn d3b2_root_tool_first_signal_has_no_stage1_or_forced_fact() {
++    let out = tool_run_with(
++        "tool-hang",
++        Box::new(|supervision| {
++            assert!(supervision.handle().user_signal());
++        }),
++    );
++    assert_eq!(out.settlement.first_cause(), Cause::UserCancel);
++    assert!(out.settlement.user_interrupted());
++    assert!(out.settlement.stage1_evidence().is_none());
++    assert!(out.saw(&SupervisionEvent::Signalled { signal: SIGTERM }));
++    assert!(!out.facts.iter().any(|f| matches!(
++        f,
++        records::RecordFact::CancelForced { .. } | records::RecordFact::CancelSent { .. }
++    )));
++}
++
++#[test]
++fn d3b2_root_second_signal_during_normal_end_forces_once() {
++    let hook: Hook = Box::new(|event, handle| {
++        if *event == SupervisionEvent::Terminal(TerminalKind::Complete) {
++            assert!(handle.user_signal());
++            assert!(handle.user_signal());
++        }
++    });
++    let dir = test_dir();
++    let (supervision, events) = prepared(
++        "no-exit",
++        FixtureParticipant::new(FIXTURE_WAITS),
++        Some(hook),
++    );
++    let out = finish(supervision, events, &dir);
++    assert!(out.settlement.user_interrupted());
++    assert!(out.settlement.stage1_evidence().is_none());
++    assert_eq!(
++        out.facts
++            .iter()
++            .filter(|f| matches!(
++                f,
++                records::RecordFact::CancelForced {
++                    trigger: opensip_operability::ForceTrigger::SecondSignal,
++                    ..
++                }
++            ))
++            .count(),
++        1
++    );
++    assert!(
++        !out.events
++            .iter()
++            .any(|(_, e)| matches!(e, SupervisionEvent::InbandCancel(_)))
++    );
++    assert!(out.saw(&SupervisionEvent::Signalled { signal: SIGTERM }));
++    nothing_left(&out);
++}
++
++#[test]
++fn d3b2_root_stalled_inband_does_not_extend_grace_or_complete_after_force() {
++    let dir = test_dir();
++    let (mut supervision, _) = prepared(
++        "cancel-ignore",
++        FixtureParticipant::new(ProtocolWaits::TS2),
++        None,
++    );
++    let mut root = root_in(&dir);
++    supervision.start(&mut root).unwrap();
++    let cap = Instant::now() + HANDSHAKE;
++    while supervision.participant.as_ref().unwrap().run.phase() != "ANALYZING" {
++        assert!(Instant::now() < cap);
++        supervision.turn();
++        if supervision.participant.as_ref().unwrap().analyzed {
++            break;
++        }
++    }
++    assert!(supervision.handle().user_signal());
++    // Consume exactly at the real turn's gate point; leave the fd0
++    // deliberately unserviced until the protocol's own grace expires.
++    assert_eq!(supervision.gate.take(), Some(GateMessage::FirstSignal));
++    supervision.user_signal(false);
++    assert!(supervision.stage1_active());
++    assert_eq!(
++        supervision.stage1.unwrap().evidence.inband,
++        InbandCancel::Queued
++    );
++    let started = supervision.stage1.unwrap().started;
++    while started.elapsed() < ProtocolWaits::TS2.stage1_cancel_grace {
++        std::thread::yield_now();
++    }
++    supervision.timers();
++    assert!(!supervision.stage1_active());
++    assert!(supervision.ends.fd0.is_none());
++    assert!(!supervision.participant.as_ref().unwrap().wants_write());
++    assert_eq!(
++        supervision.stage1.unwrap().evidence.inband,
++        InbandCancel::Abandoned
++    );
++    assert!(supervision.ladder.unwrap().term_at.is_some());
++    assert!(supervision.seams.facts.borrow().iter().any(|f| matches!(f, records::RecordFact::CancelForced { trigger: opensip_operability::ForceTrigger::GraceExpired, grace } if *grace >= ProtocolWaits::TS2.stage1_cancel_grace)));
++    // Continue the normal bounded loop to verify native cleanup, not Drop.
++    while supervision.state != State::Settled {
++        assert!(Instant::now() < cap);
++        supervision.turn();
++    }
++    let settlement = supervision.take_settlement().unwrap();
++    assert_eq!(
++        settlement.stage1_evidence().unwrap().inband,
++        InbandCancel::Abandoned
++    );
++    assert!(settlement.user_interrupted());
++}
++
++#[test]
++fn d3b2_root_control_write_failure_forces_fault_without_sent_or_forced_fact() {
++    let dir = test_dir();
++    let (mut supervision, _) = prepared(
++        "cancel-ignore",
++        FixtureParticipant::new(ProtocolWaits::TS2),
++        Some(d3b2_signal_on_snapshot()),
++    );
++    let mut root = root_in(&dir);
++    supervision.start(&mut root).unwrap();
++    let cap = Instant::now() + HANDSHAKE;
++    // Stop before servicing the cancellation's control bytes.
++    loop {
++        assert!(Instant::now() < cap);
++        supervision.turn();
++        if supervision
++            .stage1
++            .is_some_and(|s| s.evidence.inband == InbandCancel::Written)
++        {
++            break;
++        }
++    }
++    assert_eq!(supervision.cancel_control, Some(ControlCancel::Queued));
++    supervision.seams.control_write_fails = true;
++    supervision.service_control_write();
++    assert_eq!(supervision.cancel_control, Some(ControlCancel::Failed));
++    assert!(!supervision.stage1_active());
++    assert!(supervision.later_causes.contains(&Cause::HostFault));
++    while supervision.state != State::Settled {
++        assert!(Instant::now() < cap);
++        supervision.turn();
++    }
++    let settlement = supervision.take_settlement().unwrap();
++    assert_eq!(settlement.first_cause(), Cause::UserCancel);
++    assert_eq!(
++        settlement.stage1_evidence().unwrap().control,
++        Some(ControlCancel::Failed)
++    );
++    assert!(!supervision.seams.facts.borrow().iter().any(|f| matches!(
++        f,
++        records::RecordFact::CancelSent { .. } | records::RecordFact::CancelForced { .. }
++    )));
++}
+diff --git a/crates/components/tests/supervisor_fixture.rs b/crates/components/tests/supervisor_fixture.rs
+index 87c5c9f..6a8ac7c 100644
+--- a/crates/components/tests/supervisor_fixture.rs
++++ b/crates/components/tests/supervisor_fixture.rs
+@@ -165,6 +165,9 @@ impl Control {
+                         &format!(r#"{{"nonce":"{nonce}","status":"busy"}}"#),
+                     );
+                 }
++                "cancel" if self.script == "cancel-cooperative" && self.acked.send(()).is_err() => {
++                    return;
++                }
+                 "shutdown" if self.script != "no-ack" => {
+                     self.send("shutdownAck", "{}");
+                     if self.acked.send(()).is_err() {
+@@ -673,6 +676,9 @@ fn main() {
+                 data.send(&["FactBatch", "FactBatch"]);
+                 hang();
+             }
++            ("cancel-cooperative" | "cancel-ignore", "Analyze") => {}
++            ("cancel-cooperative", "Cancel") => data.send(&["Cancelled"]),
++            ("cancel-ignore", "Cancel") => hang(),
+             (_, "Analyze") => {
+                 if script == "slow" {
+                     std::thread::sleep(Duration::from_millis(600));

@@ -1,0 +1,30 @@
+--- crates/components/src/supervisor.rs
++++ crates/components/src/supervisor.rs (mutated)
+@@ -3379,7 +3379,7 @@
+             // This join is provisional while the gate is open. An observer
+             // consumed during a held reap must still be the first teardown
+             // cause. Mint Clean only when this reap can actually settle.
+-            self.clean_at.get_or_insert_with(Instant::now);
++            self.first_cause = Some(Cause::Clean); self.clean_at.get_or_insert_with(Instant::now);
+             self.state = State::Reaping;
+         }
+     }
+@@ -3675,18 +3675,6 @@
+             // (item 12, :448); every trigger is still appended to the order.
+             Some(_) if !self.later_causes.contains(&cause) => self.later_causes.push(cause),
+             Some(_) => {}
+-        }
+-        if self.clean_at.take().is_some() && self.ladder.is_none() && self.child.is_some() {
+-            self.ladder = Some(Ladder {
+-                t1_done: from_t2 || self.class == Class::Tool,
+-                reason: if cause == Cause::Deadline {
+-                    CancelReason::Deadline
+-                } else {
+-                    CancelReason::SupervisorFault
+-                },
+-                term_at: None,
+-                kill_at: None,
+-            });
+         }
+         if let Some(observed) = observed
+             && !self.observer_seen

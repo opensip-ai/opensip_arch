@@ -1,0 +1,24 @@
+--- crates/components/src/supervisor.rs
++++ crates/components/src/supervisor.rs (mutated)
+@@ -2232,10 +2232,12 @@
+         if let Some(at) = self.health_due {
+             due.push((at, BoundedWait::LivenessWindow));
+         }
++if stage1.evidence.inband == InbandCancel::Written {
+         due.push((
+             stage1.started + protocol.stage1_cancel_grace,
+             BoundedWait::Stage1CancelGrace,
+         ));
++}
+         let Some((_, wait)) = due
+             .into_iter()
+             .filter(|(at, _)| now >= *at)
+@@ -3135,7 +3137,7 @@
+                     .stage1
+                     .is_some_and(|s| s.evidence.inband == InbandCancel::Queued)
+             {
+-                self.inband_cancel(InbandCancel::Written);
++                self.inband_cancel(InbandCancel::Written); if let Some(s) = &mut self.stage1 { s.started = Instant::now(); }
+             }
+             if step.cancel.request_closed
+                 && self

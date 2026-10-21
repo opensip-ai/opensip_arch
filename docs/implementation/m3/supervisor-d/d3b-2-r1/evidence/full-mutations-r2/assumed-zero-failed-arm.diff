@@ -1,0 +1,24 @@
+--- crates/components/src/supervisor.rs
++++ crates/components/src/supervisor.rs (mutated)
+@@ -1156,17 +1156,10 @@
+                 tracking.evidence.armed_at = Some(now);
+                 lag
+             }
+-            Err(error) => {
+-                tracking.evidence.arming_failure = Some(error);
+-                let mut facts = Vec::new();
+-                for mark in REVOCATION_MARKS {
+-                    if let Some(fact) =
+-                        tracking.miss(mark, records::RevocationMeasurement::Unavailable)
+-                    {
+-                        facts.push(fact);
+-                    }
+-                }
+-                return (tracking, facts);
++            Err(_error) => {
++                let observation = tracking.evidence.observation;
++                let assumed = RevocationClockSample { after: observation.monotonic_before(), boot: observation.boot_id().to_owned() };
++                return Self::arm(observation, tool, Ok(assumed), now, completed, impossible, prior);
+             }
+         };
+         let mut facts = Vec::new();
