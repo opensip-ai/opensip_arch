@@ -1,0 +1,3 @@
+# D2b-3c existing-path description qualification
+
+Six description passages qualify the current behavior of already inventoried TS2 files after accepted D2b-3c. Raw inventory235 remains byte-exact and additive binding195 plus all132 inherited meanings remain unchanged. The source records exact accepted code, inventory, lock and candidate file pins. The two identity source/test descriptions already accurately describe bounded schema interpretation and pattern/reference controls; they require no override. No code, fixture, parser/schema admission, owner, source39, caller, blind receipt, private data, platform or product qualification authority changes. This is a description contract, not another code unit or a project-completion claim.
