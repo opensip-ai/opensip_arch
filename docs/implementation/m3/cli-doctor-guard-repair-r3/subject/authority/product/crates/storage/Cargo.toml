@@ -1,0 +1,30 @@
+[package]
+name="opensip-storage"
+version="0.1.0"
+edition="2024"
+rust-version="1.95"
+publish=false
+license="Apache-2.0"
+[dependencies]
+opensip-security={path="../security"}
+opensip-evaluator={path="../evaluator"}
+opensip-identity={path="../identity"}
+opensip-platform={path="../platform"}
+rusqlite={version="=0.40.2",default-features=false,features=["bundled","limits"]}
+# Test-only features (law X9 r1 items 1 and 2; law X8 r3 items 4a and 4f),
+# never default. `crash-matrix` is never enabled from a dependency table and
+# is reached only by an explicit `--features crash-matrix`; src/lib.rs
+# refuses it in any build without debug assertions. `scenario-fixtures`
+# (unit X8b) is enabled only from `[dev-dependencies]`: host's names this
+# crate's, and this crate's own tests take security's below.
+[features]
+crash-matrix = ["opensip-security/crash-matrix", "opensip-platform/crash-matrix"]
+scenario-fixtures = ["opensip-security/scenario-fixtures"]
+[dev-dependencies]
+opensip-security = { path = "../security", features = ["scenario-fixtures"] }
+# Law X9 r1 item 2 (unit X9-2): the crash matrix's storage target, built only
+# with an explicit `--features crash-matrix`; a plain test run skips it.
+[[test]]
+name = "commit_tests"
+path = "tests/commit_tests.rs"
+required-features = ["crash-matrix"]

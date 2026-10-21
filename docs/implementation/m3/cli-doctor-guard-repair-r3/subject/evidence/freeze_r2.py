@@ -1,0 +1,44 @@
+from pathlib import Path
+import json, hashlib, shutil, subprocess, os
+assert os.environ.get('OPENSIP_LEAD_HOLDS_LANE_LOCK')=='1'
+F=Path(__file__).parent; P=Path('/Users/sb/code/opensip-ai/opensip'); A=P.parent/'opensip_arch'; W=P.parent/'opensip-doctor-gate-repair'
+Q=Path('/tmp/opensip-implementation/reviews/codex-cli-doctor-guard-repair-r2');Q.mkdir(exist_ok=False);S=Q/'subject';S.mkdir()
+old=Q.parent/'codex-cli-doctor-guard-repair-r1'
+def cp(src,dst):dst.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(src,dst)
+def wr(p,j):p.parent.mkdir(parents=True,exist_ok=True);p.write_text(json.dumps(j,indent=2)+'\n')
+def pin(p):b=p.read_bytes();return dict(bytes=len(b),sha256=hashlib.sha256(b).hexdigest())
+def git(root,*a):return subprocess.check_output(['git',*a],cwd=root,text=True).strip()
+ph=git(P,'rev-parse','HEAD');ah=git(A,'rev-parse','HEAD');assert git(W,'rev-parse','HEAD')==ph
+path='apps/cli/tests/doctor_tests.rs';assert git(W,'diff','--name-only','HEAD')==path
+assert pin(W/path)=={k:v for k,v in json.loads((F/'owning-r7/report.json').read_text())['source'].items()if k!='path'}
+assert json.loads((F/'post-base-r2/report.json').read_text())['parent']==ph
+shutil.copytree(old,S/'history/required-findings-r1')
+# Refresh public authority inputs, preserving the entire rejected subject separately.
+for file in (old/'subject/authority').rglob('*'):
+ if file.is_file()and file.name!='manifest.json':
+  rel=file.relative_to(old/'subject/authority');root=P if rel.parts[0]=='product'else A
+  cp(root/Path(*rel.parts[1:]),S/'authority'/rel)
+for d in ['apps/cli','crates/reporting','crates/host','crates/security','crates/storage','crates/operability','crates/platform','crates/lifecycle']:
+ for p in ['Cargo.toml','src/main.rs'if d=='apps/cli'else'src/lib.rs']:cp(P/d/p,S/'authority/product'/d/p)
+for p in ['Cargo.toml','Cargo.lock','design-lock.json']:cp(P/p,S/'authority/product'/p)
+for file in (P/'apps/cli/src').iterdir():
+ if file.is_file():cp(file,S/'authority/product/apps/cli/src'/file.name)
+cp(P/path,S/'parent/product'/path);cp(W/path,S/'product'/path)
+wr(S/'product-map.json',dict(productParent=ph,paths=[dict(path=path,**pin(W/path))],newPaths=[],productionChanges=False,newDependencies=False))
+for item in F.iterdir():
+ if item.name in ['target','next-source']or item==Path(__file__):continue
+ if item.is_dir():
+  for f in item.rglob('*'):
+   if f.is_file()and f.suffix in ['.json','.jsonl','.log','.rs','.py']:cp(f,S/'evidence'/f.relative_to(F))
+ elif item.suffix in ['.json','.log','.py','.rs']:cp(item,S/'evidence'/item.name)
+cp(Path(__file__),S/'evidence/freeze_r2.py')
+env=dict(os.environ,CARGO_HOME='/Users/sb/.cargo',CARGO_TARGET_DIR=str(F/'target'))
+r=subprocess.run(['/opt/homebrew/Cellar/rust/1.95.0/bin/cargo','metadata','--locked','--offline','--format-version','1'],cwd=W,env=env,capture_output=True);assert r.returncode==0
+(S/'evidence/current-cargo-metadata.json').write_bytes(r.stdout)
+wr(S/'authority/manifest.json',dict(productParent=ph,architectureParent=ah,files=[dict(path=str(f.relative_to(S/'authority')),**pin(f))for f in sorted((S/'authority').rglob('*'))if f.is_file()]))
+wr(S/'RF-1-DISPOSITION.json',dict(id='DOCTOR-GUARD-R1-RF-1',standing='Implemented; independent closure requested',resolution='Eight canonical manifests and exact library/bin roots; alias normalization and unique resolve-node target/kind/target binding; guarded dependency activation prohibited except accepted dev-only fixture edges, forwarding on foreign intermediates refused; source selector/attribute/macro fence outside exact approved sites using lexical masking for comments/strings/chars. Closed accepted env! spelling only. No production edits or new authority.',tests=7,compiledRuntimeMutants=11,allRestored=True,postBaseTestsPassed=True,qualification=False))
+wr(S/'SCOPE.json',dict(standing='UNACCEPTED FULL CORRECTED DOCTOR TEST UNIT',productParent=ph,architectureParent=ah,sourcePaths=1,newPaths=0,productionChanges=False,doctorTests=7,compiledRuntimeMutants=11,allRestored=True,history='Full rejected R1 retained; owning-r4 false positive on string literal, r5 raw-literal format failure, r6 Clippy nonminimal_bool failure, r7 seven tests/Clippy/eleven runtime mutants green; post-base-r2 exact source seven tests/Clippy green.',inventory='236/196bindings; contracts183/138inherited/0direct preserved; no additive inventory.',workspace='4a code accepted/integrated; doctor and platform repairs separate unaccepted units; broad doctor red and platform SIGABRT preserved, not waived.',productQualification=False))
+s=dict(schemaVersion=1,unit='CLI-DOCTOR-GUARD-REPAIR-r2',productParent=ph,architectureParent=ah,candidatePaths=[path],members=[dict(path=str(f.relative_to(S)),**pin(f))for f in sorted(S.rglob('*'))if f.is_file()]);wr(Q/'subject.json',s)
+sha=pin(Q/'subject.json')['sha256']
+(Q/'REQUEST.md').write_text(f'''# Full corrected CLI doctor guard repair r2\n\nRead subject.json SHA256 {sha} and frozen subject/. Full ACCEPT-UNIT or REQUIRED-FINDINGS for sole existing test path {path}; zero new paths/dependencies, no production changes. Product parent {ph}; architecture parent {ah}; candidate {W}. Main roots {P} and {A}. All member bytes pinned. R1 REQUIRED-FINDINGS is preserved in full under history/required-findings-r1; explicitly close DOCTOR-GUARD-R1-RF-1 or explain remaining gaps. Review the entire corrected unit, not only the prior finding.\n\nR1 exact source projection remains: remove the exact unique accepted logging_tests module only for outcomes.rs after the exact full accepted top-level prefix; preserve surrounding production; only three exact known EOF test tails are stripped. Pure controls and runtime mutants defend path/prefix/duplicate/nested/changed/tail boundaries. The three original doctor binary tests remain exact. Existing X10r4/O1r2/SOP2r6/SOP2b authority is pinned; R1 found it sufficient and required implementation correction rather than new selection. Independently confirm sufficiency.\n\nRF1 correction now binds eight closed canonical manifest maps and exact bin/lib source roots (CLI/reporting/host/security/storage/operability/platform/lifecycle), unique resolve nodes and normalized forwarding aliases to intended package IDs, normal declaration kind/target to resolved dep_kinds. Full metadata traversal refuses foreign intermediate forwarding and ordinary/build direct activation of six guarded features; accepted dev fixture edges alone remain permitted. Unknown/default/changed maps, targets, ambiguous/missing/foreign package identities fail. current-cargo-metadata.json captures actual locked offline metadata. This bounds declared/resolved graphs and source uses, not full build-feature-unification/release qualification.\n\nSource gates are constrained outside exact accepted sites, including cfg(any(feature)), cfg_attr, cfg!, spaced token forms, copied gates, unknown attributes, macro definitions/imports/modules and unapproved expression macros. Lexical masking excludes strings/raw strings/chars/nested comments so literal allow in accepted remedy data remains data. Approved nonfeature imports and expression macro names are closed; env! only the exact bare CARGO_PKG_VERSION form; qualified/spaced/Unicode macros cannot borrow it. Inspect fail-closed behavior and real-source coverage, not just helper syntax.\n\nEvidence owning-r7: all7doctor tests, CLI all-target Clippy,11 separately compiled runtime weakenings caught and exact restored with fresh7-test positives after each. Post-base-r2 rebases unchanged source onto current accepted236 lock and repeats7tests/Clippy successfully. Full R1 evidence preserved. R4 falsely scanned literal allow before lexical mask; R5 malformed raw-fixture format failure; R6 seven tests passed then Clippy failed; no failures or compile failures counted as runtime kills. Existing three binary tests use inherited HOME unchanged under X10 authority, development F0 refuses before installation open; no private corpus/store/keys/held rows inspected.\n\nThis is full one-path test-only unit acceptance, not root assent/integration/status/project qualification. Inventory236/196successors/contracts183/138inherited meanings unchanged, no additive inventory. Separate platform fd3 abort and repair remain unaccepted and out of scope; broad workspace failures preserved. Descriptions184/statusr119 owed for accepted4a independently.\n\nRead-only source/JSON/hashes/Git only. NO builds/tests/Cargo/generation/lanes/network/panes/delegation; no private corpus/store/cache/overlay/keys/real installation/held rows. Do not edit repositories/worktrees/stages/control/evidence. Write ONLY REVIEW.md and review.json in {Q}. Verdict ACCEPT-UNIT or REQUIRED-FINDINGS; subjectManifestSha256; requiredFindings; nonBlockingObservations; productQualification:false. IDs DOCTOR-GUARD-R2-RF-n/NBO-n.\n''')
+print(sha,len(s['members']))
