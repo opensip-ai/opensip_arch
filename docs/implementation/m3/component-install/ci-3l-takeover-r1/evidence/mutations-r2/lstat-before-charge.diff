@@ -1,0 +1,18 @@
+--- before/crates/platform/src/component_tree.rs
++++ mutated/crates/platform/src/component_tree.rs
+@@ -395,12 +395,13 @@
+     work: &mut WorkScope<'_>,
+ ) -> Result<PathStatus, WorkFailure<PathStatusError>> {
+     supported_io().map_err(|e| WorkFailure::Operation(PathStatusError::Io(e)))?;
+-    work.charge(status_read_cost())?;
+     // SAFETY: an all-zero `stat` is a valid output buffer.
+     let mut st: libc::stat = unsafe { std::mem::zeroed() };
+     // SAFETY: one NUL-terminated spelling the caller borrows, and a valid out
+     // pointer.
+-    if unsafe { libc::lstat(path.as_ptr(), &mut st) } != 0 {
++    let r = unsafe { libc::lstat(path.as_ptr(), &mut st) };
++    work.charge(status_read_cost())?;
++    if r != 0 {
+         let error = io::Error::last_os_error();
+         return Err(WorkFailure::Operation(match error.raw_os_error() {
+             Some(libc::ENOENT) => PathStatusError::Absent,

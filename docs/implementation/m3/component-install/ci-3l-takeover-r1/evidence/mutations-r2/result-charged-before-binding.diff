@@ -1,0 +1,18 @@
+--- before/crates/lifecycle/src/retained_tree.rs
++++ mutated/crates/lifecycle/src/retained_tree.rs
+@@ -942,6 +942,7 @@
+         // The store path and a committed row hold no NUL, so this never
+         // refuses; if it did, the path would not name the member.
+         let spelling = CStr::from_bytes_with_nul(&bytes).map_err(|_| TreeReadFailure::Binding)?;
++        work.charge(launch_member_cost()).map_err(budget)?;
+         let observed = match observe_path(spelling, work) {
+             Ok(status) => status,
+             Err(WorkFailure::Budget(b)) => return Err(TreeReadFailure::Budget(b)),
+@@ -971,7 +972,6 @@
+             use std::os::unix::ffi::OsStringExt;
+             PathBuf::from(std::ffi::OsString::from_vec(bytes))
+         };
+-        work.charge(launch_member_cost()).map_err(budget)?;
+         Ok(LaunchMember {
+             path,
+             device,

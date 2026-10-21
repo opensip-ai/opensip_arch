@@ -1,0 +1,2426 @@
+diff --git a/crates/lifecycle/src/installation.rs b/crates/lifecycle/src/installation.rs
+index db5f6b0..84e73e1 100644
+--- a/crates/lifecycle/src/installation.rs
++++ b/crates/lifecycle/src/installation.rs
+@@ -50,7 +50,7 @@ use opensip_security::{AuthenticatedComponent, ClosureCandidate, SelectedPlatfor
+ use std::ffi::OsStr;
+ use std::fs::File;
+ use std::io::{self, Read};
+-use std::path::Path;
++use std::path::{Path, PathBuf};
+ 
+ // ---- Prices (LAW item 4's shorthands) ----
+ 
+@@ -184,6 +184,11 @@ pub(crate) struct Tree<'a> {
+     pub(crate) n: usize,
+     pub(crate) files: usize,
+     pub(crate) dirs: usize,
++    /// `S`, the symlink rows (CI-A3-b).
++    pub(crate) links: usize,
++    /// The selected platform row's `entrypoint` (CMS `platforms[].entrypoint`),
++    /// the launch member's `Entrypoint` (CI-A3-a).
++    pub(crate) entrypoint: Option<&'a str>,
+ }
+ 
+ /// A row the validated manifest's shape cannot produce; the archive plan
+@@ -264,13 +269,15 @@ impl<'a> Tree<'a> {
+                 row = Some(candidate);
+             }
+         }
+-        let entries = items(member(member(row?, "tree")?, "entries")?)?;
+-        let (mut files, mut dirs) = (0, 0);
++        let row = row?;
++        let entries = items(member(member(row, "tree")?, "entries")?)?;
++        let entrypoint = member(row, "entrypoint").and_then(text);
++        let (mut files, mut dirs, mut links) = (0, 0, 0);
+         for entry in entries {
+             match parse_row(entry)?.kind {
+                 RowKind::File { .. } => files += 1,
+                 RowKind::Dir => dirs += 1,
+-                RowKind::Symlink { .. } => {}
++                RowKind::Symlink { .. } => links += 1,
+             }
+         }
+         if entries.is_empty() || entries.len() > ap::MAX_ENTRIES {
+@@ -281,6 +288,8 @@ impl<'a> Tree<'a> {
+             n: entries.len(),
+             files,
+             dirs,
++            links,
++            entrypoint,
+         })
+     }
+     pub(crate) fn row(&self, index: u32) -> TreeRow<'a> {
+@@ -574,6 +583,7 @@ pub(crate) fn read_verified(
+         }
+         work.charge(READ)?;
+         made += 1;
++        read_seam()?;
+         let n = reader.read(buffer).map_err(io_fault("read"))?;
+         if n == 0 {
+             break;
+@@ -1102,32 +1112,99 @@ pub(crate) fn install_bound(
+ // ---- The store (LAW item 5) ----
+ 
+ /// `<installRoot>/components/`, retained, with the invoking user its
+-/// custody is judged against. Only its owner opens it: the host, from its
+-/// admitted installation root, or a fixture.
++/// custody is judged against, and the absolute path it was opened at
++/// (CI-A3-d). Only its owner opens it: the host, from its admitted
++/// installation root, or a fixture.
+ pub struct ComponentStore {
+     pub(crate) directory: RetainedDirectory,
+     pub(crate) invoking_uid: u32,
++    /// `<storePath>`, `L` bytes: used only to compose launch paths, and
++    /// conferring nothing (CI-A3-d).
++    pub(crate) path: PathBuf,
+ }
++
++/// The store path's one owned record (CI-A3-d): objects 1, bytes `L`.
++pub(crate) fn store_path_cost(length: usize) -> WorkCost {
++    WorkCost {
++        objects: 1,
++        edges: 0,
++        bytes: length,
++    }
++}
++
++/// Copy `parts` into one owned path of exactly `length` bytes, charged
++/// `store_path_cost(length)` first (CI-A3-d). The spelling must be absolute
++/// and hold no NUL; otherwise nothing is charged or copied.
++fn store_path(
++    parts: &[&[u8]],
++    length: usize,
++    work: &mut WorkScope<'_>,
++) -> Result<PathBuf, WorkFailure<io::Error>> {
++    use std::os::unix::ffi::OsStringExt;
++    if parts.first().and_then(|p| p.first()) != Some(&b'/') || parts.iter().any(|p| p.contains(&0))
++    {
++        return Err(WorkFailure::Operation(io::Error::new(
++            io::ErrorKind::InvalidInput,
++            "the store path is not an absolute spelling",
++        )));
++    }
++    work.charge(store_path_cost(length))?;
++    let mut bytes = Vec::with_capacity(length);
++    for part in parts {
++        bytes.extend_from_slice(part);
++    }
++    Ok(PathBuf::from(std::ffi::OsString::from_vec(bytes)))
++}
++
+ impl ComponentStore {
+     /// The store, opened no-follow from its admitted installation root,
+     /// whose custody is the host's. The store's own custody is checked by
+-    /// every use (items 4 and 6).
+-    pub fn open_in(install_root: &RetainedDirectory, invoking_uid: u32) -> io::Result<Self> {
+-        let directory =
+-            install_root.open_child_directory(OsStr::new(crate::locations::COMPONENT_STORE))?;
++    /// every use (items 4 and 6). `install_root_path` is that root's
++    /// admitted absolute path; the store keeps it joined with `components`,
++    /// charged once here on the caller's ledger (CI-A3-d).
++    pub fn open_in(
++        install_root: &RetainedDirectory,
++        install_root_path: &Path,
++        invoking_uid: u32,
++        work: &mut WorkScope<'_>,
++    ) -> Result<Self, WorkFailure<io::Error>> {
++        use std::os::unix::ffi::OsStrExt;
++        let root = install_root_path.as_os_str().as_bytes();
++        let name = crate::locations::COMPONENT_STORE.as_bytes();
++        let separator: &[u8] = if root.ends_with(b"/") { b"" } else { b"/" };
++        let length = root
++            .len()
++            .checked_add(separator.len())
++            .and_then(|n| n.checked_add(name.len()))
++            .ok_or(WorkFailure::Budget(WorkBudgetError::Arithmetic))?;
++        let path = store_path(&[root, separator, name], length, work)?;
++        let directory = install_root
++            .open_child_directory(OsStr::new(crate::locations::COMPONENT_STORE))
++            .map_err(WorkFailure::Operation)?;
+         Ok(Self {
+             directory,
+             invoking_uid,
++            path,
+         })
+     }
+-    /// A fixture store over `directory` (LAW item 6's fixture path; plan r3
+-    /// LD-CIP-3), only under the joint fixture predicate.
++    /// A fixture store over `directory`, recorded at `path` (LAW item 6's
++    /// fixture path; plan r3 LD-CIP-3), only under the joint fixture
++    /// predicate. Its path is charged as `open_in`'s is (CI-A3-d).
+     #[cfg(any(test, feature = "crash-matrix", feature = "scenario-fixtures"))]
+-    pub fn fixture(directory: RetainedDirectory, invoking_uid: u32) -> Self {
+-        Self {
++    pub fn fixture(
++        directory: RetainedDirectory,
++        path: &Path,
++        invoking_uid: u32,
++        work: &mut WorkScope<'_>,
++    ) -> Result<Self, WorkFailure<io::Error>> {
++        use std::os::unix::ffi::OsStrExt;
++        let bytes = path.as_os_str().as_bytes();
++        let path = store_path(&[bytes], bytes.len(), work)?;
++        Ok(Self {
+             directory,
+             invoking_uid,
+-        }
++            path,
++        })
+     }
+     /// `cust`, at its actual charge.
+     pub(crate) fn custody<E>(
+@@ -1187,6 +1264,21 @@ fn walk_seam() -> Result<(), WalkFailure> {
+ fn walk_seam() -> Result<(), WalkFailure> {
+     Ok(())
+ }
++/// The verified read's seam (CI-T28's partition: an injected read failure is
++/// `Io`, never `Digest`).
++#[cfg(test)]
++fn read_seam() -> Result<(), WalkFailure> {
++    seams::at("read").map_err(|error| {
++        WorkFailure::Operation(TreeFault::Io {
++            call: "read",
++            error,
++        })
++    })
++}
++#[cfg(not(test))]
++fn read_seam() -> Result<(), WalkFailure> {
++    Ok(())
++}
+ #[cfg(test)]
+ fn read_room(room: usize) -> usize {
+     seams::room(room)
+diff --git a/crates/lifecycle/src/installation_tests.rs b/crates/lifecycle/src/installation_tests.rs
+index d58c735..bc694be 100644
+--- a/crates/lifecycle/src/installation_tests.rs
++++ b/crates/lifecycle/src/installation_tests.rs
+@@ -353,7 +353,10 @@ impl Fixture {
+             opensip_platform::append_owner_zero_allow_accounted(directory.as_file(), work)
+         })
+         .unwrap();
+-        let store = ComponentStore::fixture(directory, uid);
++        let store = within(&mut ledger, |work| {
++            ComponentStore::fixture(directory, &store_path, uid, work)
++        })
++        .unwrap();
+         // A tree beyond a profile capacity has no archive (CI-T5).
+         let archive = archive(&specs).unwrap_or_default();
+         let archive_path = scratch.0.join("release.tar");
+@@ -1506,7 +1509,7 @@ fn a_candidate_of_another_platform_refuses_at_installation() {
+ /// is funded by each `desc` charge, made before its push.
+ #[test]
+ fn every_allocation_is_funded_immediately_before_it() {
+-    let sites: [(&str, &str, &str); 6] = [
++    let sites: [(&str, &str, &str); 9] = [
+         (
+             "installation.rs",
+             "    work.charge(buffer)?;",
+@@ -1537,6 +1540,23 @@ fn every_allocation_is_funded_immediately_before_it() {
+             "        .map_err(budget)?;",
+             "    let expected = evidence.record.encode();",
+         ),
++        // Unit CI-3L (CI-A3-b, -d): the store path, each hop temporary and
++        // the launch-path buffer.
++        (
++            "installation.rs",
++            "    work.charge(store_path_cost(length))?;",
++            "    let mut bytes = Vec::with_capacity(length);",
++        ),
++        (
++            "retained_tree.rs",
++            "                work.charge(heap(length)).map_err(budget)?;",
++            "                let mut joined = String::with_capacity(length);",
++        ),
++        (
++            "retained_tree.rs",
++            "        work.charge(heap(length)).map_err(budget)?;",
++            "        let mut bytes = Vec::with_capacity(length);",
++        ),
+     ];
+     let source = |name: &str| match name {
+         "installation.rs" => include_str!("installation.rs"),
+@@ -1560,16 +1580,18 @@ fn every_allocation_is_funded_immediately_before_it() {
+         let code = source(file);
+         let code = &code[..code.rfind("#[cfg(test)]\n#[path").unwrap()];
+         let count = |p: &str| code.matches(p).count();
+-        let expected: [(&str, usize); 5] = match file {
++        let expected: [(&str, usize); 6] = match file {
+             "installation.rs" => [
+-                ("Vec::with_capacity(", 3),
++                ("Vec::with_capacity(", 4),
++                ("String::with_capacity(", 0),
+                 ("vec![", 2),
+                 (".encode()", 1),
+                 (".to_vec()", 0),
+                 ("Box::new(", 0),
+             ],
+             _ => [
+-                ("Vec::with_capacity(", 0),
++                ("Vec::with_capacity(", 1),
++                ("String::with_capacity(", 1),
+                 ("vec![", 1),
+                 (".encode()", 1),
+                 (".to_vec()", 0),
+diff --git a/crates/lifecycle/src/retained_tree.rs b/crates/lifecycle/src/retained_tree.rs
+index 264007a..d6c281b 100644
+--- a/crates/lifecycle/src/retained_tree.rs
++++ b/crates/lifecycle/src/retained_tree.rs
+@@ -1,6 +1,7 @@
+-//! Law CI r5 items 6 and 7, with amendment CI-A2 (proposed with this unit)
+-//! (unit CI-3; component installation plan r3): the retained-tree
+-//! capability C2a-3 binds, and its bounded verified-byte transfer.
++//! Law CI r5 items 6 and 7, with amendments CI-A2 and CI-A3 (units CI-3 and
++//! CI-3L; component installation plan r3): the retained-tree capability
++//! C2a-3 binds, its bounded verified-byte transfer, and its launch member,
++//! the only operation that yields a path to spawn.
+ //!
+ //! `open_retained_tree` re-verifies everything, every time: the store's and
+ //! the generation's custody, the association of the generation with the
+@@ -16,12 +17,17 @@ use crate::installation::{
+     charged_find, charged_sort, component_cmp, custody_cost, descend, descend_cost, envelope,
+     index_buffer_cost, read_verified, search_comparisons, sort_comparisons, split,
+ };
+-use opensip_platform::component_tree::{self as ct, Access, PinLock, PinMode, TreeOpenError};
++use opensip_platform::component_tree::{
++    self as ct, Access, EntryKind, PathStatus, PathStatusError, PinLock, PinMode, TreeOpenError,
++};
+ use opensip_platform::{RetainedDirectory, WorkBudgetError, WorkCost, WorkFailure, WorkScope};
+ use opensip_security::archive_profile::RowKind;
+ use opensip_security::snapshot_source::{CustodyDirectoryRefusal, owned_record};
+ use opensip_security::{AuthenticatedComponent, ClosureCandidate, SelectedPlatform};
++use std::ffi::CStr;
+ use std::io;
++use std::marker::PhantomData;
++use std::path::{Path, PathBuf};
+ 
+ /// Which fence the caller holds while it pins (LAW item 7): the durable
+ /// path's lifecycle fence, ER10a's read-session fence, or none for an
+@@ -65,6 +71,10 @@ pub enum TreeReadFailure {
+     Association,
+     Pin,
+     Custody(CustodyDirectoryRefusal),
++    /// The composed launch path does not name the verified member (CI-A3-e):
++    /// it is absent, a non-directory stands along it, its final component
++    /// is a link or of another kind, or its `(device, inode)` differs.
++    Binding,
+     Budget(WorkBudgetError),
+     Io {
+         call: &'static str,
+@@ -118,14 +128,17 @@ pub struct RetainedTree<'s, 'a> {
+     order: Vec<u32>,
+     /// The fence the caller declared it held while pinning (LAW item 7).
+     request: PinRequest,
+-    /// The first transfer failure, after which every transfer refuses with
+-    /// that cause (failure latching).
++    /// The generation's name, `<closure2-hex>`, for the launch path.
++    name: &'a str,
++    /// The first failure of a transfer or a launch, after which every
++    /// transfer and launch refuses with that cause (failure latching).
+     latched: Option<Latched>,
+ }
+ 
+-/// A latched transfer failure, kept so a later transfer refuses with the same
+-/// cause: the call name and errno of an I/O failure, and a budget failure as
+-/// the ledger's own latch (`Closed`).
++/// A latched failure of `transfer` or `launch_member`, kept so every later
++/// operation of the capability refuses with the same cause (CI-A3-a): the
++/// call name and errno of an I/O failure, and a budget failure as the
++/// ledger's own latch (`Closed`), on any scope.
+ #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+ enum Latched {
+     Association,
+@@ -134,6 +147,7 @@ enum Latched {
+     Mode(Option<u32>),
+     Length(u32),
+     Digest(u32),
++    Binding,
+     Budget,
+     Io {
+         call: &'static str,
+@@ -148,6 +162,7 @@ impl Latched {
+             TreeReadFailure::Mode { row } => Self::Mode(*row),
+             TreeReadFailure::Length { row } => Self::Length(*row),
+             TreeReadFailure::Digest { row } => Self::Digest(*row),
++            TreeReadFailure::Binding => Self::Binding,
+             TreeReadFailure::Budget(_) => Self::Budget,
+             TreeReadFailure::Io { call, error } => Self::Io {
+                 call,
+@@ -164,6 +179,7 @@ impl Latched {
+             Self::Mode(row) => TreeReadFailure::Mode { row },
+             Self::Length(row) => TreeReadFailure::Length { row },
+             Self::Digest(row) => TreeReadFailure::Digest { row },
++            Self::Binding => TreeReadFailure::Binding,
+             Self::Budget => TreeReadFailure::Budget(WorkBudgetError::Closed),
+             Self::Io { call, errno } => TreeReadFailure::Io {
+                 call,
+@@ -380,6 +396,7 @@ pub(crate) fn open_with<'s, 'a>(
+         tree,
+         order,
+         request,
++        name: evidence.name,
+         latched: None,
+     })
+ }
+@@ -498,6 +515,474 @@ impl RetainedTree<'_, '_> {
+     }
+ }
+ 
++// ---- The launch member (CI-A3; unit CI-3L) ----
++
++/// What `launch_member` resolves (CI-A3-a). The caller names a path; the
++/// capability decides what it resolves to.
++#[derive(Debug, Clone, Copy, PartialEq, Eq)]
++pub enum MemberRequest<'r> {
++    /// The selected platform row's `entrypoint`, taken from the same
++    /// authenticated association the capability holds, never from the caller.
++    Entrypoint,
++    /// A regular-file row.
++    File(&'r str),
++    /// A `dir` row, or `""` for `tree/` itself.
++    Directory(&'r str),
++}
++impl MemberRequest<'_> {
++    fn wants_file(self) -> bool {
++        !matches!(self, Self::Directory(_))
++    }
++    fn is_tree_root(self) -> bool {
++        self == Self::Directory("")
++    }
++}
++
++/// A launch member (CI-A3-a): the owned launch path, bound by its
++/// re-observation to the verified member's `(device, inode)`, the row's
++/// SHA-256 (files) and the row's index (`None` for `tree/` itself). Only
++/// `launch_member` constructs one, and it borrows the capability, so it
++/// cannot outlive the pin (CI-T27's lifetime probe):
++/// ```compile_fail,E0505
++/// use opensip_lifecycle::retained_tree::{MemberRequest, RetainedTree};
++/// use opensip_platform::WorkScope;
++/// fn outlives(mut tree: RetainedTree<'_, '_>, work: &mut WorkScope<'_>) {
++///     let member = tree.launch_member(MemberRequest::Entrypoint, work).unwrap();
++///     drop(tree);
++///     assert!(member.path().is_absolute());
++/// }
++/// ```
++/// The same use while the capability lives compiles:
++/// ```no_run
++/// use opensip_lifecycle::retained_tree::{MemberRequest, RetainedTree};
++/// use opensip_platform::WorkScope;
++/// fn within(mut tree: RetainedTree<'_, '_>, work: &mut WorkScope<'_>) {
++///     let member = tree.launch_member(MemberRequest::Entrypoint, work).unwrap();
++///     assert!(member.path().is_absolute());
++///     drop(tree);
++/// }
++/// ```
++#[derive(Debug)]
++pub struct LaunchMember<'c> {
++    path: PathBuf,
++    device: u64,
++    inode: u64,
++    sha256: Option<[u8; 32]>,
++    row: Option<u32>,
++    capability: PhantomData<&'c ()>,
++}
++impl LaunchMember<'_> {
++    /// The absolute launch path, which names no link at its final component.
++    pub fn path(&self) -> &Path {
++        &self.path
++    }
++    pub fn device(&self) -> u64 {
++        self.device
++    }
++    pub fn inode(&self) -> u64 {
++        self.inode
++    }
++    /// The verified file's SHA-256; `None` for a directory member.
++    pub fn sha256(&self) -> Option<[u8; 32]> {
++        self.sha256
++    }
++    /// The member's row in the TreeCommitment; `None` for `tree/` itself.
++    pub fn row(&self) -> Option<u32> {
++        self.row
++    }
++}
++
++/// An owned temporary or buffer of `bytes` bytes: objects 1, bytes `bytes`
++/// (CI-A3-b's hop temporaries and launch-path buffer).
++pub(crate) fn heap(bytes: usize) -> WorkCost {
++    WorkCost {
++        objects: 1,
++        edges: 0,
++        bytes,
++    }
++}
++
++/// `LM`: the result record's size, a compile-time property of the code.
++pub(crate) fn launch_member_cost() -> WorkCost {
++    heap(size_of::<LaunchMember<'static>>())
++}
++
++/// `<storePath>/<closure2-hex>/tree`'s length beyond `L`: `1 + 64 + 1 + 4`.
++const GENERATION_TREE: usize = 1 + inst::NAME_BYTES + 1 + TREE.len();
++
++/// `P`: the launch path's length without its terminator (CI-A3-b).
++pub(crate) fn launch_path_length(store: usize, member: usize) -> Option<usize> {
++    let base = store.checked_add(GENERATION_TREE)?;
++    if member == 0 {
++        Some(base)
++    } else {
++        base.checked_add(1)?.checked_add(member)
++    }
++}
++
++/// A hop's joined path: the link's parent path, `/` unless the parent is
++/// the root, and the target text (the security owner's rule,
++/// `component_manifest.rs`'s `resolve`).
++fn joined_length_parts(parent: usize, target: usize) -> Result<usize, TreeReadFailure> {
++    let length = if parent == 0 {
++        Some(target)
++    } else {
++        parent.checked_add(1).and_then(|n| n.checked_add(target))
++    };
++    length.ok_or(TreeReadFailure::Budget(WorkBudgetError::Arithmetic))
++}
++fn joined_length(link: &str, target: &str) -> Result<usize, TreeReadFailure> {
++    let (parent, _) = split(link);
++    joined_length_parts(parent.len(), target.len())
++}
++
++/// The largest segment of `path`.
++fn longest_segment(path: &str) -> usize {
++    path.split('/').map(str::len).max().unwrap_or(0)
++}
++
++/// `k`: a member path's component count (`0` for `tree/` itself).
++fn components(path: &str) -> usize {
++    if path.is_empty() {
++        0
++    } else {
++        inst::depth(path)
++    }
++}
++
++/// `B̂_launch(request)` (CI-A3-b), with checked arithmetic: every
++/// member-dependent quantity replaced by its maximum over the TreeCommitment
++/// (`0` over an empty set). It funds a request in advance; it is never
++/// charged in place of the actual charges.
++pub(crate) fn launch_pre_bound(
++    tree: &Tree<'_>,
++    store: usize,
++    request: MemberRequest<'_>,
++) -> Option<WorkCost> {
++    let st = ct::status_read_cost();
++    let tail = |p: usize| -> Option<inst::Bound> {
++        inst::Bound::default()
++            .add(heap(launch_path_length(store, p)?.checked_add(1)?))?
++            .add(st)?
++            .add(launch_member_cost())
++    };
++    if request.is_tree_root() {
++        return Some(tail(0)?.add(st)?.0);
++    }
++    let kind = inst::Bound::default().add(inst::COMPARISON)?;
++    let count = if request.wants_file() {
++        tree.files
++    } else {
++        tree.dirs
++    };
++    if count == 0 {
++        return Some(kind.0);
++    }
++    let (mut q, mut p, mut k, mut seg, mut c) = (0usize, 0usize, 0usize, 0usize, 0u64);
++    for row in tree.rows() {
++        match row.kind {
++            RowKind::Symlink { target } => {
++                q = q.max(joined_length(row.path, target).ok()?);
++                continue;
++            }
++            RowKind::File { length, .. } if request.wants_file() => c = c.max(length),
++            RowKind::Dir if !request.wants_file() => {}
++            _ => continue,
++        }
++        p = p.max(row.path.len());
++        k = k.max(components(row.path));
++        seg = seg.max(longest_segment(row.path));
++    }
++    let s = tree.links;
++    let mut b = kind
++        .add_times(
++            inst::COMPARISON,
++            s.checked_add(1)?.checked_mul(search_comparisons(tree.n))?,
++        )?
++        .add_times(heap(q), s)?;
++    if request.wants_file() {
++        b = b
++            .add_times(descend_cost(seg), k.saturating_sub(1))?
++            .add(ct::open_regular_no_follow_cost())?
++            .add_times(READ, usize::try_from(envelope(c)).ok()?)?;
++    } else {
++        b = b.add_times(descend_cost(seg), k)?.add(st)?;
++    }
++    Some(b.add(tail(p)?.0)?.0)
++}
++
++/// The binding's observation, with CI-T28's partition seam under test: a
++/// hook's error replaces a successful observation's result, as the native
++/// call's own error would.
++fn observe_path(
++    path: &CStr,
++    work: &mut WorkScope<'_>,
++) -> Result<PathStatus, WorkFailure<PathStatusError>> {
++    let status = ct::path_status_no_follow(path, work);
++    // The seam marks a native call made: not a budget refusal.
++    if !matches!(status, Err(WorkFailure::Budget(_))) {
++        path_seam()?;
++    }
++    status
++}
++#[cfg(test)]
++fn path_seam() -> Result<(), WorkFailure<PathStatusError>> {
++    inst::seams::at("lstat").map_err(|error| {
++        WorkFailure::Operation(if error.kind() == io::ErrorKind::NotFound {
++            PathStatusError::Absent
++        } else if error.kind() == io::ErrorKind::NotADirectory || ct::is_not_directory(&error) {
++            PathStatusError::NotDirectory
++        } else {
++            PathStatusError::Io(error)
++        })
++    })
++}
++#[cfg(not(test))]
++fn path_seam() -> Result<(), WorkFailure<PathStatusError>> {
++    Ok(())
++}
++
++/// Lexical resolution over the retained index (CI-A3-a): at most
++/// `S + 1` lookups, each hop's joined path an owned temporary, charged
++/// before it is allocated and dropped after the lookup it funds. The
++/// final row must be of the requested kind.
++pub(crate) fn resolve(
++    tree: &Tree<'_>,
++    order: &[u32],
++    request: MemberRequest<'_>,
++    work: &mut WorkScope<'_>,
++) -> Result<u32, TreeReadFailure> {
++    let path = match request {
++        MemberRequest::Entrypoint => tree.entrypoint.ok_or(TreeReadFailure::Association)?,
++        MemberRequest::File(path) | MemberRequest::Directory(path) => path,
++    };
++    let mut hop: Option<String> = None;
++    let mut lookups = 0usize;
++    loop {
++        if lookups == tree.links.saturating_add(1) {
++            return Err(TreeReadFailure::Association);
++        }
++        lookups += 1;
++        let wanted = hop.as_deref().unwrap_or(path);
++        let found = charged_find::<TreeFault>(tree, order, wanted, work).map_err(budget)?;
++        drop(hop.take());
++        let index = found.ok_or(TreeReadFailure::Association)?;
++        let row = tree.row(index);
++        match row.kind {
++            RowKind::Symlink { target } => {
++                // The last permitted lookup may establish a cycle or an
++                // overlong chain, but cannot fund an (S + 1)th hop temporary.
++                // Refused prefixes obey the same S-hop pre-bound as success.
++                if lookups > tree.links {
++                    return Err(TreeReadFailure::Association);
++                }
++                let length = joined_length(row.path, target)?;
++                let (parent, _) = split(row.path);
++                work.charge(heap(length)).map_err(budget)?;
++                let mut joined = String::with_capacity(length);
++                if !parent.is_empty() {
++                    joined.push_str(parent);
++                    joined.push('/');
++                }
++                joined.push_str(target);
++                hop = Some(joined);
++            }
++            RowKind::File { .. } if request.wants_file() => return Ok(index),
++            RowKind::Dir if !request.wants_file() => return Ok(index),
++            _ => return Err(TreeReadFailure::Association),
++        }
++    }
++}
++
++impl RetainedTree<'_, '_> {
++    /// `B̂_launch(request)` for this capability's TreeCommitment and store
++    /// path (CI-A3-b), for a caller funding the launch in advance.
++    pub fn launch_pre_bound(&self, request: MemberRequest<'_>) -> Option<WorkCost> {
++        launch_pre_bound(&self.tree, self.store.path.as_os_str().len(), request)
++    }
++
++    /// The launch member (CI-A3-a): resolve `request` lexically over the
++    /// TreeCommitment, re-observe the member from the retained `tree/`
++    /// handle, compose its launch path once and bind it by a no-follow
++    /// re-observation. Every charge is made immediately before its
++    /// operation, at its actual count (`E_launch`). On a latched capability
++    /// it refuses with the latched cause before any charge or observation;
++    /// its own first failure of any kind, `Budget` included, latches it.
++    pub fn launch_member(
++        &mut self,
++        request: MemberRequest<'_>,
++        work: &mut WorkScope<'_>,
++    ) -> Result<LaunchMember<'_>, TreeReadFailure> {
++        if let Some(latched) = self.latched {
++            return Err(latched.failure());
++        }
++        let result = self.launch_inner(request, work);
++        if let Err(failure) = &result {
++            self.latched = Some(Latched::of(failure));
++        }
++        result
++    }
++
++    /// The launch itself; its result borrows nothing until `launch_member`
++    /// ties it to the capability.
++    fn launch_inner(
++        &mut self,
++        request: MemberRequest<'_>,
++        work: &mut WorkScope<'_>,
++    ) -> Result<LaunchMember<'static>, TreeReadFailure> {
++        // The kind check (r4): one charged comparison of the held count of
++        // the requested kind against zero, before any lookup, hop or
++        // allocation. `tree/` itself always exists.
++        let index = if request.is_tree_root() {
++            None
++        } else {
++            work.charge(inst::COMPARISON).map_err(budget)?;
++            let count = if request.wants_file() {
++                self.tree.files
++            } else {
++                self.tree.dirs
++            };
++            if count == 0 {
++                return Err(TreeReadFailure::Association);
++            }
++            Some(resolve(&self.tree, &self.order, request, work)?)
++        };
++        let row = index.map(|i| self.tree.row(i));
++        let member = row.map_or("", |row| row.path);
++        // Observation from the retained base: the parent chain, one no-follow
++        // component at a time (the final descent too, for a directory), then
++        // the member itself.
++        let descents = if request.wants_file() {
++            components(member).saturating_sub(1)
++        } else {
++            components(member)
++        };
++        let mut level: Option<RetainedDirectory> = None;
++        for segment in member.split('/').take(descents) {
++            let from = level.as_ref().unwrap_or(&self.tree_dir);
++            let next = descend(from, segment, index, work).map_err(TreeReadFailure::of)?;
++            level = Some(next.directory);
++        }
++        let directory = level.as_ref().unwrap_or(&self.tree_dir);
++        let (device, inode, sha256) = match (row, index) {
++            (Some(row), Some(index)) if request.wants_file() => {
++                let RowKind::File { length, sha256 } = row.kind else {
++                    return Err(TreeReadFailure::Association);
++                };
++                let (_, name) = split(row.path);
++                let file = match ct::open_regular_no_follow(directory, name, Access::ReadOnly, work)
++                {
++                    Ok(file) => file,
++                    Err(WorkFailure::Budget(b)) => return Err(TreeReadFailure::Budget(b)),
++                    Err(WorkFailure::Operation(TreeOpenError::Absent)) => {
++                        return Err(TreeReadFailure::Absent { row: index });
++                    }
++                    Err(WorkFailure::Operation(TreeOpenError::NotRegular)) => {
++                        return Err(TreeReadFailure::Type { row: Some(index) });
++                    }
++                    // A committed path is at most 100 bytes (CI-T5), so the
++                    // stack name never refuses one.
++                    Err(WorkFailure::Operation(TreeOpenError::Name)) => {
++                        return Err(TreeReadFailure::Association);
++                    }
++                    Err(WorkFailure::Operation(e)) => return Err(io_failure("openat", e)),
++                };
++                if file.mode() != inst::installed_mode(&row) {
++                    return Err(TreeReadFailure::Mode { row: Some(index) });
++                }
++                if file.length() != length {
++                    return Err(TreeReadFailure::Length { row: index });
++                }
++                read_verified(&file, index, length, sha256, &mut self.buffer, work, |_| {})
++                    .map_err(TreeReadFailure::of)?;
++                let identity = file.identity();
++                (identity.device, identity.inode, Some(sha256))
++            }
++            _ => {
++                let status = ct::directory_identity(directory, work).map_err(|e| match e {
++                    WorkFailure::Budget(b) => TreeReadFailure::Budget(b),
++                    WorkFailure::Operation(error) => TreeReadFailure::Io {
++                        call: "fstat",
++                        error,
++                    },
++                })?;
++                if status.kind != EntryKind::Directory {
++                    return Err(TreeReadFailure::Type { row: index });
++                }
++                // LD-CI-10: a directory inside `tree/`, and `tree/` itself, `0500`.
++                let mode = row.map_or(0o500, |row| inst::installed_mode(&row));
++                if status.mode != mode {
++                    return Err(TreeReadFailure::Mode { row: index });
++                }
++                (status.device, status.inode, None)
++            }
++        };
++        drop(level);
++        // The path binding: one owned NUL-terminated buffer of `P + 1` bytes,
++        // composed once, re-observed no-follow, then the result's path.
++        let store: &[u8] = {
++            use std::os::unix::ffi::OsStrExt;
++            self.store.path.as_os_str().as_bytes()
++        };
++        let length = launch_path_length(store.len(), member.len())
++            .and_then(|p| p.checked_add(1))
++            .ok_or(TreeReadFailure::Budget(WorkBudgetError::Arithmetic))?;
++        work.charge(heap(length)).map_err(budget)?;
++        let mut bytes = Vec::with_capacity(length);
++        bytes.extend_from_slice(store);
++        bytes.push(b'/');
++        bytes.extend_from_slice(self.name.as_bytes());
++        bytes.push(b'/');
++        bytes.extend_from_slice(TREE.as_bytes());
++        if !member.is_empty() {
++            bytes.push(b'/');
++            bytes.extend_from_slice(member.as_bytes());
++        }
++        bytes.push(0);
++        // The store path and a committed row hold no NUL, so this never
++        // refuses; if it did, the path would not name the member.
++        let spelling = CStr::from_bytes_with_nul(&bytes).map_err(|_| TreeReadFailure::Binding)?;
++        let observed = match observe_path(spelling, work) {
++            Ok(status) => status,
++            Err(WorkFailure::Budget(b)) => return Err(TreeReadFailure::Budget(b)),
++            Err(WorkFailure::Operation(
++                PathStatusError::Absent | PathStatusError::NotDirectory,
++            )) => {
++                return Err(TreeReadFailure::Binding);
++            }
++            Err(WorkFailure::Operation(PathStatusError::Io(error))) => {
++                return Err(TreeReadFailure::Io {
++                    call: "lstat",
++                    error,
++                });
++            }
++        };
++        let kind = if request.wants_file() {
++            EntryKind::File
++        } else {
++            EntryKind::Directory
++        };
++        if observed.kind != kind || (observed.device, observed.inode) != (device, inode) {
++            return Err(TreeReadFailure::Binding);
++        }
++        // The NUL is dropped in place: the buffer becomes the path unmoved.
++        bytes.pop();
++        let path = {
++            use std::os::unix::ffi::OsStringExt;
++            PathBuf::from(std::ffi::OsString::from_vec(bytes))
++        };
++        work.charge(launch_member_cost()).map_err(budget)?;
++        Ok(LaunchMember {
++            path,
++            device,
++            inode,
++            sha256,
++            row: index,
++            capability: PhantomData,
++        })
++    }
++}
++
+ #[cfg(test)]
+ #[path = "retained_tree_tests.rs"]
+ mod tests;
+diff --git a/crates/lifecycle/src/retained_tree_tests.rs b/crates/lifecycle/src/retained_tree_tests.rs
+index cc96b8c..806fc39 100644
+--- a/crates/lifecycle/src/retained_tree_tests.rs
++++ b/crates/lifecycle/src/retained_tree_tests.rs
+@@ -4,7 +4,7 @@
+ // installer (LAW item 6's fixture path), from C2a-1's `TestComponent`.
+ use super::*;
+ use crate::installation::tests::{
+-    Fixture, MACOS, Spec, SpecKind, dir, file, link, make_writable, nested, within,
++    Fixture, MACOS, Spec, SpecKind, dir, file, file_only, link, make_writable, nested, within,
+ };
+ use opensip_platform::WorkLedger;
+ use std::os::unix::fs::PermissionsExt;
+@@ -478,8 +478,8 @@ fn open_rows(f: &Fixture) -> (opensip_platform::WorkCost, usize) {
+         sort_comparisons, times,
+     };
+     use opensip_security::snapshot_source::owned_record;
+-    let st = ct::status_read_cost();
+-    let fopen = ct::open_regular_no_follow_cost();
++    let st = reference_status();
++    let fopen = reference_regular_open();
+     let one = ct::NATIVE_CALL;
+     let mut total = opensip_platform::WorkCost::default();
+     let mut add = |c: opensip_platform::WorkCost, k: usize| {
+@@ -650,3 +650,1269 @@ fn a_failed_transfer_latches_its_cause_for_every_later_transfer() {
+     })
+     .unwrap();
+ }
++
++// ---- Unit CI-3L (amendment CI-A3): the launch member, CI-T27 and CI-T28 ----
++
++use crate::installation::tests::with_seam;
++use opensip_platform::WorkCost;
++use std::cell::Cell;
++use std::os::unix::ffi::OsStrExt;
++use std::os::unix::fs::MetadataExt;
++use std::path::PathBuf;
++use std::rc::Rc;
++
++/// One launch's result, owned.
++#[derive(Debug, Clone, PartialEq, Eq)]
++struct Launched {
++    path: PathBuf,
++    device: u64,
++    inode: u64,
++    sha256: Option<[u8; 32]>,
++    row: Option<u32>,
++}
++fn launched(m: LaunchMember<'_>) -> Launched {
++    Launched {
++        path: m.path().to_path_buf(),
++        device: m.device(),
++        inode: m.inode(),
++        sha256: m.sha256(),
++        row: m.row(),
++    }
++}
++fn minus(after: WorkCost, before: WorkCost) -> WorkCost {
++    WorkCost {
++        objects: after.objects - before.objects,
++        edges: after.edges - before.edges,
++        bytes: after.bytes - before.bytes,
++    }
++}
++fn sum(costs: &[WorkCost]) -> WorkCost {
++    costs
++        .iter()
++        .fold(WorkCost::default(), |a, c| a.checked_add(*c).unwrap())
++}
++fn le(a: WorkCost, b: WorkCost) -> bool {
++    a.objects <= b.objects && a.edges <= b.edges && a.bytes <= b.bytes
++}
++
++/// The pinned capability of `f`, opened on its own ledger: a launch's
++/// scope is always another one.
++fn capability<'s, 'a>(
++    f: &'s Fixture,
++    component: &AuthenticatedComponent<'a>,
++    candidate: &'a ClosureCandidate<'_>,
++) -> RetainedTree<'s, 'a> {
++    within(&mut WorkLedger::snapshot_profile(), |work| {
++        open_retained_tree(
++            &f.store,
++            component,
++            candidate,
++            MACOS,
++            PinRequest::UnderFence,
++            work,
++        )
++    })
++    .unwrap()
++}
++
++/// What one launch did: its result, its exact charge on a fresh scope of
++/// `ledger`, and the observations it made (read attempts, binding reads).
++struct Run {
++    result: Result<Launched, TreeReadFailure>,
++    charged: WorkCost,
++    reads: usize,
++    lstats: usize,
++}
++fn launch_on(
++    tree: &mut RetainedTree<'_, '_>,
++    request: MemberRequest<'_>,
++    ledger: &mut WorkLedger,
++) -> Run {
++    let reads = Rc::new(Cell::new(0usize));
++    let lstats = Rc::new(Cell::new(0usize));
++    let (r, l) = (reads.clone(), lstats.clone());
++    let (result, charged) = with_seam(
++        move |step| {
++            match step {
++                "read" => r.set(r.get() + 1),
++                "lstat" => l.set(l.get() + 1),
++                _ => {}
++            }
++            Ok(())
++        },
++        || {
++            within(ledger, |work| {
++                let before = work.used();
++                let result = tree.launch_member(request, work).map(launched);
++                (result, minus(work.used(), before))
++            })
++        },
++    );
++    Run {
++        result,
++        charged,
++        reads: reads.get(),
++        lstats: lstats.get(),
++    }
++}
++fn launch(tree: &mut RetainedTree<'_, '_>, request: MemberRequest<'_>) -> Run {
++    launch_on(tree, request, &mut WorkLedger::snapshot_profile())
++}
++/// The spelled launch path: `<storePath>/<closure2-hex>/tree[/<member>]`.
++fn spelled(f: &Fixture, member: &str) -> PathBuf {
++    let mut s = f.store_path.as_os_str().as_bytes().to_vec();
++    s.extend_from_slice(b"/");
++    s.extend_from_slice(f.name().as_bytes());
++    s.extend_from_slice(b"/tree");
++    if !member.is_empty() {
++        s.extend_from_slice(b"/");
++        s.extend_from_slice(member.as_bytes());
++    }
++    PathBuf::from(std::ffi::OsString::from(
++        std::str::from_utf8(&s).unwrap().to_owned(),
++    ))
++}
++fn row_of(f: &Fixture, path: &str) -> u32 {
++    f.specs.iter().position(|s| s.path == path).unwrap() as u32
++}
++fn digest_of(f: &Fixture, path: &str) -> [u8; 32] {
++    let SpecKind::File(bytes) = &f.specs[row_of(f, path) as usize].kind else {
++        panic!("{path}")
++    };
++    opensip_identity::raw_sha256(bytes)
++}
++
++// ---- The independent enumerator (CI-T28) ----
++
++/// The component sequence order, written here as a lexicographic order of
++/// the `/`-separated segment lists (not the module's byte key).
++fn segments_cmp(a: &str, b: &str) -> std::cmp::Ordering {
++    let (a, b): (Vec<&[u8]>, Vec<&[u8]>) = (
++        a.split('/').map(str::as_bytes).collect(),
++        b.split('/').map(str::as_bytes).collect(),
++    );
++    a.cmp(&b)
++}
++/// The retained index as this enumerator orders it.
++fn index_of(specs: &[Spec]) -> Vec<usize> {
++    let mut order: Vec<usize> = (0..specs.len()).collect();
++    order.sort_by(|&x, &y| segments_cmp(&specs[x].path, &specs[y].path));
++    order
++}
++/// One binary search over `order`: the row found and the comparisons made.
++fn search(specs: &[Spec], order: &[usize], path: &str) -> (Option<usize>, usize) {
++    let (mut low, mut high, mut made) = (0usize, order.len(), 0usize);
++    while low < high {
++        let mid = low + (high - low) / 2;
++        made += 1;
++        match segments_cmp(&specs[order[mid]].path, path) {
++            std::cmp::Ordering::Less => low = mid + 1,
++            std::cmp::Ordering::Greater => high = mid,
++            std::cmp::Ordering::Equal => return (Some(order[mid]), made),
++        }
++    }
++    (None, made)
++}
++fn edge() -> WorkCost {
++    WorkCost {
++        objects: 0,
++        edges: 1,
++        bytes: 0,
++    }
++}
++fn owned(bytes: usize) -> WorkCost {
++    WorkCost {
++        objects: 1,
++        edges: 0,
++        bytes,
++    }
++}
++// Published CI-A2/CI-A3 primitive expressions, enumerated independently.
++// Type sizes are measured here; no production cost function supplies a price.
++// Independent Darwin SDK C sizeof(struct stat), rechecked by the owning lane.
++const REFERENCE_NATIVE_STAT_BYTES: usize = 144;
++fn reference_status() -> WorkCost {
++    WorkCost {
++        objects: 0,
++        edges: 1,
++        bytes: REFERENCE_NATIVE_STAT_BYTES.max(size_of::<std::fs::Metadata>()),
++    }
++}
++fn reference_regular_open() -> WorkCost {
++    WorkCost {
++        objects: 0,
++        edges: 2,
++        bytes: REFERENCE_NATIVE_STAT_BYTES.max(size_of::<std::fs::Metadata>()),
++    }
++}
++fn descent(name: usize) -> WorkCost {
++    WorkCost {
++        objects: 3,
++        edges: 3,
++        bytes: name + 1 + 4 * size_of::<crate::installation::Level>(),
++    }
++}
++/// `⌈log₂ n⌉ + 1`, counted here.
++fn search_envelope(n: usize) -> usize {
++    let mut bits = 0;
++    while (1usize << bits) < n {
++        bits += 1;
++    }
++    bits + 1
++}
++/// `env(c)`: `2·⌈c / 64 KiB⌉ + 2`.
++fn read_envelope(c: usize) -> usize {
++    2 * c.div_ceil(65_536) + 2
++}
++
++/// CI-A3-b's rows for `request`, from the TreeCommitment and the store path
++/// themselves, in execution order: the executed charges (`E_launch`, with
++/// the observed counts), the per-member bound (`B_launch`) and the request
++/// pre-bound (`B̂_launch`).
++struct Expected {
++    charges: Vec<WorkCost>,
++    reads: usize,
++    bound: WorkCost,
++    pre_bound: WorkCost,
++    /// The final row, or `None` when no member resolved.
++    row: Option<Option<usize>>,
++    lookup_trace: Vec<(String, usize)>,
++    hop_lengths: Vec<usize>,
++}
++fn expected(f: &Fixture, entry: &str, request: MemberRequest<'_>) -> Expected {
++    expected_specs(&f.specs, f.store_path.as_os_str().len(), entry, request)
++}
++fn expected_specs(
++    specs: &[Spec],
++    store: usize,
++    entry: &str,
++    request: MemberRequest<'_>,
++) -> Expected {
++    let st = reference_status();
++    let fopen = reference_regular_open();
++    let lm = owned(size_of::<LaunchMember<'static>>());
++    let launch_path = |p: usize| owned(store + 1 + 64 + 1 + 4 + if p > 0 { 1 + p } else { 0 } + 1);
++    let is_file = |s: &Spec| matches!(s.kind, SpecKind::File(_));
++    let is_dir = |s: &Spec| matches!(s.kind, SpecKind::Dir);
++    let wants_file = !matches!(request, MemberRequest::Directory(_));
++    let of_kind = |s: &Spec| if wants_file { is_file(s) } else { is_dir(s) };
++    let links = specs
++        .iter()
++        .filter(|s| matches!(s.kind, SpecKind::Link(_)))
++        .count();
++    let joined = |link: &str, target: &str| match link.rsplit_once('/') {
++        Some((parent, _)) => format!("{parent}/{target}"),
++        None => target.to_owned(),
++    };
++    // B̂: maxima over the requested kind's rows, 0 over an empty set.
++    let pre_bound = if request == MemberRequest::Directory("") {
++        sum(&[st, launch_path(0), st, lm])
++    } else if !specs.iter().any(of_kind) {
++        edge()
++    } else {
++        let rows: Vec<&Spec> = specs.iter().filter(|s| of_kind(s)).collect();
++        let p = rows.iter().map(|s| s.path.len()).max().unwrap();
++        let k = rows
++            .iter()
++            .map(|s| s.path.split('/').count())
++            .max()
++            .unwrap();
++        let seg = rows
++            .iter()
++            .flat_map(|s| s.path.split('/'))
++            .map(str::len)
++            .max()
++            .unwrap();
++        let c = rows
++            .iter()
++            .map(|s| match &s.kind {
++                SpecKind::File(b) => b.len(),
++                _ => 0,
++            })
++            .max()
++            .unwrap();
++        let q = specs
++            .iter()
++            .filter_map(|s| match &s.kind {
++                SpecKind::Link(t) => Some(joined(&s.path, t).len()),
++                _ => None,
++            })
++            .max()
++            .unwrap_or(0);
++        let mut b = vec![edge()];
++        b.extend(std::iter::repeat_n(
++            edge(),
++            (links + 1) * search_envelope(specs.len()),
++        ));
++        b.extend(std::iter::repeat_n(owned(q), links));
++        if wants_file {
++            b.extend(std::iter::repeat_n(descent(seg), k - 1));
++            b.push(fopen);
++            b.extend(std::iter::repeat_n(edge(), read_envelope(c)));
++        } else {
++            b.extend(std::iter::repeat_n(descent(seg), k));
++            b.push(st);
++        }
++        b.extend([launch_path(p), st, lm]);
++        sum(&b)
++    };
++    let mut charges = Vec::new();
++    let mut bound = Vec::new();
++    let mut lookup_trace = Vec::new();
++    let mut hop_lengths = Vec::new();
++    fn both(c: WorkCost, charges: &mut Vec<WorkCost>, bound: &mut Vec<WorkCost>) {
++        charges.push(c);
++        bound.push(c);
++    }
++    let stop =
++        |charges: Vec<WorkCost>, bound: Vec<WorkCost>, row, lookup_trace, hop_lengths| Expected {
++            reads: 0,
++            bound: sum(&bound),
++            charges,
++            pre_bound,
++            row,
++            lookup_trace,
++            hop_lengths,
++        };
++    let final_row = if request == MemberRequest::Directory("") {
++        None
++    } else {
++        both(edge(), &mut charges, &mut bound);
++        if !specs.iter().any(of_kind) {
++            return stop(charges, bound, None, lookup_trace, hop_lengths);
++        }
++        let order = index_of(specs);
++        let mut path = match request {
++            MemberRequest::Entrypoint => entry.to_owned(),
++            MemberRequest::File(p) | MemberRequest::Directory(p) => p.to_owned(),
++        };
++        let mut lookups = 0;
++        let mut search_bound = 0;
++        let found = loop {
++            if lookups == links + 1 {
++                break None;
++            }
++            lookups += 1;
++            let (row, made) = search(specs, &order, &path);
++            lookup_trace.push((path.clone(), made));
++            charges.extend(std::iter::repeat_n(edge(), made));
++            search_bound += search_envelope(specs.len());
++            let Some(row) = row else { break None };
++            match &specs[row].kind {
++                SpecKind::Link(target) => {
++                    if lookups > links {
++                        break None;
++                    }
++                    path = joined(&specs[row].path, target);
++                    hop_lengths.push(path.len());
++                    both(owned(path.len()), &mut charges, &mut bound);
++                }
++                _ if of_kind(&specs[row]) => break Some(row),
++                _ => break None,
++            }
++        };
++        bound.extend(std::iter::repeat_n(edge(), search_bound));
++        let Some(row) = found else {
++            return stop(charges, bound, None, lookup_trace, hop_lengths);
++        };
++        Some(row)
++    };
++    let member = final_row.map_or("", |r| specs[r].path.as_str());
++    let segments: Vec<&str> = if member.is_empty() {
++        vec![]
++    } else {
++        member.split('/').collect()
++    };
++    let mut reads = 0;
++    if wants_file {
++        for seg in &segments[..segments.len() - 1] {
++            both(descent(seg.len()), &mut charges, &mut bound);
++        }
++        both(fopen, &mut charges, &mut bound);
++        let SpecKind::File(bytes) = &specs[final_row.unwrap()].kind else {
++            panic!()
++        };
++        // The recorded read returns: full chunks, the remainder, then the end.
++        reads = bytes.len().div_ceil(65_536) + 1;
++        charges.extend(std::iter::repeat_n(edge(), reads));
++        bound.extend(std::iter::repeat_n(edge(), read_envelope(bytes.len())));
++    } else {
++        for seg in &segments {
++            both(descent(seg.len()), &mut charges, &mut bound);
++        }
++        both(st, &mut charges, &mut bound);
++    }
++    for c in [launch_path(member.len()), st, lm] {
++        both(c, &mut charges, &mut bound);
++    }
++    Expected {
++        reads,
++        bound: sum(&bound),
++        charges,
++        pre_bound,
++        row: Some(final_row),
++        lookup_trace,
++        hop_lengths,
++    }
++}
++
++/// A run's work equals the enumerated executed charge exactly, and
++/// `E ≤ B ≤ B̂` holds with the module's pre-bound equal to the enumerated one.
++fn check_work(f: &Fixture, entry: &str, request: MemberRequest<'_>) -> Run {
++    let (candidate, component) = (f.candidate(), f.component.authenticated());
++    let mut tree = capability(f, &component, &candidate);
++    let want = expected(f, entry, request);
++    let run = launch(&mut tree, request);
++    let e = sum(&want.charges);
++    assert_eq!(run.charged, e, "{request:?}: actual = E_launch");
++    assert_eq!(run.reads, want.reads, "{request:?}: read attempts");
++    assert!(le(e, want.bound), "{request:?}: E ≤ B");
++    assert!(le(want.bound, want.pre_bound), "{request:?}: B ≤ B̂");
++    assert_eq!(
++        tree.launch_pre_bound(request),
++        Some(want.pre_bound),
++        "{request:?}: B̂"
++    );
++    match (&run.result, want.row) {
++        (Ok(m), Some(row)) => assert_eq!(m.row, row.map(|r| r as u32)),
++        (Err(TreeReadFailure::Association), None) => {}
++        (r, row) => panic!("{request:?}: {r:?} against {row:?}"),
++    }
++    run
++}
++
++// ---- CI-T27: resolution, observation, binding, directories, lifetime, latching ----
++
++#[test]
++fn ci_t27_entrypoints_resolve_to_the_final_file_row_at_root_nested_and_through_links() {
++    // Root-level, and nested.
++    for (specs, entry) in [(file_only(), "entry"), (nested(), "bin/entry")] {
++        let f = installed(specs);
++        let (candidate, component) = (f.candidate(), f.component.authenticated());
++        let mut tree = capability(&f, &component, &candidate);
++        let m = launch(&mut tree, MemberRequest::Entrypoint).result.unwrap();
++        assert_eq!(m.path, spelled(&f, entry));
++        assert_eq!(m.row, Some(row_of(&f, entry)));
++        assert_eq!(m.sha256, Some(digest_of(&f, entry)));
++        let meta = std::fs::symlink_metadata(&m.path).unwrap();
++        assert!(meta.is_file());
++        assert_eq!((m.device, m.inode), (meta.dev(), meta.ino()));
++    }
++    // Through one link, and through two: the result is the final file row,
++    // and the path holds no link.
++    let mut two = nested();
++    two.push(link("again", "latest"));
++    // A validated toolchain's entrypoint names its file row directly, and C2a-1's
++    // candidate admits no analyzer fixture, so the installed chains are
++    // requested as `File` members, which follow links by the same rule; the
++    // `Entrypoint` chain is resolved over a hand-built TreeCommitment below.
++    for (specs, entry) in [(nested(), "latest"), (two, "again")] {
++        let f = installed(specs);
++        let (candidate, component) = (f.candidate(), f.component.authenticated());
++        let mut tree = capability(&f, &component, &candidate);
++        let m = launch(&mut tree, MemberRequest::File(entry))
++            .result
++            .unwrap();
++        assert_eq!(m.path, spelled(&f, "bin/entry"), "{entry}");
++        assert_eq!(m.row, Some(row_of(&f, "bin/entry")));
++        assert_eq!(m.sha256, Some(digest_of(&f, "bin/entry")));
++        // No component below the store is a link.
++        let mut walked = f.store_path.clone();
++        for part in m.path.strip_prefix(&f.store_path).unwrap().components() {
++            walked.push(part);
++            assert!(!std::fs::symlink_metadata(&walked).unwrap().is_symlink());
++        }
++    }
++    let (r, charged) = resolve_over(
++        &[
++            ("l2", "symlink", Some("l1")),
++            ("l1", "symlink", Some("f")),
++            ("f", "file", None),
++        ],
++        MemberRequest::Entrypoint,
++    );
++    assert_eq!(
++        r.unwrap(),
++        2,
++        "the entrypoint `l2` resolves to the file row"
++    );
++    assert_eq!(
++        (charged.objects, charged.bytes),
++        (2, 3),
++        "the two joined paths are `l1` (two bytes) and `f` (one byte)"
++    );
++}
++
++/// The capability's own tree over a hand-built TreeCommitment, for the
++/// resolution rules a validated manifest cannot reach (a cycle).
++fn manifest_over(entries: &[(&str, &str, Option<&str>)]) -> opensip_identity::JsonValue {
++    use opensip_identity::JsonValue as V;
++    use std::collections::BTreeMap;
++    let s = |t: &str| V::String(t.to_owned());
++    let rows: Vec<V> = entries
++        .iter()
++        .map(|(path, kind, target)| {
++            let mut e = BTreeMap::new();
++            e.insert("path".to_owned(), s(path));
++            e.insert("mode".to_owned(), s("0755"));
++            e.insert("type".to_owned(), s(kind));
++            match *kind {
++                "file" => {
++                    e.insert(
++                        "length".to_owned(),
++                        V::Integer(opensip_identity::JsonInteger::new(0).unwrap()),
++                    );
++                    e.insert("sha256".to_owned(), s(&"0".repeat(64)));
++                }
++                "symlink" => {
++                    e.insert("target".to_owned(), s(target.unwrap()));
++                }
++                _ => {}
++            }
++            V::Object(e)
++        })
++        .collect();
++    let mut tree = BTreeMap::new();
++    tree.insert("entries".to_owned(), V::Array(rows));
++    let mut platform = BTreeMap::new();
++    platform.insert("os".to_owned(), s("macos"));
++    platform.insert("arch".to_owned(), s("arm64"));
++    platform.insert("entrypoint".to_owned(), s(entries[0].0));
++    platform.insert("tree".to_owned(), V::Object(tree));
++    let mut manifest = BTreeMap::new();
++    manifest.insert("platforms".to_owned(), V::Array(vec![V::Object(platform)]));
++    V::Object(manifest)
++}
++fn resolve_over(
++    entries: &[(&str, &str, Option<&str>)],
++    request: MemberRequest<'_>,
++) -> (Result<u32, TreeReadFailure>, WorkCost) {
++    let manifest = manifest_over(entries);
++    let tree = crate::installation::Tree::of(&manifest, MACOS).unwrap();
++    let mut ledger = WorkLedger::snapshot_profile();
++    within(&mut ledger, |work| {
++        let order = crate::installation::charged_sort::<TreeFault>(tree.n, work, |a, b| {
++            crate::installation::component_cmp(tree.row(a).path, tree.row(b).path).is_lt()
++        })
++        .unwrap();
++        let before = work.used();
++        let r = resolve(&tree, &order, request, work);
++        (r, minus(work.used(), before))
++    })
++}
++
++#[test]
++fn ci_t27_a_chain_beyond_s_plus_one_lookups_or_of_the_wrong_kind_refuses_association() {
++    // A cycle (S = 2): three lookups follow a, b, a; a fourth is never made.
++    let (r, charged) = resolve_over(
++        &[
++            ("a", "symlink", Some("b")),
++            ("b", "symlink", Some("a")),
++            ("f", "file", None),
++        ],
++        MemberRequest::File("a"),
++    );
++    assert!(matches!(r, Err(TreeReadFailure::Association)), "{r:?}");
++    // Three lookups (a, b, a), but only S = 2 joined temporaries.
++    // A link found on the last permitted lookup must refuse before another
++    // allocation: the refusal prefix stays within the S-hop pre-bound.
++    assert_eq!(charged.objects, 2, "at most S hop temporaries");
++    assert_eq!(charged.bytes, 2);
++    // An acyclic chain resolves; a request of the wrong kind refuses.
++    let entries = [
++        ("f", "file", None),
++        ("d", "dir", None),
++        ("l", "symlink", Some("f")),
++    ];
++    assert_eq!(
++        resolve_over(&entries, MemberRequest::File("l")).0.unwrap(),
++        0
++    );
++    for request in [
++        MemberRequest::File("d"),
++        MemberRequest::Directory("f"),
++        MemberRequest::Directory("l"),
++        MemberRequest::File("none"),
++    ] {
++        assert!(matches!(
++            resolve_over(&entries, request).0,
++            Err(TreeReadFailure::Association)
++        ));
++    }
++    let f = installed(nested());
++    let (candidate, component) = (f.candidate(), f.component.authenticated());
++    let mut tree = capability(&f, &component, &candidate);
++    assert!(matches!(
++        launch(&mut tree, MemberRequest::File("lib")).result,
++        Err(TreeReadFailure::Association)
++    ));
++}
++
++#[test]
++fn ci_t27_the_member_is_observed_from_the_retained_base_and_keeps_its_cause() {
++    type Change = fn(&Path);
++    type MatchesFailure = fn(&TreeReadFailure) -> bool;
++    let cases: [(Change, MatchesFailure); 5] = [
++        (
++            |p| {
++                let mut b = std::fs::read(p).unwrap();
++                b[100] ^= 1;
++                rewrite(p, &b);
++            },
++            |e| matches!(e, TreeReadFailure::Digest { .. }),
++        ),
++        (
++            |p| rewrite(p, b"short"),
++            |e| matches!(e, TreeReadFailure::Length { .. }),
++        ),
++        (
++            |p| std::fs::set_permissions(p, std::fs::Permissions::from_mode(0o700)).unwrap(),
++            |e| matches!(e, TreeReadFailure::Mode { .. }),
++        ),
++        (
++            |p| {
++                std::fs::remove_file(p).unwrap();
++                std::fs::create_dir(p).unwrap();
++            },
++            |e| matches!(e, TreeReadFailure::Type { .. }),
++        ),
++        (
++            |p| std::fs::remove_file(p).unwrap(),
++            |e| matches!(e, TreeReadFailure::Absent { .. }),
++        ),
++    ];
++    for (change, expect) in cases {
++        let f = installed(nested());
++        let (candidate, component) = (f.candidate(), f.component.authenticated());
++        let mut tree = capability(&f, &component, &candidate);
++        tamper(&f, "tree/a/z", change);
++        let run = launch(&mut tree, MemberRequest::File("a/z"));
++        let e = run.result.unwrap_err();
++        assert!(expect(&e), "{e:?}");
++        assert_eq!(run.lstats, 0, "no binding without a verified member");
++    }
++}
++
++#[test]
++fn ci_t27_the_launch_reads_only_through_retained_single_component_handles() {
++    // A source pin over the launch member's code: no path-based filesystem
++    // call; each descent and open names one component from a retained handle.
++    let source = include_str!("retained_tree.rs");
++    let at = source
++        .find("// ---- The launch member (CI-A3; unit CI-3L) ----")
++        .unwrap();
++    let end = at + source[at..].find("#[cfg(test)]\n#[path").unwrap();
++    let code = &source[at..end];
++    for forbidden in [
++        "std::fs",
++        "File::open",
++        "OpenOptions",
++        "open_child_directory",
++        "canonicalize",
++        "read_link",
++        "metadata(",
++        "Command",
++        "spawn",
++    ] {
++        assert!(!code.contains(forbidden), "{forbidden}");
++    }
++    assert_eq!(code.matches("ct::path_status_no_follow(").count(), 1);
++    assert!(code.contains("for segment in member.split('/').take(descents)"));
++}
++
++/// Move the generation's `tree/` aside, leaving the retained handles on it,
++/// and put a fresh `tree/` at its spelling, built by `build`.
++fn swap_tree(f: &Fixture, build: impl FnOnce(&Path, &Path)) {
++    let generation = f.generation();
++    let mode = std::fs::metadata(&generation).unwrap().permissions().mode() & 0o7777;
++    std::fs::set_permissions(&generation, std::fs::Permissions::from_mode(0o700)).unwrap();
++    let aside = generation.join("tree.aside");
++    std::fs::rename(generation.join("tree"), &aside).unwrap();
++    std::fs::create_dir(generation.join("tree")).unwrap();
++    build(&aside, &generation.join("tree"));
++    std::fs::set_permissions(&generation, std::fs::Permissions::from_mode(mode)).unwrap();
++}
++
++#[test]
++fn ci_t27_a_path_not_naming_the_verified_member_refuses_binding() {
++    // The final component a symlink to an identical copy.
++    let f = installed(nested());
++    let (candidate, component) = (f.candidate(), f.component.authenticated());
++    let mut tree = capability(&f, &component, &candidate);
++    swap_tree(&f, |aside, fresh| {
++        std::fs::create_dir(fresh.join("bin")).unwrap();
++        std::fs::copy(aside.join("bin/entry"), fresh.join("copy")).unwrap();
++        std::os::unix::fs::symlink("../copy", fresh.join("bin/entry")).unwrap();
++    });
++    let run = launch(&mut tree, MemberRequest::Entrypoint);
++    assert!(
++        matches!(run.result, Err(TreeReadFailure::Binding)),
++        "{:?}",
++        run.result
++    );
++    // An identical regular copy at the spelling: same bytes, another inode.
++    let f = installed(nested());
++    let (candidate, component) = (f.candidate(), f.component.authenticated());
++    let mut tree = capability(&f, &component, &candidate);
++    swap_tree(&f, |aside, fresh| {
++        std::fs::create_dir(fresh.join("bin")).unwrap();
++        std::fs::copy(aside.join("bin/entry"), fresh.join("bin/entry")).unwrap();
++    });
++    let run = launch(&mut tree, MemberRequest::Entrypoint);
++    assert!(matches!(run.result, Err(TreeReadFailure::Binding)));
++    // A store path naming another directory: an identical copy elsewhere
++    // (another inode), nothing there (ENOENT) and a regular file (ENOTDIR).
++    let f = installed(nested());
++    let elsewhere = f.store_path.with_file_name("elsewhere");
++    let copy = elsewhere.join(f.name()).join("tree/bin");
++    std::fs::create_dir_all(&copy).unwrap();
++    std::fs::copy(f.generation().join("tree/bin/entry"), copy.join("entry")).unwrap();
++    let plain = f.store_path.with_file_name("plain");
++    std::fs::write(&plain, b"x").unwrap();
++    for store_path in [elsewhere, f.store_path.with_file_name("nothing"), plain] {
++        let handle = opensip_platform::RetainedDirectory::from_retained_handle(
++            std::fs::File::open(&f.store_path).unwrap(),
++        )
++        .unwrap();
++        let uid = std::fs::metadata(&f.store_path).unwrap().uid();
++        let store = within(&mut WorkLedger::new(), |work| {
++            ComponentStore::fixture(handle, &store_path, uid, work)
++        })
++        .unwrap();
++        let (candidate, component) = (f.candidate(), f.component.authenticated());
++        let mut tree = within(&mut WorkLedger::snapshot_profile(), |work| {
++            open_retained_tree(
++                &store,
++                &component,
++                &candidate,
++                MACOS,
++                PinRequest::UnderFence,
++                work,
++            )
++        })
++        .unwrap();
++        let run = launch(&mut tree, MemberRequest::Entrypoint);
++        assert!(
++            matches!(run.result, Err(TreeReadFailure::Binding)),
++            "{store_path:?}: {:?}",
++            run.result
++        );
++        assert_eq!(run.lstats, 1);
++    }
++}
++
++#[test]
++fn ci_t27_directory_members_give_their_identity_and_mode_and_read_no_content() {
++    let f = installed(nested());
++    let (candidate, component) = (f.candidate(), f.component.authenticated());
++    let mut tree = capability(&f, &component, &candidate);
++    for (request, member) in [
++        (MemberRequest::Directory(""), ""),
++        (MemberRequest::Directory("a/b/c"), "a/b/c"),
++        (MemberRequest::Directory("lib"), "lib"),
++    ] {
++        let run = launch(&mut tree, request);
++        let m = run.result.unwrap();
++        let meta = std::fs::symlink_metadata(spelled(&f, member)).unwrap();
++        assert!(meta.is_dir());
++        assert_eq!((m.device, m.inode), (meta.dev(), meta.ino()));
++        assert_eq!(m.path, spelled(&f, member));
++        assert_eq!(m.sha256, None);
++        assert_eq!(m.row, (!member.is_empty()).then(|| row_of(&f, member)));
++        assert_eq!(run.reads, 0, "no content read");
++    }
++    // A changed directory mode refuses `Mode`; `tree/`'s own, with no row.
++    let f = installed(nested());
++    let (candidate, component) = (f.candidate(), f.component.authenticated());
++    let mut tree = capability(&f, &component, &candidate);
++    std::fs::set_permissions(
++        f.generation().join("tree/a/b/c"),
++        std::fs::Permissions::from_mode(0o700),
++    )
++    .unwrap();
++    assert!(matches!(
++        launch(&mut tree, MemberRequest::Directory("a/b/c")).result,
++        Err(TreeReadFailure::Mode { row: Some(_) })
++    ));
++    let f = installed(nested());
++    let (candidate, component) = (f.candidate(), f.component.authenticated());
++    let mut tree = capability(&f, &component, &candidate);
++    std::fs::set_permissions(
++        f.generation().join("tree"),
++        std::fs::Permissions::from_mode(0o700),
++    )
++    .unwrap();
++    assert!(matches!(
++        launch(&mut tree, MemberRequest::Directory("")).result,
++        Err(TreeReadFailure::Mode { row: None })
++    ));
++}
++
++#[test]
++fn ci_t27_the_pinned_generation_survives_gc_across_a_spawn_of_its_member() {
++    let f = installed(nested());
++    let probe = || {
++        within(&mut WorkLedger::snapshot_profile(), |work| {
++            let dir = opensip_platform::RetainedDirectory::from_retained_handle(
++                std::fs::File::open(f.generation()).unwrap(),
++            )
++            .unwrap();
++            let file =
++                ct::open_regular_no_follow(&dir, "pin.lock", Access::ReadOnly, work).unwrap();
++            ct::try_pin(file, PinMode::Exclusive, work).unwrap().is_ok()
++        })
++    };
++    let (candidate, component) = (f.candidate(), f.component.authenticated());
++    let mut tree = capability(&f, &component, &candidate);
++    let m = launch(&mut tree, MemberRequest::Entrypoint).result.unwrap();
++    assert!(!probe(), "GC's exclusive probe is busy before the spawn");
++    let status = std::process::Command::new(&m.path).status().unwrap();
++    assert!(status.success());
++    assert!(
++        !probe(),
++        "and after the child settled, while the capability lives"
++    );
++    drop(tree);
++    assert!(
++        probe(),
++        "the pin is released only when the capability drops"
++    );
++}
++
++#[test]
++fn ci_t27_every_failure_latches_across_launch_and_transfer() {
++    // A launch after a failed transfer.
++    let f = installed(nested());
++    let (candidate, component) = (f.candidate(), f.component.authenticated());
++    let mut tree = capability(&f, &component, &candidate);
++    tamper(&f, "tree/a-x", |p| {
++        let mut b = std::fs::read(p).unwrap();
++        b[0] ^= 1;
++        rewrite(p, &b);
++    });
++    let mut ledger = WorkLedger::snapshot_profile();
++    let first = within(&mut ledger, |work| {
++        tree.transfer("a-x", &mut Sink::default(), work)
++    });
++    assert!(matches!(first, Err(TreeReadFailure::Digest { .. })));
++    let run = launch(&mut tree, MemberRequest::Entrypoint);
++    assert!(
++        matches!(run.result, Err(TreeReadFailure::Digest { .. })),
++        "{:?}",
++        run.result
++    );
++    assert_eq!(
++        (run.charged, run.reads, run.lstats),
++        (WorkCost::default(), 0, 0)
++    );
++    // A transfer after a failed launch, and a later launch.
++    let f = installed(nested());
++    let (candidate, component) = (f.candidate(), f.component.authenticated());
++    let mut tree = capability(&f, &component, &candidate);
++    assert!(matches!(
++        launch(&mut tree, MemberRequest::File("nowhere")).result,
++        Err(TreeReadFailure::Association)
++    ));
++    let mut sink = Sink::default();
++    let mut ledger = WorkLedger::snapshot_profile();
++    let (later, charged) = within(&mut ledger, |work| {
++        let before = work.used();
++        let r = tree.transfer("bin/entry", &mut sink, work);
++        (r, minus(work.used(), before))
++    });
++    assert!(matches!(later, Err(TreeReadFailure::Association)));
++    assert_eq!(charged, WorkCost::default());
++    assert!(sink.expected.is_none() && sink.committed.is_none());
++    // `Budget`: exhausted on one scope, then refused on a fresh funded one
++    // with `Budget(Closed)`, no charge and no observation.
++    let f = installed(nested());
++    let (candidate, component) = (f.candidate(), f.component.authenticated());
++    let mut tree = capability(&f, &component, &candidate);
++    let mut starved = WorkLedger::with_limits(WorkCost {
++        objects: 1 << 16,
++        edges: 3,
++        bytes: 1 << 28,
++    })
++    .unwrap();
++    let run = launch_on(&mut tree, MemberRequest::Entrypoint, &mut starved);
++    assert!(matches!(run.result, Err(TreeReadFailure::Budget(_))));
++    let run = launch(&mut tree, MemberRequest::Entrypoint);
++    assert!(
++        matches!(
++            run.result,
++            Err(TreeReadFailure::Budget(WorkBudgetError::Closed))
++        ),
++        "{:?}",
++        run.result
++    );
++    assert_eq!(
++        (run.charged, run.reads, run.lstats),
++        (WorkCost::default(), 0, 0)
++    );
++    let mut sink = Sink::default();
++    let mut ledger = WorkLedger::snapshot_profile();
++    let (later, charged) = with_seam(
++        |step| {
++            assert_ne!(step, "read", "no observation");
++            Ok(())
++        },
++        || {
++            within(&mut ledger, |work| {
++                let before = work.used();
++                let r = tree.transfer("bin/entry", &mut sink, work);
++                (r, minus(work.used(), before))
++            })
++        },
++    );
++    assert!(matches!(
++        later,
++        Err(TreeReadFailure::Budget(WorkBudgetError::Closed))
++    ));
++    assert_eq!(charged, WorkCost::default());
++}
++
++// ---- CI-T28: exact executed work, bounds, exhaustion and the partition ----
++
++/// A zero-length file under a long path, a large file under a short one,
++/// two hops of different joined lengths to a nested member, nested
++/// directories, and an empty and a one-chunk file (`nested`'s `a/b/empty`
++/// and `a/z`).
++fn shapes() -> Vec<Spec> {
++    let mut specs = nested();
++    let long = [
++        "d0123456789abcdef",
++        "e0123456789abcdef",
++        "f0123456789abcdef",
++        "g0123456789abcdef",
++    ];
++    let mut path = String::new();
++    for seg in long {
++        if !path.is_empty() {
++            path.push('/');
++        }
++        path.push_str(seg);
++        specs.push(dir(&path, 0o755));
++    }
++    specs.push(file(&format!("{path}/zero"), 0o644, b""));
++    specs.push(file("big", 0o644, &vec![7u8; 300_000]));
++    specs.push(link("hop", "a/second"));
++    specs.push(link("a/second", "b/c/deep.txt"));
++    specs
++}
++
++#[test]
++fn ci_t28_actual_charges_equal_e_launch_and_e_le_b_le_b_hat_for_every_shape() {
++    let f = installed(shapes());
++    let deep = format!(
++        "{}/zero",
++        "d0123456789abcdef/e0123456789abcdef/f0123456789abcdef/g0123456789abcdef"
++    );
++    let requests = [
++        MemberRequest::Entrypoint,
++        MemberRequest::File(&deep),
++        MemberRequest::File("big"),
++        MemberRequest::File("hop"),
++        MemberRequest::File("a/b/empty"),
++        MemberRequest::File("a/z"),
++        MemberRequest::File("a-x"),
++        MemberRequest::File("lib/provider.js"),
++        MemberRequest::File("nowhere"),
++        MemberRequest::Directory("a/b/c"),
++        MemberRequest::Directory(""),
++    ];
++    // The lookups' search depths differ: the first probe, an intermediate
++    // one, the last, and a miss all occur among these requests.
++    let order = index_of(&f.specs);
++    let mut depths = std::collections::BTreeSet::new();
++    for request in requests {
++        let run = check_work(&f, "bin/entry", request);
++        if let MemberRequest::File(p) | MemberRequest::Directory(p) = request
++            && !p.is_empty()
++        {
++            depths.insert(search(&f.specs, &order, p).1);
++        }
++        if let Ok(m) = &run.result {
++            assert!(m.path.starts_with(&f.store_path));
++        }
++    }
++    assert!(depths.len() >= 3, "{depths:?}");
++    // The empty file is one attempt, the one-chunk file two.
++    assert_eq!(
++        expected(&f, "bin/entry", MemberRequest::File("a/b/empty")).reads,
++        1
++    );
++    assert_eq!(
++        expected(&f, "bin/entry", MemberRequest::File("a/z")).reads,
++        2
++    );
++    // The hops' joined paths differ from each other and from the request.
++    assert_ne!("a/second".len(), "a/b/c/deep.txt".len());
++    assert_ne!("hop".len(), "a/second".len());
++}
++
++#[test]
++fn ci_t28_a_kind_with_no_rows_refuses_at_the_kind_check_after_one_edge() {
++    let f = installed(vec![file("f", 0o755, b"x"), link("l", "f")]);
++    let run = check_work(&f, "f", MemberRequest::Directory("l"));
++    assert!(matches!(run.result, Err(TreeReadFailure::Association)));
++    assert_eq!(run.charged, edge());
++    assert_eq!((run.reads, run.lstats), (0, 0));
++    let f = installed(file_only());
++    let run = check_work(&f, "entry", MemberRequest::Directory("x"));
++    assert_eq!(run.charged, edge());
++}
++
++#[test]
++fn ci_t28_a_scope_one_unit_short_before_each_actual_charge_refuses_budget_there() {
++    // A one-unit pad is charged first, so every limit is positive (`with_limits`
++    // admits no zero); the other dimensions get `WorkLedger::new()`'s limits
++    // (`work_ledger.rs`'s OBJECT_LIMIT, EDGE_LIMIT and BYTE_LIMIT).
++    let pad = WorkCost {
++        objects: 1,
++        edges: 1,
++        bytes: 1,
++    };
++    let (objects, edges, bytes) = (1 << 16, 1 << 17, 1 << 28);
++    let f = installed(shapes());
++    for request in [
++        MemberRequest::File("hop"),
++        MemberRequest::File("a/z"),
++        MemberRequest::Directory("a/b/c"),
++        MemberRequest::Directory(""),
++    ] {
++        let want = expected(&f, "bin/entry", request);
++        for i in 0..want.charges.len() {
++            let prefix = pad.checked_add(sum(&want.charges[..i])).unwrap();
++            let next = want.charges[i];
++            let limit = if next.edges > 0 {
++                WorkCost {
++                    objects,
++                    edges: prefix.edges + next.edges - 1,
++                    bytes,
++                }
++            } else {
++                WorkCost {
++                    objects,
++                    edges,
++                    bytes: prefix.bytes + next.bytes - 1,
++                }
++            };
++            let (candidate, component) = (f.candidate(), f.component.authenticated());
++            let mut tree = capability(&f, &component, &candidate);
++            let mut ledger = WorkLedger::with_limits(limit).unwrap();
++            let lstats = Rc::new(Cell::new(0usize));
++            let l = lstats.clone();
++            let result = with_seam(
++                move |step| {
++                    if step == "lstat" {
++                        l.set(l.get() + 1);
++                    }
++                    Ok(())
++                },
++                || {
++                    within(&mut ledger, |work| {
++                        work.charge::<io::Error>(pad).unwrap();
++                        tree.launch_member(request, work).map(launched)
++                    })
++                },
++            );
++            assert!(
++                matches!(result, Err(TreeReadFailure::Budget(_))),
++                "{request:?} at {i}: {result:?}"
++            );
++            assert_eq!(
++                ledger.used(),
++                prefix,
++                "{request:?} at {i}: nothing past the stop"
++            );
++            let lstat_at = want.charges.len() - 2;
++            assert_eq!(
++                lstats.get(),
++                usize::from(i > lstat_at),
++                "{request:?} at {i}"
++            );
++        }
++    }
++}
++
++#[test]
++fn ci_t28_the_partition_keeps_io_apart_from_digest_and_binding() {
++    let f = installed(nested());
++    let (candidate, component) = (f.candidate(), f.component.authenticated());
++    // An injected read failure is `Io`, not `Digest`.
++    let mut tree = capability(&f, &component, &candidate);
++    let r = with_seam(
++        |step| match step {
++            "read" => Err(io::Error::other("injected read failure")),
++            _ => Ok(()),
++        },
++        || {
++            within(&mut WorkLedger::snapshot_profile(), |work| {
++                tree.launch_member(MemberRequest::File("a/z"), work)
++                    .map(launched)
++            })
++        },
++    );
++    assert!(
++        matches!(r, Err(TreeReadFailure::Io { call: "read", .. })),
++        "{r:?}"
++    );
++    // An injected native error from the binding's observation is `Io`;
++    // `ENOENT` and `ENOTDIR` are `Binding`.
++    for (error, binding) in [
++        (io::Error::other("injected native I/O failure"), false),
++        (io::Error::from(io::ErrorKind::NotFound), true),
++        (io::Error::from(io::ErrorKind::NotADirectory), true),
++    ] {
++        let mut tree = capability(&f, &component, &candidate);
++        let mut error = Some(error);
++        let r = with_seam(
++            move |step| match step {
++                "lstat" => error.take().map_or(Ok(()), Err),
++                _ => Ok(()),
++            },
++            || {
++                within(&mut WorkLedger::snapshot_profile(), |work| {
++                    tree.launch_member(MemberRequest::Entrypoint, work)
++                        .map(launched)
++                })
++            },
++        );
++        if binding {
++            assert!(matches!(r, Err(TreeReadFailure::Binding)), "{r:?}");
++        } else {
++            assert!(
++                matches!(r, Err(TreeReadFailure::Io { call: "lstat", .. })),
++                "{r:?}"
++            );
++        }
++    }
++}
++
++#[test]
++fn ci_t28_charges_precede_their_operations_in_source_order() {
++    let source = include_str!("retained_tree.rs");
++    let at = source
++        .find("// ---- The launch member (CI-A3; unit CI-3L) ----")
++        .unwrap();
++    let code = &source[at..];
++    let before = |charge: &str, operation: &str| {
++        let c = code.find(charge).unwrap_or_else(|| panic!("{charge}"));
++        let o = code
++            .find(operation)
++            .unwrap_or_else(|| panic!("{operation}"));
++        assert!(c < o, "{operation} precedes {charge}");
++    };
++    before(
++        "work.charge(inst::COMPARISON)",
++        "resolve(&self.tree, &self.order",
++    );
++    before("work.charge(heap(length))", "String::with_capacity(length)");
++    // The launch-path buffer's charge is the last heap charge, before its
++    // allocation.
++    let last = code.rfind("work.charge(heap(length))").unwrap();
++    let buffer = code.find("Vec::with_capacity(length)").unwrap();
++    assert!(code.find("String::with_capacity(length)").unwrap() < last && last < buffer);
++    before("work.charge(launch_member_cost())", "Ok(LaunchMember {");
++}
++
++#[test]
++fn ci_a3_d_the_store_path_is_charged_once_at_the_opening() {
++    let f = installed(nested());
++    let root = f.store_path.parent().unwrap().to_path_buf();
++    let handle = opensip_platform::RetainedDirectory::from_retained_handle(
++        std::fs::File::open(&root).unwrap(),
++    )
++    .unwrap();
++    let uid = std::fs::metadata(&root).unwrap().uid();
++    let mut ledger = WorkLedger::new();
++    let (store, charged) = within(&mut ledger, |work| {
++        let before = work.used();
++        let store = ComponentStore::open_in(&handle, &root, uid, work);
++        (store, minus(work.used(), before))
++    });
++    let store = store.unwrap();
++    assert_eq!(store.path, f.store_path);
++    assert_eq!(charged, owned(f.store_path.as_os_str().len()));
++    // A relative spelling is refused before any charge or copy.
++    let mut ledger = WorkLedger::new();
++    let (r, charged) = within(&mut ledger, |work| {
++        let before = work.used();
++        let r = ComponentStore::open_in(&handle, Path::new("relative"), uid, work).map(|_| ());
++        (r, minus(work.used(), before))
++    });
++    assert!(matches!(r, Err(WorkFailure::Operation(_))));
++    assert_eq!(charged, WorkCost::default());
++}
++
++#[test]
++fn ci_t28_review_cyclic_refusal_has_exact_prefix_and_independent_bounds() {
++    let f = installed(file_only());
++    let specs = vec![link("a", "b"), link("b", "a"), file("f", 0o755, &[])];
++    let request = MemberRequest::File("a");
++    let want = expected_specs(&specs, f.store_path.as_os_str().len(), "a", request);
++    assert_eq!(
++        want.lookup_trace,
++        vec![("a".into(), 2), ("b".into(), 1), ("a".into(), 2)]
++    );
++    assert_eq!(want.hop_lengths, vec![1, 1]);
++    assert_eq!(want.row, None);
++    let exact = WorkCost {
++        objects: 2,
++        edges: 6,
++        bytes: 2,
++    };
++    assert_eq!(sum(&want.charges), exact);
++    assert_eq!(
++        want.bound,
++        WorkCost {
++            objects: 2,
++            edges: 10,
++            bytes: 2
++        }
++    );
++    // An authenticated archive cannot contain a cycle. Replace only the test
++    // model on a genuinely opened/pinned capability; resolution refuses before
++    // any filesystem member, read or binding operation can occur.
++    let manifest = manifest_over(&[
++        ("a", "symlink", Some("b")),
++        ("b", "symlink", Some("a")),
++        ("f", "file", None),
++    ]);
++    let candidate = f.candidate();
++    let component = f.component.authenticated();
++    let mut tree = capability(&f, &component, &candidate);
++    tree.tree = crate::installation::Tree::of(&manifest, MACOS).unwrap();
++    tree.order = vec![0, 1, 2];
++    assert_eq!(tree.launch_pre_bound(request), Some(want.pre_bound));
++    let run = launch(&mut tree, request);
++    assert!(matches!(run.result, Err(TreeReadFailure::Association)));
++    assert_eq!(run.charged, exact);
++    assert_eq!((run.reads, run.lstats), (0, 0));
++    assert!(le(run.charged, want.bound));
++    assert!(le(want.bound, want.pre_bound));
++}
++
++#[test]
++fn ci_t28_review_hop_length_overflow_keeps_budget_arithmetic() {
++    for (parent, target) in [(usize::MAX, 0), (usize::MAX - 1, 1)] {
++        assert!(matches!(
++            joined_length_parts(parent, target),
++            Err(TreeReadFailure::Budget(WorkBudgetError::Arithmetic))
++        ));
++    }
++    assert_eq!(joined_length_parts(0, usize::MAX).unwrap(), usize::MAX);
++    assert_eq!(joined_length_parts(usize::MAX - 2, 1).unwrap(), usize::MAX);
++    assert_eq!(joined_length_parts(2, 3).unwrap(), 6);
++    assert!(matches!(
++        Latched::of(&TreeReadFailure::Budget(WorkBudgetError::Arithmetic)).failure(),
++        TreeReadFailure::Budget(WorkBudgetError::Closed)
++    ));
++    let source = include_str!("retained_tree.rs");
++    let start = source.find("pub(crate) fn resolve(").unwrap();
++    let end = source[start..].find("impl RetainedTree").unwrap() + start;
++    assert!(
++        source[start..end].contains("let length = joined_length(row.path, target)?;"),
++        "resolution must propagate the checked arithmetic cause without relabelling it"
++    );
++}
+diff --git a/crates/platform/src/component_tree.rs b/crates/platform/src/component_tree.rs
+index f835c39..832ac87 100644
+--- a/crates/platform/src/component_tree.rs
++++ b/crates/platform/src/component_tree.rs
+@@ -3,7 +3,9 @@
+ //! -2, -6, -10 and -11; unit CI-2): a positioned chunk write, `fchmod`, a
+ //! standalone file barrier, `symlinkat`, `readlinkat`, a no-follow regular
+ //! open from a retained directory or of an operator path, a no-follow entry
+-//! status read, and a one-call pin lock. Mechanisms only: which directory,
++//! status read, and a one-call pin lock; and, for the launch member (unit
++//! CI-3L, amendment CI-A3), a no-follow-final `lstat` of an absolute spelling
++//! and an `fstat` of a retained directory. Mechanisms only: which directory,
+ //! which names and what a result means belong to the installer.
+ //!
+ //! Each primitive charges its price before its native call, and makes that
+@@ -23,6 +25,7 @@
+ //! public `RetainedDirectory::as_file` only.
+ #![deny(unsafe_op_in_unsafe_fn)]
+ use crate::{RetainedDirectory, WorkCost, WorkFailure, WorkScope};
++use std::ffi::CStr;
+ use std::fs::File;
+ use std::io;
+ use std::os::fd::{AsRawFd, FromRawFd};
+@@ -352,6 +355,74 @@ pub fn entry_status(
+     Ok(EntryStatus { kind, mode, length })
+ }
+ 
++/// One no-follow status of an absolute spelling, or of a retained
++/// directory handle (CI-A3; unit CI-3L): its kind, permission bits and
++/// identity.
++#[derive(Debug, Clone, Copy, PartialEq, Eq)]
++pub struct PathStatus {
++    pub kind: EntryKind,
++    /// The permission bits, `0o7777`.
++    pub mode: u32,
++    pub device: u64,
++    pub inode: u64,
++}
++
++/// Why `path_status_no_follow` observed no status: the spelling names
++/// nothing (`ENOENT`), a non-directory stands along it (`ENOTDIR`), or any
++/// other native error.
++#[derive(Debug)]
++pub enum PathStatusError {
++    Absent,
++    NotDirectory,
++    Io(io::Error),
++}
++
++fn path_status_of(st: &libc::stat) -> PathStatus {
++    let (kind, mode, _, identity) = status_of(st);
++    PathStatus {
++        kind,
++        mode,
++        device: identity.device,
++        inode: identity.inode,
++    }
++}
++
++/// CI-A3's path observation: one `lstat` of an absolute spelling, which does
++/// not follow its final component (`status_read_cost`, charged before the
++/// call). The caller owns and charges the spelling; nothing is copied.
++pub fn path_status_no_follow(
++    path: &CStr,
++    work: &mut WorkScope<'_>,
++) -> Result<PathStatus, WorkFailure<PathStatusError>> {
++    supported_io().map_err(|e| WorkFailure::Operation(PathStatusError::Io(e)))?;
++    work.charge(status_read_cost())?;
++    // SAFETY: an all-zero `stat` is a valid output buffer.
++    let mut st: libc::stat = unsafe { std::mem::zeroed() };
++    // SAFETY: one NUL-terminated spelling the caller borrows, and a valid out
++    // pointer.
++    if unsafe { libc::lstat(path.as_ptr(), &mut st) } != 0 {
++        let error = io::Error::last_os_error();
++        return Err(WorkFailure::Operation(match error.raw_os_error() {
++            Some(libc::ENOENT) => PathStatusError::Absent,
++            Some(libc::ENOTDIR) => PathStatusError::NotDirectory,
++            _ => PathStatusError::Io(error),
++        }));
++    }
++    Ok(path_status_of(&st))
++}
++
++/// CI-A3's directory observation: one `fstat` of a retained directory
++/// handle (`status_read_cost`, charged before the call).
++pub fn directory_identity(
++    directory: &RetainedDirectory,
++    work: &mut WorkScope<'_>,
++) -> Result<PathStatus, WorkFailure<io::Error>> {
++    supported_io().map_err(WorkFailure::Operation)?;
++    work.charge(status_read_cost())?;
++    let st = fstat(directory.as_file()).map_err(WorkFailure::Operation)?;
++    Ok(path_status_of(&st))
++}
++
+ /// Why a positioned chunk write refused.
+ #[derive(Debug)]
+ pub enum ChunkWriteError {
+diff --git a/crates/platform/src/component_tree_tests.rs b/crates/platform/src/component_tree_tests.rs
+index bdd983a..9eac510 100644
+--- a/crates/platform/src/component_tree_tests.rs
++++ b/crates/platform/src/component_tree_tests.rs
+@@ -324,6 +324,7 @@ fn source_pins_one_call_per_primitive_and_no_unlock() {
+         "libc::symlinkat(",
+         "libc::readlinkat(",
+         "libc::F_FULLFSYNC",
++        "libc::lstat(",
+     ] {
+         assert_eq!(code.matches(call).count(), 1, "{call}");
+     }
+@@ -449,6 +450,8 @@ fn every_primitive_charges_before_its_native_call() {
+         ("pub fn create_symlink(", "libc::symlinkat("),
+         ("pub fn read_link(", "libc::readlinkat("),
+         ("pub fn try_pin(", "libc::flock("),
++        ("pub fn path_status_no_follow(", "libc::lstat("),
++        ("pub fn directory_identity(", "fstat(directory.as_file())"),
+     ] {
+         let at = source
+             .find(function)
+@@ -466,3 +469,142 @@ fn every_primitive_charges_before_its_native_call() {
+         );
+     }
+ }
++
++// ---- Unit CI-3L (amendment CI-A3): the launch member's two observations ----
++
++fn spelling(path: &std::path::Path) -> std::ffi::CString {
++    use std::os::unix::ffi::OsStrExt;
++    std::ffi::CString::new(path.as_os_str().as_bytes()).unwrap()
++}
++
++#[test]
++fn ci3l_the_path_status_is_no_follow_charged_first_and_partitions_its_errors() {
++    use std::os::unix::fs::MetadataExt;
++    let (s, _dir) = scratch();
++    std::fs::write(s.0.join("f"), b"abc").unwrap();
++    std::fs::set_permissions(s.0.join("f"), std::fs::Permissions::from_mode(0o510)).unwrap();
++    std::os::unix::fs::symlink("f", s.0.join("l")).unwrap();
++    std::fs::create_dir(s.0.join("d")).unwrap();
++    let f = spelling(&s.0.join("f"));
++    let l = spelling(&s.0.join("l"));
++    let d = spelling(&s.0.join("d"));
++    let absent = spelling(&s.0.join("none"));
++    let through_file = spelling(&s.0.join("f/below"));
++    let mut ledger = WorkLedger::new();
++    ledger
++        .scope(|work| {
++            let before = work.used();
++            let status = path_status_no_follow(&f, work).map_err(|_| WorkFailure::Operation(()))?;
++            assert_eq!(work.used(), add(before, status_read_cost()));
++            let meta = std::fs::symlink_metadata(s.0.join("f")).unwrap();
++            assert_eq!(
++                status,
++                PathStatus {
++                    kind: EntryKind::File,
++                    mode: 0o510,
++                    device: meta.dev(),
++                    inode: meta.ino(),
++                }
++            );
++            // The final link is observed as a link, never followed.
++            let link = path_status_no_follow(&l, work).map_err(|_| WorkFailure::Operation(()))?;
++            assert_eq!(link.kind, EntryKind::Symlink);
++            assert_ne!(link.inode, status.inode);
++            let directory =
++                path_status_no_follow(&d, work).map_err(|_| WorkFailure::Operation(()))?;
++            assert_eq!(directory.kind, EntryKind::Directory);
++            let before = work.used();
++            assert!(matches!(
++                path_status_no_follow(&absent, work),
++                Err(WorkFailure::Operation(PathStatusError::Absent))
++            ));
++            assert!(matches!(
++                path_status_no_follow(&through_file, work),
++                Err(WorkFailure::Operation(PathStatusError::NotDirectory))
++            ));
++            // Each refused observation still made, and was charged for, its call.
++            assert_eq!(
++                work.used(),
++                add(add(before, status_read_cost()), status_read_cost())
++            );
++            Ok::<_, WorkFailure<()>>(())
++        })
++        .unwrap();
++}
++
++#[test]
++fn ci3l_the_directory_identity_is_one_charged_fstat_of_the_handle() {
++    use std::os::unix::fs::MetadataExt;
++    let (s, dir) = scratch();
++    let mut ledger = WorkLedger::new();
++    ledger
++        .scope(|work| {
++            let before = work.used();
++            let status = directory_identity(&dir, work).map_err(|_| WorkFailure::Operation(()))?;
++            assert_eq!(work.used(), add(before, status_read_cost()));
++            let meta = std::fs::metadata(&s.0).unwrap();
++            assert_eq!(
++                status,
++                PathStatus {
++                    kind: EntryKind::Directory,
++                    mode: 0o700,
++                    device: meta.dev(),
++                    inode: meta.ino(),
++                }
++            );
++            Ok::<_, WorkFailure<()>>(())
++        })
++        .unwrap();
++}
++
++fn erased<T, E>(r: Result<T, WorkFailure<E>>) -> Result<(), WorkFailure<()>> {
++    match r {
++        Ok(_) => Ok(()),
++        Err(WorkFailure::Budget(b)) => Err(WorkFailure::Budget(b)),
++        Err(WorkFailure::Operation(_)) => Err(WorkFailure::Operation(())),
++    }
++}
++
++#[test]
++fn ci3l_an_unfunded_observation_refuses_before_its_call_and_neither_allocates() {
++    let (s, dir) = scratch();
++    std::fs::write(s.0.join("f"), b"abc").unwrap();
++    let f = spelling(&s.0.join("f"));
++    // One edge is charged first, so the limit is positive and one edge short.
++    let one = WorkCost {
++        objects: 0,
++        edges: 1,
++        bytes: 0,
++    };
++    for which in 0..2 {
++        let mut ledger = WorkLedger::with_limits(WorkCost {
++            objects: 1,
++            edges: one.edges + status_read_cost().edges - 1,
++            bytes: 1 << 20,
++        })
++        .unwrap();
++        let (r, n) = allocated(|| {
++            ledger.scope(|work| {
++                work.charge(one)?;
++                match which {
++                    0 => erased(path_status_no_follow(&f, work)),
++                    _ => erased(directory_identity(&dir, work)),
++                }
++            })
++        });
++        assert!(matches!(r, Err(WorkFailure::Budget(_))), "{which}");
++        assert_eq!(n, 0, "{which}");
++    }
++    let mut ledger = WorkLedger::new();
++    ledger
++        .scope(|work| {
++            let (r, n) = allocated(|| path_status_no_follow(&f, work));
++            r.map_err(|_| WorkFailure::Operation(()))?;
++            assert_eq!(n, 0, "lstat");
++            let (r, n) = allocated(|| directory_identity(&dir, work));
++            r.map_err(|_| WorkFailure::Operation(()))?;
++            assert_eq!(n, 0, "directory fstat");
++            Ok::<_, WorkFailure<()>>(())
++        })
++        .unwrap();
++}
+diff --git a/tools/operability/exceptions.json b/tools/operability/exceptions.json
+index c5e1ba4..808ecf0 100644
+--- a/tools/operability/exceptions.json
++++ b/tools/operability/exceptions.json
+@@ -1196,6 +1196,12 @@
+         "kind": "call",
+         "count": 1
+       },
++      {
++        "path": "crates/lifecycle/src/installation.rs",
++        "member": "from",
++        "kind": "call",
++        "count": 1
++      },
+       {
+         "path": "crates/lifecycle/src/leases.rs",
+         "member": "into",
+@@ -1226,6 +1232,12 @@
+         "kind": "call",
+         "count": 3
+       },
++      {
++        "path": "crates/lifecycle/src/retained_tree.rs",
++        "member": "from",
++        "kind": "call",
++        "count": 1
++      },
+       {
+         "path": "crates/lifecycle/src/selection.rs",
+         "member": "into",
