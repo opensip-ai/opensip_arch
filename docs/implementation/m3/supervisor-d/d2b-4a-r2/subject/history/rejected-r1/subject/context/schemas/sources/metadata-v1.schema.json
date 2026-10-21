@@ -1,0 +1,234 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:opensip:product-v1:workflows:metadata:1",
+  "title": "Metadata payload and private build metadata v1",
+  "$defs": {
+    "CommandName": {
+      "type": "string",
+      "enum": [
+        "default",
+        "recommend",
+        "analyze",
+        "fit",
+        "audit",
+        "query",
+        "import",
+        "baseline-adopt",
+        "baseline-export",
+        "baseline-show",
+        "baseline-upgrade",
+        "policy-show",
+        "policy-init",
+        "policy-test",
+        "waive",
+        "candidates",
+        "inspect",
+        "review-brief",
+        "review-join",
+        "repair-preview",
+        "repair-apply",
+        "repair-verify",
+        "repair-recover",
+        "test-run",
+        "install",
+        "update",
+        "doctor",
+        "purge",
+        "agent-serve",
+        "help",
+        "version",
+        "completion",
+        "trust-recovery-challenge",
+        "trust-recovery-import",
+        "trust-refresh",
+        "trust-import",
+        "trust-doctor",
+        "store-migrate",
+        "store-rollback",
+        "store-gc",
+        "store-status",
+        "native-prepare",
+        "core-update",
+        "core-repair",
+        "core-rollback"
+      ]
+    },
+    "HostRelease": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-(?:(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))(?:\\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?(?![\\s\\S])"
+    },
+    "HelpCommand": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "usage",
+        "summary"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/CommandName"
+        },
+        "usage": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        }
+      }
+    },
+    "HelpMetadataV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "command",
+        "topic",
+        "commands"
+      ],
+      "properties": {
+        "command": {
+          "const": "help"
+        },
+        "topic": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/CommandName"
+            }
+          ]
+        },
+        "commands": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/HelpCommand"
+          },
+          "x-opensip-order": {
+            "by": [
+              "name"
+            ]
+          }
+        }
+      }
+    },
+    "VersionMetadataV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "command",
+        "hostRelease",
+        "buildChannel",
+        "closureIds"
+      ],
+      "properties": {
+        "command": {
+          "const": "version"
+        },
+        "hostRelease": {
+          "$ref": "#/$defs/HostRelease"
+        },
+        "buildChannel": {
+          "enum": [
+            "development",
+            "release"
+          ]
+        },
+        "closureIds": {
+          "type": "array",
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ClosureId"
+          },
+          "x-opensip-order": "utf8"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "buildChannel": {
+                "const": "development"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "closureIds": {
+                "maxItems": 0
+              }
+            }
+          }
+        }
+      ]
+    },
+    "BuildMetadataV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "hostRelease",
+        "buildChannel",
+        "closureIds"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "hostRelease": {
+          "$ref": "#/$defs/HostRelease"
+        },
+        "buildChannel": {
+          "enum": [
+            "development",
+            "release"
+          ]
+        },
+        "closureIds": {
+          "type": "array",
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ClosureId"
+          },
+          "x-opensip-order": "utf8"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "buildChannel": {
+                "const": "development"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "closureIds": {
+                "maxItems": 0
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/HelpMetadataV1"
+    },
+    {
+      "$ref": "#/$defs/VersionMetadataV1"
+    }
+  ]
+}
