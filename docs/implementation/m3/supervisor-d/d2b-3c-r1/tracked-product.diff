@@ -1,0 +1,1376 @@
+diff --git a/crates/components/src/provider_protocol/ts2.rs b/crates/components/src/provider_protocol/ts2.rs
+index f98fee4..cdc75ac 100644
+--- a/crates/components/src/provider_protocol/ts2.rs
++++ b/crates/components/src/provider_protocol/ts2.rs
+@@ -18,13 +18,14 @@
+ //! (`Ts2FrameV2Payload`). The host's own frames are recorded through
+ //! [`Ts2Receiver::sent`], which steps the same table; building and sending
+ //! them is D2b-3b's (`ts2/send.rs`), and the table's admission of a host
+-//! frame is [`Ts2Receiver::admits`]. FA-2's census payloads are D2b-3c's: a
+-//! session that offers `symbol-census-v1` is refused at construction until
+-//! then.
++//! frame is [`Ts2Receiver::admits`]. FA-2's census payloads (unit D2b-3c, LD-D2B-16) are
++//! selected by the symbol-census law's negotiation: with `symbol-census-v1`
++//! in both token arrays, Complete is `TypeScriptCompleteV2`, admitted
++//! piecewise with its census (LD-D2B3C-2 to LD-D2B3C-6).
+ use super::cbor::{self, Value};
+ use super::table::{Event, Protocol, Run, Scalar, Table};
+ use super::{ProcessEvent, ReceivedBytes, ReceivedFrame, Sequence, received_commitment};
+-use opensip_contracts::generated::protocol::Ts2FrameV2Payload;
++use opensip_contracts::generated::protocol::{SymbolCensus1SymbolCensusV1, Ts2FrameV2Payload};
+ use opensip_identity::{JsonValue as J, digest_hex, parse_json, raw_sha256};
+ use std::collections::{BTreeMap, BTreeSet};
+ 
+@@ -49,6 +50,14 @@ const T2O: &[u8] = include_bytes!("../../data/typescript-protocol2-order.v1.json
+ const HANDSHAKE: &[u8] = include_bytes!("../../../../schemas/sources/handshake-v1.schema.json");
+ const STARTUP: &[u8] = include_bytes!("../../../../schemas/sources/startup-v1.schema.json");
+ const STARTUP_ID: &str = "opensip.product.provider-startup.1";
++const SYMBOL_CENSUS: &[u8] =
++    include_bytes!("../../../../schemas/sources/symbol-census-v1.schema.json");
++const CENSUS_ID: &str = "opensip.product.symbol-census.1";
++
++/// A complete census's bound: its deterministic CBOR is at most 4,194,304
++/// bytes (symbol-census-v1 `x-opensip-symbol-census-law.return`, "4194304
++/// bytes of deterministic CBOR"; NE §9.8). The law's text is checked at load.
++pub const CENSUS_MAX_BYTES: u64 = 4_194_304;
+ 
+ /// The deepest container nesting of any TS2 frame, the envelope included
+ /// (LD-D2B-2), over the inherited closure: the carriers' TS2 records and
+@@ -137,6 +146,9 @@ pub struct DispatchContext {
+     pub stages: Vec<StageBinding>,
+     /// The host-admitted target domain (FP-CANDIDATE).
+     pub target_domain: BTreeSet<String>,
++    /// The census Analyze requested (unit D2b-3c, LD-D2B-16): its
++    /// `enumeratorClosure`, or `None` when no census is owed.
++    pub symbol_census: Option<String>,
+ }
+ 
+ /// A host frame the sender wrote, recorded for the echoes and the table.
+@@ -161,6 +173,11 @@ pub struct Admitted {
+     pub sequence: u64,
+     pub trace: String,
+     pub payload: Ts2FrameV2Payload,
++    /// A census-bearing Complete's census (LD-D2B3C-3): `Ts2FrameV2Payload`
++    /// has no census variant, so `payload` carries TypeScriptCompleteV2's
++    /// inherited members as `Complete` and the census is here. An over-bound
++    /// census is admitted as this typed event (LD-D2B3C-5).
++    pub census: Option<SymbolCensus1SymbolCensusV1>,
+ }
+ 
+ /// A stage's live state (LD-D2B-15): the next `batchIndex` and
+@@ -190,6 +207,10 @@ struct Law {
+     domains: BTreeMap<String, String>,
+     /// relation -> (ladder, schemaId, schemaVersion), relation-payload-schemas.v2.
+     registry: BTreeMap<String, (Vec<String>, String, u64)>,
++    /// relation -> subjectKind, relation-payload-schemas.v2 (LD-D2B3C-6).
++    subject_kinds: BTreeMap<String, String>,
++    /// The census's law (LD-D2B3C-4, LD-D2B3C-5).
++    census: CensusLaw,
+     /// relation -> layer, fact-plane.v1 relationRegistry.
+     layers: BTreeMap<String, String>,
+     identity_tokens: Vec<String>,
+@@ -202,6 +223,134 @@ struct Law {
+     piecewise: BTreeMap<String, (String, String, Option<u64>, Option<u64>)>,
+ }
+ 
++/// The census's law, read from symbol-census-v1 and checked as implemented
++/// (LD-D2B3C-4, LD-D2B3C-5).
++struct CensusLaw {
++    /// CompleteSymbolCensusV1's `examinedPaths` and `rows`: maxItems, their
++    /// item `$ref`s and their `x-opensip-order` annotations.
++    paths_max: u64,
++    rows_max: u64,
++    path_ref: String,
++    row_ref: String,
++    paths_order: opensip_identity::ArrayOrder,
++    rows_order: opensip_identity::ArrayOrder,
++    /// The members' maxLength (scalars) and maxItems the over-bound
++    /// within-bounds bound reads: LogicalPath, SubjectIdV1, qualifiedName,
++    /// signatureTokens and its items.
++    path_scalars: u64,
++    subject_scalars: u64,
++    name_scalars: u64,
++    tokens_max: u64,
++    token_scalars: u64,
++}
++
++impl CensusLaw {
++    fn load() -> Result<Self, String> {
++        let doc = parse_json(SYMBOL_CENSUS).map_err(|e| format!("symbol census: {e}"))?;
++        let defs = |name: &str| path(&doc, &["$defs", name]).ok_or(format!("census {name}"));
++        let int = |v: Option<&J>, what: &str| match v {
++            Some(J::Integer(i)) => u64::try_from(i.get()).map_err(|_| what.to_owned()),
++            _ => Err(format!("census {what}")),
++        };
++        let law = path(&doc, &["x-opensip-symbol-census-law", "return"])
++            .and_then(txt)
++            .ok_or("census return law")?;
++        if !law.contains(&format!("{CENSUS_MAX_BYTES} bytes of deterministic CBOR")) {
++            return Err("the census law's byte bound is not the implemented one".to_owned());
++        }
++        let complete = defs("CompleteSymbolCensusV1")?;
++        let member = |m: &str| path(complete, &["properties", m]).ok_or(format!("census {m}"));
++        let (paths, rows) = (member("examinedPaths")?, member("rows")?);
++        let item_ref = |a: &J, what: &str| {
++            path(a, &["items", "$ref"])
++                .and_then(txt)
++                .map(|r| format!("{CENSUS_ID}{r}"))
++                .ok_or(format!("census {what} items"))
++        };
++        let order = |a: &J, what: &str| {
++            opensip_identity::ArrayOrder::parse(
++                path(a, &["x-opensip-order"]).ok_or(format!("census {what} order"))?,
++            )
++            .map_err(|e| format!("census {what} order: {e}"))
++        };
++        let row = defs("SymbolCensusRowV1")?;
++        let row_member = |m: &str| path(row, &["properties", m]).ok_or(format!("census row {m}"));
++        // The piecewise token leaf below implements exactly this closed
++        // scalar shape. A future additional constraint must not be ignored.
++        let token_item = path(row_member("signatureTokens")?, &["items"])
++            .ok_or("census signatureTokens items")?;
++        let token_fields = obj(token_item).ok_or("census signatureTokens item shape")?;
++        if token_fields.len() != 3
++            || token_fields
++                .keys()
++                .any(|key| !["type", "minLength", "maxLength"].contains(&key.as_str()))
++            || path(token_item, &["type"]).and_then(txt) != Some("string")
++            || int(
++                path(token_item, &["minLength"]),
++                "signatureTokens minLength",
++            )? != 0
++        {
++            return Err("the census token item law is not the implemented scalar shape".to_owned());
++        }
++        let paths_max = int(path(paths, &["maxItems"]), "examinedPaths maxItems")?;
++        let rows_max = int(path(rows, &["maxItems"]), "rows maxItems")?;
++        if !law.contains(&format!("{rows_max} rows"))
++            || !law.contains(&format!("{paths_max} examined paths"))
++        {
++            return Err("the census law's count bounds are not the schema's".to_owned());
++        }
++        Ok(Self {
++            paths_max,
++            rows_max,
++            path_ref: item_ref(paths, "examinedPaths")?,
++            row_ref: item_ref(rows, "rows")?,
++            paths_order: order(paths, "examinedPaths")?,
++            rows_order: order(rows, "rows")?,
++            path_scalars: int(path(defs("LogicalPath")?, &["maxLength"]), "LogicalPath")?,
++            subject_scalars: int(path(defs("SubjectIdV1")?, &["maxLength"]), "SubjectIdV1")?,
++            name_scalars: int(
++                path(row_member("qualifiedName")?, &["maxLength"]),
++                "qualifiedName",
++            )?,
++            tokens_max: int(
++                path(row_member("signatureTokens")?, &["maxItems"]),
++                "signatureTokens",
++            )?,
++            token_scalars: int(
++                path(row_member("signatureTokens")?, &["items", "maxLength"]),
++                "signatureTokens items",
++            )?,
++        })
++    }
++
++    /// An upper bound on the deterministic CBOR of any complete census with
++    /// `rows` rows and `paths` examined paths: each text at its maximum
++    /// scalars of at most 4 UTF-8 bytes, each head at its widest 9 bytes. If
++    /// even this fits under the bound, an over-bound census with these counts
++    /// is within every bound (`native.symbol-census-over-bound-within-bounds`).
++    fn max_complete_bytes(&self, rows: u64, paths: u64) -> u64 {
++        let text = |scalars: u64| 9 + 4 * scalars;
++        let key = |k: &str| 1 + k.len() as u64;
++        let row = 9
++            + key("nativeSubjectId")
++            + text(self.subject_scalars)
++            + key("path")
++            + text(self.path_scalars)
++            + key("qualifiedName")
++            + text(self.name_scalars)
++            + key("exported")
++            + text("not-exported".len() as u64)
++            + key("signatureTokens")
++            + 9
++            + self.tokens_max * text(self.token_scalars);
++        9u64.saturating_add(key("state") + text("complete".len() as u64))
++            .saturating_add(key("examinedPaths") + 9)
++            .saturating_add(paths.saturating_mul(text(self.path_scalars)))
++            .saturating_add(key("rows") + 9)
++            .saturating_add(rows.saturating_mul(row))
++    }
++}
++
+ fn obj(v: &J) -> Option<&BTreeMap<String, J>> {
+     match v {
+         J::Object(o) => Some(o),
+@@ -311,6 +460,7 @@ impl Law {
+         // The fact-plane registry (FP-CANDIDATE).
+         let rel = parse_json(RELATION_REGISTRY).map_err(|e| format!("relation registry: {e}"))?;
+         let mut registry = BTreeMap::new();
++        let mut subject_kinds = BTreeMap::new();
+         for (name, r) in
+             obj(path(&rel, &["x-opensip-relation-registry", "relations"]).ok_or("relations")?)
+                 .ok_or("relations")?
+@@ -324,6 +474,10 @@ impl Law {
+                 Some(J::Integer(i)) => u64::try_from(i.get()).map_err(|_| "schemaVersion")?,
+                 _ => return Err("schemaVersion".to_owned()),
+             };
++            let kind = path(r, &["subjectKind"])
++                .and_then(txt)
++                .ok_or("subjectKind")?;
++            subject_kinds.insert(name.clone(), kind.to_owned());
+             registry.insert(name.clone(), (ladder, schema_id, version));
+         }
+         // fact-plane.v1.json holds JSON numbers the canonical reader refuses
+@@ -419,7 +573,10 @@ impl Law {
+                 ),
+             );
+         }
++        let census = CensusLaw::load()?;
+         Ok(Self {
++            subject_kinds,
++            census,
+             carriers,
+             frames,
+             worker_frames,
+@@ -451,6 +608,9 @@ pub struct Ts2Receiver<'t> {
+     sequence: Sequence,
+     refused: bool,
+     target_attribution: bool,
++    /// `symbol-census-v1` negotiated (in the Hello's array, which the
++    /// HelloAck must echo exactly).
++    census: bool,
+     cancel: Option<(Option<String>, Option<u64>)>,
+     retained: Vec<ReceivedFrame>,
+     stages: Vec<StageLive>,
+@@ -487,8 +647,8 @@ fn array_of<'v>(f: &'v [(String, Value)], name: &str) -> &'v [Value] {
+ 
+ impl<'t> Ts2Receiver<'t> {
+     /// A receiver over `table` (T2O) and `context`. The context must name
+-    /// exactly A2's descriptor fields; a session offering `symbol-census-v1`
+-    /// is D2b-3c's.
++    /// exactly A2's descriptor fields, and requests a census only with
++    /// `symbol-census-v1`.
+     pub fn new(table: &'t Table, context: DispatchContext) -> Result<Self, Ts2Refusal> {
+         if table.protocol() != Protocol::Ts2 {
+             return Err(Ts2Refusal::Context("not the TS2 table".to_owned()));
+@@ -502,9 +662,10 @@ impl<'t> Ts2Receiver<'t> {
+                 "the descriptor fields are not A2's".to_owned(),
+             ));
+         }
+-        if context.capabilities.iter().any(|c| c == "symbol-census-v1") {
++        let census = context.capabilities.iter().any(|c| c == "symbol-census-v1");
++        if !census && context.symbol_census.is_some() {
+             return Err(Ts2Refusal::Context(
+-                "symbol-census-v1 is D2b-3c's".to_owned(),
++                "a census is requested without symbol-census-v1".to_owned(),
+             ));
+         }
+         let target_attribution = context
+@@ -519,6 +680,7 @@ impl<'t> Ts2Receiver<'t> {
+             sequence: Sequence::default(),
+             refused: false,
+             target_attribution,
++            census,
+             cancel: None,
+             retained: Vec::new(),
+             stages,
+@@ -614,6 +776,18 @@ impl<'t> Ts2Receiver<'t> {
+                 let payload = self
+                     .convert(&name, &frame)
+                     .map_err(|e| self.refuse(Ts2Refusal::Admission(e)))?;
++                let census = if name == "Complete" && self.census {
++                    let v = map_of(frame.value())
++                        .and_then(|env| field(env, "payload"))
++                        .and_then(map_of)
++                        .and_then(|f| field(f, "symbolCensus"))
++                        .ok_or_else(|| {
++                            self.refuse(Ts2Refusal::Admission("symbolCensus".to_owned()))
++                        })?;
++                    build::census(v).map_err(|e| self.refuse(Ts2Refusal::Admission(e)))?
++                } else {
++                    None
++                };
+                 if retain {
+                     self.retained.push(frame);
+                 }
+@@ -621,6 +795,7 @@ impl<'t> Ts2Receiver<'t> {
+                     sequence,
+                     trace,
+                     payload,
++                    census,
+                 })
+             }
+             Err(r) => Err(self.refuse(r)),
+@@ -686,6 +861,14 @@ impl<'t> Ts2Receiver<'t> {
+             return Ok((sequence, name.clone(), Event::frame(&name), false));
+         };
+         match &selected {
++            // LD-D2B3C-2: with symbol-census-v1 negotiated, Complete is
++            // TypeScriptCompleteV2 (the symbol-census law's negotiation; the
++            // carriers predate FA-2). The inherited CompleteV1 then refuses at
++            // this schema, and TypeScriptCompleteV2 without the token refuses
++            // at the carriers' Ts2CompleteV1.
++            _ if name == "Complete" && self.census => {
++                census_complete(&self.law.census, payload).map_err(Schema)?
++            }
+             Payload::Record(r) => self.law.carriers.check_record(r, payload).map_err(Schema)?,
+             Payload::Extern(r) => match self.law.piecewise.get(r) {
+                 Some((member, item, min, max)) => {
+@@ -768,7 +951,7 @@ impl<'t> Ts2Receiver<'t> {
+                     .map_err(Admission)?;
+                 retain = true;
+             }
+-            "Complete" => self.complete(f).map_err(Admission)?,
++            "Complete" => self.complete(frame, payload_node, f).map_err(Admission)?,
+             "Unavailable" => {
+                 if selector == "WAIT_NATIVE_CONTEXT_VERIFIED" {
+                     self.pre_analyze_unavailable(f).map_err(Admission)?;
+@@ -1106,7 +1289,11 @@ impl<'t> Ts2Receiver<'t> {
+ 
+     /// The echo of each entry against its requested key (PER-KEY-SCOPE2,
+     /// UNIVERSE-NATIVE-IDENTITY).
+-    fn entry_echoes(entry: &Value, key: &RequestedKey) -> Result<(), String> {
++    /// Under a requested census, a `symbol`-kind key's two
++    /// `subjectScopeCommitment` echoes are not checked here: the census
++    /// decides them, and H checks them at clean settlement (X-FA2-D;
++    /// LD-D2B3C-6). `census_decided` is that case.
++    fn entry_echoes(entry: &Value, key: &RequestedKey, census_decided: bool) -> Result<(), String> {
+         let e = map_of(entry).ok_or("entry")?;
+         let k = field(e, "key").and_then(map_of).ok_or("entry key")?;
+         let examined = field(e, "entry")
+@@ -1116,10 +1303,13 @@ impl<'t> Ts2Receiver<'t> {
+             .ok_or("examinedUniverse")?;
+         let ok = text_of(k, "relation") == Some(&key.relation)
+             && text_of(k, "resolution") == Some(&key.resolution)
+-            && text_of(k, "subjectScopeCommitment") == Some(&key.subject_scope_commitment)
++            && (census_decided
++                || text_of(k, "subjectScopeCommitment") == Some(&key.subject_scope_commitment))
+             && text_of(k, "sourceUniverse") == suffix(&key.source_universe_id)
+             && text_of(k, "targetUniverse") == suffix(&key.target_universe_id)
+-            && text_of(examined, "subjectScopeCommitment") == Some(&key.subject_scope_commitment);
++            && (census_decided
++                || text_of(examined, "subjectScopeCommitment")
++                    == Some(&key.subject_scope_commitment));
+         if ok {
+             Ok(())
+         } else {
+@@ -1145,7 +1335,9 @@ impl<'t> Ts2Receiver<'t> {
+             return Err("entry count is not the requested key count".to_owned());
+         }
+         for (e, k) in entries.iter().zip(&binding.keys) {
+-            Self::entry_echoes(e, k)?;
++            let decided = self.context.symbol_census.is_some()
++                && self.law.subject_kinds.get(&k.relation).map(String::as_str) == Some("symbol");
++            Self::entry_echoes(e, k, decided)?;
+         }
+         let list = child(frame, node, f, "entries").ok_or("entries node")?;
+         let nodes: Vec<usize> = frame.children(list).collect();
+@@ -1181,7 +1373,8 @@ impl<'t> Ts2Receiver<'t> {
+             return Err("coverage is not one entry per requested key".to_owned());
+         }
+         for (e, k) in entries.iter().zip(keys) {
+-            Self::entry_echoes(e, k)?;
++            // The terminals keep the requested commitment (NE §9.8).
++            Self::entry_echoes(e, k, false)?;
+             let view = map_of(e)
+                 .and_then(|e| field(e, "entry"))
+                 .and_then(map_of)
+@@ -1214,7 +1407,15 @@ impl<'t> Ts2Receiver<'t> {
+     /// Complete: one result per requested stage in request order, its counts
+     /// observed, and the four commitments recomputed over the retained
+     /// received bytes (COMMIT-MAP).
+-    fn complete(&self, f: &[(String, Value)]) -> Result<(), String> {
++    fn complete(
++        &self,
++        frame: &ReceivedFrame,
++        node: usize,
++        f: &[(String, Value)],
++    ) -> Result<(), String> {
++        if self.census {
++            self.census_admission(frame, node, f)?;
++        }
+         let results = array_of(f, "stageResults");
+         if results.len() != self.context.stages.len() {
+             return Err("stageResults are not one per requested stage".to_owned());
+@@ -1283,6 +1484,76 @@ impl<'t> Ts2Receiver<'t> {
+         Ok(())
+     }
+ 
++    /// The census's contextual admission (LD-D2B-16; NE §9.8), each refusal
++    /// under its law's internal key:
++    /// - null exactly when the request's was;
++    /// - a complete census: each row's path in `examinedPaths`, and its
++    ///   received CBOR within [`CENSUS_MAX_BYTES`];
++    /// - an over-bound census: refused when its counts are within every bound
++    ///   (LD-D2B3C-5), and otherwise admitted as the typed event
++    ///   [`Admitted::census`]. Its route, the subject-scope bound's
++    ///   scope-limit route, is H's and that bound owner's, not D2b's.
++    fn census_admission(
++        &self,
++        frame: &ReceivedFrame,
++        node: usize,
++        f: &[(String, Value)],
++    ) -> Result<(), String> {
++        let census = field(f, "symbolCensus").ok_or("symbolCensus")?;
++        let requested = self.context.symbol_census.is_some();
++        if (*census == Value::Null) == requested {
++            return Err("native.symbol-census-null-mismatch: the census is null exactly when the request's was".to_owned());
++        }
++        let Some(c) = map_of(census) else {
++            return Ok(());
++        };
++        match text_of(c, "state") {
++            Some("complete") => {
++                let paths: BTreeSet<&str> = array_of(c, "examinedPaths")
++                    .iter()
++                    .filter_map(|p| match p {
++                        Value::Text(s) => Some(s.as_str()),
++                        _ => None,
++                    })
++                    .collect();
++                for row in array_of(c, "rows") {
++                    let path = map_of(row)
++                        .and_then(|r| text_of(r, "path"))
++                        .ok_or("row path")?;
++                    if !paths.contains(path) {
++                        return Err(format!(
++                            "native.symbol-census-path-not-examined: {path} is not an examined path"
++                        ));
++                    }
++                }
++                let at = child(frame, node, f, "symbolCensus").ok_or("census node")?;
++                let bytes = frame.node(at).ok_or("census bytes")?.as_bytes().len() as u64;
++                if bytes > CENSUS_MAX_BYTES {
++                    return Err(format!(
++                        "native.symbol-census-bound: a complete census of {bytes} bytes"
++                    ));
++                }
++            }
++            Some("over-bound") => {
++                let (rows, paths) = (
++                    u64_of(c, "rowCount").ok_or("rowCount")?,
++                    u64_of(c, "examinedPathCount").ok_or("examinedPathCount")?,
++                );
++                let law = &self.law.census;
++                if rows <= law.rows_max
++                    && paths <= law.paths_max
++                    && law.max_complete_bytes(rows, paths) <= CENSUS_MAX_BYTES
++                {
++                    return Err(format!(
++                        "native.symbol-census-over-bound-within-bounds: {rows} rows and {paths} paths fit"
++                    ));
++                }
++            }
++            _ => return Err("census state".to_owned()),
++        }
++        Ok(())
++    }
++
+     /// Convert the admitted payload into the generated carrier.
+     fn convert(&self, name: &str, frame: &ReceivedFrame) -> Result<Ts2FrameV2Payload, String> {
+         let env = map_of(frame.value()).ok_or("envelope")?;
+@@ -1431,6 +1702,167 @@ fn contains_bytes(v: &Value) -> bool {
+ /// reduced to its first item (so every other member, and the item type
+ /// once, are checked by the schema itself); every item is admitted by the
+ /// item schema; and the member's count bounds are checked as declared.
++/// TypeScriptCompleteV2, admitted piecewise (LD-D2B3C-4, extending
++/// LD-D2B3-2): a complete census may reach [`CENSUS_MAX_BYTES`] of CBOR,
++/// beyond the JSON reader's bound. The payload is admitted with its census
++/// elided to `null` (a member the schema admits). A complete census is
++/// admitted with each array cut to its first item, then every examined path
++/// and row by its own `$ref`, the arrays' counts against their `maxItems`,
++/// and their `x-opensip-order` (canonical-set; by `nativeSubjectId`) by the
++/// identity crate's order law over the whole array. A row's signature-token
++/// array is also checked piecewise: JSON escaping can exceed the JSON byte
++/// bound even while its received CBOR fits. The original row schema checks
++/// the actual row with its first token. Remaining tokens take the exact
++/// source-checked string/minLength=0/maxLength scalar leaf, and the original
++/// count is checked against its pinned maxItems. No nested schema entrypoint
++/// is selected; every field and constraint is checked before the table.
++/// An over-bound census is admitted whole.
++fn census_complete(law: &CensusLaw, payload: &Value) -> Result<(), String> {
++    let complete = format!("{CENSUS_ID}#/$defs/TypeScriptCompleteV2");
++    let Value::Map(fields) = payload else {
++        return Err(format!("{complete}: not a map"));
++    };
++    let census = field(fields, "symbolCensus")
++        .ok_or("native.symbol-census-token-without-payload: no symbolCensus")?;
++    let elided = Value::Map(
++        fields
++            .iter()
++            .map(|(k, v)| {
++                (
++                    k.clone(),
++                    if k == "symbolCensus" {
++                        Value::Null
++                    } else {
++                        v.clone()
++                    },
++                )
++            })
++            .collect(),
++    );
++    admit_extern(&complete, &elided)?;
++    let Value::Map(c) = census else {
++        return if *census == Value::Null {
++            Ok(())
++        } else {
++            Err("symbolCensus: not a census".to_owned())
++        };
++    };
++    match field(c, "state") {
++        Some(Value::Text(s)) if s == "over-bound" => admit_extern(
++            &format!("{CENSUS_ID}#/$defs/OverBoundSymbolCensusV1"),
++            census,
++        ),
++        Some(Value::Text(s)) if s == "complete" => {
++            let arrays = [
++                (
++                    "examinedPaths",
++                    &law.path_ref,
++                    law.paths_max,
++                    &law.paths_order,
++                ),
++                ("rows", &law.row_ref, law.rows_max, &law.rows_order),
++            ];
++            let cut = Value::Map(
++                c.iter()
++                    .map(|(k, v)| match (arrays.iter().any(|(m, ..)| m == k), v) {
++                        (true, Value::Array(items)) => {
++                            let sample = items
++                                .iter()
++                                .take(1)
++                                .map(|item| {
++                                    if k == "rows" {
++                                        census_row_sample(item)
++                                    } else {
++                                        item.clone()
++                                    }
++                                })
++                                .collect();
++                            (k.clone(), Value::Array(sample))
++                        }
++                        _ => (k.clone(), v.clone()),
++                    })
++                    .collect(),
++            );
++            admit_extern(&format!("{CENSUS_ID}#/$defs/CompleteSymbolCensusV1"), &cut)?;
++            for (member, item_ref, max, order) in arrays {
++                let Some(Value::Array(items)) = field(c, member) else {
++                    return Err(format!("symbolCensus.{member}"));
++                };
++                if items.len() as u64 > max {
++                    return Err(format!("native.symbol-census-bound: {member} over {max}"));
++                }
++                let mut json = Vec::with_capacity(items.len());
++                for item in items {
++                    if member == "rows" {
++                        census_row(law, item)?;
++                    } else {
++                        admit_extern(item_ref, item)?;
++                    }
++                    json.push(carrier::to_json(item)?);
++                }
++                order
++                    .verify(&json)
++                    .map_err(|e| format!("native.symbol-census-row-order: {member}: {e}"))?;
++            }
++            Ok(())
++        }
++        _ => Err("symbolCensus: state".to_owned()),
++    }
++}
++
++/// Keep every actual row field; shorten only an array-valued signatureTokens
++/// to its first item. Invalid types remain invalid for the original schema.
++fn census_row_sample(row: &Value) -> Value {
++    let Value::Map(fields) = row else {
++        return row.clone();
++    };
++    Value::Map(
++        fields
++            .iter()
++            .map(|(key, value)| {
++                let sample = match (key.as_str(), value) {
++                    ("signatureTokens", Value::Array(tokens)) => {
++                        Value::Array(tokens.iter().take(1).cloned().collect())
++                    }
++                    _ => value.clone(),
++                };
++                (key.clone(), sample)
++            })
++            .collect(),
++    )
++}
++
++/// All actual non-token fields and the first token take the original row
++/// schema. Law::load checks that every token leaf is exactly a string of
++/// 0..=token_scalars Unicode scalars; later leaves are checked directly to
++/// avoid repeating row-metadata serialization up to 256 times. Repeats and
++/// supplied order stay intact. The original row is retained for ordering,
++/// received-byte bounds, generated typing and H; no projection is forwarded.
++fn census_row(law: &CensusLaw, row: &Value) -> Result<(), String> {
++    let tokens = map_of(row)
++        .and_then(|fields| field(fields, "signatureTokens"))
++        .and_then(|value| match value {
++            Value::Array(tokens) => Some(tokens),
++            _ => None,
++        })
++        .ok_or("symbolCensus row.signatureTokens: not an array")?;
++    if tokens.len() as u64 > law.tokens_max {
++        return Err(format!(
++            "native.symbol-census-bound: signatureTokens over {}",
++            law.tokens_max
++        ));
++    }
++    let sample = census_row_sample(row);
++    admit_extern(&law.row_ref, &sample)?;
++    for token in tokens.iter().skip(1) {
++        match token {
++            Value::Text(text) if text.chars().count() as u64 <= law.token_scalars => {}
++            _ => return Err("symbolCensus signatureTokens item violates its schema".to_owned()),
++        }
++    }
++    Ok(())
++}
++
+ fn piecewise(
+     schema_ref: &str,
+     payload: &Value,
+diff --git a/crates/components/src/provider_protocol/ts2/build.rs b/crates/components/src/provider_protocol/ts2/build.rs
+index 9052378..57abd71 100644
+--- a/crates/components/src/provider_protocol/ts2/build.rs
++++ b/crates/components/src/provider_protocol/ts2/build.rs
+@@ -404,3 +404,41 @@ pub(crate) fn cancelled(v: &Value) -> R<Ts2CancelledV1> {
+         },
+     })
+ }
++
++/// A census-bearing Complete's census (LD-D2B3C-3): `None` when it is null.
++pub(crate) fn census(v: &Value) -> R<Option<SymbolCensus1SymbolCensusV1>> {
++    if *v == Value::Null {
++        return Ok(None);
++    }
++    let f = map(v, "symbolCensus")?;
++    let state = text(f, "state")?;
++    Ok(Some(match state.as_str() {
++        "complete" => {
++            let row = |v: &Value| -> R<SymbolCensus1SymbolCensusRowV1> {
++                let r = map(v, "row")?;
++                Ok(SymbolCensus1SymbolCensusRowV1 {
++                    exported: parse(r, "exported")?,
++                    native_subject_id: parse(r, "nativeSubjectId")?,
++                    path: parse(r, "path")?,
++                    qualified_name: parse(r, "qualifiedName")?,
++                    signature_tokens: texts(r, "signatureTokens")?,
++                })
++            };
++            SymbolCensus1SymbolCensusV1::CompleteSymbolCensusV1(
++                SymbolCensus1CompleteSymbolCensusV1 {
++                    examined_paths: texts(f, "examinedPaths")?,
++                    rows: items(f, "rows")?.iter().map(row).collect::<R<_>>()?,
++                    state: constant(f, "state")?,
++                },
++            )
++        }
++        "over-bound" => SymbolCensus1SymbolCensusV1::OverBoundSymbolCensusV1(
++            SymbolCensus1OverBoundSymbolCensusV1 {
++                examined_path_count: SymbolCensus1Uint64(unsigned(f, "examinedPathCount")?),
++                row_count: SymbolCensus1Uint64(unsigned(f, "rowCount")?),
++                state: constant(f, "state")?,
++            },
++        ),
++        _ => return Err("symbolCensus: state".to_owned()),
++    }))
++}
+diff --git a/crates/components/src/provider_protocol/ts2/participant.rs b/crates/components/src/provider_protocol/ts2/participant.rs
+index 271fd80..9046d82 100644
+--- a/crates/components/src/provider_protocol/ts2/participant.rs
++++ b/crates/components/src/provider_protocol/ts2/participant.rs
+@@ -8,8 +8,10 @@
+ //!   [`Ts2Receiver::admits`]). Each is recorded as sent state when the sender
+ //!   accepts it, before any byte is written.
+ //! - **Reads.** The worker's frames are read through D2b-1's accumulator and
+-//!   admitted by D2b-3a's receiver. Each admitted FactBatch's received payload
+-//!   is spooled `CANDIDATE_ONLY` and moves into the terminal output when it is
++//!   admitted by D2b-3a's receiver. Each admitted FactBatch, Coverage and
++//!   terminal frame's received payload is spooled `CANDIDATE_ONLY` (item 20:
++//!   "Everything is a candidate until settlement"; unit D2b-3c, LD-D2B3C-1)
++//!   and moves into the terminal output when it is
+ //!   minted (item 20, D3a-3); a settlement that is not admissible discards
+ //!   both. The span boundaries (M3-L r1:400) are the manifest's acceptance,
+ //!   SnapshotAccepted, and NativeContextVerified or the pre-Analyze
+@@ -36,6 +38,18 @@ use crate::supervisor::{
+ use opensip_contracts::generated::protocol::Ts2FrameV2Payload as P;
+ use std::io::{self, Read, Write};
+ 
++/// The frames whose received payloads are spooled for H (item 20; LD-D2B3C-1,
++/// correcting D2b-3b's FactBatch-only spool): the candidates, every Coverage
++/// frame, and the terminal, whose census and terminal Coverage H admits
++/// (LD-D2B-16; MH item 4).
++const SPOOLED: [&str; 5] = [
++    "FactBatch",
++    "Coverage",
++    "Complete",
++    "Unavailable",
++    "BudgetExhausted",
++];
++
+ /// The most fd1 bytes one read takes: D3a's service quantum for fd1 reads
+ /// (`supervisor.rs` `TOOL_READ_BUFFER`, LD-D3A1-8), not a bound of the law.
+ const READ_QUANTUM: usize = 65_536;
+@@ -56,8 +70,9 @@ pub struct Ts2Participant<'t> {
+     host_fault: bool,
+     output: Option<TerminalOutput>,
+     minted: bool,
+-    /// Item 20's candidates (D3a-3): each admitted FactBatch frame's payload
+-    /// bytes, as received, moved into the terminal output when it is minted.
++    /// Item 20's candidates (D3a-3): each admitted [`SPOOLED`] frame's payload
++    /// bytes, as received, in admission order, moved into the terminal output
++    /// when it is minted.
+     spool: Spool,
+     /// The span boundaries admitted since the last step (M3-L r1:400).
+     boundaries: Vec<Boundary>,
+@@ -174,6 +189,17 @@ fn joins(c: &DispatchContext, r: &Ts2Request) -> Result<(), String> {
+             return mismatch(m);
+         }
+     }
++    // The census request (LD-D2B-16): the context's is the Analyze's.
++    let requested = match field(members(r.analyze()), "symbolCensus") {
++        Some(Value::Map(m)) => match field(m, "enumeratorClosure") {
++            Some(Value::Text(c)) => Some(c.clone()),
++            _ => return mismatch("symbolCensus"),
++        },
++        _ => None,
++    };
++    if requested != c.symbol_census {
++        return mismatch("symbolCensus");
++    }
+     let Some(Value::Array(stages)) = field(members(r.analyze()), "stageRequests") else {
+         return mismatch("stageRequests");
+     };
+@@ -418,16 +444,19 @@ impl Participant for Ts2Participant<'_> {
+                         break;
+                     }
+                     let bytes = frame.payload().len() as u64;
+-                    // A FactBatch's received payload is the candidate the
++                    // A spooled frame's received payload is a candidate the
+                     // spool keeps (item 20), once the frame is admitted.
+-                    let candidate = same(
+-                        field(members(frame.value()), "frameType"),
+-                        &text("FactBatch"),
+-                    )
++                    let candidate = match field(members(frame.value()), "frameType") {
++                        Some(Value::Text(kind)) => SPOOLED.contains(&kind.as_str()),
++                        _ => false,
++                    }
+                     .then(|| frame.payload().to_vec());
+                     match self.receiver.receive(frame) {
+                         Ok(a) => {
+                             admitted = admitted.saturating_add(bytes);
++                            if let Some(c) = candidate {
++                                self.spool.push(c);
++                            }
+                             match a.payload {
+                                 P::SnapshotAccepted(_) => {
+                                     progress.push(Progress::SnapshotAcknowledged);
+@@ -439,10 +468,7 @@ impl Participant for Ts2Participant<'_> {
+                                     self.boundaries.push(Boundary::ContextVerified);
+                                 }
+                                 P::FactBatch0(_) | P::FactBatch1(_) => {
+-                                    progress.push(Progress::FactBatch);
+-                                    if let Some(c) = candidate {
+-                                        self.spool.push(c);
+-                                    }
++                                    progress.push(Progress::FactBatch)
+                                 }
+                                 P::Coverage(_) => {
+                                     progress.push(Progress::Coverage);
+diff --git a/crates/components/src/provider_protocol/ts2/send.rs b/crates/components/src/provider_protocol/ts2/send.rs
+index 02c2bac..20b5e7e 100644
+--- a/crates/components/src/provider_protocol/ts2/send.rs
++++ b/crates/components/src/provider_protocol/ts2/send.rs
+@@ -25,7 +25,7 @@ use super::super::{
+     FRAME_PREFIX_BYTES, MAX_FRAME_PAYLOAD_BYTES, built_commitment, manifest_digest, write_frame,
+ };
+ use super::carrier::{admit_extern, field};
+-use super::{HANDSHAKE, HostFrame, Law, Payload, RequestedKey, obj, path, strs, txt};
++use super::{CENSUS_ID, HANDSHAKE, HostFrame, Law, Payload, RequestedKey, obj, path, strs, txt};
+ use opensip_identity::{
+     JsonValue as J, RawSha256, digest_hex, hash_canonical_value, parse_json, raw_sha256,
+ };
+@@ -99,6 +99,9 @@ pub struct Ts2Plan {
+     /// The signed TypeScript provider budget profile's budget, by wire
+     /// dimension: an absent stage budget's output (DLV `budgetProjection.absent`).
+     pub default_budget: BTreeMap<String, u64>,
++    /// The census owed to this worker (FA-2; LD-D2B-16): its
++    /// `enumeratorClosure`, or `None`. C4 decides when one is owed.
++    pub symbol_census: Option<String>,
+ }
+ 
+ /// Why the Plan's request cannot be scheduled. Both refuse before spawn.
+@@ -222,6 +225,9 @@ struct SendLaw {
+     max_entries: u64,
+     frame_limit: u64,
+     route: String,
++    /// PER-KEY-SCOPE2's `params`: the identity domain, the text prefix and
++    /// the descriptor members (D∅'s recipe, LD-D2B3C-7).
++    scope2: (String, String, Vec<String>),
+ }
+ 
+ fn admission_params<'j>(doc: &'j J, id: &str) -> Option<&'j BTreeMap<String, J>> {
+@@ -278,6 +284,20 @@ impl SendLaw {
+             .and_then(txt)
+             .ok_or("REQUEST-WIRE-ACCOUNTING route")?
+             .to_owned();
++        // PER-KEY-SCOPE2's parameters: D∅'s identity domain, text prefix and
++        // members.
++        let s = admission_params(&doc, "PER-KEY-SCOPE2").ok_or("PER-KEY-SCOPE2")?;
++        let scope2 = (
++            s.get("identityDomain")
++                .and_then(txt)
++                .ok_or("PER-KEY-SCOPE2 identityDomain")?
++                .to_owned(),
++            s.get("textPrefix")
++                .and_then(txt)
++                .ok_or("PER-KEY-SCOPE2 textPrefix")?
++                .to_owned(),
++            strs(s.get("descriptorMembers")).ok_or("PER-KEY-SCOPE2 descriptorMembers")?,
++        );
+         // HOST-SEND-SCHEDULE's parameters.
+         let h = admission_params(&doc, "HOST-SEND-SCHEDULE").ok_or("HOST-SEND-SCHEDULE")?;
+         let binding = [
+@@ -367,6 +387,7 @@ impl SendLaw {
+             return Err("maxFramePayloadBytes is not the reader's bound".to_owned());
+         }
+         Ok(Self {
++            scope2,
+             max_chunk: limit("maxSnapshotChunkBytes")?,
+             max_entries: limit("maxSnapshotEntries")?,
+             frame_limit,
+@@ -388,7 +409,37 @@ impl SendLaw {
+     }
+ 
+     /// The closed check of a host frame's payload (section 3's builder).
+-    fn check(&self, frame: &str, payload: &Value) -> Result<(), String> {
++    /// With `symbol-census-v1` negotiated, Analyze is TypeScriptAnalyzeV2
++    /// (LD-D2B3C-2): admitted with its `stageRequests` cut to the first, as
++    /// that schema types each item only as an object, and the whole array
++    /// checked as the carriers' `Ts2AnalyzeV1.stageRequests`.
++    fn check(&self, frame: &str, payload: &Value, census: bool) -> Result<(), String> {
++        if frame == "Analyze" && census {
++            let Value::Map(fields) = payload else {
++                return Err("Analyze: not a map".to_owned());
++            };
++            let cut = Value::Map(
++                fields
++                    .iter()
++                    .map(|(k, v)| match (k.as_str(), v) {
++                        ("stageRequests", Value::Array(s)) => {
++                            (k.clone(), Value::Array(s.iter().take(1).cloned().collect()))
++                        }
++                        _ => (k.clone(), v.clone()),
++                    })
++                    .collect(),
++            );
++            admit_extern(&format!("{CENSUS_ID}#/$defs/TypeScriptAnalyzeV2"), &cut)?;
++            let (_, stages) = self
++                .law
++                .carriers
++                .members("Ts2AnalyzeV1")
++                .into_iter()
++                .find(|(n, _)| n == "stageRequests")
++                .ok_or("Ts2AnalyzeV1.stageRequests")?;
++            let value = field(fields, "stageRequests").ok_or("stageRequests")?;
++            return self.law.carriers.check(&stages, value, "stageRequests");
++        }
+         match self.payloads.get(frame).ok_or(frame)? {
+             Payload::Record(r) => self.law.carriers.check_record(r, payload),
+             Payload::Extern(r) => admit_extern(r, payload),
+@@ -475,6 +526,8 @@ pub struct Ts2Request {
+     snapshot_id: String,
+     /// The `kind: file` entries in manifest order: path, length, contentSha256.
+     files: Vec<(String, u64, String)>,
++    /// `symbol-census-v1` negotiated: Analyze is TypeScriptAnalyzeV2.
++    census: bool,
+     schedule: Ts2Schedule,
+ }
+ 
+@@ -505,10 +558,13 @@ impl Ts2Request {
+             });
+         }
+         // LD-D2B-18's sender half: the Hello's array is the selection's, and
+-        // a payload variant inconsistent with it is a host invariant. The
+-        // census-bearing Analyze is D2b-3c's.
+-        if plan.capabilities.iter().any(|c| c == "symbol-census-v1") {
+-            return Err(invariant("symbol-census-v1 is D2b-3c's"));
++        // a payload variant inconsistent with it is a host invariant
++        // (LD-D2B3C-7): a census is owed only with symbol-census-v1.
++        let census = plan.capabilities.iter().any(|c| c == "symbol-census-v1");
++        if !census && plan.symbol_census.is_some() {
++            return Err(invariant(
++                "native.symbol-census-payload-without-token: a census is owed without symbol-census-v1",
++            ));
+         }
+         let hello = map(vec![
+             ("hostBuildId", text(&plan.host_build_id)),
+@@ -540,7 +596,7 @@ impl Ts2Request {
+                 ),
+             ),
+         ]);
+-        law.check("Hello", &hello).map_err(invariant)?;
++        law.check("Hello", &hello, census).map_err(invariant)?;
+ 
+         // OpenUniverse; universeKey is the host's own recomputation
+         // (UNIVERSE-NATIVE-IDENTITY; startup-v1 `typescriptOpenUniverse`).
+@@ -565,7 +621,7 @@ impl Ts2Request {
+             ("universe", json_to_cbor(&plan.universe).map_err(invariant)?),
+             ("universeKey", text(&universe_key)),
+         ]);
+-        law.check("OpenUniverse", &open_universe)
++        law.check("OpenUniverse", &open_universe, census)
+             .map_err(invariant)?;
+ 
+         // SnapshotManifest, from C1's sealed inventory: every snapshotId echo
+@@ -609,7 +665,7 @@ impl Ts2Request {
+             ("manifestSha256", text(&manifest_sha256)),
+             ("entries", entries),
+         ]);
+-        law.check("SnapshotManifest", &manifest)
++        law.check("SnapshotManifest", &manifest, census)
+             .map_err(invariant)?;
+ 
+         // SnapshotSeal (SEAL-AGGREGATES), with checked sums.
+@@ -630,10 +686,11 @@ impl Ts2Request {
+             ("totalFileBytes", Value::Unsigned(total_bytes)),
+             ("totalChunkCount", Value::Unsigned(total_chunks)),
+         ]);
+-        law.check("SnapshotSeal", &seal).map_err(invariant)?;
++        law.check("SnapshotSeal", &seal, census)
++            .map_err(invariant)?;
+ 
+-        let analyze = Self::build_analyze(&law, plan, &universe_key, &files)?;
+-        law.check("Analyze", &analyze).map_err(invariant)?;
++        let analyze = Self::build_analyze(&law, plan, &universe_key, &files, census)?;
++        law.check("Analyze", &analyze, census).map_err(invariant)?;
+ 
+         let mut request = Self {
+             law,
+@@ -645,6 +702,7 @@ impl Ts2Request {
+             execution_id: plan.execution_id.clone(),
+             snapshot_id: plan.snapshot_id.clone(),
+             files,
++            census,
+             schedule: Ts2Schedule {
+                 slots: Vec::new(),
+                 cancel_reserve_bytes: 0,
+@@ -666,7 +724,11 @@ impl Ts2Request {
+         plan: &Ts2Plan,
+         universe_key: &str,
+         files: &[(String, u64, String)],
++        census: bool,
+     ) -> Result<Value, PlanRefusal> {
++        if census {
++            Self::census_keys(law, plan)?;
++        }
+         // The subject scope: every file entry, in manifest order, which the
+         // manifest's closed check makes strictly ascending by path bytes.
+         let subjects = Value::Array(
+@@ -786,14 +848,112 @@ impl Ts2Request {
+                 ),
+             ]));
+         }
+-        Ok(map(vec![
++        let mut members = vec![
+             ("analysisOrdinal", Value::Unsigned(0)),
+             ("executionId", text(&plan.execution_id)),
+             ("snapshotId", text(&plan.snapshot_id)),
+             ("planId", text(&plan.plan_id)),
+             ("universeKey", text(universe_key)),
+             ("stageRequests", Value::Array(stages)),
+-        ]))
++        ];
++        // TypeScriptAnalyzeV2's census request (NE §9.8 `request`).
++        if census {
++            members.push((
++                "symbolCensus",
++                plan.symbol_census
++                    .as_deref()
++                    .map_or(Value::Null, |closure| {
++                        map(vec![("enumeratorClosure", text(closure))])
++                    }),
++            ));
++        }
++        Ok(map(members))
++    }
++
++    /// The census request's keys, with `symbol-census-v1` negotiated (NE §9.8
++    /// `planNeed` and `requestCommitment`; LD-D2B3C-7): a census is owed
++    /// exactly to a worker asked for a `symbol`-kind key, and each such key's
++    /// commitment is the D∅
++    /// commitment, `"sha256:"` + hex(H("subject-scope", D∅)) with D∅ =
++    /// {schemaVersion: 2, snapshotId, sourceUniverse, targetUniverse,
++    /// relation, resolution, enumeratorClosure, subjects: []}, recomputed
++    /// here (PER-KEY-SCOPE2's `params`). Any other Plan is a host invariant.
++    /// Without the token the session is the historical branch (LD-D2B-18):
++    /// no census is owed, and its keys are as before.
++    fn census_keys(law: &SendLaw, plan: &Ts2Plan) -> Result<(), PlanRefusal> {
++        let symbol: Vec<&RequestedKey> = plan
++            .stages
++            .iter()
++            .flat_map(|s| &s.keys)
++            .filter(|k| {
++                law.law.subject_kinds.get(&k.relation).map(String::as_str) == Some("symbol")
++            })
++            .collect();
++        let Some(closure) = plan.symbol_census.as_deref() else {
++            return if symbol.is_empty() {
++                Ok(())
++            } else {
++                Err(invariant("a symbol-kind key without an owed census"))
++            };
++        };
++        if symbol.is_empty() {
++            return Err(invariant(
++                "a census owed to a worker asked for no symbol-kind key",
++            ));
++        }
++        let (domain, prefix, members) = &law.scope2;
++        for k in symbol {
++            let suffix = |id: &str| {
++                id.strip_prefix("sha256:")
++                    .map(str::to_owned)
++                    .ok_or_else(|| invariant(format!("{id}: a universe id without its prefix")))
++            };
++            let d = J::Object(BTreeMap::from_iter([
++                (
++                    "schemaVersion".to_owned(),
++                    J::Integer(
++                        opensip_identity::JsonInteger::new(2)
++                            .map_err(|_| invariant("schemaVersion"))?,
++                    ),
++                ),
++                ("snapshotId".to_owned(), J::String(plan.snapshot_id.clone())),
++                (
++                    "sourceUniverse".to_owned(),
++                    J::String(suffix(&k.source_universe_id)?),
++                ),
++                (
++                    "targetUniverse".to_owned(),
++                    J::String(suffix(&k.target_universe_id)?),
++                ),
++                ("relation".to_owned(), J::String(k.relation.clone())),
++                ("resolution".to_owned(), J::String(k.resolution.clone())),
++                (
++                    "enumeratorClosure".to_owned(),
++                    J::String(closure.to_owned()),
++                ),
++                ("subjects".to_owned(), J::Array(Vec::new())),
++            ]));
++            let J::Object(o) = &d else {
++                unreachable!("D∅ is an object")
++            };
++            let mut keys: Vec<&String> = o.keys().collect();
++            let mut want: Vec<&String> = members.iter().collect();
++            keys.sort_unstable();
++            want.sort_unstable();
++            if keys != want {
++                return Err(invariant(
++                    "D∅'s members are not PER-KEY-SCOPE2's descriptorMembers",
++                ));
++            }
++            let h = hash_canonical_value(domain, &d).map_err(|e| invariant(format!("{e:?}")))?;
++            if k.subject_scope_commitment != format!("{prefix}{}", digest_hex(&h)) {
++                return Err(invariant(format!(
++                    "native.symbol-census-request-commitment-mismatch: {} {}",
++                    k.relation, k.resolution
++                )));
++            }
++        }
++        Ok(())
+     }
+ 
+     /// A chunk's payload without its `bytes` member.
+@@ -923,7 +1083,7 @@ impl Ts2Request {
+         // The reserved Cancel, at the last sequence a Cancel can take, so its
+         // payload is maximal.
+         let cancel = self.maximal_cancel();
+-        law.check("Cancel", &cancel).map_err(invariant)?;
++        law.check("Cancel", &cancel, false).map_err(invariant)?;
+         let cancel_reserve_bytes =
+             cbor::encode(&law.envelope(sequence, "Cancel", cancel)).len() as u64;
+         fault("Cancel", sequence, cancel_reserve_bytes, &mut faults);
+@@ -1275,7 +1435,7 @@ impl Ts2Sender {
+             return Err(divergence("seal-count", format!("slot {}", self.slot)));
+         }
+         // The builder's closed check holds for what is actually sent.
+-        law.check(frame.name(), &payload)
++        law.check(frame.name(), &payload, self.request.census)
+             .map_err(|e| divergence("payload-schema", e))?;
+         let bytes = write_frame(&law.envelope(sequence, frame.name(), payload))
+             .ok_or_else(|| divergence("frame-limit", "over maxFramePayloadBytes"))?;
+@@ -1399,7 +1559,7 @@ impl Ts2Sender {
+             return Err(divergence("cancel-echo", format!("slot {}", self.slot)));
+         }
+         let law = &self.request.law;
+-        law.check("Cancel", &payload)
++        law.check("Cancel", &payload, false)
+             .map_err(|e| divergence("payload-schema", e))?;
+         let bytes = write_frame(&law.envelope(sequence, "Cancel", payload))
+             .ok_or_else(|| divergence("frame-limit", "over maxFramePayloadBytes"))?;
+diff --git a/crates/components/src/provider_protocol/ts2_send_tests.rs b/crates/components/src/provider_protocol/ts2_send_tests.rs
+index 2c84eed..a280edf 100644
+--- a/crates/components/src/provider_protocol/ts2_send_tests.rs
++++ b/crates/components/src/provider_protocol/ts2_send_tests.rs
+@@ -114,6 +114,7 @@ fn plan() -> Ts2Plan {
+             },
+         ],
+         default_budget: default_budget(),
++        symbol_census: None,
+     }
+ }
+ fn build(p: &Ts2Plan) -> Ts2Request {
+@@ -279,11 +280,20 @@ fn the_hello_is_the_selection_and_the_schema_constants() {
+         get(build(&q).hello(), "expectedCapabilities"),
+         &a(q.capabilities.iter().map(|s| t(s)).collect())
+     ));
+-    // The census-bearing variant is D2b-3c's.
++    // D2b-3c supports a negotiated census payload with a null request.
+     let mut q = plan();
+     q.capabilities.push("symbol-census-v1".to_owned());
+     q.capabilities.sort();
+-    assert!(invariant(&q, "symbol-census-v1").contains("D2b-3c"));
++    // A negotiated null census is lawful when the Plan has no symbol keys.
++    // The default test Plan includes symbol keys and therefore owes a census.
++    for stage in &mut q.stages {
++        stage.relations = vec!["file".to_owned()];
++        for key in &mut stage.keys {
++            key.relation = "file".to_owned();
++            key.resolution = "enumerated".to_owned();
++        }
++    }
++    assert_eq!(get(build(&q).analyze(), "symbolCensus"), &Value::Null);
+ }
+ 
+ /// OpenUniverse: universeKey is the host's recomputation of the selected
+@@ -998,7 +1008,11 @@ fn context_of(p: &Ts2Plan, r: &Ts2Request) -> DispatchContext {
+         Value::Unsigned(n) => *n,
+         _ => panic!("uint"),
+     };
++    c.execution_id = p.execution_id.clone();
++    c.snapshot_id = p.snapshot_id.clone();
++    c.plan_id = p.plan_id.clone();
+     c.capabilities = p.capabilities.clone();
++    c.symbol_census = p.symbol_census.clone();
+     c.universe_key = text(get(r.open_universe(), "universeKey"));
+     c.manifest_sha256 = text(get(r.manifest(), "manifestSha256"));
+     c.manifest_files = p
+@@ -1401,14 +1415,13 @@ fn the_participant_spools_its_candidates_and_discards_them() {
+         let c = w.c.clone();
+         let (batch, facts) = anchored_batch(&c, 2);
+         let fact_batch = wire("FactBatch", 4, batch);
+-        let mut replies = fact_batch.clone();
+-        replies.extend(wire("Coverage", 5, coverage(&c, 0)));
+-        replies.extend(wire("Coverage", 6, coverage(&c, 1)));
+-        replies.extend(wire(
+-            "Complete",
+-            7,
+-            complete(&c, &[facts, Vec::new()], &[1, 0]),
+-        ));
++        let frames = [
++            fact_batch.clone(),
++            wire("Coverage", 5, coverage(&c, 0)),
++            wire("Coverage", 6, coverage(&c, 1)),
++            wire("Complete", 7, complete(&c, &[facts, Vec::new()], &[1, 0])),
++        ];
++        let replies = frames.concat();
+         w.answer = Some(("Analyze", replies));
+         let (statuses, progress, boundaries) = drive_all(&mut part, &mut w);
+         assert_eq!(
+@@ -1432,7 +1445,7 @@ fn the_participant_spools_its_candidates_and_discards_them() {
+             assert_eq!(output.kind(), TerminalKind::Complete);
+             assert_eq!(
+                 output.into_spool().into_candidates(),
+-                [fact_batch[40..].to_vec()]
++                frames.iter().map(|f| f[40..].to_vec()).collect::<Vec<_>>()
+             );
+         }
+     }
+@@ -1736,3 +1749,8 @@ fn native_owner_registered_startup_preserves_non_dot_segments_and_refuses_late_d
+         );
+     }
+ }
++#[path = "ts2_census_tests.rs"]
++mod census;
++
++#[path = "ts2_replay_tests.rs"]
++mod replay;
+diff --git a/crates/components/src/provider_protocol/ts2_tests.rs b/crates/components/src/provider_protocol/ts2_tests.rs
+index 7fcf3bb..a8f38f1 100644
+--- a/crates/components/src/provider_protocol/ts2_tests.rs
++++ b/crates/components/src/provider_protocol/ts2_tests.rs
+@@ -128,6 +128,7 @@ fn context(tokens: &[&str]) -> DispatchContext {
+         total_chunk_count: 1,
+         stages: vec![stage("stage-one", 0, 'c'), stage("stage-two", 1, 'd')],
+         target_domain: BTreeSet::from_iter([sha('6')]),
++        symbol_census: None,
+     }
+ }
+ 
+@@ -1456,15 +1457,18 @@ fn fact_batch_v3_joins_its_companions() {
+     }
+ }
+ 
+-/// FA-2's token is D2b-3c's; a context with other descriptor fields than
+-/// A2's does not construct.
++/// A negotiated FA-2 context constructs; an owed census without its token,
++/// or descriptor fields other than A2's, refuses before reading a frame.
+ #[test]
+ fn the_context_is_checked_at_construction() {
+     let s = Session::new();
+     let mut tokens = TOKENS.to_vec();
+     tokens.push("symbol-census-v1");
++    assert!(Ts2Receiver::new(&s.table, context(&tokens)).is_ok());
++    let mut without_token = context(&TOKENS);
++    without_token.symbol_census = Some(sha('a'));
+     assert!(matches!(
+-        Ts2Receiver::new(&s.table, context(&tokens)),
++        Ts2Receiver::new(&s.table, without_token),
+         Err(Ts2Refusal::Context(_))
+     ));
+     let mut c = context(&TOKENS);
+diff --git a/crates/identity/src/schema.rs b/crates/identity/src/schema.rs
+index 094d490..7b7478b 100644
+--- a/crates/identity/src/schema.rs
++++ b/crates/identity/src/schema.rs
+@@ -240,6 +240,16 @@ impl Program {
+         pattern: &str,
+         value: &str,
+     ) -> Result<bool, &'static str> {
++        // FA-2's already pinned LogicalPath has the same dot-segment
++        // assertion as occupancy. Its pattern keyword needs ECMA-u's actual
++        // end-of-input rule too. Keep every other census pattern, all foreign
++        // owners, generic programs and patternProperties on the legacy path.
++        if self.native_owner_patterns
++            && owner == "opensip.product.symbol-census.1"
++            && pattern == r##"(^|/)\.\.?(/|$)"##
++        {
++            return crate::schema_patterns::matches_native_owner(pattern, value);
++        }
+         if self.native_owner_patterns
+             && matches!(
+                 owner,
+diff --git a/crates/identity/src/schema_tests.rs b/crates/identity/src/schema_tests.rs
+index 01131ac..f2b63c7 100644
+--- a/crates/identity/src/schema_tests.rs
++++ b/crates/identity/src/schema_tests.rs
+@@ -135,6 +135,107 @@ fn native_owner_document(id: &str, body: &str) -> crate::JsonValue {
+ 
+ const NATIVE_OWNER_DOT_BODY: &str = r#""type":"string","not":{"pattern":"(^|/)\\.\\.?(/|$)"}"#;
+ 
++#[test]
++fn symbol_census_dot_keyword_uses_ecma_end_only_in_the_pinned_owner_profile() {
++    let id = "opensip.product.symbol-census.1";
++    let entry = format!("{id}#");
++    let document = native_owner_document(id, NATIVE_OWNER_DOT_BODY);
++    let selected =
++        Program::compile_registered_native_owners(vec![document.clone()], &[&entry], 100_000)
++            .unwrap();
++    let generic = Program::compile(vec![document], &[&entry], 100_000).unwrap();
++    let foreign = Program::compile_registered_native_owners(
++        vec![doc(NATIVE_OWNER_DOT_BODY)],
++        &["urn:probe#"],
++        100_000,
++    )
++    .unwrap();
++    for (raw, ecma, legacy) in [
++        (br#""a/..\n""#.as_slice(), true, false),
++        (br#""a/.\n""#, true, false),
++        (br#""a/..\r""#, true, true),
++        (br#""a/..\u2028""#, true, true),
++        (br#""a/..\u2029""#, true, true),
++        (br#""a/..""#, false, false),
++        (br#""a/.""#, false, false),
++        (br#""a/../b""#, false, false),
++        (br#""x\n/../b""#, false, false),
++        (br#""x\r/../b""#, false, false),
++        (br#""x\u2028/../b""#, false, false),
++        (br#""x\u2029/../b""#, false, false),
++    ] {
++        assert_eq!(selected.matches_json(&entry, raw, 100_000), Ok(ecma));
++        assert_eq!(generic.matches_json(&entry, raw, 100_000), Ok(legacy));
++        assert_eq!(foreign.matches_json("urn:probe#", raw, 100_000), Ok(legacy));
++    }
++}
++
++#[test]
++fn symbol_census_dot_profile_follows_the_resolved_document_without_foreign_leakage() {
++    let id = "opensip.product.symbol-census.1";
++    let entry = "urn:probe#";
++    let program = Program::compile_registered_native_owners(
++        vec![
++            doc(&format!(r#""$ref":"{id}#""#)),
++            native_owner_document(id, NATIVE_OWNER_DOT_BODY),
++        ],
++        &[entry],
++        100_000,
++    )
++    .unwrap();
++    assert_eq!(
++        program.matches_json(entry, br#""a/..\n""#, 100_000),
++        Ok(true)
++    );
++    let entry = format!("{id}#");
++    let program = Program::compile_registered_native_owners(
++        vec![
++            native_owner_document(id, r#""$ref":"urn:probe#""#),
++            doc(NATIVE_OWNER_DOT_BODY),
++        ],
++        &[&entry],
++        100_000,
++    )
++    .unwrap();
++    assert_eq!(
++        program.matches_json(&entry, br#""a/..\n""#, 100_000),
++        Ok(false)
++    );
++}
++
++#[test]
++fn symbol_census_profile_preserves_other_patterns_and_pattern_property_semantics() {
++    let id = "opensip.product.symbol-census.1";
++    let entry = format!("{id}#");
++    // Census's other forms remain legacy forms, including forms not selected
++    // for the separate native26 profile. Do not route the whole census owner.
++    for (body, raw, expected) in [
++        (
++            r#""type":"string","pattern":"^.+$""#,
++            br#""a\n""#.as_slice(),
++            true,
++        ),
++        (
++            r#""type":"string","pattern":"^plan2:[0-9a-f]{64}(?![\\s\\S])""#,
++            br#""plan2:0000000000000000000000000000000000000000000000000000000000000000""#,
++            true,
++        ),
++        (
++            r#""type":"object","patternProperties":{"(^|/)\\.\\.?(/|$)":false},"additionalProperties":true"#,
++            br#"{"a/..\n":1}"#,
++            false,
++        ),
++    ] {
++        let p = Program::compile_registered_native_owners(
++            vec![native_owner_document(id, body)],
++            &[&entry],
++            100_000,
++        )
++        .unwrap();
++        assert_eq!(p.matches_json(&entry, raw, 100_000), Ok(expected));
++    }
++}
++
+ #[test]
+ fn native_owner_ecma_dot_scope_covers_each_selected_document_and_generic_isolation() {
+     const IDS: [&str; 3] = [
