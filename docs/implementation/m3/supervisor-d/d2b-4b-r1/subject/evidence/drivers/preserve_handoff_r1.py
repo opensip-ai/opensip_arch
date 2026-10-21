@@ -1,0 +1,12 @@
+from pathlib import Path
+import os,json,hashlib,subprocess
+assert os.environ.get('OPENSIP_LEAD_HOLDS_LANE_LOCK')=='1'
+F=Path(__file__).parent;W=Path('/Users/sb/code/opensip-ai/opensip-rust3-send-takeover');B=F/'preserved-handoff-r1';B.mkdir(exist_ok=False);r=json.loads((F/'handoff-r1/report.json').read_text())
+p='crates/components/src/provider_protocol/rust3/receive.rs';raw=(W/p).read_bytes();assert hashlib.sha256(raw).hexdigest()==r['sourcePins'][0]['sha256'];(B/'receive.rs').write_bytes(raw)
+p='crates/components/src/provider_protocol/rust3/receive_tests.rs';s=(W/p).read_text();a=s.index('fn rust3_terminal_spool_includes_budget_terminal_and_keeps_its_accounting()');b=s.index('\n#[test]',a);block=s[a:b]
+old='r.process(ProcessEvent::ZeroExit).unwrap();\n    assert!(r.take_candidate_spool().is_none());\n    r.process(ProcessEvent::Eof).unwrap();';assert block.count(old)==1;block=block.replace(old,'r.process(ProcessEvent::Eof).unwrap();\n    assert!(r.take_candidate_spool().is_none());\n    r.process(ProcessEvent::ZeroExit).unwrap();')
+extra='\n    let mut r = Rust3Receiver::new(&table, c.clone()).unwrap();\n    let seq = analyzing(&mut r, &c);\n    worker(&mut r, "BudgetExhausted", budget(), seq).unwrap();\n    assert!(r.process(ProcessEvent::Eof).is_err());\n    assert!(r.take_candidate_spool().is_none());\n';assert extra in block;block=block.replace(extra,'');s=s[:a]+block+s[b:]
+s=s.replace('t(&built("opensip.rust-provider.fact-stream.v2", &a(vec![]))),',"t(&sha('f')),");(B/'receive_tests.rs').write_text(s)
+result=subprocess.run(['/opt/homebrew/Cellar/rust/1.95.0/bin/rustfmt','--edition','2024',str(B/'receive_tests.rs')],capture_output=True);(B/'format.log').write_bytes(result.stdout+result.stderr);assert result.returncode==0
+actual=hashlib.sha256((B/'receive_tests.rs').read_bytes()).hexdigest();assert actual==r['sourcePins'][1]['sha256'],(actual,r['sourcePins'][1]['sha256'])
+(B/'source-custody.json').write_text(json.dumps(dict(standing='Reconstructed after failure by reversing the two exact test corrections; byte equality verified against the original owning-r1 report pins, not claimed captured at execution time',sourcePins=r['sourcePins'],exactReportedHashesMatch=True,failure='The positive budget fixture delivered EOF before ZeroExit; actual selected table correctly refused P3-34; r2 uses lawful positive order and retains early-EOF refusal control.'),indent=2)+'\n');print('Both original failed-r1 source hashes preserved exactly.')
