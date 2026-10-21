@@ -1,0 +1,463 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "opensip.product.symbol-census.1",
+  "title": "Symbol census on negotiated Analyze and Complete (capability token symbol-census-v1)",
+  "description": "NORMATIVE field-level publication for native-evidence section 9.8 (contract successor FA-2). Closed JSON-vector forms of deterministic-CBOR wire maps: the census request carried on Analyze, the census carried on Complete, and the four payload versions that carry them when symbol-census-v1 is in both the Hello and the HelloAck token arrays. Inherited members keep their names, types and laws. TypeScriptCompleteV2 and CompleteV3 restate their inherited members exactly; TypeScriptAnalyzeV2 and AnalyzeV3 name their inherited stage-request arrays by selector and do not restate them. Cross-record joins a schema cannot express (the census-free and census commitments, the locator projection, the extent and the byte bound) are stated in x-opensip-symbol-census-law.",
+  "x-opensip-symbol-census-law": {
+    "standing": "NORMATIVE field-level restatement of native-evidence section 9.8 (contract successor FA-2). Section 9.8 is the prose owner; where they differ, that is a defect in whichever moved.",
+    "negotiation": "Capability token symbol-census-v1 (native-evidence 9.1). When it is in both the Hello and the HelloAck token arrays, the Analyze payload is TypeScriptAnalyzeV2 or AnalyzeV3 and the Complete payload is TypeScriptCompleteV2 or CompleteV3. When it is absent, delivery.v2 AnalyzeV1 and CompleteV1 and rust-provider-protocol.v2 AnalyzeV2 and CompleteV2 remain. Any other combination is PROVIDER.PROTOCOL_VIOLATION. Frame names, phases, terminals, limits, commitments and identity versions are unchanged.",
+    "planNeed": "The host owes a worker a census exactly when the Plan's EnumerationPlanV1 expects at least one (cellOrdinal, programOrdinal, symbol) inventory whose available binding's universe is that worker's universe. Every such binding names one enumerator.closureId, the worker's provider closure, which is also the producerClosure of every stage the worker serves. The host requests a census from every worker it asks for a symbol-kind key, and from no other. Any other Plan is a host invariant refused before spawn.",
+    "request": "Analyze.symbolCensus is SymbolCensusRequestV1 {enumeratorClosure} when a census is owed, and null otherwise.",
+    "requestCommitment": "Every requested key whose relation's registry subjectKind is symbol carries, as subjectScopeCommitment, the native-evidence 4.1a commitment (\"sha256:\" + the 64-hex suffix of H(\"subject-scope\", D)) of the census-free descriptor D\u2205 = {schemaVersion: 2, snapshotId, sourceUniverse, targetUniverse, relation, resolution, enumeratorClosure, subjects: []}. Before analysis the worker recomputes it and rejects a mismatch as provider-protocol.",
+    "return": "Complete.symbolCensus is SymbolCensusV1, null exactly when the request's was. The complete variant carries examinedPaths and rows; the over-bound variant replaces it exactly when the complete census would exceed 100000 rows, 100000 examined paths or 4194304 bytes of deterministic CBOR. There is no partial and no unavailable variant.",
+    "returnCommitment": "Every symbol-kind entry of that Analyze's Coverage or CoverageV3 frames carries, as key.subjectScopeCommitment and examinedUniverse.subjectScopeCommitment, the 4.1a commitment of D\u2205 with subjects set to the rows' nativeSubjectIds in canonical-set order (not row order), and examinedUniverse.subjectCount equal to the row count. Under an over-bound census these entries keep their requested commitment with subjectCount 0.",
+    "otherTerminals": "BudgetExhausted, post-Analyze and pre-Analyze Unavailable, Cancelled, ProviderFault and every fault carry no census. On the two clean terminals each symbol-kind entry keeps its requested D\u2205 commitment with subjectCount 0, and the owed inventories are host-derived outcomes of the terminal (partial with budget-exhausted, null cause, no rows, no examined paths; or unavailable with provider-unavailable).",
+    "hostProjection": "At the clean settlement of Complete only, and atomically with that Analyze's candidates and Coverage, the host projects the census once per owed locator into SubjectInventoryV1: schemaVersion 1, planId from the retained Plan, parameterDigest = raw SHA-256 of C(EnumerationPlanV1), the locator's cellOrdinal and programOrdinal, kind symbol, state complete, deficiency null, nativeCause null, examinedPaths as carried, and each row with kind symbol, subjectLanguage from subject-inventory.schema.v1.json x-opensip-subject-language-table on its path, and projections [] (projection unavailable). Rows are byte-equal across locators. Identity: raw SHA-256 of C(record); custody: hostCapture.hostDerivedRefs, origin provider-return.",
+    "admission": "The enumeration owner admits each projected record (schema, locator, state law: examinedPaths equals the binding's symbol extent) before the full enumeration join. The host then builds D for every symbol-kind key from the admitted census and admits each entry through admit_coverage_result_v3, unchanged. A projected record or a D above its 4 MiB C ceiling takes the over-bound census's route, the subject-scope bound's scope-limit route, which this document does not own. Nothing truncates, shards or rewrites a census.",
+    "refusals": "Wire: a malformed, misordered, out-of-bound, wrongly null or token-mismatched census payload is PROVIDER.PROTOCOL_VIOLATION under the native-evidence section 10 fault law. Admission: locator, state, extent and row refusals are the enumeration owner's, origin provider-return; an entry's commitment or count mismatch is 4.1a's existing refusal. No public code is added.",
+    "internalKeys": [
+      "native.symbol-census-payload-without-token",
+      "native.symbol-census-token-without-payload",
+      "native.symbol-census-null-mismatch",
+      "native.symbol-census-row-order",
+      "native.symbol-census-path-not-examined",
+      "native.symbol-census-bound",
+      "native.symbol-census-over-bound-within-bounds",
+      "native.symbol-census-request-commitment-mismatch",
+      "native.symbol-census-enumerator-not-the-worker"
+    ],
+    "internalKeysStanding": "Diagnostic keys kept in the operational record. Not DomainDetailCode members."
+  },
+  "$defs": {
+    "Uint64": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 18446744073709551615
+    },
+    "Sha256Text": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}(?![\\s\\S])"
+    },
+    "ExecutionIdText": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The inherited ExecutionId text, exact OpenUniverse value (provider-startup.schemas.v1.json ExecutionIdText)."
+    },
+    "SnapshotId2": {
+      "type": "string",
+      "pattern": "^snapshot2:[0-9a-f]{64}(?![\\s\\S])"
+    },
+    "PlanId2": {
+      "type": "string",
+      "pattern": "^plan2:[0-9a-f]{64}(?![\\s\\S])"
+    },
+    "StageIdText": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255,
+      "description": "C-2 stageId text"
+    },
+    "ClosureId": {
+      "type": "string",
+      "pattern": "^closure2:[0-9a-f]{64}(?![\\s\\S])",
+      "description": "A Plan-selected closure2 identity text (identity-schemas.v3 closure)."
+    },
+    "LogicalPath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "pattern": "^[^/\\\\\\u0000]{1,255}(/[^/\\\\\\u0000]{1,255})*(?![\\s\\S])",
+      "not": {
+        "pattern": "(^|/)\\.\\.?(/|$)"
+      },
+      "description": "Byte-identical constraint to subject-inventory.schema.v1.json#/$defs/LogicalPath."
+    },
+    "SubjectIdV1": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 4096,
+      "pattern": "^[a-z][a-z0-9-]*:[^\\u0000-\\u001f\\u007f-\\u009f]+(?![\\s\\S])",
+      "description": "relation-payload-schemas.v2.json#/$defs/SubjectIdV1, as subject-inventory.schema.v1.json requires of a symbol nativeSubjectId."
+    },
+    "SymbolCensusRequestV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enumeratorClosure"
+      ],
+      "properties": {
+        "enumeratorClosure": {
+          "$ref": "#/$defs/ClosureId"
+        }
+      },
+      "description": "The census request on Analyze. enumeratorClosure is the one enumerator.closureId of every owed symbol binding at this worker's universe: the worker's provider closure. It is the D\u2205 field the worker cannot otherwise know."
+    },
+    "SymbolCensusRowV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "nativeSubjectId",
+        "path",
+        "qualifiedName",
+        "exported",
+        "signatureTokens"
+      ],
+      "properties": {
+        "nativeSubjectId": {
+          "$ref": "#/$defs/SubjectIdV1"
+        },
+        "path": {
+          "$ref": "#/$defs/LogicalPath",
+          "description": "The trusted attributed first-party snapshot path, a member of examinedPaths. Never an external or node_modules path."
+        },
+        "qualifiedName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "exported": {
+          "type": "string",
+          "enum": [
+            "exported",
+            "not-exported",
+            "unknown"
+          ]
+        },
+        "signatureTokens": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "type": "string",
+            "minLength": 0,
+            "maxLength": 4096
+          },
+          "x-opensip-order": "sequence",
+          "description": "Enumerator-native tokens, grammar order, repeats retained."
+        }
+      },
+      "description": "One first-party symbol. It carries no planId, parameterDigest, cellOrdinal, programOrdinal, kind, state carrier, subjectLanguage or projections: the host fills them (x-opensip-symbol-census-law hostProjection)."
+    },
+    "CompleteSymbolCensusV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "examinedPaths",
+        "rows"
+      ],
+      "properties": {
+        "state": {
+          "const": "complete"
+        },
+        "examinedPaths": {
+          "type": "array",
+          "maxItems": 100000,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/LogicalPath"
+          },
+          "x-opensip-order": "canonical-set",
+          "description": "The examined logical paths; admission requires set equality with the binding's symbol extent."
+        },
+        "rows": {
+          "type": "array",
+          "maxItems": 100000,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/SymbolCensusRowV1"
+          },
+          "x-opensip-order": {
+            "by": [
+              "nativeSubjectId"
+            ]
+          },
+          "description": "Strictly ascending and unique by the UTF-8 bytes of nativeSubjectId."
+        }
+      },
+      "description": "The complete census. Its deterministic CBOR is at most 4194304 bytes; a larger census is sent as OverBoundSymbolCensusV1 instead."
+    },
+    "OverBoundSymbolCensusV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "rowCount",
+        "examinedPathCount"
+      ],
+      "properties": {
+        "state": {
+          "const": "over-bound"
+        },
+        "rowCount": {
+          "$ref": "#/$defs/Uint64"
+        },
+        "examinedPathCount": {
+          "$ref": "#/$defs/Uint64"
+        }
+      },
+      "description": "Sent instead of the complete census exactly when rowCount > 100000, examinedPathCount > 100000, or the complete variant's deterministic CBOR would exceed 4194304 bytes (checked by admission). No rows; never truncated."
+    },
+    "SymbolCensusV1": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/CompleteSymbolCensusV1"
+        },
+        {
+          "$ref": "#/$defs/OverBoundSymbolCensusV1"
+        }
+      ],
+      "description": "The census on Complete. No partial and no unavailable variant."
+    },
+    "TypeScriptAnalyzeV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "analysisOrdinal",
+        "executionId",
+        "snapshotId",
+        "planId",
+        "universeKey",
+        "stageRequests",
+        "symbolCensus"
+      ],
+      "properties": {
+        "analysisOrdinal": {
+          "const": 0
+        },
+        "executionId": {
+          "$ref": "#/$defs/ExecutionIdText"
+        },
+        "snapshotId": {
+          "$ref": "#/$defs/SnapshotId2"
+        },
+        "planId": {
+          "$ref": "#/$defs/PlanId2"
+        },
+        "universeKey": {
+          "$ref": "#/$defs/Sha256Text",
+          "description": "The native semantic-universe identity, exact OpenUniverse value."
+        },
+        "stageRequests": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1024,
+          "items": {
+            "type": "object"
+          },
+          "x-opensip-order": "sequence",
+          "description": "delivery.v2 typescriptSemanticSubstrate.providerProtocol.wireSchema.definitions.StageRequestV1, unchanged in members and law; its requested keys' subjectScopeCommitment values follow native-evidence 4.1a and 9.8. Not restated here."
+        },
+        "symbolCensus": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/SymbolCensusRequestV1"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "description": "typescript-semantic Analyze when symbol-census-v1 is negotiated: AnalyzeV1 plus symbolCensus."
+    },
+    "AnalyzeV3": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "analysisOrdinal",
+        "executionId",
+        "snapshotId",
+        "planId",
+        "stages",
+        "symbolCensus"
+      ],
+      "properties": {
+        "analysisOrdinal": {
+          "$ref": "#/$defs/Uint64",
+          "description": "The inherited AnalyzeV2 value, unchanged."
+        },
+        "executionId": {
+          "$ref": "#/$defs/ExecutionIdText"
+        },
+        "snapshotId": {
+          "$ref": "#/$defs/SnapshotId2"
+        },
+        "planId": {
+          "$ref": "#/$defs/PlanId2"
+        },
+        "stages": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "items": {
+            "type": "object"
+          },
+          "x-opensip-order": "sequence",
+          "description": "rust-provider-protocol.v2 wireSchema.definitions.StageRequestV2, unchanged in members and law; its analysisDomain keys' subjectScopeCommitment values follow native-evidence 4.1a and 9.8. Not restated here."
+        },
+        "symbolCensus": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/SymbolCensusRequestV1"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "description": "rust-semantic Analyze when symbol-census-v1 is negotiated: AnalyzeV2 plus symbolCensus."
+    },
+    "TypeScriptStageResultV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stageId",
+        "stageOrdinal",
+        "factBatchCount",
+        "factCount",
+        "coverageEntryCount",
+        "factCommitment",
+        "coverageCommitment"
+      ],
+      "properties": {
+        "stageId": {
+          "$ref": "#/$defs/StageIdText"
+        },
+        "stageOrdinal": {
+          "$ref": "#/$defs/Uint64"
+        },
+        "factBatchCount": {
+          "$ref": "#/$defs/Uint64"
+        },
+        "factCount": {
+          "$ref": "#/$defs/Uint64"
+        },
+        "coverageEntryCount": {
+          "$ref": "#/$defs/Uint64"
+        },
+        "factCommitment": {
+          "$ref": "#/$defs/Sha256Text"
+        },
+        "coverageCommitment": {
+          "$ref": "#/$defs/Sha256Text"
+        }
+      },
+      "description": "delivery.v2 StageResultV1, unchanged."
+    },
+    "RustStageResultV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stageId",
+        "factCount",
+        "coverageEntryCount",
+        "factCommitment",
+        "coverageCommitment"
+      ],
+      "properties": {
+        "stageId": {
+          "$ref": "#/$defs/StageIdText"
+        },
+        "factCount": {
+          "$ref": "#/$defs/Uint64"
+        },
+        "coverageEntryCount": {
+          "$ref": "#/$defs/Uint64"
+        },
+        "factCommitment": {
+          "$ref": "#/$defs/Sha256Text"
+        },
+        "coverageCommitment": {
+          "$ref": "#/$defs/Sha256Text"
+        }
+      },
+      "description": "rust-provider-protocol.v2 StageResultV2, unchanged."
+    },
+    "TypeScriptCompleteV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "analysisOrdinal",
+        "stageResults",
+        "factStreamCommitment",
+        "coverageStreamCommitment",
+        "symbolCensus"
+      ],
+      "properties": {
+        "analysisOrdinal": {
+          "const": 0
+        },
+        "stageResults": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1024,
+          "items": {
+            "$ref": "#/$defs/TypeScriptStageResultV1"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "factStreamCommitment": {
+          "$ref": "#/$defs/Sha256Text"
+        },
+        "coverageStreamCommitment": {
+          "$ref": "#/$defs/Sha256Text"
+        },
+        "symbolCensus": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/SymbolCensusV1"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "description": "typescript-semantic Complete when symbol-census-v1 is negotiated: CompleteV1 plus symbolCensus."
+    },
+    "CompleteV3": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "analysisOrdinal",
+        "stageResults",
+        "factStreamCommitment",
+        "coverageStreamCommitment",
+        "symbolCensus"
+      ],
+      "properties": {
+        "analysisOrdinal": {
+          "$ref": "#/$defs/Uint64",
+          "description": "The inherited CompleteV2 value, unchanged."
+        },
+        "stageResults": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "items": {
+            "$ref": "#/$defs/RustStageResultV2"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "factStreamCommitment": {
+          "$ref": "#/$defs/Sha256Text"
+        },
+        "coverageStreamCommitment": {
+          "$ref": "#/$defs/Sha256Text"
+        },
+        "symbolCensus": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/SymbolCensusV1"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "description": "rust-semantic Complete when symbol-census-v1 is negotiated: CompleteV2 plus symbolCensus."
+    }
+  }
+}

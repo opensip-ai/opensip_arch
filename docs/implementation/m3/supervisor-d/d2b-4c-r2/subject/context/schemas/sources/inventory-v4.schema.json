@@ -1,0 +1,763 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:opensip:product-v1:workflows:evaluator3:command-inventory:4",
+  "title": "CommandInventory schemaMajor 4 — typed help/version parity",
+  "description": "Isolated evaluator3 inventory schema. schemaMajor 3 because declared findings parity is FindingSurface (one result per finding3; partialFingerprints only when matched). Successor major4 adds metadata dispatch and selects envelope major4; command authorization and all existing query dispatch remain unchanged.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaFamily",
+    "schemaMajor",
+    "commands",
+    "renderers",
+    "goldens"
+  ],
+  "properties": {
+    "schemaFamily": {
+      "const": "opensip.product.command-inventory"
+    },
+    "schemaMajor": {
+      "const": 4
+    },
+    "standing": {
+      "type": "string",
+      "maxLength": 2048
+    },
+    "commands": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": {
+        "$ref": "#/$defs/Command"
+      },
+      "x-opensip-order": "sequence"
+    },
+    "sharedFlags": {
+      "type": "array",
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/CommandFlag"
+      },
+      "description": "flags owned by other contracts that the host front end must accept on the listed commands; authorization flags never appear on advisory-only commands",
+      "x-opensip-order": "sequence"
+    },
+    "renderers": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "items": {
+        "$ref": "#/$defs/Renderer"
+      },
+      "x-opensip-order": "sequence"
+    },
+    "goldens": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "items": {
+        "$ref": "#/$defs/Golden"
+      },
+      "x-opensip-order": "sequence"
+    }
+  },
+  "$defs": {
+    "CommandName": {
+      "type": "string",
+      "enum": [
+        "default",
+        "recommend",
+        "analyze",
+        "fit",
+        "audit",
+        "query",
+        "import",
+        "baseline-adopt",
+        "baseline-export",
+        "baseline-show",
+        "baseline-upgrade",
+        "policy-show",
+        "policy-init",
+        "policy-test",
+        "waive",
+        "candidates",
+        "inspect",
+        "review-brief",
+        "review-join",
+        "repair-preview",
+        "repair-apply",
+        "repair-verify",
+        "repair-recover",
+        "test-run",
+        "install",
+        "update",
+        "doctor",
+        "purge",
+        "agent-serve",
+        "help",
+        "version",
+        "completion",
+        "trust-recovery-challenge",
+        "trust-recovery-import",
+        "trust-refresh",
+        "trust-import",
+        "trust-doctor",
+        "store-migrate",
+        "store-rollback",
+        "store-gc",
+        "store-status",
+        "native-prepare",
+        "core-update",
+        "core-repair",
+        "core-rollback"
+      ]
+    },
+    "AnalysisProfile": {
+      "type": "string",
+      "enum": [
+        "default",
+        "fit",
+        "audit",
+        "verify",
+        "pivot",
+        "policy-test-fixture"
+      ]
+    },
+    "OutputFormat": {
+      "type": "string",
+      "enum": [
+        "human",
+        "json",
+        "sarif",
+        "html",
+        "agent"
+      ]
+    },
+    "RequestClass": {
+      "type": "string",
+      "enum": [
+        "analysis",
+        "query",
+        "mutation",
+        "lifecycle",
+        "execution",
+        "serve",
+        "meta",
+        "trust"
+      ]
+    },
+    "CommandFlag": {
+      "type": "object",
+      "description": "A cross-owner flag join. authorization flags grant or acknowledge an effect; advisory flags only shape output.",
+      "additionalProperties": false,
+      "required": [
+        "flag",
+        "owner",
+        "class",
+        "join"
+      ],
+      "properties": {
+        "flag": {
+          "type": "string",
+          "pattern": "^--[a-z][a-z0-9-]*(?![\\s\\S])",
+          "maxLength": 64
+        },
+        "owner": {
+          "type": "string",
+          "enum": [
+            "workflow",
+            "security",
+            "identity",
+            "native",
+            "foundation"
+          ]
+        },
+        "class": {
+          "type": "string",
+          "enum": [
+            "authorization",
+            "advisory",
+            "selection"
+          ]
+        },
+        "join": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/BoundedText"
+        }
+      }
+    },
+    "Command": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "cli",
+        "owner",
+        "grammarStanding",
+        "requestClass",
+        "authority",
+        "authorizationClass",
+        "advisory",
+        "steps",
+        "formats",
+        "parityFields",
+        "writesTrackedIntent",
+        "repositoryExecution",
+        "flags"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/CommandName"
+        },
+        "cli": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "owner": {
+          "type": "string",
+          "enum": [
+            "workflow",
+            "security",
+            "identity",
+            "native"
+          ],
+          "description": "the contract that owns the command's semantics; the workflow inventory only enumerates and joins"
+        },
+        "grammarStanding": {
+          "const": "declared",
+          "description": "Candidate declared syntax; does not establish independent acceptance of the complete surface."
+        },
+        "requestClass": {
+          "$ref": "#/$defs/RequestClass"
+        },
+        "authority": {
+          "type": "string",
+          "enum": [
+            "authoritative-default",
+            "ephemeral-only",
+            "ephemeral-optional",
+            "none"
+          ]
+        },
+        "authorizationClass": {
+          "type": "string",
+          "enum": [
+            "none",
+            "user-consent",
+            "policy-record-or-consent",
+            "security-grant",
+            "recovery-authority-quorum",
+            "exclusive-lease",
+            "core-transition-leases"
+          ],
+          "description": "what authorizes the command's effect (distinct from advisory, which describes its OUTPUT standing). none: read-only or ordinary durable write under the project writer. user-consent: interactive confirmation or --yes-policy. policy-record-or-consent: CI needs a pre-existing policy record. security-grant: an admitted RepoExecutionGrantV2. recovery-authority-quorum: an epoch signed by recoveryAuthority keys at its threshold (S4.5); ordinary root keys do not count. exclusive-lease: EXCLUSIVE lease (S7) plus explicit invocation. core-transition-leases: installation fence plus the S7 affected namespace EXCLUSIVE set, derived from the admitted intent and installation registry; same-schema core update/repair require the fence alone."
+        },
+        "advisory": {
+          "type": "boolean",
+          "description": "true: every output is Map-side and can never be a Control verdict or repair authorization"
+        },
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": {
+            "$ref": "urn:opensip:product-v1:workflows:evaluator3:invocation:3#/$defs/StepKind"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "formats": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 5,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/OutputFormat"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "parityFields": {
+          "type": "array",
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CanonicalIdentifier"
+          },
+          "description": "fields whose value must be semantically identical across every applicable renderer of this command",
+          "x-opensip-order": "sequence"
+        },
+        "writesTrackedIntent": {
+          "type": "boolean",
+          "description": "true only for explicit policy-init/waive/baseline-adopt/baseline-export/baseline-upgrade; no other command writes a tracked file"
+        },
+        "repositoryExecution": {
+          "type": "string",
+          "enum": [
+            "never",
+            "explicit-authorized"
+          ]
+        },
+        "firstSourceWrite": {
+          "type": "boolean",
+          "description": "true when the command may perform the first source-derived write into the private store; such a command must carry the --allow-backup-custody join (identity §5 / TM V17)"
+        },
+        "flags": {
+          "type": "array",
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/CommandFlag"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "queryDispatch": {
+          "$ref": "#/$defs/QueryDispatch"
+        },
+        "metaDispatch": {
+          "oneOf": [
+            {
+              "const": {
+                "command": "help",
+                "paritySelectors": {
+                  "command-names": "$.meta.commands[*].name"
+                }
+              }
+            },
+            {
+              "const": {
+                "command": "version",
+                "paritySelectors": {
+                  "host-release": "$.meta.hostRelease",
+                  "closure-ids": "$.meta.closureIds",
+                  "build-channel": "$.meta.buildChannel"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "firstSourceWrite": {
+                "const": true
+              }
+            },
+            "required": [
+              "firstSourceWrite"
+            ]
+          },
+          "then": {
+            "properties": {
+              "flags": {
+                "contains": {
+                  "properties": {
+                    "flag": {
+                      "const": "--allow-backup-custody"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "formats": {
+                "contains": {
+                  "const": "sarif"
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "parityFields": {
+                "allOf": [
+                  {
+                    "contains": {
+                      "const": "run-id"
+                    }
+                  },
+                  {
+                    "contains": {
+                      "const": "verdict"
+                    }
+                  },
+                  {
+                    "contains": {
+                      "const": "required-coverage"
+                    }
+                  },
+                  {
+                    "contains": {
+                      "const": "deficiency"
+                    }
+                  },
+                  {
+                    "contains": {
+                      "const": "findings"
+                    }
+                  },
+                  {
+                    "contains": {
+                      "const": "termination-class"
+                    }
+                  },
+                  {
+                    "contains": {
+                      "const": "retention-disclosure"
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "name": {
+                "const": "purge"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "parityFields": {
+                "contains": {
+                  "const": "purge-disclosure"
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "requestClass"
+            ],
+            "properties": {
+              "requestClass": {
+                "const": "query"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "queryDispatch"
+            ]
+          },
+          "else": {
+            "not": {
+              "required": [
+                "queryDispatch"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "name": {
+                "enum": [
+                  "help",
+                  "version"
+                ]
+              }
+            },
+            "required": [
+              "name"
+            ]
+          },
+          "then": {
+            "required": [
+              "metaDispatch"
+            ]
+          },
+          "else": {
+            "not": {
+              "required": [
+                "metaDispatch"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "name": {
+                "const": "help"
+              }
+            },
+            "required": [
+              "name"
+            ]
+          },
+          "then": {
+            "properties": {
+              "metaDispatch": {
+                "const": {
+                  "command": "help",
+                  "paritySelectors": {
+                    "command-names": "$.meta.commands[*].name"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "name": {
+                "const": "version"
+              }
+            },
+            "required": [
+              "name"
+            ]
+          },
+          "then": {
+            "properties": {
+              "metaDispatch": {
+                "const": {
+                  "command": "version",
+                  "paritySelectors": {
+                    "host-release": "$.meta.hostRelease",
+                    "closure-ids": "$.meta.closureIds",
+                    "build-channel": "$.meta.buildChannel"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "Renderer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "version",
+        "applicability",
+        "requiredFailureClass",
+        "parityRule"
+      ],
+      "properties": {
+        "format": {
+          "$ref": "#/$defs/OutputFormat"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "applicability": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/RequestClass"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "requiredFailureClass": {
+          "const": "operational-failed"
+        },
+        "parityRule": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/BoundedText"
+        }
+      }
+    },
+    "Golden": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "command",
+        "situation",
+        "class",
+        "exitCode"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CanonicalIdentifier"
+        },
+        "command": {
+          "$ref": "#/$defs/CommandName"
+        },
+        "situation": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/BoundedText"
+        },
+        "class": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/D9Class"
+        },
+        "exitCode": {
+          "type": "integer",
+          "enum": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            130
+          ]
+        },
+        "errorCode": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/D9ErrorCode"
+        },
+        "reasonCode": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/D9ReasonCode"
+        },
+        "domainDetail": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/DomainDetailCode"
+        },
+        "remedy": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/BoundedText"
+        },
+        "detailSuppliedBy": {
+          "type": "string",
+          "enum": [
+            "native-route-composition"
+          ],
+          "description": "workflows-and-surfaces §8: the native §10 route composition supplies errors from the route detail. Absent when domainDetail is present."
+        }
+      },
+      "description": "A failure golden (request-rejected or operational-failed) carries its actual domainDetail, unless detailSuppliedBy names the composition that supplies the failure envelope errors.",
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "class"
+            ],
+            "properties": {
+              "class": {
+                "enum": [
+                  "request-rejected",
+                  "operational-failed"
+                ]
+              }
+            }
+          },
+          "then": {
+            "anyOf": [
+              {
+                "required": [
+                  "domainDetail"
+                ]
+              },
+              {
+                "required": [
+                  "detailSuppliedBy"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "detailSuppliedBy"
+            ]
+          },
+          "then": {
+            "not": {
+              "required": [
+                "domainDetail"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "QueryDispatch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "surface",
+        "stepKind",
+        "operations",
+        "parityPaths"
+      ],
+      "properties": {
+        "surface": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:command-envelope:3#/properties/querySurface"
+        },
+        "stepKind": {
+          "type": "string",
+          "enum": [
+            "query",
+            "repair-preview"
+          ]
+        },
+        "operations": {
+          "type": "array",
+          "maxItems": 20,
+          "uniqueItems": true,
+          "items": {
+            "oneOf": [
+              {
+                "$ref": "urn:opensip:product-v1:workflows:evaluator3:graph-query:3#/$defs/Operation"
+              },
+              {
+                "$ref": "urn:opensip:product-v1:workflows:evaluator3:invocation:3#/$defs/HostQueryOperation"
+              }
+            ]
+          },
+          "x-opensip-order": "sequence"
+        },
+        "parityPaths": {
+          "type": "object",
+          "minProperties": 1,
+          "maxProperties": 32,
+          "propertyNames": {
+            "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CanonicalIdentifier"
+          },
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^(/[A-Za-z0-9-]+)+(?![\\s\\S])"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "stepKind": {
+                "const": "repair-preview"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "operations": {
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "stepKind": {
+                "const": "query"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "operations": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ],
+      "description": "Closed dispatch of a query-class command: the envelope surface it selects, the step that produces it, the query-step operations it may dispatch, and the exact JSON pointer into CommandEnvelope major 3 for every parity field."
+    }
+  }
+}

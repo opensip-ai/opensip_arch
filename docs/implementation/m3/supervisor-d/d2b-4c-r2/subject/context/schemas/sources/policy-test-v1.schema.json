@@ -1,0 +1,542 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:opensip:product-v1:workflows:policy-test",
+  "title": "Policy authoring test suite and deterministic result (PROPOSED, revised)",
+  "description": "A suite tests a candidate PolicyDocumentV1 before enforcement. Every case supplies typed fact records with a declared Coverage state and is evaluated by the deterministic fixture verifier (the pure evaluator over a finite fact view; no provider, no repository code). Optionally a case names a bounded source fixture analyzed under an ephemeral non-authoritative Plan by the bundled trusted providers; that path is disclosed and never authoritative. The operation is Query class: it never writes tracked intent, never promotes severity, and discloses every override it applied. Bounds: at most 1024 cases per suite; at most 100000 fact records per case; at most 4194304 source bytes and 256 files per case.",
+  "$defs": {
+    "FactRecordCandidate": {
+      "type": "object",
+      "description": "A host-schema fact supplied as test input. The suite cannot mint fact2 identities; the verifier computes them.",
+      "additionalProperties": false,
+      "required": [
+        "relation",
+        "subject",
+        "target",
+        "resolution",
+        "universe",
+        "confidenceMillionths"
+      ],
+      "properties": {
+        "relation": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/CanonicalIdentifier"
+        },
+        "subject": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/LogicalPath"
+        },
+        "target": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/LogicalPath"
+        },
+        "resolution": {
+          "$ref": "urn:opensip:product-v1:workflows:policy-document#/$defs/Rung"
+        },
+        "universe": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/CanonicalIdentifier"
+        },
+        "confidenceMillionths": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "subjectKind": {
+          "type": "string",
+          "enum": [
+            "file",
+            "symbol",
+            "export",
+            "package"
+          ]
+        },
+        "targetKind": {
+          "type": "string",
+          "enum": [
+            "file",
+            "symbol",
+            "export",
+            "package",
+            "external"
+          ]
+        },
+        "observability": {
+          "type": "string",
+          "enum": [
+            "observed-hit",
+            "observable-unhit",
+            "unobservable",
+            "unmapped"
+          ]
+        }
+      }
+    },
+    "SourceFile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "bytes"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/LogicalPath"
+        },
+        "sha256": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/Sha256Hex"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4194304
+        }
+      }
+    },
+    "Subject": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "subjects",
+            "facts",
+            "coverage",
+            "evidenceAvailable"
+          ],
+          "properties": {
+            "kind": {
+              "const": "facts"
+            },
+            "subjects": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 100000,
+              "items": {
+                "$ref": "urn:opensip:product-v1:workflows:common#/$defs/LogicalPath"
+              },
+              "description": "the complete enumerated subject inventory for the fixture; a rule's subjectEnumeration selects from it",
+              "x-opensip-order": "sequence"
+            },
+            "facts": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 100000,
+              "items": {
+                "$ref": "#/$defs/FactRecordCandidate"
+              },
+              "x-opensip-order": "sequence"
+            },
+            "coverage": {
+              "type": "string",
+              "enum": [
+                "complete",
+                "partial",
+                "unknown"
+              ],
+              "description": "declared Coverage of the supplied fact view; partial/unknown lets a case assert indeterminate behavior"
+            },
+            "evidenceAvailable": {
+              "type": "array",
+              "maxItems": 5,
+              "uniqueItems": true,
+              "items": {
+                "$ref": "urn:opensip:product-v1:workflows:imported-evidence#/$defs/ImportKind"
+              },
+              "x-opensip-order": "sequence"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "files"
+          ],
+          "properties": {
+            "kind": {
+              "const": "sources"
+            },
+            "files": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 256,
+              "items": {
+                "$ref": "#/$defs/SourceFile"
+              },
+              "x-opensip-order": "sequence"
+            }
+          }
+        }
+      ]
+    },
+    "Expectation": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "ruleId",
+            "minCount"
+          ],
+          "properties": {
+            "kind": {
+              "const": "finding"
+            },
+            "ruleId": {
+              "$ref": "urn:opensip:product-v1:workflows:common#/$defs/CanonicalIdentifier"
+            },
+            "minCount": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000
+            },
+            "maxCount": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000
+            },
+            "subjects": {
+              "type": "array",
+              "maxItems": 1024,
+              "uniqueItems": true,
+              "items": {
+                "$ref": "urn:opensip:product-v1:workflows:common#/$defs/LogicalPath"
+              },
+              "x-opensip-order": "sequence"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "ruleId"
+          ],
+          "properties": {
+            "kind": {
+              "const": "no-finding"
+            },
+            "ruleId": {
+              "$ref": "urn:opensip:product-v1:workflows:common#/$defs/CanonicalIdentifier"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "verdict"
+          ],
+          "properties": {
+            "kind": {
+              "const": "verdict"
+            },
+            "verdict": {
+              "$ref": "urn:opensip:product-v1:workflows:common#/$defs/Verdict"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "ruleId"
+          ],
+          "properties": {
+            "kind": {
+              "const": "indeterminate"
+            },
+            "ruleId": {
+              "$ref": "urn:opensip:product-v1:workflows:common#/$defs/CanonicalIdentifier"
+            }
+          }
+        }
+      ]
+    },
+    "Case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "subject",
+        "expectations"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/CanonicalIdentifier"
+        },
+        "subject": {
+          "$ref": "#/$defs/Subject"
+        },
+        "expectations": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/Expectation"
+          },
+          "x-opensip-order": "sequence"
+        }
+      }
+    },
+    "Override": {
+      "type": "object",
+      "description": "Test-only override of effective policy for this invocation. Disclosed in the result; never written.",
+      "additionalProperties": false,
+      "required": [
+        "ruleId",
+        "field",
+        "value"
+      ],
+      "properties": {
+        "ruleId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/CanonicalIdentifier"
+        },
+        "field": {
+          "type": "string",
+          "enum": [
+            "enabled",
+            "severity",
+            "gate"
+          ]
+        },
+        "value": {
+          "oneOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "$ref": "urn:opensip:product-v1:workflows:policy-document#/$defs/Severity"
+            }
+          ]
+        }
+      }
+    },
+    "PolicyTestSuiteV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaFamily",
+        "schemaMajor",
+        "candidatePolicy",
+        "waivers",
+        "cases"
+      ],
+      "properties": {
+        "schemaFamily": {
+          "const": "opensip.product.policy-test"
+        },
+        "schemaMajor": {
+          "const": 1
+        },
+        "candidatePolicy": {
+          "$ref": "urn:opensip:product-v1:workflows:policy-document#/$defs/PolicyDocumentV1"
+        },
+        "waivers": {
+          "$ref": "urn:opensip:product-v1:workflows:policy-document#/$defs/WaiverSetV1"
+        },
+        "asOfDate": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/UtcDate",
+          "description": "date used for waiver expiry resolution in the fixture; defaults to no expiry resolution (all non-expired) when absent"
+        },
+        "overrides": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/Override"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "cases": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1024,
+          "items": {
+            "$ref": "#/$defs/Case"
+          },
+          "x-opensip-order": "sequence"
+        }
+      }
+    },
+    "CaseResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "outcome",
+        "observedVerdict",
+        "findings",
+        "indeterminateRules",
+        "expectationOutcomes"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/CanonicalIdentifier"
+        },
+        "outcome": {
+          "type": "string",
+          "enum": [
+            "passed",
+            "failed",
+            "indeterminate",
+            "not-executable"
+          ],
+          "description": "indeterminate: the fixture's declared Coverage was insufficient for an expectation that asserts a definite result. not-executable: a sources fixture without a bundled provider closure in the test host."
+        },
+        "observedVerdict": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/Verdict"
+        },
+        "findings": {
+          "type": "array",
+          "maxItems": 100000,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "ruleId",
+              "subject",
+              "waived"
+            ],
+            "properties": {
+              "ruleId": {
+                "$ref": "urn:opensip:product-v1:workflows:common#/$defs/CanonicalIdentifier"
+              },
+              "subject": {
+                "$ref": "urn:opensip:product-v1:workflows:common#/$defs/LogicalPath"
+              },
+              "waived": {
+                "type": "boolean"
+              }
+            }
+          },
+          "x-opensip-order": "sequence"
+        },
+        "indeterminateRules": {
+          "type": "array",
+          "maxItems": 512,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "urn:opensip:product-v1:workflows:common#/$defs/CanonicalIdentifier"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "expectationOutcomes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "enum": [
+              "met",
+              "unmet",
+              "indeterminate"
+            ]
+          },
+          "x-opensip-order": "sequence"
+        }
+      }
+    },
+    "PolicyTestResultV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaFamily",
+        "schemaMajor",
+        "policyTestResultId",
+        "suiteDigest",
+        "candidatePolicyDigest",
+        "effectivePolicyDigest",
+        "resolverAccepted",
+        "resolverRefusals",
+        "overridesApplied",
+        "waiverResolution",
+        "enforcementUnchanged",
+        "results",
+        "summary"
+      ],
+      "properties": {
+        "schemaFamily": {
+          "const": "opensip.product.policy-test-result"
+        },
+        "schemaMajor": {
+          "const": 1
+        },
+        "policyTestResultId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/PolicyTestResultId"
+        },
+        "suiteDigest": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/Sha256Hex",
+          "description": "Bare H(\"workflow.policy-test-suite\", the complete admitted PolicyTestSuiteV1 before overrides), under identity section 3. Retain the suite preimage; not raw SHA-256 of canonical suite bytes."
+        },
+        "candidatePolicyDigest": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/Sha256Hex"
+        },
+        "effectivePolicyDigest": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/Sha256Hex",
+          "description": "digest of the candidate after overrides; equals candidatePolicyDigest when no override applied"
+        },
+        "resolverAccepted": {
+          "type": "boolean"
+        },
+        "resolverRefusals": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "urn:opensip:product-v1:workflows:common#/$defs/DomainDetail"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "overridesApplied": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/Override"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "waiverResolution": {
+          "$ref": "urn:opensip:product-v1:workflows:policy-document#/$defs/WaiverResolutionV1"
+        },
+        "enforcementUnchanged": {
+          "const": true
+        },
+        "results": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 1024,
+          "items": {
+            "$ref": "#/$defs/CaseResult"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "summary": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "passed",
+            "failed",
+            "indeterminate",
+            "notExecutable"
+          ],
+          "properties": {
+            "passed": {
+              "$ref": "urn:opensip:product-v1:workflows:common#/$defs/Uint53"
+            },
+            "failed": {
+              "$ref": "urn:opensip:product-v1:workflows:common#/$defs/Uint53"
+            },
+            "indeterminate": {
+              "$ref": "urn:opensip:product-v1:workflows:common#/$defs/Uint53"
+            },
+            "notExecutable": {
+              "$ref": "urn:opensip:product-v1:workflows:common#/$defs/Uint53"
+            }
+          }
+        }
+      }
+    }
+  }
+}
