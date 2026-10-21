@@ -1,0 +1,47 @@
+[package]
+name = "opensip-host"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.95"
+publish = false
+license = "Apache-2.0"
+[lib]
+path = "src/lib.rs"
+[dependencies]
+opensip-identity = { path = "../identity" }
+opensip-contracts = { path = "../contracts" }
+opensip-platform = { path = "../platform" }
+opensip-operability = { path = "../operability" }
+opensip-reporting = { path = "../reporting" }
+serde_json = "=1.0.151"
+# M3-P0/C3a selected raw DEFLATE inflater; gzip/tar framing remains first-party.
+miniz_oxide = { version = "=0.9.1", default-features = false }
+
+opensip-lifecycle = { path = "../lifecycle" }
+opensip-security = { path = "../security" }
+
+opensip-storage = { path = "../storage" }
+opensip-evaluator = { path = "../evaluator" }
+# Unit D4-2 (M3-D r5 item 24): the manifest-class excluded-form judge, which
+# R10a's adapter feeds (the inventory's host -> components edge).
+opensip-components = { path = "../components" }
+
+# Test-only (law X9 r1 items 1 and 2): never default, never enabled from a
+# dependency table, reached only by an explicit `--features crash-matrix`;
+# src/lib.rs refuses it in any build without debug assertions.
+[features]
+crash-matrix = ["opensip-storage/crash-matrix", "opensip-security/crash-matrix", "opensip-platform/crash-matrix"]
+# Law M3-O1 item 10: forwarded only. Never a default and never enabled from
+# the dependency table, so a featureless build leaves the stderr sink off.
+operability-dev-sinks = ["opensip-operability/operability-dev-sinks"]
+harness-instrumentation = ["opensip-operability/harness-instrumentation"]
+# Law X8 r3 items 4a and 4f (unit X8b): the refusal suite's test seam, for
+# this crate's tests only (B0 to B8 in `tests/admission_tests.rs`).
+[dev-dependencies]
+opensip-storage = { path = "../storage", features = ["scenario-fixtures"] }
+# Law X9 r1 item 2 and r10 (unit X9-5): the crash matrix's host target, built
+# only with an explicit `--features crash-matrix`; a plain test run skips it.
+[[test]]
+name = "commit_matrix_tests"
+path = "tests/commit_matrix_tests.rs"
+required-features = ["crash-matrix"]

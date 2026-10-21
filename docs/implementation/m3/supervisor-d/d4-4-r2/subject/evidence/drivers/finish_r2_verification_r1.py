@@ -1,0 +1,18 @@
+from pathlib import Path
+import os,json,subprocess,datetime,hashlib
+assert os.environ.get('OPENSIP_LEAD_HOLDS_LANE_LOCK')=='1'
+F=Path(__file__).parent;C=Path('/Users/sb/code/.opensip-implementation-cache/control-2026-10-06/CURRENT-STATE.json');W=Path('/Users/sb/code/opensip-ai/opensip-d4factory-takeover');P=F/'r2-verification-process.json';steps=['check_native_adapter_owning_r11.py','check_core_mutants_r5.py','check_native_route_mutants_r4.py','check_host_regressions_r6.py','check_component_regressions_r2.py','check_doc_controls_r2.py','check_repository_r2.py'];state=dict(started=datetime.datetime.now(datetime.timezone.utc).isoformat(),orchestratorPid=os.getpid(),status='running',completed=[],current=None,productQualification=False)
+def save():P.write_text(json.dumps(state,indent=2)+'\n')
+def checkpoint():
+ j=json.loads((F/'CONTINUATION.json').read_text());j['utc']=datetime.datetime.now(datetime.timezone.utc).isoformat();j['goalTurnClassification']='progress';j['standing']='R1 required TS2 authority finding fixed;8owning/source-pin checks and3new compiled identity-version mutants pass. Corrected constructor UTF-8 byte offsets validate. Full R2 verification pipeline running before successor freeze/review; no integration.';j['verificationPipeline']=dict(state);j['currentProcesses']=[] if state['status']!='running' else [dict(orchestratorPid=state['orchestratorPid'],child=state['current'],phaseFile=str(P))];j['nextAction']='Observe SAME finish_r2_verification_r1.py process/phase file, never restart on timeout. Finish current native13/core5/native4/fullhost436/component419/doc/repository checks; inspect failures if any. Preserve R1 REQUIRED-FINDINGS/inventory ACCEPT and root offset finding. Freeze complete R2 exact successor with corrected independent TS2 versions, affected mutation evidence, raw239/161meanings unchanged, updated archive-qualified refs, and exact corrected offset report. Fresh CODEX2 unit/inventory review and separate substantive root assent before any integration. Entire project remains active.';paths=sorted(subprocess.check_output(['git','ls-files','-m','-o','--exclude-standard'],cwd=W,text=True).splitlines());j['sourcePins']=[dict(path=p,bytes=(W/p).stat().st_size,sha256=hashlib.sha256((W/p).read_bytes()).hexdigest())for p in paths];j['identityVersionCorrectionEvidence']=dict(owning='identity-version-owning-r1/report.json',compiledMutants='identity-version-mutants-r1/report.json',agreedWrongCases=7,mutantsCompiledAndKilled=3,allOriginalsRestored=True,pinnedSchemaAuthority=True);j['rootOffsetCorrectionEvidence']='constructor-pin-r3/report.json'
+ for name in ['CURRENT.json','CONTINUATION.json']:(F/name).write_text(json.dumps(j,indent=2)+'\n')
+ c=json.loads(C.read_text());c['currentExecution']=j;c['D4FactoryTakeover']=j;C.write_text(json.dumps(c,indent=2)+'\n')
+save();checkpoint()
+try:
+ for name in steps:
+  with (F/(name+'.execution.log')).open('wb')as out:
+   child=subprocess.Popen([os.sys.executable,'-I','-B',str(F/name)],cwd=W,env=os.environ,stdout=out,stderr=subprocess.STDOUT);state['current']=dict(script=name,pid=child.pid);save();checkpoint();code=child.wait()
+  state['completed'].append(dict(script=name,exitCode=code));state['current']=None;save();checkpoint();assert code==0,(name,code)
+ state['status']='complete';state['finished']=datetime.datetime.now(datetime.timezone.utc).isoformat();save();checkpoint();print('R2 verification pipeline COMPLETE; exact sources preserved, no acceptance/integration.',flush=True)
+except BaseException as error:
+ state['status']='failed';state['error']=repr(error);state['current']=None;save();checkpoint();raise

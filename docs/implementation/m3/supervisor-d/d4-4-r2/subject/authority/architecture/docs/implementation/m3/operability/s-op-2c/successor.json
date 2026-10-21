@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "standing": "PROPOSED S-OP-2c r1, the four record tables, a contract successor to S-OP-2 r6. One override changes provider.process.reaped's signal table to ChildSignal (line 881); one insertion-only override adds item 23a after item 23 (line 894), fixing StageKind, ProviderState, Signal, ChildSignal and ProviderReason. Independent review and lead assent required. The parent is already an accepted base (S-OP-2-R).",
+  "parents": [
+    {
+      "path": "docs/implementation/m3/operability/s-op-2/PROPOSAL-r6.md",
+      "bytes": 130001,
+      "sha256": "ce8d3a4b783328915f0bf550dd111f227aa9901d5efddbcd9ccc8707cd4cb11d"
+    }
+  ],
+  "passageOverrides": [
+    {
+      "parent": {
+        "path": "docs/implementation/m3/operability/s-op-2/PROPOSAL-r6.md",
+        "bytes": 130001,
+        "sha256": "ce8d3a4b783328915f0bf550dd111f227aa9901d5efddbcd9ccc8707cd4cb11d"
+      },
+      "selector": {
+        "line": 881
+      },
+      "before": "| `provider.process.reaped` | info | P, P, E | `pid` K11 (P1); `exit_class` K1 (ExitClass); `signal` K1 (Signal), optional; **`max_rss_native` K2 `Count`; `rss_unit` K1 (RssUnit: `kib`, `bytes`); `max_rss_bytes` K2 `Bytes`, optional**; `cpu` K2 `Elapsed`; `teardown` K2 `Elapsed` (M3L:402-406) | no |",
+      "after": "| `provider.process.reaped` | info | P, P, E | `pid` K11 (P1); `exit_class` K1 (ExitClass); `signal` K1 (ChildSignal, item 23a), optional; **`max_rss_native` K2 `Count`; `rss_unit` K1 (RssUnit: `kib`, `bytes`); `max_rss_bytes` K2 `Bytes`, optional**; `cpu` K2 `Elapsed`; `teardown` K2 `Elapsed` (M3L:402-406) | no |"
+    },
+    {
+      "parent": {
+        "path": "docs/implementation/m3/operability/s-op-2/PROPOSAL-r6.md",
+        "bytes": 130001,
+        "sha256": "ce8d3a4b783328915f0bf550dd111f227aa9901d5efddbcd9ccc8707cd4cb11d"
+      },
+      "selector": {
+        "line": 894
+      },
+      "before": "\"P, P, E\" is Project, Plan, Execution. There are 27 events. The largest bound is `log.loss.counted`'s 1,802 B, and every event is within 4,096 B (item 14).",
+      "after": "\"P, P, E\" is Project, Plan, Execution. There are 27 events. The largest bound is `log.loss.counted`'s 1,802 B, and every event is within 4,096 B (item 14).\n\n**23a. The four record tables (S-OP-2c r1).** Item 23 names `StageKind`, `ProviderState`, `Signal` and `ProviderReason` without fixing their members. This item fixes each one under item 3's provenance classes and adds `ChildSignal`. Where a table cites more than one closed enum, its members are exactly their union, and C-2 checks it against that union, member for member. No kind, class, provenance class, sink, bound, event or other field changes.\n- **`StageKind`** (`protocol-enum`, LD-OPT-1). The source is the `operator` of each selectable protocol's stage record: TS2 `StageRequestV1.operator` and Rust3 `PlanStageV3.operator` (`schemas/wire/native-carriers-v1.json`, records `Ts2StageRequestV1` and `Rust3C2PlanStageV3`; generated `Ts2StageRequestV1Field2Value` and `Rust3C2PlanStageV3Field5Value`). The value is the operator of the Plan stage the event reports.\n  - A stage whose operator is not a member gains one only by an ordinary registration that cites a closed, pinned member for it. Such stages are `host.reuse.disclosed`'s in-host syntax and host inventory stages. Until then their events are blocked, and are never recorded with another stage's kind.\n  - Members: `semantic-provider`.\n- **`ProviderState`** (`protocol-enum`, LD-OPT-2). The source is P3T's `phases` (`docs/coop/design-corrections/native/protocol3-transitions.v1.json`), in that order. T2O's `phases` (`docs/coop/design-corrections/native/typescript-protocol2-order.v1.json`) are a subset of them. The value is the phase of the host's transition engine after the transition the event reports, so a `typescript-semantic` event names only a T2O phase.\n  - Members: `START`, `WAIT_HELLO_ACK`, `READY_OPEN_UNIVERSE`, `WAIT_UNIVERSE_ACCEPTED`, `READY_SNAPSHOT_MANIFEST`, `RECEIVING_SNAPSHOT`, `WAIT_SNAPSHOT_ACCEPTED`, `READY_DEPENDENCY_MANIFEST`, `RECEIVING_DEPENDENCY`, `WAIT_DEPENDENCY_ACCEPTED`, `READY_PREPARED_MANIFEST`, `RECEIVING_PREPARED`, `WAIT_PREPARED_ACCEPTED`, `WAIT_NATIVE_CONTEXT_VERIFIED`, `READY_ANALYZE`, `ANALYZING`, `READY_COMPLETE`, `WAIT_CANCELLED`, `WAIT_ZERO_EXIT`, `WAIT_EOF`, `DONE`, `FAULT`.\n- **`Signal`** (`generated-contract`, LD-OPT-3). The source is COMMON4 `D9Signal` (`schemas/sources/common-v4.schema.json`; generated `Common4D9Signal`): the signals the host's handler receives (OPP §5.5). It is `host.signal.received`'s table only.\n  - Members: `SIGINT`, `SIGTERM`, `SIGHUP`.\n- **`ChildSignal`** (`registry-literal`, LD-OPT-4). This is the table of `provider.process.reaped`'s `signal`.\n  - **Members.** They are the POSIX.1-2017 `<signal.h>` signals whose default action terminates the process (T or A), less `SIGPOLL`, which macOS does not define. These are the signals by which a child can end `signaled` on every supported platform.\n  - **Mapping.** The host maps a raw termination-signal number to a member only by equality with that member's constant in the pinned `libc` crate for the host's platform. It keeps no number table of its own.\n  - **Presence.** `signal` is present exactly when `exit_class` is `signaled` and the number equals a member's constant. Any other number leaves `signal` absent, and `exit_class` `signaled` still records that a signal ended the child.\n  - Members: `SIGABRT`, `SIGALRM`, `SIGBUS`, `SIGFPE`, `SIGHUP`, `SIGILL`, `SIGINT`, `SIGKILL`, `SIGPIPE`, `SIGPROF`, `SIGQUIT`, `SIGSEGV`, `SIGSYS`, `SIGTERM`, `SIGTRAP`, `SIGUSR1`, `SIGUSR2`, `SIGVTALRM`, `SIGXCPU`, `SIGXFSZ`.\n- **`ProviderReason`** (`protocol-enum`, LD-OPT-5). The source is the `reason` of the admitted `Unavailable` terminal payloads of both selectable protocols (`docs/coop/design-corrections/native/provider-startup.schemas.v1.json`): `PreAnalyzeUnavailableV1` (`native-context-mismatch` only), TS2 `TypeScriptUnavailableV2` and Rust3 `UnavailableV3` (generated `Startup1TypeScriptUnavailableV2Reason` and `Startup1UnavailableV3Reason`). `reason` is present exactly when `terminal` is `unavailable`, and is that payload's reason. Every other terminal leaves it absent.\n  - Members: `capability-missing`, `dependency-source-incomplete`, `generated-cfg-unavailable`, `identity-version-mismatch`, `native-context-mismatch`, `node-modules-outside-read-set`, `prepared-output-not-inert`, `prepared-output-stale`, `semantic-universe-incomplete`, `snapshot-resolution-input-missing`, `unsupported-compiler-mode`."
+    }
+  ],
+  "passageSupersessions": [],
+  "candidates": [
+    {
+      "path": "docs/implementation/m3/operability/s-op-2c/PASSAGES.md",
+      "bytes": 912,
+      "sha256": "388512e10d377098ab5c3b39ff8a16268993c76bd6bcb3400309f67b8eadb200"
+    },
+    {
+      "path": "docs/implementation/m3/operability/s-op-2c/PROPOSAL.md",
+      "bytes": 17927,
+      "sha256": "4e3b4fe996fe3f1193a680f736860f68befd1023d529cf34d4fa440c95b72290"
+    },
+    {
+      "path": "docs/implementation/m3/operability/s-op-2c/README.md",
+      "bytes": 2528,
+      "sha256": "f9c2b67ee46fb09eb21904df3503a4ecfbdb16e999223936fc3e41d85c34ed5e"
+    },
+    {
+      "path": "docs/implementation/m3/operability/s-op-2c/evidence/check_sop2c.py",
+      "bytes": 13911,
+      "sha256": "e5b00bbcdaf0ae3c48bac55715b4ad5e45da52d30ff90408dffdca0ae2145a25"
+    }
+  ]
+}
