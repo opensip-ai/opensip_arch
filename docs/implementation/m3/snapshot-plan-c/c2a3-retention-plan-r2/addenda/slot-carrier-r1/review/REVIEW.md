@@ -1,0 +1,21 @@
+# Independent review — C2a3 opaque single-use slot carrier addendum r1
+
+**Verdict: `ACCEPT-ADDENDUM`**
+
+The supplied `subject.json` has SHA-256 `3f1c24d6a7556ce9c39b48c82761fc138aac114beb191bacd2510a275fc14987`. All 55 declared members under its frozen root match their recorded byte lengths and SHA-256 values.
+
+The selected interface concretely closes `C2A3-LIBSRC-R1-RF-1` at the design level. `PreparedCandidateSlots` derives its count from the privately retained ordinary-reader component slice, and its sole constructor charges the candidate-array half before allocating exactly that many `None` slots. Private fields and the prohibited construction, conversion, mutation, extraction, resizing, cloning and defaulting routes prevent a safe caller from supplying an uncharged, mismatched or pre-populated raw array. `AdmittedSet::admit` consumes the non-`Clone`/non-`Copy` `CandidateSlotClaim`, so it has no raw-slot entrypoint.
+
+The one-shot transition is coherent: the carrier marks itself spent before lending its storage, a live claim uniquely borrows that storage, and admission consumes the claim even on result-fee, candidate or retention failure. A failed attempt therefore cannot obtain a second claim from the same carrier, no partial admitted set escapes, and completed retained payloads and pins drop. The public `None` from a repeated claim is only observation of an already-spent capability; it is not admitted as a component failure, empty success, retry permission or collector invariant. The required owner controls must prove that production composition never reaches or translates that state.
+
+The accounting remains the accepted split. For nonzero `n`, the candidate half `R(n*S_c) + (0,4n,4n*S_c)` plus the result half `R(n*S_r) + (0,4n,2n*S_r)` equals `R(n*S_c) + R(n*S_r) + (0,8n,4n*S_c+2n*S_r)`. The zero-component case allocates and charges neither array. The addendum does not silently price carrier metadata or moves: it requires later source evidence that they fit the accepted allowance and requires a reviewed price change otherwise.
+
+The ownership sketch is expressible in safe Rust in principle. The prepared owner holds stable candidate storage outside the admitted result and borrows the matching component slice; the claim's mutable borrow prevents moving, dropping, growing or reclaiming that storage while the claim or returned admitted set lives. Consuming a disjoint mutable-slot iterator can retain each candidate reference for the owner borrow while constructing and fully retaining each component before advancing, preserving first-component refusal order. This creates no self-referential owner and selects no unsafe lifetime extension. The requested compile-pass and compile-fail controls remain necessary evidence of the exact signature.
+
+The addendum also removes the private `Fault::Slots` and every slot-to-`ComponentAdmissionFailure::Invariant` conversion. The existing payload-free `Invariant` and fixed `component-admission-collector` basis remain collector-only. Its export change is bounded to the two named opaque root-public lifecycle types under the existing macOS gate, with no new feature, fixture constructor, production caller, serialized code or raw authority surface.
+
+A charged carrier alone does not prove same-ledger execution. The addendum explicitly retains that obligation at `SLOT-CARRIER-ADDENDUM-r1.md:41-42,67-74`: the source-owning composition must prepare, claim and admit once on its named original admission ledger, preserve its original-scope controls, and prohibit a fresh-slot retry. This is an implementation and owning-lane proof obligation, not an inferred property of the carrier.
+
+## Evidence limitations
+
+This verdict selects the corrected design only. I performed ordinary frozen-file reads and hashing and did not execute scripts, imports, compilers, builds, tests, formatting, linting, native code or fixtures. The unaccepted raw-slot Rust file remains prior draft evidence and is not accepted implementation. Exact source correction, compiler/lifetime proof, ABI/layout/allocation and charge conformance, original-ledger production composition, source-audit closure, native launch, unit acceptance, integration, inventory, production/census/fit work and product qualification all remain open.

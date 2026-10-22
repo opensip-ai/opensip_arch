@@ -1,0 +1,31 @@
+{
+  "subject": "C2a3 initial library semantic source audit r1, uncompiled",
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectManifestSha256": "ccbcde324bb6d876f8a5c8e740cdd1a61a9b2aabc3b0e3b61cb89aaefe436826",
+  "findings": [
+    {
+      "id": "C2A3-LIBSRC-R1-RF-1",
+      "severity": "high",
+      "title": "Raw candidate slots bypass their mandatory fee and create an unowned invariant route",
+      "references": [
+        "product/crates/lifecycle/src/component_admission.rs:52-69",
+        "product/crates/lifecycle/src/component_admission.rs:75-111",
+        "product/crates/lifecycle/src/component_admission.rs:137-176",
+        "SCOPE.md:17-23",
+        "accepted-plan/WORKING-PLAN-r1.md:59-75",
+        "accepted-plan/M-BOUND-r1.md:113-136",
+        "accepted-plan/FAILURE-CONVERSIONS-r2.md:17-24",
+        "accepted-plan/FAILURE-CONVERSIONS-r2.md:31-64"
+      ],
+      "concreteFailure": "A caller can allocate a correct-length Vec<Option<ClosureCandidate>> containing only None without calling prepare_slots, then pass its mutable slice to AdmittedSet::admit. Admission can succeed while only the result-array half is charged, omitting the candidate-array R(n*S_c) plus movement fee. Wrong-length or pre-populated raw slots instead become Fault::Slots and flatten to the same unit Invariant as CollectorFault, leaving later carrier wiring unable to avoid misrecording the slot defect under the accepted collector-only operational key.",
+      "requiredCorrection": "Use an opaque non-constructible prepared-slot carrier whose sole constructor performs the exact candidate-array charge and allocation and whose storage cannot be externally resized or pre-populated; have admit consume or uniquely borrow that carrier while preserving the separate result-array charge. Remove the public-reachable Slots route by construction, or obtain a reviewed plan and owner successor selecting distinct slot-invariant semantics and a bounded key. Add source controls for fee non-bypass and invariant-route separation."
+    }
+  ],
+  "evidenceLimitations": [
+    "Early semantic source audit only; no script, import, compiler, build, test, formatter, linter, native code, or fixture was executed.",
+    "Source arithmetic does not establish ABI or layout, allocation behavior, complete source-operation coverage, safe compilation, or runtime charge conformance.",
+    "All omitted controls and later source, native, unit, inventory, production-composition, census, fit, integration, and qualification gates listed in SCOPE.md remain open."
+  ],
+  "unitAcceptance": false,
+  "productQualification": false
+}
