@@ -1,0 +1,7 @@
+# C2a3 funding price addendum r3
+
+CODEX2 accepted this proposed funding policy and fee plan. Lead assent is recorded in lead-assent.json. The six root policy/tree/ledger files are exact reviewed bytes; review-r3 preserves all64accepted members. review-r1 and review-r2 preserve the entire42member and53member rejected proposals, findings and reviews. ARCHIVE-MAP.json maps original frozen roots to complete archive roots without rewriting manifests.
+
+The selected planned fixed1024/scan256F replace the captured draft fixed128/scan12F, with total1024+F*(481+23H)+128E and extra(0,896+244F,57344+15616F). This is planning standing only; no product implementation is integrated. The explicit trusted initial constant-debit bootstrap boundary addresses the R1 temporal funding finding and R2 direct caller propagation finding. It excludes no candidate observations or later debit caller work. The scoped candidate ledger775fixed/163perBlob includes one error reserve and retains all separate unproved categories.
+
+Separate exact implementation/oracle/guard review and native input re-freeze are required before new-source results can apply. No cap or positive control changes. This publication does not establish primitive contracts, physical ABI/traffic, complete M, native debit/refusal/cleanup, census/aggregate fit, unit acceptance or product/project qualification. Existing queued compiler/native images remain immutable and retain only their exact scope. All remaining project gates stay open.
