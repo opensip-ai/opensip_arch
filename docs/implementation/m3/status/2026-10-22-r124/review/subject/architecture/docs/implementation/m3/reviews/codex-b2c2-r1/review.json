@@ -1,0 +1,51 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectManifestSha256": "583eca29bfe0e390560995c8f6d838f4959d6d925ab94d1e86d9a67948593a3e",
+  "requiredFindings": [
+    {
+      "id": "B2C2-R1-RF-1",
+      "priority": "P2",
+      "title": "Empty-document acceptance needs an accepted law change",
+      "path": "crates/host/src/typescript_config.rs",
+      "line": 197,
+      "problem": "LD-B2C2-2(a) admits an empty or comment-only document as an empty object. Item 14a defines JSONC as JSON with comments and trailing commas, and requires non-JSONC files to refuse. Removing comments from these inputs leaves no JSON value. TypeScript compatibility is supporting evidence, not authority to add another grammar extension in this implementation unit. The two success vectors and the empty-document-refused mutation currently enforce the extension rather than the pinned law.",
+      "requiredChange": "Either refuse empty/comment-only files as native.typescript-config-malformed and update the reference, expectations and controls, or obtain and pin an accepted M3-B law amendment explicitly admitting them before claiming implementation fidelity. Align the shared parser contract, scope record and evidence with that decision.",
+      "evidence": [
+        "SCOPE.md LD-B2C2-2(a) explicitly acknowledges going beyond JSON.",
+        "read_fields returns Some(file) when document.root() is None.",
+        "Permitted reference probes of an empty byte string and a comment-only document both returned success."
+      ]
+    },
+    {
+      "id": "B2C2-R1-RF-2",
+      "priority": "P2",
+      "title": "The Python oracle conflates JSON null with a missing document",
+      "path": "tools/host/typescript_config_vectors.py",
+      "line": 253,
+      "problem": "parse_jsonc returns Python None for both a JSON null value and an empty document. fields converts either to {}, accepting a null configuration. Rust produces Some(Node::Null) and rejects it at read_fields\u2019 object check. Thus the independent oracle disagrees with Rust and with LD-B2C2-2(h), which requires an object root. The existing top-level malformed cases omit null.",
+      "requiredChange": "Distinguish an absent document from a parsed null value, or reject both if empty documents are removed under RF-1. Add hand-written malformed expectations for null at the entry and at an extended base, including comments around null; regenerate vectors and demonstrate reference/Rust agreement.",
+      "evidence": [
+        "effective(\"tsconfig.json\", source returning b\"null\") returned allowJs=False, checkJs=False and a graph.",
+        "The same success occurred for b\"null /* comment */\".",
+        "An entry extending base.json whose bytes are b\"null\" succeeded and included both nodes.",
+        "Rust typescript_config.rs:200-201 rejects every non-object root."
+      ]
+    },
+    {
+      "id": "B2C2-R1-RF-3",
+      "priority": "P1",
+      "title": "Repeated edges cause exponential inheritance work within all bounds",
+      "path": "crates/host/src/typescript_config.rs",
+      "line": 482,
+      "problem": "Walk::inherited recursively evaluates each edge without caching a node\u2019s inherited options. Graph discovery deduplicates nodes, but option evaluation expands every path through the DAG. Python effective.inherited has the same defect. A valid eight-node chain with 64 repeated edges to the next node at each level requires 4,467,856,773,185 inherited calls by the source recurrence. The entire input is 5,021 bytes, the largest file is 717 bytes, and each node has at most 64 edges, so neither item 14a\u2019s bounds nor O-1 explains or prevents the work. This can effectively hang pre-Plan discovery on small admitted input.",
+      "requiredChange": "Compute inherited options once per canonical node, using memoization or postorder evaluation in both Rust and the reference. Preserve repeated edges in the graph and declaration-order precedence. Add a regression with repeated/shared bases that checks the result and verifies bounded evaluation work without depending on a long wall-clock timeout; refresh the affected evidence.",
+      "evidence": [
+        "Permitted Python profiling measured 255, 4,095 and 65,535 inherited calls for chains of 8, 12 and 16 nodes respectively, with two repeated edges per level.",
+        "The 16-node input totaled 569 bytes and needed only 31 source reads.",
+        "The larger 64-edge example was constructed and its recurrence calculated, not executed.",
+        "Rust lines 485-486 and Python lines 396-397 recursively evaluate every repeated edge without a node cache."
+      ]
+    }
+  ],
+  "nonBlockingObservations": []
+}

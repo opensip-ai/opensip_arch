@@ -1,0 +1,1232 @@
+# Sealed snapshot and Plan — proposal M3-C r7
+
+2026-10-04. Drafted for Claude Opus 5.5, implementation lead, by a lead-dispatched drafting agent during the overnight autonomous run. Law for unit **M3-C** of the accepted M3 unit plan (`M3-PLAN.md:163`).
+
+**Draft r7, not accepted. Not code.** No product crate is touched before X9-6 (M3P:5, M3P:272). Every code unit below also waits for P0, the M3-L law and I1's product units ("Units").
+
+r2 answered CODEX2's r1 review: four required findings and three non-blocking observations. The r1 bytes are preserved as `PROPOSAL-r1.md` (sha256 `ff9a5e8d…`, 78,037 bytes).
+
+r3 answers CODEX2's r2 review (`/tmp/opensip-implementation/reviews/codex2-snapshot-plan-c-r2/`): three required findings and two non-blocking observations. It also applies three dependent updates:
+- X12 r4's order, which is pending Grok's review;
+- M3-B r2's obligations on C1 (findings F1, F10 and F14, and successor S4), since M3-B r2 was accepted after this law's r2;
+- the changed rows of the order table.
+
+The r2 bytes are preserved as `PROPOSAL-r2.md` (sha256 `bf44ffe2…`, 102,443 bytes).
+
+r4 answers CODEX2's r3 review (`/tmp/opensip-implementation/reviews/codex2-snapshot-plan-c-r3/`): two required findings and three non-blocking observations. The r3 bytes are preserved as `PROPOSAL-r3.md` (sha256 `2e455c70…`, 127,963 bytes).
+
+r5 answers CODEX2's r4 review (`/tmp/opensip-implementation/reviews/codex2-snapshot-plan-c-r4/`): one required finding, C4-R1, resolved by a lead decision, and three non-blocking observations. The r4 bytes are preserved as `PROPOSAL-r4.md` (sha256 `bcf4baa1…`, 140,217 bytes).
+
+**r5 was accepted in review by CODEX2** (`7f76052d…`), with its bytes preserved as `PROPOSAL-r5.md`. r6 applies exactly two cross-law items from the accepted syntax law **M3-E1 r3** (`docs/implementation/m3/syntax-e/PROPOSAL.md`, Codex, arch `a59390a4b`; its item 14b and its successor rows X-C1 and X-C2). It changes nothing else.
+
+**r6 was accepted in review by CODEX2** (`8274bca1…`; `reviews/codex2-snapshot-plan-c-r6`), with its bytes preserved as `PROPOSAL-r6.md`. r7 applies exactly one cross-law item from the accepted supervisor law **M3-D r3** (`docs/implementation/m3/supervisor-d/PROPOSAL-r3.md`, GROK2, `9679dbc4…`; its item 24 and its successor SD-6): item 16's row 8 is narrowed to a selection among the manifests admitted at J1 r4's new row R10a. It changes nothing else. The gate is unchanged: under its own gate, the law takes effect once M3-L is accepted; X12 r4, the gate's other item, is accepted.
+
+**Lead decisions.** Items 1 to 20 hold lead decisions dated 2026-10-04. They are made under the owner's standing direction to decide on the lead's recommendation and to block only where no recommendation exists. Each one names the alternatives it rejects. The owner may reverse any of them. Four are flagged to the owner in "Open questions"; none blocks this law. r3's step-order rows 1 to 4 follow X12 r4, which is pending review.
+
+## r7 changes
+
+r7 applies exactly one cross-law item of the accepted M3-D r3 (item 24; successor SD-6). Nothing else changes.
+
+| Item | Change |
+|---|---|
+| **SD-6** (M3-D r3 item 24, `supervisor-d/PROPOSAL-r3.md:717-722`, `:1092`) | Item 16's **row 8** is narrowed. Closure admission becomes a **selection among the component manifests already admitted at R10a**, the pre-draw component-admission row that J1 r4 adds between R10 and R11 (`host-pipeline-j/PROPOSAL.md`, r4 draft), or at its ephemeral counterpart ER10a. Row 8 adds no admission of its own. Item 7's admission path has therefore already run for those manifests, no later than R10a and before any analysis-attempt ExecutionId is drawn. Item 7's retention covers the closures row 8 selects, the same population r6's row 8 admitted. The core evaluator and detector closures (item 9) are projections of the authenticated core inventory, not component manifests: R10a does not admit them, and row 8 keeps them unchanged. Nothing else in item 16 changes. If J1 r4's review changes R10a, row 8 follows the accepted text. |
+| C6-NB-01 (recording text, carried from r6's acceptance) | Owner question R1 names the core provider closure's two admitted uses (item 9), as CODEX2's r6 observation asks. This wording was already in the live r6 file beside its acceptance note. |
+
+## r6 changes
+
+r6 applies exactly the two cross-law items of the accepted M3-E1 r3 (item 14b; successor rows X-C1 and X-C2). Nothing else changes.
+
+| Item | Change |
+|---|---|
+| **X-C1** (E1 item 14b) | **Lead decision: widen.** Item 9's **core provider closure**, which r5 called the core import-producer closure and which is the same identity, gains a second admitted use as the producer of syntax-universe work:<br>- the scope enumerator, view and fact producer, stage-spec producer, enumeration binding enumerator and `CandidateProducerResultV1` producer;<br>- **only** for records whose universe is a `native.semantic-universe.syntax.v2` identity;<br>- it is a `plan.semanticClosures` member **exactly when** a syntax universe is selected;<br>- it never produces a TypeScript or Rust record.<br><br>The core adapter closure is unchanged. **Rejected** (as E1 item 14b records): re-kinding the grammar closure `provider`; a separate core "syntax-producer" projection, since the same descriptor with the same kind is the same identity.<br>C2-T13 is narrowed and C2-T13a is added (E3-T13 and E3-T14's Plan legs). Item 16's `semanticClosures` row and stage specs now include one stage per syntax universe, produced by the core provider closure. The CRC-1 row and item 13's wording follow. |
+| **X-C2** (E1 item 14a) | Item 16's step 12 builds **`candidateSourcePaths`** for every available syntax-only `clones-near` binding. It holds the scoped first-party body-eligible paths under the cell workspace (NE:959-970), plus any path an explicit scope names. It is a canonical set of at most 100,000 paths. A zero-path census is the explicit `[]`, never omitted (`enumeration-contract.v1.md:49`). C4-T21 is added, and C4a's unit row carries both Plan legs. |
+
+## r5 changes
+
+| Finding | Change |
+|---|---|
+| C4-R1 (oversized shortcut) | **Lead decision: the shortcut is removed** (item 12, rule 7):<br>- **Every candidate is acquired to completion** under its route's rules, the per-archive decoder counters and the acquisition bounds. It is admitted by its route, or rejected as a profile breach, **before activation**.<br>- **Acquisition crossings** refuse as `DependencyAcquisitionBound` whatever the processing order.<br>- **Admitted candidates are materialized whole**, so Cargo decides activation lawfully. Rejected ones are never materialized, and NE:1789-1791 governs Cargo's failure.<br>- **The protocol counters are checked once**, after activation and admission, over the admitted set. Only a proven overflow gives `DependencySetBound`.<br>- **A large single candidate takes no special path.**<br><br>r4's oversized rule is withdrawn. DS-6's step 1 and the forbidden substitutes are updated. C3-T6c's oversized cases become four variants each for 8 GiB + 1 of content and for 1,000,001 files: valid or late-failing, active or inactive, including a required late-failing package whose absence makes Cargo fail. |
+| C4-N1 | Rule 6's end-region cap of 1,024 to 10,240 bytes is now an explicit, separate check. D1 is shown to be implied by rules 4 and 6, D2 and alignment, so it cannot be crossed alone. It is kept as a streaming guard, and its breach is reported as the rule it implies. The D1-only control is withdrawn, and a 29,184-byte aligned empty stream now tests the end-region cap. |
+| C4-N2 | The admitted-set population covers every route: DS-1 vendored trees, DS-2 archives and DS-3 Git trees, each keeping its assurance level. CRATE-ARCHIVE-1 is DS-2 only. The acquisition source quantity covers archives and trees, and tree files count like archive files. A mixed-route control is added. |
+| C4-N3 | Acquisition is in the canonical `(name, version, sourceId)` order, with files in archive or path order, and a fixed field precedence: sources, then files, then content. So the refusal's class is order-independent and its `{field, observed, limit}` are deterministic. r4's "commutative totals" claim is withdrawn. A two-crossing control is added. |
+
+## r4 changes
+
+| Finding | Change |
+|---|---|
+| C3-R1 (carrier presence) | Item 1's rule 2 is now a **two-sided, total join**. B1 hands C1 the carrier **observation**: `absent`, or `present` with digest D. Sealing admits exactly two cases: present with exactly one regular-file row of digest D, or absent with no `opensip.json` entry in the root's listing. Every other case refuses `SnapshotCarrierChanged`, with no retry: `digest`, `present-absent`, `absent-present`, `type` and `excluded`. Excluding a present carrier through `ignorePaths` refuses (cross-law finding X-7, for B1). The local carrier and members' `opensip.json` are placed outside the join. Control C1-T26 covers each case. |
+| C3-R2 (counter population) | Item 12's rule 7 has three bounds, each over its own population:<br>- **Protocol counters** count only the **final admitted set**: activated, non-path, in-profile packages (NEM:1832-1845, :1870-1883). They are checked once, after activation and admission, and before the descriptor, wrapper or transport. Only a proven overflow refuses as `DependencySetBound`.<br>- **Acquisition bounds** cover the candidates before activation. Their owner is C3a, at four times each protocol quantity, with their own refusal `DependencyAcquisitionBound`. A single oversized candidate is decided after activation.<br>- **Decoder counters** D1 to D4 are per archive.<br><br>DS-6's step list adds step 4 (commit, then check). Control C3-T6c covers inactive excess, late rejection, oversized candidates, and an acquisition crossing that does not depend on order. |
+| C3-N1 | Item 2's byte cap is no longer r3's 2^33, which left no room. C1a specifies a **pricing recipe** (`WorkCost.bytes` prices charged storage: `work_reader.rs:26-54`, :158-172, and the metadata and ACL owners), and the cap is derived from it with a 2× margin. The T2 census adds bytes, and C1-T27 is added. |
+| C3-N2 | D3 is reworded as a profile limit, not a universal DEFLATE bound. Its margin for Cargo's compressor is R6 evidence. C3-T6b gets a genuine D1-only crossing (a 10,241-byte end region) and labels the 16,386-byte `L` payload a D2 breach. C3-T6's retained sentence is qualified. |
+| C3-N3 | Capture origin is an **operational side record**. Identity rows stay exactly `{path, sha256, bytes}`. The read prohibition and C1-T2's read-site pin are narrowed to **source** reads. |
+
+## r3 changes
+
+| Finding or update | Change |
+|---|---|
+| C2-R1 (enumeration admission) | Item 16 splits enumeration admission in two:<br>- **Step 15, structural admission** (C4) runs before any provider, with a limited interface and **no inventories argument**. It checks the joins that name no inventory: `snapshotId`, `scopeDigest`, `membershipDigest`, cells against `requestedCapabilities`, closures and contexts (`enumeration-contract.v1.md:100-106`). A refusal is a host-invariant fault.<br>- **The full `admit_enumeration`** (`:164`) runs after execution and before evaluation, in J2's pipeline with H's fact admission, over the **actual** inventories (IE:1462-1474, IE:1513-1515; COMP:15-17). Its routing depends on origin (`:159-160`), and Run closure re-admits again (`:157-158`).<br><br>No inventory is manufactured early, and the rejected alternatives say why. Control C4-T19 adds a non-empty available `imports`-cell symbol population. |
+| C2-R2 (capture handoff) | Item 1 separates **source reads** (the one-read rule) from **operational reads**: X2's marker, carrier, Git and recheck reads, and C1's own VCS reads. An operational read never supplies inventory bytes. Three explicit rules follow:<br>1. **`.opensip/` at the project root and each D15 member root is never source.** It is excluded from the walk by an exact discovery anchor (item 2; successor SX-1, landed with M3-B's B-S1). This also settles M3-B's finding F10, and keeps `local.json` untouched in CI (M3-B:116).<br>2. **A path read both ways must be byte-identical.** Only `opensip.json` is read both ways: X2's carrier capture against C1's walk, compared by digest. A difference refuses the snapshot.<br>3. **The handoff is by digest only.** X2's types are unchanged.<br><br>The capture session now opens after X2's handoff releases the fence. Control C1-T25 covers an already registered project with a present marker. |
+| C2-R3 (counters) | Item 12 separates two kinds of counter:<br>- **Protocol counters** are set-wide, exact and logical: packages, regular files and content bytes (NE:2876-2878, NE:1663-1664, NE:2931-2932; NEM:1874). Crossing one is a set bound, `DependencySetBound`, and refuses the import.<br>- **Decoder counters D1 to D4** are per archive: a framing allowance derived from the profile, long-name records, compressed input and gzip fields. Crossing one is an **archive-profile breach**: the package is outside the profile and is recorded missing (if activated) with an `undecodable:` reason, never as a set refusal.<br><br>The `missing:` and `undecodable:` omissions are reconciled with item 13, and an inactive package does not make the set incomplete. Control C3-T6b adds the boundary cases. |
+| X12 r4 (dependent update) | Item 16's rows 1 to 4 now follow X12 r4 item 8 (S2 from M3-B item 10, accepted; r4 **pending Grok's review**). The order is: X2's fenced selection and carrier captures; B1's resolution; pack admission; X2's registry capture, registration, lease and handoff. **The first-use clause:** on the first-use creator route, "before any effect" reads "before any project-scoped effect". Control C4-T20 is added. X12 r4's acceptance is a gate item and a C4a gate. |
+| M3-B r2 (dependent update) | M3-B was accepted after this law's r2. Its obligations on C1 are now discharged:<br>- **F1:** the walk runs on its own snapshot ledger, after the fence is released (item 2).<br>- **F10:** the `.opensip/` rule, above.<br>- **S4:** `vcs-observation` schema 3 for D15 workspaces, and HEAD and ref reads for every repository alike (item 4).<br>- **F14:** "Units" now expresses the host chain as **b + 23 days** in variant B, where b is the day B2-c finishes. That is 28 at M3P's b = 5, 31 at M3-B's estimate of b = 8, and 33 at b = 10. M3P-C carries it. |
+| C2-N1 | The counterfactual is corrected: with Rust context minting inside C2c, both variants give 30 days. The F1 and G1a edges are narrowed to the interfaces they consume, which keeps day 10. The alternative with full edges (F1 and G1a on day 11, G3 on 16, G4 on 19) is stated; it stays within slack. |
+| C2-N2 | C3-T6a adds a UTF-8 truncation-boundary archive. The fixtures' provenance and R6's pinned-source comparison are named as C3a's review evidence. |
+
+## r2 changes
+
+| Finding | Change |
+|---|---|
+| C-R1 (ordering) | Item 16's pre-Plan order is rewritten so that every input exists before it is consumed. **The complete analysis-spec is now constructed and admitted after** sealing, imports and context and universe binding, and before the prospective Plan and `plan2`. Its `EnumerationPlanV1` is built from the admitted snapshot, boundaries, scope, `UnitMembershipV1`, closures, contexts and universe bindings (`enumeration-contract.v1.md:13-24`, `:83-96`). NE:4278's cardinality → schema → vocabulary order applies at that boundary. **An early selection precheck** applies the same order to `requestedCapabilities` alone, mints nothing, and must agree with the final admission. The governing order is cited step by step. Two controls are added (C4-T17, C4-T18). Item 17 is aligned. |
+| C-R2 (extraction profile) | Item 12's DS-2 decoder is now the bounded profile **CRATE-ARCHIVE-1**. It decodes what Cargo's package writer emits: a gzip member with `FNAME`; GNU headers (`Header::new_gnu`); regular files only, with no directories or symlinks; and the GNU long-name record (type `L`, `././@LongLink`, a NUL-terminated payload) before an entry whose path exceeds the header field. The source citations are Cargo `ops/cargo_package/mod.rs` (the `tar` function, :861-944, `new_gnu` at :899, `append_data` at :910 and :934) and tar `builder.rs` (:213-223, :836-896, :561-567). The effective path is validated after decoding. Orphan, chained or inconsistent long-name records, links, devices, directories, pax and sparse records, traversal and duplicate effective paths are rejected. Header and decompression work is bounded. An archive outside the profile is **not** a checksum mismatch: its package is recorded missing (DS-6), with a disclosed omission. Positive long-path and gzip-`FNAME` controls are added. |
+| C-R3 (`ImportObservationV1`) | Item 13 now spells the exact preimage `{schemaVersion: 1, kind: <the wrapper's kind>, window: null, population: null, selection: null, revisionRange: null}` (NE:2708; workflow `imported-evidence.schema.json:246-264`; NEM:401-402), retained and hashed. A control is added for each kind (C3-T22). |
+| C-R4 (DAG timing) | "Units" recomputes the whole revised DAG with M3P:198's durations. Authoring and integration edges are separated, and C2b is sized as a hard XL part (5 days). **The 26-day conditional host chain no longer holds.** Under this law's units it is **29 days**: B1 → B2 → C1a → C3a → C3c → C4a → H → J2 → J3 → M3-M → M3-X. It is **28 days** with the recommended split of C4 into C4a and an S-sized C4c for prepared-import wiring. The conditions are restated for each figure:<br>- for 29 days: K2 by day 24, O2_selected by day 27, and X12d's X9 lead set complete by day 18;<br>- for 28 days: K2 by day 23, O2_selected by day 26, and that lead set complete by day 17.<br><br>M3P-C carries the figures to M3P's next revision. |
+| C-N1 | Item 1 adds the **capture session**. B1's configuration reads, B2's marker reads and the TypeScript layout's manifest reads all go through `snapshot.rs` and are reused when the walk reaches the same path. The walk re-observes a captured entry, and any change refuses. Control C1-T24 is added. |
+| C-N2 | Item 5's T2 overflow examples are now **risk estimates** from fetch-tree entry counts, not admitted inventory counts. They remain conditional on SM-5 and SM-6. S-R must specify a new identity recipe and the bounds of the referenced inventory. |
+| C-N3 | The acceptance gate now requires **M3-L accepted**, and the "or unchanged" branch is removed. NIJ-1 (including X-2's disposition) must be accepted before C3a, and R3's exact owner-manifest recipe settled before C3c. Both are gates in "Units". |
+
+## Short names
+
+Lines were checked against the files named here on 2026-10-04.
+
+- **M3P** `docs/implementation/m3/M3-PLAN.md` (r4, accepted). **L** `docs/implementation/m3/provider-protocol-l/PROPOSAL.md` (M3-L r1, draft, acceptance-gated). **I1** `docs/implementation/m3/preview-pack-i1/PROPOSAL.md` (r2, accepted). **AQP** `docs/implementation/m3/analysis-quality/PLAN.md` (r6, accepted). **Q0** `docs/implementation/m3/harness/DESIGN.md` (r13, accepted). **FS** `docs/implementation/m3/corpus/FETCH-SPEC.md`. **T2M** `docs/implementation/m3/corpus/t2-corpus-manifest.draft.json`.
+- **X12** `docs/implementation/m2/policy-admission-x12/PROPOSAL.md`: r3 accepted, preserved as `PROPOSAL-r3.md`; the live file is r4, pending Grok's review (r3 of this law). X12:NNN line citations are r3's. **X2** `docs/implementation/m2/project-root-x2/PROPOSAL.md` (r8 accepted; r9 drafted from M3-B). X2:NNN citations are taken as M3-B r2 cites them. **M3-B** `docs/implementation/m3/config-discovery-b/PROPOSAL.md` (r2, accepted 2026-10-04). **EC1** `docs/implementation/m2/core-evaluator-closure-ec1/README.md`. **X8** `docs/implementation/m2/refusal-suite-x8/PROPOSAL.md`.
+- **IE / NE / SL / WS / AQ** `docs/v2/contracts/product-v1/{identity-and-evidence,native-evidence,security-and-lifecycle,workflows-and-surfaces,admission-and-qualification}.md`. **BP** `docs/v2/architecture/implementation-boundaries-and-build-plan.md`. **CH14** `docs/v2/architecture/14-repository-and-module-layout.md`. **COV** `docs/v2/architecture/implementation-coverage.v1.json`.
+- **IDS** `docs/coop/design-corrections/foundation/identity-schemas.v3.json`. **NES** `docs/coop/design-corrections/native/native-evidence.schemas.v2.json`. **NEM** `docs/coop/design-corrections/native/native_evidence_model.v2.py`. **COMP** `docs/coop/design-corrections/foundation/evaluator-composition-contract.v3.md`. **RPP** `docs/coop/artifacts/rust-provider-protocol.v2.json`.
+- Product paths are under `opensip/`, at main `30c5db1`.
+
+## Acceptance gate
+
+This law may be reviewed now. It can be accepted when:
+- **M3-L is accepted** (r2, C-N3). This law states its consistency with L's INC items (item 20). An unchanged draft is not acceptance.
+- **The B law's discovery interface is drafted**, so that item 2's input contract (units, boundaries, pruned trees, ignore paths, scope descriptor) matches B2's output. M3-B r2 is now accepted (r3).
+- **X12 r4 is accepted (r3),** or item 16's rows 1 to 4 are revised to the text that is accepted. X12 r4 is pending Grok's review.
+
+O7 is **not** a gate item. This law launches nothing except the dependency-feature adapter of item 12, and that launch is gated on O7, D1's primitive and the D law, not decided here (L:494-506; M3P:310).
+
+## Problem
+
+**No source-byte reader exists.** At `30c5db1` M2 reads exactly one project file, the marker, and only to decide whether Git tracks it. `crates/security/src/custody/git_tracking.rs:1-6`: "M2 admits one closed, conventional Git layout and refuses every other layout as `vcs-unsupported`". There is no `snapshot.rs`, `plan.rs` or `imports.rs` in `crates/host/src` (M3P:122). The only snapshot builder is test-only and empty (`crates/host/src/schema_sources.rs:705`).
+
+**What exists to build on:**
+- the `snapshot2` and `plan2` identity domains (`crates/identity/src/descriptors.rs:538`, `:541`), the H frame (`digests.rs:52-68`), and the 4 MiB canonical cap (`canonical.rs:5`);
+- the descriptor read discipline: `DescriptorObservationError::ChangedDuringRead` when the before, during and after samples differ (`crates/platform/src/filesystem.rs:1840`, `:1899`);
+- the project custody root: `ProjectChain` (`crates/security/src/custody/project_chain.rs:201-206`) and `ProjectRootAdmission`, which "grants nothing in this unit: every grant also requires item 6a's tracking observation" (`custody/project_admission.rs:722-727`);
+- the core evaluator closure of EC1 (`crates/security/src/trust/core_inventory.rs:420-430`; `initial_core.rs:238`; storage's check at `crates/storage/src/commit.rs:258`);
+- the evaluator's Run-closure inspectors for contexts and nested native records (`crates/evaluator/src/native_context.rs:368`; `native_universe.rs:521`, `:555`);
+- `check_plan_pack`, provided and deliberately unwired (`crates/evaluator/src/policy.rs:1358-1367`), pinned unwired by `crates/host/src/fact_admission_tests.rs:661-668`;
+- a TOML 1.0 parser (`crates/identity/src/toml.rs:1-2`, `:51`).
+
+**What the contracts leave open, and this law must close:**
+- how the snapshot walk treats symlinks, special files and unrepresentable names (no contract text; item 2);
+- which `node_modules` files a TypeScript context "read" before any compiler has run (IE:548-561; item 3);
+- what `vcs-observation.dirty` means when the host has no Git object reader (IE:542-546; item 4);
+- that the 4 MiB descriptor cap (IE:117) bounds `snapshot2` far below the protocols' 200,000 entries (item 5);
+- how a `closure2` kind follows from a component manifest whose only role is `analyzer` (item 7);
+- the detector closure of a bundled pack (I1 LD-10, I1:428; item 9);
+- what `acquisition.descriptorId` and `preparation.importId` name, since a payload cannot name its own import (item 13);
+- which closures stand as an M3 import's producer and adapter (item 13);
+- how an import can correspond to the snapshot that its own configuration would bind (item 13).
+
+## Decisions
+
+### A. C1 — the sealed snapshot
+
+**1. What the snapshot is: one read, and the bytes hashed are the bytes retained and analyzed.**
+- **Decision.**
+  - **The record.** `snapshot2` is `H("snapshot", {schemaVersion: 2, projectId, sourceInventory, resolvedConfigDigest, scopeDigest, vcsDigest})` (IE:179; IDS:197-215). `sourceInventory` is the registered `source-inventory` record: an array of `Blob {path, sha256, bytes}`, strictly ascending by path bytes, unique, at most 100,000 rows (IDS:2737-2745; IE:148-152).
+  - **One read.** `crates/host/src/snapshot.rs` (CH14:495) reads every inventoried file exactly once. While reading, it writes the bytes into the invocation's candidate blob custody under their raw SHA-256, and verifies digest and length there. That custody is the storage-owned CAS the commit publishes from (`crates/storage/src/commit.rs:247-266`) for a durable request, or the temporary custody of an ephemeral one (IE:1639-1641). J1 chooses which.
+  - **No second read.** After sealing, nothing reads a source file from the project again. Provider transfer, context minting, dependency import (Cargo.lock), Run retention and replay all take bytes from custody. The bytes that were hashed are the bytes every consumer sees.
+  - **Sealed means closed.** A file found missing later (a context names it, a provider asks for it) is absent. It is never read late.
+  - **Source reads and operational reads (r3, C2-R2).** The one-read rule governs **source reads**: the reads that supply inventory bytes. **Operational reads** are a different class. They are the reads that X2 makes under its premise and fence:
+    - the marker `.opensip/project-id.v1` (`project_admission.rs:604`, through `observe_marker`, :561; called at :872, and again by the owner rechecks at :797 and :818);
+    - the configuration carriers `opensip.json` and, interactively only, `.opensip/local.json`. These are captured from the descriptors S3 judged (X2 r9 item 3a; M3-B:608);
+    - the Git evidence of the enclosing repository and D15 members (X2 item 6a and r9 item 6b);
+    - every later X2 recheck.
+
+    C1's own VCS reads (item 4) are operational too. **An operational read never supplies inventory bytes, and it is outside the one-read rule.** X2's rechecks run wherever X2's law requires them. The rule that keeps the two classes apart:
+    1. **OpenSIP's own state is never source.** `.opensip/` at the project root, and at each admitted D15 member root, is excluded from the walk and the inventory (item 2; successor SX-1). So the marker and `local.json` are never source reads. In CI, C1 never stats, opens or lists `.opensip/` at all, so it keeps M3-B item 3's rule that the local carrier is never touched in CI (M3-B:116, which cites the preview carrier contract).
+    2. **The project carrier's join is two-sided and total (r3, C2-R2; r4, C3-R1).** `opensip.json` at the project root is a repository file, so it stays in the inventory. It is the only path that is read both operationally (X2 item 3a's carrier capture) and as source (the walk).
+       - **What C1 receives.** B1 hands C1 the carrier **observation**: either `absent`, or `present` with the SHA-256 D of the exact captured bytes, which B1 records in provenance (M3-B items 2 and 5; M3-B:92, M3-B:173). Absent means no project layer (M3-B:92).
+       - **What sealing requires.** The two observations must agree, and every case is decided:
+
+         | X2's capture | The walk at sealing | Outcome |
+         |---|---|---|
+         | present, D | exactly one regular-file row `opensip.json` with sha256 D | **admits** |
+         | present, D | a row with another digest | refuses: `digest` |
+         | present, D | no entry (it disappeared before the walk enumerated the root) | refuses: `present-absent` |
+         | present, D | an entry that is not a regular file (a directory, symlink or special file) | refuses: `type` |
+         | present, D | the entry is excluded by `ignorePaths` | refuses: `excluded` |
+         | absent | no entry named `opensip.json` in the root's listing | **admits** |
+         | absent | any entry named `opensip.json` (created after X2's observation) | refuses: `absent-present` |
+
+         Each refusal is `SnapshotCarrierChanged {transition}` (internal), with **no retry**. A sealed snapshot therefore never binds a configuration B1 resolved from a carrier that the inventory does not hold byte for byte, nor an inventory carrier that B1 never resolved.
+       - **`ignorePaths`.** Exclusion by `ignorePaths` is decided over the walk's extent before the join, and excluding a present carrier refuses (the `excluded` row). It is never resolved by inventorying the carrier anyway, and never by dropping it silently. The root carrier cannot lie under a boundary or a pruned anchor, because it is the root's own file and `.opensip/` is a separate anchor. M3-B's resolver may refuse such an `ignorePaths` entry earlier (cross-law finding X-7).
+       - **Other carriers.** The interactive local carrier is never source (rule 1), so it has no join. A D15 member's `opensip.json` is not a configuration layer (M3-B:676-679). It is an ordinary source row, read through the session.
+       - **Future paths.** The same two-sided rule binds any future path that is both an operational capture and an inventory row. A successor that adds such a path must name it.
+    3. **The capture handoff is an observation, never bytes.** C1 receives no bytes from X2. It receives only the presence-and-digest observation that B1 already holds. X2's types (`MarkerObservation`, `project_admission.rs:536-545`, :612-615) are unchanged.
+  - **The capture session (r2, C-N1; r3, C2-R2).** `snapshot.rs` opens one capture session for the request **after X2's handoff releases the fence** (X2:231-248; M3-B item 12), and before the first source read. Every source read before sealing goes through it, keyed by logical path. Those reads are:
+    - B2's marker and manifest content reads (discovery, on the discovery ledger; M3-B item 12);
+    - C2's installed-package manifests for the TypeScript layout (item 3);
+    - the walk itself.
+
+    B1's carrier bytes are X2's operational captures, read before the session exists (M3-B item 2, M3-B:98). The walk relates to them only through rule 2 above.
+
+    The session's rules:
+    - **A capture is kept.** Each one keeps the bytes in custody, their digest, and the descriptor observation (`st_dev`, `st_ino`, size, `mtime`, `ctime`).
+    - **No second read.** A later request for a captured path returns the retained capture. When the walk or read set reaches a captured path, it re-observes the entry with `fstatat(AT_SYMLINK_NOFOLLOW)` and reuses the bytes.
+    - **A change refuses.** If the re-observation differs from the capture's, the snapshot refuses. It does not retry (SL:315), and it never re-reads.
+    - **One set of bytes.** So discovery and layout are always derived from the bytes the inventory holds, never from an earlier or later version of the file.
+    - **Leftover captures refuse.** A captured path that the walk's extent does not reach (it lies under `ignorePaths`, a boundary, or a pruned tree outside the read set) never enters the inventory. If any resolved input depends on such a capture, sealing refuses rather than binding an uninventoried byte (IE:341-351).
+    - **Provenance (r4, C3-N3).** C1 keeps an **operational side record** that maps each inventory path to its capture origin (`walk` or `read-set`). It is outside identity: identity rows stay exactly `Blob {path, sha256, bytes}` (IDS:2737-2745), and the origin never enters `snapshot2` or `sourceInventoryDigest`. C1-T25 tests the side record. No row's bytes originate in an operational read.
+- **Basis:** CH14:495 ("Capture exact admitted source/read-set bytes through the selected custody boundary"); IE:1399-1415 (a replayable Run retains every source-inventory preimage); NE:2992-2995 (every child receives the sealed snapshot); SL:313-315.
+- **Rejected:**
+  - **Hash first, re-read for transfer or retention.** It opens a window between the hashed bytes and the analyzed bytes, which the descriptor discipline (SL:313-315) exists to close.
+  - **Memory-only bytes.** A very large repository would exhaust memory, and durable retention would need a second read anyway.
+- **Forbidden substitutes:** any **source** read of project bytes after sealing (r4: X2's and C1's operational reads and rechecks stay permitted, by rule 1); a provider or adapter reading the project filesystem; a "digest only" row whose bytes are not in custody.
+- **Controls:**
+  - C1-T1: bytes delivered to a recording provider sink, and the bytes retained, equal the hashed bytes, row by row.
+  - C1-T2 (r4 wording): a source pin shows that `snapshot.rs` holds the only **source-read** site, and that the read precedes sealing. Operational reads (X2's, and item 4's VCS reads) sit in their owners' modules and never write inventory rows.
+  - C1-T3: a file rewritten after sealing changes nothing downstream.
+  - C1-T24 (r2; r3): a marker file or `package.json` captured by discovery or the layout, and rewritten before the walk reaches it, refuses the snapshot. A source pin shows that B2 and C2 obtain source bytes only from the session, and that no path is source-read twice.
+  - C1-T25 (r3, C2-R2): an **already registered project with a present marker**:
+    - neither `.opensip/project-id.v1` nor `.opensip/local.json` is inventoried;
+    - in CI, C1 never opens or lists `.opensip/` (a fixture whose `.opensip/local.json` is mode 000 seals normally);
+    - `opensip.json` rewritten between X2's carrier capture and the walk refuses `SnapshotCarrierChanged`, with no retry;
+    - the same rewrite of the marker changes nothing in the snapshot. Its detection stays X2's, through the owner rechecks at `project_admission.rs:797` and :818;
+    - every path's capture origin in the side record is `walk` or `read-set`, and none is an X2 read. The identity rows carry no origin member (r4, C3-N3).
+  - C1-T26 (r4, C3-R1): the carrier join, one case per table row:
+    - present and stable admits;
+    - absent and stable admits;
+    - present then removed before the walk refuses `present-absent`;
+    - absent then created before the walk refuses `absent-present`;
+    - present with changed bytes refuses `digest`;
+    - present then replaced by a directory, or a symlink, refuses `type`;
+    - present but covered by an `ignorePaths` entry refuses `excluded`.
+
+    None retries, and no refusal mints a snapshot.
+
+**2. The walk: its extent, custody, entry types and names (relation to M2 custody).**
+- **Decision.**
+  - **Preconditions (r3).** The walk starts from the retained project-root directory descriptor of the request's admitted `ProjectRootAdmission`, and only after the tracking observation has admitted it (X2 item 6a; `custody/project_admission.rs:722-727`; `git_tracking.rs:697`). It runs after X12 r4's pack admission (item 16, step 3) and after X2's handoff releases the fence (X2:231-248). **Like discovery, it never runs under the installation fence** (M3-B item 12, M3-B:349). For a durable request it runs inside the lifecycle lease that J1 orders (IE:1657-1658). The walk takes no lock itself.
+  - **Ledger (r3, M3-B F1).** The walk is charged to one **snapshot ledger** per invocation. It is created after discovery and never recreated after a failure (`work_ledger.rs:1-8`). Its profile is the discovery ledger's constructor (M3-B item 12), with caps derived from this law's bounds:
+    - objects: 2^20, covering discovery's directories plus at most 100,000 inventory rows;
+    - edges: 2^21;
+    - bytes: **derived, not fixed here (r4, C3-N1).** r3's 2^33 was exactly 8 GiB and left no room for anything else. More importantly, `WorkCost.bytes` prices charged storage, not file content. The existing readers charge cumulative buffer growth (`crates/platform/src/work_reader.rs:26-54`, :158-172), and metadata and ACL capture buffers are priced separately (`filesystem/path_binding.rs:117-126`; `descriptor_acl_capture.rs:111-124`). So C1a specifies its **pricing recipe**, and the byte cap is derived from it:
+      - payload is streamed into custody through a fixed, reused chunk buffer, and that buffer's charge follows the reader's own growth rule;
+      - every copy, metadata sample and ACL capture is charged under its existing owner's pricing;
+      - payload volume itself is bounded by item 5's 8 GiB total, not by the ledger.
+
+      The cap is the recipe's charge for item 5's maximum population, with a 2× margin. It is part of C1a's review evidence.
+
+    The M2 session caps of 65,536 objects and 131,072 edges never bound the walk (M3-B:792). Exhaustion is `WORK.BUDGET_EXHAUSTED`, never truncation (NE:871-878). B2-b's T2 census margin test is extended to the snapshot ledger's object, edge **and byte** caps, with the byte census priced by C1a's recipe (r4).
+  - **Extent.** It covers what the one shared discovery rule reaches (IE:548-551):
+    - every regular file under the project root;
+    - except pruned trees, matched by exact segment: `node_modules`, `.git`, `.hg`, `.svn`, `.jj`, and a Cargo `target` whose parent holds `Cargo.toml` (NE:711-716; SL:190-195);
+    - except what lies at or below an admitted boundary: nested repositories, nested projects, and custody- or depth-excluded directories (NE:816-841; SL:281-303);
+    - except Config2 `ignorePaths` (NE:928-929);
+    - **except `.opensip/`** at the project root and at each admitted D15 member root (r3, C2-R2; M3-B finding F10, M3-B:801, and item 22, M3-B:683). It is an exact anchor, not a segment matched at any depth. It joins the shared rule's anchors with the pruned-tree reason `opensip-custody-state`: it is recorded once in `prunedTrees` and enters `excludedPathPrefixes`, as the other anchors do (NE:719-720, NE:936-941). Because it changes the extent the shared rule defines (IE:548-551; NE:703-743; SL:187-222), it is successor **SX-1**, landed with B-S1's S3 successor. A directory named `.opensip` anywhere else is ordinary source.
+
+    It never descends into an excluded tree. `workspaceRoots` and `pathPrefixes` do **not** narrow the walk. They narrow the Plan's analysis (L:153), while contexts must still find configuration ancestors and lockfiles outside a narrowed root in the inventory (IE:341-351).
+  - **Custody.** Every directory entered passes S3 directory custody: real directory, owner, mode and readable ACL (SL:121-126). Every marker (`Cargo.toml`, `package.json`, `tsconfig.json`, `jsconfig.json`) also passes config-file custody: regular, link count 1, at most 4 MiB (SL:126-128, SL:182). A custody failure refuses the snapshot. It never silently skips.
+  - **Reads.** Each entry is examined with `fstatat(AT_SYMLINK_NOFOLLOW)` relative to its parent's descriptor, and each regular file is opened `O_NOFOLLOW` relative to that same descriptor. `st_dev`/`st_ino` are rechecked between the lstat and the open, and the before, during and after metadata samples are compared (`filesystem.rs:1899`). Any difference refuses the snapshot. It is **never retried** (SL:313-315). M2's test-only settle loops (`crates/security/src/lib.rs:130-150`) never enter product code.
+  - **Entry types:**
+    - **Regular file:** inventoried, whatever its content (binary, generated or vendored). U-4 forbids erasure (NE:693-702).
+    - **Symlink:** never followed and never inventoried. It is recorded in the operational walk report: a count, plus paths at P2 under S-OP-2. A context or universe that names a symlinked path then refuses, because the path is not inventoried (IE:341-351).
+    - **FIFO, socket or device:** never opened, so the walk cannot block. Recorded the same way.
+  - **Names.** A path must be a `LogicalPath`: UTF-8 scalars, at most 4096 scalars and at most 255 per segment, no `\`, NUL, empty, `.` or `..` segment (IE:161-163; `crates/identity/src/descriptors.rs:14`, `:31`). An unrepresentable name refuses the snapshot. The refusal names the parent path and the escaped name bytes. The remedy is to rename the file, or to add its directory to `ignorePaths`. No Unicode normalization is applied (IE:122-123).
+  - **`.gitignore` is not a rule.** Ignored and untracked files the walk reaches are inventoried. The only exclusions are the discovery rule's (U-4a) and `ignorePaths`.
+- **Basis:** SL:105-135, SL:180-222, SL:313-315; NE:686-760, NE:816-863; IE:548-593.
+- **Rejected:**
+  - **Following in-root symlinks** and inventorying the target under the link's path. It breaks the `O_NOFOLLOW` discipline (SL:107), and a path can then name bytes that custody never walked.
+  - **Refusing the snapshot on any symlink.** Many repositories carry symlinks in fixtures. Refusal adds nothing over non-inventory plus disclosure, since nothing reads the link.
+  - **Scope-narrowed walks.** A narrowed root would refuse its own context (IE:341-351).
+  - **Honouring `.gitignore`.** It is a second discovery rule (MUST-3; SL:187-190), and global excludes (`core.excludesFile`) are ambient input.
+  - **Dropping an unrepresentable name** with a disclosure. U-4 has no erasure row (NE:700-702).
+  - **Retrying a changed file.** SL:315: "a refusal, not a retry".
+  - **Inventorying `.opensip/`** (r1, r2), which would make the marker a second source read of X2's operational read (C2-R2). It would also put OpenSIP's custody state into `snapshot2`, and touch `local.json` in CI, against M3-B:116.
+  - **Handing X2's marker capture into the session** (the first fix CODEX2 offered). `MarkerObservation` retains a decoded ProjectId and metadata, not raw bytes (`project_admission.rs:536-545`, :612-615). Widening a security type so that C1 can inventory OpenSIP's own state buys nothing. The marker is not source.
+  - **Excluding `opensip.json` as well.** It is a repository file, often committed, and nested projects' copies are boundaries. Excluding it would erase source (NE:693-702). Rule 2 of item 1 covers its double read instead.
+  - **Running the walk on the M2 session ledger,** or under the fence. Its caps cannot hold a whole-repository walk (M3-B:792), and a fenced walk would hold every writer behind it (M3-B item 12).
+- **Forbidden substitutes:** a path-string walk (`open(path)` rather than `openat` from the retained descriptor); following a symlink; opening a non-regular file; a retry after `ChangedDuringRead`; a second exclusion rule in `snapshot.rs`; an inventoried file outside the reach of the discovery rule.
+- **Controls:**
+  - C1-T4: an inode swap between lstat and open refuses; a change during read refuses; neither retries.
+  - C1-T5: in-root and escaping symlinks are not inventoried, and a context naming one refuses.
+  - C1-T6: a FIFO in the tree neither blocks nor is opened.
+  - C1-T7: non-UTF-8, backslash and 256-scalar segments refuse with the escaped bytes.
+  - C1-T8: a marker with link count 2, or over 4 MiB, refuses.
+  - C1-T9: `packages/target/x.ts` is inventoried; `target/` under a Cargo root is not.
+  - C1-T10: a nested repository's files are not read (the boundary inventory).
+  - C1-T11: two copies of one tree, differing only in `target/`, `.git/` contents or unread `node_modules` files, mint the same `snapshot2` (IE:555-557).
+  - C1-T27 (r4, C3-N1): the snapshot ledger at exactly its derived object, edge and byte caps admits, and one unit over refuses `WORK.BUDGET_EXHAUSTED` without truncation. A 4 GiB payload file is charged only its recipe's buffer and metadata, never its content volume.
+
+**3. The read set beyond the walk: installed TypeScript dependencies.**
+- **Decision.**
+  - **Which bytes.** The second part of `sourceInventory` holds the `node_modules` bytes that a Plan-selected TypeScript context commits to its read set (IE:552-557; SL:266-271). The host fixes that set **before** any compiler runs, deterministically, at package-directory granularity, which is the granularity replay decides (IE:584-592):
+    1. C2's TypeScript resolver computes `ResolvedNodeModulesLayoutV1` (NE:1399-1420). It reads only installed package manifests, and it observes links with `readlinkat` without following them.
+    2. For each layout row, C1 reads the regular files below `realPath` whose path below that directory has no further exact `node_modules` segment (IE:572-577). A file is read only when its name ends in one of `.ts`, `.tsx`, `.mts`, `.cts`, `.js`, `.jsx`, `.mjs`, `.cjs` or `.json`. This suffix set covers `.d.ts`, `.d.mts`, `.d.cts` and `package.json`.
+    3. The rows are `host-ignore-convention` members (NE:731-736).
+  - **Not read:** anything else in a package (README, native `.node` binaries, maps); nested installed packages without their own row; and VCS trees or Cargo build output at any depth (SL:272-274).
+  - **Custody.** A pruned tree is never custody-walked (SL:266). Its files are read under the same descriptor discipline as item 2 (`O_NOFOLLOW`, inode recheck, no retry). So the bytes analyzed are exact, while who could write them is not established. That is the host-TCB limit SL:276-278 already states.
+  - **The table's owner.** The suffix table is part of C2's TypeScript resolution semantics and is reviewed with F. The provider's own refusal `node-modules-outside-read-set` (NE:2953) is the control: a read outside this set is a provider fault, never a late host read.
+  - **Without a layout,** `nodeModulesInReadSet=false`, and bare specifiers are `unresolved-module-specifier` (NE:1392-1393, NE:1417-1419). The harness uses that configuration whenever item 5's bound refuses the read set (item 15, H-NM).
+- **Basis:** IE:548-593; SL:266-279; NE:1399-1420, NE:2948-2953.
+- **Rejected:**
+  - **Every file of every listed package.** It inflates the inventory against item 5's bound with bytes no resolver reads.
+  - **A compiler-traced read set.** It runs the compiler before PlanId, and before O7 permits any launch. And the trace would be a worker claim (NE:1475-1477).
+  - **Reading through `installPath` symlinks.** That follows links. The layout's `realPath` is the read location.
+- **Forbidden substitutes:** an implicit install; a `node_modules` read outside a layout row; a nested package authorized by an enclosing row; a host read after sealing to satisfy a provider.
+- **Controls:**
+  - C1-T12: pnpm and npm layouts admit, and a nested `node_modules/a/node_modules/b` needs its own row.
+  - C1-T13: an injected snapshot row outside every listed directory refuses `SNAPSHOT_PRUNED_TREE_NOT_A_READ` at Run closure (IE:584).
+  - C1-T14: an unread `README.md` in a package does not change `snapshot2`.
+
+**4. The VCS observation.**
+- **Decision.** `vcsDigest` hashes `{schemaVersion: 2, kind, commitId, dirty, sourceInventoryDigest}` (IE:542-546; IDS `vcs-observation`). At M3:
+  - **Kind and commit.** The kind comes from X2's tracking observation. `NoRepository` gives `kind: none`, `commitId: null` and `dirty: false`. One enclosing Git repository of the closed layout gives `kind: git`. Every other layout is already refused as `vcs-unsupported` (`git_tracking.rs:1-6`). With several enclosing repositories, the innermost is used.
+  - **Resolving HEAD.** `commitId` is HEAD resolved through `HEAD`, the loose ref and `packed-refs` only, read under the same descriptor discipline. Detached HEAD gives the hash. An unborn HEAD refuses as `vcs-unsupported:unborn-head`. No object is read.
+  - **`dirty` means "cleanliness not established".** M3 has no Git object reader, so it cannot compare the working tree with HEAD's tree. For `kind: git` it therefore records `dirty: true`. This fails closed: a `vcs-revision` correspondence requires a clean commit (NE:2722-2728), so nothing can map through an M3 observation. At M3 nothing consumes one (imports of runtime, test and history evidence are M5).
+  - **The inventory digest.** `sourceInventoryDigest` is the raw SHA-256 of the canonical inventory, retained as a blob (IE:544-545, IE:639-641).
+  - **The Git reads are operational (r3).** `HEAD`, loose refs and `packed-refs` are read through per-read custody (SL:313-315) for the enclosing repository and for each admitted D15 member alike. M3-B item 21 leaves these Git objects to "C1's VCS-observation law, for every repository alike" (M3-B:606). They lie in pruned `.git` trees, so they are never inventoried (item 1's rule).
+  - **D15 workspaces (r3, M3-B successor S4).** A project with at least one admitted member uses B-S2's `vcs-observation` schema 3:
+    - W's own observation, which is `kind: none` under W2;
+    - plus `members: [{path, kind: "git", commitId, dirty}]`, ascending by path. Each member's `commitId` and `dirty` follow the two bullets above.
+
+    A single-root project keeps schema 2's bytes (M3-B item 22, M3-B:685-689). C1b lands S4 after B-S2 is accepted.
+- **Basis:** IE:542-546 ("This is source provenance; it alone never authenticates imported runtime-to-source correspondence").
+- **Rejected:**
+  - **A Git object reader** (zlib, pack indexes, deltas) to compute an exact `dirty`. It adds a large hostile-input parser to the TCB for provenance nothing consumes at M3.
+  - **`kind: none` for a Git checkout.** That is a false statement.
+  - **`dirty: false` from index stat data.** Staged changes would be invisible, so it could claim clean when the tree is not.
+- **Successor:** VCS-1 (a passage making this meaning of `dirty` explicit).
+- **Forbidden substitutes:** an invented commit id; `dirty: false` without proof; any environment, `$HOME` or global Git configuration read.
+- **Controls:**
+  - C1-T15: no repository; HEAD through a loose ref; HEAD through `packed-refs`; detached HEAD; unborn HEAD refusing; the innermost of nested repositories.
+  - C1-T16: `dirty` is `true` for every Git case.
+  - C1-T17: `sourceInventoryDigest` equals the inventory's canonical SHA-256.
+
+**5. Bounds and refusals, and the size finding.**
+- **Decision.** The snapshot refuses, typed and without truncation (IE:119-120), when any of these is exceeded:
+  - **rows:** more than 100,000 inventory rows (IDS:2739);
+  - **descriptor:** a canonical descriptor over 4 MiB (IE:117; `crates/identity/src/canonical.rs:5`);
+  - **total bytes:** more than 8 GiB, which is Rust3's retained `maxSnapshotTotalFileBytes` (RPP:100; NE:2934). The snapshot is shared by every universe, so the smallest applicable bound governs. TS2 has no total.
+
+  The library's refusal is the internal `SnapshotBound {field, observed, limit}`. Its public projection is J1's. The recommendation is S-B: make the snapshot inventory an eighth field of NE:4276's bounded family (`REQUEST.UNSATISFIABLE`, `PROJECT.SCOPE_LIMIT`, subject `field:count>limit`), with the remedy "add `ignorePaths` or select a narrower project root". Until then no CLI reaches the refusal (M3 has none).
+- **The size finding: a risk estimate, not a measurement (r2, C-N2).**
+  - **The arithmetic.** A canonical inventory row is about 100 bytes plus its path and length digits. A sample row with a 50-byte path and a four-digit length is 150 bytes, or 151 with its separator. So 4 MiB holds roughly 27,000 to 28,000 rows before the snapshot envelope. That is far below the 100,000-row schema bound and the protocols' 200,000 entries (NE:2963; RPP:99).
+  - **The T2 examples are not inventory counts.** T2M's `treeDigest.blobEntries` counts fetch-tree entries, not admitted inventory rows: discovery exclusions are not applied, and real path lengths vary. By that count, `rs-very-large-aws-sdk-rust` (245,250) is **at risk** of exceeding the row bound. `ts-very-large-aws-cdk` (29,375), `ts-very-large-aws-sdk-js-v3` (51,178) and `py-very-large-home-assistant` (28,573) are **at risk** of exceeding the descriptor bound. A medium TypeScript repository **with** its `node_modules` read set is at risk too.
+  - **The measurement.** S-M's SM-5 and SM-6 measure the admitted inventory and the full canonical descriptor (L:281-282; X-1).
+- **Consequence.** S-R, a `snapshot2` successor that names the inventory by reference rather than inline, is **likely required** before very large T2 repositories, or `node_modules`-bearing TypeScript read sets, can be analyzed. It stays **conditional** on SM-5 and SM-6.
+  - **What S-R must specify:** the new identity recipe (the domain and major, and how the referenced inventory record is digested and retained); the bounds of the referenced inventory (rows, record bytes and total bytes); and how it joins the existing `vcs-observation.sourceInventoryDigest` (IE:544-545).
+  - **What it leaves alone.** It is an identity-owner successor, and it changes no INC obligation: it re-spells one Plan input and never removes one from identity.
+- **Basis:** IE:117-120; IDS:2737-2745; NE:4276.
+- **Rejected:**
+  - **Truncating, or dropping unread classes,** to fit. IE:119-120 forbids it.
+  - **Splitting one project into several snapshots.** NE:4280 forbids sharding.
+  - **Raising the 4 MiB cap in product code.** It is a contract bound.
+- **Forbidden substitutes:** a partial inventory under a complete-looking identity; a refusal that mints a Plan or Run.
+- **Controls:**
+  - C1-T18: 100,001 rows refuse.
+  - C1-T19: a 4 MiB + 1 descriptor refuses.
+  - C1-T20: exactly at each bound admits.
+  - C1-T21: no Plan or Run is minted on refusal, and the refusal carries field, observed value and limit.
+
+**6. Sealing order, and what is included and excluded.**
+- **Decision.**
+  - **Order:**
+    1. the walk (item 2);
+    2. the layout and read set (item 3);
+    3. sort, and the uniqueness check (IE:150-152);
+    4. the VCS observation (item 4);
+    5. the bounds (item 5);
+    6. `H("snapshot", …)`.
+  - **Bound inputs.** `projectId` comes from X2. `resolvedConfigDigest` comes from B1's resolution, which never names native-input imports (item 13). `scopeDigest` is B2's scope descriptor (NE:933-944). Snapshot and Plan carry the same configuration and scope digests (IE:1416).
+  - **Included:** every regular file the walk reaches, including in-snapshot `.cargo/config(.toml)` originals (NE:1739-1741), lockfiles, markers and in-repository vendored trees; and item 3's read set.
+  - **Excluded:**
+    - pruned trees outside the read set, boundaries, `ignorePaths`, symlinks and special files;
+    - compiler, runtime and standard-library bytes, which stay in their closures (IE:558-561);
+    - Rust dependency sources, which stay in `DependencySourceSetV1` (IE:560-561);
+    - prepared outputs, which are inert rows of `PreparedOutputSetV3` (NE:1803-1873);
+    - OpenSIP's store and installation, which lie outside the project root;
+    - every operational value: RequestId, ExecutionId, pids, wall clock and host paths (IE:104-107; L:373-394).
+- **Basis:** IE:179, IE:548-593, IE:1416.
+- **Rejected:** including the dependency, closure or prepared bytes in the inventory. IE:558-561 keeps each with its own owner and join.
+- **Forbidden substitutes:** an operational value in any snapshot field; a context or universe minted before sealing.
+- **Controls:**
+  - C1-T22: the snapshot and Plan disagreeing on config or scope refuses at Run closure.
+  - C1-T23: a RequestId appears in no snapshot byte (a source pin over the descriptor builder).
+
+### B. C2 — closure admission and native contexts
+
+**7. Closure admission: one path, from a signed manifest to a `closure2` kind.**
+- **Decision.**
+  - **The one path.** A `closure2` descriptor `{kind, manifestDigest, tree, semanticVersion, protocolMajor, platform}` (IE:180; IDS `closure`) is admitted only through the signed path that SL:21-60 and BP:701-709 state:
+    - the component-manifest body, under `opensip-signature-envelope.2` and a TR-INDEX catalog entry, both verified by the M2 trust owner (`crates/security/src/trust.rs`; `component_manifest.rs:395`);
+    - the selected platform's TreeCommitment, projected onto regular files with exact path, sha256 and length (SL:41-48);
+    - `manifestDigest` equal to the raw SHA-256 of the manifest body, envelope excluded (IE:272-276).
+
+    A manifest for another tree, platform or component refuses (IE:276).
+  - **The kind** is fixed by a closed host table keyed by the manifest's `role`. The manifest's role vocabulary is "host-owned … vocabulary extension is a host decision" (`component-manifest-schemas.v11.json`, the `role` field). M2's manifest owner admits only `analyzer`. This law fixes the table:
+
+    | role | closure2 kind |
+    |---|---|
+    | `analyzer` | `provider` |
+    | `toolchain` | `toolchain` |
+    | `stdlib` | `stdlib` |
+    | `rust-dev-llvm` | `rust-dev-llvm` |
+    | `grammar` | `grammar` |
+
+    `evaluator`, `detector` and `adapter` are never manifest roles at M3. They are reached only by the core-role rule of item 9.
+
+    Widening the role enum is successor **CR-1**, owned by security and DR-103, and joined with D4's `components/manifest.rs` (DR-G29, BP:1033). A closure whose role maps to a kind other than the one its selecting field requires (IDS `closureKinds.byField`, IDS:4726) refuses.
+  - **Retention.** Every admitted closure retains its manifest body and its whole tree (IE:1493-1499; IE:1399-1411).
+- **Basis:** IE:180, IE:272-285; SL:21-60; BP:699-720; IDS:4726-4794.
+- **Rejected:**
+  - **A kind field asserted by the caller,** or a kind inferred from a path or file name. Either is a claim, not an admission (IE:174-175).
+  - **Everything as `analyzer`/`provider`.** It breaks `closureKinds` for the toolchain, stdlib and grammar joins (IE:327-339).
+- **Forbidden substitutes:**
+  - a closure from a PATH lookup or system runtime (BP:715-717);
+  - a semantic version standing in for a closure (IE:278);
+  - a tree that includes symlink or directory rows (SL:45-47);
+  - an unsigned closure in a release build.
+- **Controls:**
+  - C2-T1: a tree projection mismatch refuses; a manifest for another platform refuses.
+  - C2-T2: a role/kind mismatch per field refuses.
+  - C2-T3: a bad envelope signature refuses.
+  - C2-T4: a symlink row is never followed into the tree.
+  - C2-T5: the same tree under a changed version is a new `closure2`.
+
+**8. Synthetic signed closures for tests.**
+- **Decision.**
+  - **The generator.** Tests build closures through one generator in security's fixture module. It sits on the joint fixture predicate `cfg(any(test, feature = "crash-matrix", feature = "scenario-fixtures"))` (X8 item 4b; X8:189-210). It writes a real component-manifest body for a supplied tree, signs the envelope and the catalog with the public deterministic fixture keys under the synthetic root (the precedent is `sign_synthetic_profile`, `crates/security/src/trust/native_census.rs:651`), and returns the signed bytes.
+  - **Same admission as production.** Admission then runs the **production** path of item 7. There is no constructor that skips verification.
+  - **The core.** The synthetic installation (`crates/security/src/crash_matrix_support.rs:51`, `FIXTURE = "synthetic-signed-v2"`) supplies the synthetic core. Its evaluator, detector and adapter closures follow item 9.
+  - **Labels.** Every synthetic artifact carries the existing `synthetic` label (`crates/security/src/scenario.rs:51`). Harness runs that use synthetic closures over real tool bytes are labelled synthetic-trust, are never authoritative, and are never Q6 or qualification evidence (M3P:370; AQP:481).
+- **Basis:** M3P:163 ("Tests use synthetic signed closures"), M3P:370; X8 item 4b.
+- **Rejected:**
+  - **Unsigned test closures** (`crates/host/src/schema_sources.rs:463` builds unsigned descriptors for identity tests). They bypass item 7, so the admission path would be untested.
+  - **A harness-only trust root** reachable through a new feature. It is a second seam on trust admission.
+- **Forbidden substitutes:** a synthetic root or key reachable in a release build; a test-only admission shortcut; a synthetic closure presented as a release closure.
+- **Controls:**
+  - C2-T6: synthetic closures admit through the production path.
+  - C2-T7: the release build has no synthetic root (a source pin, as X8 item 4f).
+  - C2-T8: a synthetic-labelled Run is refused by any authoritative surface.
+
+**9. The detector closure for the bundled preview pack (I1 LD-10), and the other in-core role closures.**
+- **Decision (the detector).** A bundled pack's detector closure is the **core detector closure**:
+
+  > `closure2:` + H("closure", D″), where D″ is the authenticated core inventory's selected-platform descriptor, the one security already projects for the core closure (`core_inventory.rs:385-415`), with `kind` set to `"detector"` and every other member unchanged. `manifestDigest` is the raw SHA-256 of the TR-CORE-signed inventory body, envelope excluded, exactly as for EC1's evaluator closure.
+
+  - **How it relates to the evaluator closure.** It differs from EC1's core evaluator closure **only by `kind`** (EC1 "The rule"). Security derives both from the one authenticated inventory it already holds. No new signed data, release format or trust change is needed.
+  - **Where it is used.** In the `EvaluatorEmissionPlanV1` row of every rule whose policy came from a `RELEASE_PACKS` row of that core (`policy.rs:716-721`), `detectorClosure` is this closure. So is `finding.ruleClosure` for those rules' findings (IDS `closureKinds.byField`). It is a `plan.semanticClosures` member (IDS `closureMembership.direct`).
+  - **The join (Run closure; wired by X12d, item 19).** For a Plan whose analysis-spec names a bundled pack:
+    - every emission row of that pack names a retained `kind: detector` closure whose descriptor equals the seal's evaluator-closure descriptor except for `kind`;
+    - its `contributionId` is a member of the pack row's `contributions` (I1:328).
+
+    So the detector and the evaluator are one core release, and an evaluator or provider closure cannot stand in (COMP:9).
+  - **The I1 LD-10 obligations, discharged:**
+    - **signed-core provenance:** the TR-CORE signature over the inventory body;
+    - **component and role joins:** TR-CORE's role over that body (IE:274-276), as EC1;
+    - **retained bytes and descriptor:** the inventory body and the platform tree, retained once per store by raw SHA-256 (EC1 "Consequences");
+    - **selection in the Plan:** the emission row and `semanticClosures`.
+- **Decision (the in-core provider and adapter roles; r6, X-C1).** Item 13 needs an `import.producerClosure` of kind `provider` and an `import.adapterClosure` of kind `adapter` (IDS:4726) for the in-core importer. These are the **core adapter closure** and the **core provider closure**: the same D with `kind` set to `"adapter"` and `"provider"` respectively. r5 called the second the "core import-producer closure". It is the same identity, and E1 names it the core provider closure (E1 item 14b).
+  - **The core adapter closure** is admissible **only** as `import.adapterClosure` of an import whose `kind` is `dependency` or `prepared`. It is never a `plan.semanticClosures` member.
+  - **The core provider closure** has exactly **two** admitted uses (r6, lead decision on E1's X-C1):
+    1. **`import.producerClosure`** of an import whose `kind` is `dependency` or `prepared` (item 13);
+    2. **the producer of syntax-universe work** (E1 item 14b). It is the producer in every one of these fields, **only** where the record's universe, or the stage's or binding's universe, is a `native.semantic-universe.syntax.v2` identity:
+       - `subject-scope.enumeratorClosure`;
+       - `view.producerClosure`, and so `fact.producerClosure` (IDS `equalToDirect`);
+       - `stage-spec.producerClosure`;
+       - the enumeration binding's `enumerator.closureId` (`enumeration-plan.schema.v1.json`, cited by E1 as ENS:265);
+       - `CandidateProducerResultV1.producerClosure`.
+
+       The code that produces syntax facts and candidates (`crates/syntax`, `host/syntax.rs` and the engine) ships in the core (BP:676-683). The grammar closure stays kind `grammar` and is never a producer (IDS:4743).
+  - **Its `semanticClosures` membership.** The core provider closure is a `plan.semanticClosures` member (IDS:4794-4803) **exactly when** the Plan selects a syntax universe, and never otherwise. It is never the producer of any TypeScript or Rust record, and never an import's producer except as use 1. So it can produce no TypeScript or Rust view, scope, fact, stage or cache entry (IDS `closureMembership.direct`; L:206-210).
+- **Successor CRC-1** (the core role closures; identity owner; the EC1 pattern). It carries:
+  - the three projections;
+  - the `manifestDigest` artifact text for those kinds;
+  - the field restrictions and the detector join;
+  - a test vector built on EC1's `baseline-macos` fixture.
+
+  It is flagged to the owner like EC1: every core release becomes a new detector closure.
+- **Consequence, disclosed.** A new core release is a new detector, so two-way baseline comparison across releases needs the core tree's `.opensip/detector-compatibility.json` listing (WS:300-316; IE:282-285) or an E0 pivot. That is M5 work. Findings' fingerprints are unaffected: `finding-key2` names no closure (IE:188).
+- **Basis:** COMP:9 ("Its detectorClosure is a selected closure of kind detector. A provider or evaluator closure cannot stand in for it"); IE:1508-1512; WS:277-287; EC1; I1:392-396, I1:428.
+- **Rejected:**
+  - **I1 LD-10's literal form: a `closure2` whose tree is the one bundled document and whose `semanticVersion` is the pack version.** No admitted manifest describes a one-document tree, so `manifestDigest` would name a manifest of a different tree (IE:276; SL:27-32). The alternative, a signed per-pack component manifest, changes the signed release format (EC1 rejected the same thing for the evaluator). Worse, the document alone does not implement the detector. The `cycle-representative` semantics live in the core evaluator (I1 item 2). A pack-only identity would therefore stay unchanged when the code that implements the rule changes, which defeats WS:300-303's `identical-closure` law.
+  - **The evaluator closure itself.** COMP:9 forbids it.
+  - **A separately shipped detector component.** It contradicts X12 item 2 ("Bundled") and I1 LD-10.
+  - **For the import roles:**
+    - the consuming Rust provider's closure as producer: false, since the provider did not produce the record;
+    - a placeholder closure: not admissible;
+    - a new closure kind: `closureKinds` is closed (IDS:4726).
+  - **For syntax-universe work (r6, as E1 item 14b records):**
+    - the grammar closure re-kinded `provider`: item 7 fixes the kind by role, and the grammar closure executes nothing;
+    - a separate core "syntax-producer" projection: the same descriptor with the same kind is the same `closure2`, and a second name for one identity is a distinction no admission can see.
+- **Forbidden substitutes:** a detector closure from any core other than the seal's evaluator's; a core role projection outside its admitted fields (r6: one field for the adapter, the two uses above for the provider); the core provider closure on a TypeScript or Rust record; the TypeScript or Rust provider's closure on a syntax record; `kind: core` anywhere in identity (EC1 "Rejected").
+- **Controls:**
+  - C2-T9: the vector. D″ equals D′ except `kind`, the ids differ, and `manifestDigest` is the body's SHA-256.
+  - C2-T10: an emission row naming the evaluator closure refuses.
+  - C2-T11: an emission row naming another core's detector refuses.
+  - C2-T12: a core adapter projection as a view producer refuses.
+  - C2-T13 (r6, narrowed for X-C1): the core provider closure in `plan.semanticClosures` refuses when the Plan selects **no** syntax universe. When a syntax universe is selected, its absence from `semanticClosures` refuses. This is E3-T13's Plan leg.
+  - C2-T13a (r6, X-C1): the core provider closure:
+    - **admits** as the producer of a syntax-universe view, scope, stage spec, binding or envelope;
+    - **admits** as `import.producerClosure` of a `dependency` or `prepared` import;
+    - **refuses** as the producer of a TypeScript or Rust record (E3-T14);
+    - **refuses** in any other field.
+
+    A TypeScript or Rust provider closure on a syntax record also refuses.
+
+**10. Native contexts and universes.**
+- **Decision.**
+  - **Who computes.** The host resolved-inputs adapter computes every context and universe **before PlanId**, from admitted retained bytes only: snapshot rows, closure trees, imports. Nothing comes from a worker claim, a version string or the environment (NE:1460-1462, NE:1475-1477).
+  - **One admission, two call sites.** The adapter admits what it minted by calling the **same** functions that Run closure re-runs over retained bytes (IE:310-325): the evaluator's `inspect_native_context` (`native_context.rs:368`) and the universe binders. Mint-time admission and Run-closure admission therefore cannot diverge.
+  - **Scope.** C2 covers NE §2 entirely: the contexts (NE:1430-1645) and the universes and their binders (NE:1255-1429). M3P's C2 row cites only NE:1430-1645, but the universe binding is the same adapter (a record correction, below).
+  - **TypeScript (C2b):**
+    - the config graph `TypeScriptConfigGraphV1` (NE:1330-1353), with kinds from the closed basename table (NE:1355-1386);
+    - the honored and stripped options (NE:1487-1488);
+    - `libSelection` and the stdlib inventory join (NE:1501-1519);
+    - the layout (item 3);
+    - `bind_typescript_universe` (NE:1583-1598).
+
+    The resolver is a Rust implementation of the closed resolution these sections publish. The target-default `lib` table is pinned data taken from the selected compiler closure, so the resolver reads no compiler at run time. The worker's independent recomputation is the cross-check: `Unavailable(native-context-mismatch)` before Analyze (NE:1618-1620; NE:3003-3007).
+  - **Rust (C2c):**
+    - `CargoConfigProjectionV2` from the in-snapshot configs: honored and stripped keys (NE:1743-1753), the two distinct digests (NE:1755-1763), and the rustflags allowlist (NE:1765-1781);
+    - `ToolClosureV1` (NE:1450-1458);
+    - `baseCfg`;
+    - `bind_rust_universe` (NE:1279-1311).
+
+    **`baseCfg` is pinned data:** a per-target cfg table shipped in the signed toolchain closure, never a `rustc --print cfg` run. Nothing in NE specifies its source. A data member keeps the context "from admitted, retained bytes" with no launch before PlanId.
+
+    The Rust context also names `dependencySourceSetId`, `unifiedFeaturesId` and `preparedOutputSetId`. So it is minted only after C3 (items 12 to 14).
+  - **Syntax.** `native.context.syntax.v2` over the grammar bundle is E's (M3P:165). C2 supplies the generic admission it uses.
+  - **The count is checked when contexts are produced.** Contexts are deduplicated by identical descriptor, and more than 128 distinct contexts refuse at that producer boundary, before any prospective Plan exists (NE:4276).
+- **Basis:** NE §2; IE:265-285, IE:297-374; BP:711-717.
+- **Rejected:**
+  - **Contexts computed by the provider** and accepted from its echo. Workers never mint host identities (NE:1475-1477; L:382).
+  - **Running the pinned compiler or `rustc` before PlanId** to read option defaults or cfgs. That is a launch before Plan, before O7 permits any, and a tool output standing in for retained data.
+  - **A context-free universe admission** path (NE:1286-1289, NE:1583-1591).
+- **Forbidden substitutes:** an ambient Node, TypeScript, `rustc` or `cargo`; a field read from the environment; a stripped option read from anywhere else (NE:1488); a universe naming an uninventoried path.
+- **Controls:**
+  - C2-T14: NE:1622-1638's seventeen TypeScript cases as host tests.
+  - C2-T15: NE:1289-1307's Rust refusals.
+  - C2-T16: 129 distinct contexts refuse with `nativeContextDigests:129>128`, and identical ones collapse.
+  - C2-T17: a mint-time admission and a Run-closure admission over the same bytes agree.
+
+### C. C3 — dependency sources and prepared outputs
+
+**11. The M3 importer: a library function, driven by the harness, with no command.**
+- **Decision.**
+  - **Where it lives.** `crates/host/src/imports.rs` (CH14:484) is built at M3 as a **library-only** module. It admits exactly two import kinds, `dependency` and `prepared` (NE:2671-2672), from a source path the caller names explicitly (DS-5, NE:1688-1692).
+  - **What M3 leaves out.** There is no CLI, no persistent import registry and no mutation receipt. The `import` command stays at M5 (BP:957; COV:8966). This is a module built early, as D1 builds `platform/process.rs` (M3P:164). No delivery row moves.
+  - **Scope of an import.** An M3 import is invocation-scoped. It is admitted in the request that consumes it and retained only through that request's Run closure. A later request imports again. Identical inputs give the identical ImportId, and the store deduplicates the bytes.
+  - **Pure admission sits beside the inspectors.** The DS-1..DS-6 and PO-0..PO-4 decisions are functions over supplied observations, placed beside the evaluator's retained-input inspectors (`native_universe.rs:521`, `:555`). Admission and Run closure therefore run one implementation (IE:629-631). `imports.rs` does only the I/O.
+  - **Who calls it.** At M3 only the harness (Q0) and tests call it.
+- **Basis:** M3P:300 ("a library-level import of user-named sources … driven by the harness. The `import` command stays at M5"); M3P:375; NE:1688-1692.
+- **Rejected:**
+  - **A separate M3 module beside a later `imports.rs`.** That would be two owners of one record law (IE:629-631).
+  - **Wiring `import` early.** BP:957.
+  - **No import at M3.** Every T2 registry dependency would then be `input-closure-incomplete` (NE:1693-1698; M3P:300).
+- **Forbidden substitutes:**
+  - an implicit or ambient source (`$CARGO_HOME`, `~/.cargo`, `vendor/` outside the snapshot) not named by the caller (DS-5);
+  - any network fetch in product code (NE:1691-1692);
+  - an import admitted outside `imports.rs`.
+- **Controls:**
+  - C3-T1: a populated `CARGO_HOME` that is not named is never read (a source pin shows no environment read, plus a test).
+  - C3-T2: a fetch URL, or an acquisition mode outside the closed set, refuses DS-5.
+  - C3-T3: no CLI token reaches `imports.rs`.
+
+**12. DS-1..DS-6 at M3, and the dependency-feature launch gate.**
+- **Decision.** The source of truth is the Cargo.lock bytes **from the sealed snapshot** (item 1), parsed with `crates/identity/src/toml.rs:51`. Lock versions 3 and 4 only (`LockfileIdentityV1`, NES). The caller names one directory, laid out as Cargo itself lays out its sources:
+  - **DS-2 (registry tarball):** `<name>-<version>.crate`, the layout of `$CARGO_HOME/registry/cache` (the native case `acquisitionSourcePath`, `native-cases.v2.json:8285`).
+    - The tarball's raw SHA-256 must equal `lockChecksum`, giving `tarball-matched` and `registry-authenticated`. Any other digest is `mismatch` and refuses the whole set (NE:1666, NE:1681-1684).
+    - The host decodes the tarball deterministically into custody and computes the file manifest itself, under the decoder profile **CRATE-ARCHIVE-1** below.
+  - **CRATE-ARCHIVE-1: the DS-2 decoder profile (r2, C-R2).** The profile admits exactly what Cargo's package writer emits.
+
+    **What Cargo writes.** These are source inspections of the published code (docs.rs, `latest`, inspected 2026-10-04), not runs:
+    - Cargo's `tar` function (`cargo/src/cargo/ops/cargo_package/mod.rs:861-944`):
+      - wraps the archive in `GzBuilder::new().filename(…)` (:871-874);
+      - gives every entry a `Header::new_gnu()` header (:899);
+      - appends only files: on-disk files through `File::open` plus `metadata()`, with `set_metadata_in_mode(…, HeaderMode::Deterministic)` and `append_data` (:901-910); generated files with `set_entry_type(EntryType::file())` and `append_data` (:916-934);
+      - places each one at `<name>-<version>/<relative path>` (:881).
+
+      It appends no directory and no symlink entry. A symlinked source file is archived as its target's contents.
+    - The tar builder's `append_data` (`tar/src/builder.rs:213-223`) calls `prepare_header_path` (:851-896). That function writes the path into the header's name field when it fits. Otherwise it first appends one GNU long-name record:
+      - entry type `b'L'` (:890), header name `././@LongLink` (:838);
+      - payload: the path bytes followed by exactly one NUL (:892);
+      - then it truncates the real header's name field to the longest UTF-8-valid prefix that fits (:884-888).
+    - `finish` writes 1,024 zero bytes (:561-567). No pax record is emitted automatically.
+
+    **The profile:**
+    1. **gzip.** Exactly one RFC 1952 member with `CM` 8. `FNAME` is allowed (Cargo sets it), NUL-terminated, at most 4,096 bytes. `FTEXT` is ignored. `FEXTRA`, `FCOMMENT`, `FHCRC` and the reserved flag bits are outside the profile. The CRC-32 and `ISIZE` trailer must verify, and no byte may follow the member. The inflater is a pure-Rust one (a P0 dependency-policy row).
+    2. **Headers.** 512-byte blocks. The GNU magic is `ustar␠` with version `␠\0`. The header checksum is verified: the unsigned byte sum, with the checksum field taken as eight spaces, equals the field's octal value. `size` is octal, or GNU base-256 above the octal range. Mode, uid, gid, mtime, uname and gname are ignored: they enter no manifest, though the checksum covers them.
+    3. **Entry types.** Only two are admitted: `0`, a regular file, and `L`, a GNU long name. Every other type is outside the profile:
+       - links (`1`, `2`, `K`);
+       - devices and FIFOs (`3`, `4`, `6`);
+       - directories (`5`), which Cargo never writes;
+       - contiguous files (`7`);
+       - pax records (`x`, `g`);
+       - sparse and multivolume records (`S`, `M`, `V`, `N`);
+       - vendor types.
+    4. **Long names.** An `L` record:
+       - is named exactly `././@LongLink`;
+       - has a payload of 2 to 16,385 bytes (a path of at most 4,096 scalars, plus its NUL), ending in exactly one NUL with no other NUL;
+       - is followed **immediately** by a type-`0` header, whose NUL-trimmed name field is a byte prefix of the long name.
+
+       The following are ambiguous and outside the profile:
+       - an `L` at the end of the archive;
+       - an `L` before another `L`;
+       - an `L` before any other type;
+       - a name-field mismatch.
+    5. **The effective path** is the long name when one precedes the entry, and otherwise the NUL-trimmed name field. It must be valid UTF-8, begin with exactly `<name>-<version>/` from the lock row, and leave a remainder that is a strict logical path (IE:161-163; `descriptors.rs:31`). Two entries with the same effective path are outside the profile, whatever their content.
+    6. **End of archive.** At least two zero blocks follow the last entry. Everything after the first zero block is zero. The decompressed stream ends on a block boundary. **The end region is between 1,024 and 10,240 bytes (r5, C4-N1).** This is an explicit check of its own, applied as zero blocks are produced, so a stream of zero blocks that never ends is bounded before its end is seen.
+    7. **Three kinds of bound, each over its own population (r3, C2-R3; r4, C3-R2).**
+       - **Protocol counters: exact and logical, and only over the final admitted set.** The population is the **dependency set itself**. It contains every activated, non-path package that was admitted, **whatever its source route** (r5, C4-N2):
+         - a DS-1 vendored tree admitted as `self-consistent`;
+         - a DS-2 archive whose checksum matched and which passed CRATE-ARCHIVE-1 completely;
+         - a DS-3 Git tree admitted as `declared` (NE:1671-1686; NEM:1846-1875).
+
+         CRATE-ARCHIVE-1 applies to DS-2 only. Each route keeps its own assurance level. Activation comes from `UnifiedFeaturesV1`, and the reference builds the set from exactly this population (NEM:1832-1845, NEM:1870-1883). Each admitted package commits its logical counts, `fileCount` and `totalBytes` from its own file manifest (NE:1663-1664; NEM:1874). The set's totals are the sums of those committed counts:
+         - packages: at most `maxDependencySourcePackages`, 4,096;
+         - files (Σ `fileCount`): at most `maxDependencySourceEntries`, 1,000,000;
+         - content (Σ `totalBytes`): at most `maxDependencySourceTotalBytes`, 8 GiB.
+
+         These are the quantities the manifest, chunk and seal frames carry (NE:2876-2878), under NE:2931-2932's bounds. **They are checked once, after activation and final package admission, and before the set's descriptor is minted, its import is wrapped, or anything is transported.** Excluded from these counters:
+         - tar framing, long-name records, padding and end blocks;
+         - inactive candidates;
+         - candidates rejected by their route, including DS-2 archives rejected late, after their content was decoded (by the gzip trailer, the end-of-archive rule or a decoder counter);
+         - path packages.
+
+         **Only a proven overflow of the admitted set** refuses the import as a set bound: internally `DependencySetBound {field, observed, limit}`, with its public projection by J1 beside item 5's (S-B). The set could not be transported or Plan-bound. Nothing is truncated.
+       - **Acquisition bounds: before activation, over the supplied candidates (r4, C3-R2; r5, C4-R1).** Before activation, C3a acquires **candidates**: the lock's non-path packages that the named source supplies. A candidate is a DS-2 archive or a DS-1 or DS-3 tree. Their population is not the set's, so they get their own bound, separate from `DependencySetBound`.
+         - **Owner:** C3a, the importer.
+         - **Quantities** (a lead decision), each four times the protocol bound, so that an activated set at its protocol bounds can still be acquired when up to three quarters of the supplied candidates are inactive for the target:
+           - candidate sources (archives and trees alike): at most 16,384;
+           - candidate logical files: at most 4,000,000;
+           - candidate content: at most 32 GiB.
+
+           A tree candidate's files and bytes are read under item 2's descriptor discipline and count the same way as an archive's decoded files (r5, C4-N2). H-DEP's pin-time report records every T2 Rust entry's candidate totals (item 15). If a T2 entry exceeds a quantity, the quantity returns to this law for amendment. It is never raised silently.
+         - **Every candidate is acquired to completion (r5, lead decision, C4-R1).** There is no protocol-threshold shortcut. Each candidate is decoded or read **to completion**, under its route's rules, the per-archive decoder counters (for DS-2) and the acquisition bounds. It is then either **admitted by its route** or **rejected** (for DS-2, as an archive-profile breach), **before activation**.
+           - An admitted candidate is materialized whole and read-only in the adapter's scratch, so Cargo decides activation from a lawful, complete tree (NE:1785-1791).
+           - A rejected candidate is never materialized, and no partial tree or manifest reaches the adapter. If Cargo then fails for its absence, NE:1789-1791's incomplete branch governs.
+           - A single large candidate needs no special path. A candidate with 8 GiB + 1 of content is within the 32 GiB acquisition bound, so it is acquired, admitted or rejected, and materialized like any other. If it is activated and admitted, the final protocol check finds the overflow. If it is inactive, or rejected, it counts toward nothing.
+           - r4's oversized-candidate rule (stop at the protocol threshold, then decide by activation) is **withdrawn**. A rejected or unvalidated prefix is not an admitted package, and the stopped candidate had no lawful materialization for Cargo.
+         - **Disposition, and a deterministic first breach (r5, C4-N3).** Crossing a candidate total refuses the import as `DependencyAcquisitionBound {field, observed, limit}` (internal; public projection by J1 beside S-B), **whatever the processing order**. It is **never** labelled a set bound. The fields of that refusal are fixed by a canonical order:
+           - candidates are acquired in the set's canonical order, ascending `(name, version, sourceId)` by UTF-8 bytes (NES `DependencySourceSetV1.packages`);
+           - within a candidate, files are taken in archive order, or in ascending logical path for a tree;
+           - the reported field is the first to cross in that order;
+           - when one file crosses several fields at once, the precedence is sources, then files, then content.
+
+           The refusal's class therefore never depends on processing order, and its `{field, observed, limit}` are deterministic. r4's claim that the refusal was order-independent because totals commute is withdrawn: totals commute, but the first field to be breached does not.
+         - **The adapter's scratch.** Materializing admitted candidates for the adapter is also bounded by the D law's adapter scratch bound. A refusal there is the D law's typed refusal.
+       - **Decoder counters: per archive, belonging to CRATE-ARCHIVE-1.** They bound the work of decoding one archive, and they are separate from both of the above. During decoding, **only these and the acquisition bounds apply**:
+         - **D1, framing allowance (r5 wording, C4-N1).** Inflated bytes minus regular-file content bytes must stay at or below 18,432 × (regular files so far + 1) + 10,240. The constant follows from the profile: a regular file costs one 512-byte header and less than 512 bytes of padding, plus at most one long-name record, which is a 512-byte header and a payload of at most 16,385 bytes padded to 16,896. The sum is 18,431, rounded up to 18,432. The "+ 1" allows the one pending `L` before its file, and the end region is rule 6's.
+
+           **D1 is implied by** rules 4 and 6, D2 and block alignment: total framing is at most 18,431n + 10,240, which is inside the allowance. So **no archive that satisfies the other rules can cross D1 alone.** D1 is kept as an incremental streaming guard, so that framing work is bounded before the rule it implies can be evaluated. A D1 breach is reported as the archive-profile breach of the rule that caused it. An inconsistency between D1 and those rules is a decoder defect, a host-invariant fault. r4's "D1-only" control is withdrawn.
+         - **D2, control records.** At most one `L` record per regular file (rule 4), and each payload at most 16,385 bytes.
+         - **D3, compressed input (r4 wording, C3-N2).** Compressed bytes consumed must stay at or below 1.01 × inflated bytes produced, plus 1 MiB, checked as the stream proceeds. This is a profile limit, not a universal DEFLATE property: blocks may be of any size (RFC 1951 §§2 and 3.2.4). Its margin for Cargo's actual compressor and settings (`GzBuilder`, `Compression::best()`, cargo_package `mod.rs:871-874`), streaming prefixes included, is part of R6's pinned-producer evidence for C3a. A stream that consumes input without producing output, such as a run of empty blocks, breaches it.
+         - **D4, gzip header fields.** `FNAME` at most 4,096 bytes (rule 1).
+
+         A breach of D1 to D4 is an **archive-profile breach**, never a set bound. Its archive is outside the profile, as below, with the reason `archive-bound:<D1|D2|D3|D4>`.
+
+    **Outside the profile is not a mismatch (r2; r3).** An archive whose SHA-256 matched `lockChecksum` but which falls outside CRATE-ARCHIVE-1, for its form or for a decoder counter, is still authenticated bytes. So:
+    - **Not admitted.** Its package is not admitted, and nothing of it is partially extracted. No partial manifest or tree reaches feature resolution or set admission.
+    - **If the package is activated** (by `UnifiedFeaturesV1`), it is listed in `completeness.missing`, the set is incomplete under DS-6 (NE:1693-1697), and its dependents get `input-closure-incomplete` (NE:1795-1801). The wrapper carries **both** omissions:
+      - item 13's `missing:<name> <version> <sourceId>`, which mirrors the required DS-6 record;
+      - `undecodable:<name> <version> <sourceId>:<reason>`, which adds the reason.
+    - **If it is not activated,** it does not make the activated set incomplete. The wrapper carries only the `undecodable:` omission.
+    - **Cargo's own failure.** If Cargo fails because the package is absent from the materialization, NE:1789-1791's incomplete branch governs.
+    - **The import's completeness.** It is `partial` whenever any omission exists.
+
+    H-DEP runs the same library decoder over every pinned tarball at pin time and reports any that fall outside the profile (item 15). So T2's exposure is known before any analysis. Admitting another producer's form is a reviewed amendment to CRATE-ARCHIVE-1 that cites that producer.
+  - **DS-1 (vendored tree):** `<name>-<version>/` with `.cargo-checksum.json`, the `cargo vendor` layout. Internal consistency only, giving `self-consistent` and `declared` (NE:1671-1680).
+  - **DS-3 (git):** the tree at the locked revision, in the same layout. It is `not-applicable` and `declared`, and the file manifest is the binding (NE:1685-1686). M3 has no object reader to verify the revision.
+  - **DS-4 (path):** in the snapshot; nothing is imported (NE:1687). An in-snapshot `vendor/` tree with source replacement is DS-1 with `in-snapshot-vendored` (NE:1665, NE:1745).
+  - **User-named paths** get the user-input custody of NE:4207-4208. Here that means item 2's descriptor discipline and S3 directory custody over the named tree. A custody failure refuses the import.
+  - **DS-6, and the launch gate.** Completeness is over the packages that `UnifiedFeaturesV1` activates (NE:1693-1697). Unified features are computed **only** by the bundled `cargo metadata --offline --frozen --locked --format-version 1 --filter-platform <target>`, through `opensip-cargo-adapter` and the CC-1..CC-5 carrier (NE:1724-1741, NE:1785-1791). So the steps are:
+    1. acquire every supplied candidate **to completion**, in canonical order, under its route's rules, the decoder counters (DS-2) and the acquisition bounds. Then materialize each **admitted** candidate whole and read-only in private scratch (r5, C4-R1);
+    2. run the adapter;
+    3. admit the set over the activated, non-path packages, as the reference does (`NEM:1820-1883`);
+    4. **then** commit each admitted package's logical counts and check the protocol counters over the final set (rule 7). Only after that is the descriptor minted or the import wrapped (r4, C3-R2).
+
+    A Cargo failure from a missing package is `completeness.incomplete` (NE:1789-1791), and dependent crates are `input-closure-incomplete` with cause `missing-dependency-source` (NE:1795-1801).
+
+    **Lead decision: this adapter child is a tool launch, not a provider launch.** It runs before PlanId by contract (NE:2499-2500). L item 2's cardinality rule, which applies to provider children after Plan binding (L:129), does not govern it. The D law's launch rules do (L:494-506). Until O7 is decided and D1's primitive exists, the adapter is **unavailable**. Rust contexts can then be minted only in tests, from synthetic `UnifiedFeaturesV1` records.
+
+    `cargo metadata` runs no build script and no proc macro (NE:1788-1789). So this is no repository-code execution.
+- **Basis:** NE:1646-1801; NEM:1820-1883; M3P:355.
+- **Rejected:**
+  - **A Rust reimplementation of feature unification.** NE:1785 names bundled Cargo, so a reimplementation would be a substitute recipe.
+  - **Activation guessed from the lockfile alone.** It over-claims completeness for platform- and feature-gated packages.
+  - **Running the adapter under L item 2** as if it were a provider. It is not a provider, and L defers launch to the D law.
+  - **r1's profile: gzip plus ustar, regular physical members only.** It refuses Cargo's own output for any path longer than the 100-byte name field, because the `L` record is a non-regular member outside the package prefix (C-R2).
+  - **A general tar decoder** (pax, sparse, links, directories). It admits forms Cargo never writes, enlarges the host TCB, and links would need a resolution law.
+  - **The `tar` crate's reader.** It merges pax and GNU extensions into entries without telling the caller which control records were present, so the profile could not be enforced. The entry and path law must be this law's. A first-party decoder with a pure-Rust inflater is a P0 dependency-policy row.
+  - **Treating an outside-profile archive as `mismatch`,** which refuses the whole set. The checksum matched, and one unusual archive would block every crate.
+- **Forbidden substitutes:**
+  - a lockfile update or `cargo generate-lockfile` (NE:1264);
+  - a system `cargo`;
+  - the adapter run outside the D1 primitive;
+  - a partially extracted package admitted;
+  - activation from a worker claim.
+- **Controls:**
+  - C3-T4: the DS-1 mutation `ds1-mutation-preserving-package-checksum-stays-declared` stays declared.
+  - C3-T5: the DS-2 match authenticates; a mismatch refuses the set.
+  - C3-T6 (r2): **outside the profile**, the package is recorded missing, never partially extracted, and the import is `partial` with the omission. The cases:
+    - traversal;
+    - a symlink, hardlink, device or directory member;
+    - a pax record;
+    - an orphan `L`, a chained `L`, or an `L` before a non-regular entry;
+    - a name field that is not a prefix of the long name;
+    - a duplicate effective path;
+    - the wrong prefix;
+    - a bad header checksum;
+    - non-zero data after the end blocks;
+    - a second gzip member;
+    - a CRC-32 mismatch;
+    - `FCOMMENT`.
+
+    A decoder-counter breach is an archive-profile breach, recorded as above (r4, C3-N2). Only a proven protocol overflow of the final admitted set refuses the import as a set bound. Crossing an acquisition total refuses as `DependencyAcquisitionBound`.
+  - C3-T6b (r3, C2-R3): boundary controls run the decoder over generated streams, at the real bounds, without materialized fixtures. Because they are slow, they are `#[ignore]`d and run in C3a's review lane:
+    - an **admitted, activated** set whose logical content is exactly 8 GiB, with full framing, admits. One more admitted content byte refuses as a set bound.
+    - an admitted, activated set of 1,000,000 files, each with an `L` record (2,000,000 entry headers), admits. 1,000,001 admitted files refuse as a set bound.
+    - (r5, C4-N1) an empty tar stream of 29,184 zero bytes (57 aligned blocks) breaches **rule 6's end-region cap**. It exceeds 10,240, and D1's 28,672 as well, and is reported as the end-region rule, an archive-profile breach recorded as missing, never a set refusal. A 16,386-byte `L` payload crosses **D2** (it pads to the same 16,896 bytes as 16,385), which is also an archive-profile breach.
+    - a run of empty deflate blocks breaches D3, also an archive-profile breach.
+    - an inactive outside-profile package leaves an activated-complete set complete, with only the `undecodable:` omission.
+  - C3-T6c (r4, C3-R2): population controls.
+    - **Inactive excess.** In-profile inactive candidates with 9 GiB of content and 1,200,000 files in total, beside a small activated set of 10 packages, admit with no `DependencySetBound`. They are within the acquisition bounds, and only the 10 packages count.
+    - **Late rejection.** An activated candidate whose content decodes fully but whose gzip trailer fails CRC-32 is recorded `missing` and `undecodable`. Its decoded bytes count toward no protocol total, and there is no set refusal.
+    - **Large single candidates (r5, C4-R1).** A DS-2 candidate with 8 GiB + 1 of content is acquired **to completion**, within the acquisition bounds, and in four variants:
+      - **valid and inactive:** admitted and materialized, then excluded from the set by activation, with no refusal;
+      - **valid and activated:** admitted and materialized, and the final protocol check refuses `DependencySetBound` (content);
+      - **failing CRC-32 after its full content decodes, and inactive:** rejected, never materialized, with only the `undecodable:` omission;
+      - **the same failure, and required by an activated dependency:** rejected, never materialized. Cargo fails for its absence, NE:1789-1791's incomplete branch applies, and the package is `missing` with `undecodable:`. There is no `DependencySetBound`, and no activation is manufactured.
+
+      The same four variants run for a candidate with 1,000,001 files.
+    - **Mixed routes (r5, C4-N2).** An activated set with a DS-1 vendored tree, a DS-2 archive and a DS-3 Git tree counts all three in the protocol totals. They keep `self-consistent`/`declared`, `registry-authenticated` and `declared` respectively, and CRATE-ARCHIVE-1 runs on the archive only.
+    - **Acquisition crossing.** 32 GiB + 1 of candidate content refuses as `DependencyAcquisitionBound`, not `DependencySetBound`. The same candidates supplied in reverse order give the same class, field, observed value and limit.
+    - **Two crossings at once (r5, C4-N3).** Four candidates with 8 GiB and one file each, and four with 1,000,000 files and 1,000,000 content bytes each, cross both acquisition totals. The reported field is the one the canonical `(name, version, sourceId)` order crosses first, and it is identical whatever the supplied order.
+  - C3-T6a (r2, positive): two archives decode, and each manifest equals the expected file list:
+    - one produced by the pinned toolchain's `cargo package --no-verify` from a harness-authored fixture crate with a path longer than 100 bytes, so it carries an `L` record and a gzip `FNAME` (pinned bytes, with their provenance recorded);
+    - one with no long names.
+    - (r3, C2-N2) one from the same pinned producer whose long path's 100-byte truncation point falls inside a multi-byte UTF-8 character, so the header name field holds the shorter valid prefix (tar `builder.rs:884-888`). An ASCII long path is covered by the first archive.
+
+    The fixtures' provenance, and R6's pinned-source comparison, are **part of C3a's review evidence**.
+  - C3-T7: DS-6 with a missing package gives an incomplete set and typed Coverage, and syntax analysis is unaffected.
+  - C3-T8: the adapter is refused as unavailable before D1 and O7.
+  - C3-T9: CC-1, an ancestor `.cargo/config.toml`, refuses `native.ambient-cargo-config`.
+
+**13. The import wrapper and its join to the Plan.**
+- **Decision.**
+  - **The wrapper.** Each admitted set becomes one `import2` (NE:2650-2657; NEM:376-415):
+    - `kind` is `dependency` or `prepared`;
+    - the payload is `DependencySourcePayloadV1 {set, acquisitionSourcePath, tarballDigests}` or `PreparedOutputPayloadV1 {set}` (NE:2671-2672);
+    - `sourceCorrespondence` is `{kind: exact-snapshot, snapshotId}` of the analysis snapshot (NE:2722);
+    - `scopeDigest` is the analysis scope descriptor (NE:2707);
+    - `buildDigest` is `{schemaVersion: 1, buildIdentity: null}`;
+    - **the observation (r2, C-R3)** is exactly the `ImportObservationV1` preimage `{schemaVersion: 1, kind: <the wrapper's kind>, window: null, population: null, selection: null, revisionRange: null}` (NE:2708; workflow `imported-evidence.schema.json:246-264`, where all six members are required, `schemaVersion` is the constant 1 and `kind` is an `ImportKind`; NEM:401-402).
+      - `kind` is `dependency` or `prepared` and equals the wrapper's `kind`.
+      - The four observation values are null because, in the schema's own words, "the observation semantics do not apply to the kind".
+      - The record is retained as a blob, and `observationDigest` is the raw SHA-256 of its canonical bytes (NE:2697-2708).
+      - "No observations" refers to those four values only;
+    - `completeness` is `complete`, or `partial` with one `missing:<name> <version> <sourceId>` omission per missing package;
+    - `producerClosure` and `adapterClosure` are item 9's core provider closure (its import-producer use) and core adapter closure.
+  - **No self-reference.** A payload cannot name its own ImportId, because ImportId hashes the payload (IE:181; NE:2655). So in every M3 record:
+    - `acquisition.descriptorId` is `null` (NES `AcquisitionV1`);
+    - `preparation.importId` is `null` (NES `PreparationV3`).
+  - **The join is by identity.** It has three parts:
+    - a Rust context whose set has any `imported-descriptor` row joins exactly one Plan-selected `dependency` import whose `payload.set` has H identity equal to `dependencySourceSetId`;
+    - an imported prepared set joins exactly one Plan-selected `prepared` import in the same way, through `preparedOutputSetId`;
+    - zero or two matching imports refuse at Run closure.
+  - **The configuration never names these imports.** Native-input imports enter `plan.importIds` **through that join**, not through configuration `evidence.importIds` (AQ:51). So `plan.importIds` is B1's resolved `evidence.importIds` together with the imports the Plan's contexts join. Naming them in the configuration would be circular: `snapshot2` binds `resolvedConfigDigest` (IE:179), the configuration would bind the ImportId, and the ImportId binds `snapshot2` through its correspondence.
+  - **Identity reuse.** `dependencySourceSetId` contains no snapshot id, so it stays equal across source edits that leave Cargo.lock and the sources unchanged. Only the wrapper's ImportId moves. That keeps INC-3's dependency class separately addressable for a later INC-1 key (L:214-230).
+  - **`acquisitionSourcePath` is kept as named.** It is a closed, required payload member (NES `DependencySourcePayloadV1`), so the ImportId, and through `plan.importIds` the PlanId, depend on the host path. That contradicts WS:1539-1541, where a user input path "never enters any content identity". At M3 the harness names its sources under a fixed per-runner root, and cross-runner Plan equality for Rust dependency imports is not claimed. The recommended fix goes to the native owner in NIJ-1.
+- **Successor NIJ-1** (the native import join; native owner) covers:
+  - null self-references;
+  - the identity join and its Run-closure refusal;
+  - native-input imports entering `plan.importIds` through the context join;
+  - the producer and adapter projections (with CRC-1);
+  - the `acquisitionSourcePath` disposition.
+- **Basis:** NE:1665, NE:1806-1807, NE:2650-2732; IE:181, IE:220-221, IE:1370-1373; NEM:1875 (the reference copies `descriptorId` from its input with no rule); NES.
+- **Rejected:**
+  - **Self-referencing ids.** Impossible.
+  - **A second "admitted" set record with the ids filled in.** That gives two identities for one set, and a projection no contract defines.
+  - **One import per package.** 4096 packages exceed `importIds` 256 (NE:4276; IDS:538).
+  - **Naming the imports in configuration.** Circular, as above.
+  - **A shadow pre-configuration snapshot** as the correspondence target. It is a second `snapshot2` for bytes that are never analyzed.
+  - **`vcs-revision` correspondence.** It needs a clean commit and a SourceMappingV1 (NE:2723-2728), and item 4 never proves clean.
+- **Forbidden substitutes:**
+  - an observation preimage other than item 13's exact record (r2);
+  - a non-null `descriptorId` or `importId` in an M3 record;
+  - a context joined to an import that is not Plan-selected;
+  - a key match treated as admission (IE:1614-1615);
+  - a native-input import named in configuration.
+- **Controls:**
+  - C3-T10: the wrapper digests match NEM's recipes (`import2-raw-digest-differs-from-semantic-identity`).
+  - C3-T11: the join admits exactly one import, and zero or two refuse.
+  - C3-T12: an unselected retained import is never consumed.
+  - C3-T13: a body-only source edit keeps `dependencySourceSetId` and changes the ImportId.
+  - C3-T14: the evaluator admits Plan-selected `dependency` and `prepared` imports as evaluation inputs with no observations (IE:1517-1518).
+  - C3-T22 (r2): for each of `dependency` and `prepared`:
+    - the retained observation blob validates against `ImportObservationV1` with `schemaVersion` 1 and `kind` equal to the wrapper's;
+    - `observationDigest` equals its canonical SHA-256;
+    - an observation with a null or different `kind`, or with a missing member, refuses.
+
+**14. Prepared outputs at M3: `imported-descriptor` only, explicit mode only.**
+- **Decision.** M3 admits `PreparedOutputSetV3` only with `preparation.kind: imported-descriptor` and `producer.id: "external"` (NE:1806-1808; NE:2535-2537). `authorized-execution` sets are M5 (BP:992; M3P:301). The admission rules:
+  - **PO-0:** exactly three row kinds, by kind and consumption channel, whatever the media type. `proc-macro-dylib` and `build-script-binary` rows, and media types outside a kind's set, refuse `native.prepared-output-not-inert`, exit 2 (NE:1815-1832).
+  - **PO-4:** strict `logicalPath`s and `GeneratedInputBoundsV1` (4,096 files per owner, 64 MiB per file, 1 GiB in total, 1,024-byte paths; NE:1845-1852; NES). An archive member outside `blobs[]` is never read.
+  - **PO-1:** prepared mode at M3 is only ever **explicit**. A prepared set exists only when the caller imports one and requests a `rust-cargo-prepared` cell. So the explicit branch always applies: any stale row refuses before Plan, `REQUEST.PRECONDITION_FAILED` / `native.stale-prepared-output`, listing the differing fields (NE:1853-1858). `inputBinding` must equal the current owner manifest, `dependencySourceSetId`, `toolchainDigest` (raw SHA-256 of `C(ToolchainIdentityV1)`) and `cfgSetId`.
+  - **PO-2:** a `failed` row is retained, and its owner is analyzed non-prepared (NE:1859-1861).
+  - **PO-3:** `declared` provenance, disclosed with the import identity and producer (NE:1862-1865).
+  - **Universe and grant.** `preparedResolution` is `imported-inert` (NE:1272-1274). The semantic grant gets `read-import` and never `prepare-code` (IE:396-403; NEM:2080-2086).
+  - **The owner-manifest recipe.** The owner file-manifest digest is computed with security's S10 owner-manifest recipe (SL:1076-1082) by one library function, which the harness recipe also calls. Open question R3 asks security to confirm the recipe for snapshot-member and dependency-closure-member owners.
+- **Basis:** NE:1803-1873, NE:2497-2558; M3P:301, M3P:355.
+- **Rejected:**
+  - **The defaulted branch of PO-1** (ignore stale rows and fall back). Nothing defaults prepared mode at M3, so the branch is unreachable, and an explicit request that silently falls back would hide a stale set.
+  - **`authorized-execution` sets at M3.** They need `prepare-code`, a grant and an execution. That is M5 and M5-EX (M3P:347-352).
+- **Forbidden substitutes:**
+  - a prepared artifact loaded, linked or executed;
+  - a stale blob used;
+  - a dylib row admitted under any label;
+  - an expansion matched by anything but its exact site key;
+  - a host-path fallback for `OUT_DIR` (NE:1840-1844).
+- **Controls:**
+  - C3-T15: a relabelled dylib refuses.
+  - C3-T16: a media type outside its kind's set refuses.
+  - C3-T17: an escaping `logicalPath` refuses.
+  - C3-T18: each of the four `inputBinding` fields stale refuses, naming that field.
+  - C3-T19: a failed row gives non-prepared analysis for its owner only.
+  - C3-T20: `read-import` is in the grant and `prepare-code` is absent.
+  - C3-T21: a retained but unselected prepared set refuses (NE:1302-1304).
+
+**15. The harness recipes: produce, pin and regenerate. No repository code runs.**
+- **Decision.** Three recipes. They are harness units (the K lane), not product code, and each is bound by Q0's M3 rule (Q0:688-692). The product side of each is the importer (items 11 to 14) or C1's read set (item 3).
+  - **H-DEP (Rust dependency sources).**
+    - **Produce.** The corpus fetch remains the only networked step (Q0:1121, Q0:1135). For each Rust entry, the harness reads the entry's Cargo.lock. For each registry package with a checksum, it fetches the `.crate` into the store under its SHA-256, and verifies that digest against the lock's checksum. Git packages are fetched at their locked revision, like repositories (Q0 §10). Any other source kind is recorded as unavailable and becomes a DS-6 `missing` row, never a fetch at run time.
+      - **CRATE-ARCHIVE-1 at pin time (r2).** The fetch step runs the product's own CRATE-ARCHIVE-1 decoder (item 12), as a library call, over every pinned tarball, and records any archive outside the profile in the pin. So T2's exposure is known before any analysis.
+    - **Pin.** A per-entry dependency pin `{packageKey, sha256, bytes}`, sorted, enters the T2 manifest by its canonical digest (successor T2-DEP).
+    - **Regenerate.** A new repository pin re-derives its dependency pin in the same fetch.
+    - **Run.** The harness lays out the pinned `.crate` files read-only in the per-workload directory `deps/<entry>/` and names that directory to the importer. `CARGO_HOME` is per-run scratch (Q0:1134).
+  - **H-NM (TypeScript installed dependencies).**
+    - **Produce.** The fetch pins the package tarballs named by the entry's lockfile (by integrity digest).
+    - **Materialize.** Workload preparation installs into a copy-on-write working copy of the store tree (FS §6 item 1). It uses the pinned package manager, offline, from the pinned cache, with lifecycle scripts disabled. The install mode is accepted only after Q0's non-execution canary passes for it (Q0:689). The working copy is then made read-only.
+    - **Fallbacks.** A repository without a lockfile, or using Plug'n'Play, runs with `nodeModulesInReadSet=false`, disclosed. So does a read set that item 5's bound refuses.
+  - **H-PREP (prepared sets): declarative only.** No execution source can produce a faithful expansion or `OUT_DIR` without running the build script or proc macro (NE:2511-2517), and M3 runs neither (M3P:355; Q0:688). So:
+    - **Produce.** The recipe compiles a harness-authored **declarative fixture spec** into a `PreparedOutputSetV3` (`imported-descriptor`, producer `{id: "external", version: "opensip-harness-prepared/<n>"}`). For each owner and cfg set, the spec states the directive text, the expansion text per exact site, and the generated files with their logical paths. The `inputBinding` comes from the same product library functions the importer uses, not from a second implementation.
+    - **Pin.** The set's identity and import identity enter the harness freeze per fixture.
+    - **Regenerate.** Any change to an `inputBinding` component (the fixture, toolchain, dependency set or cfg set) regenerates the set. PO-1's explicit refusal is the staleness detector, and regeneration is deterministic.
+    - **Scope.** Prepared sets exist only for T1 fixtures and synthetic controls, including Q0:794's stale-prepared control.
+- **The consequence, decided.** At M3, T2 Rust runs in `rust-cargo` (non-prepared) mode with L-RS3's disclosures (NE:614). T2 measurement of the `rust-cargo-prepared` cells waits for M5's authorized `native-prepare` and M5-EX (M3P:347-352; Q0:691). It is flagged to the owner (O-1).
+- **Basis:** M3P:163, M3P:301, M3P:355; Q0:688-692, Q0:732, Q0:1119-1135; AQP:381; FS:120-125.
+- **Rejected:**
+  - **Preparing T2 by running build scripts** in a disposable container at M3. That executes repository code (M3P:355; Q0:691 "Deferred, not conditional").
+  - **`cargo vendor` at run time.** It is a networked tool outside the fetch step.
+  - **A second binding implementation in the harness.** Staleness would then be judged twice.
+  - **An npm install that runs scripts.** Repository code would run.
+- **Forbidden substitutes:**
+  - a prepared row whose content was produced by executing repository code;
+  - a network access outside `corpus fetch`;
+  - a harness-installed tree written into the store;
+  - a prepared set presented as `authorized-execution`.
+- **Controls:**
+  - H-T1: an unpinned or changed `.crate` fails the fetch.
+  - H-T2: the H-NM canary for the install mode.
+  - H-T3: a fixture edit changes the prepared set's identity, and the old set refuses as stale.
+  - H-T4: regeneration is byte-identical on identical inputs.
+
+### D. C4 — the Plan
+
+**16. `plan2` and the pre-Plan order.**
+- **Decision.** `crates/host/src/plan.rs` (CH14:489) mints `plan2 = H("plan", …)` over the fourteen required members (IE:182; IDS:456-470), each from one owner:
+
+  | Member | Source |
+  |---|---|
+  | `snapshotId` | C1 |
+  | `capabilityManifestId`, `capabilityManifestBytesDigest` | the committed CVE1 artifact and its recipe (IE:224-235) |
+  | `semanticClosures` | the selected provider closures, the core evaluator closure (EC1) and the core detector closure (item 9), **plus the core provider closure exactly when a syntax universe is selected** (r6, X-C1). These are exactly the direct members (IDS:4794), and nothing a context or import already selects. Once selected, the core provider closure is a selected provider closure, so the semantic grant's sentence below covers it. |
+  | `analysisSpecDigest` | the analysis-spec built and admitted at step 12 (r2; r3 numbering): B's requested capabilities; `policyPackIds` from the `AdmittedPack` (item 18); the `EnumerationPlanV1` parameter (from the snapshot, boundaries, scope, `UnitMembershipV1` (NE:745), closures, contexts and universes) and the `EvaluatorEmissionPlanV1` parameter (COMP:9) |
+  | `resolvedConfigDigest`, `scopeDigest` | B1 and B2, equal to the snapshot's (IE:1416) |
+  | `nativeContextDigests` | C2, as a bare-hex canonical set (IE:297-302, IE:498-506) |
+  | `importIds` | item 13's union |
+  | `policyDigest` | `AdmittedPack` (X12:134) |
+  | `waiverDigest` | B1's effective `WaiverSetV1`, which is empty at M3 because waiver admission is M5 (X12:229) |
+  | `budget` | equal, exactly and by type, to the configuration's `analysis.budget` (IE:1417-1425) |
+  | `semanticGrantDigest` | see the semantic grant below |
+
+  **The semantic grant.** Each selected provider closure is a first-party principal with a null owner source. The operations are `read-source` and `native-analysis`, plus `read-import` exactly when `importIds` is non-empty, and never `prepare-code` at M3 (IE:525-540). An absent required permission refuses before Plan (IE:539).
+
+  **The order (r2, C-R1; r3, X12 r4 and C2-R1).** Each step consumes only what an earlier step admitted, and the governing text is cited per step. This is a lead decision where the contracts leave the order open.
+
+  **Rows 1 to 4 follow X12 r4 item 8**, which is **pending Grok's review** (`docs/implementation/m2/policy-admission-x12/PROPOSAL.md`, r4; `reviews/grok-pack-admission-x12-r4`). Its order text is M3-B r2 item 10's successor S2 (M3-B:283-312, accepted), and r4 adds a first-use clause as a lead decision. r2's row 1 carried X12 r3's order, which r4 supersedes; r4 names this table as a dependent to update. If Grok's review changes r4's order, these rows follow it.
+
+  | # | Step | Consumes | Governing order |
+  |---|---|---|---|
+  | 1 | **X2 selection, all operational reads:** the fence acquisition (the 458c read session, or the 468/X1 write gate); S3's selection walk; X2 r9 item 3a's placement check and chain walk; then the carrier captures (`opensip.json`, and `.opensip/local.json` when interactive). None of it writes. | the request | X2:68, X2:74; X2 r9 item 3a (M3-B:608); X12 r4 item 8 |
+  | 2 | B1 configuration resolution, which is pure over the carrier captures | 1 | M3-B items 2 and 4; AQ §1.1 (AQ:42-53); IE:518 |
+  | 3 | **X12 pack admission**, which is pure. It runs immediately after resolution, before X2's registry capture (X2 item 5), registration (item 6) and any lease (item 7), and **before any effect**. **On the first-use creator route, "before any effect" reads "before any project-scoped effect":** the creator's installation effects come first (468 r5 item 1), then pack admission, then every project-scoped effect. | 2 | X12 r4 item 8 and its first-use clause (pending review); M3-B item 10 (accepted) |
+  | 4 | The rest of X2's project admission (items 5 to 7, with item 6a's tracking observation), then the handoff that releases the fence | 3 | X2:231-248; `project_admission.rs:722-727` |
+  | 5 | Open the capture session (item 1), after the fence is released | 4 | CH14:495; SL:313-315; M3-B item 12 |
+  | 6 | B2 discovery on the discovery ledger: units, boundaries, pruned trees (with SX-1's `.opensip` anchor), scope descriptor, `UnitMembershipV1`. Source reads go through the session. | 2, 5 | NE:686-863; SL:180-303; M3-B items 12 to 14 |
+  | 7 | **Selection precheck** of `requestedCapabilities` (item 17) | 2, 6 | NE:4278's order, applied to that field alone |
+  | 8 | **Closure selection (r7, SD-6):** providers and tools for the selected modes, **selected only among the component manifests already admitted at J1 r4's row R10a** (ER10a on the ephemeral path; M3-D r3 item 24). Row 8 adds no admission of its own, and item 7's retention covers what it selects. Plus the core evaluator and detector closures (item 9), which are core-inventory projections, not component manifests, and are unchanged. | 7; R10a's admitted set | IE:1360-1377; items 7 and 9; M3-D r3 item 24 (SD-6) |
+  | 9 | The TypeScript layout, then C1 sealing on the snapshot ledger. The walk reuses the session's captures and makes item 1's two-sided carrier join (r4). | 5, 6, 8 | IE:548-593; SL:266-279; item 1 |
+  | 10 | C3: dependency import, unified features, then any explicit prepared import | 9 (Cargo.lock from the sealed snapshot) | NE:2499-2500 ("after snapshot seal and dependency-source admission, before PlanId"); NE:1785-1791 |
+  | 11 | C2: mint, admit and bind the contexts and universes; count the contexts as they are produced | 8, 9, 10 | NE:1460-1462 (before PlanId); NE:1279-1311, NE:1583-1598; NE:4276 (producer boundary) |
+  | 12 | **Construct the complete analysis-spec, then admit it** | 6 to 11 | COMP:9; `enumeration-contract.v1.md:13-24`, `:83-96`; NE:4278; IE:1462-1474 |
+  | 13 | Assemble the prospective Plan, including the semantic grant and its permission check, then count its bounds | 8 to 12 | NE:4276 ("assembled from an already-admitted request"); IE:539 ("before Plan construction") |
+  | 14 | `plan2` | 13 | IE:182 |
+  | 15 | **Pre-execution joins (r3, C2-R1)**, over the just-built Plan and before any provider: `check_plan_pack`, where a mismatch is X12 row 4; and the **enumeration parameter's structural admission**, described below | 14 | X12:134, X12:144; `enumeration-contract.v1.md:100-106` |
+  | 16 | Stage specs and `exec-plan2` | 14 | IE:1288-1346 |
+  | — | **Full `admit_enumeration`**, after execution and before evaluation. Owned by J2 with H, not by C4 (below). | the actual inventories | IE:1462-1474, IE:1513-1515; COMP:15-17; `enumeration-contract.v1.md:111-121`, `:150-160`, `:164` |
+
+  The step numbers changed in r3, and every "step N" in this law uses this table's numbering.
+
+  **Enumeration admission is split in two (r3, C2-R1).** `admit_enumeration` requires the actual `SubjectInventoryV1` outcomes (`enumeration-contract.v1.md:164`), one per expected `(cellOrdinal, programOrdinal, kind)` (`:111-121`). The symbol inventories, including the `imports`-cell inventories that item 18 selects, are provider-attributed (IE:1467-1470), so they cannot exist before the providers run. So:
+  - **Step 15, structural admission** (C4). This is the pre-execution part of the same law, with a limited interface: the Plan, PlanId, analysis-spec, scope descriptor, `UnitMembershipV1`, `EnumerationPlanV1`, the admitted contexts and universes, and the closures. It takes **no inventories argument**. It validates `EnumerationPlanV1` against its schema and checks every enumeration join that names no inventory (`enumeration-contract.v1.md:100-106`; the inventory joins at `:107-111` wait for full admission):
+    - `snapshotId`, `scopeDigest` and `membershipDigest` equal the Plan's and the retained record's;
+    - the cells match `requestedCapabilities`, `required` included;
+    - each selected `closureId` is in `plan.semanticClosures` with kind `provider`;
+    - each non-null `nativeContextDigest` is in `plan.nativeContextDigests`, and its universe's `nativeContextId` matches.
+
+    Every input was built by the host, so a refusal is a host-invariant fault. It manufactures no inventory, placeholder or `unavailable` outcome.
+  - **Full admission** (J2's pipeline, with H's fact admission). It runs after the stage returns are admitted and the host-derived file and package inventories are computed, and before any evaluation (IE:1462-1474, IE:1513-1515; COMP:15-17: "Reconstruction re-admits … expected inventories … before composing outputs"). It is the complete `admit_enumeration`, over the actual inventories, including the missing-record refusal `ENUMERATION_INVENTORY_MISSING_RECORD` (`:111`).
+    - **Routing depends on origin** (`:159-160`): a provider-attributed inventory that fails takes the provider-input route, and a host-derived one takes the host-invariant route.
+    - **Run closure** re-admits the complete expected inventory again (`:157-158`) through replay's retained walk (`crates/evaluator/src/enumeration_join.rs:1-2`).
+
+    C4 does not call it. The J1 law fixes its exact place in the invocation DAG.
+
+  **Step 12 in detail.** The complete analysis-spec is built **once**, from admitted inputs only:
+  - `requestedCapabilities` are byte-equal to the rows step 7 prechecked.
+  - `policyPackIds` comes from step 3's `AdmittedPack`.
+  - `EnumerationPlanV1` (`enumeration-contract.v1.md:13-24`) carries:
+    - `snapshotId`, `scopeDigest` and `membershipDigest` from steps 6 and 9;
+    - one cell per requested ownership tuple;
+    - program bindings whose available enumerators name the contexts and universes admitted in step 11, with the prospective `semanticClosures` and `nativeContextDigests` sets as its graph inputs (`:83-96`). The enumerator of a syntax-universe binding is the core provider closure (item 9; X-C1).
+    - **the `clones-near` census (r6, X-C2; E1 item 14a).** Every available syntax-only `clones-near` binding carries `candidateSourcePaths`, the required Plan-selected census of a candidate-only cell (`enumeration-contract.v1.md:49`; `enumeration-plan.schema.v1.json`, `candidateSourcePaths`). C4a builds it as E1 item 14a defines it:
+      - the scoped first-party snapshot paths under the cell's workspace root whose suffix selects a syntax dialect-table variant, that is, the body-eligible paths (NE:959-970);
+      - plus any path an explicit scope names.
+
+      It is a canonical set of logical paths, at most 100,000, the schema's bound, which the snapshot's own 100,000 rows already bound (item 5). A zero-path census is the explicit `[]`, never an omitted field, because an omitted field is not complete-empty work (`:49`). E3 consumes it unchanged.
+
+    It never names `planId` or `analysisSpecDigest` (`:15`).
+  - `EvaluatorEmissionPlanV1` is built from the `AdmittedPack`'s rules and step 8's core detector closure (item 18).
+
+  The spec is then admitted in NE:4278's order: bounded cardinality, then schema, then the closed vocabulary. The admitted bytes are the bytes retained and the bytes `plan.analysisSpecDigest` names. There is no placeholder, no later rebinding and no second construction. The enumeration joins themselves take the Plan and PlanId (`admit_enumeration`, `enumeration-contract.v1.md:164`), so their structural part runs at step 15, and the full admission runs after execution, both over the same bytes.
+
+  **Stage specs and `exec-plan2`.** Each stage spec is `{planId, producerClosure, operation, parameters, outputDomains, outputSchemaDigest}`. Its operation token comes from the selected producer's interface. Its output schema must be registered at `opensip-interface/stage-output/<operation>.schema.json` in that closure. Every parameter row must also be an analysis-spec row (IE:1288-1346).
+  - **Syntax universes (r6, X-C1; E1 item 14b).** `exec-plan2` has **one stage per selected syntax universe**, and that stage's `producerClosure` is the core provider closure. Every syntax-only binding of that universe names that stage as its `stageOrdinal`. The stage's operation and output schema are those the core's syntax interface registers. E1 owns the interface, and E3 executes the stage in the host.
+
+  C4 mints no `cache2` and no `regen2` (L item 3).
+- **Basis:** IE:182, IE:1360-1377, IE:1416-1425, IE:1462-1474, IE:1508-1515; IDS `plan`, `closureMembership`; COMP:9; `enumeration-contract.v1.md:13-24`, `:83-96`; NE:4276-4278; X12 items 8 and 9.
+- **Rejected:**
+  - **Pack admission inside Plan construction.** X12:138.
+  - **r2's full `admit_enumeration` before any provider (r3, C2-R1).** It needs actual inventory outcomes that do not exist yet (`enumeration-contract.v1.md:164`).
+  - **Manufacturing empty, complete or `unavailable` inventories** so that the full admission can run early. That misstates the work performed (`:113-121`), and `unavailable` means actual execution unavailability only (`:121`).
+  - **X12 r3's "before everything" placement of pack admission** (r2's row 1). X12 r4 supersedes it, because a project-layer pack ID is known only after X2's fenced selection and carrier captures (M3-B item 10).
+  - **r1's order (r2, C-R1)**, which admitted the complete analysis-spec at its step 4, before the snapshot, imports and bindings its `EnumerationPlanV1` consumes. An early spec could only omit required parameters, carry placeholders, or be replaced later by different bytes. None of those is admission of the committed spec.
+  - **Admitting a partial spec early and completing it later.** That gives two byte strings for one spec, and only the second would be committed.
+  - **No precheck, with the whole selection checked only at step 12.** That is lawful, but it reads and retains the entire source tree and its dependencies before refusing a selection that step 7 could refuse for free. The precheck gives identical verdicts (C4-T18).
+  - **Contexts minted after PlanId.** NE:1460-1462.
+  - **A stage parameter outside the analysis-spec.** It is a hidden input (IE:1296-1298).
+  - **Flattening context-selected closures into `semanticClosures`.** It is lawful (IE:1374-1376) but adds identity churn for nothing. The required minimum is selected.
+- **Forbidden substitutes:**
+  - `policyPackIds` or `policyDigest` from anything but an `AdmittedPack` (X12:214);
+  - a budget given in two disagreeing places;
+  - a Plan input supplied by a worker;
+  - any operational value in the Plan;
+  - a cache or regeneration key at M3.
+- **Controls:**
+  - C4-T1: a recomputed `plan2` vector.
+  - C4-T2: a budget disagreement refuses before evaluation.
+  - C4-T3: a stage parameter outside the spec refuses.
+  - C4-T4: an unregistered output schema refuses `STAGE_OUTPUT_SCHEMA_UNREGISTERED`.
+  - C4-T5: `read-import` appears iff imports are selected.
+  - C4-T6: the host's `check_plan_pack` mismatch is row 4.
+  - C4-T17 (r2): for a project with an available TypeScript program and an available Rust program, the analysis-spec bytes admitted at step 12 equal the retained analysis-spec bytes and the preimage `plan.analysisSpecDigest` names. The `EnumerationPlanV1` bindings name the admitted universes, with no placeholder. A source pin shows one construction site for the spec, after step 11.
+  - C4-T18 (r2): over oversized, malformed and unregistered selections, the step 7 precheck and the step 12 admission return the same verdict and the same refusal for `requestedCapabilities`. No precheck refusal is followed by a snapshot read.
+  - C4-T19 (r3, C2-R1): a project with a **non-empty available TypeScript `imports`-cell symbol population**:
+    - passes step 15's structural admission with no inventory supplied, and no placeholder, empty or `unavailable` inventory is created;
+    - reaches execution;
+    - closes only when the full `admit_enumeration` receives the actual admitted inventories;
+    - with one expected inventory withheld, refuses `ENUMERATION_INVENTORY_MISSING_RECORD`.
+
+    A source pin shows that C4 never calls the inventory-taking admission.
+  - C4-T21 (r6, X-C2): for a project with a U-9 syntax-only unit holding `.rs`, `.ts`, `.json` and `README.md` files, the `clones-near` binding's `candidateSourcePaths` is exactly the scoped body-eligible code paths, with no data document. An explicit scope naming one extra path adds exactly it, and a census with no eligible path is `[]`, never omitted. The Plan's `exec-plan2` has exactly one stage per syntax universe, whose producer is the core provider closure. This carries E3-T8 to E3-T12's Plan leg.
+  - C4-T20 (r3, X12 r4):
+    - a refused project-layer pack ID returns X12 row 1 after the carrier captures and before any registry read, RESERVED row, lease or journal, with the session released;
+    - **on the first-use creator route**, the same refusal leaves a complete installation and no project-scoped effect (no registry row, namespace, `.opensip`, marker, lease or journal), and the refusal discloses the creation.
+
+    This control is shared with B1-a and the X11 successor (X12 r4's control).
+
+**17. The prospective-Plan bounds (NE:4276) and the analysis-spec order (NE:4278).**
+- **Decision.** C4 implements NE:4276-4280 exactly:
+  - **When.** `semanticClosures` (128), `nativeContextDigests` (128) and `importIds` (256) are counted on the **prospective** Plan, assembled from already-admitted inputs, **before** `plan2` is minted.
+  - **The refusal.** It is `request-rejected` (2), `REQUEST.UNSATISFIABLE`, public detail `PROJECT.SCOPE_LIMIT`, subject `field:count>limit`. No Plan and no Run are minted for the step.
+  - **More than one overflow.** The subject is the first in `$defs/plan` declaration order: `semanticClosures`, `nativeContextDigests`, `importIds`.
+  - **The producer boundary.** `nativeContextDigests` is also counted earlier, at item 10's producer boundary, which fires first.
+  - **The analysis-spec order (r2, C-R1)** is cardinality first (conditional on the field actually being a JSON array; `requestedCapabilities`, 1024), then schema, then the closed capability vocabulary. A host-generated invalid spec is `operational-failed` (4), `SYSTEM.OUTCOME.ILLEGAL_STATE`, `host-invariant` (NE:4278). It applies at two points:
+    - **step 7:** the precheck applies it to the `requestedCapabilities` field alone, against that field's row schema, and mints nothing;
+    - **step 12:** it applies to the complete spec, whose admission is authoritative.
+
+    The two must agree for that field (C4-T18). Because the field's bytes are equal, step 12 cannot refuse the selection for a reason step 7 accepted.
+  - **A retained Plan over its bound** is a corrupt record. It keeps its schema-first refusal at Run closure. It is never re-projected as a request remedy (NE:4276).
+- **Basis:** NE:4276-4280; the reference cases (`foundation/check-identity.py:4090-4115`).
+- **Rejected:**
+  - **Truncating, sharding or raising a bound** (NE:4280).
+  - **Counting on the retained Plan.** It misroutes corruption (NE:4276).
+- **Forbidden substitutes:** a generic schema exception for an oversized array; two subjects for one request; a Plan minted and then refused.
+- **Controls:**
+  - C4-T7: 129 closures, 129 contexts and 257 imports each refuse, with the exact subject.
+  - C4-T8: two overflows report the first in declaration order.
+  - C4-T9: a 1025-character string in `requestedCapabilities` reaches the schema step.
+  - C4-T10: exactly at each bound admits and closes a Run (the pattern of `check-identity.py:4110-4115`).
+
+**18. How the Plan cites I1's pack.**
+- **Decision.** When the selection admits `Named("opensip.preview.typescript.pack:1")` (I1:405), C4:
+  - writes `analysis-spec.policyPackIds = ["opensip.preview.typescript.pack:1"]` and `plan.policyDigest = 96675a5e…` (I1:317-321; X12:134);
+  - commits the bundled policy bytes and the compiled `RuleProgramV2` (`e796f817…`), whose `policyDigest` equals the Plan's (IE:634-638);
+  - commits an `EnumerationPlanV1` covering:
+    - the `typescript` file population of the rule (COMP:26);
+    - **the `imports`-cell symbol inventories of every TypeScript universe**, which item 2.5(b)'s source census reads (I1:155-167);
+  - commits an `EvaluatorEmissionPlanV1` row `{ruleId: module-import-cycle, contributionId: opensip.preview.typescript, ruleStableId: module-import-cycle, semanticsMajor: 1, detectorClosure: <core detector closure>}` (I1:299; item 9);
+  - requests `typescript.imports` whenever the pack is selected (I1:395). It is added at step 7, so that the precheck and step 12 see the same rows (r2; r3 numbering).
+
+  The provisional digests are I1's. A disagreement with I1-P's accepted record blocks C4a. It is resolved in the encoder, never in the document (I1:323).
+- **Basis:** I1 item 8 (I1:390-396), item 5; X12 items 8 and 9; IE:1508-1515; COMP:9.
+- **Rejected:**
+  - **An emission row naming the evaluator closure** (COMP:9).
+  - **An enumeration plan without the symbol inventories.** Every subject would then be indeterminate through `population-unknown`, by construction (I1:160).
+- **Forbidden substitutes:** more than one pack; a merged policy; the policy read from a file or the configuration (X12:199, X12:215).
+- **Controls:**
+  - C4-T11: the Plan's pack fields equal I1-P's pins.
+  - C4-T12: the emission row joins the core detector closure (C2-T10 and C2-T11).
+  - C4-T13: a Plan without `typescript.imports` is lawful and evaluates only to indeterminate.
+
+**19. X12d: the Run-closure pack join, and the corpus.**
+- **Decision.** X12d is C4's inventory successor (X12:192). It has six parts:
+  1. **The pack join.** `replay_run` (`crates/evaluator/src/replay.rs:163`) calls `check_plan_pack` after reading the Plan and before `derive_evaluation`. A refusal is X5 item 5's structural row, `EVALUATION.INPUT_REFUSED` (X12:144).
+  2. **The detector join.** Item 9's join is wired at the same point, with the same row.
+  3. **The unwired-pins are amended, not deleted.** `crates/host/src/fact_admission_tests.rs:661-668` and `configuration_tests.rs:449-450` pin `check_plan_pack` unwired. They become pins that it is wired exactly once, in replay.
+  4. **The corpus is regenerated onto the release preview pack.** The synthetic replay corpus (`crates/storage/src/crash_matrix_support/run_candidate.rs:1-20` and its fixtures) moves onto `opensip.preview.typescript.pack:1`, with an empty `typescript` file population, so the rule evaluates nothing (I1:219). X12:192 said "onto the bundled test pack". **That cannot work:** `check_plan_pack` always uses `RELEASE_PACKS` (`policy.rs:1361-1367`), and the test registry is `cfg(test)`-private to the evaluator crate (`policy.rs:1412`). So storage, host and crash-matrix builds never see it. This is a record amendment to X12 r3's X12d text.
+  5. **Dependencies.** X12d depends on I1-c (the row) and I1-b2 (the op).
+  6. **The X9 rerun.** The replay change reaches the crash matrix, so X12d's evidence includes a full X9 matrix lead set on X12d's commit (`matrixPass: true`). It is serialized with every other lead run set (M3P:270).
+
+  **Scheduling (r2, C-R4).** X12d is authored and integrated **beside H**, after C4a. H depends on C4 (M3P:169), not on X12d, while J2 depends on X12d and on its serialized X9 lead set. So X12d adds no delay **only if** that lead set completes inside H's window: by day 18 in variant A, or day 17 in B ("Units"). If it does not, J2 waits for it, day for day.
+- **Basis:** X12 items 9 and 10, X12:191-192; I1:396; M3P:163, M3P:170.
+- **Rejected:**
+  - **A feature-gated test registry reachable from downstream builds.** It is a new cfg seam on admission, and needs an X8 and X9 site-list amendment (X8:189-210).
+  - **Leaving replay unwired until J.** X12:148: "it must land before any analysis producer can reach X5".
+  - **Wiring only the host-side check.** A retained candidate would then bypass it.
+- **Forbidden substitutes:**
+  - a corpus Plan naming `"fixture"` after X12d;
+  - a replay path without the join;
+  - deleting the pin tests rather than amending them;
+  - X9 evidence from an earlier commit offered for X12d.
+- **Controls:**
+  - C4-T14: replay refuses an unbundled pack, a wrong digest, and a detector from another core.
+  - C4-T15: the regenerated corpus replays.
+  - C4-T16: the X9 matrix passes on the X12d commit.
+
+### E. Consistency with M3-L and the identity contract
+
+**20. C contradicts no INC item.**
+- **Plan binding (INC-1, INC-2; L items 4 and 5).** Every C record is minted under the current snapshot and Plan. C mints no cache or regeneration key, and no Plan-independent key (L:149-158, L:175-196). Equal content digests are never admission (IE:1614-1615).
+- **Invalidation classes (INC-3; L item 6).** C keeps each class separately identified:
+  - enumeration: the inventory;
+  - configuration and native context: `resolvedConfigDigest` and the contexts;
+  - tool and rule closures: closure ids and the detector;
+  - dependency sources: `dependencySourceSetId`, which is snapshot-independent (item 13);
+  - prepared outputs: `preparedOutputSetId`.
+
+  A later INC-1 successor key can therefore cover every class.
+- **Disclosure (INC-8; L item 10).** Operational records stay outside identity: the walk report (item 2) and import provenance. No reuse provenance enters any C record.
+- **Identities and phase (L item 13).** No RequestId or RunId appears in any C record. C's only child process is item 12's adapter, under the D law.
+- **The protocols (INC-5; L item 1).** C changes no protocol. Item 5's bound and the prepared-entry question (cross-law finding X-3) are recorded for L and G1b. Neither is resolved by host behaviour.
+- **Changed scope (L item 3).** No changed-scope path exists. An explicit narrower scope is a different Plan (L:153), and item 2 keeps the walk independent of it.
+
+## Successors
+
+| ID | Kind and owner | Content | Needed before |
+|---|---|---|---|
+| **X12d** | inventory successor (C4b); lead | Item 19 | J2; any producer reaching X5 |
+| **CRC-1** | identity contract successor; identity owner (EC1 pattern) | Item 9: the core detector, adapter and provider closures; the `manifestDigest` text; field restrictions, including **r6's two uses of the core provider closure** (import producer; syntax-universe producer) and its `semanticClosures` membership exactly when a syntax universe is selected (E1's X-C1); the detector join; a vector | C2a |
+| **CR-1** | security / DR-103 host vocabulary successor; security owner with D4 | Item 7's role-to-kind table; widening the manifest `role` enum | C2a; F4 and G2 closure manifests |
+| **NIJ-1** | native passage successor; native owner | Item 13: null self-references, the identity join, native-input imports in `plan.importIds`, the producer and adapter, the `acquisitionSourcePath` disposition | C3a |
+| **VCS-1** | identity passage successor (IE:542-546) | Item 4's meaning of `dirty` | C1b |
+| **SX-1** (r3) | native and security passage successor (NE U-4a, NE:703-743; SL S3, SL:187-222; IE:548-551); landed with M3-B's B-S1 | Items 1 and 2: `.opensip/` at the project root and each admitted member root is an exact discovery anchor with reason `opensip-custody-state`. It is recorded in `prunedTrees` and `excludedPathPrefixes`, and is never in the inventory. | B2-a; C1a |
+| **S-B** | native passage successor (NE:4276) | Item 5: the snapshot inventory as the eighth bounded field. **r3:** also item 12's three dependency-set protocol counters (`DependencySetBound`). **r4:** and the candidate acquisition bounds (`DependencyAcquisitionBound`), as separate fields | J1's public projection |
+| **S-R** | identity successor, **conditional** on SM-5/SM-6 | Item 5: the inventory named by reference | T2 TypeScript with `node_modules`; very large T2 |
+| **T2-DEP** | corpus manifest and FETCH-SPEC successor; Q0 §10 amendment | Item 15: dependency pins and the H-DEP and H-NM recipes | H-DEP, H-NM |
+| **X12-A** | record amendment to X12 r3 | X12d's corpus target (item 19) | X12d |
+| **M3P-C** | record corrections for M3P's next revision | C2 covers NE:1255-1429 too. The C3b → D1 edge, with O7 and the D law. C2 is three sub-units, with C2b a hard XL part. C3 is three sub-units and C4 is split into C4a and C4c. **The host chain is 28 days under variant B, or 29 under A, at M3P's B rows; M3P's 26 days no longer holds** (r2, C-R4). **With M3-B r2's units it is b + 23 days in variant B: 31 at M3-B's estimate of b = 8, and 33 at b = 10** (r3, "Units"). F1 and G1a's edges are narrowed to their interfaces (r3). X12d runs beside H only if its X9 lead set completes inside H's window. SM-6 compares with the identity bounds (X-1). | — |
+
+## Units
+
+All code units wait for:
+- **X9-6** (M3P:5);
+- **P0**: the scaffolds and dependency-policy rows, including item 12's inflater;
+- **M3-L's acceptance**, which fixes INC;
+- **I1**: I1-c for C4a; I1-c and I1-b2 for X12d.
+
+Each is an inventory successor on the linear chain, numbered at launch (workflow lesson, 2026-09-30).
+
+**Successor gates (r2, C-N3).** A unit waits for these, and a citation does not satisfy them:
+- NIJ-1, **including its disposition of X-2**, is accepted before C3a;
+- R3's exact owner-manifest recipe is settled before C3c;
+- CRC-1 and CR-1 are accepted before C2a;
+- VCS-1 is accepted before C1b;
+- SX-1 is accepted before C1a and B2-a (r3);
+- X12 r4 is accepted before C4a, whose steps 1 to 4 follow it (r3).
+
+| Unit | Scope | Depends on (integration) | Size |
+|---|---|---|---|
+| **C1a** | `snapshot.rs`: the capture session, walk, reads into custody, sealing, bounds (items 1, 2, 5, 6) | B2; S-B for the public projection only | M |
+| **C1b** | the VCS observation (item 4) | C1a; VCS-1 | S |
+| **C1c** | the `node_modules` read set (item 3) | C1a; C2b's layout | S |
+| **C2a** | closure admission, synthetic signed closures, core role closures (items 7 to 9) | CRC-1; CR-1 | M |
+| **C2b** | the TypeScript context and universe resolver, and the layout (item 10) | C2a | hard XL part (5 days; r2) |
+| **C2c** | the Rust context and universe: pure projection, admission and binding functions over supplied inputs (item 10). C4a calls them once C3 supplies the inputs. | C2a | M |
+| **C3a** | `imports.rs`: DS-1..DS-6 admission, CRATE-ARCHIVE-1, the wrapper (items 11 to 13) | C1a; NIJ-1; P0's inflater row | L |
+| **C3b** | the unified-features adapter invocation (item 12) | C3a; D1's primitive. O7 and the D law are day-0 assumptions (M3P:191-195, M3P:310). | S |
+| **C3c** | prepared import and PO-0..PO-4 (item 14) | C3a; R3 | M |
+| **C4a** | `plan.rs`: the step 1 to 16 order (for steps 1 to 6, C4a calls the X2, B1, X12 and B2 owners), the analysis-spec, Plan, bounds, grant, pack citation and stage specs (items 16 to 18), including **r6's syntax stages and `clones-near` census** (E1's X-C1 and X-C2; their Plan legs are carried by C4a's acceptance). It also orchestrates the Rust context minting through C2c. **Recommended split (r2):** without wiring prepared imports into the Plan. | C1b, C1c, C2b, C2c, C3a, C3b, B1, I1-c | L |
+| **C4c** (r2) | wiring prepared imports into the Plan: step 10's prepared branch, the PO-1 refusal path, `read-import` for prepared sets | C4a; C3c | S |
+| **C4b = X12d** | item 19 | C4a; I1-b2; X12-A; one serialized X9 lead run set | M |
+| **H-DEP, H-NM, H-PREP** | the harness recipes (item 15), on the K lane | T2-DEP; C3a (H-DEP); C1c (H-NM); C3c (H-PREP) | S each |
+
+**Authoring and integration.** Every unit may be **authored** against its predecessors' accepted interfaces as soon as this law and its successors are accepted. The edges above are **integration** edges: a unit lands only after they land. M3P:198's durations include review and integration, so the timing below uses integration edges only.
+
+**The revised DAG (r2, C-R4).** The units, durations and edges are M3P's (M3P:197-227), with this law's changes. The assumptions are those of M3P:191-195, and also:
+- this law and CRC-1, CR-1, NIJ-1 and VCS-1 are accepted before day 0;
+- R3 is settled;
+- I1-c and I1-b2 are integrated.
+
+Two variants are shown:
+- **A:** C4a unsplit, waiting for C3c;
+- **B:** the recommended split, C4a plus C4c.
+
+| Sub-unit | Days | Integration after | A finishes | B finishes |
+|---|---|---|---|---|
+| B1 → B2 | 2 + 3 | — / B1 | 2 / 5 | 2 / 5 |
+| D1 | 2 | — | 2 | 2 |
+| C2a | 2 | — | 2 | 2 |
+| C2b | 5 | C2a | 7 | 7 |
+| C2c | 2 | C2a | 4 | 4 |
+| C1a | 2 | B2 | 7 | 7 |
+| C1b; C1c | 1; 1 | C1a; C1a and C2b | 8; 8 | 8; 8 |
+| C3a | 3 | C1a | 10 | 10 |
+| C3b | 1 | C3a, D1 | 11 | 11 |
+| C3c | 2 | C3a | 12 | 12 |
+| C4a | 3 | A: C1, C2, C3a to C3c, B1. B: the same without C3c | 15 | 14 |
+| C4c | 1 | C4a, C3c | — | 15 |
+| H | 3 | C4a, F1 (day 10) | 18 | 17 |
+| X12d, then its X9 lead set | 2, then 1 (serialized) | C4a | 17, then 18 | 16, then 17 |
+| G1b → G4 | 2 + 3 | G1a (10) and C3 / G3 (15), G1b; B also C4c | 14 / 18 | 14 / 18 |
+| J2 | 3 | H, X12d and its lead set, D3 (7), CF-2 (≤ 7); B also C4c | 21 | 20 |
+| J3 → J4 | 3 + 2 | J2, F2 (14), G3 (15) / J3 | 24 / 26 | 23 / 25 |
+| I2 | 2 | H, Q0 | 20 | 19 |
+| M3-M | 3 | J3, G4, F3 (17), E3, I2, K1, K2, O1 | max(24, K2) + 3 | max(23, K2) + 3 |
+| R | 2 | F2, G3, K2 | max(15, K2) + 2 | max(15, K2) + 2 |
+| M3-X | 2 | M3-M, B3, D4, D5, F4, CF-2, J4, O3, R, O2_selected | max(M3-M, R, 26, O2_selected) + 2 | max(M3-M, R, 25, O2_selected) + 2 |
+
+**The result: M3P's 26-day conditional host chain no longer holds.**
+- **Variant A gives 29 days:** B1 → B2 → C1a → C3a → C3c → C4a → H → J2 → J3 → M3-M → M3-X. It holds only if:
+  - K2 finishes by day 24;
+  - every O2 part kept in M3 (O2_selected) finishes by day 27;
+  - X12d's X9 lead set is complete by day 18, with no other lead run set holding the machine between days 17 and 18 (M3P:270).
+- **Variant B gives 28 days:** B1 → B2 → C1a → C3a → C3b → C4a → H → J2 → J3 → M3-M → M3-X. It holds only if:
+  - K2 finishes by day 23;
+  - O2_selected finishes by day 26;
+  - the X9 lead set is complete by day 17.
+
+In both variants:
+- **The extra time** comes from C3's units (C3a, plus C3b or C3c) and C4a's size, not from C2. C2b at 5 days has about three days of slack before C1c and C4a need it.
+- **X12d beside H** adds no delay only under the lead-set condition above. If the lead set slips, J2 waits for it, day for day.
+- **Rust context minting inside C2c,** waiting for C3b, would move C4a to start on day 13 in **both** variants, giving **30 days in both** (r3, C2-N1; r2 wrongly said 29 for B). It is rejected; C4a orchestrates C2c's functions.
+- **The Rust branch** (G4 at 18) keeps 5 to 6 days of slack against J3.
+- **The F and G branch edges (r3, C2-N1).** The table keeps M3P's F1 and G1a at day 10 by **narrowing their integration edges to the interfaces they consume**:
+  - F1 waits for C1a (the sealed snapshot), C2b (the TypeScript context) and D3;
+  - G1a waits for C1a, C2c and D3;
+  - neither waits for C1b or C1c.
+
+  That narrowing is a plan change, and M3P-C carries it. If M3P keeps the full C1 and C2 rows as edges, F1 and G1a finish on day 11, F2 on day 15, G3 on day 16 and G4 on day 19. All of these remain inside the host chain's slack (J3 at 23 or 24; M3-M's start), so neither figure changes.
+- **Input from M3-B r2, accepted after this law's r2 (r3, M3-B F14).** The table takes B1 and B2 from M3P's rows (B2 finishing on day 5). M3-B r2 replaces them with its own units, and C1a needs B2-c (M3-B "Downstream"; M3-B:860). M3-B estimates B2 at "about day 8" (M3-B:805). By M3P:198's durations applied to M3-B's unit table, B2-c finishes on day 10.
+
+  In variant B, every host-chain step from C1a onward moves with B2-c's finish day *b*: C1a at b + 2, C3a at b + 5, C3b at b + 6, C4a at b + 9 (B2-d, which C4 also needs, finishes earlier), H at b + 12, J2 at b + 15, J3 at b + 18, M3-M at b + 21, and **M3-X at b + 23**. That gives:
+  - **28 days** at b = 5 (M3P's rows);
+  - **31 days** at b = 8 (M3-B's estimate);
+  - **33 days** at b = 10 (M3-B's units at M3P's durations).
+
+  The K2 and O2_selected conditions shift by the same b − 5, and so does the lead-set condition. M3P's next revision must take b from M3-B's accepted unit table and record the resulting figure.
+
+**Recommendation for M3P's next revision (M3P-C):** adopt variant B and record the host chain as **b + 23 days**, with b taken from M3-B's accepted units: 28 at M3P's old b = 5, and 33 at b = 10. Record the three conditions, shifted by b − 5, and the narrowed F1 and G1a edges. The whole-M3 total stays uncomputed: K2's size, the O7 date and the pre-day-0 law rounds are still unbounded (M3P:241).
+
+## Cross-law findings
+
+- **X-1 (for L).** SM-6 compares the TypeScript read set with TS2's `maxSnapshotEntries` of 200,000 (L:282, L:592). The binding bounds are `snapshot2`'s 100,000 rows and its 4 MiB descriptor, about 27,000 rows (item 5). SM-5 and SM-6 should report the descriptor bytes as well.
+- **X-2 (for NE, WS and the native owner).** `DependencySourcePayloadV1.acquisitionSourcePath` puts a host path into ImportId and PlanId, while WS:1539-1541 keeps user input paths out of content identity (item 13; NIJ-1).
+- **X-3 (for L and G1b).** Rust3 retains v2's `maxPreparedOutputEntries` of 256 for the prepared manifest's entries (RPP:102, RPP:385; NE:2934), beside `maxExpansionRows` and `maxGeneratedFileRows` of 1,000,000 (NE:2933). If an entry is a row, an admitted set over 256 rows cannot be transferred. C3c admits by NE §3.6's bounds. The Rust protocol owner should confirm which bound governs transport (R4).
+- **X-4 (for B3 and D15).** FS:120 renders multi-repository Cargo links as config-level `[patch.crates-io]` in `ws/<id>/.cargo/config.toml`. CC-5 replaces that file with the projection, and config-level `patch` is stripped (NE:1748-1751). So the links have no effect on OpenSIP's Rust analysis, and linked crates resolve as registry dependencies. B3's successor must choose a carrier that the projection honours (`[patch]` in `Cargo.toml`, NE:1746) or record the limit.
+- **X-5 (for B2).** Whether the project marker directory `.opensip/` is a discovery exclusion. U-4a does not prune it, so the walk inventories `project-id.v1` (item 2). That is harmless, but it is B2's rule to state.
+- **X-6 (for the native owner).** `baseCfg` has no producing recipe in NE (NE:1438, NE:1268). Item 10 decides that it is closure-shipped data. A passage could state this.
+- **X-7 (for B1, r4).** An `ignorePaths` entry that covers the root's `opensip.json` makes item 1's carrier join refuse at sealing (`excluded`). B1's resolver could refuse such an entry earlier, as `CONFIG.INVALID`, before any snapshot work. That is M3-B's choice. Until then, C1's refusal is the disposition.
+
+## Forbidden substitutes
+
+In addition to each item's list:
+- any project-byte read after sealing, or by a provider or adapter;
+- following a symlink, opening a special file, or retrying a changed read;
+- any execution of repository code: build scripts, proc macros, package scripts, or prepared content produced by execution;
+- any network access in product code, or outside `corpus fetch` in the harness;
+- a closure admitted other than through item 7's signed path;
+- a detector closure that is not the seal's core with `kind: detector`;
+- a self-referencing or non-null `descriptorId` or `importId` in an M3 record, or a native-input import named in configuration;
+- a stale, dylib or out-of-bounds prepared row admitted;
+- a Plan minted before its bounds are counted, or refused after minting;
+- an analysis-spec admitted before the snapshot, imports and bindings it consumes, or built twice (r2);
+- a `.crate` archive decoded outside CRATE-ARCHIVE-1, or partially extracted (r2);
+- the full `admit_enumeration` before the actual inventories exist, or a manufactured inventory outcome (r3);
+- an operational read supplying inventory bytes; `.opensip/` in the inventory; C1 touching `.opensip/` in CI; or a both-ways path admitted with differing bytes (r3);
+- archive framing, long-name records or padding charged against a protocol counter, or a decoder-counter breach reported as a set bound (r3);
+- pack admission outside X12 r4's order, or after any project-scoped effect on the first-use route (r3).
+- a carrier observation and walk row that disagree in presence, digest, type or exclusion, admitted anyway; or the carrier's bytes handed to C1 (r4);
+- a protocol counter computed over candidates, inactive packages, rejected archives or framing; or an acquisition-bound crossing reported as `DependencySetBound` (r4);
+- a capture origin inside an identity row (r4).
+- stopping a candidate's acquisition at a protocol threshold, or inferring admission or activation from a decoded prefix; or materializing a rejected or partial candidate for the adapter (r5).
+- policy fields not from an `AdmittedPack`;
+- a cache or regeneration key at M3;
+- an operational value in any identity;
+- edits to frozen contract text (successors only).
+
+## Open questions
+
+**For the owner.** None blocks this law. Four lead decisions are flagged, and the owner may reverse any of them:
+- **O-1.** T2 measurement of the five `rust-cargo-prepared` cells waits for M5's authorized preparation (item 15). It is possible earlier only by executing repository code, which M3 forbids.
+- **O-2.** Every core release becomes a new detector closure, as EC1 did for the evaluator (item 9). Cross-release baseline comparison will need compatibility listings at M5.
+- **O-3.** Until S-R lands, large T2 repositories, and TypeScript repositories analyzed with `node_modules`, may refuse at item 5's bound, and the harness then falls back to `nodeModulesInReadSet=false` (item 15). Expect S-R to be needed after S-M.
+- **O-4 (r2; r3).** M3P's conditional host chain moves from 26 days to **28** (variant B, recommended) or 29 (variant A) at M3P's B rows, because of C3's and C4's real unit sizes. With M3-B r2's accepted units it is **b + 23 days**, which is 31 to 33 depending on when B2-c lands ("Units"). The next M3-PLAN revision records it.
+
+**For other owners:**
+- **R1. Identity owner (CRC-1).** Are three core-role projections acceptable, in particular the core provider closure's two admitted uses under one provider identity (r6, item 9): `import.producerClosure`, and the producer of syntax-universe work, with `semanticClosures` membership exactly when a syntax universe is selected? A separate syntax-producer projection is rejected (item 9).
+- **R2. Security and DR-103 owner (CR-1).** The role-to-kind table of item 7.
+- **R3. Security owner.** Confirm the S10 owner file-manifest recipe used for `inputBinding.ownerFileManifestSha256` for snapshot-member and dependency-closure-member owners (SL:1076-1082). The field is `owner-retained` by security (NES).
+- **R4. Rust protocol owner.** X-3.
+- **R5. Native owner (NIJ-1).** Item 13's identity join, and X-2. NIJ-1 must encode X-2's disposition before C3a (C-N3).
+- **R7 (r3). The X2 and security owner, with B-S1's author.** Confirm item 1's operational/source boundary: X2's reads and rechecks stay as they are and are never source reads, and `opensip.json`'s two reads are joined only by digest. Confirm SX-1's `.opensip` anchor as an amendment to the shared discovery rule, landed with B-S1.
+- **R6 (r2; r3, C2-N2). The C3a implementer.** The items below are review evidence for C3a, not this law's. Confirm CRATE-ARCHIVE-1 against the **pinned** Cargo 1.95.0 and its `tar` dependency. The drafter inspected docs.rs `latest`, not the pinned sources. Then run H-DEP's pin-time decoder report over T2's tarballs. A difference is a reviewed profile amendment, never a silent widening.
+
+**For the reviewer:**
+- **V1.** Is item 9's reading of COMP:9 sound? "An evaluator closure cannot stand in" is taken to refer to the closure, not to the core release, so a distinct `kind: detector` projection of the same core is lawful.
+- **V2.** Is item 4's `dirty: true` ("cleanliness not established") an acceptable M3 meaning, given VCS-1?
+- **V3.** Does item 13's union for `plan.importIds` conflict with any closure rule that requires `plan.importIds` to equal the configuration's `evidence.importIds`? The drafter found none: NE:4276 calls the configuration field "the selecting field" for overflow purposes only.
+
+## Not claimed
+
+- **Nothing was run.** No product code, cargo command, test, fetch or lead run set was run for this law. Product facts come from reading main `30c5db1`.
+- **Item 5's sizes are estimates.** They come from T2M's entry counts at an assumed mean row size. S-M measures them.
+- **Item 12's Cargo and `tar` facts come from source inspection only** (docs.rs `latest`, 2026-10-04). No archive was produced or decoded for this law (R6).
+- **Item 16 and "Units" timings are planning assumptions** under M3P:198. They are not measurements. The day B2-c finishes is M3-B's to fix.
+- **X12 r4 is not accepted.** Item 16's rows 1 to 4 cite it as pending review (r3).
+- **No contract, schema, gate, threshold, register row or pinned file is changed.** The successors listed are proposals.
+- **No launch rule is stated** (the D law's), and no O7 outcome is assumed.
+- **Not claimed for M3:** confinement; repository-code execution; `authorized-execution` prepared sets; the `import` and `native-prepare` commands; changed-scope or cache reuse; a public projection of item 5's refusal before S-B and J1; Git object reading; T2 prepared-mode measurement.

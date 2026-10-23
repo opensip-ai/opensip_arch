@@ -1,0 +1,48 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "requiredFindings": [
+    {
+      "id": "B2B3D-R1-RF-1",
+      "title": "Charge the parallel observation storage before reserving it",
+      "location": "crates/security/src/custody/discovery_walk.rs:779-788 (Walk::enter)",
+      "finding": "Vec::with_capacity(paths.len()) allocates the complete ChildObservation array before the loop charges any observation slot. The dedicated owned(size_of::<ChildObservation>()) charge happens only after observing each child. If the next observation or slot charge exhausts the ledger, the full array has already been allocated. At the listing ceiling, 131,072 slots at the pinned 88-byte size reserve 11,534,336 bytes before those slot charges. ListingConversion precharges its path and validator records, not this separately charged observation array. The earlier layout also reserved its observation vector eagerly; carrying that pattern into the redesigned parallel vector does not satisfy this unit's explicit charge-before-allocation obligation. Final used() totals and the current marginal-count/native soundness tests do not detect the ordering violation.",
+      "requiredChange": "Remove the eager capacity reservation and charge before each allocation/growth, or precharge the entire observation-array allowance with checked arithmetic before reserving capacity, avoiding double charging afterwards. Keep the census consistent with the resulting charge sites and add a focused tight-budget or allocation-order control demonstrating that observation storage is not reserved before its allowance succeeds. Preserve the current behavioral vectors and records."
+    }
+  ],
+  "subjectManifestSha256": "c01a71932880f5c88e7d441b6faca4abb5af4c876da8ad72de862b5dbc72905b",
+  "implementsPlanR2": false,
+  "implementsLawR6WalkerStorage": false,
+  "coreRelativeKeysSound": true,
+  "recordsByteIdentical": true,
+  "rawRejectedSpecificationsKept": true,
+  "walkerNoPerEntryAbsoluteSpelling": true,
+  "namesStoredOnce": true,
+  "listingFailurePriorityKept": true,
+  "chargesBeforeAllocationKept": false,
+  "traceStructureSound": true,
+  "testChangesLimitedToRedesignedStorage": true,
+  "censusModelMirrorsRedesign": true,
+  "populationEvidenceRecordsEqualReference": true,
+  "failingEntries": [
+    "rs-very-large-aws-sdk-rust"
+  ],
+  "marginClaimed": false,
+  "testFailureSetsEqualBase": true,
+  "allTargetsClippyWarningsDenied": true,
+  "controlsCaught": 8,
+  "inventoryUnchanged": 197,
+  "contractSuccessorsUnchanged": 164,
+  "productionCallerAdded": false,
+  "environmentReadAdded": false,
+  "capChanged": false,
+  "lawChanged": false,
+  "productQualification": false,
+  "entirePlanComplete": false,
+  "nonBlockingObservations": [
+    {
+      "id": "B2B3D-R1-NBO-1",
+      "location": "SCOPE.md, The outcome; tools/security/discovery_census.py module documentation",
+      "observation": "Tighten the descriptions: bytes still depend on root spelling through the single per-walk coefficient 1, so describe removal of the per-entry root term rather than saying bytes no longer depend on root spelling. The census module documentation still says the real-store probe is cross-checked, although the executable cross-check was retired and the replacement probe is separately archived supporting evidence. The generated record and scope otherwise disclose retirement correctly."
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectManifestSha256": "4abce7de3770195f56dcf1c212ba6a2fbb08c69ce26b4a96bba4543c0aa936ee",
+  "requiredFindings": [
+    {
+      "id": "B2D0REF-R1-RF-1",
+      "title": "Reject a null packages value instead of treating it as an empty sequence",
+      "location": "reference/framework_recognition_reference.py:318-343; evidence/check.py:193",
+      "detail": "parse_pnpm_packages(b\"packages:\\n\") returns [], as does a packages key followed only by comments. Those documents give packages a null value, not a sequence of strings. The checker explicitly blesses this as accept-empty-block. Plan section 2 permits an empty sequence as packages: []; accepting a missing sequence makes the pnpm recognizer emit no unresolved choice for bytes outside the promised subset. Through recognize this reports state none instead of the outside-subset partial disclosure.",
+      "requestedChange": "Require at least one block item after a block-form packages key; keep packages: [] as the empty-sequence form. Replace the empty-block positive control with negatives for bare-key and comments-only values, assert config-requires-evaluation/partial through recognition, and add a mutant for this distinction."
+    },
+    {
+      "id": "B2D0REF-R1-RF-2",
+      "title": "Validate YAML characters before accepting scalar or comment text",
+      "location": "reference/framework_recognition_reference.py:258-300 and 303-343",
+      "detail": "UTF-8 decoding plus BOM/tab/CR checks do not establish YAML-valid input. Both b'packages:\\n  - a\\x00b\\n' and b'packages:\\n  - \"a\\x00b\"\\n' are accepted as strings containing a literal NUL, although a raw NUL is not permitted in YAML, even inside quotes. Raw DEL is also accepted, and ignored comment text bypasses character validation. recognize accepts the NUL example without config-requires-evaluation. Thus the closed reader admits documents that are not YAML packages sequences. Non-LF YAML break characters also need an explicit disposition: it retains U+0085 and U+2028 literally inside quoted scalars rather than applying YAML line handling or rejecting them.",
+      "requestedChange": "Validate the whole document against the selected YAML character/line subset, including comments, before scalar parsing. Reject forbidden controls and unsupported line-break forms with OutsideSubset; keep allowed Unicode strings and LF/CRLF behavior explicit. Add negatives for literal NUL/control characters in plain, single/double-quoted scalars and comments, plus unsupported Unicode breaks, with recognition disclosure assertions and a mutation control."
+    },
+    {
+      "id": "B2D0REF-R1-RF-3",
+      "title": "Remove the undeclared Python decimal-digit limit from the TOML oracle",
+      "location": "reference/framework_recognition_reference.py:102-128; evidence/check.py:170-182",
+      "detail": "The required isolated Python 3.14 interpreter has sys.get_int_max_str_digits() == 4300, including after Reference.load. A 5022-byte document consisting of [package], name=\"a\", and x=<5000 decimal nines> makes tomllib raise ValueError; parse_cargo turns it into None and recognition emits Cargo.toml-not-toml, loses src/main.rs and reports partial. Product parse_toml deliberately retains integer literals without narrowing, and its walk rejects empty radix literals rather than limiting decimal digit count. This shallow three-node document is below both selected resource bounds. The oracle therefore has another admission divergence beyond the plan's sole labelled parser-recursion divergence.",
+      "requestedChange": "Make TOML integer admission independent of Python decimal conversion limits while retaining the selected byte/node limits, or obtain an explicit revised contract for any additional divergence. Add below/above-4300-digit decimal controls beside usable package and workspace tables, checking recognition effects and workspace fact, and a mutant that restores the unwanted limit."
+    }
+  ],
+  "nonBlockingObservations": []
+}

@@ -1,0 +1,73 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "requiredFindings": [
+    {
+      "id": "B2B3PLAN-1",
+      "title": "Complete the native-name handling contract",
+      "location": "PLAN-r1.md LD-B2B3-2 and section 3 steps 1-3",
+      "finding": "visit_entry_names passes OS dot entries to the visitor (directory_entries.rs:417-418 explicitly asserts both). The plan applies LogicalPath/platform rejection to each listed name, so following it literally refuses every ordinary listing on . or ... It also specifies only the 255-scalar segment bound, omitting MC:274 and LogicalPath::parse's 4096-scalar complete-path bound. A path can exceed that bound well before depth 256.",
+      "requiredChange": "Explicitly charge returned OS names, discard exactly . and .. before logical-name validation or child observation, and validate each resulting root-relative LogicalPath including its total scalar limit. Specify the same refusal/detail for an overlong path. Add successful ordinary-listing controls and 255/256 segment and 4096/4097 complete-path boundary controls."
+    },
+    {
+      "id": "B2B3PLAN-2",
+      "title": "Allow metadata-only custody rejection without requiring an ACL capture",
+      "location": "PLAN-r1.md LD-B2B3-3, LD-B2B3-6 and section 3 judged-object rule",
+      "finding": "LD-3 makes any core custody of NotObserved an invariant fault and says every marker is judged before core execution; LD-6 forbids opening nonregular markers and promises their normal SYMLINK/NOT_A_REGULAR_FILE reasons. Those entries cannot acquire descriptor ACLs. The current core Judge::markers calls custody for every present marker, and custody matches the ACL before reference_order examines kind. Thus a FIFO or symlink marker represented honestly as NotObserved hits the planned invariant fault instead of the promised public custody result. Section 3's statement that every judged object is opened conflicts with the same case.",
+      "requiredChange": "Define a metadata-only early-rejection path in the core that preserves reference custody order and never opens nonregular markers. NotObserved should fault only when judgment actually reaches an ACL-dependent check. Retain honest uncaptured state; do not invent an empty ACL. Reconcile the every-judged-object wording, and test FIFO/socket/symlink markers both alone and alongside a valid marker against the oracle, including no-open traces."
+    },
+    {
+      "id": "B2B3PLAN-3",
+      "title": "Resolve and admit configuration between the two admission phases",
+      "location": "PLAN-r1.md LD-B2B3-12 numbered sequence",
+      "finding": "The seam runs phase 1 and phase 2 in step 1, then resolves the winning workspaceRoots in step 2. ReadSession::admit_project_carriers documents the opposite contract at installation_read.rs:245-253: configuration resolution and pack admission run on the captured carriers before complete_project_admission. Phase 2 captures/classifies the registry and rechecks the admission. Running it before resolution gives an invalid configuration the later phase's work and potentially its refusal precedence.",
+      "requiredChange": "Specify phase 1, carrier-based resolution and required admission (with CLI provenance), phase 2, then successful equivalent release and walking. Add a control that resolution/admission failure never reaches phase 2 or downward observation, alongside the flag precedence controls."
+    },
+    {
+      "id": "B2B3PLAN-4",
+      "title": "Pin the existing configuration module now",
+      "location": "PLAN-r1.md LD-B2B3-11",
+      "finding": "The plan defers both discovery.rs and configuration.rs until B2-c. crates/host/src/configuration.rs already exists and implements B1-a resolution. MB item 15 explicitly requires the structural prohibition in configuration.rs as well as discovery_rule.rs and grants.rs. The proposed scan therefore omits an existing required module while claiming the FW-01 structural pin.",
+      "requiredChange": "Include current configuration.rs and its production-reachable includes in the B2-b3 structural pin with planted spawn/socket/write negatives. Defer only the nonexistent discovery.rs until its owning unit creates it."
+    },
+    {
+      "id": "B2B3PLAN-5",
+      "title": "Cross-check evidence and final records, not only paths and kinds",
+      "location": "PLAN-r1.md section 3 Cross-check against the oracle",
+      "finding": "The promised comparison projects walker_population to paths and kinds. The bound adapter also deliberately projects evidence: its final return strips vcs from unprobed/pruned/depth-257 directories. A walker can have identical paths and kinds while leaking such vcs evidence and reporting a false nested repository. Conversely it can omit observed VCS evidence and miss a boundary. Neither defect is detected by the stated comparison; the existing pure-core replay cannot establish that native capture supplied the right evidence.",
+      "requiredChange": "Compare the relevant native population evidence, especially vcs presence/kind/target and custody inputs, and feed native captures through the core to compare all available partial-provenance fields, complete boundary inventory and refusal/detail against the current bound reference. Keep workspaceDeclarations pending. Include pruned anchors and depth-257 directories carrying hidden vcs annotations, ordinary nested VCS/project boundaries, explicit/config chains and metadata-only marker rejection. Do not claim equality for deliberately unobserved ACLs; define that projection explicitly."
+    }
+  ],
+  "subjectManifestSha256": "363011fbe31f299e39cd1482b7365d58910d995cf0620771f29a6802a7913389",
+  "refinesPlanR4Section13": true,
+  "factsSection0Accurate": true,
+  "splitSound": true,
+  "ldB2B3_1Sound": true,
+  "ldB2B3_2Sound": false,
+  "ldB2B3_3Sound": false,
+  "ldB2B3_4Sound": true,
+  "ldB2B3_5Sound": true,
+  "ldB2B3_6Sound": false,
+  "ldB2B3_7Sound": true,
+  "ldB2B3_8Sound": true,
+  "ldB2B3_9Sound": true,
+  "ldB2B3_10Sound": true,
+  "ldB2B3_11Sound": false,
+  "ldB2B3_12Sound": false,
+  "ldB2B3_13Sound": true,
+  "walkerSpecSound": false,
+  "controlsSufficient": false,
+  "codeWritten": false,
+  "bindingMade": false,
+  "lawChanged": false,
+  "productQualification": false,
+  "nonBlockingObservations": [
+    {
+      "id": "B2B3PLAN-NBO-1",
+      "observation": "LD-4's 257 descriptor statement should distinguish retained ancestors from temporary descriptors. Opening a depth-257 directory to observe its four markers can require an additional descriptor beyond root plus depths 1-256; the listing stream also opens an independent descriptor. Keep EMFILE as a refusal and state the actual peak in code/census."
+    },
+    {
+      "id": "B2B3PLAN-NBO-2",
+      "observation": "LD-7's unreadable/malformed gitdir target=null rule should explicitly preserve budget exhaustion and changed-identity failures as whole-operation refusals, consistent with section 3, rather than swallowing them as an unavailable target."
+    }
+  ]
+}

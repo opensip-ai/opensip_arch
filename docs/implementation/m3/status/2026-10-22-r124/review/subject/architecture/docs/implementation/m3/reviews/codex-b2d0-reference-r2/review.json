@@ -1,0 +1,21 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectManifestSha256": "d6be804422d788f42997ba25c185d514a6afb1412328f49b710604f93d83e36e",
+  "requiredFindings": [
+    {
+      "id": "B2D0REF-R2-RF-1",
+      "title": "Require separation after the block mapping key before the empty flow sequence",
+      "location": "reference/framework_recognition_reference.py:349",
+      "detail": "The empty-flow regex uses zero or more spaces after the colon, so parse_pnpm_packages(b'packages:[]\\n') returns []. The same happens for b'packages:[] # comment\\n'. In block YAML, this unseparated text is a plain scalar rather than the packages mapping with an empty sequence. Thus the reader still accepts a document that is not a packages sequence of strings. recognize emits no unresolved choice and state none for it, rather than the mandatory outside-subset disclosure. The accepted plan's empty form is packages: [].",
+      "requestedChange": "Require at least one separating space after packages: for the empty-flow form. Add separated positive and unseparated negative controls, with and without comments and through recognize; require config-requires-evaluation/partial for the negative forms, and add a mutation control for removal of separation."
+    },
+    {
+      "id": "B2D0REF-R2-RF-2",
+      "title": "Do not discard an unpaired carriage return at end of input",
+      "location": "reference/framework_recognition_reference.py:334-339; README.md r2 changes RF-2",
+      "detail": "The r2 character profile excludes a bare CR and permits CR only as CRLF, but the split/strip logic removes a trailing CR from every split element, including the final element not followed by LF. Consequently b'packages:\\n  - a\\r' is accepted as ['a'], and b'packages: []\\r' is accepted as []. The whole-document character predicate never sees the forbidden CR. The existing bare-cr negative vector tests an internal CR followed by another character, so it misses this EOF boundary. This is a mismatch with the declared closed subset, even though CR alone can be a line break in general YAML.",
+      "requestedChange": "Normalize only actual CRLF pairs, then reject every remaining CR before parsing. Add EOF bare-CR cases for block items, empty flow and comment text, preserving positive LF/CRLF and no-final-newline controls. Check the outside-subset disclosure through recognize and add a mutation control for this boundary."
+    }
+  ],
+  "nonBlockingObservations": []
+}
