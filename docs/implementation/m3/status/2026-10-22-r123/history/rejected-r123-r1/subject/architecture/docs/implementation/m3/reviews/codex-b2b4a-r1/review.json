@@ -1,0 +1,64 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "requiredFindings": [
+    {
+      "id": "B2B4A-R1-RF-1",
+      "severity": "medium",
+      "location": "tools/security/discovery_census.py:624-648,757-770",
+      "title": "Workspace integrity checks member identities but not their pinned mounts or overlay record",
+      "finding": "The tool never compares workspace-overlay.json with the archived/manifest overlay. It hashes the observed bytes into the output, while mount validation compares only the multiset of member IDs. Renaming a member symlink to node_modules retains that multiset but places the verified member below a pruned anchor in compose, changing the modeled population and potentially manufacturing a passing workspace margin. overlay_root_tree also scans its root without first refusing a symlink root.",
+      "requiredCorrection": "Verify the overlay record against its pinned archived bytes or canonical manifest overlay and validate the exact mount-to-entry/digest mapping, not just memberIds. Refuse unexpected mounts and reject a symlink/non-directory overlay root before traversal. Preserve the no-follow and lead-readable-only guarantees, centralizing digest joins through the guarded helper. Add controls for a renamed/swapped mount, altered overlay record and symlink overlay root."
+    },
+    {
+      "id": "B2B4A-R1-RF-2",
+      "severity": "medium",
+      "location": "tools/security/discovery_census.py:567-570",
+      "title": "Gitlink placeholders bypass the store directory-mode check",
+      "finding": "Ordinary directories pass through visit and must be 0555. A gitlink placeholder takes a separate branch that checks only that it is an empty directory. A writable placeholder therefore retains the same computed gitTree and QD-22 digest and is admitted despite the required 0555 mode. The model assumes passing custody rather than observing that changed mode.",
+      "requiredCorrection": "Require STORE_DIR_MODE on each gitlink placeholder before listing it, along with the existing no-symlink/empty checks. Add independent synthetic gitlink pins and controls showing a valid empty 0555 placeholder passes and writable, nonempty or symlink placeholders refuse."
+    },
+    {
+      "id": "B2B4A-R1-RF-3",
+      "severity": "medium",
+      "location": "crates/security/src/custody/discovery_census_tests.rs:378",
+      "title": "The walk-vector soundness control can accept a partially executed walk",
+      "finding": "charged returns completion status and ledger usage, but the 52-vector test discards completion and checks only used <= predicted. A budget refusal or instrument/host failure can stop early with a small used value and satisfy the inequality without measuring the planned walk. The composed-workspace test correctly checks completed; the ordinary-vector test does not. Typed discovery refusals are Ok results and need not be treated as incomplete.",
+      "requiredCorrection": "Require successful completion of discover_downward for these synthetic vectors before accepting the usage comparison, or explicitly match any independently expected infrastructure errors. Add a control demonstrating that an aborted native measurement cannot pass as a soundness result."
+    }
+  ],
+  "subjectManifestSha256": "855606055a7c20bb00e0ad5d6d0e2a2a820f1516dc64b354d82131d49632fc2c",
+  "implementsPlanR2Section1": false,
+  "integritySound": false,
+  "heldOutsNeverOpened": true,
+  "populationEqualsBoundReference": true,
+  "costModelMirrorsWalker": true,
+  "unknownsAtDearerBranch": true,
+  "closurePinnedWholeWithAnchors": true,
+  "workspacesComposed": true,
+  "nativeSoundnessControlSufficient": false,
+  "marginClassifiedAgainstCodeLimits": true,
+  "failingEntries": [
+    "rs-very-large-aws-sdk-rust",
+    "ts-very-large-aws-sdk-js-v3",
+    "mr-ts-very-large-smithy-sdk"
+  ],
+  "capsReturnedToLaw": true,
+  "marginClaimedForFailingEntry": false,
+  "testFailureSetsEqualBase": true,
+  "allTargetsClippyWarningsDenied": true,
+  "controlsCaught": 4,
+  "inventoryUnchanged": 195,
+  "contractSuccessorsUnchanged": 164,
+  "productionCallerAdded": false,
+  "environmentReadAdded": false,
+  "capChanged": false,
+  "productQualification": false,
+  "entirePlanComplete": false,
+  "nonBlockingObservations": [
+    {
+      "id": "B2B4A-R1-NBO-1",
+      "location": "SCOPE.md: The model is tight, not just safe",
+      "observation": "The supplied log has 46 exact object-and-edge matches out of 56, rather than 45. Over-counting also includes the successful nested-gitdir-file-repository case (440 actual edges versus 475 predicted) and post-capture ACL cases, not only custody refusal before capture. Keep the general claim as an upper bound: three large native store matches support those individual cases, not exactness for all T2 entries. Correct the tightness description when publishing the revised scope."
+    }
+  ]
+}

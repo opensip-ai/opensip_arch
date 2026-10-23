@@ -1,0 +1,54 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "requiredFindings": [
+    {
+      "id": "B2B4C1-R1-RF-1",
+      "title": "Check held-out identities, not only the number of rows, in the Rust margin test",
+      "location": "crates/security/src/custody/discovery_census_tests.rs:620-640,680-721",
+      "finding": "The claimed coverage check counts outstanding/stale/measured/error rows and requires a total of ten, but never checks unique IDs or compares those IDs with the expected held-out manifest set. Ten composed passing rows all carrying the same ID, or a foreign ID replacing one expected entry, still satisfy these checks and yield holds (blind census) with gate=true. The Python receipt composer checks identities correctly, but the separately requested product margin test does not independently verify the composed artifact. The partial-coverage negative tests only the count, not same-count substitutions or duplicates.",
+      "requiredChange": "Bind the Rust control to the expected held-out ID set from reviewed manifest evidence, reject duplicates and missing/unknown/substituted IDs, and ensure held-out statuses cannot replace lead-readable rows. Add same-count duplicate-ID and foreign-ID census-record negatives, plus an omitted lead-readable row/status-substitution control. Only exact coverage with all expected successful measurements may meet the gate."
+    },
+    {
+      "id": "B2B4C1-R1-RF-2",
+      "title": "Close the SystemExit and blind-mode detection gaps in exception redaction",
+      "location": "tools/security/discovery_census.py:884-907,1127-1141",
+      "finding": "blind_row catches Exception, which excludes SystemExit, while __main__ explicitly rethrows SystemExit before the generic blind-mode redaction branch. A verification/model/helper exit such as SystemExit(secret_path) therefore reaches Python termination handling, which prints that string to stderr. In addition, the redaction guard detects only the exact literal --held-out-blind in argv, while argparse permits abbreviated long options by default; an accepted abbreviation enters blind mode without setting this guard. The current CLI canary only exercises an OSError with the full flag and misses both paths. This contradicts the before-run requirement that exceptions, including top-level ones, never disclose content.",
+      "requiredChange": "Put the actual parsed blind execution behind a redaction boundary that also sanitizes message-bearing SystemExit, distinguishing intentional parser/help exits before any held-out access. Make dispatch/redaction agree for every accepted flag spelling, for example by disabling abbreviation and dispatching from parsed arguments. Add synthetic/subprocess canaries for SystemExit carrying a planted name/path and for accepted/rejected abbreviated flags; verify stderr/stdout contain only the permitted summary or generic failure, with no exception text."
+    },
+    {
+      "id": "B2B4C1-R1-RF-3",
+      "title": "Bind or verify the imported population-loader dependency before reusing a receipt",
+      "location": "tools/security/discovery_census.py:868-875,974-999; tools/security/discovery_walk_vectors.py:37-67",
+      "finding": "receipt_bindings covers the census script and Rust cost closure but omits tools/security/discovery_walk_vectors.py, which load_reference imports and executes. That helper selects and loads the reference through ARCH/load, supplies MARKERS to reference_population, and reads the Python generator-closure configuration. Changing that helper can change the population/reference check while leaving every receipt binding unchanged; compose_held_out then continues to accept the old receipt as current. Existing drift controls change only already-bound inputs and do not exercise this executable dependency. The saved result is therefore not bound to all code that performed its population verification.",
+      "requiredChange": "Include the imported helper and relevant reference/loading dependency pins in the receipt binding, or enforce their fixed accepted hashes before either a blind run or ordinary receipt reuse. Account for the configuration/closure inputs selecting executed reference dependencies. Use only public code/input pins, preserving the disclosure limit. Add a synthetic helper/reference-loader drift control showing that an old receipt becomes stale or is refused before composition, without opening a held-out store."
+    }
+  ],
+  "subjectManifestSha256": "401eaee9f64133703ce631088398cd97a42ceb8b998d1952b076cd2d75b9e65c",
+  "implementsPlanR6Section25Code": false,
+  "sameChecksAsLeadReadableCensus": true,
+  "blindJoinRefusesOutsideTheMode": true,
+  "ordinaryStorePathStillRefusesHeldOut": true,
+  "exceptionsNeverEmitted": false,
+  "receiptClosedFormat": true,
+  "receiptBindingsComplete": false,
+  "coverageExact": false,
+  "stateDerivedAndChecked": true,
+  "staleOnEveryBindingDrift": false,
+  "ordinaryModeOpensNoHeldOutStore": true,
+  "failsReturnsTheCaps": true,
+  "rustMarginTestClassifiesComposedRows": true,
+  "onlyHoldsMeetsTheGate": false,
+  "manifestDriftReadingSound": true,
+  "controlsCoverPlanR6List": false,
+  "testFailureSetsEqualBase": true,
+  "allTargetsClippyWarningsDenied": true,
+  "controlsCaught": 18,
+  "heldOutStoreOpened": false,
+  "inventorySuccessorFollows": true,
+  "productionCallerAdded": false,
+  "environmentReadAdded": false,
+  "lawChanged": false,
+  "productQualification": false,
+  "entirePlanComplete": false,
+  "nonBlockingObservations": []
+}

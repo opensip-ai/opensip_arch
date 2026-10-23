@@ -1,0 +1,40 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "requiredFindings": [
+    {
+      "id": "B2AREF-1",
+      "severity": "high",
+      "location": "reference/discovery-defaults.sx1-r1.py:111-143, 191-238",
+      "title": "Materialize member_roots before traversing or forwarding it repeatedly",
+      "finding": "The new APIs declare member_roots as Iterable[str], but pass the same iterable repeatedly to classify_path and nested helpers. _custody_state consumes it. A valid single-pass iterator therefore loses admitted member anchors after the first classification. enumerate_units can then admit a member custody directory as a unit, cargo_roots_from_markers can admit a Cargo root inside it, and pruned_anchors_from_directories can omit its observed row. Lists in the checker hide the defect.",
+      "reproduction": {
+        "cargo": "cargo_roots_from_markers(['m/Cargo.toml', 'm/.opensip/Cargo.toml'], iter(['m'])) returns {'m', 'm/.opensip'}; with ['m'] it returns {'m'}.",
+        "enumeration": "enumerate_units(['m/Cargo.toml', 'm/.opensip/package.json'], member_roots=iter(['m'])) returns unitDirs ['m', 'm/.opensip'] and prunedTrees []; with member_roots=['m'] it returns unitDirs ['m'] and the m/.opensip custody row.",
+        "directories": "pruned_anchors_from_directories(['m', 'm/.opensip'], [], iter(['m'])) returns {}; with ['m'] it returns {('m/.opensip', 'opensip-custody-state'): None}."
+      },
+      "requiredChange": "Snapshot member_roots into a reusable tuple or set at every entry point that traverses or forwards it repeatedly, including cargo_roots_from_markers, enumerate_units and pruned_anchors_from_directories. Add list-versus-iterator equivalence controls for all three, including observed-directory processing after marker classification. Preserve the plan's AST confinement and regenerate the checker report, subject and record pins."
+    }
+  ],
+  "subjectManifestSha256": "b38bac53199550302039bf08cd5f06a2dcbe2c9a4e0220830ac05bbc1b9f1e5d",
+  "implementsPlanR1Section11": false,
+  "discharges_BS1F3_LD14": false,
+  "layeredOnPruningCopyUnchanged": true,
+  "sx1AnchorExactAndOutermost": false,
+  "v3ConverterMatchesSlsFragment": true,
+  "versionMovesRight": true,
+  "nbo1Applied": true,
+  "checkerSufficient": false,
+  "astDiffConfined": true,
+  "ddAndPruningCopyUntouched": true,
+  "bindsAsContractSuccessor163": true,
+  "passageOverridesNone": true,
+  "productCodeChanged": false,
+  "productQualification": false,
+  "nonBlockingObservations": [
+    {
+      "id": "NBO-1",
+      "location": "evidence/check.py, SX-1 outermost controls",
+      "observation": "The control named outermost-target-over-member-anchor uses m/target/x and contains no .opensip anchor. Strengthen it with target/m/.opensip/x, cargo root empty, member root target/m, expecting target. Also add .opensip/.git/x expecting .opensip to support the README claim of both orders against .git. Independent spot checks of both cases passed."
+    }
+  ]
+}

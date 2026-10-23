@@ -1,0 +1,63 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "requiredFindings": [
+    {
+      "id": "B2B3B-R1-RF-1",
+      "title": "Gate ACL capture by the judgment actually reached",
+      "location": "discovery_walk.rs:335-384, 571-578, 718-745 and explicit-root capture in walk",
+      "finding": "capture unconditionally calls capture_descriptor_acl_accounted for any NotObserved entry. Automatic candidates capture every ancestor and every regular marker even when an earlier directory fails custody; named chains likewise capture metadata-rejected directories and boundary directories before returning. There is no kind/owner/mode early-rejection gate in capture and no custody-result gate before capturing later chain entries or markers. Thus a 0777 unit directory still gets an ACL capture and its marker gets opened/captured even though the core stops at DIRECTORY_CUSTODY. This contradicts LD-B2B3-3/6 and the claimed only-where-judgment-reaches-ACL behavior. Unnecessary capture can exhaust the ledger or fail host I/O before the core returns its otherwise available exclusion/crossing refusal.",
+      "requiredChange": "Share the reference-order metadata-only gate with the walker, preserve NotObserved for early rejection, and memoize chain custody outcomes so later ACL/marker captures occur only if the core would reach them. Preserve the reference population and required non-custody boundary observations. Add trace and tight-budget controls for mode/owner rejection, ACL rejection on an ancestor, and a crossing that must not trigger unrelated custody capture."
+    },
+    {
+      "id": "B2B3B-R1-RF-2",
+      "title": "Reject identity changes when overlapping named roots revisit a path",
+      "location": "discovery_walk.rs:276-291, 335-343 and 678-747",
+      "finding": "observe performs a fresh status read but or_insert_with silently retains any earlier scope entry. named_root starts a new descriptor chain for each distinct requested root, so shared prefixes are reopened. open_directory matches only the new observation; capture then returns immediately if that path already has a captured ACL. For roots a/u and a/v, replacing a between walks can therefore open the replacement while retaining the original a metadata/ACL in the core scope. A new mode/owner on the replacement can be hidden by cached custody. The before-open hook can replace a and move its existing children into the new directory while preserving child inode identities; the current one-root swap controls do not exercise this window.",
+      "requiredChange": "Keep retained shared-prefix descriptors/observations for the invocation or compare every repeated observation/open against the original admitted identity before reusing cached custody. Refuse a previously present path becoming absent or changing identity; never mix a new descriptor with an old captured entry. Add both explicit-joins and config-workspace-roots controls with shared/overlapping roots and a same-kind prefix replacement between visits, asserting Changed and no accepted mixed scope."
+    },
+    {
+      "id": "B2B3B-R1-RF-3",
+      "title": "Account for owned paths and collection storage before allocation",
+      "location": "discovery_walk.rs listed_name, observe, list, subtree, named_root and walk",
+      "finding": "The listing charges one copy of each raw name, but subsequently allocates name strings, full relative paths, LogicalPath copies, absolute paths, BTreeMap keys, observed vectors and listed/seen/cargo/frame collections without corresponding owned-storage charges. observe allocates abs.to_owned and inserts an ObservedEntry after only the platform status-read charge; list retains the raw bytes while building additional path copies. The fixed 1024 listing allowance does not bound this storage. Deep parents with many short child names amplify full-path storage far beyond the charged raw-name bytes. This undermines the claimed one-ledger precharge and the byte/object bounds; the current one-short tests merely measure the same incomplete cost model.",
+      "requiredChange": "Define conservative costs for the actual owned records, path copies and collection growth, and charge the original discovery ledger before allocating them, or restructure ownership to eliminate copies with an explicit bounded storage allowance. Keep listing syscall/name costs separate from retained-scope costs. Include tight-byte/object-budget controls for wide directories under long/deep prefixes and explicit-root collections, demonstrating refusal before the uncharged allocation would occur. Update the scope/census cost description accordingly."
+    }
+  ],
+  "subjectManifestSha256": "1501f8a3eb6838434aa1ea73055e891fe555f6ad56cf51a6b57acdb42b7c0afd",
+  "implementsPlanR2Section3": false,
+  "populationMatchesReference": true,
+  "vectorsReproduceReference": true,
+  "namesValidatedAndRefused": true,
+  "capturesOnlyWhereJudgmentReachesAcl": false,
+  "nonRegularMarkersNeverOpened": true,
+  "notObservedFaultSound": true,
+  "identityComparedNeverRetried": false,
+  "listingChargedAndBounded": false,
+  "boundariesProbedNeverListed": true,
+  "fw01PinSound": true,
+  "gitdirRaceControlsAdded": true,
+  "leadDecisionsSound": true,
+  "testFailureSetsEqualBase": true,
+  "allTargetsClippyWarningsDenied": true,
+  "controlsCaught": 15,
+  "inventoryUnchanged": 193,
+  "contractSuccessorsUnchanged": 164,
+  "productionCallerAdded": false,
+  "environmentReadAdded": false,
+  "productQualification": false,
+  "entirePlanComplete": false,
+  "nonBlockingObservations": [
+    {
+      "id": "B2B3B-R1-NBO-1",
+      "observation": "The pinned JSON and successful generator check contain 44 vectors, not the 46 claimed by REQUEST.md and SCOPE.md. Correct the publication count (or add and review the two intended cases); the native test only asserts at least 40. This review reports the actual 44."
+    },
+    {
+      "id": "B2B3B-R1-NBO-2",
+      "observation": "The trace records probe(directory) but vcs_evidence/gitdir_target perform their by-name observations, file open and custody/read internally without walker observe/open/capture trace events. Expand the trace at those primitive call sites before relying on it as an exhaustive access log; the current no-open assertions cannot establish the absence of operations hidden by these helper calls."
+    },
+    {
+      "id": "B2B3B-R1-NBO-3",
+      "observation": "The root-plus-depths-1-to-256 descriptor description applies to automatic subtree descent. named_root can retain a longer explicit chain allowed by the 4096-scalar grammar. State that distinction in descriptor accounting; EMFILE must remain a refusal."
+    }
+  ]
+}

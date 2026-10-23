@@ -1,0 +1,35 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "requiredFindings": [
+    {
+      "id": "B2B3C-R1-RF-1",
+      "title": "Handle the operation end outcome instead of dropping its failures",
+      "location": "crates/security/src/scenario.rs:440, ScenarioHome::discover",
+      "finding": "The seam unconditionally drops operation.end(JournalOutcome::Certain), then returns the discovery records. OperationEnd explicitly includes Failed(EndFailure) and RolledOver { end: Err(..), .. }; its contract says failures are disclosed by the caller. The existing commit_session end_step_failure/rollover projections demonstrate this distinction. Thus an end-path fence, owner, carrier or unlock refusal can disappear, and an ordinary successful-looking DiscoveryRecords value is still returned. This conflicts with the seam's stated non-discovery-refusals-as-Err behavior and fails to preserve the full planned operation/end composition.",
+      "requiredChange": "Match and handle OperationEnd, including failed end steps after rollover and any required rollover disclosure. Preserve the original discovery outcome as required by the end contract; report the separate end failure through Err or an explicit plain end-disclosure field rather than silently dropping it. NotEntered is not itself a failure. Add a focused control that an end failure remains observable and cannot be mistaken for clean completion, without adding a new shared fixture gate."
+    }
+  ],
+  "subjectManifestSha256": "7cc7c41e5e4ce2dc92e3580eb55732c78f2595b4550b1a6c5e24b3f243c2a9b7",
+  "implementsPlanR3Ld12": false,
+  "seamOrderSound": false,
+  "seamWithinX8Gates": true,
+  "noNewFeatureSite": true,
+  "flagRowsMeetCovMethod": true,
+  "resolutionRefusalStopsBeforePhase2": true,
+  "recordsLendNothing": true,
+  "testFailureSetsEqualBase": true,
+  "allTargetsClippyWarningsDenied": true,
+  "controlsCaught": 5,
+  "inventoryUnchanged": 194,
+  "contractSuccessorsUnchanged": 164,
+  "productionCallerAdded": false,
+  "environmentReadAdded": false,
+  "productQualification": false,
+  "entirePlanComplete": false,
+  "nonBlockingObservations": [
+    {
+      "id": "B2B3C-R1-NBO-1",
+      "observation": "The if-let-Ok boundary_inventory projection also suppresses Locator instrument faults. NotAccepted is expected for a refused discovery result; on an accepted result, require inventory conversion to succeed or return Err, rather than quietly producing inventory=None. Current valid walker outputs should not hit Locator, but keeping that invariant visible makes the seam a stronger control."
+    }
+  ]
+}

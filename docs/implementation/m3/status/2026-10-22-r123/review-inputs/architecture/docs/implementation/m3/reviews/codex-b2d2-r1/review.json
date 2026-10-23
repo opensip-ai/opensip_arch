@@ -1,0 +1,28 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "subjectManifestSha256": "89c0465f4bdda7a7da4dc29503408d7722e07da61cb1b86808dd0c08193e6899",
+  "requiredFindings": [
+    {
+      "id": "B2D2-R1-RF-1",
+      "title": "Validate bytes for every present declared evidence file before recognition",
+      "location": "crates/host/src/framework_recognition.rs:159-189 and EVIDENCE_FILES; framework_recognition_tests.rs:a_present_evidence_file_without_bytes_is_refused",
+      "detail": "EVIDENCE_FILES is declared but never used to preflight the inputs. MissingEvidenceBytes is raised only if a selected branch calls bytes_of. For paths containing tsconfig.json and jsconfig.json, with bytes only for tsconfig.json, recognition succeeds and never notices the missing jsconfig bytes. A lone jest.config.js without package.json also succeeds without bytes, as does an unselected next/vite config when an earlier config is supplied. This contradicts the stated input/error contract that every present one of the fifteen evidence files has bytes and that a present evidence file without bytes is refused. The sole negative test covers only selected package.json.",
+      "requestedChange": "Before any recognizer or explicit-override processing, require bytes for the intersection of paths and EVIDENCE_FILES. Keep non-evidence member content optional. Add coverage for unselected lower-priority configs, both TypeScript config names, configs without a package object, and the explicit-override case; a table over all fifteen evidence names can establish completeness."
+    },
+    {
+      "id": "B2D2-R1-RF-2",
+      "title": "Perform real schema admission before returning UnitRecognitionV1",
+      "location": "crates/host/src/framework_recognition.rs:419-439; crates/contracts/src/generated/identity.rs:6657, 7248, 7337-7358 and 7463",
+      "detail": "canonical_bytes followed by serde_json::from_slice into the generated type does not establish the selected schema. Generated schemaVersion/recognizerVersion fields are ExactInteger rather than const-1 validators; recognized/evidence/effect arrays are ordinary Vec values without schema cardinality/uniqueness checks; InternalUnitRootV1 checks length but not its required path pattern. Thus unit_recognition can return Ok for an otherwise valid recognition with schemaVersion 2, empty evidence or duplicate results, or for root_path=\"..\". Canonicalization and a correct recognitionId do not reject these schema violations. The loaded reference validator rejects the first three mutated recognitions. The plan and scope explicitly promise schema-valid rows and Shape on failed admission, so a successful Serde conversion is insufficient.",
+      "requestedChange": "Use the existing exact schema-admission machinery, or an equivalently complete check of the selected UnitRecognitionV1/FrameworkRecognitionV1 definitions, before converting to the generated type. Preserve the existing identity computation. Add negative controls for const values, root/entry path patterns, array bounds and uniqueness, as well as positive reference rows. Correct the scope claim that generated deserialization alone is admission."
+    },
+    {
+      "id": "B2D2-R1-RF-3",
+      "title": "Deliver the promised TOML resource-profile and recursion-divergence controls",
+      "location": "tools/host/framework_recognition_vectors.py:UNITS/FACTS; crates/host/src/framework_recognition_tests.rs; accepted PLAN-r3.md:72-75",
+      "detail": "The product vectors exercise malformed syntax, BOM, long integers and a large float, but contain no Cargo byte-cap, node-limit or parser-recursion controls. The accepted plan promises exact/past byte/node boundaries with usable tables and specifically labels recursion controls as product-only; the bound reference README defers them to B2-d2. The host lane does not run identity crate unit tests. A reference probe with a usable package table plus x=[ repeated 128 times around 0 returns all/recognized with src/main.rs, while the pinned product parser explicitly tests that nesting as RecursionLimit. No B2-d2 control currently establishes the intended Cargo.toml-not-toml/partial result and unknown workspace fact for that declared divergence.",
+      "requestedChange": "Add the promised byte/node at-bound and past-bound controls with usable package/workspace tables and unrelated fields, plus labelled product-only recursion cases with stated expectations. Assert the host recognition disclosure, suppressed Cargo entry effects and cargo_workspace_fact None on resource refusal, retaining normal effects/facts for admitted controls. Keep intentional recursion divergence separate from byte-for-byte oracle equality."
+    }
+  ],
+  "nonBlockingObservations": []
+}

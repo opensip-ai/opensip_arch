@@ -1,0 +1,41 @@
+{
+  "verdict": "REQUIRED-FINDINGS",
+  "requiredFindings": [
+    {
+      "id": "B2B3DPLAN-R1-RF-1",
+      "title": "Preserve raw specification paths on grammar refusals",
+      "location": "docs/implementation/m3/config-discovery-b/b2-b3d/PLAN-r1.md:25-29 (section 1.1)",
+      "finding": "The blanket rule that every output path, including refusal paths, is absolute and rebuilt from the root contradicts existing records. discovery_scan.rs:623-629 returns Some(spec.clone()) for JOIN_PATH_GRAMMAR. The unchanged vector explicit-join-escaping-the-root-refuses expects path ../other; the backslash and dot-segment vectors likewise expect the original specification. Root-prefixing or normalizing these fields changes the accepted record and loses the rejected input spelling.",
+      "requiredChange": "Restrict absolute reconstruction to fields that currently contain resolved absolute paths. Explicitly preserve raw rejected specifications (and absent paths) unchanged, including JOIN_PATH_GRAMMAR in both explicit-joins and config-workspace-roots modes. Retain the existing vector expectations."
+    },
+    {
+      "id": "B2B3DPLAN-R1-RF-2",
+      "title": "Specify listing-failure precedence during visitor conversion",
+      "location": "docs/implementation/m3/config-discovery-b/b2-b3d/PLAN-r1.md:48-51,59-64 (sections 1.2 and 1.3)",
+      "finding": "The plan moves validation into the visitor without saying how its errors interact with completion of the listing. At the pinned base, discovery_walk.rs:618-645 completes visit_entry_names and handles its native, entry-limit, name-byte-limit and close failures before listed_name validation at 646-655. directory_entries.rs:58-69,81-91 propagates a visitor error immediately. Returning NAME_UNREPRESENTABLE from the new visitor on an early bad name therefore masks a later listing limit, native read error or close failure that previously won. This changes refusal behavior beyond the redesigned storage, while the plan promises unchanged details and behavioral assertions. Existing single-invalid-name controls do not settle the combined case.",
+      "requiredChange": "Define how one-pass conversion preserves the existing priority of listing failures over name-validation failures. For example, retain a bounded, precharged description of the first invalid name, finish the listing without observing children, propagate listing errors first, and materialize the terminal absolute refusal only after listing success. Add focused controls for an invalid name followed by a listing limit/native error and for successful listing with an invalid name; preserve charge-before-allocation and fail closed on partial listings. An intentional behavior change would require separate authority rather than being implicit in this storage plan."
+    }
+  ],
+  "subjectManifestSha256": "28ab1aee4880ba4730d54429e5c403ddd810875c83c9faaf851ec485065d1b1f",
+  "implementsLawR6WalkerStorage": false,
+  "coreRelativeKeysSound": true,
+  "recordsUnchanged": false,
+  "walkerNoPerEntryAbsoluteSpelling": true,
+  "namesStoredOnce": true,
+  "chargesBeforeAllocationKept": true,
+  "traceAndRefusalHandlingSound": false,
+  "testChangesLimitedToRedesignedStorage": true,
+  "censusMovesWithWalkerSound": true,
+  "populationEvidenceRecordsEqualReference": false,
+  "codeWritten": false,
+  "bindingMade": false,
+  "lawChanged": false,
+  "productQualification": false,
+  "nonBlockingObservations": [
+    {
+      "id": "B2B3DPLAN-R1-NBO-1",
+      "location": "docs/implementation/m3/config-discovery-b/b2-b3d/PLAN-r1.md:98",
+      "observation": "Specify the build configuration exercised by the production-trace allocation mutation. A security unit test compiles cfg(test) tracing, whereas the production trace stub is cfg(not(test)); a test-only allocation probe alone does not establish that the production branch was exercised. Identify a production-configuration harness or a structural negative control that detects construction at production call sites. This is a validation-detail clarification for implementation review."
+    }
+  ]
+}
