@@ -1,0 +1,21 @@
+# C2a3 proposed callback price correction r2
+
+## Selected proposed delta
+
+Select128 scalar visits per allowed chunk callback in the proposed M price. The currently published/product draft uses8; rejected r1 proposed16. This revision follows finding C2A3-CBPA-R1-RF-1: its ledger omitted two forwarding boundaries and count>0 and lacked a uniform accounting rule. The old draft is preserved. No product/published/queued bytes or fees change in this proposal, and no native undercharge is claimed.
+
+The uniform call-tree ledger counts66 candidate visits on the successful u8 chunk path under ACCOUNTING-RULES.md's explicit semantic/LP64 assumptions.128 is the next power-of-two allowance above that candidate count, with slack retained solely for this callback category. A complete source/operand proof remains required; a numerical66<=128 check alone cannot establish it. Explicit argument/return transport and all forwarding calls/predicates remain visible, including40byte tuples split across two64byte visits. No arbitrary fusion or hidden variable loop is selected.
+
+The proposed formula is M_edges=128+F*(237+23H)+128E, scalar_edges=M_edges-q with q=11FH. All object/storage,2B copy,48F headers,2Pq comparisons and10368F array-bulk terms are unchanged. Scalar bytes remain64*scalar_edges. Exact extra over the current8E draft is(0,120E,7680E). Fixed128, scan12F and remaining-local52F do not change. begin/finish and digest checks remain local, are not dropped, and cannot consume the callback slack by implication. No profile cap or positive-boundary/census/fit obligation changes.
+
+## Finding correction and source closure
+
+CALL-TREE explicitly represents Collector callback entry, extend_from_slice, slice::iter, Iter::new, spec_extend, Iter::as_slice/make_slice, append_elements, Vec/RawVec/inner reserve and capacity/needs, plus the full Vec/RawVec pointer forwarding chain. Each nonleaf invocation and nonunit return has the same width-derived cost rule. append_elements' count>0, both type-is-ZST checks, source slice length and incoming comparison are explicit. The core helper expansion includes raw slice/pointer/Unique/NonNull/UB checks, Layout, niche capacity getter, Option and TrivialClone context. This is supporting closure, not proof that every compiled helper/core operation has been metered. The declared semantic leaf boundary must itself pass review; it does not silently qualify implementation checking machinery or native ABI.
+
+No allocator growth is selected under the previously reviewed Collector len<=expected<=capacity invariant. Arbitrary short positive reads remain possible, so chunks<=E uses the whole read envelope, not a halved estimate. Sticky/malformed callbacks have explicit smaller failure subgraphs and may not expose/copy bytes after fault. Real transfer cause precedence and private Invariant normalization remain unchanged. No local begin/finish work is hidden in this chunk row.
+
+## Implementation and evidence gates
+
+If accepted as a plan addendum, first publish exact accepted bytes with independent review/lead assent under the established workflow. A separately source-reviewed implementation changes8 to128 in fund_representation and the independent test category oracle; fresh source pins and required meaningful boundary/mutation/charge/export/ABI/runtime controls follow. Higher computed costs or arithmetic refusal may arise before buffers; they retain the same typed Budget semantics, no reset/retry/new ledger. Full original aggregate/census/full-boundary obligations still apply. A failing fit must remain a failure and cannot justify an unreviewed cap increase or narrower positive control.
+
+Existing queued compiler/storage/native images remain immutable. Their old exact scope is neither invalidated nor promoted to new-source execution. No formula change is integrated from plan/arithmetic evidence alone; no old native result can qualify this new delta. Full M still owes fixed/scan/local52F, all map scalar/carrier/parent/comparison/destructor costs, source guard and actual ABI/native debit/cleanup/feature/lifetime/privacy/census/fit/unit/product qualification. This is policy/implementation planning only until all owning gates actually pass.

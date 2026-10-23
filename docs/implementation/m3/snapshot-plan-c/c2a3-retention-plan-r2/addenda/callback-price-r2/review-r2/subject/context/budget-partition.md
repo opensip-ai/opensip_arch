@@ -1,0 +1,15 @@
+# Representation budget conservation r1
+
+This is an arithmetic constraint on the proposed price, not an operation bound or a price amendment. Exact product and plan inputs are included. No production or queued bytes changed; no native execution occurred.
+
+The map table expands to 7F+83N+FH+2q edges. Substituting N=2F and q=11FH yields 173F+23FH. Adding fixed128, local64F and callbacks8E gives exactly the implemented 128+237F+23FH+8E. The prepaid scan12F is subtracted with fixed128 from the final debit. Therefore it cannot also be added to the total operation allowance.
+
+The disjoint proposed operation ledger must be fixed128 + scan12F + remaining-local52F + map(173F+23FH) + callback8E. The scan is part of local64F. The present plan does not supply a complete source/operand assignment for those52F remaining visits. This ledger establishes available room only; it does not establish that the collector fits. No reassignment from deliberately conservative map bounds is authorized by this arithmetic exercise.
+
+In particular begin's successful digest loop has32 iterations. If a separately substantiated source interpretation allocates one bounded logical visit per iteration, only20F visits remain for all other local work, including setup, second iteration over candidate Blobs, collector construction and admission, begin/finish state, payload/index bookkeeping and cleanup. One visit per digest iteration itself remains unproved: each source iteration compares two hex nibbles and uses several indices, branches and borrowed operands. No blanket instruction count or arbitrarily fused primitive is selected here. Callback8E includes the plan's envelope bound; its precise allocation to actual begin/chunk/finish versus chunk-only work also needs an explicit disjoint map.
+
+The formula subtracts q once in scalar_edges because the q string comparison edges have their separate2P byte allowance. The other q probe metadata edges remain scalar. Thus scalar visits are fixed128+scan12F+remaining-local52F+map(173F+12FH)+callback8E; string edges are11FH. Neither comparison metadata nor prepaid scan may disappear or be duplicated when constructing the source ledger.
+
+The pure check derives both the original table and disjoint partition using symbolic coefficient vectors, checks the executable formula at finite boundary examples, and rejects three wrong ledgers: extra scan12F, forgetting probe metadata, treating both q categories as comparison byte streams. Finite examples and symbolic identities are not all-input source bounds, native evidence or qualification.
+
+Next required proof: enumerate exact production/std source events, assign disjoint counts and bounded logical operand streams within this ledger, including the52F remainder and all map/drop operations. If no lawful assignment fits, prepare a substantive independently reviewed correction instead of silently enlarging a primitive or profile cap. Existing conditional structural lemmas and queued probes remain limited to their stated scopes.
