@@ -1,5 +1,7 @@
 # OpenSIP implementation
 
+For planned consumer work, read [agent-interface guidance and agent-use evaluation](agent-interface/README.md). This supplements delivery planning; selected contracts and existing delivery/qualification gates retain authority.
+
 Product code lives in the sibling `opensip` repository. This repository holds the accepted design, reference models and review evidence. As of 2026-09-22 Grok leads implementation and actual Claude Opus 5 reviews. Codex is unavailable. Local commits in both repositories are authorized. The user will push; no push is authorized here.
 
 Implementation is **not complete**. The selected product is `1b3a3c6` (39 inventory successors and 65 contract successors). Inventory64 is selected. The reviewed private-descendant access predicate is installed on the runtime43 contract base. It refuses a missing ACL. It does not establish absence or creator authority. The metadata CLI and substantial identity, contracts, evaluator, security, lifecycle, storage and platform foundations exist. Native initialization/current authority, compiler providers, complete analysis workflows, the full report and release qualification remain work. File counts and passing component tests are not a completion percentage.
