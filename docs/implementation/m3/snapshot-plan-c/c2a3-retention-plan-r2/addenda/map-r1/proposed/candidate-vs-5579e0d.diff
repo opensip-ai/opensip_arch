@@ -1,0 +1,787 @@
+diff --git a/crates/lifecycle/src/component_admission.rs b/crates/lifecycle/src/component_admission.rs
+index 4af37a5..c227fb3 100644
+--- a/crates/lifecycle/src/component_admission.rs
++++ b/crates/lifecycle/src/component_admission.rs
+@@ -10,7 +10,6 @@ use opensip_security::{
+     ClosureCandidate, ClosureFailure, ClosureRefusal, CoreRole, SelectedPlatform,
+     component_candidate, verify_retained_tree,
+ };
+-use std::collections::BTreeMap;
+ 
+ // The selected LP64 representation; other ABIs need a reviewed price first.
+ const _: () = assert!(std::mem::size_of::<usize>() == 8);
+@@ -89,20 +88,33 @@ impl<'store, 'borrow, 'manifest: 'borrow> AdmittedSet<'store, 'borrow, 'manifest
+     {
+         work.scope(|scope| {
+             let count = components.len();
+-            let mut slots = Vec::new();
+-            if count != 0 {
++            // Addendum map-r1: constructed once (no replaced live Vec). A
++            // constant frame debit comes first, then the slot array and its
++            // per-slot work; zero components charge and allocate nothing.
++            let slots = if count == 0 {
++                Vec::new()
++            } else {
++                scope.charge(WorkCost {
++                    objects: 0,
++                    edges: PREPARE_FIXED,
++                    bytes: 64 * PREPARE_FIXED,
++                })?;
+                 let bytes = mul(
+                     count,
+                     std::mem::size_of::<Option<ClosureCandidate<'manifest>>>(),
+                 )?;
++                let edges = mul(PREPARE_SLOT, count)?;
+                 scope.charge(WorkCost {
+                     objects: 1,
+-                    edges: mul(4, count)?,
+-                    bytes: add(add(bytes, 128)?, mul(4, bytes)?)?,
++                    edges,
++                    bytes: add(add(bytes, 128)?, mul(64, edges)?)?,
+                 })?;
+-                slots = Vec::with_capacity(count);
+-                slots.resize_with(count, || None);
+-            }
++                let mut slots = Vec::with_capacity(count);
++                while slots.len() < count {
++                    slots.push(None);
++                }
++                slots
++            };
+             Ok(PreparedCandidateSlots {
+                 components,
+                 slots,
+@@ -136,14 +148,20 @@ impl<'store, 'borrow, 'manifest: 'borrow> AdmittedSet<'store, 'borrow, 'manifest
+             let CandidateSlotClaim { components, slots } = claim;
+             let count = components.len();
+             if count != 0 {
++                scope.charge(WorkCost {
++                    objects: 0,
++                    edges: ADMIT_FIXED,
++                    bytes: 64 * ADMIT_FIXED,
++                })?;
+                 let bytes = mul(
+                     count,
+                     std::mem::size_of::<AdmittedComponent<'store, 'borrow, 'manifest>>(),
+                 )?;
++                let edges = mul(ADMIT_COMPONENT, count)?;
+                 scope.charge(WorkCost {
+                     objects: 1,
+-                    edges: mul(4, count)?,
+-                    bytes: add(add(bytes, 128)?, mul(2, bytes)?)?,
++                    edges,
++                    bytes: add(add(bytes, 128)?, mul(64, edges)?)?,
+                 })?;
+             }
+             let mut admitted = Vec::with_capacity(count);
+@@ -172,6 +190,12 @@ impl<'store, 'borrow, 'manifest: 'borrow> AdmittedSet<'store, 'borrow, 'manifest
+     }
+ }
+ 
++/// The operation frame's fixed and per-component work (addendum map-r1).
++const PREPARE_FIXED: usize = 1024;
++const PREPARE_SLOT: usize = 256;
++const ADMIT_FIXED: usize = 2048;
++const ADMIT_COMPONENT: usize = 1024;
++
+ /// Internal Rust failures, not serialized routes or caller-selected details.
+ #[derive(Debug)]
+ pub enum ComponentAdmissionFailure {
+@@ -238,56 +262,48 @@ fn mul(left: usize, right: usize) -> Result<usize, Failure> {
+     left.checked_mul(right).ok_or_else(arithmetic)
+ }
+ 
+-/// Fund the accepted plan's representation block before retaining any bytes.
+-/// CI open, transfer and kernel continue charging their own work independently.
++/// Fund the representation block before retaining any bytes (addendum
++/// map-r1): fixed, scan, then the checked remainder. CI open, transfer and
++/// the kernel continue charging their own work independently.
+ fn fund_representation(
+     candidate: &ClosureCandidate<'_>,
+     work: &mut WorkScope<'_>,
+ ) -> Result<usize, Failure> {
+     const FIXED: usize = 1024;
++    const SCAN: usize = 256;
++    const LOCAL: usize = 1024;
++    const ENTRY: usize = std::mem::size_of::<(&str, Vec<u8>)>();
+     work.charge(WorkCost {
+         objects: 0,
+         edges: FIXED,
+         bytes: 64 * FIXED,
+     })?;
+     let count = candidate.blob_count();
+-    let scan = mul(256, count)?;
++    let scan = mul(SCAN, count)?;
+     work.charge(WorkCost {
+         objects: 0,
+         edges: scan,
+         bytes: mul(64, scan)?,
+     })?;
+     let mut bytes = 0usize;
+-    let mut path = 0usize;
+     let mut envelopes = 0usize;
+     for blob in candidate.blobs() {
+         let length = usize::try_from(blob.bytes()).map_err(|_| arithmetic())?;
+         bytes = add(bytes, length)?;
+-        path = path.max(blob.path().len());
+         let chunks = add(length / 65_536, usize::from(length % 65_536 != 0))?;
+         envelopes = add(envelopes, add(mul(2, chunks)?, 2)?)?;
+     }
+-    let height = 1 + (usize::BITS - count.leading_zeros()) as usize;
+-    let comparisons = mul(mul(11, count)?, height)?;
+-    let edges = add(
+-        add(FIXED, mul(count, add(481, mul(23, height)?)?)?)?,
+-        mul(128, envelopes)?,
+-    )?;
+-    let scalar = edges.checked_sub(comparisons).ok_or_else(arithmetic)?;
++    let edges = add(add(FIXED, mul(count, SCAN + LOCAL)?)?, mul(128, envelopes)?)?;
+     let index = if count == 0 {
+         0
+     } else {
+-        add(mul(24, count)?, 128)?
++        add(mul(ENTRY, count)?, 128)?
+     };
+     let payload = add(bytes, mul(128, count)?)?;
+-    let nodes = mul(count, 2 * (512 + 128))?;
+-    let mut total_bytes = add(add(index, payload)?, nodes)?;
++    let mut total_bytes = add(index, payload)?;
+     total_bytes = add(total_bytes, mul(2, bytes)?)?;
+-    total_bytes = add(total_bytes, mul(48, count)?)?;
+-    total_bytes = add(total_bytes, mul(mul(2, path)?, comparisons)?)?;
+-    total_bytes = add(total_bytes, mul(64, scalar)?)?;
+-    total_bytes = add(total_bytes, mul(10_368, count)?)?;
+-    let objects = add(usize::from(count != 0), mul(3, count)?)?;
++    total_bytes = add(total_bytes, mul(64, edges)?)?;
++    let objects = add(usize::from(count != 0), count)?;
+     let prepaid = add(FIXED, scan)?;
+     work.charge(WorkCost {
+         objects,
+@@ -301,15 +317,14 @@ fn fund_representation(
+ 
+ /// A bounded, private transfer collector. It holds no work scope, publishes no
+ /// bytes, and cannot grow beyond its already-funded expected length.
+-struct Collector<'a> {
++struct Collector {
+     expected: usize,
+-    sha256: &'a str,
+     bytes: Vec<u8>,
+     begun: bool,
+     finished: bool,
+     fault: Option<CollectorFault>,
+ }
+-impl Collector<'_> {
++impl Collector {
+     fn fail(&mut self, fault: CollectorFault) {
+         if self.fault.is_none() {
+             self.fault = Some(fault);
+@@ -325,29 +340,17 @@ impl Collector<'_> {
+         Ok(self.bytes)
+     }
+ }
+-impl VerifiedSink for Collector<'_> {
+-    fn begin(&mut self, sha256: [u8; 32], length: u64) {
++impl VerifiedSink for Collector {
++    /// The announced digest is not compared here: C2a-3k re-hashes every
++    /// retained byte against the candidate's own `sha256` (addendum map-r1).
++    fn begin(&mut self, _sha256: [u8; 32], length: u64) {
+         if self.fault.is_some() {
+             return;
+         }
+-        if self.begun
+-            || self.finished
+-            || usize::try_from(length) != Ok(self.expected)
+-            || self.sha256.len() != 64
+-        {
++        if self.begun || self.finished || length != self.expected as u64 {
+             self.fail(CollectorFault::Begin);
+             return;
+         }
+-        const HEX: &[u8; 16] = b"0123456789abcdef";
+-        let expected = self.sha256.as_bytes();
+-        for (index, byte) in sha256.iter().enumerate() {
+-            if expected[2 * index] != HEX[(byte >> 4) as usize]
+-                || expected[2 * index + 1] != HEX[(byte & 15) as usize]
+-            {
+-                self.fail(CollectorFault::Begin);
+-                return;
+-            }
+-        }
+         self.begun = true;
+     }
+     fn chunk(&mut self, bytes: &[u8]) {
+@@ -395,24 +398,32 @@ fn admit_component_inner<'store, 'borrow, 'manifest: 'borrow>(
+     pin: PinRequest,
+     scope: &mut WorkScope<'_>,
+ ) -> Result<AdmittedComponent<'store, 'borrow, 'manifest>, Failure> {
++    /// The component's fixed local work: the open boundary, funding entry,
++    /// buffer vector, loop, kernel boundary, drop and return (addendum map-r1).
++    const COMPONENT: usize = 1024;
++    scope.charge(WorkCost {
++        objects: 0,
++        edges: COMPONENT,
++        bytes: 64 * COMPONENT,
++    })?;
+     let mut retained = open_retained_tree(store, component, candidate, platform, pin, scope)
+         .map_err(tree_input)?;
+     #[cfg(test)]
+     test_faults::after_open();
+     let count = fund_representation(candidate, scope)?;
+-    let mut payloads = Vec::with_capacity(count);
++    let mut retained_bytes = Vec::with_capacity(count);
+     for blob in candidate.blobs() {
+         let length = usize::try_from(blob.bytes()).map_err(|_| arithmetic())?;
+         let mut collector = Collector {
+             expected: length,
+-            sha256: blob.sha256(),
+             bytes: Vec::with_capacity(length),
+             begun: false,
+             finished: false,
+             fault: None,
+         };
++        let path = blob.path();
+         // The transfer's actual error wins over finish(false)/sticky state.
+-        let transfer = retained.transfer(blob.path(), &mut collector, scope);
++        let transfer = retained.transfer(path, &mut collector, scope);
+         #[cfg(test)]
+         if transfer.is_err() {
+             test_faults::observe_failure(&collector);
+@@ -421,21 +432,16 @@ fn admit_component_inner<'store, 'borrow, 'manifest: 'borrow>(
+         let bytes = collector
+             .into_verified()
+             .map_err(|fault| WorkFailure::Operation(Fault::Collector(fault)))?;
+-        payloads.push(bytes);
++        retained_bytes.push((path, bytes));
+     }
+     #[cfg(test)]
+-    let test_body = test_faults::kernel_inputs(&mut payloads, component.body());
++    let test_body = test_faults::kernel_inputs(&mut retained_bytes, component.body());
+     #[cfg(test)]
+     let body = test_body.as_ref();
+     #[cfg(not(test))]
+     let body = component.body();
+-    let mut slices = BTreeMap::new();
+-    for (blob, bytes) in candidate.blobs().zip(payloads.iter()) {
+-        slices.insert(blob.path(), bytes.as_slice());
+-    }
+-    verify_retained_tree(candidate, &slices, body, scope).map_err(closure_input)?;
+-    drop(slices);
+-    drop(payloads);
++    verify_retained_tree(candidate, &retained_bytes, body, scope).map_err(closure_input)?;
++    drop(retained_bytes);
+     Ok(AdmittedComponent {
+         candidate,
+         retained,
+diff --git a/crates/lifecycle/src/component_admission_faults.rs b/crates/lifecycle/src/component_admission_faults.rs
+index f153a7c..a5a53a9 100644
+--- a/crates/lifecycle/src/component_admission_faults.rs
++++ b/crates/lifecycle/src/component_admission_faults.rs
+@@ -53,7 +53,7 @@ pub(super) fn after_open() {
+         action();
+     }
+ }
+-pub(super) fn observe_failure(collector: &Collector<'_>) {
++pub(super) fn observe_failure(collector: &Collector) {
+     if ACTIVE.with(Cell::get) {
+         LAST.with(|last| {
+             last.set(Some(Observation {
+@@ -67,16 +67,19 @@ pub(super) fn observe_failure(collector: &Collector<'_>) {
+ pub(super) fn observation() -> Option<Observation> {
+     LAST.with(Cell::get)
+ }
+-pub(super) fn kernel_inputs<'a>(payloads: &mut Vec<Vec<u8>>, body: &'a [u8]) -> Cow<'a, [u8]> {
++pub(super) fn kernel_inputs<'a>(
++    payloads: &mut Vec<(&str, Vec<u8>)>,
++    body: &'a [u8],
++) -> Cow<'a, [u8]> {
+     match KERNEL.with(|slot| slot.take()) {
+         Some(KernelFault::Missing) => {
+             assert!(payloads.pop().is_some());
+         }
+         Some(KernelFault::Length) => {
+-            assert!(payloads[0].pop().is_some());
++            assert!(payloads[0].1.pop().is_some());
+         }
+         Some(KernelFault::Digest) => {
+-            payloads[0][0] ^= 1;
++            payloads[0].1[0] ^= 1;
+         }
+         Some(KernelFault::BodyDigest) => {
+             let mut corrupted = body.to_vec();
+diff --git a/crates/lifecycle/src/component_admission_tests.rs b/crates/lifecycle/src/component_admission_tests.rs
+index b1e30aa..327f971 100644
+--- a/crates/lifecycle/src/component_admission_tests.rs
++++ b/crates/lifecycle/src/component_admission_tests.rs
+@@ -1,11 +1,9 @@
+ use super::*;
+ use opensip_platform::WorkLedger;
+ 
+-const SHA: &str = "0000000000000000000000000000000000000000000000000000000000000000";
+-fn collector(length: usize) -> Collector<'static> {
++fn collector(length: usize) -> Collector {
+     Collector {
+         expected: length,
+-        sha256: SHA,
+         bytes: Vec::with_capacity(length),
+         begun: false,
+         finished: false,
+@@ -65,11 +63,16 @@ fn collector_rejects_out_of_order_and_mismatched_begin_without_copying() {
+     early.finish(true);
+     assert!(early.bytes.is_empty());
+     assert_eq!(early.into_verified().unwrap_err(), CollectorFault::Chunk);
++    // The announced digest is C2a-3k's to check against the bytes, not the
++    // collector's: any digest begins, and nothing is accepted before finish.
+     let mut digest = collector(1);
+     digest.begin([1; 32], 1);
+     digest.chunk(b"a");
+-    assert!(digest.bytes.is_empty());
+-    assert_eq!(digest.into_verified().unwrap_err(), CollectorFault::Begin);
++    assert_eq!(digest.bytes, b"a");
++    assert_eq!(
++        digest.into_verified().unwrap_err(),
++        CollectorFault::Completion
++    );
+     let mut length = collector(1);
+     length.begin([0; 32], 2);
+     assert_eq!(length.into_verified().unwrap_err(), CollectorFault::Begin);
+@@ -224,7 +227,13 @@ fn prepared_slots_refuse_their_fee_before_minting_any_claim() {
+         Err(ComponentAdmissionFailure::Budget(WorkBudgetError::Objects))
+     ));
+     assert!(ledger.is_failed());
+-    assert_eq!(ledger.used(), prior);
++    // The constant frame debit precedes the slot array's object charge.
++    let frame = WorkCost {
++        objects: 0,
++        edges: 1024,
++        bytes: 64 * 1024,
++    };
++    assert_eq!(ledger.used(), prior.checked_add(frame).unwrap());
+ }
+ 
+ fn ordinary_store() -> (
+@@ -646,55 +655,35 @@ fn the_actual_admission_kernel_refuses_each_corrupted_private_representation() {
+ /// Independent oracle from M-BOUND, callback-price-r2 and funding-price-r3 category tables,
+ /// rather than the implementation's reduced 481/23/10368 coefficients. Wide
+ /// arithmetic also keeps the test oracle independent of its checked helpers.
++/// Addendum map-r1's per-component constant local debit, charged before CI open.
++const COMPONENT_FEE: WorkCost = WorkCost {
++    objects: 0,
++    edges: 1024,
++    bytes: 64 * 1024,
++};
++
++/// Addendum map-r1's representation price, from its independent category
++/// table: fixed 1024, scan 256 and local 1024 per Blob, callback 128 per
++/// allowed chunk; 64 bytes per visit; the index vector, payload storage and
++/// both sink copy streams. No map, comparison or node term remains.
+ fn representation_contract_price(candidate: &ClosureCandidate<'_>) -> WorkCost {
+     let mut count = 0u128;
+     let mut bytes = 0u128;
+-    let mut longest_path = 0u128;
+     let mut callbacks = 0u128;
+     for blob in candidate.blobs() {
+         count += 1;
+         let length = u128::from(blob.bytes());
+         bytes += length;
+-        longest_path = longest_path.max(blob.path().len() as u128);
+         callbacks += 2 * length.div_ceil(65_536) + 2;
+     }
+-    let mut height = 1u128;
+-    let mut remaining = count;
+-    while remaining != 0 {
+-        height += 1;
+-        remaining /= 2;
+-    }
+-    let nodes = 2 * count;
+-    let comparisons = 11 * count * height;
+-    // (occurrences, logical edges, bulk bytes); scalar metadata reserves64
+-    // bytes per edge. String comparisons have a separate two-path allowance.
+-    let categories = [
+-        (1, 1024, 0),
+-        (count, 256, 0),
+-        (count, 52, 0),
+-        (callbacks, 128, 0),
+-        (nodes, 2, 0),
+-        (count, 6, 768),
+-        (nodes, 8, 704),
+-        (2 * nodes, 22, 1024),
+-        (nodes, 20, 1024),
+-        (nodes, 8, 1024),
+-        (count + nodes, 1, 0),
+-        (count * height, 1, 0),
+-        (comparisons, 1, 0), // probe-loop metadata, not string-byte comparison
+-    ];
+-    let mut edges = comparisons;
+-    let mut priced_bytes = 2 * longest_path * comparisons;
+-    for (occurrences, visits, bulk) in categories {
+-        edges += occurrences * visits;
+-        priced_bytes += occurrences * (64 * visits + bulk);
+-    }
+-    assert_eq!(std::mem::size_of::<Vec<u8>>(), 24);
+-    let index = if count == 0 { 0 } else { 24 * count + 128 };
+-    priced_bytes += index + bytes + 128 * count + nodes * (512 + 128);
+-    priced_bytes += 2 * bytes + 48 * count;
++    // (occurrences, visits)
++    let categories = [(1, 1024), (count, 256), (count, 1024), (callbacks, 128)];
++    let edges: u128 = categories.iter().map(|(n, v)| n * v).sum();
++    assert_eq!(std::mem::size_of::<(&str, Vec<u8>)>(), 40);
++    let index = if count == 0 { 0 } else { 40 * count + 128 };
++    let priced_bytes = 64 * edges + index + bytes + 128 * count + 2 * bytes;
+     WorkCost {
+-        objects: usize::try_from(u128::from(count != 0) + count + nodes).unwrap(),
++        objects: usize::try_from(u128::from(count != 0) + count).unwrap(),
+         edges: usize::try_from(edges).unwrap(),
+         bytes: usize::try_from(priced_bytes).unwrap(),
+     }
+@@ -890,6 +879,7 @@ fn admission_charge_reference(
+     let after_candidate = reference.used();
+     let price = representation_contract_price(&candidate);
+     let closure = candidate.closure().to_owned();
++    within(&mut reference, |work| work.charge::<()>(COMPONENT_FEE)).unwrap();
+     let mut retained = within(&mut reference, |work| {
+         open_retained_tree(
+             store,
+@@ -917,10 +907,11 @@ fn admission_charge_reference(
+         assert!(sink.finished);
+     }
+     let before_kernel = reference.used();
+-    let mut expected = BTreeMap::new();
+-    for (path, bytes) in files {
+-        expected.insert(*path, *bytes);
+-    }
++    let mut expected: Vec<(&str, Vec<u8>)> = files
++        .iter()
++        .map(|(path, bytes)| (*path, bytes.to_vec()))
++        .collect();
++    expected.sort_unstable_by(|a, b| a.0.as_bytes().cmp(b.0.as_bytes()));
+     within(&mut reference, |work| {
+         verify_retained_tree(&candidate, &expected, component.body(), work)
+     })
+@@ -959,15 +950,17 @@ fn shared_storage_fee_and_actual_owner_charges_compose_once_on_one_scope() {
+             assert_eq!(count, 2);
+             let candidate_slot = std::mem::size_of::<Option<ClosureCandidate<'static>>>();
+             let admitted_slot = std::mem::size_of::<AdmittedComponent<'static, 'static, 'static>>();
++            // Addendum map-r1: each frame charges a constant debit, then its
++            // n-dependent slot storage and per-component work.
+             let prepared_fee = WorkCost {
+                 objects: 1,
+-                edges: 4 * count,
+-                bytes: 128 + 5 * count * candidate_slot,
++                edges: 1024 + 256 * count,
++                bytes: 64 * (1024 + 256 * count) + 128 + count * candidate_slot,
+             };
+             let result_fee = WorkCost {
+                 objects: 1,
+-                edges: 4 * count,
+-                bytes: 128 + 3 * count * admitted_slot,
++                edges: 2048 + 1024 * count,
++                bytes: 64 * (2048 + 1024 * count) + 128 + count * admitted_slot,
+             };
+             let mut expected = prepared_fee.checked_add(result_fee).unwrap();
+             let mut expected_ids = Vec::new();
+@@ -1134,6 +1127,52 @@ fn actual_transfer_budget_wins_over_the_collectors_unverified_completion() {
+     });
+ }
+ 
++/// Addendum map-r1: the constant component debit is charged before CI open,
++/// so its refusal opens nothing, pins nothing and charges nothing else.
++#[test]
++fn component_fixed_debit_refuses_before_ci_open() {
++    use crate::installation::tests::{MACOS, registry, within};
++    use opensip_security::retention_fixture::{self, Role};
++    const FILES: &[(&str, &[u8])] = &[("bin/entry", b"entry")];
++    retention_fixture::with_roles(&[Role::Toolchain], FILES, |components, _, archives| {
++        let (scratch, store, path) = ordinary_store();
++        drop(install_signed(
++            &scratch,
++            &store,
++            &components[0],
++            &archives[0],
++        ));
++        let mut preparation = WorkLedger::snapshot_profile();
++        let candidate = within(&mut preparation, |work| {
++            component_candidate(&components[0], MACOS, None, registry(), work)
++        })
++        .unwrap();
++        let mut admission = WorkLedger::with_limits(WorkCost {
++            objects: 65_536,
++            edges: COMPONENT_FEE.edges - 1,
++            bytes: 268_435_456,
++        })
++        .unwrap();
++        let result = within(&mut admission, |work| {
++            admit_component(
++                &store,
++                &components[0],
++                &candidate,
++                MACOS,
++                PinRequest::UnderFence,
++                work,
++            )
++        });
++        assert!(matches!(
++            result,
++            Err(ComponentAdmissionFailure::Budget(WorkBudgetError::Edges))
++        ));
++        assert!(admission.is_failed());
++        assert_eq!(admission.used(), WorkCost::default());
++        assert!(ordinary_pin_is_free(&path, candidate.closure()));
++    });
++}
++
+ #[test]
+ fn actual_ci_open_budget_normalizes_before_representation_or_transfer() {
+     use crate::installation::tests::{MACOS, registry, within};
+@@ -1199,9 +1238,9 @@ fn actual_ci_open_budget_normalizes_before_representation_or_transfer() {
+ // independently reviewed source/model delta; comments and formatting also bind.
+ fn representation_source_matches_review_pin(source: &str) -> bool {
+     const EXPECTED: [u8; 32] = [
+-        0x43, 0xcd, 0x54, 0x6f, 0xff, 0x7b, 0x70, 0x89, 0x56, 0x06, 0x1b, 0x5f, 0xa8, 0xea, 0xba,
+-        0x72, 0x40, 0xee, 0x27, 0x83, 0x96, 0x19, 0xe4, 0x8f, 0x37, 0x4c, 0x37, 0x69, 0x7b, 0x0a,
+-        0xd5, 0x89,
++        0x64, 0x44, 0x3e, 0xdc, 0x9f, 0x34, 0xe6, 0x93, 0x8d, 0xd1, 0xf8, 0x0b, 0x1a, 0x87, 0xe0,
++        0x04, 0x8c, 0xa8, 0x39, 0x7b, 0xe0, 0x22, 0x47, 0x46, 0xff, 0xae, 0x25, 0x24, 0x6d, 0x92,
++        0x7d, 0xdd,
+     ];
+     opensip_identity::RawSha256::new()
+         .update(source.as_bytes())
+@@ -1221,7 +1260,10 @@ fn representation_source_guard_binds_the_exact_draft_implementation() {
+ fn representation_source_guard_refuses_unreviewed_copy_growth_scan_and_callback_work() {
+     let source = include_str!("component_admission.rs");
+     for (before, after) in [
+-        ("payloads.push(bytes);", "payloads.push(bytes.clone());"),
++        (
++            "retained_bytes.push((path, bytes));",
++            "retained_bytes.push((path, bytes.clone()));",
++        ),
+         (
+             "bytes: Vec::with_capacity(length),",
+             "bytes: Vec::with_capacity(length.saturating_add(1)),",
+@@ -1236,8 +1278,24 @@ fn representation_source_guard_refuses_unreviewed_copy_growth_scan_and_callback_
+         ),
+         ("mul(128, envelopes)?", "mul(1, envelopes)?"),
+         ("const FIXED: usize = 1024;", "const FIXED: usize = 1;"),
+-        ("let scan = mul(256, count)?;", "let scan = mul(1, count)?;"),
+-        ("add(481, mul(23, height)?)?", "add(237, mul(23, height)?)?"),
++        ("const SCAN: usize = 256;", "const SCAN: usize = 1;"),
++        ("const LOCAL: usize = 1024;", "const LOCAL: usize = 52;"),
++        (
++            "const COMPONENT: usize = 1024;",
++            "const COMPONENT: usize = 1;",
++        ),
++        (
++            "const PREPARE_SLOT: usize = 256;",
++            "const PREPARE_SLOT: usize = 8;",
++        ),
++        (
++            "const ADMIT_COMPONENT: usize = 1024;",
++            "const ADMIT_COMPONENT: usize = 8;",
++        ),
++        (
++            "while slots.len() < count {",
++            "slots.resize_with(count, || None);\n                while slots.len() < count {",
++        ),
+     ] {
+         assert_eq!(
+             source.matches(before).count(),
+@@ -1264,6 +1322,22 @@ fn c2a3_published_native_slot_sizes_of_this_build() {
+     assert_eq!((candidate_slot, result_slot), (128, 264));
+ }
+ 
++/// Addendum map-r1: the other carrier widths its ledger prices as transports
++/// and moves. A layout change here needs the ledger re-run and re-reviewed.
++#[test]
++fn c2a3_map_r1_ledger_carrier_widths_of_this_build() {
++    use std::mem::size_of;
++    let widths = (
++        size_of::<RetainedTree<'static, 'static>>(),
++        size_of::<(&str, Vec<u8>)>(),
++        size_of::<AuthenticatedCoreRoles>(),
++        size_of::<Failure>(),
++        size_of::<Collector>(),
++    );
++    eprintln!("C2A3-MAP-R1-WIDTHS {widths:?}");
++    assert_eq!(widths, (256, 40, 136, 32, 40));
++}
++
+ /// G-8: every private collector fault, and only a collector fault, projects
+ /// to the payload-free Invariant. A real transfer cannot succeed with a
+ /// sticky fault, so this pins the projection directly.
+diff --git a/crates/lifecycle/src/retained_tree_tests.rs b/crates/lifecycle/src/retained_tree_tests.rs
+index 1e236ec..ed8146a 100644
+--- a/crates/lifecycle/src/retained_tree_tests.rs
++++ b/crates/lifecycle/src/retained_tree_tests.rs
+@@ -2101,12 +2101,13 @@ fn c2a3_representation_budget_refuses_after_open_and_releases_its_completed_pin(
+     assert!(ledger.is_failed());
+     assert_eq!(ledger.used().objects, opening.objects);
+     // The final object-bearing representation debit refuses atomically.
+-    // Only the independent CI opening and the accepted fixed/scan precharges
+-    // precede it: 1024 + 256F. No failed final debit, transfer, or kernel work
+-    // is credited. Keep this oracle independent of the production helper.
++    // Only the component's constant debit (addendum map-r1), the independent
++    // CI opening and the fixed/scan precharges precede it: 1024 + 1024 + 256F.
++    // No failed final debit, transfer, or kernel work is credited. Keep this
++    // oracle independent of the production helper.
+     assert_eq!(
+         ledger.used().edges,
+-        opening.edges + 1024 + 256 * candidate.blob_count()
++        1024 + opening.edges + 1024 + 256 * candidate.blob_count()
+     );
+     assert!(c2a3_exclusive_probe(&f));
+     let mut entered = false;
+diff --git a/crates/security/src/component_closure.rs b/crates/security/src/component_closure.rs
+index 2ef475c..59826b4 100644
+--- a/crates/security/src/component_closure.rs
++++ b/crates/security/src/component_closure.rs
+@@ -490,20 +490,24 @@ fn protocol(key: ProtocolKey, origin: ProtocolOrigin) -> ClosureFailure {
+ }
+ 
+ /// C2a-3k (C2a plan r4, Q6; LD-C2A-5, -10): `candidate`'s Blobs against
+-/// `retained`, the caller's in-memory slices by path, and `body` against the
+-/// candidate's `manifestDigest`. Each Blob, in path order, must have a slice,
++/// `retained`, the caller's in-memory bytes by path, and `body` against the
++/// candidate's `manifestDigest`. Each Blob, in path order, must have bytes,
+ /// of exactly its `bytes` (`BLOB_LENGTH`) and of its `sha256`; then the
+ /// body's raw SHA-256 must be `manifestDigest`. The first failure returns.
+ ///
+-/// Presence is one ordered walk of `retained` beside the Blobs, both in path
+-/// byte order. A retained slice that is no Blob's is not a member and is
+-/// passed over. Every comparison is charged `COMPARISON_COST` immediately
+-/// before it is made, and every SHA-256 `digest_cost` immediately before it,
+-/// in the caller's borrowed scope. No slice is copied and nothing is
+-/// allocated.
++/// Presence is one ordered walk of `retained` beside the Blobs. The caller
++/// supplies `retained` in strictly ascending path byte order, as the Blobs
++/// are (C2a-3's buffers are in candidate order). A retained entry that is no
++/// Blob's is not a member and is passed over. The walk only advances, so an
++/// out-of-order or repeated path can only refuse `Missing` or be checked as
++/// the first entry at its path: no Blob is accepted without an entry at its
++/// own path, of its length and digest. Every comparison is charged
++/// `COMPARISON_COST` immediately before it is made, and every SHA-256
++/// `digest_cost` immediately before it, in the caller's borrowed scope. No
++/// byte is copied and nothing is allocated.
+ pub fn verify_retained_tree(
+     candidate: &ClosureCandidate<'_>,
+-    retained: &BTreeMap<&str, &[u8]>,
++    retained: &[(&str, Vec<u8>)],
+     body: &[u8],
+     work: &mut WorkScope<'_>,
+ ) -> Result<(), ClosureFailure> {
+@@ -511,7 +515,7 @@ pub fn verify_retained_tree(
+     let mut next = slices.next();
+     for blob in candidate.blobs() {
+         let slice = loop {
+-            let Some((&path, &slice)) = next else {
++            let Some((path, slice)) = next else {
+                 return Err(retention(Retention::Missing));
+             };
+             work.charge(COMPARISON_COST)?;
+diff --git a/crates/security/src/component_closure_tests.rs b/crates/security/src/component_closure_tests.rs
+index 1350ac2..f757301 100644
+--- a/crates/security/src/component_closure_tests.rs
++++ b/crates/security/src/component_closure_tests.rs
+@@ -1084,13 +1084,21 @@ fn slices(retained: &BTreeMap<String, Vec<u8>>) -> BTreeMap<&str, &[u8]> {
+         .map(|(path, bytes)| (path.as_str(), bytes.as_slice()))
+         .collect()
+ }
++/// The kernel's input in C2a-3's shape: owned bytes in ascending path order.
++fn ascending<'p>(retained: &BTreeMap<&'p str, &[u8]>) -> Vec<(&'p str, Vec<u8>)> {
++    retained
++        .iter()
++        .map(|(path, bytes)| (*path, bytes.to_vec()))
++        .collect()
++}
+ fn verify(
+     got: &ClosureCandidate<'_>,
+     retained: &BTreeMap<&str, &[u8]>,
+     body: &[u8],
+     ledger: &mut WorkLedger,
+ ) -> Result<(), ClosureFailure> {
+-    ledger.scope(|work| verify_retained_tree(got, retained, body, work))
++    let retained = ascending(retained);
++    ledger.scope(|work| verify_retained_tree(got, &retained, body, work))
+ }
+ fn edges(n: usize) -> WorkCost {
+     WorkCost {
+@@ -1398,6 +1406,44 @@ fn c2a3k_aggregate_exhaustion_in_the_second_component() {
+     ));
+ }
+ 
++/// Addendum map-r1: order is the caller's precondition, not the type's. A
++/// non-ascending or duplicated input can only refuse, or check a Blob against
++/// the first entry at its own path; it never accepts wrong bytes.
++#[test]
++fn c2a3k_out_of_order_or_duplicate_input_never_accepts_wrong_bytes() {
++    let (c, retained) = retained_component("toolchain");
++    let got = candidate_of(&c);
++    let body = c.authenticated().body();
++    let good = ascending(&slices(&retained));
++    let run = |input: &[(&str, Vec<u8>)]| {
++        test_ledger().scope(|work| verify_retained_tree(&got, input, body, work))
++    };
++    run(&good).unwrap();
++    let mut reversed = good.clone();
++    reversed.reverse();
++    assert_eq!(
++        refusal(run(&reversed)),
++        ClosureRefusal::Retention(Retention::Missing)
++    );
++    assert!(!good[0].1.is_empty());
++    let mut longer = good.clone();
++    let mut extended = good[0].1.clone();
++    extended.push(0);
++    longer.insert(0, (good[0].0, extended));
++    assert_eq!(
++        refusal(run(&longer)),
++        ClosureRefusal::Retention(Retention::Length)
++    );
++    let mut corrupted = good.clone();
++    let mut flipped = good[0].1.clone();
++    flipped[0] ^= 1;
++    corrupted.insert(0, (good[0].0, flipped));
++    assert_eq!(
++        refusal(run(&corrupted)),
++        ClosureRefusal::Retention(Retention::Digest)
++    );
++}
++
+ /// The kernel's source pin (LD-C2A-10): it allocates and copies nothing,
+ /// reads no file, constructs no candidate or admitted value, and charges
+ /// immediately before each SHA-256 and each comparison it makes.
+@@ -1406,6 +1452,10 @@ fn c2a3k_verifies_without_allocating_and_charges_first() {
+     let source = include_str!("component_closure.rs");
+     let kernel = &source[source.find("pub fn verify_retained_tree").unwrap()
+         ..source.find("fn retention(failure").unwrap()];
++    // The one `Vec` is the borrowed input's element type (addendum map-r1).
++    assert_eq!(kernel.matches("Vec").count(), 1);
++    assert!(kernel.contains("retained: &[(&str, Vec<u8>)],"));
++    let kernel = kernel.replace("retained: &[(&str, Vec<u8>)],", "");
+     for forbidden in [
+         "Vec",
+         "String",
+diff --git a/crates/security/src/trust/trust_bootstrap_tests.rs b/crates/security/src/trust/trust_bootstrap_tests.rs
+index 8b3e021..ef8965e 100644
+--- a/crates/security/src/trust/trust_bootstrap_tests.rs
++++ b/crates/security/src/trust/trust_bootstrap_tests.rs
+@@ -1414,7 +1414,11 @@ fn through_the_ordinary_reader(
+             assert_eq!(got, want, "{role}");
+             if through_the_kernel {
+                 use crate::component_closure::{ClosureRefusal, Retention, verify_retained_tree};
+-                let retained: BTreeMap<&str, &[u8]> = supplied.iter().copied().collect();
++                let ordered: BTreeMap<&str, &[u8]> = supplied.iter().copied().collect();
++                let retained: Vec<(&str, Vec<u8>)> = ordered
++                    .iter()
++                    .map(|(path, bytes)| (*path, bytes.to_vec()))
++                    .collect();
+                 WorkLedger::new()
+                     .scope(|work| {
+                         verify_retained_tree(&candidate, &retained, component.body(), work)
+@@ -1424,7 +1428,8 @@ fn through_the_ordinary_reader(
+                 let mut flipped = bytes.to_vec();
+                 flipped[0] ^= 1;
+                 let mut corrupted = retained.clone();
+-                corrupted.insert(path, &flipped);
++                let at = corrupted.iter().position(|(p, _)| *p == path).unwrap();
++                corrupted[at].1 = flipped;
+                 assert!(
+                     matches!(
+                         WorkLedger::new().scope(|work| {
