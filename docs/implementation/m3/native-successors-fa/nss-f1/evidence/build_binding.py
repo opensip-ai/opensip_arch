@@ -40,7 +40,7 @@ SUCCESSOR = UNIT + "/successor.json"
 MAP = UNIT + "/materialization-map.json"
 README = UNIT + "/README.md"
 BUILD = UNIT + "/evidence/build_binding.py"
-BASE_PRODUCT = "d64341073e9e89266729e1e6d9b18110649007b7"
+BASE_PRODUCT = "462a7a7e9019aeada6ef0a3ce87b5b6ab8671666"
 
 # The adopted files (ADOPTION-NSS-F1.md, "These files and this receipt are copied unchanged").
 COPIED = [
