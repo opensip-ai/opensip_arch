@@ -25,6 +25,14 @@ Every product edit is computed from the base product blob, so --check is meaning
 successor.json's passageOverrides are overrides.json's, verbatim and in order. nss-f1/README.md is read from
 disk (written by the binding author). The unit's assent (nss-f1-unit.json) is not built here: it pins the
 binding's independent review, which follows this candidate.
+
+--joined (coordinator decision B.2 on the F1 interval, 2026-11-01): build the binding at the JOINED head, where
+--product is F1-h1's tip on F1-h0. The generator closure's rows for JOINED_CLOSURE_PATHS (F1-h1's CARR records in
+native-carriers-v1.json) are then re-pinned to --product's live bytes, so the closure and the registry recipe digest
+include them; crates/identity/src/schema_registry.rs, which F1-h1 also edits, is kept at the joined head's bytes after a
+check that it carries F1-h0's handshake SourcePin exactly once. It fails closed unless each such base row matches the
+base blob and the live file differs from it.
+Without --joined, the outputs are F1-h0's alone, as before.
 """
 import argparse
 import hashlib
@@ -75,6 +83,8 @@ AREG, AMAP, REG, SMAP, CLOSURE = ("schemas/admission-registry.json", "schemas/ad
                                   "schemas/registry.json", "schemas/source-map.json",
                                   "tools/contracts/generator-closure.json")
 LIVE_PINS = [AREG, AMAP, REG, SMAP, CLOSURE]
+# --joined: closure rows re-pinned to the joined head's live bytes (F1-h1's CARR records).
+JOINED_CLOSURE_PATHS = ["schemas/wire/native-carriers-v1.json"]
 IDENTITY = "crates/identity/src/schema_registry.rs"
 FIXTURE = "crates/components/tests/data/native-rust3-profile-cases.v1.json"
 REPLAY = "crates/components/src/provider_protocol/rust3/replay_tests.rs"
@@ -145,7 +155,7 @@ def rust_digest(hexdigest, indent="            "):
     return "\n".join(lines)
 
 
-def product_edits(product, base, src):
+def product_edits(product, base, src, joined=False):
     hs = src[HS_SRC]
     new = src[NEW_SCHEMA_SRC]
     hs_new = (len(hs), sha(hs))
@@ -206,6 +216,17 @@ def product_edits(product, base, src):
         fail("closure source-map pin")
     byp[HS_PRODUCT]["bytes"], byp[HS_PRODUCT]["sha256"] = hs_new
     byp[SMAP]["bytes"], byp[SMAP]["sha256"] = len(out[SMAP]), sha(out[SMAP])
+    joined_rows = []
+    if joined:
+        for p in JOINED_CLOSURE_PATHS:
+            base_raw = git_show(product, base, p)
+            if (byp[p]["bytes"], byp[p]["sha256"]) != (len(base_raw), sha(base_raw)):
+                fail("joined: base closure row is not the base blob: " + p)
+            live = open(os.path.join(product, p), "rb").read()
+            if live == base_raw:
+                fail("joined: the product is not a joined head (unchanged): " + p)
+            byp[p]["bytes"], byp[p]["sha256"] = len(live), sha(live)
+            joined_rows.append(pin(p, live))
     out[CLOSURE] = jdump(closure)
 
     # registry.json (generation): the handshake source digest, the recipe's source set and closure digest.
@@ -228,6 +249,14 @@ def product_edits(product, base, src):
     new_text = (f'        id: "{HS_ID}",\n        path: "{HS_PRODUCT}",\n        bytes: {hs_new[0]},\n'
                 f'        sha256: [\n{rust_digest(hs_new[1])}\n        ],')
     out[IDENTITY] = one(text, old, new_text).encode("utf-8")
+    if joined:
+        # F1-h1 also edits schema_registry.rs (the 53rd SourcePin). At the joined head the file is kept as it is, and
+        # is checked to carry F1-h0's handshake re-pin exactly once and the old pin nowhere.
+        live = open(os.path.join(product, IDENTITY), "rb").read()
+        live_text = live.decode("utf-8")
+        if live_text.count(new_text) != 1 or old in live_text:
+            fail("joined: schema_registry.rs does not carry F1-h0's handshake SourcePin exactly once")
+        out[IDENTITY] = live
 
     # The rust3 profile fixture's currentAuthority, and the two constants pinning the fixture's bytes.
     fx = json.loads(blobs[FIXTURE])
@@ -240,7 +269,7 @@ def product_edits(product, base, src):
     if text.count(old_fx) != 2:
         fail("replay fixture digest constants")
     out[REPLAY] = text.replace(old_fx, f'"{sha(out[FIXTURE])}"').encode("utf-8")
-    return out, blobs
+    return out, blobs, joined_rows
 
 
 def main():
@@ -250,6 +279,7 @@ def main():
     ap.add_argument("--product", required=True)
     ap.add_argument("--base-product", default=BASE_PRODUCT)
     ap.add_argument("--check", action="store_true")
+    ap.add_argument("--joined", action="store_true")
     a = ap.parse_args()
 
     src = {}
@@ -261,7 +291,7 @@ def main():
 
     arch_out = {UNIT + "/" + rel: raw for rel, raw in src.items()}
     arch_out[UNIT + "/product/" + NEW_PRODUCT] = src[NEW_SCHEMA_SRC]
-    product_out, blobs = product_edits(a.product, a.base_product, src)
+    product_out, blobs, joined_rows = product_edits(a.product, a.base_product, src, a.joined)
     for p in LIVE_PINS:
         arch_out[UNIT + "/product/" + p] = product_out[p]
 
@@ -284,6 +314,7 @@ def main():
                      "carriers, the regenerated outputs and the native-carriers-v1 records belong to later units. "
                      "Independent review and root assent are required before selection."),
         "baseProductHead": a.base_product,
+        **({"joinedClosureRows": joined_rows} if a.joined else {}),
         "files": files,
     })
 
