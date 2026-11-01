@@ -35,7 +35,7 @@ files, and nothing else. It needs that independent `ACCEPT-DESIGN-UNIT` and root
 NE (`native-evidence.md`, `83b99783…`); the RCA-r2 startup copies ST and PST (`e8b2aae5…`, four pointer overrides
 each); the TypeScript protocol-2 order table T2O (`007ef7af…`, one pointer override); the RCA-r2 handshake copies HS
 and PHS (`1fc57cbc…`, replaced by complete copies `260fb535…`). NE carries nine line overrides (125, 127, 1620, 2853,
-2862, 2953, 3007 appending §9.5a, 3192, 3215). No selector is already bound by the product lock's 194 successors.
+2862, 2953, 3007 appending §9.5a, 3192, 3215). No selector is already bound by the product lock's 196 successors.
 
 ## Product rows (NSS-F1 §9 X-NSS-B; LD-N11's pin census)
 - `schemas/sources/handshake-v1.schema.json` takes the successor copy. Its five live pins move:
