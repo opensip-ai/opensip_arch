@@ -1,0 +1,153 @@
+diff --git a/tools/verify_design.py b/tools/verify_design.py
+index afcfa67..260fd7e 100644
+--- a/tools/verify_design.py
++++ b/tools/verify_design.py
+@@ -7,8 +7,10 @@ in historical manifests do not override the pinned final acceptance evidence.
+ from __future__ import annotations
+ 
+ import argparse
++import copy
+ import hashlib
+ import json
++import re
+ from pathlib import Path, PurePosixPath
+ 
+ 
+@@ -83,6 +85,123 @@ def reviewer_reference(assent, label):
+     return assent[keys[0]]
+ 
+ 
++PACKAGE_SUCCESSOR_PROFILE = "opensip.inventory-package-successor.v1"
++PACKAGE_ROW_KEYS = {"id", "path", "kind", "purpose", "dependencies", "standing"}
++RUST_PACKAGE_KINDS = {"rust-library", "rust-binary"}
++
++
++def canonical(value):
++    """Type-preserving equality: JSON true and 1 differ here, unlike Python ==."""
++    return json.dumps(value, sort_keys=True, ensure_ascii=False)
++
++
++def utf8_text(value):
++    """A JSON string may hold a lone surrogate (\\ud800), which names no file and encodes as no UTF-8."""
++    try:
++        value.encode("utf-8")
++    except UnicodeEncodeError:
++        return False
++    return True
++
++
++def package_path(value):
++    if isinstance(value, str) and not utf8_text(value):
++        raise DesignError("added package path must be valid UTF-8")
++    if not isinstance(value, str) or not value or value.startswith("/") or value.endswith("/") or "\\" in value:
++        raise DesignError("added package path must be canonical and repository-relative")
++    if any(part in ("", ".", "..") for part in value.split("/")):
++        raise DesignError("added package path must be canonical and repository-relative")
++    # NUL cannot name a filesystem entry; no new row needs any other control character either.
++    if any(ord(c) < 0x20 or ord(c) == 0x7f for c in value):
++        raise DesignError("added package path must not contain control characters")
++    return value
++
++
++def derive_packages(parent_rows, additions, edges):
++    """VD3: the parent's rows, declared edges appended, then the declared rows; nothing else."""
++    if not isinstance(parent_rows, list) or not all(isinstance(row, dict) for row in parent_rows):
++        raise DesignError("parent packages must be a list of rows")
++    if not isinstance(additions, list) or not isinstance(edges, list) or not additions + edges:
++        raise DesignError("package successor requires a nonempty package delta")
++    kinds = {row.get("kind") for row in parent_rows}
++    owners = {row.get("id"): row for row in parent_rows}
++    if len(owners) != len(parent_rows):
++        raise DesignError("parent package ids must be unique")
++    paths = {row.get("path") for row in parent_rows}
++    for row in additions:
++        if not isinstance(row, dict) or set(row) != PACKAGE_ROW_KEYS:
++            raise DesignError("added package row has unknown or missing fields")
++        identity = row["id"]
++        if type(identity) is not str or not re.fullmatch(r"[a-z][a-z0-9-]*", identity):
++            raise DesignError("added package id is invalid")
++        if identity in owners:
++            raise DesignError("added package id is not unique")
++        if package_path(row["path"]) in paths:
++            raise DesignError("added package path is not unique")
++        if type(row["kind"]) is not str or row["kind"] not in kinds:
++            raise DesignError("added package kind is not in the parent vocabulary")
++        if type(row["purpose"]) is not str or not row["purpose"] or not utf8_text(row["purpose"]):
++            raise DesignError("added package purpose must be a nonempty UTF-8 string")
++        if type(row["standing"]) is not str or row["standing"] != "proposed":
++            raise DesignError("added package standing must be proposed")
++        dependencies = row["dependencies"]
++        if not isinstance(dependencies, list) or any(type(d) is not str for d in dependencies) or \
++                len(dependencies) != len(set(dependencies)) or identity in dependencies:
++            raise DesignError("added package dependencies must be unique strings without the row itself")
++        owners[identity] = row
++        paths.add(row["path"])
++    for row in additions:
++        for dependency in row["dependencies"]:
++            if dependency not in owners:
++                raise DesignError("added package depends on an unknown package")
++            if row["kind"] in RUST_PACKAGE_KINDS and owners[dependency].get("kind") not in RUST_PACKAGE_KINDS:
++                raise DesignError("a Rust package may depend only on Rust packages")
++    inherited = {row.get("id") for row in parent_rows}
++    rows = copy.deepcopy(parent_rows)
++    by_id = {row.get("id"): row for row in rows}
++    pairs = set()
++    for edge in edges:
++        if not isinstance(edge, dict) or set(edge) != {"from", "to"} or type(edge["from"]) is not str or type(edge["to"]) is not str:
++            raise DesignError("dependency addition must be exactly a from/to string pair")
++        source, target = edge["from"], edge["to"]
++        if source not in inherited:
++            raise DesignError("dependency addition must start at an inherited package")
++        if target not in owners or target == source:
++            raise DesignError("dependency addition names an unknown or self target")
++        if not isinstance(by_id[source].get("dependencies"), list):
++            raise DesignError("inherited package dependencies must be a list")
++        if (source, target) in pairs or target in by_id[source]["dependencies"]:
++            raise DesignError("dependency addition repeats a declared or existing edge")
++        if by_id[source].get("kind") in RUST_PACKAGE_KINDS and owners[target].get("kind") not in RUST_PACKAGE_KINDS:
++            raise DesignError("a Rust package may depend only on Rust packages")
++        pairs.add((source, target))
++        by_id[source]["dependencies"].append(target)
++    return rows + copy.deepcopy(additions)
++
++
++def package_successor(record, assessment, assent, parent, candidate):
++    """VD3: verify an opt-in package successor; files and every other policy stay equal."""
++    if record["profile"] != PACKAGE_SUCCESSOR_PROFILE or type(record["profile"]) is not str:
++        raise DesignError("unknown inventory successor profile")
++    if "packageAdditions" not in record or "dependencyAdditions" not in record:
++        raise DesignError("package successor requires packageAdditions and dependencyAdditions")
++    if record.get("inheritedPackageRowsPreservedExceptDeclaredEdges") is not True:
++        raise DesignError("package successor must preserve inherited package rows except declared edges")
++    for key in ("profile", "packageAdditions", "dependencyAdditions"):
++        if key not in assessment or canonical(assessment[key]) != canonical(record[key]):
++            raise DesignError("independent review does not restate the exact package delta")
++    if "profile" not in assent or canonical(assent["profile"]) != canonical(record["profile"]):
++        raise DesignError("root assent does not name the package successor profile")
++    if set(parent) != set(candidate) or "packages" not in parent:
++        raise DesignError("package successor changed the inventory's top-level fields")
++    for key in parent:
++        if key not in ("standing", "packages") and canonical(parent[key]) != canonical(candidate[key]):
++            raise DesignError("package successor changed files or inventory policy")
++    derived = derive_packages(parent["packages"], record["packageAdditions"], record["dependencyAdditions"])
++    if canonical(candidate["packages"]) != canonical(derived):
++        raise DesignError("candidate packages differ from the declared package derivation")
++
++
+ def inventory_successor(architecture, binding, selected_inputs):
+     """Verify the bounded, additive inventory successor selected by lock v2.
+ 
+@@ -119,6 +238,13 @@ def inventory_successor(architecture, binding, selected_inputs):
+     if not isinstance(subject.get("sha256"), str) or subject["sha256"] != review.get("subjectManifestSha256"):
+         raise DesignError("root and independent review subjects differ")
+     parent, candidate = documents["parent"], documents["candidate"]
++    if "profile" in record:
++        # VD3 (PKG-ROWS-1): an opt-in package successor; it changes packages only.
++        package_successor(record, assessment, assent, parent, candidate)
++        return {"parent": parent_pin["path"], "selected": binding["candidate"]["path"],
++                "sha256": binding["candidate"]["sha256"], "addedFiles": 0, "profile": record["profile"],
++                "packageAdditions": len(record["packageAdditions"]),
++                "dependencyAdditions": len(record["dependencyAdditions"])}
+     if set(parent) != set(candidate) or any(parent[key] != candidate[key] for key in parent if key not in ("standing", "files")):
+         raise DesignError("additive inventory successor changed package or inventory policy")
+     def rows(document):
