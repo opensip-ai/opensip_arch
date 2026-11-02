@@ -1,0 +1,220 @@
+diff --git a/tools/typescript-boundary/src/check.mjs b/tools/typescript-boundary/src/check.mjs
+--- a/tools/typescript-boundary/src/check.mjs	2026-10-29 22:29:37
++++ b/tools/typescript-boundary/src/check.mjs	2026-10-31 17:59:25
+@@ -358,7 +358,12 @@
+       }
+       for (const loader of usages.loaders) {
+         if (loader.declaredInputsOnly && EXTERNAL.test(file)) continue;
+-        const trusted = unit.raw ? matchTrusted('dynamic-loader', { from: file, line: loader.line, column: loader.column, text: loader.text }) : undefined;
++        // A raw JavaScript unit matches at its own position. A TypeScript input
++        // is scanned as its emission, so only a selected product-package policy
++        // may name an emitted position (with the source file's sha256); caller
++        // records and developer-tool policies never match emitted text.
++        const emittedMatch = !unit.raw && toolPolicy?.kind === 'reviewed-product-package-loaders' && inputs.has(file);
++        const trusted = unit.raw || emittedMatch ? matchTrusted('dynamic-loader', { from: file, line: loader.line, column: loader.column, text: loader.text }) : undefined;
+         if (!trusted) { refuse('unsupported-loader', { graph: 'runtime', group: group.name, from: file, line: loader.line, column: loader.column, message: `${loader.kind}: ${loader.text}` }); continue; }
+         for (const target of trusted.targets) {
+           if (!inputs.has(target)) { refuse('lane-record-invalid', { from: file, message: `trusted dynamic loader target ${target} is not a declared input` }); continue; }
+diff --git a/tools/typescript-boundary/src/tool-policy.mjs b/tools/typescript-boundary/src/tool-policy.mjs
+--- a/tools/typescript-boundary/src/tool-policy.mjs	2026-10-29 22:29:37
++++ b/tools/typescript-boundary/src/tool-policy.mjs	2026-10-31 17:59:25
+@@ -3,7 +3,7 @@
+ // No repository JavaScript or compiler plugin is executed by this module.
+ import fs from 'node:fs';
+ import { isDeepStrictEqual } from 'node:util';
+-import { canonical, LaneError, pinnedFile, strictJson, validateLaneRecord } from './lane.mjs';
++import { canonical, LaneError, PLATFORM_POLICY, pinnedFile, strictJson, validateLaneRecord } from './lane.mjs';
+ 
+ const exact = (value, keys, label) => {
+   if (!value || typeof value !== 'object' || Array.isArray(value) ||
+@@ -14,8 +14,13 @@
+ export function bindToolPolicy({ architecture, designLock, policyPath, root, record, lane }) {
+   if (policyPath === undefined) return undefined;
+   if (!canonical(policyPath)) throw new LaneError('tool policy path must be architecture-relative');
+-  if (lane.standing !== 'bound' || lane.policyId !== 'tooling' || record.trustedUsages.length) {
+-    throw new LaneError('selected tool policy is only for bound tooling with no caller exceptions');
++  // Two policy kinds: reviewed developer-tool loaders (bound tooling) and
++  // reviewed loaders of a bound Node-only product package. Each kind binds only
++  // to its own lane kind; caller records stay exception-free in both.
++  const productLane = lane.policyId !== 'tooling' && Array.isArray(PLATFORM_POLICY[lane.policyId]) &&
++    PLATFORM_POLICY[lane.policyId].every(group => group.platform === 'node');
++  if (lane.standing !== 'bound' || (lane.policyId !== 'tooling' && !productLane) || record.trustedUsages.length) {
++    throw new LaneError('selected tool policy is only for bound tooling or a bound Node-only product package, with no caller exceptions');
+   }
+   const lock = strictJson(fs.readFileSync(designLock), 'design lock');
+   const selected = [];
+@@ -33,7 +38,8 @@
+   const pin = selected[0];
+   const policy = strictJson(pinnedFile(architecture, pin, 'selected tool policy'), 'tool policy');
+   exact(policy, ['schemaVersion', 'kind', 'lane', 'files', 'trustedUsages', 'unfollowedDynamicLoaders'], 'tool policy');
+-  if (policy.schemaVersion !== 1 || policy.kind !== 'reviewed-developer-tool-loaders') throw new LaneError('unsupported tool policy');
++  const expectedKind = productLane ? 'reviewed-product-package-loaders' : 'reviewed-developer-tool-loaders';
++  if (policy.schemaVersion !== 1 || policy.kind !== expectedKind) throw new LaneError('unsupported tool policy');
+   if (!isDeepStrictEqual(policy.lane, record)) throw new LaneError('tool policy lane differs from checked lane');
+   // Reuse the closed usage grammar. Caller records remain exception-free.
+   validateLaneRecord({ ...record, trustedUsages: policy.trustedUsages });
+@@ -58,11 +64,17 @@
+   }
+   for (const declaration of policy.unfollowedDynamicLoaders) {
+     exact(declaration, ['file', 'line', 'column', 'limitation'], 'unfollowed loader');
+-    if (!declaration.file.startsWith(record.packageRoot + '/node_modules/') ||
+-        declaration.limitation !== 'reviewed-tool-code-outside-statically-enumerated-closure') {
+-      throw new LaneError('unfollowed loaders are only permitted in pinned external developer-tool code');
++    const permitted = productLane
++      ? declaration.file.startsWith(record.packageRoot + '/') && !declaration.file.includes('/node_modules/') &&
++        record.inputs.includes(declaration.file) && declaration.limitation === 'reviewed-product-loader-outside-statically-enumerated-closure'
++      : declaration.file.startsWith(record.packageRoot + '/node_modules/') &&
++        declaration.limitation === 'reviewed-tool-code-outside-statically-enumerated-closure';
++    if (!permitted) {
++      throw new LaneError(productLane
++        ? 'unfollowed product loaders are only permitted in declared lane inputs'
++        : 'unfollowed loaders are only permitted in pinned external developer-tool code');
+     }
+   }
+-  return { pin, trustedUsages: policy.trustedUsages, unfollowedDynamicLoaders: policy.unfollowedDynamicLoaders,
++  return { pin, kind: policy.kind, trustedUsages: policy.trustedUsages, unfollowedDynamicLoaders: policy.unfollowedDynamicLoaders,
+     acceptanceChain: 'Selected member and input bytes verified; tools/verify_design.py owns approval-chain validation.' };
+ }
+diff --git a/tools/typescript-boundary/tests/fixtures/staging-map.json b/tools/typescript-boundary/tests/fixtures/staging-map.json
+--- a/tools/typescript-boundary/tests/fixtures/staging-map.json	2026-10-29 22:29:37
++++ b/tools/typescript-boundary/tests/fixtures/staging-map.json	2026-10-31 18:00:11
+@@ -180,6 +180,13 @@
+       "upstream": "new-root09-regressions",
+       "bytes": 6947,
+       "sha256": "86377610f9f274ed7aab6c41a85bce5c19cb9cf440e9e5aff3e59d0537c4b5b6"
++    },
++    {
++      "path": "tests/product-loader-policy.test.mjs",
++      "stagePath": "checker/test/product-loader-policy.test.mjs",
++      "upstream": "draft-f1a-d1",
++      "bytes": 9039,
++      "sha256": "de5cd907a0b5b07430b1cc46a3bbb1f183b45f80656847acc74fd96c25d8d9e0"
+     }
+   ]
+ }
+diff --git a/tools/typescript-boundary/tests/product-loader-policy.test.mjs b/tools/typescript-boundary/tests/product-loader-policy.test.mjs
+--- a/tools/typescript-boundary/tests/product-loader-policy.test.mjs	1969-12-31 16:00:00
++++ b/tools/typescript-boundary/tests/product-loader-policy.test.mjs	2026-10-31 18:00:11
+@@ -0,0 +1,122 @@
++// DRAFT (F1-a D-1): a selected reviewed-product-package-loaders policy for a
++// bound Node-only typescript-package lane. Synthetic fixtures only (no
++// acceptance); the exception must be scoped to exact file, position and text.
++import { test } from 'node:test';
++import assert from 'node:assert/strict';
++import fs from 'node:fs';
++import os from 'node:os';
++import path from 'node:path';
++import crypto from 'node:crypto';
++import { bindToolPolicy } from '../src/tool-policy.mjs';
++import { checkBoundary } from '../src/check.mjs';
++const json = value => JSON.stringify(value, null, 2) + '\n';
++const sha = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
++const COMPILER = 'export async function load(url: string): Promise<unknown> {\n  return import(url);\n}\n';
++const GEN = 'import { createRequire } from "node:module";\nexport const ts = createRequire(import.meta.url)("/pinned/typescript.js");\n';
++
++function fixture() {
++  const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'opensip-product-policy-'));
++  const architecture = path.join(temp, 'arch'), root = path.join(temp, 'product');
++  fs.mkdirSync(architecture); fs.mkdirSync(root);
++  const write = (dir, rel, value) => { const file = path.join(dir, rel); fs.mkdirSync(path.dirname(file), {recursive:true}); fs.writeFileSync(file, typeof value === 'string' ? value : json(value)); };
++  const pin = (dir, rel) => { const raw = fs.readFileSync(path.join(dir, rel)); return {path:rel,sha256:sha(raw),bytes:raw.length}; };
++  const own = 'providers/demo';
++  const compiler = own + '/src/compiler.ts', gen = own + '/scripts/gen.mjs', other = own + '/src/other.ts';
++  const record = {schemaVersion:2,package:'typescript-provider',packageRoot:own,manifest:own+'/package.json',tsconfig:own+'/tsconfig.json',inputs:[gen,compiler,other].sort(),packageManager:{kind:'fixture-unlocked',lockfile:null},trustedUsages:[]};
++  write(root,record.manifest,{name:'demo',type:'module'});
++  write(root,record.tsconfig,{compilerOptions:{strict:true,target:'ES2022',module:'Node16',moduleResolution:'Node16',rootDir:'src',outDir:'dist',types:[]},include:['src/**/*.ts']});
++  write(root,compiler,COMPILER); write(root,gen,GEN); write(root,other,'export const value: number = 1;\n');
++  const inventory = {standing:'synthetic test only; no acceptance',packages:[{id:'typescript-provider',kind:'typescript-package',path:own,dependencies:[]}],
++    files:[...record.inputs,record.manifest,record.tsconfig].map(p=>({path:p,package:'typescript-provider',role:'source'}))};
++  write(architecture,'parent.json',inventory);write(architecture,'inventory.json',inventory);
++  for (const name of ['record','review','assent']) write(architecture,name+'.json',{fixture:true});
++  const inventoryBinding = Object.fromEntries([['parent','parent'],['candidate','inventory'],['record','record'],['review','review'],['assent','assent']].map(([k,n])=>[k,pin(architecture,n+'.json')]));
++  const designLock = path.join(root,'design-lock.json');
++  const policy = {schemaVersion:1,kind:'reviewed-product-package-loaders',lane:record,files:[],trustedUsages:[],unfollowedDynamicLoaders:[]};
++  const select = () => {
++    policy.files=[...record.inputs,record.manifest,record.tsconfig].sort().map(p=>pin(root,p));
++    for (const u of policy.trustedUsages) u.sha256 = pin(root,u.file).sha256;
++    write(architecture,'policy.json',policy);
++    write(architecture,'contract-record.json',{candidates:[pin(architecture,'policy.json')]});
++    write(architecture,'subject.json',{files:[pin(architecture,'policy.json')]});
++    const binding = {record:pin(architecture,'contract-record.json'),subjectManifest:pin(architecture,'subject.json'),review:pin(architecture,'review.json'),assent:pin(architecture,'assent.json')};
++    write(root,'design-lock.json',{inputs:[inventoryBinding.parent],inventorySuccessors:[inventoryBinding],contractSuccessors:[binding]});
++  };
++  const args = {architecture,designLock,root,record};
++  return {temp,root,record,policy,select,args,write,compiler,gen,other,close:()=>fs.rmSync(temp,{recursive:true,force:true})};
++}
++const loaders = r => r.refusals.filter(x=>x.category==='unsupported-loader');
++// The two sites as the unpatched rules see them, then the policy that names exactly them.
++async function withPolicy(f) {
++  f.select();
++  const before = await checkBoundary(f.args);
++  const sites = loaders(before);
++  assert.deepEqual(sites.map(s=>[s.from,s.message]).sort(), [[f.compiler,'computed-import: import(url)'],[f.gen,'create-require: createRequire(import.meta.url)']].sort(), JSON.stringify(before.refusals));
++  for (const s of sites) {
++    const text = s.message.slice(s.message.indexOf(': ')+2);
++    f.policy.trustedUsages.push({kind:'dynamic-loader',file:s.from,sha256:'',line:s.line,column:s.column,text,reason:'synthetic',targets:[]});
++  }
++  f.policy.trustedUsages.sort((a,b)=>a.file<b.file?-1:1);
++  f.policy.unfollowedDynamicLoaders = f.policy.trustedUsages.map(u=>({file:u.file,line:u.line,column:u.column,limitation:'reviewed-product-loader-outside-statically-enumerated-closure'}));
++  f.select();
++  return {...f.args,toolPolicyPath:'policy.json'};
++}
++
++test('product policy excepts exactly the two selected sites (gen .mjs raw; TS source by its emission)', async () => {
++  const f = fixture(); try {
++    const args = await withPolicy(f);
++    const yes = await checkBoundary(args);
++    assert.equal(yes.passed, true, JSON.stringify(yes.refusals));
++    assert.equal(yes.trustedUsagesApplied.length, 2);
++    assert.equal(yes.selectedToolPolicy.unfollowedDynamicLoaders.length, 2);
++  } finally { f.close(); }
++});
++
++test('controls: another site, another callee, a moved or retargeted record all still refuse', async t => {
++  const cases = [
++    ['second computed import at another line of the excepted file', f => f.write(f.root, f.compiler, COMPILER + 'export async function load2(u: string): Promise<unknown> {\n  return import(u);\n}\n'), 1],
++    ['same position, another callee argument', f => f.write(f.root, f.gen, GEN.replace('createRequire(import.meta.url)', 'createRequire(import.meta.dirname)')), 1],
++    ['the same loader text in another declared input', f => f.write(f.root, f.other, 'export async function load(url: string): Promise<unknown> {\n  return import(url);\n}\n'), 1],
++  ];
++  for (const [name, mutate, extra] of cases) await t.test(name, async () => {
++    const f = fixture(); try {
++      const args = await withPolicy(f);
++      mutate(f); f.select();
++      const r = await checkBoundary(args);
++      assert.equal(r.passed, false);
++      assert.ok(loaders(r).length >= extra, JSON.stringify(r.refusals));
++    } finally { f.close(); }
++  });
++  const records = [
++    ['line moved', u => { u.line += 1; }],
++    ['column moved', u => { u.column += 1; }],
++    ['text changed', u => { u.text = u.text.replace('(', '( '); }],
++  ];
++  for (const [name, change] of records) await t.test('record ' + name, async () => {
++    const f = fixture(); try {
++      const args = await withPolicy(f);
++      for (const u of f.policy.trustedUsages) change(u);
++      f.policy.unfollowedDynamicLoaders = f.policy.trustedUsages.map(u=>({file:u.file,line:u.line,column:u.column,limitation:'reviewed-product-loader-outside-statically-enumerated-closure'}));
++      f.select();
++      const r = await checkBoundary(args);
++      assert.equal(r.passed, false);
++      assert.equal(loaders(r).length, 2, JSON.stringify(r.refusals));
++      assert.equal(r.refusals.filter(x=>x.category==='lane-record-invalid').length, 2);
++    } finally { f.close(); }
++  });
++});
++
++test('binding refuses the wrong kind, an unfollowed loader outside the inputs, and caller exceptions', async t => {
++  const cases = [
++    ['developer-tool kind on a product lane', f => { f.policy.kind = 'reviewed-developer-tool-loaders'; f.select(); }, /unsupported tool policy/],
++    ['unfollowed loader in a non-input file', f => { f.policy.trustedUsages[0].file = f.record.packageRoot + '/node_modules/x/index.js'; f.policy.unfollowedDynamicLoaders[0].file = f.policy.trustedUsages[0].file; f.policy.trustedUsages.sort((a,b)=>a.file<b.file?-1:1); f.policy.unfollowedDynamicLoaders = f.policy.trustedUsages.map(u=>({file:u.file,line:u.line,column:u.column,limitation:'reviewed-product-loader-outside-statically-enumerated-closure'})); f.write(f.root, f.policy.trustedUsages[0].file, 'x'); f.select(); }, /exact sorted|only permitted in declared lane inputs/],
++    ['developer-tool limitation on a product loader', f => { f.policy.unfollowedDynamicLoaders[0].limitation = 'reviewed-tool-code-outside-statically-enumerated-closure'; f.select(); }, /only permitted in declared lane inputs/],
++    ['caller exception on the bound record', f => { f.args.record = {...f.record, trustedUsages:[f.policy.trustedUsages[0]]}; }, /no caller exceptions|lane differs/],
++  ];
++  for (const [name, mutate, expected] of cases) await t.test(name, async () => {
++    const f = fixture(); try {
++      await withPolicy(f); mutate(f);
++      await assert.rejects(() => checkBoundary({...f.args, toolPolicyPath:'policy.json'}), expected);
++    } finally { f.close(); }
++  });
++});
