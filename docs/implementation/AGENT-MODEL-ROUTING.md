@@ -1,4 +1,4 @@
-# Cross-vendor model routing for implementation plans
+# Model routing and review strategies for implementation plans
 
 Status: execution-process guidance. This document does not change product law,
 unit scope, dependency order, acceptance standing, review independence, or
@@ -31,7 +31,8 @@ Claude long-horizon lead: claude-opus-5-5 / medium
 longHorizonLead: <true | false; reason>
 Escalate when: <unit-specific observable trigger(s)>
 Escalation route: <R2-DEEP | R3-FRONTIER | R4-EXCEPTIONAL>
-Independent review: <different vendor family; required capability route>
+Independent review: <separate reviewer session(s); required capability route>
+Review strategy: <CROSS-VENDOR | SAME-VENDOR-SEPARATE-REVIEW under OD-REVIEW-1>
 De-escalate when: <closed uncertainty or mechanically bounded remainder>
 Exceptional authorization: <owner decision reference; required only for max>
 ```
@@ -156,19 +157,36 @@ deterministic tests. Use `R0-MECHANICAL` only when the remaining work is
 mechanical and a stronger-model or deterministic gate checks the complete
 output.
 
-## Independence
+## Independence and accepted review strategies
 
-The implementation model and independent acceptance reviewer **must** be from
-different vendor families. Merely switching between Sonnet, Opus, Fable, or
-Haiku does **not** establish independence. A Codex-authored subject uses a
-Claude-family or other non-OpenAI reviewer; a Claude-authored subject uses a
-Codex or other non-Anthropic reviewer. If no different-vendor reviewer is
-available, the unit remains awaiting independent review; a same-vendor review
-may be advisory but cannot issue the independent acceptance verdict. Increasing
-the author's reasoning effort does not remove this requirement. Review must use
-at least `R2-DEEP` for contract law, cancellation/concurrency, custody or
-security, production composition, and qualification. The minimum reviewer route
-for a routine scoped unit is `R1-BALANCED`.
+[OD-REVIEW-1](OD-REVIEW-1.md) adds an owner-accepted same-vendor strategy alongside
+the existing cross-vendor strategy. Choose explicitly in the current execution
+handoff and review request; `CROSS-VENDOR` is the default when omitted.
+
+- **CROSS-VENDOR:** the author and acceptance reviewer are from different vendor
+  families. A Codex-authored subject uses an eligible non-OpenAI reviewer; a
+  Claude-authored subject uses an eligible non-Anthropic reviewer.
+- **SAME-VENDOR-SEPARATE-REVIEW:** only Codex-to-Codex or Claude-to-Claude, with
+  fresh reviewer sessions separate from every author, separately recorded initial
+  assessments, exact pinned subjects and reviewer-derived evidence. Consequential
+  architecture, contract law, security/custody/provenance, concurrency,
+  resource-accounting, production composition and qualification require two
+  differently focused reviewer sessions. Follow all selection, calibration,
+  evidence and rollout conditions in OD-REVIEW-1. No other provider may use this
+  same-vendor exception. Shared model-family blind spots remain possible.
+
+Neither strategy permits self-acceptance. Switching models within a vendor does
+not establish vendor diversity, and increasing author effort does not replace
+review. Review must use at least `R2-DEEP` for the consequential scopes above;
+existing R3/R4 requirements remain. Routine scoped review requires at least
+`R1-BALANCED`. If the selected strategy's conditions cannot be met, the unit
+remains awaiting review. Existing advisory verdicts are not promoted retroactively.
+
+For frozen plans, use OD-REVIEW-1 as a pinned additive handoff overlay rather than
+rewriting their accepted bytes. A route preflight validates model selection;
+`ROUTE-OK` does not itself validate reviewer separation, either strategy's
+eligibility, or acceptance. No product-law, binding, integration or qualification
+gate changes merely because a review strategy is selected.
 
 ## Unit-level M3 routing examples
 
@@ -184,7 +202,7 @@ state. If that state does not pin one exact plan and route, report
 | C2b0/C3 source, custody, and provenance joins | `R2-DEEP` | Return to `R1-BALANCED` for isolated implementation after all owning laws and pins are closed. |
 | C4/J2 and G provider-chain production composition | `R2-DEEP` | Return to `R1-BALANCED` after interfaces and failure-order invariants are frozen. |
 | Inventory, description, and status publication | `R1-BALANCED` | `R0-MECHANICAL` may draft non-authoritative deltas only when complete deterministic checks and independent review remain. |
-| M6/Q0 whole-product qualification | `R3-FRONTIER`, evaluate `R4-EXCEPTIONAL` | Keep a different-vendor independent reviewer; no automatic qualification follows from the route. |
+| M6/Q0 whole-product qualification | `R3-FRONTIER`, evaluate `R4-EXCEPTIONAL` | Use the explicitly selected eligible review strategy; OD-REVIEW-1 requires two separate reviewers for same-vendor qualification. No automatic qualification follows from the route or strategy. |
 
 Plan authors should replace broad triggers with unit-specific observables wherever
 possible: a named review verdict, failed control, disputed invariant, affected
