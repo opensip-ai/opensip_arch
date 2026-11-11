@@ -1,8 +1,9 @@
 # TS-STAGE-PLAN2 — the `typescript-semantic` provider stage in `exec-plan2` and the stage-request projection for a `plan2` Plan
 
 2026-11-11. Drafted by a lead-dispatched design author (Claude Opus 5.5, route R2-DEEP) from the lead's rulings on gap Q14.
-Status: **PROPOSED, r3, unreviewed at r3.** r2 applied the lead's rulings on r1's open questions. r3 applies the lead's
-rulings on the independent review of r2 (`review-opus/VERDICT.md`: R1-R5, A1-A6). The directory name is kept. It needs a
+Status: **PROPOSED, r4.** r2 applied the lead's rulings on r1's open questions. r3 applied the lead's rulings on the
+independent review of r2 (`review-opus/VERDICT.md`: R1-R5, A1-A6). r4 applies the rulings on its re-check
+(`review-opus/VERDICT-r3.md`: N1, A7-A9). The directory name is kept. It needs a
 cross-vendor review, then adoption by the lead. It binds nothing, changes no existing file, registry, inventory or lock, and
 has no subject manifest yet.
 
@@ -59,8 +60,18 @@ It **adds** a third bullet to MC8 item 16 beside the syntax (MC8:993) and invent
 cell whose `enumerator.closureId` is the selected provider closure P and whose capability has at least one relation pair in
 NCM `capabilities[].relations`. Its `universe` is a **T1 universe**. `exec-plan2` has one `typescript-semantic` provider
 stage per T1 universe U.
-- A binding of a capability with no relation pair (`clones-near`, `clones-cross-tsjs`: NCM `relations: []`) names no P stage
-  under this record, and this record defines no producer for it (O3).
+- **Candidate-only capabilities.** A candidate-only capability has no relation pair in NCM (today `clones-near` and
+  `clones-cross-tsjs`, NCM `relations: []`). Until a design record gives one a producing stage, a binding of such a
+  capability whose enumerator would be P is **unavailable**, with `enumerator` `{status: "selected", closureId: P}`,
+  `universe` null, no `candidateSourcePaths`, and the pair `provider-unavailable` / `capability-missing`. Part b's gating (C4a-TS-b B2) decides this
+  before any stage is built or anything is spawned. Reason: P's admitted interface advertises nothing that produces a
+  candidate envelope, and "available" would promise an outcome no stage can deliver. An available binding with non-null U
+  owes a non-null `stageOrdinal` matching a receipt (EXC:51), and a selected U "cannot become complete by omitting the stage
+  and views" (EXC:55). The unavailable binding is a lawful Plan leg: ENC:51 and :53 admit an unavailable binding with the
+  selected enumerator shape and a lawful `DeficiencyV2`/`nativeCause` pair; NCM:176 gives `provider-unavailable` /
+  `capability-missing` as the applicable pair where nothing more specific applies, and says a candidate-only capability has
+  no Coverage entry, its absence account being the selection record itself; NE:2848-2851 gives the same pair to work a
+  selected row cannot serve. Such a binding names no stage. O3 stays open for the later producer.
 - Its `producerClosure` is P. Its `operation` is `typescript.analyze`, one path segment (IE:1310-1311), defined by P's
   interface (IE:1327-1332).
 - **Registration.** P's tree carries `opensip-interface/stage-output/typescript.analyze.schema.json`: a JSON Schema 2020-12
@@ -115,7 +126,10 @@ row, and the specs of two universes would still be byte-identical. Citing it wou
 that document as a stage parameter, which is false on the wire: the worker receives the projected request, never the
 `EnumerationPlanV1`.
 **Weakest point:** NCM is not a Plan member. A matrix revision would change the projected relations under an unchanged
-`planId`. The defence is that NCM is design-locked law, not an input, and Run closure already depends on it (EXC:53).
+`planId`. The source this record replaces, DLV:971's signed install-profile capability manifest, was committed by the Plan
+through `capabilityManifestId`; NCM is not, and is pinned by the design lock only. It is chosen because DLV's map has no
+`unresolved-edge` (DLV:963-970) and the manifest has no producer for this request. The defence is that NCM is design-locked
+law, not an input, and Run closure already depends on it (EXC:53).
 
 **T3. Selection and order.** A universe U's Analyze contains exactly the stage the T1 map assigns to U. One worker
 session and one Analyze serve one U. **Fail closed:** the number of Plan stages whose spec `producerClosure` is P must
@@ -194,7 +208,8 @@ P's signed default profile (DLV:915, :923-928). The Plan-wide `plan.budget` neve
 - It adds no schema, registry row, wire field, Plan member, Run-closure check or refusal code.
 - It does not cover the Rust provider.
 - It does not settle cross-universe targets in general (O1).
-- It does not define a producer for candidate-only capabilities bound to P (O3).
+- It does not define a producer for candidate-only capabilities at TypeScript modes (O3); it makes their P bindings
+  unavailable (T1).
 - It does not assign the `ExecutionInputsV1` builder.
 
 ## Open points (for review; not settled here)
@@ -203,19 +218,33 @@ P's signed default profile (DLV:915, :923-928). The Plan-wide `plan.budget` neve
   per provider. A `plan2` source for targets beyond {U} needs a P that admits them and a later successor.
 - **O2. The output-schema body (T1, "Registration").** The `viewId` body and the refusal of a `$ref` or a copy of the view
   definition are a lead choice that reviewers may overturn.
-- **O3. Candidate-only capabilities bound to P.** What produces the output of a `clones-near` or `clones-cross-tsjs`
-  binding whose enumerator is P (B `plan.rs:1620-1621`: every non-`inventory` cell's enumerator is P; B
-  `crates/plan-metered/src/plan_inputs.rs:335`: no kinds), and whether such a binding should be available at all, is not
-  settled here. The default configuration requests both (B `crates/host/src/configuration_vectors.json:76-77`, case `zero-project-config-mixed-native-default`).
+- **O3. A producer for candidate-only capabilities at TypeScript modes.** Under T1 such a binding is unavailable until a
+  design record gives the capability a producing stage (B `plan.rs:1620-1621`: every non-`inventory` cell's enumerator is
+  P; B `crates/plan-metered/src/plan_inputs.rs:335`: no kinds). Which stage, producer and envelope that record names is not
+  settled here. The default configuration requests both capabilities (B `crates/host/src/configuration_vectors.json:76-77`,
+  case `zero-project-config-mixed-native-default`), so until then every default-configuration Run discloses them as
+  unavailable.
 
 ## Consequences
 
 - **Part a (C4a-TS-a, by the T9 delta):** one P stage per T1 universe in step 16 through the shared T1 map; the stage
   records the projection reads retained beside `stage_spec_digests` (B `plan.rs:176-192` keeps only the digests); the test
   value `output_domains: vec!["fact".into()]` at B `crates/host/src/plan_tests.rs:634` becomes `["view"]`.
+- **Part b's gating (C4a-TS-b B2), a flagged change:** a candidate-only capability at a TypeScript mode binds
+  `provider-unavailable` / `capability-missing` (T1), where today B' `plan_gate.rs` `serves` passes it on the identity and
+  native-context tokens alone. Control: a default-configuration request yields the `clones-near` and `clones-cross-tsjs`
+  bindings unavailable with that pair and exactly the relation-bearing P stage.
 - **F2-min repackaging:** ships `opensip-interface/stage-output/typescript.analyze.schema.json` in P's tree (packager
   `tools/typescript_closure.py`, F :412-430), and regenerates `closure-expected.v1.json`. P's `closure2`, every D∅
-  commitment and every value that depends on P change.
+  commitment and every value that depends on P change. `LC/f2min/CLOSURE-REPACKAGING.md` is prepared, not performed, and
+  lists neither change. It must be amended to add (1) the schema file under `providers/typescript/`, landing before its
+  frozen provider commit `C` (the last change under `providers/typescript/`), and (2) the packager change that places that
+  file at the `opensip-interface/` path in P's tree, as its own step.
+- **Copies of the capability-to-relation table:** the product embeds two, B `crates/evaluator/src/execution-registry.json`
+  (`capabilities[].relations`; read by part b's projection, pinned by `the_relation_projection_is_the_registrys`, B'
+  `crates/host/src/plan_pairing_tests.rs:30`) and B `crates/host/src/native_capability_matrix.v2.json` (the embedded NCM).
+  Each needs an equality control against the locked NCM (`implementation-normative-inputs.v13.json:50-51`), member by
+  member for the relation table, owned by the unit that reads the copy (part b for `execution-registry.json`).
 - **Golden sessions:** the TS2 golden sessions (B and F `crates/host/src/typescript_nss_f1_vectors_tests.rs`, F :508-519, and
   `crates/host/src/launch_recheck_ts2_fixture.rs`) change `"stage-one"` to `"stage-0"`, regenerated by their own generator.
 - **C4a-TS-b B7** builds `StagePlan` (B `send.rs:107-117`) by T3-T8 only, through the shared T1 map and the T4 function.
