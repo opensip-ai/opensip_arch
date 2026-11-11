@@ -2,7 +2,7 @@
 
 PROPOSED. A contract successor selecting, by value, the provider loader policy re-pinned to the F2-min provider worker delta (the Analyze path: import extraction, the symbol census, candidates and Coverage, the broker bootstrap), and the lane registry that names it. It adds no exception, target, loader or capability.
 
-- `provider-loader-policy.json`: F1B-LANE-r1's policy with 18 row digests re-pinned and 28 rows added, at product `b7e34d0d` (`audit.json` lists them). No row removed; the two exception digests (gen-ts-enums.mjs, compiler.ts) and the two disclosed unfollowed loaders are unchanged. `lane` is the registry's provider lane record, whose `inputs` list gained the added files.
+- `provider-loader-policy.json`: F1B-LANE-r1's policy with 18 row digests re-pinned and 28 rows added, at product `80c96640` (`audit.json` lists them). No row removed; the two exception digests (gen-ts-enums.mjs, compiler.ts) and the two disclosed unfollowed loaders are unchanged. `lane` is the registry's provider lane record, whose `inputs` list gained the added files.
 - `product/tools/typescript-lanes.json`: the registry, byte for byte the product file. Its parent is F1B-LANE-r1's copy; the differences are the provider lane's `record.inputs` (the added files) and its `toolPolicy`.
 
 ## Why each pin moves
@@ -20,6 +20,6 @@ Added rows (new files, all lane inputs): `src/bootstrap.ts`, `src/data/run.ts`, 
 
 ## After the change the lanes check
 
-`tools/check_typescript.py` verifies the design lock, finds this registry's digest in exactly one accepted contract successor (this unit, once bound), pins the 161 checker files, then runs the `report`, `provider` and `generator` lanes. The provider lane's boundary check pins the 107 policy rows to the product bytes, requires `policy.lane` to equal the registry's provider lane record, and runs the provider's tests and census checks. Missing before binding: the independent review (`reviews/<reviewer>-f2min-lane-r1/review.json`, verdict ACCEPT-DESIGN-UNIT naming this subject manifest's digest) and the lead's assent record (`f2min-lane-unit.json`); then the design-lock entry (`bind_f2min_lane.py`).
+`tools/check_typescript.py` verifies the design lock, finds this registry's digest in exactly one accepted contract successor (this unit, once bound), pins the 161 checker files, then runs the `report`, `provider` and `generator` lanes. The provider lane's boundary check pins the 107 policy rows to the product bytes, requires `policy.lane` to equal the registry's provider lane record, and runs the provider's tests and census checks. Also required, and staged separately as F2MIN-INVENTORY-v252-r1 (the provider lane refuses a bound package input that has no selected inventory row): the additive inventory successor v252, whose own review, assent and design-lock entry come first (the lock's `inventoryPassageInheritance` is re-derived by that binding). Missing before binding: the independent review (`reviews/<reviewer>-f2min-lane-r1/review.json`, verdict ACCEPT-DESIGN-UNIT naming this subject manifest's digest) and the lead's assent record (`f2min-lane-unit.json`); then the design-lock entry (`bind_f2min_lane.py`).
 
 The code was reviewed separately (REVIEW-F2MIN-CODE, then the cross-vendor review). No product qualification follows from this unit.
