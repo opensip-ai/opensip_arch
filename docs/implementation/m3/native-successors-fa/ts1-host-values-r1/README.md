@@ -2,9 +2,9 @@
 
 2026-11-11. Drafted by a lead-dispatched design author (Claude Opus 5.5, route R2-DEEP) from the E2E gap inventory
 (`LC/coordinator/E2E-GAP-INVENTORY-2026-11-11.md` §2, §3 G2-G4, G6, G7).
-Status: **PROPOSED, r2, unreviewed.** r2 applies the lead's rulings on r1's open points (O1 yes; O2 kept open for release;
-O3 the project owner's; O4 to C4a-TS-b; V1, V3, V4, V6 forms), adds V7 (the host inventory stage's Coverage) and aligns
-with TSP2 r4. It needs one independent review, then a cross-vendor review, then adoption by the lead. It binds nothing,
+Status: **PROPOSED, r3, unreviewed.** r2 applied the lead's rulings on r1's open points (O1 yes; O2 kept open for release;
+O3 the project owner's; O4 to C4a-TS-b; V1, V3, V4, V6 forms), added V7 and aligned with TSP2 r4. r3 applies the ruling
+on O5 (the fixture trees as the corpus holds them) and records the M3 `vcs-change` limitation. It needs one independent review, then a cross-vendor review, then adoption by the lead. It binds nothing,
 changes no existing file, registry, inventory or lock, and has no subject manifest yet.
 
 **Scope.** Milestone M3-M-TS1: a synthetic-trust Run (OD-SIGN-2 (A)) driven through `opensip_host::invocation::run` by host
@@ -165,12 +165,16 @@ write a non-provider entry: `vcs-change` `unknown`, `provider-unavailable`, `cap
   conversion entries, and they are `unknown`; item 18's host inventory stage entries are TS1-HOST-VALUES V7's." MH:443
   "a `complete` minted by the host" → "a `complete` minted by the host for a provider stage's key". H-C11 (MH:785) "host-minted
   entries are `unknown` only" → "host-minted entries of a provider stage are `unknown` only, and item 18's entries are V7's".
-- **Verdict note (changes O1's value).** Even with V7, a **required** `inventory` cell's `vcs-change` account stays
-  `unknown` at M3 in a Git snapshot (LD8-3), so the cell is never complete and the Run's verdict is `fail` or
-  `indeterminate`, **never `pass`** (EXC:68, :190; COMP:58). Discovery requests every cell `required=true`
-  (`host/src/discovery.rs:1255`) and `analysis.capabilities` has no optional form
-  (`schemas/sources/product-configuration-v2.schema.json`, `analysis.capabilities`). A pass needs the fixture sealed with VCS
-  kind `none` (`inapplicable-vcs`, EXC:122) or a lawful optional request (O5).
+- **Verdict note.** A **required** `inventory` cell (the only form: `host/src/discovery.rs:1255`; `analysis.capabilities`
+  has no optional form) completes only if its `vcs-change` account is not `supported-available`, because LD8-3 keeps that
+  key `unknown` (EXC:68, :169, :190; COMP:58). **The TS1 fixture trees contain no VCS directory** (lead ruling O5: the Run
+  is made on the corpus fixture tree as the corpus holds it). The corpus fetch materializes `git ls-tree` blobs from a
+  private bare work directory into `store/<treeDigest>/` and deletes the work directory (`docs/implementation/m3/corpus/FETCH-SPEC.md`
+  :16 "No checkout", :43-66); `js-small-body-parser` (`t2-corpus-c8cc48e1/store/22cd9196…`) and `ts-small-constructs` (`…/store/048425b5…`)
+  have no `.git`, no enclosing repository, and no `.git` entry in G-TS2's file lists
+  (`LC/cf1/g-ts2/oracle/afe9cedba83c-33fc39aa/*.request.json`, 25 and 45 entries). So X2's tracking observation is
+  `NoRepository`, which "gives `kind: none`" (MC8:321), the account is `inapplicable-vcs` (EXC:122), and with V7 the cell
+  can complete. This is a fact about the fixture, not an arrangement: MC8:336 rejects `kind: none` for a Git checkout.
 
 ## Owners
 
@@ -189,18 +193,29 @@ write a non-provider entry: `vcs-change` `unknown`, `provider-unavailable`, `cap
 It adds no wire field, Plan member, IDS row, refusal or public code; it does not decide a pre-draw intent (O2), release
 identity, packaging or signing (O3), or the Rust provider's values.
 
+**It does not lift M3's `vcs-change` limitation.** On any Git working tree a Run that requests `inventory` cannot reach
+`pass` until `vcs-change@vcs-reported` Coverage has a producer: LD8-3 keeps it `unknown` (MC8:331) and MC8 item 4 rejects a
+Git object reader at M3 (MC8:323, :335). This is a product limitation of M3's current law, recorded for the owner and for the
+milestone record's disclosure. Which unit or milestone owns a VCS reader or change observation: **silent** (MC8:323 says
+only that consumers of such evidence are M5; `fact-admission-h/PROPOSAL.md:873` (MH r1) routed the question to MC's next revision, which answered with
+LD8-3).
+
 ## Open points
 
 - **O2 (lead; R3 if contested).** Whether a released `plan2` Run needs a real pre-draw intent.
 - **O3 (project owner).** V1's release form; who builds and signs the core inventory and the release profile's manifest;
   how an installed release's profile bytes are read (MJ item 1 takes no profile selector).
-- **O5 (lead).** V7's verdict note: seal the TS1 fixture without VCS, admit an optional `inventory` request, or accept a
-  milestone Run that can fail or be indeterminate but not pass.
+- **O5: closed by the lead's ruling** (V7 verdict note): the fixture trees carry no VCS directory.
 
 ## Consequences
 
 - V4 and V7 change the synthetic core tree, so the core provider, evaluator and detector `closure2`s and every golden pinning
   them move; `host.inventory` literals become the constant; H3-TS's inventory leg mints Coverage.
+- **M3 limitation (disclosure owed):** a Run requesting `inventory` on a Git working tree is `fail` or `indeterminate`,
+  never `pass`, until `vcs-change` has a producer (LD8-3; owner silent). The M3-M-TS1 record discloses that its fixtures
+  carry no VCS directory and that this is why the `inventory` cell can complete.
+- **Alignment edit owed on TSP2 (not made here):** TSP2:203, "The dispatch binding: its existing owner, changed only by
+  T4", should cite V6 (H5-TS's projection, called by C4a-TS-b), since no existing owner exists.
 - V2 changes B's `Owners` field type; V1 removes caller-built `HostBuildId`s; V6 adds an H5-TS projection and changes `admit_and_build`'s return.
 
 ## Rejected alternatives
