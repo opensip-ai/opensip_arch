@@ -2,7 +2,9 @@
 
 2026-11-11. Drafted by a lead-dispatched design author (Claude Opus 5.5, route R2-DEEP) from the E2E gap inventory
 (`LC/coordinator/E2E-GAP-INVENTORY-2026-11-11.md` §2, §3 G2-G4, G6, G7).
-Status: **PROPOSED, r4.** r2 applied the lead's rulings on r1's open points and added V7; r3 closed O5. r4 applies one
+Status: **PROPOSED, r5.** r5 applies the lead's rulings on r4's two open items: V3's inventory producer is `syntax-all`
+for TS1, with `vcs-change` omitted from the TS1 manifest; V8's carrier is an `opensip.json` the harness writes into the
+run-root copy (O6 closed). r2 applied the lead's rulings on r1's open points and added V7; r3 closed O5. r4 applies one
 independent review of r3 (`LC/ts1-host-values/review-opus/VERDICT.md`, R1-R6, A1-A8) under the lead's rulings: V7's basis
 for `complete` restated (R1), the MH erratum narrowed by MH's origin term and widened to seven sentences (R2), the V3
 manifest pinned member by member (R3), V2's supersessions listed (R4), the run-root placement made a harness requirement
@@ -91,7 +93,7 @@ MJ, MC8 and MH never name it. In MJ's order the ExecutionId is drawn at R12 (MJ:
   - DLV:847, `OpenUniverseV1.planIntentCommitment` typed `PlanIntentCommitment`: the shape stands, the type's source is V2's.
 - **Weakest point.** It commits nothing `planId` does not, and it exists after the draw, not before attempt admission.
 
-**V3. The capability manifest. Recipe SETTLED-BY-TEXT; TS1 content PROPOSED except one member OPEN; release reader OPEN (O3).**
+**V3. The capability manifest. Recipe SETTLED-BY-TEXT; TS1 content PROPOSED (lead ruling r5); release reader and `vcs-change` form OPEN (O3).**
 It is a release artifact of media type `application/vnd.opensip.capability-manifest.v1`, bound by
 `ProfileEntry.capabilityManifestId` (DLV4:460-467; DLV:1251) and committed as CVE1 (DLV4:472; IE:224-235). The host
 recomputes the id and never trusts a supplied one (DLV4:286; IE:233-235). Admission is CMD2's, which IE §3 selects by name
@@ -106,27 +108,36 @@ content (TSP2:49, row DLV:963-971); product admission checks identity and form o
 - **TS1 content (normative), the authoring value before CVE1:**
   - `schemaVersion` `1`. `profile` `"ts1-synthetic"`, equal to the fixture's `ProfileEntry.profileId` (DL-CUST-3; CMD2 declaredOPEN).
   - `providers`, sorted by `providerId` (DLV4:307-308):
-    - **the inventory producer.** `providerId` **OPEN** (below); `language` `"*"`; `relations` `{"file": "enumerated",
-      "package": "manifest-declared"}`; `toolchainIdentitySource` `"release-manifest"`; `providerVersionSource` follows the id;
-      `platformIds` `["macos-aarch64"]`. No `vcs-change` (LD8-3, MC8:331).
+    - `{"providerId": "syntax-all", "language": "*", "providerVersionSource": "release-manifest:syntax-grammars",
+      "toolchainIdentitySource": "release-manifest", "relations": {"file": "enumerated", "package": "manifest-declared"},
+      "platformIds": ["macos-aarch64"]}`: the id and both sources as every live manifest has them (DLV:1359, :1374, :1389,
+      :1404), narrowed to the two relations TS1 delivers.
     - `{"providerId": "typescript-semantic", "language": "typescript", "providerVersionSource":
       "release-manifest:typescript-provider", "toolchainIdentitySource": "PlanId.typescriptUniverse", "relations":
       {"imports": "resolved-target", "unresolved-edge": "observed"}, "platformIds": ["macos-aarch64"]}`. The id and both
       sources are DCM-2's; the relations are F2-min's (PA1 §3).
-  - `coverageForAbsent`: one entry, `{"providerId": <the inventory producer's id>, "language": "*", "relationIds":
-    ["vcs-change"], "coverageState": "unavailable", "deficiency": "provider-unavailable"}`, LD8-3's deficiency (MC8:331;
-    CMD2:138). No Rust entry: the profile installs no Rust provider and the fixtures hold no Rust unit.
-  - Not claimed: `references`, `calls`, `types`, `reachability`, `declares`, any syntax relation, `clones`. `platformIds` names
-    the one platform the milestone Run is measured on; a member of that domain grants no support (CMD2:135).
-- **OPEN: the inventory producer's `providerId`.** `providerId` is OPEN ("No provider registry exists", CMD2:230), and no text
-  names the id of the core provider closure's claims when no syntax universe is selected. Every live manifest carries
-  `file`, `package` and `vcs-change` under `syntax-all` (DLV4:803-900), whose producer is the same core provider closure
-  (MC8:497-503, uses 2 and 3). Options: (a) `syntax-all`, narrowed to two relations, with its `release-manifest:syntax-grammars`
-  version source, which names grammars a TS1 profile does not select (PA1:163-168); (b) a new token naming the core inventory
-  producer. Decision needed: the lead, for TS1 (it changes every TS1 Plan id); the project owner, for the release spelling (O3).
-  **Also needed:** the absent `vcs-change` entry names the same id in both collections, and whether `providers` and
-  `coverageForAbsent` may intersect is DLV4's DUD-V4-3, "OPEN -- DEPENDENCY ON DELIVERY PRODUCT" (DLV4:611, :1852-1856). If
-  the lead rules they may not, the entry is dropped and the absence is disclosed only by LD8-3's run-time entry.
+  - `coverageForAbsent`: `[]` (CVE1 encodes it present, DLV4:1113). No Rust entry: the profile installs no Rust provider
+    and the fixtures hold no Rust unit.
+  - Not claimed: `references`, `calls`, `types`, `reachability`, `declares`, any syntax relation, `clones`, `vcs-change`.
+    `platformIds` names the one platform the milestone Run is measured on; a member of that domain grants no support (CMD2:135).
+- **Why `syntax-all` (lead ruling r5).** The producer and enumerator of host inventory records is the core provider closure
+  (MC8:40, LD8-1; MC8:497-503, use 3; the stage's `producerClosure`, MC8:995), which is also the producer of syntax-universe
+  work (use 2). The live manifests place exactly that closure's relations, the syntax relations and `file`, `package`,
+  `vcs-change`, under the one id `syntax-all` (DLV:1359-1404; DLV4 DCM-1 to DCM-4, DLV4:803-975). No text binds a
+  `providerId` to a closure (CMD2:230, "No provider registry exists"), so this is continuity, not identity proven by text;
+  no text names a different id for the core. NCM names no provider id at all; it says only that inventory is "Produced by
+  host discovery and enumeration, not by a language provider" (NCM:949), which fits the core. Weakest point: the version
+  source names the syntax grammars, which a TS1 Plan does not select (PA1:163-168).
+- **The core provider closure is in the TS1 Plan.** Selecting no syntax universe does not remove it: `semanticClosures`
+  carries it "exactly when a syntax universe is selected **or** an `inventory` cell is requested" (MC8:922), and V8
+  requests `inventory`.
+- **`vcs-change`: TS1 form, and the release question.** The TS1 manifest neither claims `vcs-change` nor declares it absent.
+  This is lawful: no text makes a manifest total over relations (CMD2's four gates check type, closure, domain membership and
+  order only, IE:256-261), product admission checks identity and form only (`plan_capability.rs:45-80`), and with the
+  run root outside every repository the account is `inapplicable-vcs`, which names no Coverage and needs none (EXC:122,
+  :172). The run-time disclosure stays LD8-3's `unknown` entry (MC8:331). Claiming it would overclaim (LD8-3); declaring it
+  absent under `syntax-all` puts one id in both collections, which DLV4 leaves "OPEN -- DEPENDENCY ON DELIVERY PRODUCT"
+  (DUD-V4-3, DLV4:611, :1852-1856). How a release manifest states `vcs-change` is **OPEN** with that question (O3).
 - **Fail closed.** Missing or refused bytes refuse before step 13; outside `scenario-fixtures` no reader exists.
 
 **V4. Stages on the TS1 path. Syntax SETTLED-BY-TEXT; inventory PROPOSED (release and TS1).**
@@ -244,20 +255,36 @@ records no law mints and gives them to H3 (MH:644-660), and MH item 14.1 already
     no ancestor of the run root holds a VCS marker, and refuses to start otherwise. After it, the harness reads the retained
     `vcs-observation` and produces **no milestone record** unless its `kind` is `none`.
 
-**V8. The requested capabilities of the M3-M-TS1 Run. Set PROPOSED (TS1); carrier OPEN (O6).**
+**V8. The requested capabilities of the M3-M-TS1 Run. PROPOSED (TS1); carrier by lead ruling r5.**
 - **The set.** For every unit discovery finds in a fixture tree, exactly three rows, each `required: true`, at that unit's
   mode and root: `imports`, `inventory`, `unresolved-edge` (NCM capability ids). These are exactly the capabilities V3
-  claims as delivered: no requested cell lacks a producer, and the verdict is decidable (COMP:58; EXC:190). It agrees with
-  PA1:256-257 (the cells F2-min implements) and lead ruling O1 (the inventory cell). Owner: J3d-TS.
-- **The carrier: a ruling met texts that contradict it.** The lead ruled that a repository with no `opensip.json` takes its
-  request from the installed release's compiled defaults (J3S:155-160), so the TS1 release's compiled list would be these
-  three. But NE fixes the default "by the matrix, not by a release": it **must** request every capability not `NOT-SELECTED`
-  for the unit's mode (NE:1080-1084), a release absence is "still requested" (NE:1089-1092), and a build "shipping fewer
-  providers is an availability fact … not a narrowed product" (NE:1183-1184). The product implements that and reads no
-  configuration (`host/src/discovery.rs:1212-1272`). The narrowing the texts allow is explicit `analysis.capabilities`, "a
-  recorded choice with its own provenance" (NE:1185-1189; AQ:102), which PA1:257 assumes ("the fixture's configuration
-  selects them"); on the fixture that means an `opensip.json` in the run-root copy, a file the corpus tree does not hold.
-  No path from `analysis.capabilities` to `requestedCapabilities` was found in product main or B. This record does not choose (O6).
+  claims as delivered: no requested cell lacks a producer, and the verdict is decidable (COMP:58; EXC:190). Lead ruling O1
+  gives the inventory cell; PA1:255-257 the rest: "C4a-TS's `requestedCapabilities` for the TS1 Run name only the cells
+  F2-min implements (the fixture's configuration selects them; the analysis-spec takes "B's requested capabilities",
+  MC:923)".
+- **The carrier.** The lead-run harness writes one file, `opensip.json`, at the root of the run-root copy (V7), with
+  exactly these 89 bytes, no trailing newline:
+  `{"schemaVersion":2,"analysis":{"capabilities":["imports","inventory","unresolved-edge"]}}`
+  (SHA-256 `e01e83bee7db2df0779600bbd4458d7d666a6383e7c8bbb90c4258e54c6a1b45`). `schemaVersion` is the schema's only required
+  member and nothing else is set (product `schemas/sources/product-configuration-v2.schema.json`; `analysis.capabilities` is
+  an ordered sequence of up to 128 ids). This is the texts' own narrowing: explicit configuration "overrides the request,
+  not the obligation", "a recorded choice with its own provenance" (NE:1185-1189; AQ:102). The fixture's own files are
+  unchanged. The milestone record discloses the file's bytes and digest and that the Run is of **the fixture plus this
+  configuration file**.
+- **Not compiled defaults.** r4's reading that the TS1 release's compiled defaults could carry the narrowed list is
+  withdrawn: the default is "fixed by the matrix, not by a release" and requests every capability not `NOT-SELECTED`
+  (NE:1080-1084); a release absence is "still requested" (NE:1089-1092); a build shipping fewer providers is "not a narrowed
+  product" (NE:1183-1184). The product's default selection does exactly that (`host/src/discovery.rs:1212-1272`).
+- **What the file does to the snapshot.** It is a sealed file of the tree: `opensip.json` at the project root "is a
+  repository file, so it stays in the inventory", and sealing requires exactly one regular-file row whose digest equals the
+  carrier B1 resolved (MC8:184, :92, :198). So the snapshot, its `resolvedConfigDigest`, the file inventory (one more `file`
+  subject and `file` fact) and the Plan id all differ from a Run of the bare tree. It does **not** supply the project
+  marker: that is `.opensip/project-id.v1`, created by first use (V7) and never source (MC8:103).
+- **Consequence (owner: J2b-TS's `PlanRequest` producer, its scope commit 3, `LC/j2b-ts/SCOPE-r1.md:62-63`, :90).** No
+  product code yet turns the resolved configuration's `analysis.capabilities` into `requestedCapabilities` tuples: main and B
+  have only `default_capability_selection`, which reads no configuration (`discovery.rs:1217`). That producer must map each
+  configured id to one row per unit whose mode does not mark it `NOT-SELECTED`, `required: true`, under the same admission
+  order as the default (MC8:946; NE:4276-4278).
 
 ## Owners
 
@@ -270,7 +297,7 @@ records no law mints and gives them to H3 (MH:644-660), and MH item 14.1 already
 | V5 | step 13 grant | C4a-TS-b, own commit after B7 |
 | V6 | projection and per-batch binding (H5-TS); the call in `admit_and_build` (C4a-TS-b) | H5-TS; C4a-TS-b |
 | V7 | inventory stage scopes and Coverage, H-C11b; MH erratum; run-root placement and its two checks | H3-TS; lead (erratum); J3d-TS and the lead-run harness |
-| V8 | the requested set; its carrier | J3d-TS; lead (O6) |
+| V8 | the requested set; the `opensip.json` in the run-root copy; configuration → requested rows | J3d-TS; lead-run harness; J2b-TS (commit 3) |
 
 ## What this record does not do
 
@@ -291,22 +318,21 @@ consumers; `fact-admission-h/PROPOSAL.md:873` routed it to MC, which answered wi
   commitment frozen at R10a, before R12's draw (MJ:343-351), over what is admitted by then: the resolved configuration
   (R5, with `analysis.capabilities`), the admitted pack set (R6) and the admitted component manifests (R10a). Discovery's
   capability selection and the snapshot come after the draw (MC8:945-946), so such an intent cannot commit them.
-- **O3 (project owner).** V1's release form; who builds and signs the core inventory and the release profile's manifest, and
-  the release spelling of V3's inventory producer id; how an installed release's profile bytes are read (MJ item 1 takes no
-  profile selector). **Release scope question:** with the product's present default (every capability requested as required,
-  NE:1080-1084), a default-configured Run is indeterminate until every capability has a producer; and on a Git working tree a
-  Run that requests `inventory` cannot reach `pass` until version-control state has a reader.
-- **O6 (lead).** V8's carrier: compiled defaults (contradicted by NE:1080-1092, :1183-1184) or an explicit
-  `analysis.capabilities` in the run-root copy (NE:1185-1189), with the producer of `requestedCapabilities` from it.
-- **V3's open member (lead; O3 for release).** The inventory producer's `providerId`, and DUD-V4-3 for its absent entry.
+- **O3 (project owner).** V1's release form; who builds and signs the core inventory and the release profile's manifest;
+  how a release manifest states `vcs-change` (DUD-V4-3, V3); how an installed release's profile bytes are read (MJ item 1
+  takes no profile selector).
+- **For the owner's awareness (existing law; no change proposed).** By design a Run with no explicit selection requests every
+  capability the matrix does not mark `NOT-SELECTED`, as required (NE:1080-1092). Until each has a producer such a Run is
+  indeterminate (EXC:190; COMP:58). On a Git working tree a Run requesting `inventory` cannot reach `pass` until
+  version-control state has a reader (LD8-3, MC8:331).
 
 ## Consequences
 
 - V4 and V7 change the synthetic core tree, so the core provider, evaluator and detector `closure2`s and every golden pinning
   them move; `host.inventory` literals become the constant; H3-TS's inventory leg mints Coverage.
-- V3's content, once its open member is ruled, fixes every TS1 Plan id; a later change to it moves every TS1 Plan golden.
+- V3's content and V8's configuration file each enter every TS1 Plan id; a later change to either moves every TS1 Plan golden.
 - **M3 limitation (disclosure owed):** a Run requesting `inventory` on a Git working tree is `fail` or `indeterminate`, never
-  `pass`, until `vcs-change` has a producer. The M3-M-TS1 record discloses the run-root placement and why the cell can complete.
+  `pass`, until `vcs-change` has a producer. The M3-M-TS1 record discloses the run-root placement, the added `opensip.json`, and why the cell can complete.
 - **Alignment edit owed on TSP2 (not made here):** TSP2:203, "The dispatch binding: its existing owner, changed only by
   T4", should cite V6 (H5-TS's projection, called by C4a-TS-b).
 - V2 changes B's `Owners` field type; V1 removes caller-built `HostBuildId`s; V6 changes `admit_and_build`'s return.
@@ -320,4 +346,5 @@ consumers; `fact-admission-h/PROPOSAL.md:873` routed it to MC, which answered wi
 - **V7: no Coverage** (H5S Q-B (b)): every required `inventory` cell `native-work-incomplete`; **`complete` for `vcs-change`**:
   LD8-3 forbids it; **resting `complete` on the totality check alone**: it reads the host's own subjects.
 - **V8: the product's default request**: references, calls, types, reachability and candidate-only cells would hold the Run
-  at indeterminate (EXC:190; COMP:58).
+  at indeterminate (EXC:190; COMP:58). **V8: a narrowed compiled default** in the TS1 release: NE:1080-1084, :1183-1184
+  forbid it.
