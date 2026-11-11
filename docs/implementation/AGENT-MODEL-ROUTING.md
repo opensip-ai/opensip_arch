@@ -127,6 +127,11 @@ is not an available shell and a live-name collision.
 | `R3-FRONTIER` | GPT-6 Astra, high | Claude Opus 5.5, high; use Claude Fable 5.1, high after an inadequate Opus pass | Ambiguous architecture choices, conflicting evidence, consequential acceptance disputes, or a semantic failure unresolved by `R2-DEEP`. |
 | `R4-EXCEPTIONAL` | GPT-6 Astra, extra-high (`xhigh` in the CLI) | Claude Fable 5.1, high; evaluate max only if needed | Final whole-product qualification, adversarial security review, or an exceptional bounded issue for which representative evidence shows a material benefit. Not a routine route. |
 
+[OD-LEAD-1](OD-LEAD-1.md) additionally permits **Claude Fable 5.2, high** as the
+Claude counterpart on `R3-FRONTIER` and `R4-EXCEPTIONAL` when a plan or handoff
+declares it. It is the owner-appointed Claude lead and escalation model; it is
+not a default for `R0`–`R2`, which remain the routes for ordinary work.
+
 `max` is not a normal route in either tool. Use it only after an explicit owner
 decision for a bounded problem whose prior high or extra-high attempt was
 insufficient. A plan selecting `max` records that decision on its `Exceptional

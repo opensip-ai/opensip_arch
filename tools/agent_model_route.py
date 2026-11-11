@@ -98,6 +98,9 @@ def _validate_declared(
         allowed.add(AgentSpec("claude-opus-5-5", "high"))
     if route == "R3-FRONTIER" and provider == "claude":
         allowed.add(AgentSpec("claude-fable-5-1", "high"))
+    if route in {"R3-FRONTIER", "R4-EXCEPTIONAL"} and provider == "claude":
+        # OD-LEAD-1: the owner-appointed Claude lead and escalation model.
+        allowed.add(AgentSpec("claude-fable-5-2", "high"))
     if route == "R4-EXCEPTIONAL":
         allowed.add(AgentSpec(expected.model, "max"))
     if spec.effort == "max" and (

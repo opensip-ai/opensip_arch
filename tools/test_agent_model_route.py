@@ -62,6 +62,20 @@ class RouterTests(unittest.TestCase):
         self.assertEqual(route, "R3-FRONTIER")
         self.assertEqual(spec, ROUTER.AgentSpec("claude-fable-5-1", "high"))
 
+    def test_owner_appointed_claude_lead_is_allowed(self) -> None:
+        for route in ("R3-FRONTIER", "R4-EXCEPTIONAL"):
+            text = plan().replace(
+                "Capability route: R1-BALANCED", f"Capability route: {route}"
+            ).replace("Claude: claude-sonnet-5-5 / high", "Claude: claude-fable-5-2 / high")
+            found, spec = ROUTER.spec_from_plan(self.write_plan(text), "claude")
+            self.assertEqual(found, route)
+            self.assertEqual(spec, ROUTER.AgentSpec("claude-fable-5-2", "high"))
+
+    def test_owner_appointed_claude_lead_is_not_a_default_route(self) -> None:
+        text = plan().replace("Claude: claude-sonnet-5-5 / high", "Claude: claude-fable-5-2 / high")
+        with self.assertRaises(ROUTER.RouteError):
+            ROUTER.spec_from_plan(self.write_plan(text), "claude")
+
     def test_max_requires_owner_authorization(self) -> None:
         text = plan().replace("Capability route: R1-BALANCED", "Capability route: R4-EXCEPTIONAL")
         text = text.replace("Codex: gpt-6.1-sol / medium", "Codex: gpt-6-astra / max")
