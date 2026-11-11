@@ -2,8 +2,11 @@
 
 PROPOSED. A contract successor selecting, by value, the TypeScript lane registry
 re-pinned for the carried TypeScript lifecycle source r2: the joined esbuild stop,
-awaited disposal and terminal receipt. The registry's closure pins also cover the
-regression harness update and the in-tree lifecycle controls that now ship with it.
+awaited disposal and terminal receipt. The registry pins the runtime closure of
+the lanes: the checker, its entry point and sources, and the patched esbuild files.
+It does not pin test files. The regression harness update and the in-tree lifecycle
+controls were reviewed at the product commit this unit names, not bound by the
+registry.
 
 - `product/tools/typescript-lanes.json`: the registry, byte for byte the product
   file at f4-carry-r1. Its parent is MG1-LANE-r1's copy
