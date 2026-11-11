@@ -32,6 +32,13 @@ worker ran them on 2026-11-10 it took about five minutes.
 5. **The owner decides** signing and notarization, pushing and publishing, and
    changes to product scope.
 
+   **Standing permission to push, given 2026-11-10.** The lead asked for
+   "standing permission to push after each green, reviewed integration". The
+   owner answered: "Standing permission to push after is granted". The lead
+   pushes `main` of the product and architecture repositories after an
+   integration whose lane is green and whose review is accepted, and reports
+   each push. Anything else that publishes still needs the owner.
+
 ## Rules dropped
 
 1. **Custody intervals and human commitments** for reading or running local
