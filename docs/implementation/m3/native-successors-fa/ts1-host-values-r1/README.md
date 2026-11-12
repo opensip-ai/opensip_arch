@@ -2,15 +2,12 @@
 
 2026-11-11. Drafted by a lead-dispatched design author (Claude Opus 5.5, route R2-DEEP) from the E2E gap inventory
 (`LC/coordinator/E2E-GAP-INVENTORY-2026-11-11.md` §2, §3 G2-G4, G6, G7).
-Status: **PROPOSED, r6.** r6 closes three gaps the V7 implementer found (H5-TS Q-J, Q-K): every `ViewEntryV3` member
-stated, `closedWorld` as V7's own value; a stage inventory that is not `complete` refuses at TS1; no `vcs-change` entry
-(LD8-3 narrowed). V3 and V8 are unchanged by them. r5 applies the lead's rulings on r4's two open items: V3's inventory producer is `syntax-all`
-for TS1, with `vcs-change` omitted from the TS1 manifest; V8's carrier is an `opensip.json` the harness writes into the
-run-root copy (O6 closed). r2 applied the lead's rulings on r1's open points and added V7; r3 closed O5. r4 applies one
-independent review of r3 (`LC/ts1-host-values/review-opus/VERDICT.md`, R1-R6, A1-A8) under the lead's rulings: V7's basis
-for `complete` restated (R1), the MH erratum narrowed by MH's origin term and widened to seven sentences (R2), the V3
-manifest pinned member by member (R3), V2's supersessions listed (R4), the run-root placement made a harness requirement
-(R5), and V8 added for the requested capability set (R6). It needs a cross-vendor review, then adoption by the lead. It
+Status: **PROPOSED, r7.** History: r2 applied the lead's rulings on r1 and added V7; r3 closed O5; r4 applied an
+independent review (`LC/ts1-host-values/review-opus/VERDICT.md`, R1-R6, A1-A8); r5 applied the lead's rulings on r4's open
+items (V3's `syntax-all`; V8's carrier); r6 closed the V7 implementer's gaps (H5-TS Q-J, Q-K); r7 applies the r6 re-check
+(`review-opus/VERDICT-r6.md`): one internal key on an existing route (R-1), a budget cut gives `unknown` / `budget-exhausted`
+and only a manifest parse failure refuses, as a stated TS1 limit (R-2), five LD8-3 selectors superseded, led by the textual
+reason (R-3), and V7's basis made non-normative. It needs a cross-vendor review, then adoption by the lead. It
 binds nothing, changes no existing file, registry, inventory or lock, and has no subject manifest yet.
 
 **Scope.** Milestone M3-M-TS1: a synthetic-trust Run (OD-SIGN-2 (A)) driven through `opensip_host::invocation::run` by host
@@ -59,7 +56,7 @@ of DLV4's value domains (IE:236-246; CMD2:5), so the manifest's admission law do
 It **extends** MC8 item 16 (V4, V5), NE §9.7 (V2), D2B LD-D2B-15 (V6) and MH item 18 (V7). For `plan2` Runs only it
 **supersedes** the `planIntentCommitment` selectors V2 lists, D2B:142's and `ts2.rs:127-128`'s "built by D4's session
 factory" (V6), lead ruling Q13 item 1's "no production producer" (V1), the seven MH sentences V7 lists, and LD8-3's
-three sentences on the `vcs-change` entry (MC8:42, :331, :332; V7). Historical
+statements of the `vcs-change` entry (MC8:42, :56, :331, :332, :1271; V7). Historical
 C-2 Plans keep every selector unchanged.
 
 ## Normative clauses
@@ -184,82 +181,82 @@ and as Rust3's sender does inside `build` (`rust3/send/request.rs:427-439`); B's
   counters (D2B:143) for H (H `occupancy.rs:71-81`). `joins` (`participant.rs:120`) and `PROVIDER_RETURN_DISPATCH`
   (NE:3044) still refuse.
 
-**V7. The host inventory stage's Coverage. PROPOSED; erratum to MH.** MH item 18 lists the stage's "scopes and Coverage" as
-records no law mints and gives them to H3 (MH:644-660), and MH item 14.1 already classes item 18's view as **host-minted**
-(MH:471). But seven MH sentences, written for provider stages, read as if the host could never write a `complete` entry.
-- **Precedent.** Accepted ME item 10 has the host derive Coverage for the in-host syntax stage, `complete` for a `parsed`
-  file (ME:385, :389); MH admits those host-minted entries (MH:585, :596). V7 follows it for item 18's stage.
-- **What is owed.** An available `inventory` binding's accounts are `supported-available` (NCM `inventory` TS cells,
-  `SUPPORTED-DESIGN`, deficiency null), so each needs returned Coverage; none gives `native-work-incomplete` (EXC:169).
-  Required incomplete work is semantic indeterminate (EXC:190) and holds the verdict at indeterminate unless a gating rule
-  fails (COMP:58).
-- **Who writes it.** The stage's producer is the core provider closure (MC8:497-503, use 3); the records are host-derived
-  (NCM:949); H3 is their one minting owner (MH:651-660). No language provider can write them.
-- **Rule.** Per universe the stage's view carries exactly two subject scopes and two Coverage entries:
-  - `file@enumerated`: subjects exactly the binding's file inventory rows (MH:658); one admitted `file` fact per row.
-  - `package@manifest-declared`: subjects exactly the package rows (MH:659); one admitted `package` fact per row.
-  - **Every member of each `ViewEntryV3` (NE:2018-2030), both entries alike:** `coverage` `complete`;
-    `examinedUniverse` the scope's commitment and count; `resolutionCompleteness` `{state: not-applicable, attempted: false,
-    examinedExhaustive: true, stageTerminal: complete, unresolvedEdgeCount: 0, unresolvedEdgeClasses: []}`;
-    `closedWorld` the value below; `derivationKinds` `[]`; `confidenceMillionths` `1000000`; `deficiency` and `nativeCause`
-    null. Sources: both pairs are RC-1's one-rung `not-applicable` pairs, "minted with `attempted=false`,
-    `unresolvedEdgeCount=0` and `unresolvedEdgeClasses=[]`" (NE:2045-2050); `complete` requires `examinedExhaustive` (RC-6);
-    `stageTerminal` is free on a `not-applicable` entry and retains the terminal the producer observed (NE:2101-2104), and the
-    stage completed; `derivationKinds` is a subset of the type derivation kinds (NE:2028) and no type is derived;
-    `confidenceMillionths`: "no native provider of any relation emits a confidence below 1000000, because a native fact is
-    exact under its admitted universe" (NE:2366-2372), and the core provider closure is the producer.
-  - **`closedWorld` (new law; no text fixes it).** Accepted ME item 10 states no `closedWorld` for the syntax stage's
-    host-derived entries (ME r3 has none), MH rejects host recomputation of it (MH:455), and the only published host value is
-    the startup law's `hostConversionClosedWorld`, which "applies only to this pre-analysis host conversion" (NE:3241-3261).
-    V7 therefore states its own value, the "no observations" value, with the same content:
-    `{"exportsClosed": "unknown", "entryPointsRecognized": "none", "nonliteralLoading": "none", "externalConsumers":
-    "unknown", "dynamicDispatch": "not-applicable", "reasons": ["no-manifest"], "deadCodeRepairEligible": false}`.
-    Reason: an inventory relation carries no export, entry-point or loading observation, so the entry records that none was
-    made (as NE:3259-3261 reads the startup value: "absent manifest and analysis observations"). This is V7's own
-    statement, not an extension of the startup law's clause. **Weakest point:** `exportsClosed: unknown` is the
-    `external-consumers-unknown` carrier (NE:3368); a requirement that consults these entries for a universal negative
-    over exported subjects with `externalConsumerPolicy: forbid` would report it (NE:2226-2228). `reasons` is free text
-    (NES `ClosedWorldV2`), and `no-manifest` here means "no manifest observation was made", not "the tree has no manifest".
-  - **No `vcs-change@vcs-reported` entry and no scope for it.** The reviewed producer check admits only the `file` and
-    `package` pairs on a core-produced language stage (H5-TS worktree `opensip-h5-ts` @ `077916e4`,
-    `host/src/fact_admission/candidates.rs:442-466`), and no text states the subject scope of a `vcs-change` key with no
-    fact. The account then is, by EXC: **`inapplicable-vcs`** (VCS kind `none`): no Coverage named (EXC:122, :172), the same
-    as with an entry; **`supported-available`** (kind `git`): empty, so semantic `native-work-incomplete` (EXC:169), with the
-    pair `(null, null)` for pure missing work (EXC:70). With LD8-3's entry it would be incomplete too, carrying
-    `provider-unavailable` / `capability-missing`. So the cell state (`partial`, EXC:67) and the verdict are equal; only the
-    retained pair differs.
-  - **Narrows LD8-3.** MC8:331 says "H mints the key's entry as `unknown`, with deficiency `provider-unavailable` and
-    `nativeCause` `capability-missing` (NE:3370)", and MC8:332 rejects "omitting the key's entry, which leaves a requested
-    relation unanswered"; MC8:42 says "That key's Coverage is `unknown` …". V7 supersedes those three sentences for the host
-    inventory stage of a `plan2` Run: the key is answered by the execution-inputs account, not by an entry. LD8-3's other
-    rules stand: no `vcs-change` fact, never `complete`.
-  - **A stage inventory that is not `complete` (TS1 limit).** `coverage` is `complete` or `unknown` (NE:2020), and
-    `source-syntax-invalid` is local to the enumeration contract, "not a NativeCause / copied DeficiencyV2 member"
-    (ENC:120). No registered pair fits a malformed manifest: `input-closure-incomplete` requires one of twelve named causes,
-    none a parse failure (NES `x-opensip-deficiency-cause-registry`; product `coverage-registry.current.json`); SYN-1's
-    `source-parse-error` (ME:390) is bound only in the design lock (product `682991f`) and is in neither registry. So at TS1,
-    if the file or the package inventory of the stage is not `complete`, H3 refuses as a host invariant
-    (`H_INVENTORY_STAGE_COVERAGE`) before anything is staged: the Run fails closed. A required partial inventory is
-    indeterminate in any case (EXC:70). **A later record must add** a registered `(deficiency, nativeCause)` pair for a
-    host inventory that is not complete (for a manifest parse failure and for a budget cut), and map the stage's entry to it.
-- **What `complete` rests on: two independent re-derivations, one join.** The totality check
-  (`COVERAGE_INVENTORY_TOTALITY_OMITS_PATH`, `view_joins.rs:518-527`; NE:359-362) iterates the scope's **own** subjects, which
-  the host wrote; it proves only that every listed subject has its fact. It does not find an omitted path. What does:
-  - **The enumeration contract's replay (ENC §7, ENC:157-158).** A `complete` file inventory's paths must equal the binding's
-    file extent (ENC:117, `ENUMERATION_INVENTORY_FILE_TOTALITY`, `evaluator/src/enumeration_join.rs:986-991`); the extent is
-    re-derived from `UnitMembershipV1` and the sealed snapshot's inventory and compared (ENC:172, :186,
-    `ENUMERATION_BINDING_EXTENT_PATHS`, `enumeration_join.rs:748-764`); and membership must exactly cover the snapshot paths
-    (ENC:172; `evaluator/src/enumeration.rs:346-348`). Package rows are re-derived by parsing the retained manifests (ENC:174, :178).
-  - **The execution-inputs contract's expected source census (EXC:169).** Each expected subject of the cell's inventory must
-    sit in some returned partition (`expected_source_census`, `evaluator/src/execution_inputs.rs:1202-1240`, used at `:1707`;
-    the difference at `:296`). A missing one leaves the account incomplete, the cell `partial` (EXC:67) and the Run indeterminate.
-  - So a path dropped from the file inventory refuses at replay; a path dropped from the scope alone makes the account
-    incomplete; a fact dropped alone refuses on totality. Both re-derivations run at J-η, after H's admission
-    (`admit_enumeration`, MJ:401), and in the evaluator's composition (`full_walk.rs:429` → `execution_reader.rs:221`).
-  - **Trust limit, stated.** None of these finds a path missing from the sealed snapshot inventory itself or excluded by a
-    wrong membership reason: membership is host TCB (ENC:172, :186). That boundary bounds every cell's extent and every
-    provider's Coverage alike; V7 adds no new one (compare ME:398). It is not MH item 12's unknown-to-covered conversion
-    (MH:440): nothing was unknown.
+**V7. The host inventory stage's Coverage. PROPOSED; erratum to MH; narrows LD8-3.** H3 mints, per universe an available
+`inventory` binding binds, the stage's view under the core provider closure (MC8:497-503, use 3; MH:651-660):
+- **Scopes and facts.** Exactly two subject scopes: `file@enumerated` with subjects exactly the binding's file inventory rows,
+  and `package@manifest-declared` with subjects exactly its package rows; one admitted fact per row.
+- **Entry, inventory `complete`.** For each of the two scopes, one `ViewEntryV3`: `coverage` `complete`; `examinedUniverse`
+  the scope's commitment and count; `resolutionCompleteness` `{state: not-applicable, attempted: false, examinedExhaustive:
+  true, stageTerminal: complete, unresolvedEdgeCount: 0, unresolvedEdgeClasses: []}`; `closedWorld` **CW** (below);
+  `derivationKinds` `[]`; `confidenceMillionths` `1000000`; `deficiency` null; `nativeCause` null.
+- **Entry, inventory cut by a budget** (`partial`, deficiency `budget-exhausted`, ENC:120): the same scope and facts over the
+  known rows, and the entry as above except `coverage` `unknown`, `examinedExhaustive` false, `stageTerminal`
+  `budget-exhausted`, `deficiency` `budget-exhausted`, `nativeCause` null.
+- **A package manifest that does not parse** (package inventory `partial`, `source-syntax-invalid`, ENC:118, :120), or an
+  inventory not `complete` for any other reason: H3 refuses before anything is staged, with the internal key
+  `H_INVENTORY_STAGE_COVERAGE` on MJ row 29's existing host-invariant route (`operational-failed` / 4,
+  `SYSTEM.OUTCOME.ILLEGAL_STATE` / host-invariant, `HOST.INVARIANT_VIOLATED`, MJ:755; MH:738 routes item 18's refusals there).
+  No new public code.
+- **TS1 LIMIT: a repository whose package manifest does not parse cannot be analysed with `inventory` requested** until a
+  later record registers a carrier for that case. The refusal is classed as a host invariant although its cause is the
+  analysed repository: a known mis-classification, accepted for TS1 only. The fixtures' manifests parse.
+- **No `vcs-change@vcs-reported` scope, fact or entry.** The key is answered by the execution-inputs account alone.
+- **CW (V7's own value; no text fixes one):** `{"exportsClosed": "unknown", "entryPointsRecognized": "none",
+  "nonliteralLoading": "none", "externalConsumers": "unknown", "dynamicDispatch": "not-applicable", "reasons":
+  ["no-manifest"], "deadCodeRepairEligible": false}`. It is not an extension of the startup law's clause, which applies only
+  to the pre-Analyze conversion (NE:3259).
+- **Narrows LD8-3** for the host inventory stage of a `plan2` Run, superseding: MC8:42 "That key's Coverage is `unknown` …";
+  MC8:56 "Its Coverage is `unknown`, `provider-unavailable`, `capability-missing`" and its rejection of "omitting the entry";
+  MC8:331 "H mints the key's entry as `unknown`, with deficiency `provider-unavailable` and `nativeCause`
+  `capability-missing` (NE:3370)"; MC8:332's rejection of "omitting the key's entry, which leaves a requested relation
+  unanswered"; MC8:1271 "H3 and H5 also carry LD8-3's control: … the `unknown` entry with `provider-unavailable` and
+  `capability-missing`". LD8-3's other rules stand: no `vcs-change` fact, never `complete`. MC8:1329 (V5's question on that
+  pair) becomes moot for this stage.
+- **Controls owed (H3-TS).** H-C11b (below); each entry member above, byte for byte, for both entry forms; no `vcs-change`
+  entry or scope; a package parse failure refuses `H_INVENTORY_STAGE_COVERAGE` with nothing staged; a budget-cut inventory
+  gives the `unknown` entry.
+
+**V7 Basis (not normative).**
+- **Precedent and owner.** Accepted ME item 10 has the host derive Coverage for the in-host syntax stage, `complete` for a
+  `parsed` file (ME:385, :389); MH admits those host-minted entries (MH:585, :596), and 14.1 classes item 18's view as
+  host-minted (MH:471). The records are host-derived (NCM:949). An available `inventory` binding's accounts are
+  `supported-available` (NCM `inventory` TS cells, `SUPPORTED-DESIGN`), so each needs returned Coverage (EXC:169); required
+  incomplete work is semantic indeterminate (EXC:190; COMP:58).
+- **Members.** Both pairs are RC-1's one-rung pairs, "minted with `attempted=false`, `unresolvedEdgeCount=0` and
+  `unresolvedEdgeClasses=[]`" (NE:2045-2046); `complete` requires `examinedExhaustive` (RC-6); `stageTerminal` is free on a
+  `not-applicable` entry and retains the terminal the producer observed (NE:2101-2104); `derivationKinds` is a subset of the
+  type derivation kinds (NE:2028); "no native provider of any relation emits a confidence below 1000000" (NE:2366-2372).
+- **Budget cut.** NE §10 registers `budget-exhausted` with carrier `entry.resolutionCompleteness.stageTerminal` =
+  `budget-exhausted` and a null cause (NE:3372; NES registry, `nativeCause` "must-be-null"); the registry is not scoped by
+  relation, and the inventory's own deficiency is the same `DeficiencyV2` member (ENC:120; EXC:70). ME item 10's truncated
+  row is the same form (ME:391).
+- **Parse failure.** `coverage` is `complete` or `unknown` (NE:2020); `source-syntax-invalid` is "not a NativeCause / copied
+  DeficiencyV2 member" (ENC:120). `input-closure-incomplete` requires one of twelve named causes, none a parse failure (NES
+  `x-opensip-deficiency-cause-registry`; product `coverage-registry.current.json`); SYN-1's `source-parse-error` (ME:390) is
+  bound only in the design lock (product `682991f`) and is in neither registry. `provider-unavailable` with a null cause is
+  registered but would be false. A required partial inventory is indeterminate in any case (EXC:70).
+- **CW.** ME r3 states no `closedWorld` for the syntax stage; MH:455 rejects host recomputation; the only published host value
+  is the startup law's, limited to the pre-Analyze conversion (NE:3241-3261). An inventory relation carries no export,
+  entry-point or loading observation, so CW records that none was made (as NE:3259-3261 reads the same value). Weakest
+  point: `exportsClosed: unknown` is the `external-consumers-unknown` carrier (NE:3368), consulted only for a universal
+  negative over exported subjects (NE:2226-2228); `no-manifest` means "no manifest observation was made".
+- **`vcs-change`.** First, the texts: no text states the subject scope of a `vcs-change` key that has no fact, and the
+  fact-admission law says the pair "is not decided here" by item 18 (MH:662). Second, the reviewed producer check admits only
+  the `file` and `package` pairs on a core-produced language stage (H5-TS `opensip-h5-ts` @ `077916e4`,
+  `host/src/fact_admission/candidates.rs:442-466`). The account then is: **`inapplicable-vcs`** (kind `none`), no Coverage
+  named (EXC:122, :172), identical with or without an entry; **`supported-available`** (kind `git`), empty, so
+  `native-work-incomplete` with the pair `(null, null)` (EXC:169, :70), where LD8-3's entry would carry
+  `provider-unavailable` / `capability-missing`. Cell state (`partial`, EXC:67) and verdict are equal; the retained pair differs.
+- **What `complete` rests on.** The totality check (`COVERAGE_INVENTORY_TOTALITY_OMITS_PATH`, `view_joins.rs:518-527`;
+  NE:359-362) iterates the scope's own subjects, so it cannot find an omitted path. Two re-derivations do: ENC §7 replay
+  (ENC:157-158) refuses a `complete` file inventory that differs from the binding's extent (ENC:117,
+  `enumeration_join.rs:986-991`), the extent being re-derived from `UnitMembershipV1` and the sealed snapshot (ENC:172, :186,
+  `enumeration_join.rs:748-764`; membership covers the snapshot, `enumeration.rs:346-348`; package rows by parsing, ENC:174,
+  :178); and EXC:169's expected source census (`execution_inputs.rs:1202-1240`, :1707, :296) leaves the account incomplete
+  for a subject the scope omits. They run at J-η (MJ:401) and in the evaluator's composition (`full_walk.rs:429` →
+  `execution_reader.rs:221`). Trust limit: a path missing from the sealed snapshot or mis-excluded by membership is host TCB
+  (ENC:172, :186), as for every cell (compare ME:398). Nothing was unknown, so this is not MH:440's forbidden conversion.
+**V7, continued (normative).**
 - **Erratum to MH (seven sentences).** "Provider-return stage" below means a stage whose returns form provider-return views
   (MH item 14.1, MH:470: a TS2 or Rust3 stage). Item 11's pre-Analyze conversion stands in for such a stage's return, which is
   why 14.1 lists it as host-minted (MH:471); a narrowing to "provider-return view" alone would exclude item 11's own entries.
@@ -276,8 +273,6 @@ records no law mints and gives them to H3 (MH:644-660), and MH item 14.1 already
     incomplete (EXC:169); a view missing one `file` fact refuses `COVERAGE_INVENTORY_TOTALITY_OMITS_PATH`; a `complete` file
     inventory omitting one extent path refuses `ENUMERATION_INVENTORY_FILE_TOTALITY`. **Owed and not yet tested** by H3-TS
     (they need the execution-inputs and enumeration joins over a full world): the scope-only drop and the inventory drop.
-  - **Further controls owed (H3-TS):** each entry member above byte for byte; no `vcs-change` entry or scope in the view;
-    a `partial` package inventory refuses `H_INVENTORY_STAGE_COVERAGE` with nothing staged.
 - **Verdict note.** A **required** `inventory` cell (`discovery.rs:1255`; `analysis.capabilities` has no optional form)
   completes only if its `vcs-change` account is not `supported-available`, because that key gets no Coverage (above;
   EXC:122, :169, :190; COMP:58). It also needs the package inventory not `partial` (EXC:70: "Required partial inventory … still emits
@@ -347,7 +342,10 @@ records no law mints and gives them to H3 (MH:644-660), and MH item 14.1 already
 
 ## What this record does not do
 
-It adds no wire field, Plan member, IDS row, refusal or public code; it does not decide a pre-draw intent (O2), release
+It adds no wire field, Plan member, IDS row or public code. It adds one internal refusal key, V7's
+`H_INVENTORY_STAGE_COVERAGE`, on MJ row 29's existing host-invariant route (MJ:755).
+**It does not make a repository with an unparsable package manifest analysable with `inventory` requested** (V7's TS1
+limit): that Run refuses as a host invariant, a known mis-classification, until a later record registers a carrier. It it does not decide a pre-draw intent (O2), release
 identity, packaging or signing (O3), or the Rust provider's values. It does not supply: the JS-synthesized profile for
 `js-small-body-parser` (row 15b); the `VerifiedLauncher` signed state (CF-1 tier 2) and CF-2; the ExecutionInputsV1 and
 Run-candidate builders; read-back (G8); the lead-run home (G9). Those are J2b-TS's, J3d-TS's and H5-TS's. The lead-run
@@ -370,7 +368,8 @@ consumers; `fact-admission-h/PROPOSAL.md:873` routed it to MC, which answered wi
 - **For the owner's awareness (existing law; no change proposed).** By design a Run with no explicit selection requests every
   capability the matrix does not mark `NOT-SELECTED`, as required (NE:1080-1092). Until each has a producer such a Run is
   indeterminate (EXC:190; COMP:58). On a Git working tree a Run requesting `inventory` cannot reach `pass` until
-  version-control state has a reader (LD8-3, MC8:331).
+  version-control state has a reader (LD8-3, MC8:331); under V7 that `vcs-change` account carries no deficiency and no
+  cause (`native-work-incomplete`, `(null, null)`, EXC:70, :169).
 
 ## Consequences
 
@@ -381,6 +380,11 @@ consumers; `fact-admission-h/PROPOSAL.md:873` routed it to MC, which answered wi
   `pass`, until `vcs-change` has a producer. The M3-M-TS1 record discloses the run-root placement, the added `opensip.json`, and why the cell can complete.
 - **Alignment edit owed on TSP2 (not made here):** TSP2:203, "The dispatch binding: its existing owner, changed only by
   T4", should cite V6 (H5-TS's projection, called by C4a-TS-b).
+- **H5-TS code change (V7 r7):** H3-TS's inventory leg currently refuses any non-`complete` inventory; a budget-cut
+  inventory must instead give V7's `unknown` / `budget-exhausted` entry. Only a package parse failure (or another
+  non-budget cause) still refuses `H_INVENTORY_STAGE_COVERAGE`.
+- **Milestone record disclosures (V7):** the run-root placement, the added `opensip.json` (V8), and the TS1 limit that a
+  package manifest that does not parse makes the Run refuse as a host invariant.
 - V2 changes B's `Owners` field type; V1 removes caller-built `HostBuildId`s; V6 changes `admit_and_build`'s return.
 
 ## Rejected alternatives
