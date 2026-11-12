@@ -3,7 +3,10 @@
 2026-11-12. Drafted by a lead-dispatched design author (Claude Opus 5.5, route R2-DEEP, effort medium; preflight
 `ROUTE-OK R2-DEEP claude claude-opus-5-5/medium`) for unit J3d-TS, scope row C2a (CP-J3D-SECPRE-1), questions Q35-Q37
 (`LC/j3d-ts/QUESTIONS.md`:628-661), the lead's rulings (`QUESTIONS.md`:680-708, :710-728) and `LC/j3d-ts/C2A-ORDER.md`.
-Status: **PROPOSED, r4.** **r4 changes** (`LC/j3d-ts/review-opus-c2a-order/VERDICT-r3.md`, A-a to A-c): wording
+Status: **PROPOSED, r5.** **r5 changes** (lead rulings Q39, Q40, `LC/j3d-ts/QUESTIONS.md`:737-790): E3's open
+sentence becomes the lead's ruling (a fresh classification on every route), with the routing fact and controls
+E3-C2 to E3-C4; new open point O5 (Q39, which storage choice R7 calls). No sentence of the record said `grants.rs`
+has no choice; that error was `C2A-ORDER.md`'s (R7 row). **r4 changes** (`LC/j3d-ts/review-opus-c2a-order/VERDICT-r3.md`, A-a to A-c): wording
 only, in "For the project owner": the law records (a) amends; (a)'s dependence on O2; the erratum's leftover state.
 **r3 changes** (re-check `LC/j3d-ts/review-opus-c2a-order/VERDICT-r2.md`, F1, F2,
 A-i to A-iii): amendments A-11 (M3D:759-762 and :815) and A-12 (MJ:410); controls E1-C8 (an output scan) and E1-C9
@@ -35,6 +38,8 @@ nothing and changes no existing file. Marks: **SETTLED-BY-TEXT** (the texts deci
   registration. The adopted security record does the opposite, and the entry follows it. Visible consequence: when
   the endpoint check refuses on a project's first use, the project stays registered (its registry row, namespace and
   marker remain; the next run hits the same refusal until the core or store changes).
+- **The storage check (E3).** The lead also ruled, without a deciding text, that the backup-storage check
+  re-observes the installation's storage on every run instead of trusting the value recorded at creation.
 - **You may overrule either choice.**
 
 ## Short names
@@ -66,7 +71,7 @@ among the durable path's rechecks, inside `pre_draw`).
 | E1b | Q37, ExecutionId | SETTLED-BY-TEXT | Under the present texts no ExecutionId exists that the R10 record may carry, on either route. |
 | E1c | Q37, remedy | **PROPOSED** (lead; owner told) | A separately reserved ExecutionId for the R10 trust act, with amendments A-1 to A-12. |
 | E2 | Q35, R8/R9 | PROPOSED (lead; owner told) | Registration (R9) before the endpoint (R8); MJ's table order is an erratum. |
-| E3 | Q36, R7 | SETTLED-BY-TEXT, one sentence PROPOSED | R7 runs on both routes, over a classification and the flag, before any project effect. |
+| E3 | Q36, R7 | SETTLED-BY-TEXT; the classification PROPOSED (lead) | R7 runs on both routes, over a classification and the flag, before any project effect. |
 
 ## Normative clauses
 
@@ -231,7 +236,7 @@ RISK until the cross-vendor review. Not settled by text. The project owner is to
 - *Does a text forbid it?* **Not located.** "Before any project-scoped effect" binds R6 (MJ:399-405) and R7 (MJ:398,
   :959) only; X12r4's clause is about packs. No text cleans up or reclaims the row.
 
-**E3. R7, the storage choice. SETTLED-BY-TEXT, except one PROPOSED sentence.**
+**E3. R7, the storage choice. SETTLED-BY-TEXT, except the classification: PROPOSED (lead ruling Q40).**
 - *Texts.* R7: "The S3.1 storage choice (`grants.rs`), which is pure ... A positive `BACKED_UP` without the flag is
   `storage.backup-choice-required`" (MJ:390). "On first use, the intent has already applied the same choice to the
   creation (L464:9), and R7 rechecks it against the same classification" (MJ:398). OWN: "Recheck the actual
@@ -240,10 +245,20 @@ RISK until the cross-vendor review. Not settled by text. The project owner is to
   (MJ:308); `None` "For `LostRace` and `NotPristine`" (MJ:311).
 - *Rule (SETTLED).* R7 runs on both routes, after R6 and before R9, over a backup classification and this invocation's
   `--allow-backup-custody` flag. The export takes the classification as an input, which serves every reading below.
-- *PROPOSED (in O3).* Which classification 3b rechecks. MJ:398's "the same classification" may mean `created`'s stored
-  value; OWN:28 reads toward a fresh observation of the target. A recheck of a stored value under the same flag can
-  never refuse. When `created` is `None`, no value carries the intent's classification at all. Under the constant
-  classifier (L464:51) every reading gives `UNKNOWN` today.
+- *Both sides.* MJ:398 "R7 rechecks it against the same classification" reads toward the intent's stored value;
+  OWN:28 "Recheck the actual target/classification ... a changed target or stronger newly observed restriction
+  refuses" reads toward a fresh observation. No text decides between them.
+- *A fact (product, found in code).* The routing entry's value does not say which route ran: `DurableEntry` holds
+  only `admission` and `created` (P @ `780c52fc` `security/src/custody/installation_routing.rs`:74-77), and `created`
+  is `None` both on the steady state (no creator act) and after `LostRace` or `NotPristine` (MJ:309, :311; P :254,
+  :334). So a rule that differs by route needs a new route field; a single rule does not.
+- *PROPOSED (lead ruling Q40, `QUESTIONS.md`:780-788; a ruling, not settled by text; AT RISK until the
+  cross-vendor review).* On every route (3a; 3b with `created: Some`; 3b after `LostRace` or `NotPristine`), R7
+  takes a FRESH classification of the installation target from the 464 owner's classifier, then the storage choice
+  with this invocation's backup flag. Where `created` exists, the fresh classification governs; if it is stronger
+  than `created`'s, the request refuses (fail closed). Reasons (the lead's): OWN:28's "stronger newly observed
+  restriction refuses"; a recheck of a stored value can never refuse; one code path; no route field and no change
+  to the routing entry. Under the constant classifier (L464:51) every route gives `UNKNOWN` today.
 
 ## Open points
 
@@ -251,7 +266,8 @@ RISK until the cross-vendor review. Not settled by text. The project owner is to
 |---|---|---|
 | O1 | E1c: adopt (a) with A-1 to A-12, or overrule | lead after the cross-vendor review; project owner told, may overrule |
 | O2 | A-7's reading (IE/WS unamended) | cross-vendor reviewer; if rejected, the contract owners and the project owner |
-| O3 | E3: the 3b recheck's classification (stored or fresh; `created: None`) | lead, with the 464 owner |
+| O3 | E3: the fresh-classification ruling (Q40), AT RISK | lead; both reviewers; 464 owner |
+| O5 | Q39: MJ:390 names "The S3.1 storage choice (`grants.rs`)" for R7; P's `grants.rs`:212 `storage_write_choice` is documented "S3.1 before the first source-derived write" (:208), as M3B:376 places it ("J3 calls it at the first source-derived write"); the entry rechecks the intent's choice (`initial_installation::storage_choice`) at R7. The lead's reading (Q39 (c), `QUESTIONS.md`:789-791): the intent's choice is rechecked at R7; the grants owner's choice belongs at the first source-derived write, with its extra inputs typed for their producers. Is that reading lawful against MJ:390? | lead; both reviewers; 464 and grants (B3-a) owners |
 | O4 | E2: MJ:391-392 erratum | lead; cross-vendor review; project owner told, may overrule |
 
 ## Consequences for owning units
@@ -267,6 +283,13 @@ call of `durable_pre_draw`, the public function returning `DurablePreDraw`, and 
 - **E2-C2.** Census: `join_store_endpoint` is called only inside `pre_draw_retaining`.
 - **E3-C1.** A test classifier returning `BACKED_UP`, no flag, on 3a and 3b: `storage.backup-choice-required`, and no
   registry row, namespace, `.opensip`, marker, lease or journal. With the flag, or under `UNKNOWN`, R7 admits.
+- **E3-C2 (O3).** On 3b after `LostRace` and after `NotPristine` (`created: None`), the same test classifier and no
+  flag: R7 refuses on the same row. Today's fail-closed refusal for every `created: None` (`QUESTIONS.md`:752-753)
+  makes 3a fail this control.
+- **E3-C3 (O3).** `created` holds `UNKNOWN` and the fresh classification is `BACKED_UP`, no flag: refused; with the
+  flag: admitted. Using `created`'s value instead fails it.
+- **E3-C4 (O3).** Census: R7 reads no classification from `created`; it calls the owner's classifier once per
+  request, on every route.
 
 ## Rejected alternatives
 
