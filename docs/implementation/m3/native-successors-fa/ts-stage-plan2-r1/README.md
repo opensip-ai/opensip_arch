@@ -1,14 +1,36 @@
 # TS-STAGE-PLAN2 — the `typescript-semantic` provider stage in `exec-plan2` and the stage-request projection for a `plan2` Plan
 
 2026-11-11. Drafted by a lead-dispatched design author (Claude Opus 5.5, route R2-DEEP) from the lead's rulings on gap Q14.
-Status: **PROPOSED, r4.** r2 applied the lead's rulings on r1's open questions. r3 applied the lead's rulings on the
-independent review of r2 (`review-opus/VERDICT.md`: R1-R5, A1-A6). r4 applies the rulings on its re-check
-(`review-opus/VERDICT-r3.md`: N1, A7-A9). The directory name is kept. It needs a
+Status: **PROPOSED, r5.** r2 applied the lead's rulings on r1's open questions. r3 applied the lead's rulings on the
+independent review of r2 (`review-opus/VERDICT.md`: R1-R5, A1-A6). r4 applied the rulings on its re-check
+(`review-opus/VERDICT-r3.md`: N1, A7-A9). r5 applies lead decision LD-DEC-3
+(`lead-2026-10-25/decisions/LD-DEC-3-multi-provider-run/DECISION.md`, "Decided", item 1). It adds a scope fence (Plans
+with any other semantic provider's stage are refused under this record), states T3's "exactly one stage per Analyze"
+as a property of the TypeScript protocol, adds the short name RPP, and adds the non-binding open point O4 on what a
+successor for mixed Plans must satisfy. Reason: no rule for mixed Plans can be stated correctly before the Rust
+provider's `plan2` stage shape exists, and the order clause must not read as binding on other providers. r5 changes
+no order, stage id, key, byte or golden for a Plan whose provider stages are all the TypeScript provider's. The
+directory name is kept. It needs a
 cross-vendor review, then adoption by the lead. It binds nothing, changes no existing file, registry, inventory or lock, and
 has no subject manifest yet.
 
 **Scope.** TypeScript only, milestone M3-M-TS1. The Rust provider (`rust-semantic`) has the same gap
 (`rust-provider-protocol.v2.json:222`, "exact C-2 value"; X-RL-C2, `rust3-lim/README.md:376`) and is out of scope.
+
+**Scope fence (normative, r5).** This record governs `plan2` Plans whose provider stages are all the TypeScript
+provider's, that is, whose every provider stage has `producerClosure` P (T1). Here a provider stage is an `exec-plan2`
+stage whose `producerClosure` is a semantic provider closure other than the core provider closure; the core closure's
+syntax and host inventory stages (MC8:993-1001) are not provider stages and keep their own law. A `plan2` Plan that
+contains any other provider's stage is invalid under this record and is refused before spawn, as a host-generated
+invalid Plan (MC8 item 17), until a successor record states the rule for mixed Plans. For such a Plan, T1's order and
+map, T3 and T4-T8 bind nothing.
+- **It matches the product today.** The Rust path fails closed before any Plan exists: a required Rust tuple, with a
+  trust view admitted, falls under the C4ATS-GATE-RUST-ORCH or X-8 gate, "No Plan, no generic refusal" (B
+  `crates/plan-priced/src/plan_domain.rs:1-16`, `domain_gate` :17-56, called at B `crates/host/src/plan.rs:896-901`; pinned
+  for a Rust `inventory` tuple by B `crates/host/src/plan_tests.rs:3637-3654`). The fence makes this limit law, not an
+  accident of the code.
+- **Control.** A test that a Plan whose stages include a provider stage with a `producerClosure` other than P is refused
+  before spawn, owned with T3's fail-closed counts (C4a-TS-b B7, T9).
 
 ## Short names
 
@@ -27,6 +49,7 @@ pairing code at the branch head `3450957f` (**B'**); provider worktree `opensip-
 | **NCM** | `docs/coop/design-corrections/native/native-capability-matrix.v2.json`, design-locked at `docs/v2/architecture/implementation-normative-inputs.v13.json:50-51` (sha256 `4b1c19b0…`) |
 | **MC8** | `docs/implementation/m3/snapshot-plan-c/PROPOSAL-r8.md` (M3-C r8) |
 | **FA2** | `docs/implementation/m3/native-successors-fa/fa-2/section-9-8.md` |
+| **RPP** | `docs/coop/artifacts/rust-provider-protocol.v2.json` (the Rust provider's protocol) |
 | **I1-E1** | draft erratum, branch `errata-2026-11-11-r1` @ `112aa8528`, `docs/implementation/m3/errata-2026-11-11/ERRATUM-I1-E1.md` (PROPOSED) |
 
 ## Subject and superseded selectors
@@ -134,7 +157,10 @@ law, not an input, and Run closure already depends on it (EXC:53).
 **T3. Selection and order.** A universe U's Analyze contains exactly the stage the T1 map assigns to U. One worker
 session and one Analyze serve one U. **Fail closed:** the number of Plan stages whose spec `producerClosure` is P must
 equal the number of T1 universes, and each Analyze must contain exactly one stage. Any other count is a host-generated
-invalid Plan (MC8 item 17), refused before spawn. `StageRequestV1.stageOrdinal` stays the Analyze-relative position
+invalid Plan (MC8 item 17), refused before spawn. "Exactly one stage per Analyze" is a property of the TypeScript
+provider's protocol under this record, not of execution plans in general: the Rust provider's protocol puts "every
+selected stage in exact verified ExecutionPlan order" into one Analyze (RPP:409; selection at RPP:222).
+`StageRequestV1.stageOrdinal` stays the Analyze-relative position
 (DLV:720, :910); it is never the Plan ordinal (NE:3027, :3042). `operator` (`semantic-provider`) and `providerId`
 (`typescript-semantic`) are wire constants (DLV:721-722) and need no Plan source.
 
@@ -224,6 +250,22 @@ P's signed default profile (DLV:915, :923-928). The Plan-wide `plan.budget` neve
   settled here. The default configuration requests both capabilities (B `crates/host/src/configuration_vectors.json:76-77`,
   case `zero-project-config-mixed-native-default`), so until then every default-configuration Run discloses them as
   unavailable.
+- **O4. What a successor for mixed Plans must satisfy (r5; NON-BINDING).** This point binds nothing and states no order
+  rule for mixed Plans. It records constraints a successor must meet (LD-DEC-3):
+  - (i) On a Plan with one provider it reduces exactly to this record's order and ids (T1, T3, T4).
+  - (ii) The stage map's key distinguishes stages by more than the producer closure. The core provider closure produces
+    two kinds of stage: the syntax stage ("that stage's `producerClosure` is the core provider closure", MC8:993) and the
+    host inventory stage ("Its `producerClosure` is the core provider closure", MC8:995). C4-T22's fixture has both in
+    one Plan (MC8:1044-1047).
+  - (iii) The Run-closure check of the stage ordinal (Consequences, "Erratum candidate"; today EXC:51 checks only a
+    matching receipt) covers every provider family and is adopted before the first mixed Plan is committed. Stage order
+    becomes durable through the execution plan, not the Plan record: `plan` has no execution-plan member (IDS:456-473),
+    `evaluation-seal` requires `executionPlanId` (IDS:1416-1422) and `run` requires `evaluationSealId` (IDS:1474-1483).
+  - (iv) The Rust provider's stage grouping is fixed with that provider's own record, after its owed measurements. Its
+    protocol selects stages by the C-2 `providerId` (RPP:222), puts every selected stage into one Analyze (RPP:409),
+    takes each stage's relations from that stage (RPP:234), and assumes one Rust row (RPP:225). The measurements are
+    owed by RUST3-LIM: "What S-M must measure" (`rust3-lim/README.md:310`, SM-13 and SM-14 at :320-321), and the Rust
+    stage budget X-RL-C2 is due "C4a, after S-M" (:376).
 
 ## Consequences
 
