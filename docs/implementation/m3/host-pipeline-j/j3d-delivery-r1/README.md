@@ -3,7 +3,9 @@
 2026-11-11. Drafted by a lead-dispatched design author (Claude Opus 5.5, route R2-DEEP, effort medium; preflight
 `ROUTE-OK R2-DEEP claude claude-opus-5-5/medium`) for unit J3d-TS (`LC/j3d-ts/SCOPE-r1.md` C6-C8, questions Q3, Q4, Q8,
 Q11), answering review finding R2 and its blob-lookup advisory (`LC/j3d-ts/review-opus/VERDICT.md`).
-Status: **PROPOSED, r2.** r2 applies the independent review (`LC/j3d-ts/review-opus-delivery/VERDICT.md`, R1-R5,
+Status: **PROPOSED, r3.** r3 applies the re-check (`LC/j3d-ts/review-opus-delivery/VERDICT-r2.md`, N1, A8-A10):
+two conflicts added as O5 and O6; the row-43 remedy's TS1 gap (D1); `derive`'s totality and panic path (D1, C6
+controls); the measurement's scope (D1). r2 applied the independent review (`LC/j3d-ts/review-opus-delivery/VERDICT.md`, R1-R5,
 A1-A7) under the lead's rulings: **D1's refusal rule is reversed** (a refused derivation no longer stops the commit);
 the derivation runs before the signal check; R2-R5 and A1-A7 are applied. It needs a cross-vendor review, then adoption
 by the lead (clauses on law records) and the project owner (clauses marked **owner**). It binds nothing and changes no
@@ -45,14 +47,23 @@ records: MJ item 7, X7:172).**
   check** (`port.observed()`), and so before `prepare_commit`. No delivery-phase code runs under the open session:
   `DeliveryPhase::replayed` is removed. The result is carried as a value, `Result<Derived, Refusal>` (plain data, nothing
   that can open the store). **The derivation never changes whether or how the Run commits:** the commit proceeds exactly
-  as it would without it. After `finish` the phase is lent `&PublishedCommit` and that value, and composes RTC §7 there.
+  as it would without it. **This holds only if `derive` cannot panic** (A9): `derive` must be total over a replayed
+  Run, every unexpected shape a typed `Refusal`, never a panic, `unwrap`, `expect`, indexing panic or `unreachable!`
+  (X7:469 rejects a panic path in a termination projection). `finalize` treats a panic there as any other panic under
+  the writer session: P has no `catch_unwind` in `finalize` (`host/src/finalization.rs:428-467`), so it unwinds with the
+  session open and before `prepare_commit`, no attempt row is appended, and the end is MJ row 49 (MJ:821: "Host panic
+  before or after FinalGate admission | operational-failed 4, host-invariant, where the termination layer is reachable
+  after unwinding / nothing manufactured"). A `derive` panic would therefore stop the commit; totality is what keeps
+  D1's rule true. After `finish` the phase is lent `&PublishedCommit` and that value, and composes RTC §7 there.
   If the attempt does not commit, the value is dropped unread.
 - *Why before the signal check.* `observed()` moves the port to `preparing` (`finalization/cancellation.rs:124-131`), so
   a signal during a later `derive` would be latched at `arm` and handled as phase B (an attempt row and a REV). Before the
   check it ends in phase A with nothing appended (MJ:600).
 - *Bound.* In memory, charged to no ledger, like replay (X5:45; X7:244); every retained lookup keyed (the linear
   `Retained::blob` scan, `run_termination.rs:250-259`, is replaced). X5:43's "lengthens the lease hold with pure work"
-  was withdrawn for replay only (MJ:534), so the added hold is **owed a measurement before the code lands**: `derive`
+  was withdrawn for replay only (MJ:534), so the added hold is **owed a measurement before the code lands**. It covers
+  **all work `finalize` does under the writer lease beyond replay** (A10): `derive` and, under owner option 1 (D3), the
+  producers' Run-derived inputs computed with it (the `FindingSurface` rows and `requiredCoverage`), not `derive` alone,
   timed beside `replay_candidate` on both crash-matrix synthetic candidates (including the rows under the 5000 ms timing
   guard, `host/tests/commit_matrix_tests.rs:1620-1637`, `security/src/crash_matrix_support/run_record.rs:152`), both TS1
   fixtures, and a candidate at the `REPLAY_LIMITS` bounds.
@@ -70,7 +81,10 @@ records: MJ item 7, X7:172).**
   operational fault … If a Run was already committed, the termination retains its RunId and the after-commit detail"
   (WS:1128-1134). A committed Run whose delivery failed is already a known state: the F16 row keeps the runId (X7:160);
   "a delivery failure never retries the commit and never relabels the Run" (X7:174; WS:1141-1145, "no rewrite of the
-  Run"); its remedy is "the Run is committed; rerun opensip query run.show with the runId" (CINV:1800); read-only
+  Run"); its remedy is "the Run is committed; rerun opensip query run.show with the runId from the termination"
+  (CINV:1800). **At TS1 that remedy is unavailable** (A8): `query` is M4 (BP:956; MJ:197), and a refused derivation
+  would refuse there too. The M3-M-TS1 record must say so and state how the committed Run is recovered instead: the
+  read-back by execution id that the unit already performs. Read-only
   recovery reports it committed (MJ:860, J-C21; lead ruling Q5). **No text forbids committing after a refused derivation:**
   RTC §2's "no termination" is for a Run `close_run` refuses (RTC:45-46), which replay already stops; RTC §3 forbids a
   *silent* `VERDICT.INDETERMINATE` (RTC:84-85), and row 43 is not silent.
@@ -78,7 +92,7 @@ records: MJ item 7, X7:172).**
   defect; crash-matrix outcomes are unchanged. *Weakest point.* A committed Run whose projection no current host can
   derive exists durably. Its reader sees exit 4 `DELIVERY.REQUIRED_FAILED`, `RENDERER_FAILED_AFTER_COMMIT` and the
   runId, a `committed-historically` recovery, and no verdict, reasons or findings until a corrected host re-derives them;
-  the RTC key is only in the operational record. RTC §3 calls its own refusal a host invariant violation (RTC:84-87),
+  the RTC key is only in the operational record (no field named; O5). RTC §3 calls its own refusal a host invariant violation (RTC:84-87),
   yet its public termination here is WS's delivery-required row, not host-invariant.
 
 **D2. The output decision after R12. PROPOSED (lead ruling Q3; no text states the split).**
@@ -153,6 +167,23 @@ interim (Q8): the harness times `replay_candidate` on the same candidate, and `d
   `requiredCoverage` reduction (WPC:182 is per rule); also an owner for `comparison-counts`.
 - **O3. Closed** (lead ruling on this review, R1): a refused derivation commits and is reported on row 43 (D1).
 - **O4 (owner).** C2-T8's enforcement point (MC8:465) before any authoritative surface lands.
+- **O5. A refusal reported as a renderer failure (N1).** D1 (i)-(ii) report a refused derivation or composition with
+  `DELIVERY.RENDERER_FAILED_AFTER_COMMIT`, though no renderer failed. WS:1143-1145: "Failure of the selected required
+  renderer **after** a committed Run is `DELIVERY.REQUIRED_FAILED` (4) with detail
+  `DELIVERY.RENDERER_FAILED_AFTER_COMMIT`"; CINV:1795: "the selected required renderer … fails to write". *Meanwhile:*
+  the existing detail is used, because WS gives it to any projection failure after commit: "A missing field or
+  projection exception is a required-delivery operational fault … If a Run was already committed, the termination
+  retains its RunId and the after-commit detail below" (WS:1130-1134), including "a pure reference projection helper
+  raising `KeyError`" (WS:1137-1138). The true cause (the RTC key) goes to "the operational diagnostic record"
+  (NE:3554-3555; MJ:847); no text names a field for it, so that field is **owed** (J3d-TS C7). *Decider:* the lead,
+  whether to keep the reading at TS1; a rename or a new detail code is a public-surface change (a WS successor), the
+  project owner's.
+- **O6. "Is discarded" and row 47 (N1).** MJ:603, phase D: "At the decision point, step 1 is `cancelled` and its
+  projection is discarded", yet its envelope is "`interrupted` 130 on `kind: run`, with `run.authority:
+  authoritative`, the runId", and `kind: run` needs the full `run` member (INV5:1406: verdict, `requiredCoverage`,
+  deficiency pair), built from that projection's inputs. *Decider:* the lead, through a law record on MJ 8.4.
+  *Meanwhile:* D3's row-47 rule stands as written. It reads "is discarded" as covering **step 1's rendered output
+  only**: the `run` member is composed from step 0's carried value, which is not discarded.
 
 ## Consequences (owning units)
 
@@ -160,7 +191,9 @@ interim (Q8): the harness times `replay_candidate` on the same candidate, and `d
   method, the call, the test phase's `replayed` (`finalization_tests.rs:572-614`), the lend tests (:855, :883-925), and
   the order pin entry `"phase.replayed(&replayed);"` (:1021). Add `derive` to the order pin between replay and
   `port.observed()`; controls: a refused derivation commits with an unchanged commit outcome and gives row 43 with the
-  runId; a signal during `derive` is phase A. Keyed lookups. Crash-matrix outcomes unchanged; only timing (D1's
+  runId; a signal during `derive` is phase A; **`derive` does not panic** on mutated corpus Runs (a fuzz or
+  exhaustive-shape test over the crash-matrix candidates and TS1 fixtures; each mutation is a typed `Refusal` or a
+  `Derived`, never a panic) (D1, A9). Keyed lookups. Crash-matrix outcomes unchanged; only timing (D1's
   measurement) and the lead sets owed on the new change.
 - J3d-TS C7: `compose` in the phase after `finish`; D3's producers (option 1) or the row-43 TS1 limit (option 2).
 - Lead: MJ item 7 order step and X7:172's lend (law records); D2's equivalence test scope and `decide`'s commit
