@@ -1,7 +1,7 @@
 # TS-STAGE-PLAN2 — the `typescript-semantic` provider stage in `exec-plan2` and the stage-request projection for a `plan2` Plan
 
 2026-11-11. Drafted by a lead-dispatched design author (Claude Opus 5.5, route R2-DEEP) from the lead's rulings on gap Q14.
-Status: **PROPOSED, r5.** r2 applied the lead's rulings on r1's open questions. r3 applied the lead's rulings on the
+Status: **PROPOSED, r6.** r2 applied the lead's rulings on r1's open questions. r3 applied the lead's rulings on the
 independent review of r2 (`review-opus/VERDICT.md`: R1-R5, A1-A6). r4 applied the rulings on its re-check
 (`review-opus/VERDICT-r3.md`: N1, A7-A9). r5 applies lead decision LD-DEC-3
 (`lead-2026-10-25/decisions/LD-DEC-3-multi-provider-run/DECISION.md`, "Decided", item 1). It adds a scope fence (Plans
@@ -9,28 +9,53 @@ with any other semantic provider's stage are refused under this record), states 
 as a property of the TypeScript protocol, adds the short name RPP, and adds the non-binding open point O4 on what a
 successor for mixed Plans must satisfy. Reason: no rule for mixed Plans can be stated correctly before the Rust
 provider's `plan2` stage shape exists, and the order clause must not read as binding on other providers. r5 changes
-no order, stage id, key, byte or golden for a Plan whose provider stages are all the TypeScript provider's. The
-directory name is kept. It needs a
+no order, stage id, key, byte or golden for a Plan whose provider stages are all the TypeScript provider's. r6
+applies the lead's rulings on the independent review of r5 (`review-opus-r5/VERDICT.md`: R1-R3, A1): the fence also
+excludes a Plan with an available binding over a universe that is neither a TypeScript nor a syntax universe (R1); the
+"matches the product" bullet is re-pinned to B and states each Rust route the product takes, with an owed control (R2);
+T4's "one generic prefix" sentence is scoped to the TypeScript provider (R3); O4 gains (v), where a core stage over a
+non-TypeScript universe goes, and (iv) says "reads as assuming" (A1). r6, like r5, changes no order, stage id, key,
+byte or golden for a TypeScript-only Plan. The directory name is kept. It needs a
 cross-vendor review, then adoption by the lead. It binds nothing, changes no existing file, registry, inventory or lock, and
 has no subject manifest yet.
 
 **Scope.** TypeScript only, milestone M3-M-TS1. The Rust provider (`rust-semantic`) has the same gap
 (`rust-provider-protocol.v2.json:222`, "exact C-2 value"; X-RL-C2, `rust3-lim/README.md:376`) and is out of scope.
 
-**Scope fence (normative, r5).** This record governs `plan2` Plans whose provider stages are all the TypeScript
-provider's, that is, whose every provider stage has `producerClosure` P (T1). Here a provider stage is an `exec-plan2`
-stage whose `producerClosure` is a semantic provider closure other than the core provider closure; the core closure's
-syntax and host inventory stages (MC8:993-1001) are not provider stages and keep their own law. A `plan2` Plan that
-contains any other provider's stage is invalid under this record and is refused before spawn, as a host-generated
-invalid Plan (MC8 item 17), until a successor record states the rule for mixed Plans. For such a Plan, T1's order and
-map, T3 and T4-T8 bind nothing.
-- **It matches the product today.** The Rust path fails closed before any Plan exists: a required Rust tuple, with a
-  trust view admitted, falls under the C4ATS-GATE-RUST-ORCH or X-8 gate, "No Plan, no generic refusal" (B
-  `crates/plan-priced/src/plan_domain.rs:1-16`, `domain_gate` :17-56, called at B `crates/host/src/plan.rs:896-901`; pinned
-  for a Rust `inventory` tuple by B `crates/host/src/plan_tests.rs:3637-3654`). The fence makes this limit law, not an
-  accident of the code.
-- **Control.** A test that a Plan whose stages include a provider stage with a `producerClosure` other than P is refused
-  before spawn, owned with T3's fail-closed counts (C4a-TS-b B7, T9).
+**Scope fence (normative, r5; widened r6).** This record governs only `plan2` Plans **inside the fence**. A Plan is
+inside the fence when both hold:
+- (a) every provider stage has `producerClosure` P (T1). Here a provider stage is an `exec-plan2` stage whose
+  `producerClosure` is a semantic provider closure other than the core provider closure; the core closure's syntax and
+  host inventory stages (MC8:993-1001) are not provider stages and keep their own law;
+- (b) every available binding (ENP `AvailableProgramBindingV1`) has a `universe` that is a TypeScript universe or a
+  syntax universe. A TypeScript universe is the universe of a binding in a cell whose language mode is `ts-tsconfig`,
+  `js-allowjs` or `js-synthesized`; a syntax universe is the universe of a binding in a `syntax-only` cell (MC8:993; modes at ENP:210-220). In particular, an
+  available binding of a `rust-cargo` or `rust-cargo-prepared` cell puts the Plan outside, including an `inventory`
+  binding, whose core inventory stage over a Rust universe (MC8:1044-1047) would otherwise pass (a).
+
+A `plan2` Plan outside the fence is invalid under this record and is refused before spawn, as a host-generated invalid
+Plan (MC8 item 17), until a successor record states the rule for mixed Plans. For such a Plan, T1's order and map, T3
+and T4-T8 bind nothing. An unavailable binding has no universe (MC8:1000) and never puts a Plan outside.
+- **It matches the product today** (citations at B). No Plan the product builds contains a stage other than P's or the
+  core closure's, or an available binding over a Rust universe. The Rust routes are:
+  - *A required Rust tuple* is gated before any Plan: with a trust view admitted, an `inventory` tuple is the
+    C4ATS-GATE-RUST-ORCH gate and any other is ORCH or X-8 by whether a Rust provider is admitted; with no trust view,
+    every required non-`inventory` tuple, Rust included, is X-8 (B `crates/plan-priced/src/plan_domain.rs:30-49`, "No Plan,
+    no generic refusal", :2-4; called at B `crates/host/src/plan.rs:839-844`; pinned by B `crates/host/src/plan_tests.rs:3268-3283`
+    for X-8 and :3433-3450 for ORCH). A required Rust `inventory` tuple with no trust view is not gated
+    (`plan_domain.rs:30-35`) and takes the next route.
+  - *A Rust tuple with no trust view* (non-required, or a required `inventory` tuple) takes an unavailable binding, with
+    the core enumerator for `inventory` and `optional-unselected` otherwise, no universe and no stage, in a Plan that is
+    built (B `plan.rs:1656-1702`).
+  - *A non-required Rust tuple with a trust view* passes the gate (`plan_domain.rs:27-29`) and reaches the cell walk.
+    No program exists for a Rust mode (programs carry TypeScript modes only, B `plan.rs:1608-1617`), so the walk returns
+    `CellsBuilt::Unbound` (B `plan.rs:1705-1707`) and the request ends `PlanOutcome::Unbound` (B `plan.rs:915`), "the tuple
+    is never omitted" (B `plan.rs:742-744`). No Plan is built.
+  The fence relies on all three: none yields an available Rust binding or a non-P provider stage. The fence makes this
+  limit law, not an accident of the code.
+- **Controls.** (1) A test that a Plan outside the fence, by (a) or by (b), is refused before spawn, owned with T3's
+  fail-closed counts (C4a-TS-b B7, T9). (2) **Owed:** no test at B pins the third route for a Rust row (a non-required
+  Rust tuple with a trust view ends `Unbound`, never a Plan). It is owed by the provider-request unit, C4a-TS-b.
 
 ## Short names
 
@@ -167,7 +192,7 @@ selected stage in exact verified ExecutionPlan order" into one Analyze (RPP:409;
 **T4. `stageId`.** For a `plan2` Plan, the stage id of the stage with Plan ordinal n is the ASCII text `stage-`
 followed by n in decimal, with no sign and no leading zero (`stage-0`, `stage-17`). It is NFC and at most 26 scalars,
 inside `StageIdText`'s 1..255 (B `schemas/sources/startup-v1.schema.json:142-147`; B `native-carriers-v1.json:2407-2419`).
-One generic prefix serves every provider.
+The function names no provider; whether other providers' stages use it is the successor's (O4).
 - It replaces "exact C-2 text" for `plan2` Plans.
 - `DispatchBindingV1.expectedStageId` is the same function of the binding's `retainedStageOrdinal`.
 - The host compares stage ids only for byte equality (DSP:81; NE:3039).
@@ -263,9 +288,12 @@ P's signed default profile (DLV:915, :923-928). The Plan-wide `plan.budget` neve
     `evaluation-seal` requires `executionPlanId` (IDS:1416-1422) and `run` requires `evaluationSealId` (IDS:1474-1483).
   - (iv) The Rust provider's stage grouping is fixed with that provider's own record, after its owed measurements. Its
     protocol selects stages by the C-2 `providerId` (RPP:222), puts every selected stage into one Analyze (RPP:409),
-    takes each stage's relations from that stage (RPP:234), and assumes one Rust row (RPP:225). The measurements are
-    owed by RUST3-LIM: "What S-M must measure" (`rust3-lim/README.md:310`, SM-13 and SM-14 at :320-321), and the Rust
-    stage budget X-RL-C2 is due "C4a, after S-M" (:376).
+    takes each stage's relations from that stage (RPP:234), and reads as assuming one Rust row (RPP:225). The
+    measurements are owed by RUST3-LIM: "What S-M must measure" (`rust3-lim/README.md:310`, SM-13 and SM-14 at
+    :320-321), and the Rust stage budget X-RL-C2 is due "C4a, after S-M" (:376).
+  - (v) (r6) It states where a core-produced stage over a non-TypeScript universe goes, such as the host inventory
+    stage over a Rust universe (MC8:1044-1047), relative to the provider stages. Under the fence such a Plan is outside
+    (fence (b)), so T1's placement does not decide it.
 
 ## Consequences
 
