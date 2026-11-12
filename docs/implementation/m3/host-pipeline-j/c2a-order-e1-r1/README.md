@@ -3,7 +3,9 @@
 2026-11-12. Drafted by a lead-dispatched design author (Claude Opus 5.5, route R2-DEEP, effort medium; preflight
 `ROUTE-OK R2-DEEP claude claude-opus-5-5/medium`) for unit J3d-TS, scope row C2a (CP-J3D-SECPRE-1), questions Q35-Q37
 (`LC/j3d-ts/QUESTIONS.md`:628-661), the lead's rulings (`QUESTIONS.md`:680-708, :710-728) and `LC/j3d-ts/C2A-ORDER.md`.
-Status: **PROPOSED, r5.** **r5 changes** (lead rulings Q39, Q40, `LC/j3d-ts/QUESTIONS.md`:737-790): E3's open
+Status: **PROPOSED, r6.** **r6 changes** (re-check `LC/j3d-ts/review-opus-c2a-order/VERDICT-r5.md` F1, A-1 to
+A-3; the lead's correction to Q40, `LC/j3d-ts/QUESTIONS.md`:804-811): E3's rule no longer compares with `created`;
+E3-C2 to E3-C4 made consistent; the owner bullet. **r5 changes** (lead rulings Q39, Q40, `LC/j3d-ts/QUESTIONS.md`:737-790): E3's open
 sentence becomes the lead's ruling (a fresh classification on every route), with the routing fact and controls
 E3-C2 to E3-C4; new open point O5 (Q39, which storage choice R7 calls). No sentence of the record said `grants.rs`
 has no choice; that error was `C2A-ORDER.md`'s (R7 row). **r4 changes** (`LC/j3d-ts/review-opus-c2a-order/VERDICT-r3.md`, A-a to A-c): wording
@@ -39,8 +41,9 @@ nothing and changes no existing file. Marks: **SETTLED-BY-TEXT** (the texts deci
   the endpoint check refuses on a project's first use, the project stays registered (its registry row, namespace and
   marker remain; the next run hits the same refusal until the core or store changes).
 - **The storage check (E3).** The lead also ruled, without a deciding text, that the backup-storage check
-  re-observes the installation's storage on every run instead of trusting the value recorded at creation.
-- **You may overrule either choice.**
+  re-observes the installation's storage on every run instead of trusting the value recorded at creation. No
+  behaviour changes today: the present classifier always answers "unknown".
+- **You may overrule any of these choices.**
 
 ## Short names
 
@@ -252,12 +255,12 @@ RISK until the cross-vendor review. Not settled by text. The project owner is to
   only `admission` and `created` (P @ `780c52fc` `security/src/custody/installation_routing.rs`:74-77), and `created`
   is `None` both on the steady state (no creator act) and after `LostRace` or `NotPristine` (MJ:309, :311; P :254,
   :334). So a rule that differs by route needs a new route field; a single rule does not.
-- *PROPOSED (lead ruling Q40, `QUESTIONS.md`:780-788; a ruling, not settled by text; AT RISK until the
-  cross-vendor review).* On every route (3a; 3b with `created: Some`; 3b after `LostRace` or `NotPristine`), R7
-  takes a FRESH classification of the installation target from the 464 owner's classifier, then the storage choice
-  with this invocation's backup flag. Where `created` exists, the fresh classification governs; if it is stronger
-  than `created`'s, the request refuses (fail closed). Reasons (the lead's): OWN:28's "stronger newly observed
-  restriction refuses"; a recheck of a stored value can never refuse; one code path; no route field and no change
+- *PROPOSED (lead ruling Q40 as corrected, `QUESTIONS.md`:780-788 and :804-811; a ruling, not settled by text; AT
+  RISK until the cross-vendor review).* On every route (3a; 3b with `created: Some`; 3b after `LostRace` or
+  `NotPristine`), R7 takes a FRESH classification of the installation target from the 464 owner's classifier, and
+  the storage choice over that classification and this invocation's backup flag decides alone. R7 neither reads
+  nor compares `created`'s classification; that value remains only what the creation disclosure carries. Reasons
+  (the lead's): OWN:28's "stronger newly observed restriction refuses"; a recheck of a stored value can never refuse; one code path; no route field and no change
   to the routing entry. Under the constant classifier (L464:51) every route gives `UNKNOWN` today.
 
 ## Open points
@@ -284,12 +287,14 @@ call of `durable_pre_draw`, the public function returning `DurablePreDraw`, and 
 - **E3-C1.** A test classifier returning `BACKED_UP`, no flag, on 3a and 3b: `storage.backup-choice-required`, and no
   registry row, namespace, `.opensip`, marker, lease or journal. With the flag, or under `UNKNOWN`, R7 admits.
 - **E3-C2 (O3).** On 3b after `LostRace` and after `NotPristine` (`created: None`), the same test classifier and no
-  flag: R7 refuses on the same row. Today's fail-closed refusal for every `created: None` (`QUESTIONS.md`:752-753)
-  makes 3a fail this control.
-- **E3-C3 (O3).** `created` holds `UNKNOWN` and the fresh classification is `BACKED_UP`, no flag: refused; with the
-  flag: admitted. Using `created`'s value instead fails it.
-- **E3-C4 (O3).** Census: R7 reads no classification from `created`; it calls the owner's classifier once per
-  request, on every route.
+  flag: R7 refuses on the same row; with the flag it admits. Today's `StorageUndetermined` refusal for every
+  `created: None` (`QUESTIONS.md`:752-753, no row) fails E3-C2, and fails E3-C1 on 3a.
+- **E3-C3 (O3).** A `cfg(test)` sequenced classifier seam answers `UNKNOWN` to the intent at creation and
+  `BACKED_UP` at R7 (so `created` holds `UNKNOWN`): no flag, refused; with the flag, admitted. The reverse sequence
+  (`BACKED_UP` at creation with the flag, `UNKNOWN` at R7) admits at R7 without the flag. Deciding from `created`'s
+  value fails it.
+- **E3-C4 (O3).** Structural: R7's function takes no `Created` and no value derived from it; it calls the owner's
+  classifier once per request, on every route.
 
 ## Rejected alternatives
 
