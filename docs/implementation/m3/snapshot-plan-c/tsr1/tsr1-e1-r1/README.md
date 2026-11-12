@@ -1,12 +1,14 @@
-# TSR-1-E1 r2: the synthesized profile's program roots, and who discloses its limits
+# TSR-1-E1 r3: the synthesized profile's program roots, and who discloses its limits
 
 2026-11-11. Design author (Claude Opus 5.5, R2-DEEP, medium; preflight ROUTE-OK), under the lead's rulings on
-JS-SYNTH-PROFILE-1 Q1-Q7 (`LC/js-synth-profile-1/QUESTIONS.md`; groundwork `SCOPE-r1.md`). **Status: PROPOSED, r2.**
+JS-SYNTH-PROFILE-1 Q1-Q7 (`LC/js-synth-profile-1/QUESTIONS.md`; groundwork `SCOPE-r1.md`). **Status: PROPOSED, r3.**
 Q1, Q2 and Q4 are adopted AT RISK as the readings the host code is written against. **r2** applies the independent
 review (`LC/js-synth-profile-1/review-opus/VERDICT.md`, F1-F4, A1-A2) under the lead's rulings on it. F1: E1.3 is R-4.2's
 candidate rule, and O1 is closed by the texts. F2: E1.2 states the monorepo effect, and O3 goes to the owner. F3: E1.4a
 lists the matcher behaviours that do not apply. F4: E1.7 (b) is OPEN for the owner. A1/A2: E1.8a covers the reference
-model and the pinned vectors. r1 is in this branch's history. The record still needs the cross-vendor review and the
+model and the pinned vectors. **r3** applies the r2 review's advisories (`review-opus/VERDICT-r2.md`, ACCEPT):
+AD-1 (the user-ignored-path silence in E1.3, and a tsconfig-branch finding under Consequences), AD-2 (O3), AD-3 (one
+control row). r1 and r2 are in this branch's history. The record still needs the cross-vendor review and the
 lead's adoption in a receipt that pins this file's sha256. It binds nothing and edits no file.
 
 **Short names.** Base: architecture main `fa6fa0fba`. **TSR** = `TSR-1-r4.md` beside this directory (sha256 `be654c41…`,
@@ -56,8 +58,10 @@ with `r + "/"`. This is NM's `_under_unit` (NM:2211). The unit's `FileMembership
 - **This is already the unit model's behaviour.** A root `tsconfig.json` with no `files` or `include` gets
   `include = ["**/*"]` (R-4.3, TSR:750). Its roots therefore include nested `tsconfig` units' files, except under
   `node_modules`, `bower_components`, `jspm_packages` and dot-directories (R-4.6). The nested units are still distinct
-  units (U-3, NE:690-692). NM's `_under_unit` does the same for every mode (NM:2211, :2223). E1.2 introduces nothing new.
-  Whether a user should see this is O3.
+  units (U-3, NE:690-692). NM's `_under_unit` does the same for every mode (NM:2211, :2223). The overlap is therefore not
+  new to the unit model, but its cause is. Under a tsconfig it follows from the user's own spec, which `include` or
+  `exclude` can change, and a `ts-tsconfig` root takes no nested `.js` file. Under `js-synthesized` the host imposes it
+  unconditionally (O3).
 - **Fixtures.** `js-small-body-parser` has one marker, the root `package.json` (25 paths), and no nested unit.
   `ts-small-constructs` has no `js-synthesized` unit (root `tsconfig.json`, `projenrc/` and `test/` tsconfig units).
   Its overlap, if any, comes from R-4.3 and not from this record. Neither fixture is affected.
@@ -77,10 +81,19 @@ inside a pruned tree (U-4a) and not `outside-project-boundary`" (TSR:729-730). E
 - NM:2223 classifies with `()` as the Cargo roots. Its comment "a tsjs unit has no Cargo root" is false for the
   co-located case. NM is the defect (A1, E1.8a).
 
+**A silence shared with R-4.2: user-ignored paths. PROPOSED (review AD-1).** ENC:172 says "every extent path must be a
+first-party scoped snapshot member". The Plan scope's `excludedPathPrefixes` are "Config2 `ignorePaths` ∪ the anchors of
+the pruned trees … ∪ the admitted boundary anchors" (NE:935-940). R-4.2 (TSR:729-730) names pruned trees and boundary
+rows, but not `ignorePaths`. For the synthesized root list this record follows ENC:172: a path under an
+`ignorePaths` prefix is not a root. The reason is that such a root would sit in the symbol extent (ENC:172) without being
+a scoped member, and the extent rule would refuse it. So excluding it is the only lawful value. If ignored paths never
+reach the snapshot inventory, the rule is moot. Whether R-4.2 itself should name them is for the lead, outside this
+erratum.
+
 A unit root never lies in a pruned tree (U-4b item 1, NE:747-749). **Host consequence:** B-21 today passes every
 snapshot row as a candidate (B `plan.rs:2100-2106`). Commit 1's function must take the unit membership rows, or classify
 with the units' Cargo roots and the boundary rows itself, and drop `host-ignore-convention` rows,
-`outside-project-boundary` rows and non-regular rows.
+`outside-project-boundary` rows, non-regular rows and rows under a Config2 `ignorePaths` prefix.
 
 **E1.4 Declaration files. PROPOSED (lead Q4).** The six extensions are tested with TSR R-4.4's predicate: "A path `p`
 **has** extension `e` when its rooted subject `/` + `p` is longer than `e` and ends with it" (TSR:761-762). So `x.d.ts` is
@@ -172,6 +185,7 @@ control 1(c)), one table:**
 | a file outside the unit root; a nested unit's file | out; in | E1.2 |
 | `a.ts` + `a.js`; `a.d.ts` + `a.js` | all in | E1.4a |
 | `.config/x.js`, `.eslintrc.js`, `x.min.js`, `bower_components/x.js`, `jspm_packages/x.js` | in | E1.4a |
+| `jsRootFiles` content: exactly the `.js` `.jsx` `.mjs` `.cjs` members of `programRootFiles`, same order, no `.ts` `.tsx` `.d.ts` | subsequence | E1.1 (R-4.10) |
 | `B.js` before `a.js`; `\u{FF21}.js` before `\u{1F600}.js`; `eslint.config.mjs` at index 0 | order | E1.1, E1.4a |
 
 **E1.8a Second derivation and pinned vectors. PROPOSED (review A1, A2).** The table above alone is too little for new
@@ -194,7 +208,9 @@ regenerates it, never a hand edit.
   which carrier to add: a `ViewEntryV3` successor or a reporting rule. This covers every matrix limitation that has no
   carrier: L-JS1, L-JS2 (also on `ts-tsconfig` and `js-allowjs` `references`/`calls`), L-RS1-L-RS4 and L-FW1 (NE:593-597).
   Only L-JS3 has one (`TypeDerivationV1`).
-- **O3 (project owner).** Nested packages under a synthesized root (E1.2). Option (i), keep E1.2: no text changes, and
+- **O3 (project owner).** Nested packages under a synthesized root (E1.2). **What is being decided:** under a `tsconfig`
+  the overlap with nested units is the user's own configuration. Under `js-synthesized` it is imposed, and the only
+  opt-out is adding a configuration file. Option (i), keep E1.2: no text changes, and
   JS monorepos get duplicated facts and double counts across universes, as tsconfig roots already do under R-4.3.
   Option (ii), exclude nested `tsjs` units' subtrees from a synthesized program's roots: each file is then analysed once.
   But this is a law line beside NE:1426 (and TSR R-1.10a), and it changes NM's `_under_unit` use and the control table.
@@ -213,6 +229,19 @@ regenerates it, never a hand edit.
   alone; NE:1424 says `.jsx`/`.tsx`) differ from E1.4 and NE. The `jsx` difference has no body-parser effect. E1.3's wider exclusion and E1.4a have none
   either (the 14 roots hold no `target`, dot-file, `.min.js` or same-stem pair).
 - **The body-parser milestone record:** the E1.7 interim text.
+- **Finding for the lead (not this erratum's law; review AD-1).** The host's `tsconfig` branch also passes every snapshot
+  row as a candidate. In B @ `e4e764e6`, `crates/host/src/plan.rs:2097-2106` builds the set, and `:2109` hands it to
+  `opts::program_roots` (the worktree's uncommitted edits move these to :2144-2156). So that branch does not apply R-4.2's
+  pruned-tree and boundary exclusions either. Inputs that would show a wrong tsconfig root list:
+  - a `target/x.ts` beside a co-located root `Cargo.toml` under `include: ["**/*"]`;
+  - a nested repository's (boundary) files;
+  - a `files` literal naming a pruned or boundary row, which R-4.5 refuses and which would be admitted;
+  - a path under `ignorePaths`.
+
+  The TypeScript fixture is not such an input. `ts-small-constructs` (47 paths) has no `node_modules`, VCS directory,
+  `Cargo.toml`, `target` segment or nested repository. Its only dot-directories are `.github/` and `.projen/`, which hold
+  no TS or JS file, and no `ignorePaths` is configured (TS1-HOST-VALUES V8's `opensip.json` sets only
+  `analysis.capabilities`).
 - **Fixture 2 (`ts-small-constructs`):** nothing. It has no `js-synthesized` unit.
 
 ## What this record does not do
