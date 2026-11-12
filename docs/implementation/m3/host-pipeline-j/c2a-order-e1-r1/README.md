@@ -3,7 +3,9 @@
 2026-11-12. Drafted by a lead-dispatched design author (Claude Opus 5.5, route R2-DEEP, effort medium; preflight
 `ROUTE-OK R2-DEEP claude claude-opus-5-5/medium`) for unit J3d-TS, scope row C2a (CP-J3D-SECPRE-1), questions Q35-Q37
 (`LC/j3d-ts/QUESTIONS.md`:628-661), the lead's rulings (`QUESTIONS.md`:680-708, :710-728) and `LC/j3d-ts/C2A-ORDER.md`.
-Status: **PROPOSED, r3.** **r3 changes** (re-check `LC/j3d-ts/review-opus-c2a-order/VERDICT-r2.md`, F1, F2,
+Status: **PROPOSED, r4.** **r4 changes** (`LC/j3d-ts/review-opus-c2a-order/VERDICT-r3.md`, A-a to A-c): wording
+only, in "For the project owner": the law records (a) amends; (a)'s dependence on O2; the erratum's leftover state.
+**r3 changes** (re-check `LC/j3d-ts/review-opus-c2a-order/VERDICT-r2.md`, F1, F2,
 A-i to A-iii): amendments A-11 (M3D:759-762 and :815) and A-12 (MJ:410); controls E1-C8 (an output scan) and E1-C9
 (after the floor publication); A-9 names the census's files; A-7 states the attempt-A/attempt-B reading; a section
 "For the project owner". r2 applied the independent review (`VERDICT.md`, R1-R3,
@@ -22,12 +24,17 @@ nothing and changes no existing file. Marks: **SETTLED-BY-TEXT** (the texts deci
   forward before analysis) must name the act that wrote it, and the record format requires an execution id there.
   Today no lawful id exists at that point, so (a) gives that one act its own fresh id. That id identifies no analysis
   attempt, and no other record names it.
-- **What (a) costs.** Twelve listed law-text items (A-1 to A-12; three are readings with no word change), and no change to any schema, corpus or pinned record.
+- **What (a) costs.** Twelve listed law-text items (A-1 to A-12; three are readings with no word change). They amend
+  adopted and accepted law records: the pipeline law MJ, the supervisor law M3D (A-11), the pre-draw record SPD (A-9)
+  and the trust law X4T (A-8). There is no change to any record format, schema, corpus or selection.
+- **What (a) assumes (O2).** (a) assumes the identity contract allows an id that is not an analysis attempt's. If
+  that reading is rejected, the identity and workflow contracts' wording changes too, which is yours to approve.
 - **What (b), rejected, would cost.** A schema and selection successor, new versions of two record kinds, regenerated
   corpora, and two shapes of one record read back for ever.
 - **The step-order erratum (E2).** The pipeline law's table puts the store-endpoint check before project
   registration. The adopted security record does the opposite, and the entry follows it. Visible consequence: when
-  the endpoint check refuses on a project's first use, the project stays registered.
+  the endpoint check refuses on a project's first use, the project stays registered (its registry row, namespace and
+  marker remain; the next run hits the same refusal until the core or store changes).
 - **You may overrule either choice.**
 
 ## Short names
