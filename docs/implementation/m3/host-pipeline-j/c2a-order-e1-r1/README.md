@@ -3,7 +3,10 @@
 2026-11-12. Drafted by a lead-dispatched design author (Claude Opus 5.5, route R2-DEEP, effort medium; preflight
 `ROUTE-OK R2-DEEP claude claude-opus-5-5/medium`) for unit J3d-TS, scope row C2a (CP-J3D-SECPRE-1), questions Q35-Q37
 (`LC/j3d-ts/QUESTIONS.md`:628-661), the lead's rulings (`QUESTIONS.md`:680-708, :710-728) and `LC/j3d-ts/C2A-ORDER.md`.
-Status: **PROPOSED, r2.** r2 applies the independent review (`LC/j3d-ts/review-opus-c2a-order/VERDICT.md`, R1-R3,
+Status: **PROPOSED, r3.** **r3 changes** (re-check `LC/j3d-ts/review-opus-c2a-order/VERDICT-r2.md`, F1, F2,
+A-i to A-iii): amendments A-11 (M3D:759-762 and :815) and A-12 (MJ:410); controls E1-C8 (an output scan) and E1-C9
+(after the floor publication); A-9 names the census's files; A-7 states the attempt-A/attempt-B reading; a section
+"For the project owner". r2 applied the independent review (`VERDICT.md`, R1-R3,
 A1-A6) and the lead's ruling on Q37 (`QUESTIONS.md`:710-728). **r2 changes:** E1c records option (a) as PROPOSED by
 the lead, with numbered amendments, the constructor's inputs, crash behaviour and controls (R1, A2, A5); (b) and the
 new (d) become rejected alternatives with their true cost (R2); E3's recheck sentence becomes PROPOSED inside O3
@@ -12,6 +15,20 @@ list marks what depends on O4 (A4); A1 and A6 corrected citations. It needs the 
 the lead. **The project owner is told of E1c's choice and of E2's erratum (A3), and may overrule either.** It binds
 nothing and changes no existing file. Marks: **SETTLED-BY-TEXT** (the texts decide; only the reading is recorded),
 **PROPOSED** (a new rule or a lead ruling no text states), **OPEN** (a named decision is needed).
+
+## For the project owner
+
+- **What (a) puts in the record, and why.** Each trust floor record (the record that moves the trust clock's floor
+  forward before analysis) must name the act that wrote it, and the record format requires an execution id there.
+  Today no lawful id exists at that point, so (a) gives that one act its own fresh id. That id identifies no analysis
+  attempt, and no other record names it.
+- **What (a) costs.** Twelve listed law-text items (A-1 to A-12; three are readings with no word change), and no change to any schema, corpus or pinned record.
+- **What (b), rejected, would cost.** A schema and selection successor, new versions of two record kinds, regenerated
+  corpora, and two shapes of one record read back for ever.
+- **The step-order erratum (E2).** The pipeline law's table puts the store-endpoint check before project
+  registration. The adopted security record does the opposite, and the entry follows it. Visible consequence: when
+  the endpoint check refuses on a project's first use, the project stays registered.
+- **You may overrule either choice.**
 
 ## Short names
 
@@ -30,6 +47,7 @@ among the durable path's rechecks, inside `pre_draw`).
 | **L464** / **L467** | `docs/implementation/m2/creation-ingress-464/PROPOSAL.md` (r3) / `initial-publication-467/PROPOSAL.md` |
 | **OWN** | `docs/implementation/m2/initial-root-binding-owner-selection-v1/owner.md` |
 | **X2** / **X3A5** / **X4T** | `docs/implementation/m2/project-root-x2/PROPOSAL.md` (r10) / `store-admission-x3a/PROPOSAL-r5.md` / `trust-admission-x4t/PROPOSAL.md` (r13) |
+| **M3D** | `docs/implementation/m3/supervisor-d/PROPOSAL.md` (M3-D r5, accepted) |
 | **M3C** / **M3B** | `docs/implementation/m3/snapshot-plan-c/PROPOSAL-r7.md` / `config-discovery-b/PROPOSAL-r2.md` |
 | **TRS** | the private trust record schema: P `tools/security/inputs/trust-record-schema.json`, sha256 `359345411d91…`, pinned by the architecture selection `docs/implementation/m2/core-inventory-v3-selection-v1` (README:39; `…-subject.json`:45) |
 
@@ -39,7 +57,7 @@ among the durable path's rechecks, inside `pre_draw`).
 |---|---|---|---|
 | E1a | Q37, RequestId | SETTLED-BY-TEXT | The R10 record's `requestId` comes from the lent `&RequestIdentity`, never text. |
 | E1b | Q37, ExecutionId | SETTLED-BY-TEXT | Under the present texts no ExecutionId exists that the R10 record may carry, on either route. |
-| E1c | Q37, remedy | **PROPOSED** (lead; owner told) | A separately reserved ExecutionId for the R10 trust act, with amendments A-1 to A-10. |
+| E1c | Q37, remedy | **PROPOSED** (lead; owner told) | A separately reserved ExecutionId for the R10 trust act, with amendments A-1 to A-12. |
 | E2 | Q35, R8/R9 | PROPOSED (lead; owner told) | Registration (R9) before the endpoint (R8); MJ's table order is an erratum. |
 | E3 | Q36, R7 | SETTLED-BY-TEXT, one sentence PROPOSED | R7 runs on both routes, over a classification and the flag, before any project effect. |
 
@@ -131,16 +149,36 @@ RISK until the cross-vendor review. Not settled by text. The project owner is to
   - **A-7. WS:81 and IE:62-63.** Present: "Each admitted attempt of a step receives a fresh `ExecutionId`" (WS:81);
     "Each admitted attempt receives a fresh ExecutionId" (IE:62-63). Restated, no word change: they say every attempt
     gets one, not that every ExecutionId is an attempt's; the prelude, "not a step of its own" (L464:68), is the
-    accepted precedent. **This reading is the record's, not a text's;** if the cross-vendor reviewer rejects it, IE
+    accepted precedent. *A second reading:* the prelude runs "on the process's attempt A" (MJ:292; OWN:59, "exactly
+    one private `InitialInstallationAttempt`"), so its id can be read as attempt A's; R10 runs after
+    "`admit_ordinary_writer()` runs on a second attempt B" (MJ:306) on 3b, and on 3a's one attempt. Read that way the
+    trust act's id is the id of the process attempt R10 runs on, which also supports leaving IE and WS unchanged; but
+    those are installation attempts, not attempts of a step (WS:81). **Both readings are the record's, not a text's;** if the cross-vendor reviewer rejects it, IE
     and WS are amended by their owner and the project owner, which is a contract change.
   - **A-8. X4T:187** (item 7). Present: "The writer reuses 467's existing trust publication producers." Proposed, an
     added sentence: "Its `OperationInputV1.invocation`, and X4B's acceptance's, is the invocation's RequestId, the
     StepId of the step it serves, and the durable trust act's reserved ExecutionId (J1 item 2)."
   - **A-9. SPD:700-701.** Present: "no path here draws or reserves an analysis-attempt ExecutionId; a source census
-    over the boundary's sources finds no `ExecutionIdReservations`". Proposed, added: "The durable trust act's
-    reservation is made by the public entry (CP-J3D-SECPRE-1) outside these sources and passed in as
-    `&ReservedExecutionId`."
+    over the boundary's sources finds no `ExecutionIdReservations`". SPD never defines "the boundary's sources", and
+    SPD:870 names CP-J3D-SECPRE-1, this entry, among the boundary's owed carries. P's census
+    (`security/src/custody/operation_live_tests.rs`:1498-1512) covers `custody/pre_draw.rs` and `trust_pre_draw.rs`
+    for the tokens `ExecutionIdReservations`, `ExecutionId` and `reserve_execution`. **PROPOSED:** "The boundary's
+    sources are `security/src/custody/pre_draw.rs` and `security/src/trust_pre_draw.rs`. The durable trust act's
+    reservation is made in the public entry's own file (CP-J3D-SECPRE-1), outside them, and reaches R10 only inside
+    `TrustInvocation`. In `security/src` outside tests, `reserve_execution_id` is called only in
+    `initial_installation.rs`, `custody/commit_session.rs` and the entry's file."
   - **A-10. MJ:968** and **MJ:278**: no change. Both already allow a reserved, non-analysis-attempt id.
+  - **A-11. M3D (accepted r5).** (i) M3D:759-762, "Where ExecutionIds are drawn", lists only "the durable analysis
+    attempt's", "the ephemeral and render attempts'" and "the creation prelude's". Proposed, a bullet after M3D:762:
+    "**the durable trust act's** is drawn and reserved by the durable entry after R9 and before R10, on both routes. It
+    names R10's floor publication and X4B acceptance only and is not the analysis attempt's (J1 item 2)." (ii)
+    M3D:815, D4-T1, of which J-C10b is "the placement half" (MJ:412). Present: "Its set equals its set at R10a's
+    entry: empty, or the creation prelude's alone on first use." Proposed: "Its set equals its set at R10a's entry:
+    on the durable path the trust act's alone, or the creation prelude's and the trust act's on first use; empty on
+    the ephemeral path." Owner M3D, through a J1 successor row.
+  - **A-12. MJ:410.** Present: "the prelude's reservation, made in `mint_intent` before P0 is staged (item 2; S4), may
+    already be in `ExecutionIdReservations` when R10a runs." Proposed, added after it: "On both routes the durable
+    trust act's reservation (item 2) is there too; it is not the analysis attempt's."
 - *Controls (each must fail first).*
   - **E1-C1.** Census: `TrustInvocation::new` and every `exec1_` text draw in `security/src` have no caller outside the
     fixture predicate.
@@ -154,6 +192,16 @@ RISK until the cross-vendor review. Not settled by text. The project owner is to
   - **E1-C6.** Eight forced collisions at the trust draw: security's HostIo row, nothing written by R10, `created` kept.
   - **E1-C7.** No floor change proposed: no record, no refusal; the reservation exists and is unused.
   - **E1-C8.** Census: after `durable_pre_draw` the entry holds no `ReservedExecutionId`; the session's id is never it.
+    **Output scan:** on a full first-use run and a full steady-state run, each with a forced floor advance, the trust
+    id's `exec1_` text appears only in the R10 floor and acceptance records (and their S4 time evidence). It is
+    absent from the envelope, every operational record, the attempt row, the receipt, every provider frame and the
+    render step's records. Planting it in any of them fails the scan.
+  - **E1-C9 (after the floor publication).** A forced floor advance, then an injected R10a refusal; and separately a
+    crash point after the confirmed floor publication and before R12. Must exist: the floor record carrying the
+    trust id and the invocation's RequestId. Must not exist: an attempt row or receipt with that id, a
+    `CommitSession`, a lease. A rerun reserves a different trust id; reusing it fails the control.
+  - **E1-C10 (A-9).** Census: in `security/src` outside tests, `reserve_execution_id` is called only in the three
+    files A-9 names, and the boundary's two files name none of the three tokens.
 
 **E2. R8 (endpoint) after R9 (registration). PROPOSED (lead ruling Q35 (a); AT RISK; the owner is told).**
 - *Texts.* "The durable request runs this order" (MJ:379); R8 "X3a's endpoint admission, from the gate's own retained
@@ -194,7 +242,7 @@ RISK until the cross-vendor review. Not settled by text. The project owner is to
 
 | # | Point | Decider |
 |---|---|---|
-| O1 | E1c: adopt (a) with A-1 to A-10, or overrule | lead after the cross-vendor review; project owner told, may overrule |
+| O1 | E1c: adopt (a) with A-1 to A-12, or overrule | lead after the cross-vendor review; project owner told, may overrule |
 | O2 | A-7's reading (IE/WS unamended) | cross-vendor reviewer; if rejected, the contract owners and the project owner |
 | O3 | E3: the 3b recheck's classification (stored or fresh; `created: None`) | lead, with the 464 owner |
 | O4 | E2: MJ:391-392 erratum | lead; cross-vendor review; project owner told, may overrule |
@@ -206,7 +254,7 @@ compile-fail rows; control E1-C1.
 **Dependent on O4 (AT RISK):** the R3-R9 crate-private composition with R9 before the endpoint, and control E2-C1,
 which encodes the at-risk state and inverts if the erratum is rejected. J-C10 itself does not depend on O4.
 **Waits for O1 (and O2):** the trust act's reservation, the production `TrustInvocation` constructor, any production
-call of `durable_pre_draw`, the public function returning `DurablePreDraw`, and E1-C2 to E1-C8.
+call of `durable_pre_draw`, the public function returning `DurablePreDraw`, and E1-C2 to E1-C10.
 - **E2-C1 (O4).** First-use candidate, endpoint refusal injected: row 16; ACTIVE row, namespace and marker remain;
   `created` kept. Eligible root, same injection: registry bytes unchanged.
 - **E2-C2.** Census: `join_store_endpoint` is called only inside `pre_draw_retaining`.
