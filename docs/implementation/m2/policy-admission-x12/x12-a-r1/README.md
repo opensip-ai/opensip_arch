@@ -2,7 +2,8 @@
 
 2026-11-11. Drafted by a lead-dispatched design author (Claude Opus 5.5, route R2-DEEP, effort medium) from
 `LC/x12d-ts/SCOPE-r1.md` §1 and the lead's rulings of 2026-11-12 (`LC/x12d-ts/QUESTIONS.md`).
-Status: **PROPOSED, r1.** It needs one independent Claude review, then the cross-vendor review, before X12d-TS's C1
+Status: **PROPOSED, r2.** r2 applies the lead's rulings on r1's open points (A7's control, A8's pack provenance, A9's
+condition, O2, the citations, the provider-request consequence). It needs one independent Claude review, then the cross-vendor review, before X12d-TS's C1
 freezes (PA1's premise rule, PA1:330-333). It binds nothing and changes no existing file, registry or lock.
 Marks: **SETTLED-BY-TEXT** (restates accepted law), **PROPOSED** (needs review).
 
@@ -30,7 +31,7 @@ successor.** The Run-closure application of `check_plan_pack` inside replay, and
 corpus onto the release preview pack `opensip.preview.typescript.pack:1`, with an empty `typescript` file population, so
 the rule evaluates nothing, with the M3 Plan builder (item 9; X12-A). Its parts are MC8 item 19. It must land before any
 analysis producer can reach X5." Basis: "When S = 0, nothing is evaluated (COMP:26)" (I1:237). "With the M3 Plan
-builder" keeps its r4 sense of placement: X12d is C4's inventory successor (MC8:1097), not a Plan the builder produces (A8).
+builder" is read as placement: X12d is C4's inventory successor (MC8:1097), not a Plan the builder produces (A8; O2).
 
 **A2. The reason. SETTLED-BY-TEXT (MC8:1101).** `check_plan_pack` always uses `RELEASE_PACKS`, and the test registry is
 `cfg(test)`-private to the evaluator, so storage, host and crash-matrix builds never see it. **Citation correction:**
@@ -56,18 +57,21 @@ not change (the projection still never calls it).
 **A6. Item 10's `check_plan_pack` tests stand. SETTLED-BY-TEXT (X12:245; MC8:1101 amends only the corpus).** They are
 evaluator unit tests over `TEST_PACKS` and never pass through `replay_run`. (The scope's "X12:272-ish" is X12:245.)
 
-**A7. Every replayed corpus. SETTLED-BY-TEXT for the scope; PROPOSED for the negative-case reading.** 19.1 wires the join
+**A7. Every replayed corpus. SETTLED-BY-TEXT for the scope; PROPOSED for the negative-case rule.** 19.1 wires the join
 into `replay_run` itself (MC8:1098), and MC8 forbids "a corpus Plan naming `"fixture"` after X12d" without qualifier
-(MC8:1112). So once wired, every Run any test or tool replays through `replay_run` names the release pack; none is
-exempt. The control "no replayed corpus Plan names a non-release pack" covers every fixture file and every test-built Run.
+(MC8:1112). **The control, exactly:** every Run that a test or tool expects to *replay* names the release pack, in every
+fixture file and every test-built Run. A Run a test expects replay to *refuse for its pack* (C4-T14, MC8:1117) is exempt,
+and is built from a regenerated Run by a single re-pointing of its pack fields, with the dependent identities re-derived,
+so that the pack is the only thing wrong with it. Such a Run carries pack fields no `AdmittedPack` produced, which
+X12:288 read without exception (A8) forbids; this record holds it lawful only as a refusal input, which replay must
+refuse (open for the reviewers, O3). Plans no test passes to `replay_run` (item 10's direct tests, A6) are
+outside the control.
 The corpora found so far (scope §1; the pack counts are the scope's decode): `security/tests/fixtures/journal-seal-replay.native-owner-r1.json`
 (1 Run, `fixture.file-observed`); `host/tests/fixtures/replay-fixtures.native-owner-r1.json` (36 `fixture.file-observed`,
 1 `fixture.semantic-atom`); storage's crash-matrix synthetic `storage/src/crash_matrix_support/run_candidate.rs`, built
 from the first (:2-4); the evaluator's test-built Runs (`evaluator/src/atoms.rs:4467`). Callers of `replay_run(` also sit
 in host `native_owner_tests.rs`, `tests/admission_tests.rs`, security `journal_store.rs` and storage `commit_tests.rs`.
-**This list is what X12d-TS's C0 census will confirm; it is not closed.** *Proposed reading:* a Plan built to be refused
-(C4-T14's re-pointed Runs, MC8:1117; item 10's "corpus Plan naming `"fixture"` is refused", X12:245) is a negative case,
-not a corpus Plan, and the control requires it to be refused.
+**This list is what X12d-TS's C0 census will confirm; it is not closed.**
 
 **A8. What a corpus Plan must carry. PROPOSED.** A regenerated corpus Plan must pass the pack join (19.1), the detector
 join (19.2; MC8:474-476) and whatever `derive_evaluation` itself requires for the release pack with an empty `typescript`
@@ -77,17 +81,23 @@ selection admits …, C4: …", MC8:1076), and MC8 itself holds a Plan without `
 - **What a corpus Plan does not show:** it is a synthetic fixture, not a Plan the product would build. It shows nothing
   about item 18's EnumerationPlan, the imports request, the symbol inventories or any evaluation of the rule; C4-T11,
   C4-T12 and C4-T14's TS leg are the controls that do.
-- **Stop.** One accepted sentence may require more: X12 forbids "a Plan whose `policyPackIds` or `policyDigest` did not
-  come from an `AdmittedPack`" (X12:288). A8 covers what the Plan carries, not where those two fields come from (O2).
+- **Pack provenance (SETTLED-BY-TEXT, X12:288; lead ruling).** X12 forbids "a Plan whose `policyPackIds` or
+  `policyDigest` did not come from an `AdmittedPack`" (X12:288), with no exception for synthetic corpora. So a corpus
+  Plan's pack id, policy digest and the policy bytes and compiled program it commits are taken from an `AdmittedPack`
+  obtained by running the product's real pack admission, `admit_pack` over `Named("opensip.preview.typescript.pack:1")`
+  (accessors `policy.rs:836-857`). They are never typed and never copied from the registry file.
 
 **A9. The generator. PROPOSED.** Pinned records change only by their generators, under either outcome; X12d-TS's first
-worker establishes which holds before regenerating anything.
+worker establishes which holds before regenerating anything. **On both branches**, the step that sets the Plan's pack
+fields and re-derives the dependent identities is product code that holds an `AdmittedPack` (A8). The crash-matrix
+synthetic's fixpoint rewrite (`run_candidate.rs:10-14`) is the model. A design-side runner alone cannot be the whole generator.
 - **(a) The original runner,** if it can be parameterized to target the release pack: the architecture runner that
   materialized the corpora (`docs/implementation/m3/native-publication/native-owner-patterns-materialization-r2/runners/`;
-  product commit `a62fbd7c`), changed on a reviewed architecture branch. Condition: it reproduces today's corpora
-  byte-for-byte before the change.
+  product commit `a62fbd7c`), changed on a reviewed architecture branch, produces the rest of each Run. Conditions: it
+  first reproduces today's corpora byte for byte, before it is trusted as a generator; and its output passes through the
+  product pack step above.
 - **(b) Otherwise,** a drift-checked generator in product test support, labelled synthetic, as `run_candidate.rs` already
-  is (:15-19). Condition: the worker records exactly why (a) fails.
+  is (:15-19), that includes the product pack step. Condition: the worker records exactly why (a) fails.
 
 **A10. Edges. SETTLED-BY-TEXT (MC8:1102), already met.** I1-c and I1-b2 are integrated (`m3/IMPLEMENTATION-STATUS.md:249`).
 
@@ -109,11 +119,23 @@ unit's, by a separate lead ruling (the owner's typed `&AdmittedPack`, not string
   `#[cfg(test)]` (:968, :1024). No TS1 Run counts as M3-M-TS1 before X12d-TS lands: the join "must land before any
   analysis producer is wired" (X12:222; X12:266); MC8 forbids "a replay path without the join" (MC8:1113) and rejects
   "leaving replay unwired until J" (MC8:1109); J2b-TS consumes X12d-TS (PA1 §1.2).
-- **O2. Does X12:288 reach a synthetic corpus Plan?** If it does, the corpus Plan's pack id and digest must be the
-  accessors of `admit_pack(Named("opensip.preview.typescript.pack:1"))` (`policy.rs:836-842`); a Rust generator (A9 (b))
-  can take them so, and a Python runner (A9 (a)) cannot without a product-side source. Needs review or a lead ruling.
+- **O2. "With the M3 Plan builder" (X12:266; also X12:220, "Corpus regeneration belongs with the M3 Plan builder").**
+  For the reviewers. This record reads it as placement: X12d is the Plan unit's inventory successor (MC8:1097), and MC8
+  item 19 does not repeat the phrase. The alternative reading is "built by the Plan builder". That would cost corpus
+  Plans built by the product's Plan builder: item 18 met in full (EnumerationPlan, symbol inventories, the imports
+  request) for every corpus Run, and a C1 that waits on C4a-TS's builder in place of a synthetic generator.
+
+- **O3. A7's refusal inputs and X12:288.** The lead's ruling on X12:288 admits no synthetic exception, yet C4-T14
+  (MC8:1117) needs Plans whose pack fields are wrong. This record reads X12:288 as forbidding such a Plan being admitted
+  or replayed to commit, not its existence as a negative test input. The reviewers should confirm or rule otherwise.
 
 ## Consequences
 
-X12d-TS (C0 census, C1 corpus, C3 wiring, C4 pins) works under A1-A11; its C1 may be drafted, not frozen, before this
-record is accepted. The provider-request unit and J2b-TS own the Plan-build pack carrier.
+- **X12d-TS** (C0 census, C1 corpus, C3 wiring, C4 pins) works under A1-A11. Its C1 may be drafted, not frozen, before
+  this record is accepted.
+- **The provider-request unit** (and J2b-TS): by a separate lead ruling, its entry takes the owner's typed admitted pack
+  (`&AdmittedPack`) instead of strings. The texts: "The future M3 Plan builder takes the policy only from an
+  `AdmittedPack`" (X12:208); the forbidden "a Plan whose `policyPackIds` or `policyDigest` did not come from an
+  `AdmittedPack`" (X12:288); and MC8's Plan table, "`policyPackIds` from the `AdmittedPack` (item 18)" (MC8:923). The
+  "only" rests on X12:208 and :288; MC8:923 says "from", not "only from". (The scope and the lead's Q2 cited these as
+  X12:171, :258 and MC8:927 with "only".)
