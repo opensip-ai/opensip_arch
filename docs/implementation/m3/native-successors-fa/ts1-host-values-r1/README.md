@@ -2,12 +2,13 @@
 
 2026-11-11. Drafted by a lead-dispatched design author (Claude Opus 5.5, route R2-DEEP) from the E2E gap inventory
 (`LC/coordinator/E2E-GAP-INVENTORY-2026-11-11.md` §2, §3 G2-G4, G6, G7).
-Status: **PROPOSED, r7.** History: r2 applied the lead's rulings on r1 and added V7; r3 closed O5; r4 applied an
+Status: **PROPOSED, r8.** History: r2 applied the lead's rulings on r1 and added V7; r3 closed O5; r4 applied an
 independent review (`LC/ts1-host-values/review-opus/VERDICT.md`, R1-R6, A1-A8); r5 applied the lead's rulings on r4's open
 items (V3's `syntax-all`; V8's carrier); r6 closed the V7 implementer's gaps (H5-TS Q-J, Q-K); r7 applies the r6 re-check
 (`review-opus/VERDICT-r6.md`): one internal key on an existing route (R-1), a budget cut gives `unknown` / `budget-exhausted`
 and only a manifest parse failure refuses, as a stated TS1 limit (R-2), five LD8-3 selectors superseded, led by the textual
-reason (R-3), and V7's basis made non-normative. It needs a cross-vendor review, then adoption by the lead. It
+reason (R-3), and V7's basis made non-normative; r8 adds V9, the owed inventories of an unavailable binding (lead
+ruling 2026-11-12 on H5-TS Q-M, `LC/h5-ts/QUESTIONS.md`). It needs a cross-vendor review, then adoption by the lead. It
 binds nothing, changes no existing file, registry, inventory or lock, and has no subject manifest yet.
 
 **Scope.** Milestone M3-M-TS1: a synthetic-trust Run (OD-SIGN-2 (A)) driven through `opensip_host::invocation::run` by host
@@ -52,8 +53,10 @@ of DLV4's value domains (IE:236-246; CMD2:5), so the manifest's admission law do
 | `DispatchContext`, `DispatchBindingV1` | `ts2.rs:127-129`; `session_factory.rs:97-109`; H `fact_admission/occupancy.rs:69-81` | NE:3023-3044; DSP; D2B:142 |
 | inventory stage Coverage | H `fact_admission/inventory.rs`; `evaluator/src/view_joins.rs:500-531` | MH:440 vs MH:649; H5S:109-115 |
 | requested capabilities of the milestone Run | `host/src/discovery.rs:1212-1272` | NE:1080-1092, :1183-1189; PA1:256-257; J3S:155-160 |
+| owed inventories of an unavailable binding | H `fact_admission/inventory.rs:266`; B @ `b361da63` `plan.rs:1799-1829` | ENC:51-53, :115, :121; MH items 17-19 name none |
 
-It **extends** MC8 item 16 (V4, V5), NE §9.7 (V2), D2B LD-D2B-15 (V6) and MH item 18 (V7). For `plan2` Runs only it
+It **extends** MC8 item 16 (V4, V5), NE §9.7 (V2), D2B LD-D2B-15 (V6), MH item 18 (V7) and MH item 19 (V9); V9 also
+narrows MH item 17's locator bullet to a child's inventories. For `plan2` Runs only it
 **supersedes** the `planIntentCommitment` selectors V2 lists, D2B:142's and `ts2.rs:127-128`'s "built by D4's session
 factory" (V6), lead ruling Q13 item 1's "no production producer" (V1), the seven MH sentences V7 lists, and LD8-3's
 statements of the `vcs-change` entry (MC8:42, :56, :331, :332, :1271; V7). Historical
@@ -327,6 +330,78 @@ and as Rust3's sender does inside `build` (`rust3/send/request.rs:427-439`); B's
   configured id to one row per unit whose mode does not mark it `NOT-SELECTED`, `required: true`, under the same admission
   order as the default (MC8:946; NE:4276-4278).
 
+**V9. The owed inventories of an unavailable binding. PROPOSED (release and TS1); erratum to MH items 4, 17-19 (lead
+ruling 2026-11-12 on H5-TS Q-M).** An unavailable binding is one with `universe` null (ENC:51), whatever its enumerator
+shape (ENC:53). In a composed `plan2` Plan it sits beside available bindings: C4a-TS-b's gating binds every program of a
+cell P does not serve unavailable, `provider-unavailable` / `capability-missing`, enumerator `{selected, P}`, context and
+universe null, host extents populated, while the other cells bind available (B @ `b361da63` `host/src/plan.rs:1789`,
+`:1799-1831`; `plan_gate_cells_tests.rs:213-232`: `imports` available, `references` gated, in one Plan).
+- **Rule.** For each cell, each binding with a null universe, and each kind in that cell's `kinds`, H3 mints exactly one
+  `SubjectInventoryV1`, once per invocation, with origin host-internal: `schemaVersion` 1; `planId` the Plan's;
+  `parameterDigest` raw SHA-256 of `C(EnumerationPlanV1)`; `cellOrdinal`, `programOrdinal`, `kind` the locator;
+  `state` `unavailable`; `deficiency` and `nativeCause` **the binding's own pair, copied**; `examinedPaths` `[]`; `rows`
+  `[]`. A candidate-only cell (`kinds` `[]`) is owed none (ENC:115). The binding names no stage and nothing is requested of
+  any provider for it; it gets no fact, scope, Coverage or view. Its `cellOutcomes` row has `stageOrdinal` null with the
+  derived reason (`unavailable-binding` for a selected enumerator; `optional-unselected` for the unselected shape) and state
+  `unavailable` with the binding's pair (EXC:55, :65, :78). A required such cell is a required-cell deficiency: the Run is
+  indeterminate 3 by its primary deficiency's route (MJ row 31, "admitted incomplete inputs", MJ:757), unless a gating rule
+  fails (COMP:58); never `pass`, never a host fault. An optional one is disclosed and holds nothing (EXC:190).
+- **Entry.** H3's terminal-inventory entry (`inventory.rs` `terminal_inventories`), generalised: it takes the locators
+  **and each one's kind and pair**, not `symbol` and a fixed terminal pair. Item 4's terminal outcomes keep their pairs; V9's
+  locators are found from the `EnumerationPlanV1` alone (no child universe; `owed_inventories` is not used).
+- **Erratum to MH.** Item 4 (MH:249-250, "**records** the child's owed symbol inventories as host-derived outcomes of the
+  terminal (item 17): `unavailable` with `provider-unavailable` for `Unavailable` (ENC:121)") stands for a child's
+  bindings. Item 17's locator bullet (MH:617, "whose binding is this child's universe and enumerator") governs a child's
+  inventories only; V9's are no child's. Item 19 (MH:680-682) is extended: after "the host-derived file and package
+  inventories with origin host-internal (item 18)" read "and V9's inventories of every unavailable binding, origin
+  host-internal". Item 18 (MH:651-660) is unchanged: it mints only for a universe an available binding binds.
+- **Covers the trust-absent path too.** With no trust view every cell is unavailable (MC8:430); no other rule mints those
+  inventories (the `inventory` cell's file and package ones included), so wherever that Run reaches J-η, V9 mints them.
+- **Not changed.** No wire field, Plan member, schema, IDS row or public code. The interim key the lead ruled for C8 (a
+  null-universe binding refused as a host invariant) is withdrawn when V9's code lands.
+- **Controls owed (H5-TS).** (1) A Plan with one available binding and one `capability-missing` binding of a required
+  cell passes J-η; its row has `stageOrdinal` null, `unavailable-binding`, the pair `provider-unavailable` /
+  `capability-missing`, and the Run is indeterminate with that deficiency. (2) That inventory omitted refuses
+  `ENUMERATION_INVENTORY_MISSING_RECORD`, host-internal. (3) A minted pair other than the binding's (a fixed null cause)
+  refuses `ENUMERATION_BINDING_CAUSE`. (4) A gated candidate-only cell mints none. (5) No dispatch, stage or request names
+  the binding.
+
+**V9 Basis (not normative).**
+- **The contract owes the inventory.** "Exactly **one** `SubjectInventoryV1` per `(cellOrdinal, programOrdinal, kind)` in
+  `cell.kinds`" (ENC:115), with no exception for a null universe; a missing one is `ENUMERATION_INVENTORY_MISSING_RECORD`
+  (ENC:111). For the unselected shape ENC states the inventory itself: "inventories empty `unavailable` matching that pair"
+  (ENC:53; "empty `unavailable` inventories", ENC:65).
+- **The outcome admits Plan-time unavailability.** ENC:121: "`unavailable`: `rows=[]`, `examinedPaths=[]`, `deficiency`
+  non-null. Only actual execution/provider unavailability. Source parse failure is **not** `provider-unavailable` …". The
+  restriction is set against parse failure; ENC:51 names the bindings it serves, "**Unavailable binding** (pre-Plan input
+  or provider unavailable)". A provider whose admitted row cannot serve the key is provider unavailability (NE:2848-2851;
+  TSP2:63-73, :173). No contract change is needed.
+- **The pair is the binding's.** The reference join and the product join both require, for a null-universe binding,
+  `state` `unavailable` and the inventory's pair equal to the binding's (`enumeration_model.v1.py:884-889`; H5-TS
+  `evaluator/src/enumeration_join.rs:958-968`, `ENUMERATION_BINDING_UNAVAILABLE_INVENTORY`, `ENUMERATION_BINDING_CAUSE`),
+  then the carrier law (`:998-1002`), which the binding's own pair already met at Plan admission (`:714-722`;
+  `enumeration_model.v1.py:819`).
+  EXC:94: "A selected unavailable binding may be `budget-exhausted` or `input-closure-incomplete` rather than generic
+  `provider-unavailable`; the original typed pair is kept with inventory coordinates." The row carrier is the binding's
+  (EXC:78, source 1, before the inventories), so the two agree.
+- **Who produces it.** `SubjectInventoryV1` has no producer or enumerator member (schema `required`, :8-20); "Inventories
+  are host-derived typed inputs" (EXC:59, §7). The binding's enumerator is a Plan statement of who would have enumerated;
+  nothing attributes the record to it, as for item 4's host-internal terminal outcomes (MH:680). A null U attributes no view
+  and its account is `unavailable-null-universe` with no Coverage (EXC:53, :125, :171), so no producer join (MH item 18's
+  X-H3) arises.
+- **Implementable.** H5-TS's world test `q_l_a_null_universe_binding_has_a_null_stage_ordinal_with_the_derived_reason`
+  (`opensip-h5-ts` @ `86286177`, `host/src/fact_admission/capture_world_tests.rs:169-208`): without the inventory the
+  owner self-check refuses `EVALUATOR_ENUMERATION_JOIN`; with it J-η admits and the row is `(2, unavailable,
+  unavailable-binding)` (reason derived at `evaluator/src/execution_inputs.rs:113-127`, checked at `:2264-2273`). Its
+  binding's pair is `provider-unavailable` / null (`capture_world.rs:158-159`), which is why today's fixed-pair entry
+  (`inventory.rs:266-289`, cause `V::Null` at :284) passed; on a `capability-missing` binding it would refuse
+  `ENUMERATION_BINDING_CAUSE`. Hence the generalisation to the binding's pair.
+- **Strongest argument.** ENC, its reference join and the product join already require exactly this record; V9 only names
+  who mints it. **Weakest point.** The schema calls the record "native-attested" (:4), and here no native producer attests
+  anything; the precedent is item 4's and E3's host-internal inventories, and ENC:53's unselected binding, where no
+  provider is bound at all. A pre-Plan *input* unavailability pair is copied the same way, though ENC:121 says
+  "execution/provider"; ENC:51 groups both under unavailable bindings.
+
 ## Owners
 
 | Value | Code | Unit |
@@ -339,10 +414,11 @@ and as Rust3's sender does inside `build` (`rust3/send/request.rs:427-439`); B's
 | V6 | projection and per-batch binding (H5-TS); the call in `admit_and_build` (C4a-TS-b) | H5-TS; C4a-TS-b |
 | V7 | inventory stage scopes and Coverage, H-C11b; MH erratum; run-root placement and its two checks | H3-TS; lead (erratum); J3d-TS and the lead-run harness |
 | V8 | the requested set; the `opensip.json` in the run-root copy; configuration → requested rows | J3d-TS; lead-run harness; J2b-TS (commit 3) |
+| V9 | the generalised terminal-inventory entry and its call for every unavailable binding; five controls; MH erratum | H5-TS (H3's reviewed code, AT RISK, after C8); lead (erratum) |
 
 ## What this record does not do
 
-It adds no wire field, Plan member, IDS row or public code. It adds one internal refusal key, V7's
+It adds no wire field, Plan member, IDS row or public code (V9 included). It adds one internal refusal key, V7's
 `H_INVENTORY_STAGE_COVERAGE`, on MJ row 29's existing host-invariant route (MJ:755).
 **It does not make a repository with an unparsable package manifest analysable with `inventory` requested** (V7's TS1
 limit): that Run refuses as a host invariant, a known mis-classification, until a later record registers a carrier. It it does not decide a pre-draw intent (O2), release
@@ -385,6 +461,10 @@ consumers; `fact-admission-h/PROPOSAL.md:873` routed it to MC, which answered wi
   non-budget cause) still refuses `H_INVENTORY_STAGE_COVERAGE`.
 - **Milestone record disclosures (V7):** the run-root placement, the added `opensip.json` (V8), and the TS1 limit that a
   package manifest that does not parse makes the Run refuse as a host invariant.
+- **H5-TS code change (V9):** `terminal_inventories` takes each locator's kind and the binding's pair (today `symbol`
+  and a fixed pair with a null cause); one call per invocation over every null-universe binding of the
+  `EnumerationPlanV1`, its records returned to J2b host-internal; the interim C8 refusal of such a binding is removed.
+  Small (one entry, one call site, five controls), but a change to H3's reviewed code.
 - V2 changes B's `Owners` field type; V1 removes caller-built `HostBuildId`s; V6 changes `admit_and_build`'s return.
 
 ## Rejected alternatives
