@@ -2,7 +2,9 @@
 
 2026-11-11. Drafted by a lead-dispatched design author (Claude Opus 5.5, route R2-DEEP) from the E2E gap inventory
 (`LC/coordinator/E2E-GAP-INVENTORY-2026-11-11.md` §2, §3 G2-G4, G6, G7).
-Status: **PROPOSED, r5.** r5 applies the lead's rulings on r4's two open items: V3's inventory producer is `syntax-all`
+Status: **PROPOSED, r6.** r6 closes three gaps the V7 implementer found (H5-TS Q-J, Q-K): every `ViewEntryV3` member
+stated, `closedWorld` as V7's own value; a stage inventory that is not `complete` refuses at TS1; no `vcs-change` entry
+(LD8-3 narrowed). V3 and V8 are unchanged by them. r5 applies the lead's rulings on r4's two open items: V3's inventory producer is `syntax-all`
 for TS1, with `vcs-change` omitted from the TS1 manifest; V8's carrier is an `opensip.json` the harness writes into the
 run-root copy (O6 closed). r2 applied the lead's rulings on r1's open points and added V7; r3 closed O5. r4 applies one
 independent review of r3 (`LC/ts1-host-values/review-opus/VERDICT.md`, R1-R6, A1-A8) under the lead's rulings: V7's basis
@@ -56,7 +58,8 @@ of DLV4's value domains (IE:236-246; CMD2:5), so the manifest's admission law do
 
 It **extends** MC8 item 16 (V4, V5), NE §9.7 (V2), D2B LD-D2B-15 (V6) and MH item 18 (V7). For `plan2` Runs only it
 **supersedes** the `planIntentCommitment` selectors V2 lists, D2B:142's and `ts2.rs:127-128`'s "built by D4's session
-factory" (V6), lead ruling Q13 item 1's "no production producer" (V1), and the seven MH sentences V7 lists. Historical
+factory" (V6), lead ruling Q13 item 1's "no production producer" (V1), the seven MH sentences V7 lists, and LD8-3's
+three sentences on the `vcs-change` entry (MC8:42, :331, :332; V7). Historical
 C-2 Plans keep every selector unchanged.
 
 ## Normative clauses
@@ -135,7 +138,7 @@ content (TSP2:49, row DLV:963-971); product admission checks identity and form o
   This is lawful: no text makes a manifest total over relations (CMD2's four gates check type, closure, domain membership and
   order only, IE:256-261), product admission checks identity and form only (`plan_capability.rs:45-80`), and with the
   run root outside every repository the account is `inapplicable-vcs`, which names no Coverage and needs none (EXC:122,
-  :172). The run-time disclosure stays LD8-3's `unknown` entry (MC8:331). Claiming it would overclaim (LD8-3); declaring it
+  :172). At run time the key is answered by that account (V7). Claiming it would overclaim (LD8-3); declaring it
   absent under `syntax-all` puts one id in both collections, which DLV4 leaves "OPEN -- DEPENDENCY ON DELIVERY PRODUCT"
   (DUD-V4-3, DLV4:611, :1852-1856). How a release manifest states `vcs-change` is **OPEN** with that question (O3).
 - **Fail closed.** Missing or refused bytes refuse before step 13; outside `scenario-fixtures` no reader exists.
@@ -192,13 +195,53 @@ records no law mints and gives them to H3 (MH:644-660), and MH item 14.1 already
   fails (COMP:58).
 - **Who writes it.** The stage's producer is the core provider closure (MC8:497-503, use 3); the records are host-derived
   (NCM:949); H3 is their one minting owner (MH:651-660). No language provider can write them.
-- **Rule.** Per universe the stage's view carries one subject scope and one Coverage entry per inventory relation:
-  - `file@enumerated`: subjects exactly the binding's file inventory rows (MH:658); one admitted `file` fact per row; entry
-    `complete`, `examinedExhaustive` true (NE RC-6), resolution `not-applicable` with `attempted=false` (NE:2045-2050),
-    deficiency and cause null.
-  - `package@manifest-declared`: subjects the package rows; `complete` when every named manifest parsed, otherwise `partial`
-    with `source-syntax-invalid` and null cause, mirroring the inventory (ENC:118; MH:659).
-  - `vcs-change@vcs-reported`: LD8-3's `unknown` entry, `provider-unavailable` / `capability-missing`; no fact (MC8:331).
+- **Rule.** Per universe the stage's view carries exactly two subject scopes and two Coverage entries:
+  - `file@enumerated`: subjects exactly the binding's file inventory rows (MH:658); one admitted `file` fact per row.
+  - `package@manifest-declared`: subjects exactly the package rows (MH:659); one admitted `package` fact per row.
+  - **Every member of each `ViewEntryV3` (NE:2018-2030), both entries alike:** `coverage` `complete`;
+    `examinedUniverse` the scope's commitment and count; `resolutionCompleteness` `{state: not-applicable, attempted: false,
+    examinedExhaustive: true, stageTerminal: complete, unresolvedEdgeCount: 0, unresolvedEdgeClasses: []}`;
+    `closedWorld` the value below; `derivationKinds` `[]`; `confidenceMillionths` `1000000`; `deficiency` and `nativeCause`
+    null. Sources: both pairs are RC-1's one-rung `not-applicable` pairs, "minted with `attempted=false`,
+    `unresolvedEdgeCount=0` and `unresolvedEdgeClasses=[]`" (NE:2045-2050); `complete` requires `examinedExhaustive` (RC-6);
+    `stageTerminal` is free on a `not-applicable` entry and retains the terminal the producer observed (NE:2101-2104), and the
+    stage completed; `derivationKinds` is a subset of the type derivation kinds (NE:2028) and no type is derived;
+    `confidenceMillionths`: "no native provider of any relation emits a confidence below 1000000, because a native fact is
+    exact under its admitted universe" (NE:2366-2372), and the core provider closure is the producer.
+  - **`closedWorld` (new law; no text fixes it).** Accepted ME item 10 states no `closedWorld` for the syntax stage's
+    host-derived entries (ME r3 has none), MH rejects host recomputation of it (MH:455), and the only published host value is
+    the startup law's `hostConversionClosedWorld`, which "applies only to this pre-analysis host conversion" (NE:3241-3261).
+    V7 therefore states its own value, the "no observations" value, with the same content:
+    `{"exportsClosed": "unknown", "entryPointsRecognized": "none", "nonliteralLoading": "none", "externalConsumers":
+    "unknown", "dynamicDispatch": "not-applicable", "reasons": ["no-manifest"], "deadCodeRepairEligible": false}`.
+    Reason: an inventory relation carries no export, entry-point or loading observation, so the entry records that none was
+    made (as NE:3259-3261 reads the startup value: "absent manifest and analysis observations"). This is V7's own
+    statement, not an extension of the startup law's clause. **Weakest point:** `exportsClosed: unknown` is the
+    `external-consumers-unknown` carrier (NE:3368); a requirement that consults these entries for a universal negative
+    over exported subjects with `externalConsumerPolicy: forbid` would report it (NE:2226-2228). `reasons` is free text
+    (NES `ClosedWorldV2`), and `no-manifest` here means "no manifest observation was made", not "the tree has no manifest".
+  - **No `vcs-change@vcs-reported` entry and no scope for it.** The reviewed producer check admits only the `file` and
+    `package` pairs on a core-produced language stage (H5-TS worktree `opensip-h5-ts` @ `077916e4`,
+    `host/src/fact_admission/candidates.rs:442-466`), and no text states the subject scope of a `vcs-change` key with no
+    fact. The account then is, by EXC: **`inapplicable-vcs`** (VCS kind `none`): no Coverage named (EXC:122, :172), the same
+    as with an entry; **`supported-available`** (kind `git`): empty, so semantic `native-work-incomplete` (EXC:169), with the
+    pair `(null, null)` for pure missing work (EXC:70). With LD8-3's entry it would be incomplete too, carrying
+    `provider-unavailable` / `capability-missing`. So the cell state (`partial`, EXC:67) and the verdict are equal; only the
+    retained pair differs.
+  - **Narrows LD8-3.** MC8:331 says "H mints the key's entry as `unknown`, with deficiency `provider-unavailable` and
+    `nativeCause` `capability-missing` (NE:3370)", and MC8:332 rejects "omitting the key's entry, which leaves a requested
+    relation unanswered"; MC8:42 says "That key's Coverage is `unknown` …". V7 supersedes those three sentences for the host
+    inventory stage of a `plan2` Run: the key is answered by the execution-inputs account, not by an entry. LD8-3's other
+    rules stand: no `vcs-change` fact, never `complete`.
+  - **A stage inventory that is not `complete` (TS1 limit).** `coverage` is `complete` or `unknown` (NE:2020), and
+    `source-syntax-invalid` is local to the enumeration contract, "not a NativeCause / copied DeficiencyV2 member"
+    (ENC:120). No registered pair fits a malformed manifest: `input-closure-incomplete` requires one of twelve named causes,
+    none a parse failure (NES `x-opensip-deficiency-cause-registry`; product `coverage-registry.current.json`); SYN-1's
+    `source-parse-error` (ME:390) is bound only in the design lock (product `682991f`) and is in neither registry. So at TS1,
+    if the file or the package inventory of the stage is not `complete`, H3 refuses as a host invariant
+    (`H_INVENTORY_STAGE_COVERAGE`) before anything is staged: the Run fails closed. A required partial inventory is
+    indeterminate in any case (EXC:70). **A later record must add** a registered `(deficiency, nativeCause)` pair for a
+    host inventory that is not complete (for a manifest parse failure and for a budget cut), and map the stage's entry to it.
 - **What `complete` rests on: two independent re-derivations, one join.** The totality check
   (`COVERAGE_INVENTORY_TOTALITY_OMITS_PATH`, `view_joins.rs:518-527`; NE:359-362) iterates the scope's **own** subjects, which
   the host wrote; it proves only that every listed subject has its fact. It does not find an omitted path. What does:
@@ -231,10 +274,13 @@ records no law mints and gives them to H3 (MH:644-660), and MH item 14.1 already
   - MH:891 "a host-minted entry other than `unknown`" → "… other than `unknown` for a provider-return stage".
   - **New control H-C11b (item 18), H3's:** a file scope omitting one inventoried path leaves the `file@enumerated` account
     incomplete (EXC:169); a view missing one `file` fact refuses `COVERAGE_INVENTORY_TOTALITY_OMITS_PATH`; a `complete` file
-    inventory omitting one extent path refuses `ENUMERATION_INVENTORY_FILE_TOTALITY`.
+    inventory omitting one extent path refuses `ENUMERATION_INVENTORY_FILE_TOTALITY`. **Owed and not yet tested** by H3-TS
+    (they need the execution-inputs and enumeration joins over a full world): the scope-only drop and the inventory drop.
+  - **Further controls owed (H3-TS):** each entry member above byte for byte; no `vcs-change` entry or scope in the view;
+    a `partial` package inventory refuses `H_INVENTORY_STAGE_COVERAGE` with nothing staged.
 - **Verdict note.** A **required** `inventory` cell (`discovery.rs:1255`; `analysis.capabilities` has no optional form)
-  completes only if its `vcs-change` account is not `supported-available`, because LD8-3 keeps that key `unknown` (EXC:122,
-  :169, :190; COMP:58). It also needs the package inventory not `partial` (EXC:70: "Required partial inventory … still emits
+  completes only if its `vcs-change` account is not `supported-available`, because that key gets no Coverage (above;
+  EXC:122, :169, :190; COMP:58). It also needs the package inventory not `partial` (EXC:70: "Required partial inventory … still emits
   `required-cell-unsatisfied`") and, for the `imports` and `unresolved-edge` cells, the symbol census (FA-2; PA1 §3).
   - **The fixture fact.** The corpus trees contain no version-control directory: the fetch materializes `git ls-tree` blobs
     into `store/<treeDigest>/` and deletes its work directory (`docs/implementation/m3/corpus/FETCH-SPEC.md:16`, :43-66);
@@ -245,9 +291,9 @@ records no law mints and gives them to H3 (MH:644-660), and MH item 14.1 already
     `kind: git`. So the milestone Run is made on a **copy** of the fixture tree placed at a run root outside every Git
     repository. X2's observation is then `NoRepository`, "kind: none" (MC8:321), the account is `inapplicable-vcs` (EXC:122),
     and with V7 the cell can complete. The placement is a choice, and the milestone record states it. MC8:336 rejects
-    `kind: none` for a Git checkout; a copy outside every repository is not one. Under kind `none` the `vcs-change` entry
-    still reads `provider-unavailable` / `capability-missing`; the account names no Coverage (EXC:172), and the product
-    accepts that (`evaluator/src/execution_inputs.rs:1597-1613`). The milestone record discloses both.
+    `kind: none` for a Git checkout; a copy outside every repository is not one. Under kind `none` the `vcs-change` account
+    is `inapplicable` with no Coverage (EXC:172; `evaluator/src/execution_inputs.rs:1597-1613`). The milestone record
+    discloses it.
   - **The project marker.** The copy carries no `.opensip/`. The Run's own first use creates `.opensip/project-id.v1` at R9
     (IE:43-49; MJ:347; `security/src/custody/first_registration.rs:13-15`), and the marker is not inventoried (MC8:228, C1-T25;
     MC8:945, SX-1's `.opensip` anchor). A reused run root must carry the marker its registry agrees with (IE:47-49).
@@ -308,7 +354,7 @@ Run-candidate builders; read-back (G8); the lead-run home (G9). Those are J2b-TS
 harness reads V3's bytes only under `scenario-fixtures`, so it is built with that feature.
 
 **It does not lift M3's `vcs-change` limitation.** On any Git working tree a Run that requests `inventory` cannot reach
-`pass` until `vcs-change@vcs-reported` Coverage has a producer: LD8-3 keeps it `unknown` (MC8:331) and MC8 item 4 rejects a
+`pass` until `vcs-change@vcs-reported` Coverage has a producer: LD8-3 forbids `complete` (MC8:331) and MC8 item 4 rejects a
 Git object reader at M3 (MC8:323, :335). Which unit or milestone owns a VCS reader is **silent** (MC8:323 names only M5
 consumers; `fact-admission-h/PROPOSAL.md:873` routed it to MC, which answered with LD8-3).
 
@@ -343,7 +389,9 @@ consumers; `fact-admission-h/PROPOSAL.md:873` routed it to MC, which answered wi
 - **V3: a caller-supplied id** (DLV4:286); **DCM-2 as is**: it claims relations TS1 does not deliver.
 - **V4: no inventory cell**: the rule is indeterminate by construction.
 - **V6: the context built in D4's session factory**: a second derivation of values the request holds.
-- **V7: no Coverage** (H5S Q-B (b)): every required `inventory` cell `native-work-incomplete`; **`complete` for `vcs-change`**:
+- **V7: no Coverage** (H5S Q-B (b)): every required `inventory` cell `native-work-incomplete`; **`partial` with
+  `source-syntax-invalid`** (r5): not a Coverage value; **reusing the startup clause for `closedWorld`**: it limits itself
+  to the pre-Analyze conversion; **`complete` for `vcs-change`**:
   LD8-3 forbids it; **resting `complete` on the totality check alone**: it reads the host's own subjects.
 - **V8: the product's default request**: references, calls, types, reachability and candidate-only cells would hold the Run
   at indeterminate (EXC:190; COMP:58). **V8: a narrowed compiled default** in the TS1 release: NE:1080-1084, :1183-1184
