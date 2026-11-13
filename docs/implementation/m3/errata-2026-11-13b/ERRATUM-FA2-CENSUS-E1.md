@@ -1,6 +1,6 @@
-# Erratum FA2-CENSUS-E1: a symbol census is complete over a named population rule (author draft r4, 2026-11-13)
+# Erratum FA2-CENSUS-E1: a symbol census is complete over a named population rule (author draft r5, 2026-11-13)
 
-Status: **PROPOSED, r4** (r3 plus the re-checks `review-opus/VERDICT-r3.md` and `review-codex/VERDICT-r2.md`). It implements lead decision LD-DEC-11 items 1-5, 6' and 7-8
+Status: **PROPOSED, r5** (r4 plus `review-opus/VERDICT-r4.md` R4-1; `review-codex/VERDICT-r3.md` ACCEPT at r4). It implements lead decision LD-DEC-11 items 1-5, 6' and 7-8
 (`LC/decisions/LD-DEC-11-census-population/DECISION.md`, including its section "Corrections 2026-11-13 after both reviews
 of the erratum"; `LC` = `/Users/sb/code/.opensip-implementation-cache/lead-2026-10-25`). It answers both reviews of r1
 (`b097e3d9e`): `review-opus/VERDICT.md` (R1-R3, A1-A5) and `review-codex/VERDICT.md` (FCE-CX-1, FCE-CX-2), both
@@ -107,7 +107,7 @@ The table. Its "#", "Declaration class" and "Rule" columns are the rule. Its las
 | C24 | JavaScript forms the compiler binds to no symbol, such as `exports[k] = …` | excluded | no symbol, no code | matches |
 | C25 | Compiler-internal entries of the top-level tables: `__export`, `__global`, the CommonJS `module` symbol, and a string-named entry that is not an ambient module | excluded | `isBogusTop` `:217-220` | matches |
 | C26 | The four A7 cases: a member with no compiler symbol (a computed or bigint name the checker does not bind, or a late-bound key with no unique-symbol declaring symbol); a member keyed by a unique symbol whose declaring symbol has no id under this rule; a member of a `node_modules` file with no package segment; a member whose id depends on an ambiguous external name | excluded | `:624-631`; `segOf` `:381-383`; `homeOfFile` `:365`; R2 `:466-470`, `:671-677`, two passes `:735-737` | matches |
-| C27 | In a JavaScript file, the `this.x =` instance members in the body of a function expression held by a variable that the compiler makes a constructor (`var F = function () { this.p = 1; }; F.prototype.m = function () {};`), named as members of that variable (`#F~p`) | included (principle (a); the lead's instruction on R3-1) | dropped silently: the variable gets the class flag from the prototype assignment, but `this.p` belongs to the function expression's symbol, so the `own` test (`:316`, applied `:319`) rejects it. Probe, CommonJS, ES module and script: `#F`, `#F~m`, `#F.s`, no `#F~p`, no note (Opus R3-1). Contrast: a function declaration `function F(){ this.p = 1 }` gives `#F~p` (C15) | fix owed |
+| C27 | In a JavaScript file, the `this.x =` instance members in the body of a function expression held by a variable that the checker treats as a JavaScript constructor: the expression's body assigns `this.x`, or the variable has a prototype assignment (either suffices). They are named as members of that variable (`#F~p`). Examples: `var F = function () { this.p = 1; };` and `var F = function () { this.p = 1; }; F.prototype.m = function () {};` | included (principle (a); the lead's instruction on R3-1) | dropped silently: the variable gets the class flag from the prototype assignment, but `this.p` belongs to the function expression's symbol, so the `own` test (`:316`, applied `:319`) rejects it. Probe, CommonJS, ES module and script: `#F`, `#F~m`, `#F.s`, no `#F~p`, no note (Opus R3-1). No prototype assignment: `var F = function () { this.p = 1; }; module.exports.F = F; new F();` gives `#F` and no `#F~p`, with no note; the variable gets no class flag, so no instance side is walked (`:317-329`) (Opus R4-1, probe G4). Contrast: a function declaration with the same body gives `#F~p` (C15) | fix owed (both cases) |
 | C28 | An augmentation (a string-named `declare module` inside a module file) whose target is an existing ambient module (one declared by a C10 declaration); its declarations merge into that ambient module | included, as members of the C10 module (C16), also when only the augmenting file is in the extent | the target's declarations are module declarations, not files (`isAmbientModule` `:212-214`); seeded `:616-618`; id `#"m"` (`:454`); emitted and walked `:699-703`. Probe: `ambient.d.ts` `declare module "amb" { export interface A {} }` with `m.ts` `export {}; declare module "amb" { export interface B {} }` gives `#"amb".B`, also with only `m.ts` in the extent (FCE-CX-3) | matches |
 
 C6's script fix needs no new id rule. A script file's file-scope declaration is global, and the grammar has the global
@@ -167,8 +167,8 @@ What this means for the code (LD-DEC-11 items 6' and 8; FCE-CX-2):
   must be carried by something the closure identity or the Plan fixes. That carrier is owed: it is part of CENSUS-RULE-1,
   or a unit of its own.
 - **CENSUS-RULE-1 is the code fixes of FCE1.10 plus the conformance golden, tests first.** The golden must have one case
-  per class of FCE1.3, plus controls that fail when a class is added or dropped. It must include a C28 case and a C12
-  case, C17 in a script, C9 beside `var x`, and a named class expression's static and instance members. Its cases for
+  per class of FCE1.3, plus controls that fail when a class is added or dropped. It must include a C28 case, a C12
+  case, both C27 cases (with and without a prototype assignment), C17 in a script, C9 beside `var x`, and a named class expression's static and instance members. Its cases for
   C4, C6, C8, C9, C18, C22, C27 and the C12/C22/C23 disclosures must fail at `61ae5fb2`, before the fixes. The TypeScript provider's census does not hold the
   default population, so it sends no `complete` census at all, under either rule, until CENSUS-RULE-1 is accepted and its
   binding exists.
@@ -228,8 +228,9 @@ come before CENSUS-RULE-1. Using the narrowed `complete` claim cannot.
    `#Named~m` disappear.
 6. C18: a namespace export alias merged with a declared meaning is walked like its module-top-level counterpart (a
    pure-alias test at `:337`).
-7. C27: the `this.x =` members of a function expression held by a constructor variable become rows of that variable (the
-   `own` test, `:316`, `:319`).
+7. C27: the `this.x =` members of a function expression held by a variable the checker treats as a JavaScript
+   constructor (its body assigns `this.x`, or the variable has a prototype assignment) become rows of that variable
+   (the `own` test, `:316`, `:319`, and the instance-side walk, `:317-329`).
 8. C12, C22 and C23: the stderr A7 notes stop calling an absent-module augmentation or an anonymous initializer A7.
 9. FCE1.7: the population-rule carrier and the TypeScript provider's binding (here or as its own unit).
 10. The golden of FCE1.7, written first.
@@ -275,3 +276,5 @@ come before CENSUS-RULE-1. Using the narrowed `complete` claim cannot.
 | r4: FCE-CX-4 | C4 and C8 are defined by binding scope, every statement form outside functions; fixes 1-2 extended |
 | r4: FCE-CX point 5 | C17 in scripts matches; C9 beside `var x` is one row, and the fix must deduplicate; C22's fix removes the seed's descendants, including a named class expression's members |
 | r4: FCE-CX point 7 | the inserted columns are named ("#", "Declaration class", "Rule") |
+| r5: Opus R4-1 | C27 is defined by the checker's notion of a JavaScript constructor (the body assigns `this.x`, or the variable has a prototype assignment); the no-prototype case is added to its code cell, to fix 7 and to the golden's required cases |
+| r5: Opus advisory | the errata README counts eight code fixes plus the carrier and the golden, ten items, as FCE1.10 lists them |
