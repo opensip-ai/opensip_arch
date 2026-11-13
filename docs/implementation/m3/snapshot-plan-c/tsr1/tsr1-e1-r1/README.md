@@ -214,8 +214,8 @@ regenerates it, never a hand edit.
 - **O3. Decided by the lead (LD-DEC-8 items 5-8, under OD-DECIDE-1; r4).** Nested packages under a synthesized root
   (E1.2). Under a `tsconfig` the overlap with nested units is the user's own configuration. Under `js-synthesized` the
   host imposes it, and there is no opt-out that keeps the outer unit synthesized and the nested packages analysed:
-  - a root `jsconfig.json`, or a root `tsconfig.json` with `allowJs`, alone changes the outer unit's mode to `js-allowjs`
-    (NE:664-670), and its default `include` `["**/*"]` (R-4.3, TSR:750) takes the nested files as roots again. A plain
+  - a root `jsconfig.json` (unless it writes `allowJs: false`, which selects `ts-tsconfig`), or a root `tsconfig.json`
+    with `allowJs`, alone changes the outer unit's mode to `js-allowjs` (NE:664-670), and its default `include` `["**/*"]` (R-4.3, TSR:750) takes the nested files as roots again. A plain
     root `tsconfig.json` selects `ts-tsconfig` (an omitted `allowJs` is false for it, NE:668-670), which takes no `.js`
     root at all (R-4.4; E1.2 above): nested `.js` files leave the outer program's roots, and so do the outer unit's own;
     nested `.ts` files are still taken;
