@@ -79,6 +79,21 @@ control." Two controls are added to that list:
   claimed output differs (README:101-103: "built by forging one claimed output of a release-pack Run, so the mismatch is the
   only thing wrong").
 
+**Item 5. "The pass base" in disposition (i): an amendment, not a note.** README:87-89 says: "**(i) Structure:**
+regenerated onto the release pack with an empty `typescript` population (MC8:1101). This covers the seal-corpus Run, the
+synthetic's source, the pass base, and cases whose test checks replay, admission, commit, bounds or member removal." It
+cannot be read as a note without contradiction: the sentence gives (i) an empty population and lists the pass base under
+it, while the pass base is the named Run `retained-typescript-acyclic`, which has a live population and is exempt under item
+1. No empty-population pass Run exists (lead ruling Q8, measured: `packet-2-original` comes out `indeterminate`,
+`no-covering-program`). So (i) covers the structure Runs that are not pass.
+
+README:87-89, old text as quoted above. Read as:
+
+> - **(i) Structure:** regenerated onto the release pack with an empty `typescript` population (MC8:1101). This covers
+>   the seal-corpus Run, the synthetic's source, and cases whose test checks replay, admission, commit, bounds or member
+>   removal. The pass base is not an (i) Run: it is `retained-typescript-acyclic`, with its live population, exempt under
+>   selector 3 as widened by erratum X12A-E1.
+
 ## X12A-E1.3 What this does not change
 
 - MC8:1101 itself, and its requirement for every Run other than the two named.
@@ -91,9 +106,7 @@ control." Two controls are added to that list:
 
 ## X12A-E1.4 Open points
 
-- **O1. README:87-89** lists "the pass base" under (i) "regenerated onto the release pack with an empty `typescript`
-  population". After this erratum the pass base is the named pass Run, which has a live population. This erratum does not
-  reword (i); the lead says whether a reading note is wanted.
+None. The point raised by the first draft (README:87-89) is closed by item 5.
 
 ## X12A-E1.5 Review and binding owed
 
