@@ -27,8 +27,8 @@ Live `supervisor-d/PROPOSAL.md:1053` (r5 `:1051`), item F-4:
   `requires: IdentitySet::ProjectPlanExecution`, `template: "provider launched unconfined: confinement unavailable"`,
   required fields `role P0 req: Code<ProviderRole>`, `universe P1 req: Universe`, `reason P0 req: Code<ConfinementUnavailable>`.
   (The review cites `registry.rs`; the file is `crates/operability/src/kinds/registry.rs`.)
-- **The law already makes tool events Project-only.** Item 21, live `PROPOSAL.md:694` (not `:692`, which the review and
-  the code comment cite; `:692` is `supervision.scratch.retained`): "**`tool.process.spawned`** and **`tool.process.reaped`**,
+- **The law already makes tool events Project-only.** Item 21, live `PROPOSAL.md:694` (r5 `:692`). The code comments
+  ("M3-D r5 item 21, :692") cite the accepted r5 and are correct; the code review cites the live file at the r5 number: "**`tool.process.spawned`** and **`tool.process.reaped`**,
   which require **Project only**, because a tool runs before PlanId (finding F6; SOP2 item 9)". And `:698`: "Provider events
   also carry Project, Plan and Execution".
 - **A new event is an ordinary registration.** S-OP-2 r6 (accepted, `operability/s-op-2/PROPOSAL-r6.md:226-227`): "A
@@ -54,15 +54,19 @@ The rest of `:1053` is unchanged.
 Keep the law's name and change `supervision.confinement.unavailable`'s schema so that Plan, Execution, `role` and
 `universe` are absent for tools. Not taken:
 - it weakens the provider record: a provider disclosure with no Plan, role or universe would then be valid;
-- it contradicts item 21's rule that tool events require Project only (`:694`);
+- it contradicts item 21's rule that tool events require Project only (live `:694`, r5 `:692`);
 - the event's template says "provider launched unconfined", which would be false for a tool.
 
 ## STE1.5 What this does not change
 
 - The provider event, its identity set, fields, template and reason table.
 - The rest of F-4: "available but an apply step fails means refuse the launch" (`:1054`), CF-2 as the public carrier,
-  and `supervision.confinement.applied {profile, abi}` (`:1055`). Whether a confined tool's `applied` record has the
-  same problem is not decided here; today no tool profile ships, so a tool is always unavailable (`profile-absent`).
+  and `supervision.confinement.applied {profile, abi}` (`:1055`). A confined tool's `applied` record would
+  meet the same mismatch (the event requires Project, Plan and Execution, `role` and `universe`). It is not decided here.
+  Trigger: before any tool profile ships, `supervision.confinement.applied` for tools needs its own registration and
+  erratum. Today no tool profile ships, so a tool is always unavailable (the platform reason, else `profile-absent`).
+- The public carrier for tool disclosures. CF-2 is named only for "provider ran unconfined" (`:1053`), and is not
+  extended here. The tool event is `export: false`, so today it reaches the operational record and the harness only.
 - Item 21's list (`:689-695`, "under O7, F-4's two confinement events") is not reworded; the tool event is a further
   ordinary registration under S-OP-2 r6 `:226-227`.
 - No reason code, privacy class or export rule.
