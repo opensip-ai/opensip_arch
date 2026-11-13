@@ -3,7 +3,8 @@
 2026-11-12. Drafted by a lead-dispatched design author (Claude Opus 5.5, route R2-DEEP, effort medium; preflight
 `ROUTE-OK R2-DEEP claude claude-opus-5-5/medium`) for unit J3d-TS, scope row C2a (CP-J3D-SECPRE-1), questions Q35-Q37
 (`LC/j3d-ts/QUESTIONS.md`:628-661), the lead's rulings (`QUESTIONS.md`:680-708, :710-728) and `LC/j3d-ts/C2A-ORDER.md`.
-Status: **PROPOSED, r9.** **r9 changes** (Claude re-check `LC/j3d-ts/review-opus-c2a-order-r8/VERDICT.md`, RF-1,
+Status: **PROPOSED, r10.** **r10 changes** (the lead, after the r9 handoff): E3-C4's classifier-call count made
+true on every route. **r9 changes** (Claude re-check `LC/j3d-ts/review-opus-c2a-order-r8/VERDICT.md`, RF-1,
 A-1 to A-3): E3-C3's unbuildable reverse sentence replaced; E3-C3's seam and E3-C5's routes and call count stated;
 `SL` in the short names; O6 noted closed. **r8 changes** (cross-vendor re-check `LC/j3d-ts/review-codex-c2a-order/VERDICT-r2.md`,
 RF3; the lead's ruling on O6): MJ-R7S (iii)-(iv) select R7's carried classification and flag for the grants choice;
@@ -349,7 +350,8 @@ call of `durable_pre_draw`, the public function returning `DurablePreDraw`, and 
   sequences admit (this one, and the reverse: `BACKED_UP` to the creator act, `UNKNOWN` at R7; the creator act and R7
   share one invocation's flag, MJ:302-306). Deciding from `created`'s value fails it.
 - **E3-C4 (O3).** Structural: R7's function takes no `Created` and no value derived from it; it calls the owner's
-  classifier once per request, on every route.
+  classifier exactly once itself, on every route (on 3b after a creator act, the creator's own call or calls precede
+  it and are not R7's).
 - **E3-C5 (MJ-R7S (iii)-(iv); O6).** R7's admitted classification and flag reach the later grants check unchanged,
   and that check cannot produce a new storage-choice refusal. The control prevents this counterexample: R7 observes
   `UNKNOWN` with no flag and admits; after registration a second observation gives `BACKED_UP` with no admitted
