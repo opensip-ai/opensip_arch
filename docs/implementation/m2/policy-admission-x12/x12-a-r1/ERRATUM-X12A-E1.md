@@ -34,11 +34,18 @@ about it:
 **Item 1. Selector 3 and A7: two named lawful base evaluations.** This **widens the amendment of MC8:1101 from one Run to
 two named lawful base evaluations, and to no other lawful base evaluation.** MC8:1101's requirement, "with an empty
 `typescript` file population", stands for every other lawful base evaluation. Only those two may have a live population.
-The required forged-output negatives (README:101-107) are not further exemptions and are not further bases: each may
-reuse exactly one named base's retained Plan, population and other evaluation inputs, changing only the specified claimed
-output and its dependent identities and carriers (a changed claimed output re-identifies the evidence, seal and Run). Each
-is compared with its named base (item 4). No additional lawful base, input shape, population edit or partial-cycle replay
-is authorized. This applies to all retained forged-output kinds (README:101-107), not only the two verdict cases.
+The required forged-output negatives (README:101-107) are not further exemptions and are not further bases: each reuses
+exactly one base's retained Plan, population and other evaluation inputs, changing only the specified claimed output and
+its dependent identities and carriers (a changed claimed output re-identifies the evidence, seal and Run). Its base is
+either one of the two named live-population lawful base evaluations or a disposition (i) empty-population Run, as
+README:101-107 assigns each forging kind; it keeps that base's population, so only the two named bases, and negatives
+reusing exactly their inputs, have a live `typescript` population. Each negative is compared with its base (item 4). No
+additional lawful base, input shape, population edit or partial-cycle replay is authorized. This applies to all retained
+forged-output kinds (README:101-107), not only the two verdict cases. Of the kinds README:101-104 names: the forged verdict
+on the pass Run sits on the (iii-p) base; the forged verdict on the fail Run and the forged finding on the fail Run sit
+on the (iii) base; forged deficiencies sit on an (i) empty-population Run (Q8 measured `packet-2-original` as
+`indeterminate` with a rule deficiency); any further expressible kind sits on whichever of those base classes the
+coverage map assigns it.
 
 README:33-34, old:
 
@@ -88,10 +95,11 @@ control." Two controls are added to that list:
 - The corpus check covers every regenerated fixture that reaches `replay_run` (the host corpus, the seal corpus, the cycle
   fixture and `run_candidate.rs`). It pins the two named lawful base evaluations by label and by regenerated RunId, and
   refuses any other lawful base evaluation with a live `typescript` population. A forged-output negative passes the check
-  only if it reuses exactly one named base's retained Plan, population and other evaluation inputs, and differs from that
-  base only in the specified claimed output and its dependent identities and carriers.
+  only if it reuses exactly one base's retained Plan, population and other evaluation inputs, the base being either a
+  named lawful base evaluation or a disposition (i) empty-population Run, and differs from that base only in the specified
+  claimed output and its dependent identities and carriers. A negative on an (i) base keeps that base's empty population.
 - A forged-verdict case exists on each of the two bases. Every retained forged-output negative (README:101-107) is
-  compared with its named base under the identity-normalized comparison, so that only the one forged claimed output and
+  compared with its base under the identity-normalized comparison, so that only the one forged claimed output and
   its dependents differ (README:101-103: "built by forging one claimed output of a release-pack Run, so the mismatch is
   the only thing wrong"), and asserts its exact mismatch diagnostic (README:105-106: "`evidence.regeneration-mismatch`").
 
