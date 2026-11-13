@@ -3,7 +3,9 @@
 2026-11-12. Drafted by a lead-dispatched design author (Claude Opus 5.5, route R2-DEEP, effort medium; preflight
 `ROUTE-OK R2-DEEP claude claude-opus-5-5/medium`) for unit J3d-TS, scope row C2a (CP-J3D-SECPRE-1), questions Q35-Q37
 (`LC/j3d-ts/QUESTIONS.md`:628-661), the lead's rulings (`QUESTIONS.md`:680-708, :710-728) and `LC/j3d-ts/C2A-ORDER.md`.
-Status: **PROPOSED, r7.** **r7 changes** (cross-vendor review `LC/j3d-ts/review-codex-c2a-order/VERDICT.md`, RF1,
+Status: **PROPOSED, r8.** **r8 changes** (cross-vendor re-check `LC/j3d-ts/review-codex-c2a-order/VERDICT-r2.md`,
+RF3; the lead's ruling on O6): MJ-R7S (iii)-(iv) select R7's carried classification and flag for the grants choice;
+MJ:959 preserved; O6 closed; control E3-C5. **r7 changes** (cross-vendor review `LC/j3d-ts/review-codex-c2a-order/VERDICT.md`, RF1,
 RF2, points 4, 5, 6b): E3 states that its ruling supersedes MJ:398 for R7 (the creator's own rechecks kept); a named
 MJ successor **MJ-R7S** places the 464 choice at R7 and the grants choice at the first source-derived write; new
 open point O6 (MJ:959); O3 and O5 join O4 as dependencies of the composition; E2-C2 scoped to the durable entry's
@@ -272,8 +274,8 @@ RISK until the cross-vendor review. Not settled by text. The project owner is to
   (the lead's): OWN:28's "stronger newly observed restriction refuses"; a recheck of a stored value can never refuse; one code path; no route field and no change
   to the routing entry. Under the constant classifier (L464:51) every route gives `UNKNOWN` today. OWN:28 is cited as
   the creator's model, not as a text that governs R7.
-- **MJ-R7S, a named MJ successor for R7 and the S3.1 slot. PROPOSED (lead rulings Q39, Q40; AT RISK; depends on O3,
-  O5 and O6; applied to no file by this record).**
+- **MJ-R7S, a named MJ successor for R7 and the S3.1 slot. PROPOSED (lead rulings Q39, Q40 and O6; AT RISK;
+  depends on O3 and O5; applied to no file by this record).**
   - (i) *Supersedes MJ:398's last sentence for R7.* Present: "On first use, the intent has already applied the same
     choice to the creation (L464:9), and R7 rechecks it against the same classification." Proposed: "On first use,
     the intent has already applied the same choice to the creation (L464:9). R7 does not recheck that value: on every
@@ -290,12 +292,18 @@ RISK until the cross-vendor review. Not settled by text. The project owner is to
     storage choice (`grants.rs`, B3-a) runs where M3B:376 places it, at the first source-derived write (J3), not at
     R7." Its inputs (P `grants.rs` `storage_write_choice`: the backup classification, `ephemeral`, the
     `BackupCustodyAcknowledgement`, an admitted policy record, `ci`) have their producers **owed**, typed for those
-    producers; this record names none of them, and which classification it takes is O6.
-  - (iv) *MJ:959* ("a storage-choice refusal after [any project-scoped effect]") is reconciled by O6, not by this
-    record. Given the same classification and flag as R7, the grants choice cannot newly refuse: it admits on
-    `NOT_BACKED_UP`, on `UNKNOWN` and on the flag, as the 464 choice does, and also on an admitted policy record
-    (SL:317-331; P `grants.rs`:212-238). If it takes its own later classification, it can newly refuse after project
-    effects, and MJ:959 must then be amended. No text states which classification it takes.
+    producers. **Its classification and acknowledgement are R7's (O6, decided):** the security-owned R7 result is
+    carried forward for the same installation target; the grants choice takes R7's admitted classification, and its
+    `BackupCustodyAcknowledgement` is derived from the same invocation's flag that R7 admitted. It does not take the
+    creator's classification or a caller-supplied replacement, and it makes no new classifier call. The policy record
+    and `ci` producers stay owed.
+  - (iv) *MJ:959* ("a storage-choice refusal after [any project-scoped effect]") **is preserved unchanged.** With
+    R7's classification and flag, the grants choice cannot newly refuse: it admits on `NOT_BACKED_UP`, on `UNKNOWN`
+    and on the flag, as the 464 choice does (P `initial_installation.rs`:458-468), and also on an admitted policy
+    record (SL:317-331; P `grants.rs`:212-238). So R7's admission implies the grants choice's, whatever the policy
+    record or `ci`. The separate custody/target checks and the sync/shared/upload storage checks (SL:329-330) stay and
+    are not weakened. A future detector or re-observation successor may revisit this choice only with its ordering,
+    its leftover-state consequences and its controls explicitly reviewed.
   - No shared identity, schema, corpus or selection changes.
 
 ## Open points
@@ -306,7 +314,7 @@ RISK until the cross-vendor review. Not settled by text. The project owner is to
 | O2 | A-7's reading (IE/WS unamended) | cross-vendor reviewer; if rejected, the contract owners and the project owner |
 | O3 | E3: the fresh-classification ruling (Q40), AT RISK | lead; both reviewers; 464 owner |
 | O5 | Q39: MJ:390 names "The S3.1 storage choice (`grants.rs`)" for R7; P's `grants.rs`:212 `storage_write_choice` is documented "S3.1 before the first source-derived write" (:208), as M3B:376 places it ("J3 calls it at the first source-derived write"); the entry rechecks the intent's choice (`initial_installation::storage_choice`) at R7. The lead's reading (Q39 (c), `QUESTIONS.md`:789-791): the intent's choice is rechecked at R7; the grants owner's choice belongs at the first source-derived write, with its extra inputs typed for their producers. The cross-vendor review found it not lawful as an unchanged reading (MJ:390 names `grants.rs`; MJ:398 relocates that choice before project effects): it needs MJ-R7S (ii) and (iii). Adopt MJ-R7S, or overrule | lead; both reviewers; 464 and grants (B3-a) owners |
-| O6 | MJ-R7S (iv): which classification the grants choice takes at the first source-derived write (R7's value, under which it cannot newly refuse and MJ:959 stands; or its own later observation, under which it can, and MJ:959 needs an amendment) | lead; grants (B3-a) and 464 owners |
+| O6 | **Closed (r8).** Which classification the grants choice takes at the first source-derived write. Decided by the lead on the cross-vendor reviewer's reading (`LC/j3d-ts/review-codex-c2a-order/VERDICT-r2.md`, RF3): R7's classification and the same invocation's flag (MJ-R7S (iii)); MJ:959 preserved unchanged (MJ-R7S (iv)); control E3-C5 | lead (decided) |
 | O4 | E2: MJ:391-392 erratum | lead; cross-vendor review; project owner told, may overrule |
 
 ## Consequences for owning units
@@ -316,7 +324,7 @@ compile-fail rows; control E1-C1.
 **Dependent on O3, O4 and O5 (AT RISK):** the R3-R9 crate-private composition with R9 before the endpoint (O4) and
 R7's fresh classification and 464 choice (O3, O5; MJ-R7S), and control E2-C1, which encodes the at-risk state and
 inverts if the erratum is rejected. J-C10 itself does not depend on O4. The grants choice at the first
-source-derived write also waits for O6.
+source-derived write takes R7's carried result (O6, closed; MJ-R7S (iii)).
 **Waits for O1 (and O2):** the trust act's reservation, the production `TrustInvocation` constructor, any production
 call of `durable_pre_draw`, the public function returning `DurablePreDraw`, and E1-C2 to E1-C10.
 - **E2-C1 (O4).** First-use candidate, endpoint refusal injected: row 16; ACTIVE row, namespace and marker remain;
@@ -339,6 +347,13 @@ call of `durable_pre_draw`, the public function returning `DurablePreDraw`, and 
   value fails it.
 - **E3-C4 (O3).** Structural: R7's function takes no `Created` and no value derived from it; it calls the owner's
   classifier once per request, on every route.
+- **E3-C5 (MJ-R7S (iii)-(iv); O6).** R7's admitted classification and flag reach the later grants check unchanged,
+  and that check cannot produce a new storage-choice refusal. The control prevents this counterexample: R7 observes
+  `UNKNOWN` with no flag and admits; after registration a second observation gives `BACKED_UP` with no admitted
+  policy; the grants choice refuses after a project-scoped effect (MJ:959). With a `cfg(test)` sequenced classifier
+  seam answering `UNKNOWN` first and `BACKED_UP` after, no flag and no policy record, the grants choice admits
+  (`unknown-disclosed`) and the classifier is called once per request; a second classifier call, or a grants input
+  taken from anything but R7's carried result, fails the control.
 
 ## Rejected alternatives
 
@@ -360,6 +375,6 @@ call of `durable_pre_draw`, the public function returning `DurablePreDraw`, and 
 
 ## What this record does not do
 
-It applies no amendment: MJ, IE, WS, OPP, L464, X4T, SPD and TRS stay as they are until O1 to O6 are decided and the amendments adopted (MJ-R7S included).
+It applies no amendment: MJ, IE, WS, OPP, L464, X4T, SPD and TRS stay as they are until O1 to O5 are decided and the amendments adopted (MJ-R7S included).
 It does not decide the read entry's `TrustInvocation` (CP-J2C-SECPRE-1's report-mode read writes nothing), R10a's
 store root, or the launch directory. It does not re-open J-C10, Q38 or the R3-R6 rows of `C2A-ORDER.md`.
