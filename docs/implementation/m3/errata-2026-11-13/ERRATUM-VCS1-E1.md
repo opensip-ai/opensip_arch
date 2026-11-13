@@ -83,6 +83,7 @@ Also checked: the sentence stays fail-closed for current readers. Workflows' `St
   - a replacement VCS-1 r2 record whose one override of `identity-and-evidence.md:546` restates VCS-1's text with this
     paragraph appended, naming VCS-1 r1 as its `previousCandidate`. That is the form
     `m2/predicate-matching-reference-selection-v2/successor.json` uses for the line its v1 overrode (`:1272`);
-  - or a second successor on the same line. I found no bound precedent for two bound successors overriding one selector
-    line, so I did not choose it.
+  - or a second successor on the same line. Of the 558 `successor.json` files under `docs/implementation/` (subject
+    copies left out), only VCS-1 overrides `identity-and-evidence.md:546`. I did not establish whether the verifier
+    admits two bound successors on one selector line, so I did not choose this form.
   Not generated, because the form is not settled and the text may change in review.
