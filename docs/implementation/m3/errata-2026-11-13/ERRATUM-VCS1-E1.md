@@ -50,7 +50,7 @@ So "`kind: git` in schema 2 and 3" means exactly two places: a schema-2 record w
 
 An insertion after `vcs-1-r1/CONTRACT.md:5`, as a new paragraph of the passage:
 
-> **After M3 (erratum VCS1-E1).** In a `vcs-observation` record of schema version 2 whose `kind` is `git`, and in every `members` row of a schema-version-3 record, the stored `dirty` value means "cleanliness not established", whatever value it holds and whenever the record is read, permanently. A producer of those two versions writes `dirty: true` for Git (a producer rule implied by LD-DEC-7 item 8: no value of those versions can mean established). A Git reader that establishes cleanliness emits a new `vcs-observation` schema version, and only that version can carry an established clean or dirty state. This sentence does not touch `kind: none` (schema 2's `NoRepository` record, and schema 3's fixed top level), whose `dirty: false` keeps its meaning. Disclosed: a Run whose snapshot holds a schema-2 or schema-3 observation can never satisfy a `vcs-revision` correspondence that requires a clean commit (NE:2722-2728), so it can never map a revision import, even after the Git reader exists.
+> **After M3 (erratum VCS1-E1).** In a `vcs-observation` record of schema version 2 whose `kind` is `git`, and in every `members` row of a schema-version-3 record, the stored `dirty` value means "cleanliness not established", whatever value it holds and whenever the record is read, permanently. A producer of those two versions writes `dirty: true` for Git. A Git reader that establishes cleanliness emits a new `vcs-observation` schema version, and only that version can carry an established clean or dirty state. This sentence does not touch `kind: none` (schema 2's `NoRepository` record, and schema 3's fixed top level), whose `dirty: false` keeps its meaning. Disclosed: a Run whose snapshot holds a schema-2 or schema-3 observation can never satisfy a `vcs-revision` correspondence that requires a clean commit (NE:2722-2728), so it can never map a revision import, even after the Git reader exists.
 
 ## VCS1-E1.4 The red team's four attacks, checked
 
@@ -64,6 +64,10 @@ An insertion after `vcs-1-r1/CONTRACT.md:5`, as a new paragraph of the passage:
 Also checked: the sentence stays fail-closed for current readers. Workflows' `StalenessRule` maps commit-equal-dirty to
 `unverifiable` (`workflows-and-surfaces.md:511`), and IE's staleness function uses "both dirty flags"
 (`identity-and-evidence.md:1839`). NE:2726 maps `vcs-revision` only when "its commit is clean".
+
+The producer sentence ("A producer of those two versions writes `dirty: true` for Git") is a producer rule implied by
+LD-DEC-7 item 8: no value of those versions can mean established. It is stated in the paragraph so that no later
+producer of schema 2 or 3 writes `false` for Git.
 
 ## VCS1-E1.5 What this does not change
 

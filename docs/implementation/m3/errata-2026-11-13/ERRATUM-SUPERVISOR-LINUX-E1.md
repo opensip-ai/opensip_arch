@@ -42,7 +42,8 @@ At product main `1bd328f3` there is no Linux spawn, scratch or confinement code:
 - `crates/platform/src/process.rs:2545-2640` are refusing stubs; no `pidfd_open`, `PR_SET_CHILD_SUBREAPER`, Landlock or
   seccomp appears in `crates/` or `apps/` (`BOTH-LANES-CHECK.md` §3; I re-read the `lib.rs` lines, not the search).
 - The Linux lane compiles 183 gated D1 and D3 tests away (50 spawn, 9 confinement, 124 supervisor; LD-DEC-10 addendum).
-  The later measurement (LD-DEC-10, "The measured gap", from `LC/linux/NOT-RUN-HANDOFF.md`) counts 2,031 macOS tests not
+  The later measurement (LD-DEC-10, "The measured gap", from `LC/linux/NOT-RUN-HANDOFF.md`; lane tooling reviewed on
+  2026-11-13 and accepted, `LC/linux/review/VERDICT-r2.md`) counts 2,031 macOS tests not
   run on Linux in all (2,017 absent from the Linux build, 14 printed "skipped (macOS only)"); the 183 are inside it.
 - Every unit deferred its Linux half by name: D1a-L, D1b-L, D3b-L, D5-L (`BOTH-LANES-CHECK.md` §2, with the plan and
   review lines).
@@ -52,7 +53,7 @@ At product main `1bd328f3` there is no Linux spawn, scratch or confinement code:
 **1. Law, sentence 2 of live `:347` (r5 `:345`).** Before: "The Linux code is built and exercised only on Linux lanes
 (M3P:472)." After:
 
-> The Linux halves are owed (D1a-L, D1b-L, D3b-L, D5-L); off macOS the build compiles typed refusals and tests them, and nothing Linux is exercised (M3P:472; erratum SUPERVISOR-LINUX-E1).
+> The Linux halves are owed (D1a-L, D1b-L, D3b-L, D5-L); off macOS the build compiles typed refusals and tests them, and nothing Linux is exercised (M3P:472, as corrected by item 3 of erratum SUPERVISOR-LINUX-E1).
 
 Sentences 1 and 3 are unchanged.
 
