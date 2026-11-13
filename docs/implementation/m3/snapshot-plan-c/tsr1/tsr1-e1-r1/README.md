@@ -1,14 +1,15 @@
-# TSR-1-E1 r3: the synthesized profile's program roots, and who discloses its limits
+# TSR-1-E1 r4: the synthesized profile's program roots, and who discloses its limits
 
 2026-11-11. Design author (Claude Opus 5.5, R2-DEEP, medium; preflight ROUTE-OK), under the lead's rulings on
-JS-SYNTH-PROFILE-1 Q1-Q7 (`LC/js-synth-profile-1/QUESTIONS.md`; groundwork `SCOPE-r1.md`). **Status: PROPOSED, r3.**
+JS-SYNTH-PROFILE-1 Q1-Q7 (`LC/js-synth-profile-1/QUESTIONS.md`; groundwork `SCOPE-r1.md`). **Status: PROPOSED, r4.**
 Q1, Q2 and Q4 are adopted AT RISK as the readings the host code is written against. **r2** applies the independent
 review (`LC/js-synth-profile-1/review-opus/VERDICT.md`, F1-F4, A1-A2) under the lead's rulings on it. F1: E1.3 is R-4.2's
 candidate rule, and O1 is closed by the texts. F2: E1.2 states the monorepo effect, and O3 goes to the owner. F3: E1.4a
 lists the matcher behaviours that do not apply. F4: E1.7 (b) is OPEN for the owner. A1/A2: E1.8a covers the reference
 model and the pinned vectors. **r3** applies the r2 review's advisories (`review-opus/VERDICT-r2.md`, ACCEPT):
 AD-1 (the user-ignored-path silence in E1.3, and a tsconfig-branch finding under Consequences), AD-2 (O3), AD-3 (one
-control row). r1 and r2 are in this branch's history. The record still needs the cross-vendor review and the
+control row). **r4** records the lead's decision of O3 (LD-DEC-8 items 5-8) and corrects O3's opt-out sentence: a
+configuration file is not an opt-out that keeps the unit synthesized. r1 to r3 are in this branch's history. The record still needs the cross-vendor review and the
 lead's adoption in a receipt that pins this file's sha256. It binds nothing and edits no file.
 
 **Short names.** Base: architecture main `fa6fa0fba`. **TSR** = `TSR-1-r4.md` beside this directory (sha256 `be654c41…`,
@@ -61,7 +62,7 @@ with `r + "/"`. This is NM's `_under_unit` (NM:2211). The unit's `FileMembership
   units (U-3, NE:690-692). NM's `_under_unit` does the same for every mode (NM:2211, :2223). The overlap is therefore not
   new to the unit model, but its cause is. Under a tsconfig it follows from the user's own spec, which `include` or
   `exclude` can change, and a `ts-tsconfig` root takes no nested `.js` file. Under `js-synthesized` the host imposes it
-  unconditionally (O3).
+  unconditionally (O3, decided: it stands and is disclosed).
 - **Fixtures.** `js-small-body-parser` has one marker, the root `package.json` (25 paths), and no nested unit.
   `ts-small-constructs` has no `js-synthesized` unit (root `tsconfig.json`, `projenrc/` and `test/` tsconfig units).
   Its overlap, if any, comes from R-4.3 and not from this record. Neither fixture is affected.
@@ -208,14 +209,25 @@ regenerates it, never a hand edit.
   which carrier to add: a `ViewEntryV3` successor or a reporting rule. This covers every matrix limitation that has no
   carrier: L-JS1, L-JS2 (also on `ts-tsconfig` and `js-allowjs` `references`/`calls`), L-RS1-L-RS4 and L-FW1 (NE:593-597).
   Only L-JS3 has one (`TypeDerivationV1`).
-- **O3 (project owner).** Nested packages under a synthesized root (E1.2). **What is being decided:** under a `tsconfig`
-  the overlap with nested units is the user's own configuration. Under `js-synthesized` it is imposed, and the only
-  opt-out is adding a configuration file. Option (i), keep E1.2: no text changes, and
-  JS monorepos get duplicated facts and double counts across universes, as tsconfig roots already do under R-4.3.
-  Option (ii), exclude nested `tsjs` units' subtrees from a synthesized program's roots: each file is then analysed once.
-  But this is a law line beside NE:1426 (and TSR R-1.10a), and it changes NM's `_under_unit` use and the control table.
-  It also diverges from R-4.3's tsconfig behaviour unless that changes too, and the outer program still reaches nested
-  files through imports, as non-root members. Neither fixture is affected.
+- **O3. Decided by the lead (LD-DEC-8 items 5-8, under OD-DECIDE-1; r4).** Nested packages under a synthesized root
+  (E1.2). Under a `tsconfig` the overlap with nested units is the user's own configuration. Under `js-synthesized` the
+  host imposes it, and there is no opt-out that keeps the outer unit synthesized and the nested packages analysed:
+  - a root `tsconfig.json` or `jsconfig.json` alone changes the outer unit's mode (NE:664-670), and its default
+    `include` `["**/*"]` (R-4.3, TSR:750) takes the nested files as roots again;
+  - such a file that also writes `exclude` (or a narrower `include`) does leave them out of the outer program, and the
+    nested units are still analysed; but the outer unit is then no longer `js-synthesized`: another mode, other options,
+    another universe;
+  - `ignorePaths` drops the packages from analysis altogether: they leave the Plan scope (NE:936), not only the outer
+    program (E1.3's ignored-path rule).
+
+  **Decision:** E1.2 stands (option (i)). A file that is a root of two programs yields two findings, as the identity law
+  says for different universes (IE:1521-1523). No de-duplication is built. Disclosed wherever findings are counted:
+  counts may double for nested packages under a synthesized unit, and one waiver covers both copies. Revisit trigger:
+  before the first release that admits a synthesized JavaScript unit for a user, or the baseline surfaces, whichever comes
+  first; a de-duplication then is an identity-law amendment. Option (ii) (exclude nested `tsjs` subtrees from synthesized
+  roots: a law line beside NE:1426 and TSR R-1.10a, a change to NM's `_under_unit` use and the control table, a divergence
+  from R-4.3) is not taken. Neither fixture is affected. The cross-vendor reviewer may still read the identity law
+  differently for two programs over one file (LD-DEC-8, "What would reverse this").
 
 ## Consequences
 
@@ -247,4 +259,4 @@ regenerates it, never a hand edit.
 ## What this record does not do
 
 It adds no field, record, schema, code or check. It does not change TSR's tsconfig rules (R-4.2-R-4.13) or NE's
-bytes. It does not decide O2 or O3. It does not make the provider or the evaluator re-derive roots.
+bytes. It does not decide O2. O3 is decided by the lead (LD-DEC-8), not by this record. It does not make the provider or the evaluator re-derive roots.
