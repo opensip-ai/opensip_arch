@@ -2,10 +2,11 @@
 
 2026-11-11. Drafted by a lead-dispatched design author (Claude Opus 5.5, route R2-DEEP, effort medium) from
 `LC/x12d-ts/SCOPE-r1.md` §1 and the lead's rulings (`LC/x12d-ts/QUESTIONS.md`, and the coordinator's relays of 2026-11-11).
-Status: **PROPOSED, r6.** History: r2 applied rulings on r1's open points; r3 and r5 applied reviews
-(`LC/x12d-ts/review-opus-x12a/VERDICT.md`, `VERDICT-r4.md`); r4 took the census `LC/x12d-ts/CENSUS-C0.md`; r6 takes the
-coverage map `LC/x12d-ts/COVERAGE-MAP-C1.md` and the lead's rulings on it, and drops disposition (ii). It needs the
-cross-vendor review before X12d-TS's C1 freezes (PA1's premise rule, PA1:330-333). It binds nothing and changes no
+Status: **PROPOSED, r7.** History: r2 applied rulings on r1's open points; r3 and r5 applied reviews
+(`LC/x12d-ts/review-opus-x12a/VERDICT.md`, `VERDICT-r4.md`); r4 took the census `LC/x12d-ts/CENSUS-C0.md`; r6 took the
+coverage map `LC/x12d-ts/COVERAGE-MAP-C1.md` and the lead's rulings on it, and dropped disposition (ii); r7 applies the
+cross-vendor review `LC/x12d-ts/review-codex-x12a/VERDICT.md` (RF-1: A9's diff control; LD-DEC-4 scope sentence in A11). It needs
+adoption after that review before X12d-TS's C1 freezes (PA1's premise rule, PA1:330-333). It binds nothing and changes no
 existing file, registry or lock. Marks: **SETTLED-BY-TEXT** (restates accepted law), **PROPOSED** (needs review).
 
 ## Short names
@@ -137,7 +138,12 @@ files. The step that sets a Plan's pack fields and re-derives the dependent iden
   map. Every differing record must be one the pack or the detector closure reaches: the Plan, the analysis-spec, the
   policy and program, the emission row, the detector closure, `semanticClosures`, the identities derived from them,
   the re-derived outputs and the seal. For the (iii) Run the population is also covered. Nothing else differs, and
-  labels are unchanged.
+  labels are unchanged. Record-level membership alone does not pass this control: the identity-normalized comparison
+  must reject every field change outside the reference fields the identity map rewrites, the explicitly enumerated pack
+  and detector edits above, and the per-disposition population edits (the (iii) Run's population). It must preserve the
+  budget, the capability requirements, the configuration and grant values and every other unrelated retained input,
+  including those carried inside the Plan and analysis-spec records. Re-derived outputs and the seal remain allowed
+  consequences.
 - **Crash-matrix rebinding.** `bound_to` (`run_candidate.rs:279-290`), `bind` (:338; closure map :376-384) and
   `renaming_the_evaluator_closure` (:544) swap in `CommitSession::core_evaluator_closure`. They must also rebind every
   emission row's detector closure to that descriptor with `kind: "detector"`, retained and a `semanticClosures` member,
@@ -151,6 +157,10 @@ is serialized with every other lead run set" (MC8:1103).
 **A11. Row and carrier.** Row **SETTLED-BY-TEXT**: `EVALUATION.INPUT_REFUSED`, X5 item 5's structural row (MC8:1098-1099;
 X12:218; X5:77). Carrier **PROPOSED** (lead ruling Q1): `ReplayError::Structure(RetainedWalkError::Policy(e))`
 (`replay.rs:20`; `full_walk.rs:40`) for both joins, under `limits.retained.owner` (`replay.rs:171`); no new variant.
+The structural refusal row here governs commit-time replay and reads by the Run's own sealed core; a later-core read first
+applies LD-DEC-4's compatibility/availability rule, refusing an unsupported sealed closure as unavailable, never as a
+provider violation or regeneration mismatch, while retaining the read-time pack check and seal-relative detector join for
+supported Runs.
 
 ## What X12d must do: MC8 item 19 in full, as amended here
 
