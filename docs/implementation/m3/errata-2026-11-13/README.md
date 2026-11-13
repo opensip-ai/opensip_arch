@@ -8,7 +8,7 @@ None is accepted, adopted or bound. Each is additive: accepted bytes stay frozen
 | `ERRATUM-X5-E1.md` | X5 r4 item 5e (`m2/replay-join-x5/PROPOSAL.md:134`): retained bytes 32 MiB become 256 MiB, a local development bound. Part B, **not decided**: whether a cap crossing at replay takes the host-fault row instead of the provider-violation row (`:87`). | LD-DEC-7 items 2-4 | law erratum, adoption receipt | two; Part B needs the cross-vendor ruling |
 | `ERRATUM-VCS1-E1.md` | VCS-1 r1 (`m3/snapshot-plan-c/vcs-1-r1/CONTRACT.md:3-5`): for `kind: git`, a stored `dirty` in `vcs-observation` schema 2 or schema-3 `members` means "not established", permanently; a Git reader takes a new schema version. | LD-DEC-7 item 8 | contract successor (VCS-1 is lock-bound) | two |
 | `ERRATUM-SUPERVISOR-LINUX-E1.md` | M3-D r5 (`m3/supervisor-d/PROPOSAL.md:347`, `:349`) and M3-PLAN r10 (`m3/M3-PLAN.md:746`, `:781`): "the Linux code is built" becomes "owed". | LD-DEC-10 item 2 and addendum | law erratum, adoption receipt; plan: record notes for r11 | law two; plan one |
-| `ERRATUM-WS-ENVELOPE-MAJOR-E1.md` | workflows-and-surfaces (WS:34, :1108): the current command envelope is major 7. | register R-35 | contract successor (WS is a lock input) | one (see its WSE1.4) |
+| `ERRATUM-WS-ENVELOPE-MAJOR-E1.md` | workflows-and-surfaces (WS:34, :1108): the current command envelope is major 7. | register R-35 | contract successor (WS is a lock input) | one (OD-PACE-1:67-68) |
 
 Models: `../errata-2026-11-11/ERRATUM-I1-E1.md`, `CANDIDATES.md` and `../fact-admission-h/ERRATUM-H-E1.md` on branch
 `errata-2026-11-11-r1`; the contract-successor form of `../errata-2026-11-11/ne-4-4-detail-r1/`.

@@ -50,13 +50,13 @@ So "`kind: git` in schema 2 and 3" means exactly two places: a schema-2 record w
 
 An insertion after `vcs-1-r1/CONTRACT.md:5`, as a new paragraph of the passage:
 
-> **After M3 (erratum VCS1-E1).** In a `vcs-observation` record of schema version 2 whose `kind` is `git`, and in every `members` row of a schema-version-3 record, the stored `dirty` value means "cleanliness not established", whatever value it holds and whenever the record is read, permanently. A producer of those two versions writes `dirty: true` for Git. A Git reader that establishes cleanliness emits a new `vcs-observation` schema version, and only that version can carry an established clean or dirty state. This sentence does not touch `kind: none` (schema 2's `NoRepository` record, and schema 3's fixed top level), whose `dirty: false` keeps its meaning. Disclosed: a Run whose snapshot holds a schema-2 or schema-3 observation can never satisfy a `vcs-revision` correspondence that requires a clean commit (NE:2722-2728), so it can never map a revision import, even after the Git reader exists.
+> **After M3 (erratum VCS1-E1).** In a `vcs-observation` record of schema version 2 whose `kind` is `git`, and in every `members` row of a schema-version-3 record, the stored `dirty` value means "cleanliness not established", whatever value it holds and whenever the record is read, permanently. A producer of those two versions writes `dirty: true` for Git (a producer rule implied by LD-DEC-7 item 8: no value of those versions can mean established). A Git reader that establishes cleanliness emits a new `vcs-observation` schema version, and only that version can carry an established clean or dirty state. This sentence does not touch `kind: none` (schema 2's `NoRepository` record, and schema 3's fixed top level), whose `dirty: false` keeps its meaning. Disclosed: a Run whose snapshot holds a schema-2 or schema-3 observation can never satisfy a `vcs-revision` correspondence that requires a clean commit (NE:2722-2728), so it can never map a revision import, even after the Git reader exists.
 
 ## VCS1-E1.4 The red team's four attacks, checked
 
 | Attack (`REDTEAM.md` finding 6) | How the sentence answers it |
 |---|---|
-| 1. VCS-1 scopes the meaning "At M3", not by schema version; re-keying it surprises a reader of VCS-1. | The sentence is added to VCS-1 itself and says it keys on the schema version, "whenever the record is read". VCS-1:3's M3 meaning is unchanged; the sentence states what it already implies for later readers (VCS-1:5 forbids reinterpreting retained observations). The schema version is inside the hashed record (`schemaVersion` is a required member), so a reader cannot miss it. |
+| 1. VCS-1 scopes the meaning "At M3", not by schema version; re-keying it surprises a reader of VCS-1. | The sentence is added to VCS-1 itself and says it keys on the schema version, "whenever the record is read". VCS-1:3's M3 meaning is unchanged; the sentence states what it already implies for later readers (VCS-1:5: "This passage changes no observed flag or retained identity by reinterpretation"; this sentence keeps to that and reinterprets nothing). The schema version is inside the hashed record (`schemaVersion` is a required member), so a reader cannot miss it. |
 | 2. "dirty in schema 2 and 3 means not established" misreads `kind: none, dirty: false`. | Scoped to schema-2 `kind: git` and schema-3 `members` rows. `kind: none` is named as untouched. |
 | 3. A new version changes IDS's single def, which `snapshot.vcsDigest` selects by `#/$defs/vcs-observation`: bytes under a pinned schema id, so the cost is deferred, not avoided. | True, and not avoided here. The sentence only says the reader must use a new version. That version's schema change (a third `oneOf` arm, as B-S2 added the second; `b-s2/README.md:40`) and its pin and lock work belong to the Git reader's unit. |
 | 4. Every pre-reader Run can never map a `vcs-revision` import; disclose it. | Disclosed in the sentence's last line. |
@@ -75,8 +75,8 @@ Also checked: the sentence stays fail-closed for current readers. Workflows' `St
 
 ## VCS1-E1.6 Review and binding owed
 
-- **Review: two independent reviewers** (LD-DEC-7 item 8 is a durable on-disk meaning; OD-PACE-1 rule 4; contract law,
-  OD-REVIEW-1 item 4).
+- **Review: two independent reviewers** (LD-DEC-7 item 8 is a durable on-disk meaning: OD-PACE-1 rule 4, `OD-PACE-1.md:30-31`, which governs over
+  OD-REVIEW-1 by `OD-PACE-1.md:67-68`).
 - **Binding owed (not generated):** a contract successor carrying this paragraph, its subject manifest, the review, the
   unit assent and one `contractSuccessors` entry in the product's `design-lock.json`. Two forms are possible, and the
   choice is the binder's:

@@ -25,7 +25,9 @@ So the correction is a **contract successor** with one passage override, in the 
 So this is stale contract prose, not a product/contract conflict (the register's own downgrade, `:99`). The selection
 already says how to read it: "README.md, current-dispatch.json, semantic-owner-joins.json and scoped-owner-succession.json
 define current versus historical interpretation. Parent contracts remain unchanged outside explicit scoped succession."
-(`source-selection-v3/successor.json:786`). This erratum puts that mapping in WS, where a reader of WS will see it.
+(`source-selection-v3/successor.json:786`). Its `scoped-owner-succession.json` says the same of the envelope
+(`currentVersionResolution`, `source-selection-v2/scoped-owner-succession.json:7`): "Old envelope5/6 and invocation3/4 labels
+in preserved predecessor clauses denote their historical correction scope, not alternative current encoders." This erratum puts that mapping in WS, where a reader of WS will see it.
 
 ## WSE1.2 The amendment
 
@@ -49,8 +51,8 @@ the paragraph (WS:31-43) that names the majors, as a new paragraph:
 ## WSE1.4 Review
 
 **One independent review** (OD-PACE-1 rule 2), as NE-4-4-DETAIL-UNITS-r1 (a contract successor with no behaviour change)
-was routed. Note for the lead: OD-REVIEW-1 item 4 (`OD-REVIEW-1.md:51-58`) lists "contract law" among the scopes that take
-two fresh reviewers; OD-PACE-1 rule 4 does not. Which one governs a no-behaviour contract successor is the lead's routing.
+was routed. OD-PACE-1 settles it: "where OD-REVIEW-1 or an older plan asks for more reviewers than rule 4 above, rule 4
+governs" (`OD-PACE-1.md:67-68`), and rule 4 (`:30-31`) does not name contract text.
 
 ## WSE1.5 Binding owed (not generated)
 
