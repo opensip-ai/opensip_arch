@@ -11,8 +11,10 @@ AD-1 (the user-ignored-path silence in E1.3, and a tsconfig-branch finding under
 control row). **r4** records the lead's decision of O3 (LD-DEC-8 items 5-8) and corrects O3's opt-out sentence: a
 configuration file is not an opt-out that keeps the unit synthesized. A second r4 commit applies the independent
 review of that change (`LC/errata-1113/review-opus/VERDICT.md` RF-6, A-6, A-7): the `allowJs` split, "roots", and the
-`workspaceRoots` route. r1 to r3 are in this branch's history. The record still needs the cross-vendor review and the
-lead's adoption in a receipt that pins this file's sha256. It binds nothing and edits no file.
+`workspaceRoots` route. A third r4 commit applies the cross-vendor review
+(`LC/js-synth-profile-1/review-codex/VERDICT.md`, RF-1 to RF-3): O2's list names L-CL1, O2 is the lead's under
+OD-DECIDE-1, and the `allowJs` prose says the effective value. r1 to r3 are in this branch's history. The record still
+needs the lead's adoption in a receipt that pins this file's sha256. It binds nothing and edits no file.
 
 **Short names.** Base: architecture main `fa6fa0fba`. **TSR** = `TSR-1-r4.md` beside this directory (sha256 `be654c41…`,
 `ADOPTION-TSR-1.md`). **NE** = `docs/v2/contracts/product-v1/native-evidence.md`. **NS** / **NM** / **NCM** =
@@ -160,7 +162,7 @@ handed (the marker). It does not read it, validate it or copy it into any record
   member names a matrix limitation. `InspectionBundle.limitations` names correspondence reasons, an incomplete rule
   enumeration and truncation (`workflows-and-surfaces.md:681-683`), so it would need a successor. A reader holding the
   Run alone cannot see L-JS1. Whether a disclosure readable only from the Plan and the Coverage key meets NE:175
-  ("disclosed in output") and NE:607 ("disclosed in Coverage, never hidden") is the owner's decision (O2).
+  ("disclosed in output") and NE:607 ("disclosed in Coverage, never hidden") is the lead's decision under OD-DECIDE-1 (O2).
 - **Interim (normative for TS1).** A body-parser milestone record states both disclosures in its own text and states
   that this Run does not meet those two sentences of the native-evidence law as written. The two disclosures are these.
   First, the program at unit `""` is `js-synthesized` (`configOrigin=synthesized`, `synthesizerVersion` 1), so its
@@ -207,16 +209,21 @@ regenerates it, never a hand edit.
 
 - **O1. Closed by text (E1.3).** The Cargo arm and boundary rows are R-4.2's and U-4a's (NE:703-714; ENC:172). They
   have no body-parser effect.
-- **O2 (project owner).** First, whether disclosure by join (E1.7 (a) and (b)) meets NE:175 and NE:607. Second, if not,
-  which carrier to add: a `ViewEntryV3` successor or a reporting rule. This covers every matrix limitation that has no
-  carrier: L-JS1, L-JS2 (also on `ts-tsconfig` and `js-allowjs` `references`/`calls`), L-RS1-L-RS4 and L-FW1 (NE:593-597).
-  Only L-JS3 has one (`TypeDerivationV1`).
+- **O2 (the lead, under OD-DECIDE-1).** First, whether disclosure by join (E1.7 (a) and (b)) meets NE:175 and NE:607.
+  Second, if not, which carrier to add: a `ViewEntryV3` successor or a reporting rule. The owner is involved only on one
+  of that record's stated exceptions (`docs/implementation/OD-DECIDE-1.md`, "When the lead cannot decide"). This covers
+  every matrix limitation that has no carrier: L-JS1, L-JS2 (also on `ts-tsconfig` and `js-allowjs`
+  `references`/`calls`), L-RS1-L-RS4 and L-FW1 (NE:593-597). Only L-JS3 has one (`TypeDerivationV1`). L-CL1 (NE:600,
+  :617) is an explicitly unresolved candidate-disclosure case: `cross-tsjs` is candidate-only, and a candidate-only
+  capability has no Coverage entry at all (NE:3725-3726), so the join of E1.7 does not reach it and this record
+  prescribes no carrier or join for it.
 - **O3. Decided by the lead (LD-DEC-8 items 5-8, under OD-DECIDE-1; r4).** Nested packages under a synthesized root
   (E1.2). Under a `tsconfig` the overlap with nested units is the user's own configuration. Under `js-synthesized` the
   host imposes it, and there is no opt-out that keeps the outer unit synthesized and the nested packages analysed:
   - a root `jsconfig.json` (unless it writes `allowJs: false`, which selects `ts-tsconfig`), or a root `tsconfig.json`
-    with `allowJs`, alone changes the outer unit's mode to `js-allowjs` (NE:664-670), and its default `include` `["**/*"]` (R-4.3, TSR:750) takes the nested files as roots again. A plain
-    root `tsconfig.json` selects `ts-tsconfig` (an omitted `allowJs` is false for it, NE:668-670), which takes no `.js`
+    with effective `allowJs`, alone changes the outer unit's mode to `js-allowjs` (NE:664-670), and its default `include` `["**/*"]` (R-4.3, TSR:750) takes the nested files as roots again. A plain
+    root `tsconfig.json` (effective `allowJs` false: none inherited or supplied true, and `checkJs` false; NE:535-543,
+    :668-670) selects `ts-tsconfig`, which takes no `.js`
     root at all (R-4.4; E1.2 above): nested `.js` files leave the outer program's roots, and so do the outer unit's own;
     nested `.ts` files are still taken;
   - such a file that also writes `exclude` (or a narrower `include`) does leave them out of the outer program's roots (the
