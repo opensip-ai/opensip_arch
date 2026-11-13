@@ -1,39 +1,39 @@
-# Erratum FA2-CENSUS-E1: a symbol census is complete over a named population rule (author draft, 2026-11-13)
+# Erratum FA2-CENSUS-E1: a symbol census is complete over a named population rule (author draft r2, 2026-11-13)
 
-Status: **PROPOSED.** It implements lead decision LD-DEC-11 items 1-7
-(`LC/decisions/LD-DEC-11-census-population/DECISION.md`, `LC` = `/Users/sb/code/.opensip-implementation-cache/lead-2026-10-25`),
-with the red team's findings 1-6 (`REDTEAM.md`) and the cross-vendor reviewer's CX-4 advice
-(`LC/f2min/review-codex/VERDICT-3-fix1.md`). Origin: finding F2-CX-4. It is **additive**: the accepted bytes stay frozen.
+Status: **PROPOSED, r2.** It implements lead decision LD-DEC-11 items 1-5, 6' and 7-8
+(`LC/decisions/LD-DEC-11-census-population/DECISION.md`, including its section "Corrections 2026-11-13 after both reviews
+of the erratum"; `LC` = `/Users/sb/code/.opensip-implementation-cache/lead-2026-10-25`). It answers both reviews of r1
+(`b097e3d9e`): `review-opus/VERDICT.md` (R1-R3, A1-A5) and `review-codex/VERDICT.md` (FCE-CX-1, FCE-CX-2), both
+REQUIRED-FINDINGS. The changes are listed in FCE1.11. It is **additive**: the accepted bytes stay frozen.
 
 Corrects one accepted text: **contract successor FA-2** (native-evidence §9.8, the symbol census), at architecture main
-`12084f90d`, as pinned by its subject manifest `native-successors-fa/fa-2-subject.json`:
+`12084f90d` (unchanged at `8b09ee249`), as pinned by its subject manifest `native-successors-fa/fa-2-subject.json`:
 - `docs/implementation/m3/native-successors-fa/fa-2/section-9-8.md`, 8,270 bytes, sha256
   `2769b0935a7e1fd0d8b7a76c245d44dee7cd08588379f21a34f2be17c2e2e6c0`;
 - `docs/implementation/m3/native-successors-fa/fa-2/README.md`, 37,836 bytes, sha256
-  `59381765049d16320eb8d1886fb0f5a51651485d0e3c9ddea3641d5691225af7`.
+  `59381765049d16320eb8d1886fb0f5a51651485d0e3c9ddea3641d5691225af7`;
+- the record's own copy of §9.8: `fa-2/successor.json:174`. That line is the `after` text of the override whose selector is
+  native-evidence line 3313 (`:171`). It carries `9.8:3-5` and `:56-57` verbatim.
 
 Line numbers below are those files' (`9.8:N`, `README:N`).
 
 **Which record form applies.** FA-2 is a lock input: the product's `design-lock.json` (product main `fc28bce2`) binds it
 as a `contractSuccessors` entry, record `fa-2/successor.json` (38,659 bytes, sha256 `f6b105f4…`) at `:7840`, subject
-manifest `fa-2-subject.json` at `:7845`, review `reviews/codex-fa-2-r2/review.json` at `:7850`, assent `fa-2-unit.json`
-at `:7855`. So, like VCS1-E1 (`../errata-2026-11-13/ERRATUM-VCS1-E1.md`), this correction needs a contract successor:
-a record, a subject manifest, a review, an assent and one lock entry. This file is its text. They are owed, not
-generated here (FCE1.9).
+manifest at `:7845`, review `reviews/codex-fa-2-r2/review.json` at `:7850`, assent `fa-2-unit.json` at `:7855`. So, like
+VCS1-E1 (`../errata-2026-11-13/ERRATUM-VCS1-E1.md`), this correction needs a contract successor. This file is its text;
+the record and its parts are owed (FCE1.9).
 
-Model and form: `../errata-2026-11-13/ERRATUM-VCS1-E1.md` and `ERRATUM-SUPERVISOR-TOOL-EVENT-E1.md`.
-
-Product facts read (read-only), branch `f2min-fix-1-r1` at `61ae5fb2`, worktree `opensip-fix-f2min`
-(`P` = `providers/typescript/src/facts`): `P/census.ts`, `P/candidates.ts`, `P/subject-ids.ts`,
-`tools/typescript_closure.py`. Design note: `LC/f2min/DESIGN-NOTE-r5.md` (`N`).
+Product facts (read-only): branch `f2min-fix-1-r1` at `61ae5fb2fdeacfcc161587d8a45bd52bb9d05c7b`, worktree
+`opensip-fix-f2min` (`P` = `providers/typescript/src/facts`). Design note: `LC/f2min/DESIGN-NOTE-r5.md` (`N`). "Probe"
+below means a result the two reviewers obtained by running the code; this author ran nothing.
 
 ## FCE1.1 The accepted sentences
 
-`9.8:3-5`:
+`9.8:3-5` (and its copy in `successor.json:174`):
 
 > A TypeScript or Rust provider's symbol census is its explicit population assertion (the header above; identity §4): the first-party symbols its program declares over the binding's symbol extent (enumeration contract §5), with the paths it examined.
 
-`9.8:56-57`:
+`9.8:56-57` (and its copy in `successor.json:174`):
 
 > Rows name first-party symbols only: an external symbol is not a row, and a symbol with no fact is still one.
 
@@ -41,18 +41,17 @@ Product facts read (read-only), branch `f2min-fix-1-r1` at `61ae5fb2`, worktree 
 
 > The emission duty of §9.8: the census in the same compiler pass; rows for every first-party symbol, including those with no fact; every source-side subject of the worker's symbol-kind candidates has a row; no external symbol is a row; scope2 computed with the foundation encoder, conformance-tested on `vectors.json`. Signed capability rows of releases that implement it carry `symbol-census-v1`.
 
-**Why they cannot stand for TypeScript.** The TypeScript census does not hold every first-party symbol. Its walk
-reaches only the file's top-level tables, export tables and the members of named containers (`P/census.ts:237-340`);
-a symbol in a function or block scope gets no id (`P/census.ts:442`, "P5 local: no id"), and anonymous symbols are
-skipped with their members (`:134`, `:657`). The exclusion was a design-note choice with a stated reason (no stable id
-for a local; `N` §2 P5, §6), and it never reached law, so a committed census claimed more than it held (LD-DEC-11,
-"Dissent"). The counts are in `LC/f2min/fix-1/CX4-OPTIONS.md` §4 and are not repeated here.
+**Why they cannot stand for TypeScript.** The TypeScript census does not hold every first-party symbol. Its walk reads
+only the file's top-level tables, the export tables and the members of named containers (`P/census.ts:237-340`). A symbol
+in a function or block scope gets no id (`:442`), and anonymous symbols are skipped with their members (`:134`, `:657`).
+The exclusion was a design-note choice (`N` §2 P5, §6) that never reached law. The reviews also found that the code does
+not hold one consistent population either (FCE1.3, "fix owed"). The counts are in `LC/f2min/fix-1/CX4-OPTIONS.md` §4.
 
 ## FCE1.2 The amendment
 
 **`9.8:3-5`** is read as:
 
-> A TypeScript or Rust provider's symbol census is its explicit population assertion (the header above; identity §4) under one named population rule: the first-party symbols its program declares over the binding's symbol extent (enumeration contract §5) that the rule selects, with the paths it examined. The default rule, `native.symbol-census-population.default.v1`, selects the first-party symbols its program declares over the binding's symbol extent, all of them; it is the rule of every provider that names no other. A provider names another rule only in the token note bound by digest to its closure build, and only a rule stated in this section. A census's `complete` state and its row count describe its rule's population and no wider one. Rule ids are immutable (erratum FA2-CENSUS-E1).
+> A TypeScript or Rust provider's symbol census is its explicit population assertion (the header above; identity §4) under one named population rule: the first-party symbols its program declares over the binding's symbol extent (enumeration contract §5) that the rule selects, with the paths it examined. The default rule, `native.symbol-census-population.default.v1`, selects the first-party symbols its program declares over the binding's symbol extent, all of them. A census's rule is the population-rule binding of its enumerator closure (below); a closure whose binding names no other rule is under the default rule. Only a rule stated in this section can be bound. A census's `complete` state and its row count describe its rule's population and no wider one. Rule ids are immutable (erratum FA2-CENSUS-E1).
 
 **`9.8:56-57`** is read as:
 
@@ -60,62 +59,58 @@ for a local; `N` §2 P5, §6), and it never reached law, so a committed census c
 
 **`README:282`**: the words "rows for every first-party symbol, including those with no fact" are read as:
 
-> rows for every first-party symbol of the census's population rule (§9.8 as amended by FA2-CENSUS-E1: the default rule, or the rule the provider's token note names), including those with no fact
+> rows for every first-party symbol of the census's population rule (§9.8 as amended by FA2-CENSUS-E1), including those with no fact
 
-The rest of `README:282` is unchanged, "every source-side subject of the worker's symbol-kind candidates has a row"
-included.
+The rest of `README:282` is unchanged.
 
-**A new paragraph of §9.8**, inserted after `9.8:11`: the TypeScript rule of FCE1.3, and the paragraphs of FCE1.4 and
-FCE1.5. They are the rule's only statement. No other text restates them.
-
-For any provider that names no rule, nothing changes: the default rule is the accepted wording of `9.8:3-5`. The Rust
-provider names none, so its obligation is unchanged (LD-DEC-11 item 1; red team finding 2).
+**Inserted into §9.8 after `9.8:11`:** the rule of FCE1.3 (its first two columns and the sentences quoted there), and the
+paragraphs quoted in FCE1.4, FCE1.5 and FCE1.7. They are the rule's only statement. The default rule is the accepted
+wording, so Rust's obligation is unchanged (LD-DEC-11 item 1).
 
 ## FCE1.3 The TypeScript rule `native.symbol-census-population.typescript.v1`
 
-Inserted into §9.8 as written. Each class was checked against `P/census.ts` (cited) and `N` §2-§6. Where the two
-differ, the text follows the code, and the difference is listed in FCE1.10.
+Inserted into §9.8:
 
-> **The TypeScript population rule `native.symbol-census-population.typescript.v1` (erratum FA2-CENSUS-E1).** Under this rule a census row is a declaration in an extent code file of one of the included classes below, and of no other.
+> **The TypeScript population rule `native.symbol-census-population.typescript.v1` (erratum FA2-CENSUS-E1).** Under this rule a census row is a declaration in an extent code file of a class the table marks included, and of no other. A class holds in module files and script files alike unless the table says otherwise. The census does not fail as a whole because a declaration of any class, included or excluded, is present. It never has a row for a name that is not a binding in the scope its id names. An included declaration that fails the provider's id checks ends the Analyze without `Complete` (`9.8:64-65`); it is never left out silently.
 >
-> Included:
-> 1. **Files.** Each examined code file is one row, whether it is a module or a script; a module's own symbol is that same row. A JSON root is examined and is not a row.
-> 2. **Module top level.** Each entry of a module file's top-level binding table, of any declaration kind. Each export-table entry that has no binding in the file: the CommonJS forms `exports.x =`, `module.exports.x =` and `Object.defineProperty(exports, 'x', …)`, an export declared only by a module augmentation, a `module.exports = …` value that is not an alias, and a default-exported value.
-> 3. **Script top level and globals.** Each declaration at the top level of a script file, and each declaration in a `declare global` block.
-> 4. **Ambient modules.** Each string-named `declare module` in an extent file whose target is not a file of the program.
-> 5. **Members of a reached named container.** Of a class or interface: its instance members (parameter properties, and the JavaScript `this.x =` and prototype-assignment forms, included) and its call, construct, index and constructor signatures. Of a class: its static members other than `prototype`. Of a JavaScript constructor function: the properties of its construct signature. Of every reached container (a namespace, enum, class, function, ambient module, or a module an augmentation merges into): the entries of its export table that are not aliases. A member is a row only when it has a declaration in an extent file; a container declared outside the extent is walked for such members.
->
-> Excluded, by name:
-> 1. Aliases with no declared meaning of their own: imports, import-equals declarations, export specifiers and re-exports. An alias merged with a declared meaning is not excluded by this class.
-> 2. Function and block locals, catch variables included.
-> 3. Declarations of a namespace block that the block does not export.
-> 4. Parameters, other than parameter properties. Type parameters.
-> 5. Local function, class, enum, interface, type-alias and namespace declarations.
-> 6. The names of function expressions and class expressions.
-> 7. Symbols the compiler leaves anonymous, with every member under them: function and arrow expressions, class expressions, object literals (`module.exports = {…}` and `export default {…}` objects included), type literals and JSX attribute sets.
-> 8. JavaScript forms the compiler binds to no symbol, such as `exports[k] = …`.
-> 9. Compiler-internal entries of the top-level tables: `__export`, `__global`, the CommonJS `module` symbol, and a string-named module entry that is not an ambient module.
-> 10. The four A7 cases: a member with no compiler symbol (a computed or bigint name the checker does not bind, or a late-bound key with no unique-symbol declaring symbol); a member keyed by a unique symbol whose declaring symbol has no id under this rule; a member of a `node_modules` file with no package segment; and every member whose id depends on an ambiguous external name.
+> Members are rows when they have a declaration in an extent file. A seed (a file, a global declaration, an ambient module) is walked even when its symbol also has declarations outside the extent. A nested container is walked only when it has a declaration in an extent file.
 >
 > **The two-copies rule (R2) reaches this rule's population only.** An external name is ambiguous when two distinct named external symbols that this rule's walk reaches compute it. A symbol reached only from a declaration this rule excludes does not count.
->
-> An included declaration that cannot be given its row for any other reason is not left out: the worker does not send `Complete` (`9.8:64-65`).
 
-The code for each class:
+The table. Its first two columns are the rule. Its last two record the code at `61ae5fb2` and are not inserted.
 
-| Class | `P/census.ts` |
-|---|---|
-| Included 1 | file row `:582`; the module symbol is seeded (`:583-584`) and not emitted again (`:699`); JSON `:568` |
-| Included 2 | locals table `:292-307`; export-only entries `:308-313`; aliases and internal entries filtered `:274`, `:293` |
-| Included 3 | seed scan by scope `:619-622`, scope test `:199-210` |
-| Included 4 | `:616-618`, `isAmbientModule` `:212-214` |
-| Included 5 | instance side `:317-322`; constructor function `:323-329`; static side `:330-335`; export tables `:336-338`; extent test `:680` |
-| Excluded 1 | `pureAlias` `:216`, applied `:274`, `:293`, `:337`, `:455` |
-| Excluded 2-6 | none of these is in a table the walk reads (`:237-340`); `containerOf` gives them no id (`:442`) |
-| Excluded 7 | `ANON` `:134`, skipped with its members `:657` |
-| Excluded 8 | the compiler binds no symbol; no code |
-| Excluded 9 | `isBogusTop` `:217-220` |
-| Excluded 10 | `:624-631`; `segOf` `:381-383`; `homeOfFile` `:365`; R2 `:466-470`, `:671-677`, two passes `:735-737` |
+| # | Declaration class | Rule | Code at `61ae5fb2` (`P/census.ts` unless named) | Status |
+|---|---|---|---|---|
+| C1 | Each examined code file. A module's own symbol is that same row. | included | file row `:582`; module symbol seeded `:583-584`, not emitted again `:699` | matches |
+| C2 | A JSON root (examined) | excluded | `:568` | matches |
+| C3 | Module top level: each entry of a module file's top-level binding table that is not excluded by C19, of any declaration kind (variables and destructured names, functions, classes, enums, interfaces, type aliases, namespaces) | included | `:292-307` | matches |
+| C4 | A `var` in a block or `for` head at a module file's top level (it hoists into that table) | included | enters the table (`:292`), but the scope test (`:199-210`) gives "other", `idOf` gives null (`:442`), and the whole census fails at `:712`. Probe: `internal: walk id ts-symbol:b.ts#i != idOf null` (R1; FCE-CX-1) | fix owed |
+| C5 | A module file's export entries with no binding in the file: CommonJS `exports.x =`, `module.exports.x =` and `Object.defineProperty(exports, 'x', …)`; a top-level `this.x =` in a CommonJS file; an export declared only by a module augmentation; a `module.exports = …` value that is not an alias; a default-exported value | included | `:308-313`. Probe: top-level `this.x =` gives `d.js#(export).b` (R3 (b)) | matches |
+| C6 | JSDoc `@typedef` and `@callback` at file scope | included | module and CommonJS files: rows through the top-level table (`:292`). Probe: `a.js#T`, `d.js#T`. Script files: no row and no report; the seed scan reads JSDoc only for the byte check (`:602-615`) (R3 (c); FCE-CX-1 (a)) | module: matches; script: fix owed |
+| C7 | Global declarations: each declaration declared at global scope, meaning directly in a script file's statement list (a variable statement's names included) or in a `declare global` block. The expression initializing such a variable is not itself a declaration of this class (C22, C23). | included | seed scan `:619-622`, scope test `:199-210` | matches for the declarations themselves; see C22, C23 |
+| C8 | A `var` in a block or `for` head at a script file's top level (a global binding) | included | not seeded: the scope test (`:199-210`) gives "other"; omitted silently (FCE-CX-1) | fix owed |
+| C9 | A top-level `this.x =` in a script file (the compiler binds it as a global; R3 (c)) | included | not seeded: the scope test gives "other"; omitted silently (R3 (c)) | fix owed |
+| C10 | A string-named `declare module` declared at global scope (`:212-214`) | **open** (FCE1.10, open point 1) | seeded `:616-618`; a row `#"m"` | not decided |
+| C11 | A string-named `declare module` in a module file whose target is a file of the program (an augmentation); its declarations merge into that module | included, as declarations of C3, C5 and C13-C17 of the target | augmentation seeds `:616-618`; corpus cases N4a-N4c and N5a-N5d (`N` §8) | matches |
+| C12 | A string-named `declare module` that is not at global scope and whose target is not a file of the program, with its declarations | excluded; it never makes the census incomplete | no row; the census completes with the note `A7 no id for seed` (`:690-697`). Probe: `export {}; declare module "absent" {…}` (FCE-CX-1 (b)) | population matches; the A7 note wrongly calls this case A7: disclosure fix owed |
+| C13 | Members of a class or interface: instance members (parameter properties and the JavaScript `this.x =` and prototype-assignment forms included) and call, construct, index and constructor signatures | included | `:317-322`, `:224-233` | matches |
+| C14 | Static members of a class, other than `prototype` | included | `:330-335` | matches |
+| C15 | Properties of a JavaScript constructor function's construct signature | included | `:323-329` | matches |
+| C16 | The non-alias entries of the export table of a reached container: namespace exports, enum members and a function's or class's assigned properties | included | `:336-338` | matches |
+| C17 | Expando members of a variable that the compiler makes an expando container (`const f = () => 1; f.x = 1`; JavaScript `var o = {}; o.x = 1`) | included | `:336-338`. Probe: `#f.x`, `#o.x` (R3 (a)) | matches for the probed files; script files: to be settled by CENSUS-RULE-1's golden, by principle (c) |
+| C18 | A namespace export that is an alias merged with a namespace or other declared meaning, with its descendants | included (as at module top level, where only a pure alias is excluded) | skipped with its descendants by the any-alias test of `:337`, unlike the pure-alias test of `:274` and `:293`. Probe witness, which also has a compiler diagnostic: the census completes without them (FCE-CX-1 (c)) | fix owed |
+| C19 | Aliases with no declared meaning of their own: imports, import-equals declarations, export specifiers, re-exports, and the JavaScript `const x = require(…)` and `const {a} = require(…)` forms | excluded | `pureAlias` `:216`, applied `:274`, `:293`, `:455` (A1: the compiler binds the `require` forms as pure aliases) | matches |
+| C20 | Function and block locals other than C4 and C8, catch variables included; non-exported declarations of a namespace block; local function, class, enum, interface, type-alias and namespace declarations | excluded | not in any table the walk reads (`:237-340`); `containerOf` gives no id (`:442`) | matches |
+| C21 | Parameters, other than parameter properties; type parameters | excluded | as C20 | matches |
+| C22 | The names of function expressions and class expressions | excluded | module files: not reached; matches. Script files: the scope test climbs from the initializer to the file (`:203`), and the seed scan seeds the expression (`:619-621`). Probe: `var f = function g(){}` and `const C = class Named {}` give rows `ts-symbol:#g` and `ts-symbol:#Named`, which are not bindings; with another global `function g`, the census fails X4 (R2). Whether a class expression's members also become rows through the walk of that seed (`:703`) is to be settled by CENSUS-RULE-1's golden, by principle (b) | module: matches; script: fix owed |
+| C23 | Symbols the compiler leaves anonymous, with every member under them: function and arrow expressions, class expressions, object literals (`module.exports = {…}` and `export default {…}` objects included), type literals, JSX attribute sets | excluded | `ANON` `:134`, skipped with members `:657`. In script files the seed scan also seeds them as C22's are, and reports `A7 no id for seed __function` / `__object` / `__type` (`:690-697`; A5), though they are not A7 | rows: matches; disclosure fix owed |
+| C24 | JavaScript forms the compiler binds to no symbol, such as `exports[k] = …` | excluded | no symbol, no code | matches |
+| C25 | Compiler-internal entries of the top-level tables: `__export`, `__global`, the CommonJS `module` symbol, and a string-named entry that is not an ambient module | excluded | `isBogusTop` `:217-220` | matches |
+| C26 | The four A7 cases: a member with no compiler symbol (a computed or bigint name the checker does not bind, or a late-bound key with no unique-symbol declaring symbol); a member keyed by a unique symbol whose declaring symbol has no id under this rule; a member of a `node_modules` file with no package segment; a member whose id depends on an ambiguous external name | excluded | `:624-631`; `segOf` `:381-383`; `homeOfFile` `:365`; R2 `:466-470`, `:671-677`, two passes `:735-737` | matches |
+
+C6's script fix needs no new id rule. A script file's file-scope declaration is global, and the grammar has the global
+form `"ts-symbol:#" top` (`providers/typescript/SUBJECT-IDS.md:18`; `globalId` in `P/subject-ids.ts`). So principle (c)
+includes C6 in both file kinds. C8 and C9 take the same global form.
 
 ## FCE1.4 Relations under the TypeScript rule
 
@@ -123,145 +118,151 @@ Inserted into §9.8 after the rule:
 
 > **Relations under `native.symbol-census-population.typescript.v1`.** Only `imports` and `unresolved-edge` are advertised under this rule. Their source field (`importer`, `referrer`) names the row of the file that holds the import site, wherever in that file the site is. Any other symbol relation needs its own reviewed law for the attribution of its source and target fields before it is advertised under this rule.
 
-Verified: `P/candidates.ts:63-77` builds the `importer` of `imports` and the `referrer` of `unresolved-edge` from
-`moduleSubjectId(o.site.file)`, the file's path-home id (`P/subject-ids.ts:154-157`); the target of `imports` is also a
-file id (`:68`). The draft token note registers one relation row, `[["imports", "resolved-target"]]`
-(`LC/f2min/token-note.DRAFT.md`).
-
-This erratum makes no statement that a fact is attributed to an enclosing row. Such an attribution is an aggregation
-that needs its own relation law (`VERDICT-3-fix1.md`, CX-4 advice; red team finding 1).
+Verified, and confirmed by both reviews: `P/candidates.ts:63-77` builds both fields from `moduleSubjectId(o.site.file)`
+(`P/subject-ids.ts:154-158`), and the target of `imports` is a file id (`:68`). This erratum makes no statement that a fact
+is attributed to an enclosing row. That would be an aggregation needing its own relation law (`VERDICT-3-fix1.md`).
 
 ## FCE1.5 Widening
 
 Inserted into §9.8 after FCE1.4:
 
-> **A wider population is a new rule.** It has a new rule id; an id is never re-used for another population. A wider rule is not promised to be additive: under it a row of this rule may get another id or no id. Runs made under different rules are not promised to be comparable.
+> **A wider population is a new rule.** It has a new rule id; an id is never re-used for another population. A wider rule is not promised to be additive: under it a row of this rule may get another id or no id. Runs made under different rules are not promised to be comparable. An excluded declaration is outside the census's evidence; its absence is never proof that it does not exist, is unused, or is safe to change.
 
-Why it is not additive (red team finding 3):
-- **R2.** A wider walk reaches more external symbols, for example through the computed keys of members of local
-  classes. An external name that this rule's walk reaches once can then be reached twice. It becomes ambiguous, and a
-  row of this rule that depends on it falls into A7 case 4 under the wider rule: its id disappears.
-- **A7 case 2.** A member keyed by a unique symbol whose declaring symbol is a local has no row here. Under a rule that
-  gives locals ids, it gets one, and so do facts about it.
-- **Ids.** The id grammar G1 (`providers/typescript/SUBJECT-IDS.md:18`) has no form for a declaration inside a function
-  or block (`CX4-OPTIONS.md` §3). A wider rule may need a new grammar, which is not this erratum's.
-- **Attribution.** A relation advertised under a wider rule may name a source that this rule cannot name, so a finding
-  keyed to a row of this rule may not carry across.
+Why it is not additive:
+- **R2.** A wider walk reaches more external symbols (for example through the computed keys of members of local classes).
+  An external name reached once under this rule can then be reached twice and become ambiguous. A row that depends on it
+  falls into A7 case 4, and its id disappears.
+- **A7 case 2.** A member keyed by a unique symbol whose declaring symbol is a local has no row here, but would have one
+  under a rule that gives locals ids.
+- **Ids.** G1 (`SUBJECT-IDS.md:18`) has no form for a declaration inside a function or block (`CX4-OPTIONS.md` §3).
+- **Attribution.** A relation under a wider rule may name a source this rule cannot name.
 
 ## FCE1.6 Consumers (obligations owed; nothing is implemented)
 
-These obligations follow from LD-DEC-11 item 5. They are owed by the named units. This erratum does not amend their
-texts.
+- **The evaluator's own erratum.** It is owed by the owner of `foundation/evaluator-composition-contract.v3.md`, before any
+  symbol-kind or export-kind rule ships. The obligation: a rule whose primary subjects include declarations outside the
+  population rule of the census that covers it is refused or reported incomplete, never complete-empty and never pass.
+  Today a complete covering inventory can give complete-empty (`evaluator-composition-contract.v3.md:26`). The product
+  checks kind and state, not the population rule (`crates/evaluator/src/input_reconstruction.rs:259-290`, `:347-355`, per
+  FCE-CX point 5; source reading, not a Run). M3's one rule, `module-import-cycle`, is file-kind and is not affected. The
+  path document carries the gate until that erratum is bound (`LC/coordinator/PATH.md:110-113`).
+- **The reporting and command-line units.** Every surface that reports symbol completeness names the rule id of the
+  census behind it.
+- **No wire member, schema member, deficiency or cause** is added (`9.8:107-108`). The carrier is FCE1.7's.
 
-- **The evaluator** (owner of `foundation/evaluator-composition-contract.v3.md`): a rule whose primary subjects
-  include declarations outside the population rule of the census that covers it is refused or reported incomplete.
-  Such a census never yields complete-empty or pass for it. Today a complete inventory can yield complete-empty
-  (`evaluator-composition-contract.v3.md:26`). This is the latent route of red team finding 5. M3's one rule,
-  `module-import-cycle`, is file-kind and is not affected. The lead records the gate "before any symbol-kind rule
-  ships" on the path document (LD-DEC-11 item 5).
-- **The reporting and command-line units** (owners of the surfaces): every surface that reports symbol completeness
-  names the rule id of the census behind it.
-- **The carrier.** No wire member, schema member, deficiency or cause is added (`9.8:107-108`). How the evaluator and
-  the surfaces learn a census's rule id from its enumerator closure is not designed here (FCE1.10, open point 3).
+## FCE1.7 Binding the rule to the code
 
-## FCE1.7 Binding to the code
+Inserted into §9.8 after FCE1.5:
 
-- **The token note names the rule id and restates nothing.** The note is the file passed as `--token-note` to the
-  product's `tools/typescript_closure.py` (`build`, `:343-347`). Its sha256 is pinned as `tokenNoteSha256` and checked
-  before anything is built (`bound_tokens`, `:211-235`). It is recorded as `tokens.noteSha256` in the closure build record
-  (`:465-466`). For F2-min the note does not exist yet. Its draft is `LC/f2min/token-note.DRAFT.md`; the bound copy is
-  `LC/f2min/closure/<C8>/INTERFACE-NOTE-f2min-to-f4.md` (`LC/f2min/CLOSURE-REPACKAGING.md:13`, `:27`). It owes one
-  sentence naming `native.symbol-census-population.typescript.v1`. Its traceability line for `symbol-census-v1` ("the
-  first-party symbol census on `Complete`") also names the rule id.
-- **The conformance golden is owed as code unit CENSUS-RULE-1.** It has one case per class of FCE1.3, included and
-  excluded. It passes on the code, and it fails when a class is added to or dropped from the population. The existing
-  98-case corpus (`src/test/census-corpus.test.ts` against `fixtures/census-golden.ts`) is the design note's, and it is
-  not organised by class. I did not establish which classes it covers.
-- **No product code is changed by this erratum** (LD-DEC-11 item 6).
+> **Each enumerator closure has exactly one population-rule binding.** It is immutable, it is reviewed, it is available before Plan selection, and it is retained for replay. A census request whose enumerator closure has no binding, or has conflicting bindings, is refused. Evidence made under a binding keeps that binding's rule when it is read later. Until the carrier of this binding exists, a provider does not claim a `complete` census under any rule other than the default.
+
+What this means for the code (LD-DEC-11 items 6' and 8; FCE-CX-2):
+- **A note alone is not enough.** The product's token note is pinned by digest (`tools/typescript_closure.py`
+  `bound_tokens`, `:211-235`) and recorded in the closure build record (`:465-466`). But P's `closure2` covers the dist and
+  the note's token and relation lists (`:446-452`), not the rest of the note. Changing only a rule sentence in the note
+  changes neither the enumerator closure nor the Plan's census request. The note may name the rule id, but the binding
+  must be carried by something the closure identity or the Plan fixes. That carrier is owed: it is part of CENSUS-RULE-1,
+  or a unit of its own.
+- **CENSUS-RULE-1 is the code fixes of FCE1.10 plus the conformance golden, tests first.** The golden has one case per
+  class of FCE1.3, plus controls that fail when a class is added or dropped. Its cases fail at `61ae5fb2` before the fixes
+  for C4, C6, C8, C9, C18, C22 and C23. The provider does not send `complete` under
+  `native.symbol-census-population.typescript.v1` until CENSUS-RULE-1 is accepted and the carrier exists.
+- **The existing 98-case corpus** (`src/test/census-corpus.test.ts` against `fixtures/census-golden.ts`) is the design
+  note's. It is not organised by class, and it passes at `61ae5fb2` while the defects above stand, so it is not this
+  rule's conformance evidence.
+- No product code is changed by this erratum.
 
 ## FCE1.8 What this does not change
 
-- **The census schema.** `fa-2/design/native/symbol-census.schemas.v1.json`, 19,045 bytes, sha256
-  `95d84054ba8d0d37cff59198df3f0c9d33a7701f259298ca2f068f05cf07ad21`: not edited. The product pins it byte for byte
-  under ledger id `opensip.product.symbol-census.1` (`opensip/tools/replay/id-ledger.json:435`, same sha256). No change is
-  needed, because the schema states no population. Its `return` law (`:12`) defines the variants by size only, and its
-  row text (`:138`, "One first-party symbol") is still true of every row under either rule. Its `standing` (`:7`) makes it a
-  restatement of §9.8, and the two do not differ after this erratum. An edit would change bytes under a pinned id, or
-  would need a new id, which is a code change (red team finding 6).
-- **The enumeration contract.** Its `complete` state for `kind=symbol` is defined by examined paths, with no row totality
-  (`enumeration-contract.v1.md:119`, `:178`). The extent is a path scope (`:132`), and the host does not recompute symbol
-  rows (`:186`). A census complete over a named rule is consistent with all four lines, so they are not amended.
-- **The rest of §9.8.** The extent, `examinedPaths`, the variants and bounds, the commitments, the terminals and refusals.
-  `9.8:64-65` ("no `partial` and no `unavailable` census") stands, and an included declaration the worker cannot row
-  still takes it (FCE1.3, last sentence).
-- **No wire member, deficiency, cause, D9 code, frame, token or schema** (`9.8:107-108`). `symbol-census-v1` is unchanged.
-- **The evaluator contract** (`evaluator-composition-contract.v3.md:24-26`, `:46`) is not amended. Its collision class at
-  `:46` runs over the population that was enumerated, which is now the census rule's.
-- **Rust.** No rule is named for it, and the default rule is the accepted wording.
+- **The census schema.** `fa-2/design/native/symbol-census.schemas.v1.json` (19,045 bytes, sha256 `95d84054…ad21`) is not
+  edited. It is pinned byte for byte as `opensip.product.symbol-census.1` (`opensip/tools/replay/id-ledger.json:435`). It
+  states no population: `:12` defines the variants by size, and `:111` and `:138` hold for every row under either rule.
+  `:7` makes it a restatement of §9.8, and the two do not differ after this erratum. Both reviews confirm this.
+- **The enumeration contract** (`enumeration-contract.v1.md:119`, `:132`, `:178`, `:186`). `complete` for `kind=symbol` is
+  defined by examined paths with no row totality, so these lines need no amendment.
+- **The rest of §9.8**: the extent, `examinedPaths`, the variants and bounds, the commitments, the terminals and refusals.
+  `9.8:64-65` stands.
+- **No wire member, deficiency, cause, D9 code, frame, token or schema** (`9.8:107-108`).
+- **The evaluator contract** is not amended here. Its amendment is its owner's (FCE1.6).
+- **Rust.** It is under the default rule, which is the accepted wording.
 
 ## FCE1.9 Controls, review and binding owed
 
-**Controls** (LD-DEC-11, "Controls that follow"):
-1. CENSUS-RULE-1's golden passes, and it fails when a class is added or dropped.
-2. The token note names the rule id, and its digest is pinned and recorded in the closure build (FCE1.7).
-3. The path document carries the gate "before any symbol-kind rule ships" (the lead's).
+**Controls:**
+1. CENSUS-RULE-1's golden: one case per class, tests first, failing before the fixes, with controls that fail when a class
+   is added or dropped.
+2. The population-rule carrier of FCE1.7 exists before any `complete` census is sent under the TypeScript rule.
+3. The evaluator owner's erratum is bound before any symbol-kind or export-kind rule ships (FCE1.6).
 4. **The item 7 measurement is recorded before the body-parser Run.** On fixture `js-small-body-parser`: whether the
-   package's public surface (`module.exports = …` objects and their members, nested functions and callbacks; excluded 7,
-   2 and 5) falls into the excluded classes, with the count. The excluded counts measured so far are `CX4-OPTIONS.md`
-   §4's. That table does not say what the public surface is, and I did not establish it. If the census misses the package's exported
-   surface, that goes to the lead before the Run is recorded, and the rule's included classes are revisited (LD-DEC-11,
-   "What would reverse this").
+   package's public surface falls into the excluded classes (C23 objects and their members, C20 nested functions and
+   callbacks), with the count. The counts so far are `CX4-OPTIONS.md` §4's; that table does not say what the public
+   surface is. A miss goes to the lead before the Run is recorded.
 
-**Review: two independent reviewers**, both independent of the DESIGN-NOTE-r5 rulings that confirmed the exclusion
-(LD-DEC-11 item 6; red team finding 8). F2-CX-4 closes when this erratum is accepted and bound. Until then F2-min is at
-risk and is not integrated.
+**Review: two independent reviewers**, both independent of the DESIGN-NOTE-r5 rulings (LD-DEC-11 item 6).
 
-**Binding owed (not generated):** a contract successor carrying FCE1.2-FCE1.5 as overrides and an insertion on FA-2's
-§9.8 and `README:282`, with its subject manifest, the two reviews, the unit assent and one `contractSuccessors` entry in
-the product's `design-lock.json`. The choice between a replacement FA-2 record and a second successor is the binder's, as
-in VCS1-E1.6.
+**Binding owed (not generated):** a contract successor that overrides `section-9-8.md`, `README:282` and the §9.8 copy in
+`fa-2/successor.json:174`. It carries FCE1.2-FCE1.5 and FCE1.7's binding paragraph as operative text. With it come its
+subject manifest, the two reviews, the unit assent and one `contractSuccessors` entry in the product's `design-lock.json`.
+The choice between a replacement FA-2 record and a second successor is the binder's, as in VCS1-E1.6. Adopting the law can
+come before CENSUS-RULE-1. Using the narrowed `complete` claim cannot.
 
-## FCE1.10 Open points
+## FCE1.10 Code fixes owed, and open points
 
-**Where the code and the design note differ** (the rule follows the code):
-1. **Attribution.** `N` §6 says a fact from code with no row names "the nearest enclosing row … as its referrer, caller or
-   subject", and that this binds later F2 units and G3. The code names the file for `imports` and `unresolved-edge`
-   (FCE1.4). `N` already says this for `imports`, but says nothing for `unresolved-edge`. This erratum does not adopt
-   `N` §6's attribution paragraph, and `N` owes a correction. The note's statement "the product can repeat" (`N` §6)
-   ends with the same attribution sentence. The product's copy (`providers/typescript/SUBJECT-IDS.md`) omits it.
-2. **Widening.** `N` §10 says "Widening the population is a new enumerator closure that only adds ids". FCE1.5 replaces
-   this, and `N` owes a correction.
-3. **Anonymous containers.** `N` P5 excludes "members of anonymous containers". The code excludes members of the compiler's
-   anonymous symbols (`:134`, `:657`). The members of an anonymous default-exported class declaration are rows
-   (`#default~m`, `N` §8 W4), because that symbol is named `default`. Excluded 7 states the code's form.
-4. **File and module symbol.** `N` P1 says "a file row, plus its module symbol". The code gives one row for both (included 1).
-5. **The normative reference.** `N` §0 makes `design-probes/census-r5.cjs` the rule. `P/census.ts:1-4` still calls itself
-   a port of `census-r4.cjs` of DESIGN-NOTE-r4, while later comments cite r5 (`:269`, `:506`). Under this erratum the
-   rule is the text of FCE1.3, and the reference and its golden are conformance evidence.
+**Code fixes owed (CENSUS-RULE-1, tests first):**
+1. C4: a `var` hoisted from a block or `for` head into a module file's top-level table gets its row; today the whole census
+   fails (`:199-210`, `:442`, `:712`).
+2. C8: the same `var` in a script file gets its global row; today it is omitted.
+3. C6: file-scope JSDoc `@typedef` and `@callback` in a script file get global rows; today they are omitted.
+4. C9: a top-level `this.x =` in a script file gets its global row; today it is omitted.
+5. C22: the script seed scan takes the declaration only, not the expression initializing it (`:203`, `:619-621`); the
+   fabricated rows `#g` and `#Named` disappear.
+6. C18: a namespace export alias merged with a declared meaning is walked like its module-top-level counterpart (a
+   pure-alias test at `:337`).
+7. C12 and C23: the stderr A7 notes stop calling an absent-module augmentation or an anonymous initializer A7.
+8. FCE1.7: the population-rule carrier (here or as its own unit).
 
-**Where LD-DEC-11's summary is narrower than the code.** Item 2's excluded list does not name aliases, namespace-block
-locals, dynamic JavaScript forms, JSON roots or compiler-internal entries. The code excludes all of them, and `N` P1 and
-P5 name the first two and JSON roots. FCE1.3 names them.
+**Open points:**
+1. **C10, a string-named `declare module` at global scope, is not decided.** Two readings pull against each other:
+   - *Included:* principle (a) (a named global binding) and principle (d)'s first clause (name the code's deliberate,
+     consistent choice as it is). The code gives it a row `#"m"` (`:616-618`), and `N` P1 and T3 make that deliberate.
+   - *Excluded:* principle (d)'s last clause, "an ambient declaration of a module that is not a file of the program is
+     excluded by name". Read literally, that covers this class whenever no file of the program is that module.
 
-**Not established (CENSUS-RULE-1's golden should settle each one):**
-1. **A `var` nested in a top-level statement** (a block, `if` or `for` head). In a module file it hoists into the file's
-   top-level table, which the code reads (`:292`), so it is included. In a script file the seed scan tests the syntactic
-   scope (`:199-210`, `:619`), and I read that as not seeding it, so it is excluded. I did not run the code. If the two
-   differ, the rule's included 2 and 3 must say so.
-2. **JavaScript JSDoc type declarations** (`@typedef`, `@callback`). A file-scope one becomes a row in a CommonJS module
-   (`N` §5, case F5). Where the compiler binds those declarations in other files, I did not establish, and FCE1.3 does not
-   classify them separately.
-3. **The rule id is not in the closure identity.** P's `closure2` covers the dist and the note's token and relation lists
-   (`tools/typescript_closure.py:446-452`), not the rest of the note. The rule id is bound through the pinned note digest
-   and the build record only. A changed rule changes the code, so in practice it changes the dist and `closure2` too, but
-   nothing checks that. The carrier from enumerator closure to rule id for the evaluator and the surfaces (FCE1.6) is open.
-   Panel A did not establish whether the F4/G2 closure manifest has a field for it.
-4. **R2's dependence on reach.** A row of this rule can fall into A7 case 4 when a new reference to a second copy of an
-   external package is added. `N` §11 lists this as an attack point. The reviewer's CX-4 advice says ambiguity must not
-   silently remove an included subject. Here it is an excluded class by name (excluded 10), and it is disclosed only on
-   stderr (`N` §6).
+   Rule ids are immutable, so the lead decides before the rule is adopted. If the class is excluded, the code fix is to
+   drop the row, and the package-augmentation cases (`N` §8 N5) must be re-read, since they merge into the same home.
+2. **To be settled by CENSUS-RULE-1's golden, not probed:**
+   - C17 in script files (principle (c));
+   - the members of a class expression seeded in a script file (C22; principle (b));
+   - whether a script's `this.x =` (C9) and a `var x` of the same name are one subject or fail X4 (principle (b)).
+3. **Where `N` differs from the code or this rule:**
+   - `N` §6's nearest-enclosing-row attribution (the code names the file);
+   - `N` §10's "only adds ids";
+   - `N` P5's "members of anonymous containers" (an anonymous default-exported class declaration's members are rows,
+     `N` §8 W4);
+   - `N` P1's "file row plus module symbol" (one row);
+   - `N` §0's normative reference against `P/census.ts:1-4`, which still names `census-r4.cjs`.
 
-**Ids proposed by this author.** Neither id is in the decision. Searched with no hit: the architecture, product and
-F2-min repositories, and `LC/decisions`. The form follows `native.semantic-universe.typescript.v2` and
-`native.import-payload.dependency-source.v1`. The decision names no id for the default rule. One is given so that a
-surface can name the rule of a Rust census (FCE1.6).
+   Under this erratum, the rule is FCE1.3's table, and `N` owes corrections.
+4. **Rule ids proposed by the author.** No hit in the architecture, product or F2-min repositories, or in `LC/decisions`.
+   The form follows `native.semantic-universe.typescript.v2`. The default rule's id is given so that a surface can name the
+   rule of a Rust census.
+
+## FCE1.11 Changes from r1 (`b097e3d9e`)
+
+| Finding | Change |
+|---|---|
+| Opus R1; FCE-CX-1 (`var`) | C4 is included, with fix owed (the census fails today); C8 is included, with fix owed |
+| Opus R2 | C22 is excluded; the script rows `#g` / `#Named` are a code defect, with fix owed. r1's table row claiming "no id" is gone |
+| Opus R3 (a) | C17 names expando members of a variable |
+| Opus R3 (b) | C5 names the top-level CommonJS `this.x =` |
+| Opus R3 (c); FCE-CX-1 (a) | C6 (JSDoc) is included in both file kinds, by principle (c), with a script fix owed; C9 (script `this.x =`) is included, with fix owed |
+| Opus R3 (d); FCE-CX-1 (b) | C10 uses the code's global-scope test and is left open (open point 1); C12 excludes the absent-module augmentation by name |
+| FCE-CX-1 (c) | C18 is included, with fix owed |
+| FCE-CX-2 | FCE1.7's binding invariant replaces r1's "the token note's digest binds the rule"; the narrowed claim is not used until the carrier exists |
+| Opus Q6; LD-DEC-11 6' | r1's "the golden passes on the code" is removed; CENSUS-RULE-1 is the fixes plus the golden, tests first |
+| Opus A1 | C19 names the JavaScript `require` alias forms |
+| Opus A2 | FCE1.6 makes the evaluator gate its owner's erratum |
+| Opus A3 | FCE1.9 names `fa-2/successor.json:174` |
+| Opus A4 | FCE1.3 says that outside-extent containers are walked only for seeds |
+| Opus A5 | C23's disclosure fix is owed |
+| FCE-CX points 7-8 | FCE1.9 makes the binding paragraph operative, and FCE1.5 adds the "not proof of absence" sentence |
