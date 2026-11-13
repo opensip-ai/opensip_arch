@@ -25,34 +25,44 @@ and live `PROPOSAL.md:134` (r4 `:132`):
 
 > - 33 554 432 retained bytes (32 MiB).
 
-**Corrected.** Line 134's bullet is read as:
+**Corrected.** Line 130's sentence is read as:
 
-> - 268 435 456 retained bytes (256 MiB). This is a local development bound, not a product limit. It is sized from the measured real closure trees, which every commit copies into memory and counts (erratum X5-E1). The corpus value of r3 refused a Run on those trees.
+> … `REPLAY_LIMITS` takes the values the host's replay corpus test (`crates/host/src/native_owner_tests.rs`) and X3d-2's storage tests already replay under, except retained bytes, which erratum X5-E1 sizes from the real closure trees:
+
+(The corpus test itself still replays at 32 MiB: `crates/host/src/native_owner_tests.rs:2898` on `replay-cap-1-r1`.)
+
+Line 134's bullet is read as:
+
+> - 268 435 456 retained bytes (256 MiB). This is a local development bound, not a product limit. It is sized from the measured real closure trees, which every commit copies into memory and counts (erratum X5-E1). The corpus value of r3 refuses capture of the real toolchain tree (REPLAY-CAP-1), so it would refuse a Run on those trees.
 
 **Why.** Replay reads every tree file of every closure it reaches and copies each one into the Run's retained set. All of it
 counts against this one cap.
 - Bytes are checked at the end of `replay_run`, over every read frame and blob, with no exemption for closures
   (`evaluator/src/replay.rs:324`, as read in `LC/decisions/LD-DEC-7-durable-shapes/PROVIDER-TREE-VS-REPLAY-CAP.md` §2).
-- Capture copies every marked blob (`identity/src/closure.rs:1602-1640`, same file §1).
+- Capture adds the frame of each object read and the raw length of each blob read; blobs are keyed by their 32-byte
+  digest, so identical bytes count once (`identity/src/closure.rs:1602-1647`; the independent review's RF-1).
 - The code already calls these bounds local development bounds (`evaluator/src/replay.rs:10-11`, as quoted in `REDTEAM.md`
   finding 1).
 
-The real closures, measured (`PROVIDER-TREE-VS-REPLAY-CAP.md` §3, from `LC/f4/f4a/evidence/freeze-probe/package-022`):
+The real closures on disk, by file (`PROVIDER-TREE-VS-REPLAY-CAP.md` §3, from `LC/f4/f4a/evidence/freeze-probe/package-022`):
 
 | tree | files | bytes |
 |---|---|---|
 | T (toolchain) | 128 | 133,732,818 (`bin/node` 120,573,328; `lib/typescript.js` 9,144,216) |
 | S (standard library) | 115 | 3,804,937 |
 | P (provider) | 54 | 1,027,509 |
-| total | 297 | 138,565,264, 4.13 times the old cap |
+| total on disk | 297 | 138,565,264 |
 
-The REPLAY-CAP-1 unit's run (`LC/replay-cap-1/commit1-before.txt:1-2`; product branch `replay-cap-1-r1`, tests commit
-`322fb984`) measured what capture actually holds, counted by distinct blob:
+What the cap counts is the distinct blobs. All 115 files of S are byte-identical to files already in T, so S adds no blob;
+P adds 50 new blobs (1,027,277 bytes) (the independent review's count, RF-1). The REPLAY-CAP-1 probe
+(`LC/replay-cap-1/commit1-before.txt:1-2`; product branch `replay-cap-1-r1`, tests commit `322fb984`; capture step only,
+no `replay_run`) gives the same numbers:
 - T alone: 133,729,613 bytes in 118 blobs, refused at 33,554,432 with `Limit`;
 - T, S and P together: 134,756,890 bytes in 168 blobs, captured at 268,435,456.
 
-The two counts differ (138,565,264 by file, 134,756,890 by blob). I did not establish why. Both are below 256 MiB, with
-about 130 MB to spare.
+So the trees cost **134,756,890 bytes against the cap, 4.02 times the old cap**. 138,565,264 is only the on-disk size.
+At 256 MiB about 130 MB remains, and that room must also hold the project's source blobs, every object frame the Run
+reads, and every other blob it reads (provider-returned facts and Coverage included).
 
 **Memory cost (disclosed, LD-DEC-7 item 3).** Each commit copies the closure trees into memory: about 140 MB, held two or
 three times during a commit (capture's arena, then `DeclaredObject`; `REDTEAM.md` finding 1, `commit.rs:279-286`). The
@@ -62,6 +72,11 @@ not total heap (`closure.rs:1601`).
 **The bounds test.** 5e's test (live `:136-141`) is unchanged. It measures the corpus and varies one dimension at a time.
 At 256 MiB the constant is still at least the corpus's need. The new real-tree controls are REPLAY-CAP-1's (LD-DEC-7,
 "Controls that follow").
+
+**What Part A changes.** The reading of `:130` (retained bytes excepted from the corpus values) and the value at `:134`.
+One knock-on for other records: the manual D1-LIMITS timing ladder prints "at the replay limits" against
+`REPLAY_LIMITS.retained_bytes` (j3d-ts `run_termination_tests.rs:2805-2858`, per the independent review's A-9); at
+256 MiB its largest shape is far below the limit, so a record that calls those timings "at the limits" should be re-read.
 
 **What Part A does not change.** The other eight values of 5e (walk and owner budgets, owner invocations, capture entries).
 Items 4, 5, 5a to 5d and 5f. Every row and remedy. Custody: closure trees stay inside the Run's inventory and stay counted
@@ -81,7 +96,8 @@ traversal `Evaluation(Limit)`) takes the structural row: operational-failed, exi
 `provider-protocol`, detail `EVALUATION.INPUT_REFUSED` (live `PROPOSAL.md:79`, item 5's table). Its remedy is
 "Correct the provider output and rerun the stage; retain its admission diagnostic." (live `:123`). Code:
 `host/src/fact_admission.rs:125-128` (`Capture(..)` → `Route::InputRefused`) and `:153-156`
-(`Code::ProviderProtocolViolation`, `Detail::EvaluationInputRefused`).
+(`Code::ProviderProtocolViolation`, `Detail::EvaluationInputRefused`). These line numbers are product main `1bd328f3`'s; on
+`replay-cap-1-r1` they are 8 lines lower.
 
 **The texts for keeping the row.**
 - X5 chose it on purpose. Live `PROPOSAL.md:87`: "During replay, an `EvaluationError` (including `Limit`, the owner
@@ -90,6 +106,11 @@ traversal `Evaluation(Limit)`) takes the structural row: operational-failed, exi
 - 5b (live `:111-113`): "The candidate is retained producer data, and the contract says 'Re-admitting retained producer
   data preserves the producer-contract meaning of a structural violation' … So the route is `provider-return`".
 - X5 rejects a row per variant (live `:89`): "a borrowed detail would carry a remedy its owner did not fix."
+- LD-DEC-5 item 4 (`LC/decisions/LD-DEC-5-user-caused-host-fault/DECISION.md:64-68`): "Budget and size crossings stay
+  where accepted law puts them … the fix is a re-sized budget or an earlier bound, by a law amendment with the
+  cross-vendor reviewer, not a softer exit code." Part A is that fix.
+- The cap counts every frame and blob the Run reads, provider-returned facts and Coverage included. A crossing caused by
+  provider-returned volume is the case where the provider row's remedy might fit.
 
 **The texts for the host-fault row.**
 - The class follows the boundary the input came from. Native-evidence `native-evidence.md:3560-3563`: "The originating
@@ -99,9 +120,9 @@ traversal `Evaluation(Limit)`) takes the structural row: operational-failed, exi
   class of a refusal follows the boundary the offending input came from … A budget or limit crossing on a lawful input is
   a host defect and stays on the host-fault route until the budget is re-sized or an upstream bound refuses the input
   earlier."
-- A retained-byte crossing is not a structural fault of what the provider returned. The bytes that cross are the host's
-  own installed closure trees (the toolchain's `bin/node` alone is 120,573,328 bytes). No provider output can fix it, so
-  the remedy names the wrong party.
+- In the measured case, the crossing is not a structural fault of what the provider returned. The bytes that cross are
+  the host's own installed closure trees (the toolchain's `bin/node` alone is 120,573,328 bytes). No provider output can
+  fix that case, so the remedy names the wrong party.
 - The nearest accepted precedent: fact-admission law M3-H, live `fact-admission-h/PROPOSAL.md:741` (r3 `:739`): the
   admission work bound is "host-internal", `SYSTEM.OUTCOME.ILLEGAL_STATE` / host-invariant, `WORK.BUDGET_EXHAUSTED`
   ("MJ rows 11 and 21's codes"), and `:754`: "A crossing on a return D3 accepted is a host invariant".
@@ -139,8 +160,7 @@ Every other `Structure`, `Capture`, `Law`, `Input` and `Evaluation` leaf keeps t
 
 ## X5-E1.4 Review and binding owed
 
-- **Review: two independent reviewers** (LD-DEC-7 item 2: "amended by an erratum with two reviewers"; resource
-  accounting, OD-REVIEW-1 item 4). Part B needs the cross-vendor reviewer's ruling.
+- **Review: two independent reviewers** (LD-DEC-7 item 2: "amended by an erratum with two reviewers"). Part B needs the cross-vendor reviewer's ruling.
 - **Binding owed:** the lead's adoption receipt `ADOPTION-X5-E1.md` pinning this file's sha256, as `../snapshot-plan-c/c2b1a/own-funding-r3/ADOPTION-E1.md` did for
   funding-r3. No design-lock entry (X5 is not a lock input). If Part B is accepted, its law change and the lock's X5a
   control text change are separate work, listed above.
