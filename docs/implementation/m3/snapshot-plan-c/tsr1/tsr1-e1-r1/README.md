@@ -9,7 +9,9 @@ lists the matcher behaviours that do not apply. F4: E1.7 (b) is OPEN for the own
 model and the pinned vectors. **r3** applies the r2 review's advisories (`review-opus/VERDICT-r2.md`, ACCEPT):
 AD-1 (the user-ignored-path silence in E1.3, and a tsconfig-branch finding under Consequences), AD-2 (O3), AD-3 (one
 control row). **r4** records the lead's decision of O3 (LD-DEC-8 items 5-8) and corrects O3's opt-out sentence: a
-configuration file is not an opt-out that keeps the unit synthesized. r1 to r3 are in this branch's history. The record still needs the cross-vendor review and the
+configuration file is not an opt-out that keeps the unit synthesized. A second r4 commit applies the independent
+review of that change (`LC/errata-1113/review-opus/VERDICT.md` RF-6, A-6, A-7): the `allowJs` split, "roots", and the
+`workspaceRoots` route. r1 to r3 are in this branch's history. The record still needs the cross-vendor review and the
 lead's adoption in a receipt that pins this file's sha256. It binds nothing and edits no file.
 
 **Short names.** Base: architecture main `fa6fa0fba`. **TSR** = `TSR-1-r4.md` beside this directory (sha256 `be654c41…`,
@@ -212,17 +214,24 @@ regenerates it, never a hand edit.
 - **O3. Decided by the lead (LD-DEC-8 items 5-8, under OD-DECIDE-1; r4).** Nested packages under a synthesized root
   (E1.2). Under a `tsconfig` the overlap with nested units is the user's own configuration. Under `js-synthesized` the
   host imposes it, and there is no opt-out that keeps the outer unit synthesized and the nested packages analysed:
-  - a root `tsconfig.json` or `jsconfig.json` alone changes the outer unit's mode (NE:664-670), and its default
-    `include` `["**/*"]` (R-4.3, TSR:750) takes the nested files as roots again;
-  - such a file that also writes `exclude` (or a narrower `include`) does leave them out of the outer program, and the
-    nested units are still analysed; but the outer unit is then no longer `js-synthesized`: another mode, other options,
-    another universe;
+  - a root `jsconfig.json`, or a root `tsconfig.json` with `allowJs`, alone changes the outer unit's mode to `js-allowjs`
+    (NE:664-670), and its default `include` `["**/*"]` (R-4.3, TSR:750) takes the nested files as roots again. A plain
+    root `tsconfig.json` selects `ts-tsconfig` (an omitted `allowJs` is false for it, NE:668-670), which takes no `.js`
+    root at all (R-4.4; E1.2 above): nested `.js` files leave the outer program's roots, and so do the outer unit's own;
+    nested `.ts` files are still taken;
+  - such a file that also writes `exclude` (or a narrower `include`) does leave them out of the outer program's roots (the
+    outer program can still reach them through imports, as non-root members), and the nested units are still
+    analysed; but the outer unit is then no longer `js-synthesized`: another mode, other options, another universe;
   - `ignorePaths` drops the packages from analysis altogether: they leave the Plan scope (NE:936), not only the outer
-    program (E1.3's ignored-path rule).
+    program (E1.3's ignored-path rule);
+  - `opensip.json` `discovery.workspaceRoots`, listed explicitly without `.`, restricts discovery to the listed roots
+    (NE:909-920; LD-DEC-8 panel A, `PANEL-A-texts.md:55`): it drops the outer unit instead, which suits only an outer
+    unit with no source of its own.
 
   **Decision:** E1.2 stands (option (i)). A file that is a root of two programs yields two findings, as the identity law
   says for different universes (IE:1521-1523). No de-duplication is built. Disclosed wherever findings are counted:
-  counts may double for nested packages under a synthesized unit, and one waiver covers both copies. Revisit trigger:
+  counts may double for nested packages under a synthesized unit, and one waiver covers both copies (LD-DEC-8 item 6;
+  LD-DEC-8 panel A: "would plausibly match both. I did not trace the waiver-matching law for universe"). Revisit trigger:
   before the first release that admits a synthesized JavaScript unit for a user, or the baseline surfaces, whichever comes
   first; a de-duplication then is an identity-law amendment. Option (ii) (exclude nested `tsjs` subtrees from synthesized
   roots: a law line beside NE:1426 and TSR R-1.10a, a change to NM's `_under_unit` use and the control table, a divergence
