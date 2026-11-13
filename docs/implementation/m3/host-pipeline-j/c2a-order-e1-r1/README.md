@@ -3,7 +3,11 @@
 2026-11-12. Drafted by a lead-dispatched design author (Claude Opus 5.5, route R2-DEEP, effort medium; preflight
 `ROUTE-OK R2-DEEP claude claude-opus-5-5/medium`) for unit J3d-TS, scope row C2a (CP-J3D-SECPRE-1), questions Q35-Q37
 (`LC/j3d-ts/QUESTIONS.md`:628-661), the lead's rulings (`QUESTIONS.md`:680-708, :710-728) and `LC/j3d-ts/C2A-ORDER.md`.
-Status: **PROPOSED, r6.** **r6 changes** (re-check `LC/j3d-ts/review-opus-c2a-order/VERDICT-r5.md` F1, A-1 to
+Status: **PROPOSED, r7.** **r7 changes** (cross-vendor review `LC/j3d-ts/review-codex-c2a-order/VERDICT.md`, RF1,
+RF2, points 4, 5, 6b): E3 states that its ruling supersedes MJ:398 for R7 (the creator's own rechecks kept); a named
+MJ successor **MJ-R7S** places the 464 choice at R7 and the grants choice at the first source-derived write; new
+open point O6 (MJ:959); O3 and O5 join O4 as dependencies of the composition; E2-C2 scoped to the durable entry's
+path; E3-C1's project fixtures; E1-C5 asserts the StepId; E1c cites MJ:427-429. **r6 changes** (re-check `LC/j3d-ts/review-opus-c2a-order/VERDICT-r5.md` F1, A-1 to
 A-3; the lead's correction to Q40, `LC/j3d-ts/QUESTIONS.md`:804-811): E3's rule no longer compares with `created`;
 E3-C2 to E3-C4 made consistent; the owner bullet. **r5 changes** (lead rulings Q39, Q40, `LC/j3d-ts/QUESTIONS.md`:737-790): E3's open
 sentence becomes the lead's ruling (a fresh classification on every route), with the routing fact and controls
@@ -40,7 +44,8 @@ nothing and changes no existing file. Marks: **SETTLED-BY-TEXT** (the texts deci
   registration. The adopted security record does the opposite, and the entry follows it. Visible consequence: when
   the endpoint check refuses on a project's first use, the project stays registered (its registry row, namespace and
   marker remain; the next run hits the same refusal until the core or store changes).
-- **The storage check (E3).** The lead also ruled, without a deciding text, that the backup-storage check
+- **The storage check (E3).** The lead also ruled, changing the pipeline law's sentence that R7 rechecks the value
+  recorded at creation (MJ:398, by MJ-R7S), that the backup-storage check
   re-observes the installation's storage on every run instead of trusting the value recorded at creation. No
   behaviour changes today: the present classifier always answers "unknown".
 - **You may overrule any of these choices.**
@@ -74,7 +79,7 @@ among the durable path's rechecks, inside `pre_draw`).
 | E1b | Q37, ExecutionId | SETTLED-BY-TEXT | Under the present texts no ExecutionId exists that the R10 record may carry, on either route. |
 | E1c | Q37, remedy | **PROPOSED** (lead; owner told) | A separately reserved ExecutionId for the R10 trust act, with amendments A-1 to A-12. |
 | E2 | Q35, R8/R9 | PROPOSED (lead; owner told) | Registration (R9) before the endpoint (R8); MJ's table order is an erratum. |
-| E3 | Q36, R7 | SETTLED-BY-TEXT; the classification PROPOSED (lead) | R7 runs on both routes, over a classification and the flag, before any project effect. |
+| E3 | Q36, R7 | SETTLED-BY-TEXT; the classification and MJ-R7S PROPOSED (lead) | R7 runs on both routes, over a classification and the flag, before any project effect. |
 
 ## Normative clauses
 
@@ -135,7 +140,9 @@ RISK until the cross-vendor review. Not settled by text. The project owner is to
 - *The constructor's exact inputs.* `TrustInvocation` gains a production constructor taking `&RequestIdentity`,
   `&ReservedExecutionId` and the StepId; no `&str` and no raw bytes. **StepId:** IE:103 makes it the step's position;
   L464:68 gives the prelude "of the command's first step" StepId 0; R10 serves the durable analysis step, so the record
-  takes that step's position (0 when it is the first step). No text states this: PROPOSED with the rule.
+  takes that step's position. That R10 takes the analysis step's StepId is PROPOSED with the rule. The position is
+  SETTLED-BY-TEXT for both current commands: for durable `default` and `analyze`, "step 0 is `analysis`" and "step 1
+  is `render`" (MJ §5.1, MJ:427-429), so the StepId is 0 for both. Any other command derives it from its own step list.
 - *Nothing later uses it.* The `ReservedExecutionId` is dropped by the entry once `durable_pre_draw` returns. It reaches
   no `CommitSession`, provider frame, attempt row, receipt or operational record.
 - *Crash behaviour.* (i) When S4 proposes no floor change and F is present, nothing is written and the reservation is
@@ -203,7 +210,8 @@ RISK until the cross-vendor review. Not settled by text. The project owner is to
   - **E1-C4 (A-5).** At an injected R10a refusal: no analysis-attempt reservation; the set is {trust} on 3a and
     {prelude, trust} on 3b; `x3d.session.execution-draw` is not reached.
   - **E1-C5.** A forced floor advance (3a) and an F-absent acceptance: each record's `executionId` equals the trust
-    act's reservation, differs from the prelude's and the later session's, and its `requestId` is the envelope's.
+    act's reservation, differs from the prelude's and the later session's, its `requestId` is the envelope's, and its
+    `stepId` is the commanded analysis step's (0 for `default` and for `analyze`, MJ:427-429).
   - **E1-C6.** Eight forced collisions at the trust draw: security's HostIo row, nothing written by R10, `created` kept.
   - **E1-C7.** No floor change proposed: no record, no refusal; the reservation exists and is unused.
   - **E1-C8.** Census: after `durable_pre_draw` the entry holds no `ReservedExecutionId`; the session's id is never it.
@@ -248,9 +256,10 @@ RISK until the cross-vendor review. Not settled by text. The project owner is to
   (MJ:308); `None` "For `LostRace` and `NotPristine`" (MJ:311).
 - *Rule (SETTLED).* R7 runs on both routes, after R6 and before R9, over a backup classification and this invocation's
   `--allow-backup-custody` flag. The export takes the classification as an input, which serves every reading below.
-- *Both sides.* MJ:398 "R7 rechecks it against the same classification" reads toward the intent's stored value;
-  OWN:28 "Recheck the actual target/classification ... a changed target or stronger newly observed restriction
-  refuses" reads toward a fresh observation. No text decides between them.
+- *Both sides.* MJ:398 "R7 rechecks it against the same classification" reads toward the intent's stored value, and
+  it is the text that governs R7. OWN:28 "Recheck the actual target/classification ... a changed target or stronger
+  newly observed restriction refuses" governs the initial creator before its own effects, not this later ordinary
+  act. So the ruling below is not a reading: it changes MJ:398 for R7, by MJ-R7S.
 - *A fact (product, found in code).* The routing entry's value does not say which route ran: `DurableEntry` holds
   only `admission` and `created` (P @ `780c52fc` `security/src/custody/installation_routing.rs`:74-77), and `created`
   is `None` both on the steady state (no creator act) and after `LostRace` or `NotPristine` (MJ:309, :311; P :254,
@@ -261,7 +270,33 @@ RISK until the cross-vendor review. Not settled by text. The project owner is to
   the storage choice over that classification and this invocation's backup flag decides alone. R7 neither reads
   nor compares `created`'s classification; that value remains only what the creation disclosure carries. Reasons
   (the lead's): OWN:28's "stronger newly observed restriction refuses"; a recheck of a stored value can never refuse; one code path; no route field and no change
-  to the routing entry. Under the constant classifier (L464:51) every route gives `UNKNOWN` today.
+  to the routing entry. Under the constant classifier (L464:51) every route gives `UNKNOWN` today. OWN:28 is cited as
+  the creator's model, not as a text that governs R7.
+- **MJ-R7S, a named MJ successor for R7 and the S3.1 slot. PROPOSED (lead rulings Q39, Q40; AT RISK; depends on O3,
+  O5 and O6; applied to no file by this record).**
+  - (i) *Supersedes MJ:398's last sentence for R7.* Present: "On first use, the intent has already applied the same
+    choice to the creation (L464:9), and R7 rechecks it against the same classification." Proposed: "On first use,
+    the intent has already applied the same choice to the creation (L464:9). R7 does not recheck that value: on every
+    route it takes a fresh classification from the 464 owner's classifier and decides over it and this invocation's
+    flag (C2A-ORDER-E1 E3)." The creator's own rechecks before its effects stay unchanged (OWN:28: the actual target
+    and classification and the delivered disclosure; a changed target or a stronger newly observed restriction refuses
+    the creator's act).
+  - (ii) *Replaces MJ:390's R7 cell.* Present: "The S3.1 storage choice (`grants.rs`), which is pure." Proposed:
+    "The 464 storage choice (`initial_installation::storage_choice`), which is pure, over R7's fresh classification
+    and this invocation's flag. Under 464's constant `UNKNOWN` it admits with the notice's disclosure. A positive
+    `BACKED_UP` without the flag is `storage.backup-choice-required` (L468:39)."
+  - (iii) *Replaces MJ:398's slot reading for the grants choice.* Present: J1 reads M3B:376's "at the first
+    source-derived write" "as 'before any project-scoped effect of the durable request' (R7)". Proposed: "The S3.1
+    storage choice (`grants.rs`, B3-a) runs where M3B:376 places it, at the first source-derived write (J3), not at
+    R7." Its inputs (P `grants.rs` `storage_write_choice`: the backup classification, `ephemeral`, the
+    `BackupCustodyAcknowledgement`, an admitted policy record, `ci`) have their producers **owed**, typed for those
+    producers; this record names none of them, and which classification it takes is O6.
+  - (iv) *MJ:959* ("a storage-choice refusal after [any project-scoped effect]") is reconciled by O6, not by this
+    record. Given the same classification and flag as R7, the grants choice cannot newly refuse: it admits on
+    `NOT_BACKED_UP`, on `UNKNOWN` and on the flag, as the 464 choice does, and also on an admitted policy record
+    (SL:317-331; P `grants.rs`:212-238). If it takes its own later classification, it can newly refuse after project
+    effects, and MJ:959 must then be amended. No text states which classification it takes.
+  - No shared identity, schema, corpus or selection changes.
 
 ## Open points
 
@@ -270,22 +305,31 @@ RISK until the cross-vendor review. Not settled by text. The project owner is to
 | O1 | E1c: adopt (a) with A-1 to A-12, or overrule | lead after the cross-vendor review; project owner told, may overrule |
 | O2 | A-7's reading (IE/WS unamended) | cross-vendor reviewer; if rejected, the contract owners and the project owner |
 | O3 | E3: the fresh-classification ruling (Q40), AT RISK | lead; both reviewers; 464 owner |
-| O5 | Q39: MJ:390 names "The S3.1 storage choice (`grants.rs`)" for R7; P's `grants.rs`:212 `storage_write_choice` is documented "S3.1 before the first source-derived write" (:208), as M3B:376 places it ("J3 calls it at the first source-derived write"); the entry rechecks the intent's choice (`initial_installation::storage_choice`) at R7. The lead's reading (Q39 (c), `QUESTIONS.md`:789-791): the intent's choice is rechecked at R7; the grants owner's choice belongs at the first source-derived write, with its extra inputs typed for their producers. Is that reading lawful against MJ:390? | lead; both reviewers; 464 and grants (B3-a) owners |
+| O5 | Q39: MJ:390 names "The S3.1 storage choice (`grants.rs`)" for R7; P's `grants.rs`:212 `storage_write_choice` is documented "S3.1 before the first source-derived write" (:208), as M3B:376 places it ("J3 calls it at the first source-derived write"); the entry rechecks the intent's choice (`initial_installation::storage_choice`) at R7. The lead's reading (Q39 (c), `QUESTIONS.md`:789-791): the intent's choice is rechecked at R7; the grants owner's choice belongs at the first source-derived write, with its extra inputs typed for their producers. The cross-vendor review found it not lawful as an unchanged reading (MJ:390 names `grants.rs`; MJ:398 relocates that choice before project effects): it needs MJ-R7S (ii) and (iii). Adopt MJ-R7S, or overrule | lead; both reviewers; 464 and grants (B3-a) owners |
+| O6 | MJ-R7S (iv): which classification the grants choice takes at the first source-derived write (R7's value, under which it cannot newly refuse and MJ:959 stands; or its own later observation, under which it can, and MJ:959 needs an amendment) | lead; grants (B3-a) and 464 owners |
 | O4 | E2: MJ:391-392 erratum | lead; cross-vendor review; project owner told, may overrule |
 
 ## Consequences for owning units
 
 **Free of open points now:** Q36's export, taking the classification as an input (E3); Q38's public types and
 compile-fail rows; control E1-C1.
-**Dependent on O4 (AT RISK):** the R3-R9 crate-private composition with R9 before the endpoint, and control E2-C1,
-which encodes the at-risk state and inverts if the erratum is rejected. J-C10 itself does not depend on O4.
+**Dependent on O3, O4 and O5 (AT RISK):** the R3-R9 crate-private composition with R9 before the endpoint (O4) and
+R7's fresh classification and 464 choice (O3, O5; MJ-R7S), and control E2-C1, which encodes the at-risk state and
+inverts if the erratum is rejected. J-C10 itself does not depend on O4. The grants choice at the first
+source-derived write also waits for O6.
 **Waits for O1 (and O2):** the trust act's reservation, the production `TrustInvocation` constructor, any production
 call of `durable_pre_draw`, the public function returning `DurablePreDraw`, and E1-C2 to E1-C10.
 - **E2-C1 (O4).** First-use candidate, endpoint refusal injected: row 16; ACTIVE row, namespace and marker remain;
   `created` kept. Eligible root, same injection: registry bytes unchanged.
-- **E2-C2.** Census: `join_store_endpoint` is called only inside `pre_draw_retaining`.
-- **E3-C1.** A test classifier returning `BACKED_UP`, no flag, on 3a and 3b: `storage.backup-choice-required`, and no
-  registry row, namespace, `.opensip`, marker, lease or journal. With the flag, or under `UNKNOWN`, R7 admits.
+- **E2-C2.** Census, on the durable-analysis entry/continuation call path only (the public entry's file and
+  `durable_pre_draw`, `custody/pre_draw.rs`, with what they call): `join_store_endpoint` is called there only inside
+  `pre_draw_retaining` (P `custody/operation_handoff.rs`:1340-1351), after R9; a second join on that path before R9
+  fails the census. The settlement sweep's call in `admit_on` (P `custody/settlement_sweep.rs`:174) is lawful, is
+  outside that path, and stays.
+- **E3-C1.** A test classifier returning `BACKED_UP`, no flag, on 3a and 3b: `storage.backup-choice-required`. With
+  an unregistered project fixture: no registry row, namespace, `.opensip`, marker, lease or journal. With an already
+  Eligible project fixture: its existing registry row, namespace, `.opensip`, marker and journal unchanged, and no
+  lease. With the flag, or under `UNKNOWN`, R7 admits.
 - **E3-C2 (O3).** On 3b after `LostRace` and after `NotPristine` (`created: None`), the same test classifier and no
   flag: R7 refuses on the same row; with the flag it admits. Today's `StorageUndetermined` refusal for every
   `created: None` (`QUESTIONS.md`:752-753, no row) fails E3-C2, and fails E3-C1 on 3a.
@@ -316,6 +360,6 @@ call of `durable_pre_draw`, the public function returning `DurablePreDraw`, and 
 
 ## What this record does not do
 
-It applies no amendment: MJ, IE, WS, OPP, L464, X4T, SPD and TRS stay as they are until O1, O2 and O4 are adopted.
+It applies no amendment: MJ, IE, WS, OPP, L464, X4T, SPD and TRS stay as they are until O1 to O6 are decided and the amendments adopted (MJ-R7S included).
 It does not decide the read entry's `TrustInvocation` (CP-J2C-SECPRE-1's report-mode read writes nothing), R10a's
 store root, or the launch directory. It does not re-open J-C10, Q38 or the R3-R6 rows of `C2A-ORDER.md`.
