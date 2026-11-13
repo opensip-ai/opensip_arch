@@ -3,7 +3,10 @@
 2026-11-11. Drafted by a lead-dispatched design author (Claude Opus 5.5, route R2-DEEP, effort medium; preflight
 `ROUTE-OK R2-DEEP claude claude-opus-5-5/medium`) for unit J3d-TS (`LC/j3d-ts/SCOPE-r1.md` C6-C8, questions Q3, Q4, Q8,
 Q11), answering review finding R2 and its blob-lookup advisory (`LC/j3d-ts/review-opus/VERDICT.md`).
-Status: **PROPOSED, r3.** r3 applies the re-check (`LC/j3d-ts/review-opus-delivery/VERDICT-r2.md`, N1, A8-A10):
+Status: **PROPOSED, r4.** r4 applies the cross-vendor review (`LC/j3d-ts/review-codex-delivery/VERDICT.md`, RF-2,
+RF-3, points 1 and 3): the `run` member's `kind` and `durability` and the outer constants (D3, row 47); D1's
+boundedness gate (work and peak-storage bounds, a bounded typed refusal, adverse populations) and the reading of
+"unchanged"; D2's post-R12-only rows tested separately; D4's option 1 gate. r3 applied the re-check (`LC/j3d-ts/review-opus-delivery/VERDICT-r2.md`, N1, A8-A10):
 two conflicts added as O5 and O6; the row-43 remedy's TS1 gap (D1); `derive`'s totality and panic path (D1, C6
 controls); the measurement's scope (D1). r2 applied the independent review (`LC/j3d-ts/review-opus-delivery/VERDICT.md`, R1-R5,
 A1-A7) under the lead's rulings: **D1's refusal rule is reversed** (a refused derivation no longer stops the commit);
@@ -47,7 +50,9 @@ records: MJ item 7, X7:172).**
   check** (`port.observed()`), and so before `prepare_commit`. No delivery-phase code runs under the open session:
   `DeliveryPhase::replayed` is removed. The result is carried as a value, `Result<Derived, Refusal>` (plain data, nothing
   that can open the store). **The derivation never changes whether or how the Run commits:** the commit proceeds exactly
-  as it would without it. **This holds only if `derive` cannot panic** (A9): `derive` must be total over a replayed
+  as it would without it. "Unchanged" means independent of the derivation's *result* (`Derived` or any `Refusal`);
+  the normal cancellation and custody checks still apply, so a signal that arrives during the added work can change
+  whether an otherwise identical timed execution commits (it ends in phase A, below). **This holds only if `derive` cannot panic** (A9): `derive` must be total over a replayed
   Run, every unexpected shape a typed `Refusal`, never a panic, `unwrap`, `expect`, indexing panic or `unreachable!`
   (X7:469 rejects a panic path in a termination projection). `finalize` treats a panic there as any other panic under
   the writer session: P has no `catch_unwind` in `finalize` (`host/src/finalization.rs:428-467`), so it unwinds with the
@@ -61,15 +66,39 @@ records: MJ item 7, X7:172).**
   check it ends in phase A with nothing appended (MJ:600).
 - *Bound.* In memory, charged to no ledger, like replay (X5:45; X7:244); every retained lookup keyed (the linear
   `Retained::blob` scan, `run_termination.rs:250-259`, is replaced). X5:43's "lengthens the lease hold with pure work"
-  was withdrawn for replay only (MJ:534), so the added hold is **owed a measurement before the code lands**. It covers
-  **all work `finalize` does under the writer lease beyond replay** (A10): `derive` and, under owner option 1 (D3), the
-  producers' Run-derived inputs computed with it (the `FindingSurface` rows and `requiredCoverage`), not `derive` alone,
-  timed beside `replay_candidate` on both crash-matrix synthetic candidates (including the rows under the 5000 ms timing
-  guard, `host/tests/commit_matrix_tests.rs:1620-1637`, `security/src/crash_matrix_support/run_record.rs:152`), both TS1
-  fixtures, and a candidate at the `REPLAY_LIMITS` bounds.
-- *Rows.* (i) **Derivation refused** (RTC §3-§5, `CauseUnregistered`, `Uncovered`): the Run commits as it would have;
+  was withdrawn for replay only (MJ:534), so the added hold is **owed a boundedness gate before the code lands**.
+  Totality and keyed lookup are necessary, not sufficient. Replay's limits are "local development resource bounds,
+  separate from policy work budgets and aggregate CPU/heap qualification. Encoded bytes exclude allocation overhead"
+  (`evaluator/src/replay.rs:10-11`), so a Run that passes replay bounds neither the derivation's work nor its peak
+  storage. The derivation amplifies what replay admitted: the indeterminate-predicate walk parses (and clones from)
+  each witness blob it reaches and pushes its children with no visited set (`run_termination.rs:395-400`), so a
+  witness reached through many parents is parsed once per path; `conditions` reparses a Coverage entry for each
+  contributing record (:435-453), so a Coverage shared by many records is reparsed per record. A keyed lookup removes
+  the scan, not this amplification, and does not prevent an allocation abort. The gate (the values are measured, not
+  set by this record, and are recorded with the J3d-TS C6 evidence and cited by its review request):
+  - (g1) *Work and peak-storage bounds.* The implementation states an explicit bound on the added derivation's work
+    and on its peak live storage, in terms of the replay-admitted population, and enforces it with local limits of
+    its own, not by appeal to replay's encoded-byte limits.
+  - (g2) *Bounded typed refusal.* Reaching a local limit ends the derivation with a typed `Refusal` (an internal
+    variant; no public code, row or detail), before the allocation the limit guards, never an allocation abort or a
+    panic. It is case (i) below: the commit stays eligible, decided exactly as without the derivation.
+  - (g3) *Measurement.* It covers **all work `finalize` does under the writer lease beyond replay** (A10): `derive`
+    including its commit-inventory hashing (`run_termination.rs:220-221`) and, under owner option 1 (D3), the
+    producers' Run-derived inputs computed with it (the `FindingSurface` rows and `requiredCoverage`), not `derive`
+    alone; timed beside `replay_candidate` on both crash-matrix synthetic candidates (keeping the 5000 ms timing
+    controls, `host/tests/commit_matrix_tests.rs:1620-1637`, `security/src/crash_matrix_support/run_record.rs:152`),
+    both TS1 fixtures, a candidate at the `REPLAY_LIMITS` bounds, and (g4)'s populations. Each measures elapsed time,
+    peak live memory and peak stack depth.
+  - (g4) *Adverse populations.* Boundary populations within `REPLAY_LIMITS` built to maximize the amplification
+    above: repeated reference (one witness or Coverage referenced by as many parents or records as the limits admit)
+    and fan-out (as many child predicates per witness as the limits admit). Each either stays inside (g1)'s bounds or
+    ends on (g2)'s refusal.
+  No-panic shape tests (C6) and elapsed times alone are not this evidence.
+- *Rows.* (i) **Derivation refused** (RTC §3-§5, `CauseUnregistered`, `Uncovered`, or a local limit of (g2)): the
+  Run commits as it would have;
   the delivery phase reports **row 43**: operational-failed 4, `DELIVERY.REQUIRED_FAILED` / delivery-required,
-  `DELIVERY.RENDERER_FAILED_AFTER_COMMIT`, the runId (MJ:815); the RTC key goes to the operational record.
+  `DELIVERY.RENDERER_FAILED_AFTER_COMMIT`, the runId (MJ:815); the RTC key (or the local limit reached) goes to the
+  operational record.
   (ii) **Composition refused** (RTC §7.2-§7.3, §7.6): the same row 43. (iii) **Commit refused, undetermined,
   exhausted or existing-attempt:** their own rows (36-40), unchanged; the value is dropped. (iv) **Latched commit**:
   row 42, unchanged; no delivery phase.
@@ -105,14 +134,20 @@ records: MJ item 7, X7:172).**
   (`invocation.rs:751-753`, :863-864), which X7:154 excludes as the post-session envelope's source. `decide` has no
   production caller today, so its commit branches (rows 38, 42, 47) are never reached in production. **The equivalence
   test covers only the rows both reach in production:** 44, 46, 48 and the refusals before commit; rows 38, 42, 43 and
-  47 are excluded (only `output_decision` reaches them). Whether `decide`'s commit branches stay is the lead's.
+  47 are excluded (only `output_decision` reaches them) and are tested separately against `output_decision`; the
+  equivalence scope does not excuse them. Whether `decide`'s commit branches stay is the lead's.
 
 **D3. The analysis envelope at TS1. SETTLED-BY-TEXT (members); OPEN (producers; owner: what the user sees).**
-- *Committed and delivered:* `kind: run` (ENV7:183-196 requires `run`, `projectId`). Members and sources:
+- *Committed and delivered:* `kind: run` (ENV7:183-196 requires `run`, `projectId`). The `run` member is INV5's
+  committed `AnalysisResult`, whose required set is `kind`, `authority`, `runId`, `planId`, `verdict`,
+  `requiredCoverage`, `durability`, `deficiency`, `secondaryDeficiencies` (INV5:1411-1421). Members and sources:
 
 | Member | Source | Producer today |
 |---|---|---|
+| `schemaFamily`, `schemaMajor` | constants `opensip.product.envelope` and `7` (required ENV7:8-14; fixed ENV7:17-22) | J2a / J3d |
 | `requestId`, `projectId`, `exitCode` | R0; R4; class | J2a / J3d |
+| `run.kind` | `analysis`: step 0 of durable `default` and `analyze` is `analysis` (MJ:428); INV5:1424-1428 admits `analysis` and `verify`, and `verify` requires `verification` (INV5:1471-1484) | J3d (constant) |
+| `run.durability` | `committed` (INV5:1446-1447, a constant) | J3d (constant) |
 | `termination` | WS:233-240 aggregate over step 0's RTC §7 composition and step 1 | port (interim) |
 | `run.authority`, `run.runId` | `&PublishedCommit` (X7:147, :154) | X7 |
 | `run.planId`, `verdict`, `deficiency`, `secondaryDeficiencies`, `coverageId` | the carried value; sealed verdict (WPC:181); RTC §4-§5 | port (pass/fail pair: O2) |
@@ -142,8 +177,10 @@ records: MJ item 7, X7:172).**
   producers as a deferred edge of J3d-TS, carried to J3d-RS (R-TS1.1, PA1:61: "Nothing else is removed"), and the
   R-TS1.4 disclosure line carries it. The M3-M-TS1 record then claims exit 4 `DELIVERY.REQUIRED_FAILED` with the runId,
   the commit, the read-back and the harness-checked projection, not a delivered envelope.
-- *Row 47 (phase D signal).* `kind: run` needs the full `run` member (MJ:603; INV5:1406), including `requiredCoverage`,
-  which the carried value lacks today. Under option 1 it is delivered from the ported value. Under option 2 its
+- *Row 47 (phase D signal).* `kind: run` needs the full `run` member (MJ:603; INV5:1406): the same complete member set
+  as the table above (the outer constants, `run.kind: analysis`, `run.durability: committed`, `run.authority`,
+  `run.runId`, `run.planId`, `verdict`, the deficiency pair, `requiredCoverage` and the parity fields), with row 47's
+  own termination; `requiredCoverage` the carried value lacks today. Under option 1 it is delivered from the ported value. Under option 2 its
   projection fails and is replaced by row 43 with the runId (MJ:604; WS:1128-1134): a phase-D signal ends exit 4, not
   130, and the record says so.
 
@@ -154,14 +191,15 @@ synthetic-trust runs "are never authoritative", and C2-T8 refuses a synthetic-la
 C2-T8 is enforced by consuming surfaces, none at TS1. *Rule:* the envelope carries nothing new; the M3-M-TS1 record
 labels the Run synthetic-trust with the R-TS1.4 disclosure. Under option 2 no `run` member is emitted at all
 (ENV7:249), so the reading never reaches a TS1 consumer. *Weakest point:* under option 1 a bare-envelope reader sees
-`authoritative` on a synthetic Run.
+`authoritative` on a synthetic Run, and the reading does not resolve MC8's prohibition; so the external label is not
+enough for option 1, which stays gated on the owner's decision and on C2-T8's enforcement (O4).
 
 **D5. Measuring replay. OPEN.** No text fixes how (OD-DESIGN-FOLLOWUPS-1 §2; O1-b's table has no `replay`). Lead's
 interim (Q8): the harness times `replay_candidate` on the same candidate, and `derive` beside it (D1's owed measurement).
 
 ## Open points
 
-- **O1 (lead, before D1's code).** D1's measurement; whether the synthetic candidates pass `derive` now only decides
+- **O1 (lead, before D1's code).** D1's boundedness gate (g1-g4); whether the synthetic candidates pass `derive` now only decides
   whether those rows show row 43, not whether they commit.
 - **O2 (owner; lead authors a WPC successor).** The `deficiency` pair of a `pass`/`fail` Run, and the Run-level
   `requiredCoverage` reduction (WPC:182 is per rule); also an owner for `comparison-counts`.
@@ -193,8 +231,9 @@ interim (Q8): the harness times `replay_candidate` on the same candidate, and `d
   `port.observed()`; controls: a refused derivation commits with an unchanged commit outcome and gives row 43 with the
   runId; a signal during `derive` is phase A; **`derive` does not panic** on mutated corpus Runs (a fuzz or
   exhaustive-shape test over the crash-matrix candidates and TS1 fixtures; each mutation is a typed `Refusal` or a
-  `Derived`, never a panic) (D1, A9). Keyed lookups. Crash-matrix outcomes unchanged; only timing (D1's
-  measurement) and the lead sets owed on the new change.
+  `Derived`, never a panic) (D1, A9); a derivation that reaches a local limit is a typed `Refusal`, commits and gives
+  row 43 (D1 g2). Keyed lookups. Crash-matrix outcomes unchanged; only timing and resources (D1's gate, g1-g4) and
+  the lead sets owed on the new change.
 - J3d-TS C7: `compose` in the phase after `finish`; D3's producers (option 1) or the row-43 TS1 limit (option 2).
 - Lead: MJ item 7 order step and X7:172's lend (law records); D2's equivalence test scope and `decide`'s commit
   branches; with the owner's decision, the PA1 §1.7 and R-TS1.4 amendment under option 2.
