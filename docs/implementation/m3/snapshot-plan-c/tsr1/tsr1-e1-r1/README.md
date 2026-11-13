@@ -13,8 +13,9 @@ configuration file is not an opt-out that keeps the unit synthesized. A second r
 review of that change (`LC/errata-1113/review-opus/VERDICT.md` RF-6, A-6, A-7): the `allowJs` split, "roots", and the
 `workspaceRoots` route. A third r4 commit applies the cross-vendor review
 (`LC/js-synth-profile-1/review-codex/VERDICT.md`, RF-1 to RF-3): O2's list names L-CL1, O2 is the lead's under
-OD-DECIDE-1, and the `allowJs` prose says the effective value. r1 to r3 are in this branch's history. The record still
-needs the lead's adoption in a receipt that pins this file's sha256. It binds nothing and edits no file.
+OD-DECIDE-1, and the `allowJs` prose says the effective value. r1 to r3 are in this branch's history. The first cross-vendor review
+has occurred and its findings were applied; the reviewer's confirmation of the corrections and the lead's adoption in a
+receipt that pins this file's sha256 remain pending. It binds nothing and edits no file.
 
 **Short names.** Base: architecture main `fa6fa0fba`. **TSR** = `TSR-1-r4.md` beside this directory (sha256 `be654c41…`,
 `ADOPTION-TSR-1.md`). **NE** = `docs/v2/contracts/product-v1/native-evidence.md`. **NS** / **NM** / **NCM** =
@@ -143,7 +144,7 @@ handed (the marker). It does not read it, validate it or copy it into any record
 `package.json` the profile reads is the one R-6.1's walk selects, which "under `js-synthesized` … is the unit's marker"
 (TSR:894-897).
 
-**E1.7 Disclosure. (a) PROPOSED; (b) OPEN, owner (lead Q7; review F4). The texts name no owner or member.**
+**E1.7 Disclosure. (a) PROPOSED; (b) OPEN, the lead decides under OD-DECIDE-1 (O2; lead Q7; review F4), the owner only on that record's stated exceptions. The texts name no owner or member.**
 - **The texts.** No record has a member for either disclosure. `WorkspaceUnitV2.provenance` cannot be `DEFAULTED` for this
   unit: it is `DISCOVERED` or `EXPLICIT`, and only U-9 is `DEFAULTED` (U-4b item 2, NE:774-776). The only `DEFAULTED`
   enums in NS are the unit records' (NS `WorkspaceUnitV1`, `WorkspaceUnitV2`). `ViewEntryV3` and `CoverageResultV3` are
@@ -154,7 +155,7 @@ handed (the marker). It does not read it, validate it or copy it into any record
   `configOrigin = "synthesized"`, `synthesizerVersion = 1` and `synthesizedOptions` non-null (NE:175, :1386-1391), with
   the context's empty `configGraphPaths` (NE:1489). JS-SYNTH-PROFILE-1 (commit 2) produces them. They are Plan identity
   and are retained with the sealed Run. No other member is added.
-- **(b) L-JS1. OPEN (owner); the lead's recommendation is disclosure by the Coverage key, with no new member.** Every Coverage record names its `sourceUniverse`
+- **(b) L-JS1. OPEN (the lead, under OD-DECIDE-1; O2); the lead's recommendation is disclosure by the Coverage key, with no new member.** Every Coverage record names its `sourceUniverse`
   in its key (NE:2016-2017; NS `CoverageKeyV2`, :1334-1337). A `coverage2` record of `imports@resolved-target`,
   `references@resolved-binding` or `calls@resolved-callee` whose source universe has `configOrigin = "synthesized"`
   is under L-JS1, by the law's table (NE:593-595; NCM:438-481 is its copy, status PROPOSED, NCM:4). A specifier that L-JS1 makes unresolvable
