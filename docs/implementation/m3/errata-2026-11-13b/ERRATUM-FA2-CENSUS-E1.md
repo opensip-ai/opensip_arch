@@ -1,6 +1,6 @@
-# Erratum FA2-CENSUS-E1: a symbol census is complete over a named population rule (author draft r2, 2026-11-13)
+# Erratum FA2-CENSUS-E1: a symbol census is complete over a named population rule (author draft r3, 2026-11-13)
 
-Status: **PROPOSED, r2.** It implements lead decision LD-DEC-11 items 1-5, 6' and 7-8
+Status: **PROPOSED, r3** (r2 plus the lead's ruling on C10). It implements lead decision LD-DEC-11 items 1-5, 6' and 7-8
 (`LC/decisions/LD-DEC-11-census-population/DECISION.md`, including its section "Corrections 2026-11-13 after both reviews
 of the erratum"; `LC` = `/Users/sb/code/.opensip-implementation-cache/lead-2026-10-25`). It answers both reviews of r1
 (`b097e3d9e`): `review-opus/VERDICT.md` (R1-R3, A1-A5) and `review-codex/VERDICT.md` (FCE-CX-1, FCE-CX-2), both
@@ -90,9 +90,9 @@ The table. Its first two columns are the rule. Its last two record the code at `
 | C7 | Global declarations: each declaration declared at global scope, meaning directly in a script file's statement list (a variable statement's names included) or in a `declare global` block. The expression initializing such a variable is not itself a declaration of this class (C22, C23). | included | seed scan `:619-622`, scope test `:199-210` | matches for the declarations themselves; see C22, C23 |
 | C8 | A `var` in a block or `for` head at a script file's top level (a global binding) | included | not seeded: the scope test (`:199-210`) gives "other"; omitted silently (FCE-CX-1) | fix owed |
 | C9 | A top-level `this.x =` in a script file (the compiler binds it as a global; R3 (c)) | included | not seeded: the scope test gives "other"; omitted silently (R3 (c)) | fix owed |
-| C10 | A string-named `declare module` declared at global scope (`:212-214`) | **open** (FCE1.10, open point 1) | seeded `:616-618`; a row `#"m"` | not decided |
+| C10 | A string-named `declare module "m"` declared at global scope (an ambient module; the code's test `:212-214`) | included (lead ruling on C10, principle (a)) | seeded `:616-618`; id `#"m"` from `idOf` `:454`; row emitted `:699-702` | matches |
 | C11 | A string-named `declare module` in a module file whose target is a file of the program (an augmentation); its declarations merge into that module | included, as declarations of C3, C5 and C13-C17 of the target | augmentation seeds `:616-618`; corpus cases N4a-N4c and N5a-N5d (`N` §8) | matches |
-| C12 | A string-named `declare module` that is not at global scope and whose target is not a file of the program, with its declarations | excluded; it never makes the census incomplete | no row; the census completes with the note `A7 no id for seed` (`:690-697`). Probe: `export {}; declare module "absent" {…}` (FCE-CX-1 (b)) | population matches; the A7 note wrongly calls this case A7: disclosure fix owed |
+| C12 | An augmentation, inside a module file, of a module that is not a file of the program (a string-named `declare module` not at global scope with no target file), with its declarations | excluded by name (lead ruling on C10); it never makes the census incomplete | no row; the census completes with the note `A7 no id for seed` (`:690-697`). Probe: `export {}; declare module "absent" {…}` (FCE-CX-1 (b)) | population matches; the A7 note wrongly calls this case A7: disclosure fix owed |
 | C13 | Members of a class or interface: instance members (parameter properties and the JavaScript `this.x =` and prototype-assignment forms included) and call, construct, index and constructor signatures | included | `:317-322`, `:224-233` | matches |
 | C14 | Static members of a class, other than `prototype` | included | `:330-335` | matches |
 | C15 | Properties of a JavaScript constructor function's construct signature | included | `:323-329` | matches |
@@ -222,19 +222,11 @@ come before CENSUS-RULE-1. Using the narrowed `complete` claim cannot.
 8. FCE1.7: the population-rule carrier (here or as its own unit).
 
 **Open points:**
-1. **C10, a string-named `declare module` at global scope, is not decided.** Two readings pull against each other:
-   - *Included:* principle (a) (a named global binding) and principle (d)'s first clause (name the code's deliberate,
-     consistent choice as it is). The code gives it a row `#"m"` (`:616-618`), and `N` P1 and T3 make that deliberate.
-   - *Excluded:* principle (d)'s last clause, "an ambient declaration of a module that is not a file of the program is
-     excluded by name". Read literally, that covers this class whenever no file of the program is that module.
-
-   Rule ids are immutable, so the lead decides before the rule is adopted. If the class is excluded, the code fix is to
-   drop the row, and the package-augmentation cases (`N` §8 N5) must be re-read, since they merge into the same home.
-2. **To be settled by CENSUS-RULE-1's golden, not probed:**
+1. **To be settled by CENSUS-RULE-1's golden, not probed:**
    - C17 in script files (principle (c));
    - the members of a class expression seeded in a script file (C22; principle (b));
    - whether a script's `this.x =` (C9) and a `var x` of the same name are one subject or fail X4 (principle (b)).
-3. **Where `N` differs from the code or this rule:**
+2. **Where `N` differs from the code or this rule:**
    - `N` §6's nearest-enclosing-row attribution (the code names the file);
    - `N` §10's "only adds ids";
    - `N` P5's "members of anonymous containers" (an anonymous default-exported class declaration's members are rows,
@@ -243,7 +235,7 @@ come before CENSUS-RULE-1. Using the narrowed `complete` claim cannot.
    - `N` §0's normative reference against `P/census.ts:1-4`, which still names `census-r4.cjs`.
 
    Under this erratum, the rule is FCE1.3's table, and `N` owes corrections.
-4. **Rule ids proposed by the author.** No hit in the architecture, product or F2-min repositories, or in `LC/decisions`.
+3. **Rule ids proposed by the author.** No hit in the architecture, product or F2-min repositories, or in `LC/decisions`.
    The form follows `native.semantic-universe.typescript.v2`. The default rule's id is given so that a surface can name the
    rule of a Rust census.
 
@@ -256,7 +248,7 @@ come before CENSUS-RULE-1. Using the narrowed `complete` claim cannot.
 | Opus R3 (a) | C17 names expando members of a variable |
 | Opus R3 (b) | C5 names the top-level CommonJS `this.x =` |
 | Opus R3 (c); FCE-CX-1 (a) | C6 (JSDoc) is included in both file kinds, by principle (c), with a script fix owed; C9 (script `this.x =`) is included, with fix owed |
-| Opus R3 (d); FCE-CX-1 (b) | C10 uses the code's global-scope test and is left open (open point 1); C12 excludes the absent-module augmentation by name |
+| Opus R3 (d); FCE-CX-1 (b) | C10 uses the code's global-scope test (r3: included, by the lead's ruling); C12 excludes the absent-module augmentation by name |
 | FCE-CX-1 (c) | C18 is included, with fix owed |
 | FCE-CX-2 | FCE1.7's binding invariant replaces r1's "the token note's digest binds the rule"; the narrowed claim is not used until the carrier exists |
 | Opus Q6; LD-DEC-11 6' | r1's "the golden passes on the code" is removed; CENSUS-RULE-1 is the fixes plus the golden, tests first |

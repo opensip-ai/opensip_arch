@@ -1,11 +1,11 @@
-# Errata of 2026-11-13 (b): one author draft (proposed; r2 after two REQUIRED-FINDINGS reviews of r1)
+# Errata of 2026-11-13 (b): one author draft (proposed; r3: r2 after two REQUIRED-FINDINGS reviews of r1, plus the lead's ruling on C10)
 
 It implements a recorded lead decision (`LC` = `/Users/sb/code/.opensip-implementation-cache/lead-2026-10-25`). It is not
 accepted, adopted or bound. It is additive: accepted bytes stay frozen.
 
 | File | Subject | Source | Form | Review |
 |---|---|---|---|---|
-| `ERRATUM-FA2-CENSUS-E1.md` | FA-2 §9.8 (`native-successors-fa/fa-2/section-9-8.md:3-5`, `:56-57`) and its emission duty (`fa-2/README.md:282`): a symbol census is complete over a named population rule. The default rule is the accepted wording, so Rust is unchanged. The TypeScript rule `native.symbol-census-population.typescript.v1` is stated once, as one table of declaration classes (26 classes; C10 left open for the lead), with its relations (`imports`, `unresolved-edge`; the file is the importer) and widening. The census schema is not edited. Each enumerator closure has one population-rule binding; the narrowed `complete` is not used until its carrier and CENSUS-RULE-1 (code fixes plus golden) exist. | LD-DEC-11 items 1-7 | contract successor (FA-2 is a lock input) | two, independent of the DESIGN-NOTE-r5 rulings (r1: REQUIRED-FINDINGS from both) |
+| `ERRATUM-FA2-CENSUS-E1.md` | FA-2 §9.8 (`native-successors-fa/fa-2/section-9-8.md:3-5`, `:56-57`) and its emission duty (`fa-2/README.md:282`): a symbol census is complete over a named population rule. The default rule is the accepted wording, so Rust is unchanged. The TypeScript rule `native.symbol-census-population.typescript.v1` is stated once, as one table of declaration classes (26 classes), with its relations (`imports`, `unresolved-edge`; the file is the importer) and widening. The census schema is not edited. Each enumerator closure has one population-rule binding; the narrowed `complete` is not used until its carrier and CENSUS-RULE-1 (code fixes plus golden) exist. | LD-DEC-11 items 1-7 | contract successor (FA-2 is a lock input) | two, independent of the DESIGN-NOTE-r5 rulings (r1: REQUIRED-FINDINGS from both) |
 
 Model: `../errata-2026-11-13/ERRATUM-VCS1-E1.md` (branch `errata-2026-11-13-r1`).
 
