@@ -41,8 +41,9 @@ At product main `1bd328f3` there is no Linux spawn, scratch or confinement code:
   `confinement_tests`; `:419-420` `#[cfg(all(test, not(target_os = "macos")))] mod unsupported_tests;`.
 - `crates/platform/src/process.rs:2545-2640` are refusing stubs; no `pidfd_open`, `PR_SET_CHILD_SUBREAPER`, Landlock or
   seccomp appears in `crates/` or `apps/` (`BOTH-LANES-CHECK.md` §3; I re-read the `lib.rs` lines, not the search).
-- The Linux lane compiles 183 gated tests away (50 spawn, 9 confinement, 124 supervisor; LD-DEC-10 addendum) and reports
-  only passed and failed.
+- The Linux lane compiles 183 gated D1 and D3 tests away (50 spawn, 9 confinement, 124 supervisor; LD-DEC-10 addendum).
+  The later measurement (LD-DEC-10, "The measured gap", from `LC/linux/NOT-RUN-HANDOFF.md`) counts 2,031 macOS tests not
+  run on Linux in all (2,017 absent from the Linux build, 14 printed "skipped (macOS only)"); the 183 are inside it.
 - Every unit deferred its Linux half by name: D1a-L, D1b-L, D3b-L, D5-L (`BOTH-LANES-CHECK.md` §2, with the plan and
   review lines).
 
@@ -51,15 +52,15 @@ At product main `1bd328f3` there is no Linux spawn, scratch or confinement code:
 **1. Law, sentence 2 of live `:347` (r5 `:345`).** Before: "The Linux code is built and exercised only on Linux lanes
 (M3P:472)." After:
 
-> The Linux halves are owed (D1a-L, D1b-L, D3b-L, D5-L); off macOS the build compiles typed refusals and tests them, and nothing Linux is exercised (erratum SUPERVISOR-LINUX-E1).
+> The Linux halves are owed (D1a-L, D1b-L, D3b-L, D5-L); off macOS the build compiles typed refusals and tests them, and nothing Linux is exercised (M3P:472; erratum SUPERVISOR-LINUX-E1).
 
 Sentences 1 and 3 are unchanged.
 
 **2. Law, live `:349` (r5 `:347`).** Both sentences stay as written. One sentence is added after them:
 
-> Until the Linux halves of D1 and D3 land (D1a-L, D1b-L, D3b-L, and D3a's Linux half, which waits for D1a-L), the first sentence is an open obligation of those units, not a met control, and the Linux lane reports each macOS-gated D1 and D3 row "not run" (erratum SUPERVISOR-LINUX-E1).
+> Until the Linux halves of D1 and D3 land (D1a-L, D1b-L, D3b-L, and D3a's Linux half, which waits for D1a-L), the first sentence is an open obligation of those units, not a met control, and the Linux lane must report each macOS-gated D1 and D3 row "not run" (erratum SUPERVISOR-LINUX-E1).
 
-The control itself stays. Its "not run" half is unmet today because the lane drops the gated rows silently; LD-DEC-10's
+The control itself stays. The added sentence is prescriptive: its "not run" half is unmet today because the lane drops the gated rows silently; LD-DEC-10's
 addendum fixes that in lane tooling (a not-run count and the names, from the difference between the two lanes' test
 lists at one head). That tooling is not this erratum.
 
@@ -93,7 +94,9 @@ listing them.
   forbidden) and `:1094` stand.
 - No unit's scope, gate or acceptance. No product code. No Linux implementation is decided or scheduled; when Linux is
   built is the owner's (LD-DEC-10 item 4).
-- `:347` cites "M3P:472". I did not check that cite against the plan revision it named; it is left as it is.
+- `:347`'s cite "(M3P:472)" is kept in the new sentence. It is true as a cite: line 472 of `M3-PLAN-r6.md` is the
+  "Platform scope (M3-X)" recommendation (in later revisions it moved: r10 `:744`, live `:746`). That line carries the
+  same "is built" sentence, which item 3 corrects in its current place.
 
 ## SLE1.6 Review and binding owed
 
