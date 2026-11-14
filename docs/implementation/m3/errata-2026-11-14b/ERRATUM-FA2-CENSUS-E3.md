@@ -45,7 +45,7 @@ Statements A1-A10 are inserted into §9.8 after E1's binding paragraph.
 >
 > **Binding class: one ordered procedure.** At replay, each retained enumerator closure has exactly one binding class. The class is the first of these steps that applies:
 >    1. **Conflict.** There is an A2 member and also a record presented as another binding of the same closure → *unrecognized*. `E1:160` allows "exactly one population-rule binding" and refuses "conflicting bindings", so the stricter step comes first. This is the one place the order departs from "A2 first".
->    2. **A2 member.** There is an A2 member → its class is the rule id its bytes are the A2 form of: *v1*, *v2*, *v3* or *default*. Bytes that are the A2 form of no rule are *other id*.
+>    2. **A2 member.** There is a member at the A2 path → its class is the rule id whose A2 form (the exact bytes of A2) its bytes are: *v1*, *v2*, *v3* or *default*. Bytes that are not the A2 form of a known rule are *other id*. That covers an unknown id, and also bytes not in the A2 form at all, such as a final newline, another `schemaVersion` or invalid JSON.
 >    3. **Demonstrated historical binding.** There is no A2 member, and a record presented as a binding is *demonstrated*: its retained identity and review evidence are present, and a reader for its owning law reads them as meeting `E1:160` and `E1:166-167` (one per closure; immutable; reviewed; available before Plan selection; retained for replay; fixed by the closure identity or the Plan; naming a rule stated in §9.8) → *historical*.
 >    4. **Presented but not demonstrated.** There is no A2 member, and a record is presented as a binding but is not demonstrated (no reader, evidence lost or silent, or the conditions are not met) → *unrecognized*.
 >    5. **Otherwise** (nothing presented; this includes lost or silent closure evidence) → *none*.
@@ -185,7 +185,7 @@ The scripts, outputs and generated tables are in `LC/decisions/LD-DEC-11-census-
 - `probe-q12.mjs` (sha256 `3ddfd4e4…`) and its output `probe-q12.out.txt` (`d8404589…`);
 - `probe-q12-extra.mjs` (`4db56268…`) and its output `probe-q12-extra.out.txt` (`8e58aee9…`);
 - `fix-owed-e3.md` (`f67d5d83…`) and `matches-e3.md` (`82dafc38…`);
-- `replay-table.py` (`998c8618…`) and its output `replay-table.out.txt` (`6e81ffab…`): 1,728 concrete states, every one with exactly one row or "cannot occur" reason.
+- `replay-table.py` (`15e46558…`) and its output `replay-table.out.txt` (`c76ee873…`): 2,016 concrete states, every one with exactly one row or "cannot occur" reason.
 
 There are 1,327 cases: 513 match v3 and 814 differ. Every case is complete, and the runners agree on every case. Member
 values in the expected maps (`N.v`, `N1.a`, `I~a`, `C.s`) are F3's: they are golden instruction, not v3 law. The families,
