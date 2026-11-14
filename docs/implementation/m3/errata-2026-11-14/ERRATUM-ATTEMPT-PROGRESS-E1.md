@@ -52,7 +52,9 @@ inventory stage per universe an available `inventory` binding binds (producer th
 (b) J-eta: a conversion refusal, a cancellation observed by H5-TS's entry between returns (`H/execution_capture.rs:1418-1435`),
 or any admission, totality or self-check refusal of that entry; (c) J-theta: an evaluation or mint refusal
 (`H/analysis/compose.rs:470-492`); (d) after mint, before commit: a cancellation (`H/durable_run.rs:529-531`), a refusal of
-the minted join (`:586-588`), or a replay refusal in finalization (`H/finalization.rs:527-545`). **Mint reached** means
+the minted join (`:586-588`), a replay refusal in finalization (`H/finalization.rs:527-545`), a signal observed in
+finalization (`:553-561`), or a commit-preparation or publish refusal (`:563-575`); these are examples, and the scope
+depends on a committed Run, not on this list. **Mint reached** means
 (a)-(c) passed. Reaching mint does not establish that the attempt completes: a stop at (d) can still prevent the
 completed attempt and the commit.
 
@@ -99,7 +101,7 @@ to `stageCount` because the Run committed or because every receipt is `complete`
 
 **The inventory term on this path.** When mint is reached, H5-TS's entry has returned successfully, and that return
 requires an observation for every retained stage (`H/execution_capture.rs:346-354`, `H5_CAPTURE_STAGE_TOTALITY`), an
-inventory observation being built only from an admitted inventory stage (`:1479-1481`). So exactly when mint is reached,
+inventory observation being built only from an admitted inventory stage (`:1479-1481`). So whenever mint is reached,
 S2's event has occurred for every inventory stage and the inventory term equals the number of inventory stages
 (`inventory_stages()`). On a refused entry no value is defined, and the map's length is never a substitute for the events.
 
