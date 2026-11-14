@@ -1,10 +1,10 @@
-# Errata of 2026-11-13 (c): one author draft (proposed, unreviewed)
+# Errata of 2026-11-13 (c): one author draft (proposed; r2 after two REQUIRED-FINDINGS reviews of r1)
 
-It implements a recorded lead reading (`LC` = `/Users/sb/code/.opensip-implementation-cache/lead-2026-10-25`). It is not
-accepted, adopted or bound. It is interpretive and additive: accepted bytes stay frozen.
+It implements a recorded lead ruling (`LC` = `/Users/sb/code/.opensip-implementation-cache/lead-2026-10-25`). It is not
+accepted, adopted or bound. It is additive: accepted bytes stay frozen.
 
 | File | Subject | Source | Form | Review |
 |---|---|---|---|---|
-| `ERRATUM-FA2-CENSUS-E2.md` | The rule `native.symbol-census-population.typescript.v1` (bound erratum FA2-CENSUS-E1 r5, `../errata-2026-11-13b/ERRATUM-FA2-CENSUS-E1.md`): "alias" means C19's forms, not every symbol the compiler flags as an alias. Four CommonJS export forms follow: `exports.K = class/function …` and `module.exports = class/function …` each give their entry a row under C5, and the expression's own name and members stay excluded by C22. Two of the four have a code fix owed (CENSUS-RULE-1a). No new rule id is minted; the alternative (`…typescript.v2`) is stated for the reviewers. | LD-DEC-11, "Reading needed after the code reviews" | interpretive erratum, adoption receipt | both reviewers of E1, before the rule is first bound to any closure |
+| `ERRATUM-FA2-CENSUS-E2.md` | A new rule `native.symbol-census-population.typescript.v2`: bound FA2-CENSUS-E1's v1 unchanged (by reference, with its sha256), plus two statements. (1) "Alias" is defined by meaning, with C19's list illustrative: entity-name exports stay excluded, and C18's merged meanings stay included. (2) An export entry whose value is a class, function or arrow expression is a row under C5 (`(export).K`, `(export=)`), including TypeScript `export = class …`; the expression's name and members stay excluded by C22. v1 is withdrawn before any use. Five forms owe a code fix (CENSUS-RULE-1a). | LD-DEC-11, "Ruling after both reviews of FA2-CENSUS-E2 r1" | erratum, adoption receipt | both reviewers of E1 |
 
-Owed: the lead's adoption receipt; then the CENSUS-RULE-1a fix and four golden cases.
+Owed: the lead's adoption receipt; then the CENSUS-RULE-1a fix, its golden cases, and the move of its rule-id references to v2.
