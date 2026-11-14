@@ -1,6 +1,7 @@
-# Erratum FA2-CENSUS-E2: TypeScript census rule v2: wrappers, aliases and holding positions decided by syntax (author draft r4, 2026-11-13)
+# Erratum FA2-CENSUS-E2: TypeScript census rule v2: wrappers, aliases and holding positions decided by syntax (author draft r5, 2026-11-13)
 
-Status: **PROPOSED, r4** (r3 plus both reviews of r3: `review-opus-e2/VERDICT-r3.md` R3-1, R3-2;
+Status: **PROPOSED, r5** (r4 plus `review-opus-e2/VERDICT-r4.md` R4-1, R4-2 and `review-codex-e2/VERDICT-r4.md`
+FCE2-R4-CX-1). r4 answered both reviews of r3: `review-opus-e2/VERDICT-r3.md` R3-1, R3-2;
 `review-codex-e2/VERDICT-r3.md` FCE2-R3-CX-1, -2; the lead accepted r3's narrowing). r3: It implements two lead rulings in LD-DEC-11 (`LC/decisions/LD-DEC-11-census-population/DECISION.md`;
 `LC` = `/Users/sb/code/.opensip-implementation-cache/lead-2026-10-25`). The first is "Ruling after both reviews of
 FA2-CENSUS-E2 r1 (2026-11-13): a new rule id". The second is "Correction, 2026-11-14 UTC: the R12 reading above is
@@ -52,7 +53,7 @@ Inserted into §9.8 by the successor that carries E1:
 > **The TypeScript population rule `native.symbol-census-population.typescript.v2` (erratum FA2-CENSUS-E2).** It is the rule `native.symbol-census-population.typescript.v1` of erratum FA2-CENSUS-E1 (sha256 `1dd70aa997e6250f0256557ff4eceb24217ffdcde16d4ae9d4649a8d7e3232c1`): every sentence and every row of its table C1-C28 (FCE1.3), unchanged, with its relations (FCE1.4), widening (FCE1.5) and binding (FCE1.7). It adds four statements. Each is decided from syntax and from the symbol resolution v1 already uses; none asks the checker for a type and none evaluates a value.
 >
 > 0. **Transparent wrappers.** These, and only these, are transparent wrappers: parentheses; `e as T`; `e satisfies T`; `<T>e`; `e!`; and a JSDoc cast, `/** @type {T} */ (e)`. Removing them means replacing each wrapper with its operand, repeatedly. A wrapper never changes a classification under statements 1-3.
-> 1. **Alias.** An alias is one of: (a) a form C19 lists other than its `require` forms (imports, import-equals declarations, export specifiers, re-exports); (a′) a require declaration: a variable declaration of any kind (`const`, `let` or `var`), whose name is an identifier or a destructuring pattern, and whose initializer, after removing transparent wrappers, is a call `require(s)`, where `s` is a string literal or a template literal without substitutions, or a chain of property accesses (`.name`) on such a call (this class contains C19's two `require` forms); or (b) an export entry, made by `export default`, `export =`, `module.exports =`, `exports.K =` or `module.exports.K =`, whose value, after removing transparent wrappers, is an entity name: an identifier, or a chain of identifiers joined by `.`. Nothing else is an alias. In (b), a call such as `require('./x')`, a property of a call such as `require('./x').v`, an element access, and a class, function or arrow expression are not aliases. In (a′), an element access on the call (`require('./x')['v']`), a call on it (`require('./x').v()`) and a `require` whose argument is not such a literal are not aliases. A symbol that is an alias merged with a namespace or other declared meaning of its own is not excluded as an alias (C18).
+> 1. **Alias.** An alias is one of: (a) a form C19 lists other than its `require` forms (imports, import-equals declarations, export specifiers, re-exports); (a′) a require declaration: in a JavaScript file, a variable declarator of any kind (`const`, `let` or `var`) whose declaration has no `export` modifier and carries no JSDoc `@type` tag, whose name is an identifier or a destructuring pattern, and whose initializer, after removing transparent wrappers, is a call `require(s)`, where `s` is a string literal or a template literal without substitutions, or a chain of property accesses (`.name`) on such a call (this class contains C19's two `require` forms). A variable is an alias under (a′) only when every declaration of it is such a declarator; one with any other declaration has a declared meaning of its own and is not an alias. An exported declaration has its own export meaning: v1's C18 rule cell reads "as at module top level, where only a pure alias is excluded". A declaration with a JSDoc `@type` tag declares its own type, and so it is not an alias "with no declared meaning of [its] own" (C19). In a TypeScript file no declaration is in (a′); or (b) an export entry, made by `export default`, `export =`, `module.exports =`, `exports.K =` or `module.exports.K =`, whose value, after removing transparent wrappers, is an entity name: an identifier, or a chain of identifiers joined by `.`. Nothing else is an alias. In (b), a call such as `require('./x')`, a property of a call such as `require('./x').v`, an element access, and a class, function or arrow expression are not aliases. In (a′), an element access on the call (`require('./x')['v']`), a call on it (`require('./x').v()`) and a `require` whose argument is not such a literal are not aliases. A symbol that is an alias merged with a namespace or other declared meaning of its own is not excluded as an alias (C18).
 > 2. **Expression-valued export entries.** An export entry whose value, after removing transparent wrappers, is a class, function or arrow expression declares its meaning at that entry. It is not an alias, and it is a row under C5: `(export).K` for `exports.K =` and `module.exports.K =`, `(export=)` for `module.exports =` and TypeScript `export =`, and `default` for `export default`, in any file kind that binds that export. The expression's own name, and every member under the expression, stay excluded by C22 unless C17 or C27 carves them out.
 > 3. **"Held by a variable" (C27).** A function expression is held by a variable when it stands, after removing transparent wrappers, in a holding position of that variable. The holding positions are exactly these:
 >    - the initializer of the variable's declaration (`var`, `let` or `const`, with an identifier name);
@@ -65,7 +66,7 @@ Inserted into §9.8 by the successor that carries E1:
 >    - the right operand of an assignment expression whose operator is `=`, `||=`, `??=` or `&&=` (the value of such an expression can be its right operand). Such an assignment composes with the direct holds: if its left operand is an identifier naming a variable, that variable holds the expression by the second direct hold, and the variable of the outer holding position holds it too. So in `G = F = fn` and in `var G = (F = fn)` both `F` and `G` hold `fn`; in `var G = (F ||= fn)` both hold it; in `G = o.H = fn` only `G` does, because `o.H` is not a variable.
 >    - Every other compound assignment (`+=`, `-=`, `*=`, `/=`, `%=`, `**=`, `<<=`, `>>=`, `>>>=`, `&=`, `|=`, `^=`) neither holds nor passes through: in `F += fn` the variable `F` does not hold `fn`, and in `G = (F += fn)` neither `F` nor `G` does.
 >
->    One function expression can be held by several variables, and each of them gets its members. One holding position can hold several function expressions (`fn1 || fn2`), and the variable gets each one's members. The id and collision checks of v1 apply to every such member unchanged.
+>    One function expression can be held by several variables, and each of them gets its members. One holding position can hold several function expressions (`fn1 || fn2`), and the variable gets each one's members. The id and collision checks of v1 apply to every such member unchanged. A variable that is an alias under statement 1 holds nothing, and C27 gives it no members (so `const { v = fn } = require('./x')` gives neither `v` nor a member). A variable that is not an alias holds by every holding position that names it, including an assignment whose source is a `require` call (`var F; ({ F = fn } = require('./x'))` gives `F~p`).
 >
 >    No other position holds. In particular, the left operand of a comma expression, either operand of `&&`, either branch of a conditional expression, the operand of `void`, `typeof` or `new`, a call or its argument, an array element, a spread element and an object property value do not hold, and neither does a property such as `o.F`. Which variable an identifier names is resolved as v1 resolves symbols. The constructor predicate is C27's own, after its colon, unchanged: "the expression's body assigns `this.x`, or the variable has a prototype assignment (either suffices)". The phrase "a variable that the checker treats as a JavaScript constructor" means exactly that predicate, never the variable's checker type. So a JSDoc cast that types the variable `any` or `Function` changes nothing.
 
@@ -94,8 +95,8 @@ function expression held by a variable that the checker treats as a JavaScript c
 assigns `this.x`, or the variable has a prototype assignment (either suffices)…". Statement 3 defines "held by a
 variable" and fixes what the predicate is.
 
-**What differs from v1.** Under v2, each disposition marked "fix owed" in FCE2.4 and FCE2.5 differs from the code today.
-Every other form keeps the disposition the code gives it now.
+**What differs from v1.** The dispositions v2 changes are those of statements 0-3. FCE2.4 gives probed evidence of where
+the code differs from them. It is not a complete list, and conformance is to the statements.
 
 ## FCE2.3 v1 is withdrawn before any use
 
@@ -144,7 +145,7 @@ is an entity name or a class expression (`isAliasableExpression` `TS:19508-19510
 | TypeScript `export = (L)` | no `(export=)` | an extra `(export=)` row | Codex | fix owed |
 | `export default (L)` | no `default` row | `#default` beside `#L` | Claude r2, Codex | fix owed |
 | TypeScript `export default L!` and `export default L as typeof L` | no `default` row | `#default` | Codex | fix owed |
-| Any other spelling of part (b) with any other wrapper (`satisfies`, `<T>L`, a JSDoc cast, a dotted name `a.b` inside parentheses) | not a row | an export row (Claude r3 probes; `probe-r4.mjs` B07g-h, B08c-d, B08g-h, B09a-c) | Claude r3, this author | fix owed (CENSUS-RULE-1a) |
+| Any other spelling of part (b) with any other wrapper (`satisfies`, `<T>L`, a JSDoc cast, a dotted name `a.b` inside parentheses) | not a row | an export row (Claude r3 probes; `probe-r5.mjs` B07g-h, B08c-d, B08g-h, B09a-c) | Claude r3, this author | fix owed (CENSUS-RULE-1a) |
 
 **Not aliases (statement 1): rows.**
 
@@ -153,7 +154,7 @@ is an entity name or a class expression (`isAliasableExpression` `TS:19508-19510
 | `module.exports = require('./x')` | `m.js#(export=)` | `m.js#(export=)` | Claude r2 | matches |
 | `exports.K = require('./x')` | `m.js#(export).K` | `m.js#(export).K` | Claude r2 | matches |
 | `exports.K = require('./x').v` | `m.js#(export).K` | `m.js#(export).K` | Claude r2 | matches |
-| `exports.K = a['b']` (element access) | `m.js#(export).K` | `m.js#(export).K` | Claude r3, this author (`probe-r4.mjs` B11) | matches |
+| `exports.K = a['b']` (element access) | `m.js#(export).K` | `m.js#(export).K` | Claude r3, this author (`probe-r5.mjs` B11) | matches |
 
 **Expression-valued export entries (statement 2).**
 
@@ -185,24 +186,21 @@ script form exists for any of them.
 - `exports.f = () => 1` is already a row (`(export).f`; Claude, `LC/f2min/census-rule-1/review-opus/VERDICT-r2.md:77`);
 - `export { C as D }` and a namespace `export import` are aliases (C19), and are not rows.
 
-**The fix owed for statements 1-2** (CENSUS-RULE-1a, after E2 is accepted). The census's alias test follows statement 1,
-not the compiler's alias flag. An entry whose value is a class expression keeps its row, and its walk does not reach the
-expression's own symbol or members (C22). An entry whose value is an entity name inside transparent wrappers loses its
-row. C18's merged entries stay included.
-
 **The fix owed, stated generally** (CENSUS-RULE-1a, after E2 is accepted):
 - **Aliases.** The census's alias test follows statement 1, not the compiler's alias flag.
   - An export entry whose value is a class expression keeps its row; its walk reaches neither the expression's own
     symbol nor its members (C22).
   - An entry whose value is an entity name inside transparent wrappers loses its row.
-  - A require declaration is excluded exactly as (a′) says, wrapped or not.
+  - A require declaration is excluded exactly as (a′) says, wrapped or not. A JavaScript declarator with an `export`
+    modifier or a JSDoc `@type` tag, and every TypeScript declaration, is not in (a′).
   - C18's merged entries stay included.
 - **Holding (C27).** The code decides "held" by whether the checker names the expression's type after the variable
   (commit `7189c915`), not by statement 3. That test is replaced by statement 3's syntactic test:
   - transparent wrappers are removed at every level;
   - the direct holds, and the pass-through positions with their exact operator sets, are followed recursively;
   - every variable that holds an expression gets its members, under the existing id and collision checks;
-  - every function expression a position holds gives its members.
+  - every function expression a position holds gives its members;
+  - a variable that is an alias under statement 1 holds nothing.
 
   Because the code's test differs from the rule's in kind, the forms listed below are evidence, not a complete list.
   Conformance is to statement 3 itself.
@@ -210,11 +208,12 @@ row. C18's merged entries stay included.
 **What the code does today: probed, not inferred.** Each form was run through the code unit's compiled harness at
 `02b97f74` (`dist/test/fixtures/census-harness.js` `runCensus`, its `dist` built at the head commit's time). I used Node
 24.16.0 and TypeScript 6.0.3, read-only, the same method the reviewers used. Script and output:
-`LC/decisions/LD-DEC-11-census-population/e2-probes/probe-r4.mjs` and `probe-r4.out.txt`. The script holds 125 cases.
+`LC/decisions/LD-DEC-11-census-population/e2-probes/probe-r5.mjs` and `probe-r5.out.txt` (r4's 125 cases plus D01-D10).
+The script holds 135 cases.
 Each case states the rows rule v2 requires (`want`) and forbids (`not`). Its output is complete with no failure in every
-case. 75 cases match the rule; 50 differ.
+case. 82 cases match the rule; 53 differ.
 
-**Fix owed: the 50 cases where the code differs from v2**, generated from that output (`e2-probes/fix-owed-r4.md`). Ids
+**Fix owed: the 53 cases where the code differs from v2**, generated from that output (`e2-probes/fix-owed-r5.md`). Ids
 are without the `ts-symbol:` prefix. "Rows required" lists the rows the case checks, plus the rows the code gives that the
 rule does not touch.
 
@@ -270,8 +269,11 @@ rule does not touch.
 | C11 const x = require()['v'] (element access) | `m.js`, `m.js#(export).q`, `m.js#x` | `m.js`, `m.js#(export).q` |
 | C13 const x = require()[k] (non-literal element access) | `m.js`, `m.js#(export).q`, `m.js#k`, `m.js#x` | `m.js`, `m.js#(export).q`, `m.js#k` |
 | C14 const x = require()['v'].w | `m.js`, `m.js#(export).q`, `m.js#x` | `m.js`, `m.js#(export).q` |
+| D01 var F = require() \|\| fn | `m.js`, `m.js#(export).q`, `m.js#F`, `m.js#F~p` | `m.js`, `m.js#(export).q`, `m.js#F` |
+| D05 var F; ({ F = fn } = require()) (assignment, not a declaration) | `m.js`, `m.js#(export).q`, `m.js#F`, `m.js#F~p` | `m.js`, `m.js#(export).q`, `m.js#F` |
+| D10 JSDoc @type on a destructuring declaration | `m.js`, `m.js#(export).q`, `m.js#v` | `m.js`, `m.js#(export).q` |
 
-**Matches: the other 75 cases.** The code already gives the rows v2 requires; the script lists each one:
+**Matches: the other 82 cases.** The code already gives the rows v2 requires; the script lists each one:
 - **C27** (45 cases):
   - every member and no-member row of the golden's wrapper table, except the two object-destructuring rows;
   - the array assignment defaults (`[F = fn] = []` and `= [1]`) and both JSDoc casts;
@@ -284,6 +286,13 @@ rule does not touch.
 - **Exports** (18 cases): every bare alias spelling; the `require` export values; `a['b']`; the parenthesized class
   expressions; both function-expression exports; and the controls `export default class {}`, `export default (class …)`
   and `export { C as D }`.
+- **Require and holding interactions** (r5, 7 cases):
+  - `const { v = fn } = require('./x')` and `var { a: F = fn, b } = require('./x')`: aliases hold nothing;
+  - `var F = fn, x = require('./x')`: separate declarators;
+  - `var F = require('./x'); var F = fn`: a redeclared variable is not an alias;
+  - the TypeScript `const x = require('./x')`, which is not in (a′);
+  - JavaScript `export const x = require('./x')`;
+  - the JSDoc `@type` on an identifier declaration.
 - **Require declarations** (12 cases): `const`, `let` and `var` with an identifier; object and array destructuring
   (`const`, `let`, `var`); property chains; the template-literal argument; and the non-literal argument and the call on a
   `require`, which stay rows.
@@ -292,13 +301,18 @@ rule does not touch.
 
 - **The id moves.** The code unit's references to the rule id move to v2: the comments, the `CR-GATE` test, the owed
   carrier and binding, and the generated source census.
-- **The cases.** The golden is the 125 probe cases of `probe-r4.mjs`. Each case has the exact rows v2 requires (for the
-  50 that differ, the table above), the census complete, and no A7 note. A case is written first and fails at `02b97f74`
-  wherever the table above says "fix owed".
+- **The cases.** The golden is the 135 probe cases of `probe-r5.mjs`.
+  - For the 53 that differ, the exact rows are the table above.
+  - For the 82 that match, the exact rows are the outputs recorded in `probe-r5.out.txt`, checked against the rule. The
+    script asserts only the listed ids.
+  - Every case has the census complete and no A7 note. Each case is written first, and fails at `02b97f74` wherever
+    the table above says "fix owed".
 - **Controls the golden must carry by name:**
   - the compound-assignment negatives (`F += fn`; `G = (F += fn)`; `G = (F *= fn)`; `F <<= fn`) and the positive
     pass-through controls (`var G = (F = fn)`, `var G = (F ||= fn)`, `??=`, `&&=`);
   - the class-field and parameter-default controls;
+  - the r5 controls: an alias holds nothing (D02, D03); a TypeScript require declaration is a row (D07); an exported
+    declaration (D08) and an annotated one (D09, D10) are rows;
   - the C18 control already in the golden (a namespace export alias merged with a namespace meaning stays a row).
 - **The two golden rows that flip:** the object-destructuring rows (declaration and assignment) change from "no member"
   to `#F~p`.
@@ -310,7 +324,7 @@ negatives. The `exported` value of each row is the one E1 gives.
 ## FCE2.6 What this does not change
 
 - Every row and sentence of E1 (C1-C28, FCE1.3-FCE1.7). v2 incorporates them unchanged. The dispositions v2 changes are
-  those of statements 0-3. FCE2.4 gives the probed evidence (125 cases), and conformance is to the statements.
+  those of statements 0-3. FCE2.4 gives the probed evidence (135 cases), and conformance is to the statements.
 - **The form the reviewers call "A2"** (`var o = {}; o.F = function () { this.p = 1; }; o.F.prototype.m = function () {};`)
   needs no new text. Both reviewers find that E1 decides it, and v2 keeps it: `#o.F~p` is excluded (C22; C27 names
   variables only), and `#o.F~m` is a row (C13).
@@ -340,3 +354,7 @@ negatives. The `exported` value of each row is the one E1 gives.
 | r4: Claude R3-1; Codex FCE2-R3-CX-2 | the fix is stated generally (statement 3's test replaces the checker-name test; several holders and several held expressions). The "every other form keeps its disposition" claims are withdrawn. 125 cases are probed, giving 50 fix owed and 75 matches, and the fix and golden lists are generated from the probe |
 | r4: Codex FCE2-R3-CX-2 (require) | statement 1(a′) defines require declarations as a class. It matches the code, except: wrapped (`(require(…))`, cast), an element access on the call (`['v']`, `[k]`, `['v'].w`). These are fix owed |
 | r4: advisories | the wrapped-alias row is "fix owed" (probed); "no script case" is limited to export forms; the class-field and parameter-default controls are added |
+| r5: Claude R4-1; Codex FCE2-R4-CX-1 (second half) | the surviving "every other form keeps the disposition" sentence is replaced: FCE2.4 is evidence, not a complete list. The witness `var F = require('./x') \|\| fn` is probed (D01, fix owed). No other sentence of that kind remains |
+| r5: Claude R4-2 | an alias holds nothing (D02, D03 match). The reverse: a non-alias holds by every holding position, including an assignment from a `require` (D05, fix owed). A redeclared variable is not an alias (D06, matches) |
+| r5: Codex FCE2-R4-CX-1 (first half) | (a′) is JavaScript-only (TypeScript control D07, matches). An `export` modifier (D08, matches; v1's C18 rule cell) or a JSDoc `@type` tag (D09 matches; D10, a destructuring declaration, fix owed) takes a declarator out of the class |
+| r5: advisories | the duplicated fix statements are merged. FCE2.5 says the matching cases' exact rows are the recorded outputs, checked against the rule |
