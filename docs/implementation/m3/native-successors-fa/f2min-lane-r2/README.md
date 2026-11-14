@@ -1,0 +1,22 @@
+# F2-min TypeScript provider lane selection, restage 2 (F2MIN-LANE-r2)
+
+PROPOSED. A contract successor selecting, by value, the provider loader policy re-pinned to the provider as changed after F2MIN-LANE-r1 was bound (CR1a-V3, the symbol census at rule v3), and the lane registry that names it. It adds no exception, target, loader or capability. F2MIN-LANE-r1 stays bound and unchanged; this unit's registry differs from r1's only in the provider lane's `toolPolicy` (this unit's policy path), so the product registry's digest is selected by this unit alone.
+
+- `provider-loader-policy.json`: F2MIN-LANE-r1's policy with 6 row digests re-pinned and 0 rows added, at product `6e5a40f4` (the `providers/typescript` tree `8578089c342b0e76fbed9857a4995664c105569d`; `audit.json` lists them). No row removed; the two exception digests (gen-ts-enums.mjs, compiler.ts) and the two disclosed unfollowed loaders are unchanged. `lane` is the registry's provider lane record, unchanged from r1.
+- `product/tools/typescript-lanes.json`: the registry, byte for byte the product file. Its parent is F2MIN-LANE-r1's copy; the one difference is the provider lane's `toolPolicy`.
+
+## Why each pin moves
+
+Changed rows (the file's own bytes changed after F2MIN-LANE-r1's staging at product `51f940e1`):
+- `src/embedded/source-census.ts`: the output of `scripts/embed-source-census.mjs`: the same 96 entries by path; the five entries that moved are the other five re-pinned files, each entry now equal in bytes and sha256 to that file; `SOURCE_CENSUS_SHA256` changed.
+- `src/facts/census.ts`: adds rule v3 statement 4 (erratum FA2-CENSUS-E3): an export entry is a row when one of its declarations is not an alias (4(a)), and per-declaration targets through the target walk `walkTargets` (4(b), 4(c)); `buildCensus` takes an optional `WalkProbe` (338 lines added, 47 removed; `src/facts/analysis.ts`, its production caller, is unchanged).
+- `src/test/census-corpus.test.ts`: the rule id in the conformance-golden comments moves from v2 to v3; adds the CR1A-V3-GOLDEN tests: the 1,327 E3 cases of `E3_CASES` through both runners (`runCensus`, `runCensusViaBuilder`), each requiring the law's complete row map, and the count and identity tests (857 lines added, 12 removed).
+- `src/test/census-generated.test.ts`: adds the table of the 63 generated programs whose census rule v3 statement 4(c) changes, each with its new digest and cause, and test F2M-G1v3 (63 programs: 58 entry-row, 5 default-expression) (84 lines added, 1 removed).
+- `src/test/fixtures/census-corpus-cases.ts`: appends the generated CR1A-V3-GOLDEN block (1,363 lines added, none removed): the 1,327 E3 cases as data (the law's row map; 814 owed, 513 matched), the hashes of its pinned inputs and a corpus integrity digest.
+- `src/test/fixtures/census-harness.ts`: `runCensus` takes an optional `WalkProbe` and passes it to `buildCensus` (3 lines changed).
+
+## After the change the lanes check
+
+`tools/check_typescript.py` verifies the design lock, finds this registry's digest in exactly one accepted contract successor (this unit, once bound), pins the 161 checker files, then runs the `report`, `provider` and `generator` lanes. The provider lane's boundary check (`tools/typescript-boundary/bin/check-boundary.mjs`, launched by `tools/check_typescript.py`, which runs `src/check.mjs`'s `checkBoundary`) pins the 107 policy rows to the product bytes, requires `policy.lane` to equal the registry's provider lane record, analyzes and emits the package source and scans it for loader edges, and checks the boundary census and its staleness. It does NOT run the provider's tests or its freshness commands: those are the separate `npm` commands in `providers/typescript/package.json`, and a green boundary result does not establish that they ran. Staged with it as F2MIN-INVENTORY-v253-r1: the additive inventory successor v253 (the row for the static file `closure/opensip-interface/symbol-census/population-rule.json`, which is not a lane input). Missing before binding: the independent review (verdict ACCEPT-DESIGN-UNIT naming this subject manifest's digest) and the lead's assent record (`f2min-lane-r2-unit.json`); then the design-lock entry (`bind_f2min_lane.py`). The product commit that carries the lock also carries the registry with this `toolPolicy`.
+
+The code was reviewed separately (the CR1a-V3 reviews). No product qualification follows from this unit.
