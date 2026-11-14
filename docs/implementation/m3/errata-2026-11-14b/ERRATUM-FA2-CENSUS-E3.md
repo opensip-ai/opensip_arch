@@ -1,6 +1,6 @@
-# Erratum FA2-CENSUS-E3: the population-rule carrier, and rule v3 for export entries with several declarations (author draft r3, 2026-11-14)
+# Erratum FA2-CENSUS-E3: the population-rule carrier, and rule v3 for export entries with several declarations (author draft r4, 2026-11-14)
 
-Status: **PROPOSED, r3** (r2 `289d0931c` plus `review-codex-e3/VERDICT-r2.md` E3-R2-CX-1, E3-R2-CX-2, E3-CX-1's open part and `review-opus-e3/VERDICT-r2.md` R2-1, with the lead's rulings; r2 was r1 `f9f01378a` plus `review-codex-e3/VERDICT.md` E3-CX-1, E3-CX-2 and `review-opus-e3/VERDICT.md` R1, R2, advisories; FCE3.6). Lead coordinator's brief (`LC` = `/Users/sb/code/.opensip-implementation-cache/lead-2026-10-25`). It is
+Status: **PROPOSED, r4** (r3 `88701f114` plus `review-codex-e3/VERDICT-r3.md` E3-R3-CX-1 and `review-opus-e3/VERDICT-r3.md` R3-1 and advisories; the round history is in `LC/decisions/LD-DEC-11-census-population/ERRATUM-E3-HANDOFF.md`). Lead coordinator's brief (`LC` = `/Users/sb/code/.opensip-implementation-cache/lead-2026-10-25`). It is
 **additive**: no accepted byte is edited. It builds on two bound texts at architecture main `06f966a1e`:
 **E1** = `../errata-2026-11-13b/ERRATUM-FA2-CENSUS-E1.md` (sha256 `1dd70aa9…3232c1`) and **E2** =
 `../errata-2026-11-13c/ERRATUM-FA2-CENSUS-E2.md` (sha256 `56723546361dd29bed388b22837f57f2fbb4ae131e61a7a957544ab0ad6f031e`),
@@ -43,31 +43,39 @@ Statements A1-A10 are inserted into §9.8 after E1's binding paragraph.
 >
 > **A7. Retention and replay.** A committed Run whose Plan owed a census retains, with each enumerator closure descriptor its Plan fixes, the tree row (path and sha256) of that closure's binding member, when there is one. At replay, the evaluator reads the retained digest and the closure's retained identity and review evidence, never the replaying release's packaging or today's A3 table. The retained records carry no design-lock identity, so A7 claims only the historical *interpretation* of a rule (`E1:160`: evidence "keeps that binding's rule when it is read later"). It does not re-verify that the original host passed A6 check 4.
 >
-> **The replay table is total.** Every retained state is one value of each of three things: the provider (`typescript-semantic`, `rust-semantic`); the binding (no member; an A2 member naming `typescript.v1`, `typescript.v2`, `typescript.v3` or `default.v1`; another demonstrated historical binding; an unrecognized representation); and the census with its inventory (complete, projected; over-bound, on the scope-limit route; absent, host-derived). Each state has exactly one row below, or exactly one of the following "cannot occur" reasons:
+> **Binding class: one ordered procedure.** At replay, each retained enumerator closure has exactly one binding class. The class is the first of these steps that applies:
+>    1. **Conflict.** There is an A2 member and also a record presented as another binding of the same closure → *unrecognized*. `E1:160` allows "exactly one population-rule binding" and refuses "conflicting bindings", so the stricter step comes first. This is the one place the order departs from "A2 first".
+>    2. **A2 member.** There is an A2 member → its class is the rule id its bytes are the A2 form of: *v1*, *v2*, *v3* or *default*. Bytes that are the A2 form of no rule are *other id*.
+>    3. **Demonstrated historical binding.** There is no A2 member, and a record presented as a binding is *demonstrated*: its retained identity and review evidence are present, and a reader for its owning law reads them as meeting `E1:160` and `E1:166-167` (one per closure; immutable; reviewed; available before Plan selection; retained for replay; fixed by the closure identity or the Plan; naming a rule stated in §9.8) → *historical*.
+>    4. **Presented but not demonstrated.** There is no A2 member, and a record is presented as a binding but is not demonstrated (no reader, evidence lost or silent, or the conditions are not met) → *unrecognized*.
+>    5. **Otherwise** (nothing presented; this includes lost or silent closure evidence) → *none*.
+>
+> **The replay table is total.** Each row is stated over the provider, the class and the census with its inventory, so the rows are disjoint by construction. Every state has exactly one row, or exactly one of these "cannot occur" reasons:
 > - a complete census with a host-derived inventory cannot occur, because a complete census is projected with origin provider-return (`9.8:82-91`);
 > - an over-bound census with a host-derived inventory cannot occur, because an over-bound census arrives on `Complete` and takes the scope-limit route (`9.8:60-62`, `:99-101`), while host-derived outcomes belong to the other terminals (`9.8:75-80`);
 > - a provider-reported inventory with no census cannot occur, because a terminal that carries no census gives host-derived inventories only (`9.8:75-80`).
 >
-> A2 members are classified by RT-1, RT-2, RT-5 and RT-7; RT-6 is for other representations only.
->
-> | Row | Provider and binding | Complete census | Over-bound census | No census (host-derived) |
-> |---|---|---|---|---|
-> | RT-1 | `typescript-semantic`, A2 member naming `…typescript.v3` | O1 | O2 | O3 |
-> | RT-2 | `rust-semantic`, A2 member naming `…default.v1` | O1 | O2 | O3 |
-> | RT-3 | `rust-semantic`, no A2 member and no demonstrated other binding | O1, default rule (`E1:54`'s interim reading; the same population as `default.v1`) | O2, default rule | O3 |
-> | RT-4 | `typescript-semantic`, no A2 member, and the closure's retained identity and review evidence show no other binding | O4 | O5 | O3 |
-> | RT-5 | `typescript-semantic`, A2 member naming `…typescript.v1` or `…typescript.v2`. Neither ever could bind: v1 "is never bound to any enumerator closure" (`E2:103-104`); v2 bound nothing before its successor (A9; `E2:22-23`), and FCE3.3 withdraws it while that successor is still owed | O4; the member fixes only the rule's interpretation (`E2:120-121`) | O5; the same | O3 |
-> | RT-6 | either provider: a demonstrated historical binding in another representation | O7 | O7 | O3 |
-> | RT-7 | either provider: an unrecognized representation. This covers bytes at the A2 path that are not the A2 form of a rule for that provider (including v1, v2 and v3 on `rust-semantic`, and `default.v1` on `typescript-semantic`), and a record presented as a binding that no reader for its owning law can read | O6 | O6 | O3 |
+> | Row | Provider | Class | Complete census | Over-bound census | No census (host-derived) |
+> |---|---|---|---|---|---|
+> | RT-1 | `typescript-semantic` | *v3* | O1 | O2 | O3 |
+> | RT-2 | `rust-semantic` | *default* | O1 | O2 | O3 |
+> | RT-3 | `rust-semantic` | *none* | O1, default rule (`E1:54`'s interim reading; the same population as `default.v1`) | O2, default rule | O3 |
+> | RT-4 | `typescript-semantic` | *none* | O4 | O5 | O3 |
+> | RT-5 | `typescript-semantic` | *v1* or *v2*: neither ever could bind. v1 "is never bound to any enumerator closure" (`E2:103-104`). v2 bound nothing before its successor (A9; `E2:22-23`), and FCE3.3 withdraws it while that successor is still owed | O4; the member fixes only the rule's interpretation (`E2:120-121`) | O5; the same | O3 |
+> | RT-6 | either | *historical* | O7 | O7 | O3 |
+> | RT-7 | `typescript-semantic` | *default*, *other id* or *unrecognized* | O6 | O6 | O3 |
+> | RT-7 | `rust-semantic` | *v1*, *v2*, *v3*, *other id* or *unrecognized* | O6 | O6 | O3 |
 >
 > The outcomes are these:
 > - **O1.** The census is read under the row's rule and goes to §9.8's projection and admission unchanged (`9.8:82-96`).
 > - **O2.** The census is read as a count of the row's rule's population. Its record takes the scope-limit route (`9.8:99-101`), and that route's owner decides it.
 > - **O3.** The host-derived inventory (`9.8:76-79`) carries no census and no rows. It is read as its owner admits it, with no population rule, and the binding is not consulted.
-> - **O4.** The complete census is not admitted, on the producer route of `foundation/evaluator-fault-contract.v3.md:12`. The ground is `E1:160` ("sends no `complete` census, under any rule, until its binding exists"), together with a binding that is shown to be absent (RT-4) or that could never bind (RT-5). The route is not a finding of whose fault it was: after adoption, A6 checks 1-2 also refused such a Plan, and replay cannot date a Plan.
+> - **O4.** The complete census is not admitted, on the producer route of `foundation/evaluator-fault-contract.v3.md:12`. The ground is `E1:160` ("sends no `complete` census, under any rule, until its binding exists"), together with a binding that is absent (RT-4: none is demonstrated) or that could never bind (RT-5). The route is not a finding of whose fault it was: after adoption, A6 checks 1-2 also refused such a Plan, and replay cannot date a Plan.
 > - **O5.** The over-bound census's counts are not read as a count of any rule's population. Its record takes the scope-limit route (`9.8:99-101`), which asserts no completeness.
-> - **O6.** Fail closed: the census is not admitted, and its counts are not read under any rule. The route is "admission refusal under their actual external or producer boundary" (`evaluator-fault-contract.v3.md:14`), by the owner of that record's admission. An unrecognized representation by itself proves neither the absence of a binding nor a breach, so this erratum makes no producer or host-fault finding.
-> - **O7.** A reader for the binding's owning law reads it with its retained identity and review evidence. A binding that satisfies `E1:160` and `E1:166-167` keeps its rule, and the census is read as O1 or O2 under it. The conditions are: one per closure; immutable; reviewed; available before Plan selection; retained for replay; fixed by the closure identity or the Plan; and naming a rule stated in §9.8. If that evidence is lost, the outcome is `EvidenceUnavailable` (`:13`). If it fails its own admission, the outcome is `:14`. Each route is taken by its established owner.
+> - **O6.** Fail closed: the census is not admitted, and its counts are not read under any rule. This erratum makes no producer or host-fault finding, because an unrecognized representation by itself proves neither the absence of a binding nor a breach. The route depends on the failure, and each is taken by its established owner:
+>   - where referenced promised retained bytes are lost, `EvidenceUnavailable` (`evaluator-fault-contract.v3.md:13`);
+>   - otherwise, "admission refusal under their actual external or producer boundary" (`:14`).
+> - **O7.** The binding keeps its rule, and the census is read as O1 or O2 under it, by the reader of step 3.
 >
 > From adoption, A2 is the only representation that packaging may write (A2-A4, A6).
 >
@@ -85,6 +93,8 @@ Statements A1-A10 are inserted into §9.8 after E1's binding paragraph.
 >   3. it meets §9.8 as amended (`complete`, `examinedPaths` equal to the extent).
 >
 >   A6 refuses any other Plan that owes a census before spawn, so no other census is requested. At replay, A7 decides. Until then the provider sends no `complete` census (`E1:160`; `RcE2:15`).
+
+*Commentary from here to FCE3.2 (not inserted into §9.8).*
 
 **G4, reconciled.** E1 says: "Only a rule stated in this section can be bound" (`E1:54`). It also says its rule text is
 "Inserted into §9.8 … They are the rule's only statement" (`E1:66-67`), and "Adopting the law can come before
@@ -122,7 +132,7 @@ several values/declarations of one entry … That clarification should also cove
 >    - (b) **Targets, by a finite walk.** The walk starts at the symbol that the declaration's local name (statement 1(a)) or entity name (1(b); for a chain, its rightmost name) resolves to, as v1 resolves symbols.
 >      - A symbol that is not an alias under statement 1 is a target.
 >      - A symbol that is an alias is followed to the symbols that its own alias declarations name, resolved the same way. A symbol with several such declarations gives the targets of all of them.
->      - Unlike an export entry (above), an intermediate alias is not collected across compiler symbols. Its declarations are those of the one compiler symbol that its name resolves to. A same-name declaration that the compiler binds to another symbol (a duplicate identifier) or in another scope (shadowing) is not followed (CY-05, CY-05r, CY-06).
+>      - Unlike an export entry (above), an intermediate alias is not collected across compiler symbols. Its declarations are those of the one compiler symbol that its name resolves to. A same-name declaration that the compiler binds to another symbol (a duplicate identifier) or in another scope (shadowing) is not followed (CY-05, CY-05r, CY-06). In a duplicate-identifier program, "resolves to" means the pinned compiler's resolution, so declaration order can change the result. That is the stated law for v3: the result is a fixed function of the source under the pinned compiler, and such programs are censused (`E1:74`).
 >      - Cycles are detected per path. A step to a symbol already on the chain being walked ends that branch with no target. A symbol already completed by another branch gives its completed result again, both its targets and whether it is unresolved. Reaching a symbol twice is not a cycle (RC-01 to RC-04).
 >      - A branch that ends in a cycle, or at a step that resolves to no symbol, makes the declaration **unresolved** (CY-01, CY-04, RC-05).
 >      - The walk is finite: each path visits each symbol at most once, and a program has finitely many symbols.
@@ -140,18 +150,7 @@ several values/declarations of one entry … That clarification should also cove
 rule"). Outside statement 4, no `exported` value is law. E2's FCE2.5 sentence ("The `exported` value of each row is the one
 E1 gives") is a golden instruction, now satisfied for statement 4's rows only.
 
-**The lead's proposal, tested.** The proposal was to decide per declaration, by syntax: every alias declaration exposes its
-own target, a non-alias declaration exposes the entry, and the merged symbol decides nothing. Statement 4 is that proposal,
-with seven additions the probes and reviews required:
-1. Excluded declarations (C23, C24) do not count. Without this rule the tsc-output case `exports.foo = void 0; … exports.foo = foo` (G01) and CX-12 would gain rows or `unknown` values that the golden and both reviewers accepted.
-2. Targets are followed through statement-1 aliases. Without this, the wrapped chain `import Q = N; export = (Q)` (CH2, CH4) would differ from the bare form (CH1, CH3). That would contradict statement 0 ("a wrapper never changes a classification").
-3. An unresolved target makes the file's otherwise not-exported rows `unknown`. This is what the code does with one declaration (U01, U02, U06, U07), and is now stated for every declaration (U03, U04).
-4. Statement 4(a) states the entry row for every file kind. In ES modules and in TypeScript `export =`, the code's row depends on declaration order (FCE3.4).
-5. Statement 4 decides only top-level rows and quotes F3:100 instead of restating F3.
-6. (r2, Claude R1) The `unknown` trigger is limited to expression values. A declaration-form default does not trigger it, as F3 says ("a non-alias `export =`/`default` **value**", `:101`) and as the code does (R1-01 to R1-14, which all match).
-7. (r2, Codex E3-CX-2; r3, E3-R2-CX-1 and -CX-2) The walk is finite. Cycles are detected per path, and reconvergence reuses a completed result. An intermediate alias's declarations are those of the one symbol its name resolves to, which is the reading both runners give (CY-05, CY-05r, CY-06). A resolved target keeps priority over `unknown`.
-
-No row that both reviewers accepted moves (FCE3.4, controls).
+*The proposal it tests, and the additions the probes required, are recorded in the handoff (not inserted).* No row that both reviewers accepted moves (FCE3.4, controls).
 
 ## FCE3.3 Part C: rule `native.symbol-census-population.typescript.v3`; v2 withdrawn before any use
 
@@ -179,59 +178,18 @@ has its interpretation fixed but could not bind (RT-5). A demonstrated historica
 and an unrecognized representation is RT-7. Non-use is not the ground for anything
 here.
 
-## FCE3.4 The probes: what the code does at `e3cd0bf5`
+## FCE3.4 The probes (evidence, not inserted)
 
-**Method.** The provider was extracted with `git archive e3cd0bf5` and compiled (TypeScript 6.0.3, Node 24.16.0). Each case
-ran through both the reference harness `runCensus` and the provider's own builder `runCensusViaBuilder`. The scripts and outputs
-are in `LC/decisions/LD-DEC-11-census-population/e3-probes/`:
-- `probe-q12.mjs` (sha256 `3ddfd4e4…`) and `probe-q12.out.txt` (`d8404589…`);
-- `probe-q12-extra.mjs` (`4db56268…`) and `probe-q12-extra.out.txt` (`8e58aee9…`);
-- the replay-table totality control `replay-table.py` (`de4dde69…`) and its output `replay-table.out.txt` (`d4fe9960…`).
+The probes were read-only, at product `e3cd0bf5` (TypeScript 6.0.3), through both runners (`runCensus`, `runCensusViaBuilder`).
+The scripts, outputs and generated tables are in `LC/decisions/LD-DEC-11-census-population/e3-probes/`:
+- `probe-q12.mjs` (sha256 `3ddfd4e4…`) and its output `probe-q12.out.txt` (`d8404589…`);
+- `probe-q12-extra.mjs` (`4db56268…`) and its output `probe-q12-extra.out.txt` (`8e58aee9…`);
+- `fix-owed-e3.md` (`f67d5d83…`) and `matches-e3.md` (`82dafc38…`);
+- `replay-table.py` (`998c8618…`) and its output `replay-table.out.txt` (`6e81ffab…`): 1,728 concrete states, every one with exactly one row or "cannot occur" reason.
 
-The generated tables are `fix-owed-e3.md` (`f67d5d83…`) and `matches-e3.md` (`82dafc38…`).
-
-**What the probe set covers.** Each case is one entry with one, two or three declarations, in every sequence (so every
-order). The declaration kinds are:
-- every spelling of statement 1(b);
-- bare, wrapped and require- or import-declared targets;
-- non-alias values;
-- the unlisted spellings `exports['K'] =` and `module['exports'] =`;
-- top-level `this.K =`, `Object.defineProperty(exports, 'K', …)` and a class expression;
-- export specifiers, and `export var K`.
-
-Each case was run in CommonJS JavaScript, ES-module JavaScript and TypeScript, and TypeScript `export =`. Sixty-three
-hand-written cases cover the following:
-- C23 and C24 interplay;
-- repeated and dotted targets;
-- alias chains and unresolved targets;
-- the golden's accepted multi-declaration rows;
-- r2: declaration-form defaults (named and anonymous classes and functions, with and without a sibling local, R1-01 to R1-14);
-- r2: lawful TypeScript merges (TM-01 to TM-03);
-- r2: alias cycles and an intermediate alias with two declarations (CY-01 to CY-05);
-- r3: the reverse order and a shadowed intermediate (CY-05r, CY-06), and reconvergence, diamonds and a real cycle (RC-01 to RC-05).
-
-**Results.** Every case is complete, with no failure, and both runners agree on all 1,327 cases. Member values in the expected maps (`N.v`, `N1.a`, `I~a`, `C.s`) are F3's. They are golden instruction, not v3 law.
-
-| Family | Cases | Match v3 | Differ | With a compiler diagnostic |
-|---|---|---|---|---|
-| CommonJS, entry `K` (8 kinds) | 584 | 292 | 292 | 0 |
-| CommonJS, entry `export=` (6 kinds) | 258 | 108 | 150 | 0 |
-| ES-module JS, `default` | 155 | 19 | 136 | 148 |
-| ES-module TS, `default` | 155 | 19 | 136 | 150 |
-| TypeScript `export =` | 84 | 16 | 68 | 80 |
-| ES-module JS / TS, named `K` | 14 / 14 | 4 / 4 | 10 / 10 | 0 / 12 |
-| Hand-written | 63 | 51 | 12 | 7 |
-| **Total** | **1,327** | **513** | **814** | |
-
-**What the differences are** (`analysis-q12.txt`).
-- **All 32 one-declaration cases of the generated set match.**
-- **CommonJS** is the only file kind whose language permits several declarations of one entry among the export forms of statement 1(b). TypeScript declaration merging also gives several declarations of one entry lawfully (TM-01 to TM-03; all match). All 442 differences there are `exported` values of targets. No row differs. The code exposes at most one target in every one of the 842 CommonJS cases, so with two alias declarations naming different targets, all but one are `not-exported` (or `unknown`). In some orders the code also exposes the entity value of a non-alias declaration (`exports['K'] = L`, `module['exports'] = L`). Statement 4 gives neither result.
-- **ES modules and `export =`.** ECMAScript makes a duplicate exported name an early error (ECMA-262, the module early errors; cited, not observed here), and the compiler reports most of these cases ("A module cannot have multiple default exports.", "Duplicate identifier 'export='.", "Duplicate identifier 'K'."). TypeScript reports none for some JavaScript files and for `export default (L1); export { L2 as default }`.
-  - The census still decides these cases ("The census does not fail as a whole because a declaration of any class … is present", `E1:74`).
-  - In 116 of them the code's rows differ. The entry row can depend on order: `export default L1; export default 1` gives no `default` row, while the reverse order gives one. Two alias declarations (`export default (L1); export { L2 as default }`) can also give a `default` row with the value `not-exported`.
-  - In 40 of them the entry row's own value is `not-exported`.
-- **Hand-written, differing:** X01, X02, X06, X07 and X08 (several targets); X10 (a dotted target listed before a bare one); CH2 and CH4 (a wrapped alias chain); U03 and U04 (an unresolved target beside a resolved one). r2: CY-02 and CY-03 (a cycle beside a resolved target: the code gives `L`/`Z` `unknown`/`unknown` in one order and `exported`/`not-exported` in the other, where v3 gives `exported`/`unknown` in both). (r3: CY-05 now matches, under 4(b)'s single-symbol reading.)
-- **Controls that match** (accepted rows that must not move): X03 (CX-12), X04, X05, X09, X11-X15 (the golden's R7, CX-7 and CX-9 cases in both orders), G01 (the corpus's D2 tsc output), G01b, G02 (CX-10), G03-G06, CH1, CH3, CH5, U01, U02, U05, U06 and U07; r2: R1-01 to R1-14, TM-01 to TM-03, CY-01 and CY-04; r3: CY-05, CY-05r, CY-06 and RC-01 to RC-05.
+There are 1,327 cases: 513 match v3 and 814 differ. Every case is complete, and the runners agree on every case. Member
+values in the expected maps (`N.v`, `N1.a`, `I~a`, `C.s`) are F3's: they are golden instruction, not v3 law. The families,
+the controls and the analysis are in the handoff.
 
 ## FCE3.5 Part D: obligations, and what is not bound
 
@@ -252,14 +210,8 @@ declaration-form defaults and the cycle cases. Each case is written first, and t
 - the two-alias case flips: `s.js#a` goes from `not-exported` to `exported`.
 
 **Replay controls owed** (in the carrier's evaluator unit, written first):
-- the totality control `replay-table.py`. It enumerates all 84 states (42 rows, 42 "cannot occur") and fails on a state with no row or with two. Its negative control, which drops RT-6, fails on 6 states;
-- one evaluator control per row and per census column, including:
-  - a historical v2 member (RT-5: interpretation fixed, not admitted);
-  - a pre-carrier Rust closure (RT-3);
-  - a missing TypeScript binding (RT-4);
-  - a demonstrated historical binding (RT-6);
-  - an unrecognized representation (RT-7, fail closed without a fault finding);
-  - a host-derived inventory under every row (O3).
+- the totality control `replay-table.py`. It evaluates the binding-class procedure on concrete evidence states, derives the class, and requires exactly one applicable row or "cannot occur" reason for each state. Its negative controls (a dropped row; RT-3 in its r3 wording) must fail;
+- one evaluator control per row and per census column. These include a Rust closure with no member and an unreadable presented record (RT-7, not RT-3), a TypeScript closure with no member and lost evidence (RT-4), a historical v2 member (RT-5), a demonstrated historical binding (RT-6), and a host-derived inventory under every row (O3).
 
 The Plan-time controls for A6's four checks are owed too, check 4 included (a valid v3 member with no successor in the host's
 lock is refused).
@@ -275,40 +227,9 @@ lock is refused).
 - any F3 value other than statement 4's (outside statement 4, no `exported` value is law);
 - the evaluator owner's erratum (`E1` FCE1.6).
 
-## FCE3.6 Change log, and open points for the reviewers
+## FCE3.6 Open points for the reviewers
 
-**r1:** first draft. Part A closes G1 (A2, A4), G2 (A5), G3 (A6), G4 (A9), G5 (A6, A7), G6 (A8) and G7 (A3). Part B states
-statement 4, and Part C defines v3 and withdraws v2. Where this draft departs from the planner's sentences:
-- G2: the carrier exists from adoption, not "from the first host release that checks it", because that would tie law to a release;
-- G3: the refusal is the existing host invariant, adding no `PlanOutcome` variant to the law;
-- G5: replay refuses without depending on a claim that no Run exists;
-- G7: the default rule binds Rust only.
-
-**r2:**
-- Codex E3-CX-1: A3 and A6 are prospective, and A7's closed replay table (R-a to R-d) reads a retained digest under the law that could have made it. A historical v2 member and a pre-carrier Rust closure are read, not refused.
-- Codex E3-CX-2: statement 4(b) is a finite walk. It defines cycles, several-declaration intermediates and priority, with probes CY-01 to CY-05.
-- Claude R1: 4(c)'s trigger is expression values only (R1-01 to R1-14).
-- Claude R2: A6 adds check 4 (the successor in the host's lock); A9 reads `E1:54` for adopted errata; A10 refers to the checks, not to "honoured".
-- Claude advisories: the exact `9.8:29-31` quotation, "retained digest", the source of the role subprotocol, and the definition of "names".
-- Open-point decisions applied: outside statement 4 no `exported` value is law; the ECMA-262 rule is cited, not observed; the TypeScript merge controls are added.
-
-**r3:**
-- E3-R2-CX-1: 4(b) detects cycles per path and reuses completed results (RC-01 to RC-05, which all match).
-- E3-R2-CX-2: an intermediate alias's declarations are the resolved symbol's, which is the reading both runners give. CY-05's expectation changed to `N1` `exported` and `N2` `not-exported`, and CY-05r and CY-06 are added.
-- E3-CX-1 (the open part): RT-6 and O7 preserve a demonstrated historical binding through its retained evidence. RT-7 and O6 fail closed with no breach finding. A2 stays mandatory prospectively. A7 claims interpretation only.
-- R2-1: A7's table is total over provider, binding, and census with its inventory, with three cited "cannot occur" pairs. Its totality control is `replay-table.py`. RT-5 no longer admits a v1 or v2 member's census, and host-derived inventories carry no rule (O3).
-- Advisories: the mechanism of check 4 is the host unit's; member values are golden instruction; O4 states that it is a route, not a finding of fault.
-
-**Open points (r1; both reviewers' decisions recorded):**
-1. **A5 ends E1's interim default rule at adoption.** Today no production Plan exists and Rust is gated, so this is believed to cost nothing. A Rust census then needs a default binding.
-2. **A6 uses the host-invariant class for a closure packaged without a binding.** The alternative is §9.1 step 1's semantic outcome, which would need the owner of cause `capability-missing`.
-3. **Statement 4(c) decides values in programs the language forbids** (duplicate export names). The alternative is to leave them undecided, which both reviewers asked not to do.
-4. **E2's FCE2.5 sentence "The `exported` value of each row is the one E1 gives"** has nothing in E1 to point to (E1 states no `exported` value). For statement 4's cases, v3 now gives the value.
-5. **The 812 fix-owed cases** come from one general mechanism. Reviewers may prefer to rerun the scripts rather than read the table.
-
-Both reviewers accepted 1 and 2, and asked that 3 be decided (it is) and that 4 and 5 be applied as above.
-
-**Open points (r3):**
-1. 4(b)'s single-symbol reading makes the intermediate result depend on which duplicate declaration the compiler resolves (CY-05 against CY-05r). The alternative is a cross-symbol collection, which the lead's ruling rejects unless both runners can be shown to agree on it.
-2. RT-6 and O7 name no concrete historical reader, because none is known. Such a reader is owed only if a historical binding is ever demonstrated.
-3. O4 uses the producer route for RT-4 and RT-5 whenever the Plan was made, as decided in r2. It is a route, not a finding of fault.
+1. 4(b)'s single-symbol reading makes the intermediate result depend on order in duplicate-identifier programs (CY-05 against CY-05r). It is stated as law above.
+2. RT-6 names no concrete historical reader, because none is known. A reader is owed only if a historical binding is ever demonstrated.
+3. O4 takes the producer route for RT-4 and RT-5 whenever the Plan was made. It is a route, not a finding of fault.
+4. Step 1 of the binding-class procedure puts a conflict before the A2 member (`E1:160`). This departs from the lead's order, as stated there.
