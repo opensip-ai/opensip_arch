@@ -2,7 +2,7 @@
 
 PROPOSED. A contract successor selecting, by value, the provider loader policy re-pinned to the F2-min provider worker delta (the Analyze path: import extraction, the symbol census, candidates and Coverage, the broker bootstrap), and the lane registry that names it. It adds no exception, target, loader or capability.
 
-- `provider-loader-policy.json`: F1B-LANE-r1's policy with 18 row digests re-pinned and 28 rows added, at product `e526e873` (`audit.json` lists them). No row removed; the two exception digests (gen-ts-enums.mjs, compiler.ts) and the two disclosed unfollowed loaders are unchanged. `lane` is the registry's provider lane record, whose `inputs` list gained the added files.
+- `provider-loader-policy.json`: F1B-LANE-r1's policy with 18 row digests re-pinned and 28 rows added, at product `51f940e1` (`audit.json` lists them). No row removed; the two exception digests (gen-ts-enums.mjs, compiler.ts) and the two disclosed unfollowed loaders are unchanged. `lane` is the registry's provider lane record, whose `inputs` list gained the added files.
 - `product/tools/typescript-lanes.json`: the registry, byte for byte the product file. Its parent is F1B-LANE-r1's copy; the differences are the provider lane's `record.inputs` (the added files) and its `toolPolicy`.
 
 ## Why each pin moves
