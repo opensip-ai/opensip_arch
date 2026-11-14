@@ -140,12 +140,12 @@ by `tools/verify_design.py`. Then the host generator (CR1b-LOCK) reads the block
 
 ## Open points for the reviewers and the lead
 
-1. **Incorporation versus inline copies.** `E1:211` says the successor "carries FCE1.2-FCE1.5 and FCE1.7's binding
-   paragraph as operative text". This record carries the replaced sentences inline and the inserted passages by exact
-   reference, with their files pinned by value. If inline copies are required, the build script can generate them from
-   the same ranges; the stated-rules block is unaffected.
-2. **E3:141 has no block-quote marker** while statement 4's other lines (`E3:130-147`) do. I10 includes it, since
-   `E3:149` binds "statement 4" and the receipt states 4(c)'s substance (`RcE3:12`). Editorial in the bytes; confirm.
+1. **Incorporation versus inline copies (lead ruling, 2026-11-14).** `E1:211` says the successor "carries FCE1.2-FCE1.5
+   and FCE1.7's binding paragraph as operative text". The lead rules that incorporation by exact line range of member
+   files carries the text; no second copy is made.
+2. **Known editorial defect of E3's accepted bytes (lead ruling, 2026-11-14): `E3:141` has no block-quote marker**,
+   while statement 4's other lines (`E3:130-147`) have one. I10 includes line 141 (`E3:149` binds "statement 4"; the
+   receipt states 4(c)'s substance, `RcE3:12`). The erratum's bytes are not changed.
 3. **v1 and v2 are "stated" but not bindable.** `E1:54` says "Only a rule stated in this section can be bound"; E2 asks
    that v2 be stated (`E2:22-23`, `:336-337`); E3 withdraws v2 and A3 makes v1 and v2 unknown for packaging and Plans
    (`E3:30`). The record states both as `historical` and cites E3 A3 as governing. The errata decide this; no new rule.
@@ -155,7 +155,8 @@ by `tools/verify_design.py`. Then the host generator (CR1b-LOCK) reads the block
 5. **Position of I7-I11.** E1 and E3 fix where I1-I6 go; E2 and E3 give no position for v2, v3 and the withdrawals. I
    placed them after A10. No meaning depends on the order.
 6. **"The worker delivers it".** After `E1:54`'s longer reading, the next sentence's "it" follows "Rule ids are
-   immutable (erratum FA2-CENSUS-E1)." The referent is still the census; E1's reading made this, and it is not reworded.
+   immutable (erratum FA2-CENSUS-E1)." The referent is still the census; E1's reading made this, and it is not reworded. The lead
+   has noted this.
 7. **E2's lines on C3, C5, C16, C18, C19 and C27 (`E2:73-96`)** are outside E2's quoted insertion and are not
    incorporated. They are readings of v1's cells under statements 1-3; confirm that statements 0-3 alone carry them.
 8. **RT-7 labels two rows** (`E3:66-67`, one per provider). The rows are disjoint; a replay implementer should key them
