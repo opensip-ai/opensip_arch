@@ -321,8 +321,9 @@ def build(root: Path) -> dict[str, bytes]:
         "and `E1:160`; A3 (`E3:23-30`) is, from adoption, the only source of rules that packaging may write and a "
         "Plan may admit, so from adoption no closure may be bound to `…typescript.v1` or `…typescript.v2` (I8, "
         "I11; `E3:30`); and retained evidence is read as A7 says (`E3:44-80`), never by today's A3 table (`E3:44`): "
-        "an A2 member naming v1 or v2 is row RT-5 (`E3:64`), and a demonstrated historical binding keeps its rule "
-        "(RT-6, O7; `E3:65`, `E3:78`).",
+        "a TypeScript closure classified v1 or v2 by A7's ordered procedure (`E3:46-51`) is row RT-5 (`E3:64`), a "
+        "closure of either provider classified historical by that procedure (no A2 member and a demonstrated "
+        "binding, `E3:49`) keeps its rule (RT-6, O7; `E3:65`, `E3:78`), and every other state is as A7 says.",
         "",
         "**The rules stated in this section.** The block below lists every population rule this section states. "
         "It adds no rule, binding or check. Being stated is necessary, not sufficient, for E3 A6: its checks 2 "
