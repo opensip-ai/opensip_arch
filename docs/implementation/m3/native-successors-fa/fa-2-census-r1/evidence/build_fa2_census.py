@@ -8,7 +8,9 @@ Usage (from any directory; standard library only):
     python3 -I -B build_fa2_census.py [--root ARCH] [--check]
 
 ARCH is the architecture checkout (default: six directories above this file's
-directory). Without --check the script writes section-9-8.md, successor.json and
+directory). With --print-operative it prints the operative section 9.8 with the
+incorporated passages I1-I11 inline, cut from the pinned members, and writes
+nothing. Without --check the script writes section-9-8.md, successor.json and
 the subject manifest; with --check it writes nothing and exits 1 if any of them
 differs from the bytes it would write. Every input is checked against its pinned
 size and sha256 first, so the output is a function of pinned bytes only.
@@ -58,6 +60,9 @@ RC2 = {"path": "docs/implementation/m3/errata-2026-11-13c/ADOPTION-FA2-CENSUS-E2
 RC3 = {"path": "docs/implementation/m3/errata-2026-11-14b/ADOPTION-FA2-CENSUS-E3.md", "bytes": 8068,
        "sha256": "1d5a2c8d1b325e50ff2193ef4a62d27425a205b97151b8c3b87a480635f53261"}
 LAW_FILES = [E1, RC1, E2, RC2, E3, RC3]
+# Referenced, not a member (outside any repository; LC as E3:3 defines it). Not read by this script.
+F3_NOTE = {"path": "LC/f2min/DESIGN-NOTE-r5.md", "bytes": 21284,
+           "sha256": "f7d605acd2d800409fd603477f2bd11bf8d60fc7031df5923eb70596dcd8578a"}
 
 NE_LINE = 3313
 NE_BEFORE = "No framing, process or compiler is exercised."
@@ -172,7 +177,7 @@ def stated_rules(text: str) -> list[dict]:
     body = lines[opens[0] + 1:close]
     if not body:
         raise BuildError("empty stated-rules block")
-    rows, previous, digests = [], None, set()
+    rows, previous, digests, roles = [], None, set(), set()
     for line in body:
         def pairs(items):
             keys = [k for k, _ in items]
@@ -191,6 +196,9 @@ def stated_rules(text: str) -> list[dict]:
         if standing == "prospective":
             if role not in ROLES:
                 raise BuildError("a prospective row names one role subprotocol")
+            if role in roles:
+                raise BuildError("more than one prospective row for a role subprotocol")
+            roles.add(role)
         elif standing == "historical":
             if role is not None:
                 raise BuildError("a historical row binds no role subprotocol")
@@ -274,6 +282,7 @@ def build(root: Path) -> dict[str, bytes]:
         digest = sha(a2_bytes(rule))
         if standing == "prospective" and a3.get(rule) != (role, digest):
             raise BuildError(f"prospective row {rule} differs from E3 A3")
+    # The record's property (not a reader's duty): its prospective rows are exactly E3 A3's rows.
     if {r for r, s, _ in STATED if s == "prospective"} != set(a3):
         raise BuildError("prospective rows are not exactly E3 A3's rows")
 
@@ -292,7 +301,13 @@ def build(root: Path) -> dict[str, bytes]:
         "as if it were written here. Its line references keep reading the files they name; `9.8:N` is "
         f"`{FA2_SECTION['path']}`, FA-2's rendering of this section. Nothing else in those files is text of this "
         "section: not their commentary, evidence, probes, code columns or status lines. The two sentences above "
-        "and below that FA2-CENSUS-E1 amends (`9.8:3-5`, `9.8:56-57`) stand here in its words (`E1:54`, `E1:58`).",
+        "and below that FA2-CENSUS-E1 amends (`9.8:3-5`, `9.8:56-57`) stand here in its words (`E1:54`, `E1:58`). "
+        "E2's one-line readings of v1's cells under statements 0-3 (`E2:73-96`, among them `E2:77` for C5 and "
+        "`E2:85-87` for C19) are not incorporated text of this section; they remain E2's readings of those cells, "
+        "and nothing in them is withdrawn. The design note F3 that statement 4 cites (`E3:7`, `E3:141`, `E3:147`) "
+        f"is `{F3_NOTE['path']}` (`LC` as `E3:3` defines it), {F3_NOTE['bytes']:,} bytes, sha256 "
+        f"`{F3_NOTE['sha256']}` as read on 2026-11-14; it is referenced, not a member of this record and not text "
+        "of this section.",
         "",
         ref(E1, "E1") + f" Adopted by `{RC1['path']}` ({RC1['bytes']:,} bytes, sha256 `{RC1['sha256']}`).",
         ref(E2, "E2") + f" Adopted by `{RC2['path']}` ({RC2['bytes']:,} bytes, sha256 `{RC2['sha256']}`).",
@@ -302,23 +317,35 @@ def build(root: Path) -> dict[str, bytes]:
         "|---|---|---|",
         rows,
         "",
-        "Where these passages differ in wording, the later erratum governs, as it states itself: E3 A5 (`E3:34`) "
-        "ends the interim readings of `E1:54` and `E1:160`, and E3 A3 (`E3:23-30`) is the only source of rules "
-        "that packaging may write and a Plan may admit. So `…typescript.v1` and `…typescript.v2`, stated "
-        "here, bind no closure (I8, I11; E3 A7, row RT-5).",
+        "E3 states where it ends or narrows the earlier text: A5 (`E3:34`) ends the interim readings of `E1:54` "
+        "and `E1:160`; A3 (`E3:23-30`) is, from adoption, the only source of rules that packaging may write and a "
+        "Plan may admit, so from adoption no closure may be bound to `…typescript.v1` or `…typescript.v2` (I8, "
+        "I11; `E3:30`); and retained evidence is read as A7 says (`E3:44-80`), never by today's A3 table (`E3:44`): "
+        "an A2 member naming v1 or v2 is row RT-5 (`E3:64`), and a demonstrated historical binding keeps its rule "
+        "(RT-6, O7; `E3:65`, `E3:78`).",
         "",
         "**The rules stated in this section.** The block below lists every population rule this section states. "
-        "It adds no rule, binding or check. Its syntax: the block is the lines strictly between the one line of "
-        "this section that is exactly three backquotes (U+0060) followed by `opensip-stated-population-rules-v1`, "
-        "and the next line that is exactly three backquotes. Each "
-        "line is one row, the RFC 8785 form of a JSON object with exactly the members `a2Sha256`, "
-        "`bindsRoleSubprotocol`, `rule` and `standing`, and the rows are strictly ascending by the UTF-8 bytes "
-        "of `rule`. `rule` is a rule id. `a2Sha256` is the lowercase hex sha256 of that rule's A2 bytes (E3 A2). "
-        "`standing` is `prospective` for a rule of E3 A3, and then `bindsRoleSubprotocol` is the one role "
-        "subprotocol whose closures that A3 row binds; the prospective rows are exactly A3's rows. `standing` "
-        "is `historical` for a rule stated only for reading retained evidence (E3 A7), and then "
-        "`bindsRoleSubprotocol` is `null`; such a rule is no A3 row and passes no check of E3 A6. A reader that "
-        "finds anything else refuses the block and reads no rule as stated.",
+        "It adds no rule, binding or check. Being stated is necessary, not sufficient, for E3 A6: its checks 2 "
+        "and 3 are separate. Syntax: the opening line is exactly three backquotes (U+0060) followed by "
+        "`opensip-stated-population-rules-v1`; the block is the lines (split at LF) strictly between it and the "
+        "next line that is exactly three backquotes. If the opening line's text occurs in this section other than "
+        "exactly once, or once but not as a whole line, or no closing line follows it, no rule is stated. Each "
+        "line of the block is one row, the RFC 8785 form of a JSON object with exactly the members `a2Sha256`, "
+        "`bindsRoleSubprotocol`, `rule` and `standing`; the rows are strictly ascending by the UTF-8 bytes of "
+        "`rule`. `rule` is a rule id: `native.symbol-census-population.`, then one lowercase ASCII letter, then "
+        "zero or more lowercase ASCII letters, digits or `-`, then `.v`, then a decimal integer of at least 1 "
+        "with no leading zero (the regular expression "
+        "`native\\.symbol-census-population\\.[a-z][a-z0-9-]*\\.v[1-9][0-9]*`, matching the whole value). "
+        "`a2Sha256` is the lowercase hex sha256 of that rule's A2 bytes (E3 A2). `standing` is `prospective` or "
+        "`historical`. A `prospective` row names in `bindsRoleSubprotocol` the one role subprotocol, "
+        "`rust-semantic` or `typescript-semantic`, whose closures its rule may bind. A `historical` row has "
+        "`null` there; its rule is stated only for reading retained evidence (E3 A7) and passes no check of E3 A6.",
+        "",
+        "A reader's duty is the syntax: the fence, the row form and its canonical bytes, the order, each "
+        "recomputed digest, the standing vocabulary, a role present exactly on prospective rows, and at most one "
+        "prospective row per role subprotocol. On any failure it reads no rule as stated. That the prospective "
+        "rows are exactly E3 A3's rows is a property of this record, not a reader's duty: this record's reviewers "
+        "check it at binding, and its reference builder's `--check` checks it against the pinned E3.",
         "",
         block,
     ])
@@ -378,19 +405,53 @@ def build(root: Path) -> dict[str, bytes]:
     members = record["candidates"] + [{"path": RECORD, "bytes": len(record_bytes), "sha256": sha(record_bytes)}]
     subject = {"schemaVersion": 1, "files": sorted(members, key=lambda p: p["path"])}
     out[SUBJECT] = (json.dumps(subject, indent=2) + "\n").encode("utf-8")
+    out[OPERATIVE] = operative(files, new_section).encode("utf-8")
     return out
+
+
+OPERATIVE = "(operative)"
+
+
+def operative(files: dict, section: str) -> str:
+    """The operative section 9.8 with I1-I11 resolved inline (read-only rendering, not law).
+
+    Each passage is cut from the pinned member exactly as the incorporation says: its lines, its
+    block-quote marker removed ("> " or a lone ">"), I2's first three columns, I8 and I11 clipped
+    at their last sentence. It is placed after the passage table, in I1-I11 order.
+    """
+    parts = []
+    for label, key, first, last, _start, end, _limit, _what in PASSAGES:
+        text = []
+        for line in files[key][first - 1:last]:
+            line = line[2:] if line.startswith("> ") else ("" if line == ">" else line)
+            if label == "I2":
+                line = "|" + "|".join(line.split("|")[1:4]) + "|"
+            text.append(line)
+        body = "\n".join(text)
+        if label in ("I8", "I11"):
+            body = body[:body.index(end) + len(end)]
+        parts.append(f"<!-- {label}: {key}:{first}-{last}, resolved inline -->\n\n{body}")
+    anchor = "| I11 |"
+    at = section.index("\n", section.index(anchor)) + 1
+    return section[:at] + "\n" + "\n\n".join(parts) + "\n" + section[at:]
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[6])
     parser.add_argument("--check", action="store_true")
+    parser.add_argument("--print-operative", action="store_true",
+                        help="print section 9.8 with I1-I11 inline (read-only); writes nothing")
     args = parser.parse_args()
     try:
         out = build(args.root)
     except BuildError as error:
         print(f"FAIL {error}", file=sys.stderr)
         return 1
+    rendering = out.pop(OPERATIVE)
+    if args.print_operative:
+        sys.stdout.buffer.write(rendering)
+        return 0
     differs = []
     for path, raw in out.items():
         target = args.root / path

@@ -90,20 +90,28 @@ rule never binds a TypeScript closure (`E3:30`).
   `{"line": 3313}`. The verifier keeps that chain linear (VD2), so the last link is the current meaning. FA-2's own
   override has no block; a text with no block states no rule.
 - **Delimiters.** The block is the lines strictly between the one line that is exactly
-  `` ```opensip-stated-population-rules-v1 `` (the opening fence occurs exactly once in the text) and the next line that
-  is exactly three backquotes. Lines are split on LF.
+  `` ```opensip-stated-population-rules-v1 `` and the next line that is exactly three backquotes. Lines are split on LF.
+  If that opening text occurs zero times or more than once in the text, or once but not as a whole line, or no closing
+  line follows, no rule is stated.
 - **Rows.** Each line is one row: the RFC 8785 form of a JSON object with exactly the keys `a2Sha256`,
   `bindsRoleSubprotocol`, `rule`, `standing` (that is their RFC 8785 order). Rows are strictly ascending by the UTF-8
   bytes of `rule`, and no two share an `a2Sha256`.
-  - `rule`: a rule id, `native.symbol-census-population.<name>.v<N>`.
+  - `rule`: a rule id, matching the whole of `native\.symbol-census-population\.[a-z][a-z0-9-]*\.v[1-9][0-9]*` (§9.8
+    states this grammar).
   - `a2Sha256`: lowercase hex sha256 of `{"populationRule":"<rule>","schemaVersion":1}` (E3 A2's bytes); a reader
     recomputes it.
   - `standing`: `prospective` (an E3 A3 row; the rule is stated for A6 check 4 and A9) or `historical` (stated only for
     reading retained evidence, E3 A7; never satisfies A6).
   - `bindsRoleSubprotocol`: for `prospective`, `rust-semantic` or `typescript-semantic`, the one role subprotocol of
     the A3 row; for `historical`, `null`.
-- **Failure.** Anything else: the reader refuses the block and reads no rule as stated (so every owing Plan stays
-  refused). `evidence/build_fa2_census.py` `stated_rules` is a reference reader.
+- **A reader's duty (§9.8):** the syntax: the fence, the row form and its canonical bytes, the order, each recomputed
+  digest, the standing vocabulary, a role present exactly on prospective rows, and at most one prospective row per role
+  subprotocol. On any failure it reads no rule as stated (so every owing Plan stays refused).
+  `evidence/build_fa2_census.py` `stated_rules` is a reference reader of exactly that duty.
+- **This record's property, not a reader's duty:** the prospective rows are exactly E3 A3's rows. The reviewers check it
+  at binding; the builder's `--check` checks it against the pinned E3.
+- **Necessary, not sufficient.** Being stated satisfies only E3 A6 check 4; checks 2 (an A3 row) and 3 (the role) are
+  separate.
 
 The block's rows, with digests computed here from the A2 bytes:
 
@@ -128,7 +136,14 @@ still needs a Plan that passes A6 and code accepted as conforming to v3.
 NE:3313 `before` and that its `after` is FA-2's `section-9-8.md`; that the two replaced sentences are E1 FCE1.1's
 quotations and unique; each incorporated range's first and last lines; E3:141's missing quote marker; A3's two rows
 against the block's prospective rows and E3's printed digests; and that the reference reader reads the block back.
-`--check` rebuilds and compares without writing.
+`--check` rebuilds and compares without writing. `--print-operative` prints the operative §9.8 with I1-I11 resolved
+inline from the pinned members (markers stripped, I2's three columns, I8 and I11 clipped), read-only.
+
+Round 2 (reviewers' advisories A1-A5, all taken): the precedence sentence names only what E3 states (A5, A3, A7 with
+RT-5 and RT-6); E2's cell readings (`E2:73-96`) are said to remain E2's; F3 is pinned by size and digest as a
+reference; `--print-operative` is added; the block's definition in §9.8 states the fence count, the rule-id grammar,
+the reader's duty apart from this record's A3 property, and that being stated is necessary, not sufficient. The
+block's rows and its syntax for well-formed input are unchanged.
 
 ## Binding owed (not made here)
 
